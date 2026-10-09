@@ -18,6 +18,8 @@
 //                 booking-rule exception (private.is_bookings_executive()).
 // The SQL predicates are the boundary; this only shapes the screens.
 
+import { parseRoleSet } from "@/lib/role-keys";
+
 export type BookingsRole = "production" | "director" | "finance" | "executive";
 
 const KNOWN: readonly BookingsRole[] = ["production", "director", "finance", "executive"];
@@ -26,8 +28,7 @@ const KNOWN: readonly BookingsRole[] = ["production", "director", "finance", "ex
 export function parseBookingsRoles(
   toolRoles: readonly string[] | null | undefined,
 ): BookingsRole[] {
-  const found = new Set((toolRoles ?? []).map((role) => role.trim().toLowerCase()));
-  return KNOWN.filter((role) => found.has(role));
+  return parseRoleSet(toolRoles, KNOWN);
 }
 
 /** What each role means, for the admin grant screen's checkboxes. */

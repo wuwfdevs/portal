@@ -21,6 +21,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
 import { controlClasses } from "@/components/ui/input";
+import { useDismissable } from "@/lib/use-dismissable";
 
 export interface SearchableOption {
   id: string;
@@ -123,17 +124,16 @@ export function SearchableSelect({
 
   // Click outside: close, and put the label back if the query was left
   // half-typed without a pick.
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-        setQuery(chosen?.label ?? "");
-      }
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open, chosen]);
+  // Escape is handled on the input itself (below), so it is left out here.
+  useDismissable({
+    open,
+    refs: [rootRef],
+    ignoreEscape: true,
+    onDismiss: () => {
+      setOpen(false);
+      setQuery(chosen?.label ?? "");
+    },
+  });
 
   function pick(option: SearchableOption) {
     if (option.disabled) return;

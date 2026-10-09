@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { optionalNumberField, numberField, uuidField } from "@/lib/action-fields";
+import { groupBy } from "@/lib/collections";
+import { isValidDateISO } from "@/lib/dates";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { field, isUuid, optionalField } from "@/lib/form-fields";
+import { safeLocalPath } from "@/lib/safe-path";
 import {
   assertBookingsAssetWriter,
   assertBookingsExecutive,
@@ -16,6 +21,7 @@ import { writeRateCardSnapshot } from "@/lib/bookings/rate-card-snapshot";
 import { isModelInputKey, type UnitsBasis } from "@/lib/bookings/rates";
 import { parseWindowLines } from "@/lib/bookings/scheduling";
 import type {
+  Database,
   BkAssetBurden,
   BkAssetCondition,
   BkAssetFunding,
@@ -40,42 +46,42 @@ function copyOf<T extends Record<string, unknown>>(
   return copy as Omit<T, "id" | "created_at" | "updated_at"> & { version_id: string };
 }
 
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
+type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
-
-function numberField(formData: FormData, name: string, path: string, label: string): number {
-  const raw = field(formData, name).replace(/[$,%\s]/g, "");
-  if (raw === "") failWith(path, `${label} is required.`);
-  const value = Number(raw);
-  if (!Number.isFinite(value)) failWith(path, `${label} must be a number.`);
-  return value;
-}
-
-function optionalNumberField(
-  formData: FormData,
-  name: string,
+/**
+ * bk_save_package(), then the columns it does not write (the market ceiling and, on a
+ * copy, the review status). Returns the package's id. `refused` is the sentence when
+ * the function reports an error; `id` is set when the package already exists.
+ */
+async function savePackage(
+  supabase: Supabase,
+  input: {
+    pkg: Record<string, unknown>;
+    labor: { labor_class_id: string; hours: number }[];
+    resources: { pool_id: string; units: number }[];
+    /** Columns written after the function, which does not know them. */
+    columns: Database["public"]["Tables"]["bk_service_packages"]["Update"];
+    id?: string;
+  },
   path: string,
-  label: string,
-): number | null {
-  const raw = field(formData, name).replace(/[$,%\s]/g, "");
-  if (raw === "") return null;
-  const value = Number(raw);
-  if (!Number.isFinite(value)) failWith(path, `${label} must be a number.`);
-  return value;
-}
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function uuidField(formData: FormData, name: string, path: string, label: string): string {
-  const value = field(formData, name);
-  if (!UUID.test(value)) failWith(path, `Choose ${label}.`);
-  return value;
+  messages: { failed: string; refused: string; columns: string },
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("bk_save_package", {
+    p_package: input.pkg,
+    p_labor: input.labor,
+    p_resources: input.resources,
+  });
+  failIfError(error, path, messages.failed);
+  if (data && "error" in data) failWith(path, messages.refused);
+  const id = input.id ?? (data && "id" in data ? data.id : null);
+  if (id) {
+    const { error: columnsError } = await supabase
+      .from("bk_service_packages")
+      .update(input.columns)
+      .eq("id", id);
+    failIfError(columnsError, path, messages.columns);
+  }
+  return id;
 }
 
 function revalidateRates(): void {
@@ -119,16 +125,18 @@ export async function createVersion(formData: FormData): Promise<void> {
 
   if (copyFrom) {
     // The recorded overhead decision (§20.2) travels with a copy.
-    const { data: source } = await supabase
+    const { data: source, error: sourceError } = await supabase
       .from("bk_rate_model_versions")
       .select("overhead_decision")
       .eq("id", copyFrom)
       .maybeSingle();
+    failIfError(sourceError, path, "Could not read the version to copy");
     if (source?.overhead_decision) {
-      await supabase
+      const { error: decisionError } = await supabase
         .from("bk_rate_model_versions")
         .update({ overhead_decision: source.overhead_decision })
         .eq("id", versionId);
+      failIfError(decisionError, path, "Could not copy the overhead decision");
     }
     const [assumptions, laborRates, pools, packages] = await Promise.all([
       supabase.from("bk_assumptions").select("*").eq("version_id", copyFrom),
@@ -186,32 +194,37 @@ export async function createVersion(formData: FormData): Promise<void> {
       ]);
       failIfError(labor.error, path, "Could not read the packages to copy");
       failIfError(resources.error, path, "Could not read the packages to copy");
+      const laborByPackage = groupBy(labor.data ?? [], (row) => row.package_id);
+      const resourcesByPackage = groupBy(resources.data ?? [], (row) => row.package_id);
       for (const pkg of packages.data ?? []) {
-        const { data, error: saveError } = await supabase.rpc("bk_save_package", {
-          p_package: { ...copyOf(pkg, versionId), id: "" },
-          p_labor: (labor.data ?? [])
-            .filter((row) => row.package_id === pkg.id)
-            .map((row) => ({ labor_class_id: row.labor_class_id, hours: row.hours })),
-          p_resources: (resources.data ?? [])
-            .filter((row) => row.package_id === pkg.id)
-            .map((row) => ({ pool_id: row.pool_id, units: row.units })),
-        });
-        failIfError(saveError, path, "Could not copy the service packages");
-        if (data && "error" in data) failWith(path, "Could not copy the service packages.");
         // The ceiling and the review status aren't written by bk_save_package().
-        if (data && "id" in data) {
-          const { error: extraError } = await supabase
-            .from("bk_service_packages")
-            .update({
+        await savePackage(
+          supabase,
+          {
+            pkg: { ...copyOf(pkg, versionId), id: "" },
+            labor: (laborByPackage.get(pkg.id) ?? []).map((row) => ({
+              labor_class_id: row.labor_class_id,
+              hours: row.hours,
+            })),
+            resources: (resourcesByPackage.get(pkg.id) ?? []).map((row) => ({
+              pool_id: row.pool_id,
+              units: row.units,
+            })),
+            columns: {
               market_ceiling: pkg.market_ceiling,
               hours_validation_state: pkg.hours_validation_state,
               hours_validation_note: pkg.hours_validation_note,
               floor_validation_state: pkg.floor_validation_state,
               floor_validation_note: pkg.floor_validation_note,
-            })
-            .eq("id", data.id);
-          failIfError(extraError, path, "Could not copy the service packages");
-        }
+            },
+          },
+          path,
+          {
+            failed: "Could not copy the service packages",
+            refused: "Could not copy the service packages.",
+            columns: "Could not copy the service packages",
+          },
+        );
       }
     }
   }
@@ -389,7 +402,13 @@ export async function snapshotRateCard(formData: FormData): Promise<void> {
 
 async function assumptionLabel(id: string): Promise<string> {
   const supabase = await createClient();
-  const { data } = await supabase.from("bk_assumptions").select("label").eq("id", id).maybeSingle();
+  const { data, error } = await supabase
+    .from("bk_assumptions")
+    .select("label")
+    .eq("id", id)
+    .maybeSingle();
+  // Cosmetic: the label only words the change log's note, so a failed read degrades to a generic one.
+  if (error) console.error("Could not read the assumption's label:", error);
   return data?.label ?? "an assumption";
 }
 
@@ -397,7 +416,7 @@ async function assumptionLabel(id: string): Promise<string> {
 function poolLineTarget(formData: FormData, path: string): string | null {
   const value = field(formData, "pool_id");
   if (value === "" || value === "shared") return null;
-  if (!UUID.test(value)) failWith(path, "Choose which pool the line belongs to.");
+  if (!isUuid(value)) failWith(path, "Choose which pool the line belongs to.");
   return value;
 }
 
@@ -408,8 +427,7 @@ function readOverheadAndFunding(
 ): { overhead: boolean; fundsPoolId: string | null } {
   const overhead = field(formData, "overhead") === "on";
   const funds = optionalField(formData, "funds_pool_id");
-  if (funds && !UUID.test(funds))
-    failWith(path, "Choose a pool the line funds, or leave it blank.");
+  if (funds && !isUuid(funds)) failWith(path, "Choose a pool the line funds, or leave it blank.");
   if (overhead && funds) {
     failWith(
       path,
@@ -426,7 +444,8 @@ async function saveFundedAssets(
   path: string,
 ): Promise<void> {
   const supabase = await createClient();
-  const ids = [...new Set(assetIds.filter((id) => UUID.test(id)))];
+  const ids = [...new Set(assetIds.filter((id) => isUuid(id)))];
+  // Replaced as a set: clearing first is idempotent, so a line with no assets yet is fine.
   const { error: clearError } = await supabase
     .from("bk_assumption_assets")
     .delete()
@@ -573,8 +592,12 @@ export async function deleteAssumption(formData: FormData): Promise<void> {
   const path = ratesHref("assumptions", versionId);
   const label = await assumptionLabel(id);
   const supabase = await createClient();
-  const { error } = await supabase.from("bk_assumptions").delete().eq("id", id);
-  failIfError(error, path, "Could not remove the input");
+  await deleteOrFail(
+    supabase.from("bk_assumptions").delete().eq("id", id).select("id"),
+    path,
+    "Could not remove the input",
+    "That input no longer exists.",
+  );
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -638,17 +661,20 @@ export async function setAssumptionValidation(formData: FormData): Promise<void>
 
 async function laborRateLabel(id: string): Promise<string> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("bk_labor_rates")
     .select("labor_class_id")
     .eq("id", id)
     .maybeSingle();
+  // Cosmetic, like assumptionLabel(): a failed read degrades to a generic label.
+  if (error) console.error("Could not read the labor figure's class:", error);
   if (!data) return "a labor class";
-  const { data: cls } = await supabase
+  const { data: cls, error: classError } = await supabase
     .from("bk_labor_classes")
     .select("name")
     .eq("id", data.labor_class_id)
     .maybeSingle();
+  if (classError) console.error("Could not read the labor class's name:", classError);
   return cls?.name ?? "a labor class";
 }
 
@@ -743,17 +769,20 @@ export async function setLaborRateValidation(formData: FormData): Promise<void> 
 
 async function poolRowLabel(id: string): Promise<string> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("bk_resource_pools")
     .select("pool_id")
     .eq("id", id)
     .maybeSingle();
+  // Cosmetic, like assumptionLabel(): a failed read degrades to a generic label.
+  if (error) console.error("Could not read the pool figure's pool:", error);
   if (!data) return "a pool";
-  const { data: pool } = await supabase
+  const { data: pool, error: poolError } = await supabase
     .from("bk_pools")
     .select("name")
     .eq("id", data.pool_id)
     .maybeSingle();
+  if (poolError) console.error("Could not read the pool's name:", poolError);
   return pool?.name ?? "a pool";
 }
 
@@ -846,13 +875,13 @@ function readPackageForm(formData: FormData, path: string) {
   for (const key of formData.keys()) {
     if (key.startsWith("labor_")) {
       const id = key.slice("labor_".length);
-      if (!UUID.test(id)) continue;
+      if (!isUuid(id)) continue;
       const hours = optionalNumberField(formData, key, path, "Hours") ?? 0;
       if (hours < 0) failWith(path, "Hours can't be negative.");
       labor.push({ labor_class_id: id, hours });
     } else if (key.startsWith("pool_")) {
       const id = key.slice("pool_".length);
-      if (!UUID.test(id)) continue;
+      if (!isUuid(id)) continue;
       const units = optionalNumberField(formData, key, path, "Units") ?? 0;
       if (units < 0) failWith(path, "Units can't be negative.");
       resources.push({ pool_id: id, units });
@@ -860,7 +889,7 @@ function readPackageForm(formData: FormData, path: string) {
   }
   // A bespoke package scoped to one agreement (slice 5); blank is the ordinary card.
   const agreementId = optionalField(formData, "agreement_id");
-  if (agreementId && !UUID.test(agreementId)) failWith(path, "Choose an agreement.");
+  if (agreementId && !isUuid(agreementId)) failWith(path, "Choose an agreement.");
   return {
     pkg: {
       name,
@@ -883,21 +912,22 @@ export async function createPackage(formData: FormData): Promise<void> {
   const path = ratesHref("packages", versionId, { new: "1" });
   const { pkg, labor, resources } = readPackageForm(formData, path);
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("bk_save_package", {
-    p_package: { ...pkg, version_id: versionId, sort_order: 1000 },
-    p_labor: labor,
-    p_resources: resources,
-  });
-  failIfError(error, path, "Could not add the package");
-  if (data && "error" in data) failWith(path, "Could not add the package.");
   // The ceiling isn't written by bk_save_package() (a body with a `delete` can't be restated through the migration tooling).
-  if (data && "id" in data) {
-    const { error: ceilingError } = await supabase
-      .from("bk_service_packages")
-      .update({ market_ceiling: pkg.market_ceiling })
-      .eq("id", data.id);
-    failIfError(ceilingError, path, "Could not save the market ceiling");
-  }
+  await savePackage(
+    supabase,
+    {
+      pkg: { ...pkg, version_id: versionId, sort_order: 1000 },
+      labor,
+      resources,
+      columns: { market_ceiling: pkg.market_ceiling },
+    },
+    path,
+    {
+      failed: "Could not add the package",
+      refused: "Could not add the package.",
+      columns: "Could not save the market ceiling",
+    },
+  );
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -915,18 +945,22 @@ export async function updatePackage(formData: FormData): Promise<void> {
   const path = ratesHref("packages", versionId, { edit: id });
   const { pkg, labor, resources } = readPackageForm(formData, path);
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("bk_save_package", {
-    p_package: { ...pkg, id, version_id: versionId },
-    p_labor: labor,
-    p_resources: resources,
-  });
-  failIfError(error, path, "Could not save the package");
-  if (data && "error" in data) failWith(path, "That package no longer exists.");
-  const { error: ceilingError } = await supabase
-    .from("bk_service_packages")
-    .update({ market_ceiling: pkg.market_ceiling })
-    .eq("id", id);
-  failIfError(ceilingError, path, "Could not save the market ceiling");
+  await savePackage(
+    supabase,
+    {
+      pkg: { ...pkg, id, version_id: versionId },
+      labor,
+      resources,
+      columns: { market_ceiling: pkg.market_ceiling },
+      id,
+    },
+    path,
+    {
+      failed: "Could not save the package",
+      refused: "That package no longer exists.",
+      columns: "Could not save the market ceiling",
+    },
+  );
   await logRateModelEvent({
     versionId,
     actorId: profile.id,
@@ -944,11 +978,12 @@ export async function setPackageActive(formData: FormData): Promise<void> {
   const active = field(formData, "active") === "true";
   const path = ratesHref("packages", versionId);
   const supabase = await createClient();
-  const { data: pkg } = await supabase
+  const { data: pkg, error: pkgError } = await supabase
     .from("bk_service_packages")
     .select("name, unit_label")
     .eq("id", id)
     .maybeSingle();
+  failIfError(pkgError, path, "Could not read the package");
   const { error } = await supabase.from("bk_service_packages").update({ active }).eq("id", id);
   failIfError(
     error,
@@ -984,9 +1019,9 @@ function keyFrom(name: string): string {
  * Only a path under the Rates section is honoured. `extra` adds catalog query fields.
  */
 function catalogReturn(formData: FormData, extra?: Record<string, string>): string {
-  const raw = field(formData, "return_to");
-  const base =
-    raw.startsWith(`${RATES_PATH}/`) && !raw.startsWith("//") ? raw : `${RATES_PATH}/setup`;
+  const base = safeLocalPath(field(formData, "return_to"), `${RATES_PATH}/setup`, {
+    prefixes: [RATES_PATH],
+  });
   if (!extra) return base;
   const query = new URLSearchParams(extra).toString();
   return `${base}${base.includes("?") ? "&" : "?"}${query}`;
@@ -1142,8 +1177,7 @@ function readAssetFields(formData: FormData, path: string) {
   const condition = field(formData, "condition") as BkAssetCondition;
   if (!CONDITIONS.includes(condition)) failWith(path, "Choose the condition.");
   const acquiredOn = optionalField(formData, "acquired_on");
-  if (acquiredOn && !/^\d{4}-\d{2}-\d{2}$/.test(acquiredOn))
-    failWith(path, "Acquired on must be a date.");
+  if (acquiredOn && !isValidDateISO(acquiredOn)) failWith(path, "Acquired on must be a date.");
   return {
     name,
     tag: optionalField(formData, "tag"),
@@ -1340,11 +1374,12 @@ export async function setPackageReview(formData: FormData): Promise<void> {
     failWith(path, "Accepting as is needs a note saying why.");
   }
   const supabase = await createClient();
-  const { data: pkg } = await supabase
+  const { data: pkg, error: pkgError } = await supabase
     .from("bk_service_packages")
     .select("name, unit_label")
     .eq("id", id)
     .maybeSingle();
+  failIfError(pkgError, path, "Could not read the package");
   const { error } = await supabase
     .from("bk_service_packages")
     .update(

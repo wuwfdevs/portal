@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { countBy, indexBy } from "@/lib/collections";
+import { getDisplayNames } from "@/lib/profile-names";
 import { computeProjectStatus } from "@/lib/transcription/projects";
 import type { Database } from "@/lib/database.types";
 
@@ -36,11 +38,10 @@ export interface QueryListRow {
 export async function listQueries(): Promise<QueryListRow[]> {
   const supabase = await createClient();
 
-  const [queryResult, questionResult, submissionResult, profileResult] = await Promise.all([
+  const [queryResult, questionResult, submissionResult] = await Promise.all([
     supabase.from("al_queries").select("*").order("updated_at", { ascending: false }),
     supabase.from("al_questions").select("query_id"),
     supabase.from("al_submissions").select("query_id, status, review_state"),
-    supabase.from("profiles").select("id, display_name"),
   ]);
 
   const queries = unwrapRead(queryResult, "the query list") ?? [];
@@ -48,15 +49,18 @@ export async function listQueries(): Promise<QueryListRow[]> {
   const submissions = unwrapRead(submissionResult, "the query list's submissions") ?? [];
   // Owner names are a courtesy column: profiles RLS only shows a non-admin
   // their own row, so this is frequently empty and must never be an error.
-  const profiles = profileResult.error ? [] : (profileResult.data ?? []);
-
-  const questionCounts = tally(questions.map((row) => row.query_id));
-  const submittedOnly = submissions.filter((row) => row.status === "submitted");
-  const submissionCounts = tally(submittedOnly.map((row) => row.query_id));
-  const unreviewedCounts = tally(
-    submittedOnly.filter((row) => row.review_state === "new").map((row) => row.query_id),
+  const nameById = await getDisplayNames(
+    queries.map((query) => query.created_by),
+    { degrade: true },
   );
-  const nameById = new Map(profiles.map((row) => [row.id, row.display_name]));
+
+  const questionCounts = countBy(questions, (row) => row.query_id);
+  const submittedOnly = submissions.filter((row) => row.status === "submitted");
+  const submissionCounts = countBy(submittedOnly, (row) => row.query_id);
+  const unreviewedCounts = countBy(
+    submittedOnly.filter((row) => row.review_state === "new"),
+    (row) => row.query_id,
+  );
 
   return queries.map((query) => ({
     query,
@@ -65,12 +69,6 @@ export async function listQueries(): Promise<QueryListRow[]> {
     submissionCount: submissionCounts.get(query.id) ?? 0,
     unreviewedCount: unreviewedCounts.get(query.id) ?? 0,
   }));
-}
-
-function tally(keys: string[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
-  return counts;
 }
 
 export async function getQueryById(id: string): Promise<AlQuery | null> {
@@ -181,27 +179,33 @@ export async function getLinkedProjects(
   }
   if (!projects || projects.length === 0) return new Map();
 
-  const { data: links } = await supabase
-    .from("sw_project_sources")
-    .select("project_id, source_id, added_at")
-    .in("project_id", projectIds)
-    .order("added_at");
+  const links = unwrapRead(
+    await supabase
+      .from("sw_project_sources")
+      .select("project_id, source_id, added_at")
+      .in("project_id", projectIds)
+      .order("added_at"),
+    "the linked projects' sources",
+  );
   const sourceIdByProject = new Map<string, string>();
   for (const link of links ?? []) {
-    if (!sourceIdByProject.has(link.project_id)) sourceIdByProject.set(link.project_id, link.source_id);
+    if (!sourceIdByProject.has(link.project_id))
+      sourceIdByProject.set(link.project_id, link.source_id);
   }
 
   const sourceIds = [...new Set(sourceIdByProject.values())];
-  const [{ data: sources }, { data: transcripts }] = await Promise.all([
-    sourceIds.length === 0
-      ? Promise.resolve({ data: [] })
-      : supabase.from("sw_sources").select("id, status").in("id", sourceIds),
-    sourceIds.length === 0
-      ? Promise.resolve({ data: [] })
-      : supabase.from("sw_representations").select("source_id, status").in("source_id", sourceIds).eq("kind", "transcript"),
+  const [sourcesResult, transcriptsResult] = await Promise.all([
+    supabase.from("sw_sources").select("id, status").in("id", sourceIds),
+    supabase
+      .from("sw_representations")
+      .select("source_id, status")
+      .in("source_id", sourceIds)
+      .eq("kind", "transcript"),
   ]);
-  const sourceById = new Map((sources ?? []).map((s) => [s.id, s]));
-  const transcriptBySourceId = new Map((transcripts ?? []).map((t) => [t.source_id, t]));
+  const sources = unwrapRead(sourcesResult, "the linked projects' sources") ?? [];
+  const transcripts = unwrapRead(transcriptsResult, "the linked projects' transcripts") ?? [];
+  const sourceById = indexBy(sources, (s) => s.id);
+  const transcriptBySourceId = indexBy(transcripts, (t) => t.source_id);
 
   return new Map(
     projects.map((project) => {

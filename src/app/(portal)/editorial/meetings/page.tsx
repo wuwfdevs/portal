@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Input, Select } from "@/components/ui/input";
 import { createMeeting } from "./actions";
+import { pluralize } from "@/lib/format";
 
 export default async function MeetingsPage({
   searchParams,
@@ -101,9 +102,7 @@ export default async function MeetingsPage({
           {meetingRows.map((meeting) => {
             const stats = slateStats.get(meeting.id) ?? { total: 0, assigned: 0 };
             const slateLine =
-              stats.total === 0
-                ? "Empty"
-                : `${stats.total} ${stats.total === 1 ? "pitch" : "pitches"}`;
+              stats.total === 0 ? "Empty" : pluralize(stats.total, "pitch", "pitches");
             return (
               <Link
                 key={meeting.id}

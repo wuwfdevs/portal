@@ -33,6 +33,7 @@ import { connect } from "extendable-media-recorder-wav-encoder";
 import { createClient } from "@/lib/supabase/client";
 import { REMOTE_INTERVIEW_MEDIA_BUCKET } from "@/lib/remote-interview/media";
 import { backoffDelayMs } from "@/lib/backoff";
+import { bestEffort } from "@/lib/transcription/best-effort";
 
 const TIMESLICE_MS = 5000;
 const RETRY_BASE_DELAY_MS = 2000;
@@ -347,7 +348,11 @@ export async function resumeIncompleteTracks(
       .select("id, participant_id, status")
       .eq("id", trackId)
       .maybeSingle();
-    if (trackError || !track || track.participant_id !== participantId) {
+    if (trackError) {
+      console.error("Could not check a leftover track before resuming it:", trackError);
+      continue;
+    }
+    if (!track || track.participant_id !== participantId) {
       // Not ours (or the row is gone) — leave the directory alone rather
       // than guess; nothing here can safely delete data it can't attribute.
       continue;
@@ -360,10 +365,15 @@ export async function resumeIncompleteTracks(
       continue;
     }
 
-    const { data: existingParts } = await supabase
+    const { data: existingParts, error: partsError } = await supabase
       .from("ri_track_parts")
       .select("sequence")
       .eq("track_id", trackId);
+    if (partsError) {
+      // Leave the buffered files where they are; the next mount tries again.
+      console.error("Could not list a leftover track's uploaded parts:", partsError);
+      continue;
+    }
     const alreadyUploaded = new Set((existingParts ?? []).map((p) => p.sequence));
 
     const dir = (await trackDirHandle(trackId)) as IterableDirectoryHandle;
@@ -404,20 +414,30 @@ export async function resumeIncompleteTracks(
     if (partsDrained > 0) {
       reports.push({ trackId, partsDrained });
       if (track.status === "recording") {
-        await supabase.from("ri_tracks").update({ status: "uploading" }).eq("id", trackId);
+        await bestEffort(
+          supabase.from("ri_tracks").update({ status: "uploading" }).eq("id", trackId),
+          "Could not mark the resumed track uploading",
+        );
       }
-      const { data: participant } = await supabase
+      const { data: participant, error: participantError } = await supabase
         .from("ri_participants")
         .select("session_id")
         .eq("id", participantId)
         .maybeSingle();
+      if (participantError) {
+        console.error("Could not find the session to log the resume:", participantError);
+      }
       if (participant) {
-        await supabase.from("ri_session_events").insert({
-          session_id: participant.session_id,
-          participant_id: participantId,
-          kind: "local_track_resumed",
-          detail: { track_id: trackId, parts_drained: partsDrained },
-        });
+        // The event only labels the track "recovered"; the drain above already happened.
+        await bestEffort(
+          supabase.from("ri_session_events").insert({
+            session_id: participant.session_id,
+            participant_id: participantId,
+            kind: "local_track_resumed",
+            detail: { track_id: trackId, parts_drained: partsDrained },
+          }),
+          "Could not log the resumed track",
+        );
       }
     }
   }

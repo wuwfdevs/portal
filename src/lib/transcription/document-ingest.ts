@@ -1,4 +1,5 @@
 import "server-only";
+import { bestEffort } from "@/lib/transcription/best-effort";
 import type { createClient } from "@/lib/supabase/server";
 import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
@@ -36,32 +37,44 @@ export async function startDocumentProcessing(
 ): Promise<{ error?: string }> {
   const { representationId, sourceId, storagePath } = params;
 
-  const { data: activeRun } = await supabase
+  const { data: activeRun, error: activeRunError } = await supabase
     .from("sw_document_processing_runs")
     .select("id, started_at")
     .eq("representation_id", representationId)
     .eq("status", "processing")
     .maybeSingle();
+  if (activeRunError) {
+    console.error("Could not check for an in-flight document run:", activeRunError);
+    return { error: activeRunError.message };
+  }
 
   if (activeRun) {
     if (!isStaleProcessingRun(activeRun.started_at)) {
       return {}; // already in flight — nothing to do.
     }
-    await supabase
-      .from("sw_document_processing_runs")
-      .update({
-        status: "failed",
-        error_message: "Processing appears to have stalled.",
-        finished_at: new Date().toISOString(),
-      })
-      .eq("id", activeRun.id);
+    // If this doesn't land, the new run's insert below trips the one-active-run index and reports it.
+    await bestEffort(
+      supabase
+        .from("sw_document_processing_runs")
+        .update({
+          status: "failed",
+          error_message: "Processing appears to have stalled.",
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", activeRun.id),
+      "Could not mark the stalled document run failed",
+    );
   }
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("sw_document_processing_runs")
     .select("id", { count: "exact", head: true })
     .eq("representation_id", representationId)
     .limit(MAX_ATTEMPT_LOOKUP);
+  if (countError) {
+    console.error("Could not count earlier document runs:", countError);
+    return { error: countError.message };
+  }
   const attempt = (count ?? 0) + 1;
 
   const { data: file, error: downloadError } = await supabase.storage
@@ -69,10 +82,13 @@ export async function startDocumentProcessing(
     .download(storagePath);
   if (downloadError || !file) {
     const message = "Couldn't read the uploaded document. Please re-upload.";
-    await supabase
-      .from("sw_representations")
-      .update({ status: "failed", error_message: message })
-      .eq("id", representationId);
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({ status: "failed", error_message: message })
+        .eq("id", representationId),
+      "Could not mark the representation failed",
+    );
     return { error: message };
   }
 
@@ -82,10 +98,13 @@ export async function startDocumentProcessing(
     native = await extractNativeDocumentText(bytes);
   } catch (error) {
     const message = `Could not read this PDF: ${error instanceof Error ? error.message : String(error)}`;
-    await supabase
-      .from("sw_representations")
-      .update({ status: "failed", error_message: message })
-      .eq("id", representationId);
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({ status: "failed", error_message: message })
+        .eq("id", representationId),
+      "Could not mark the representation failed",
+    );
     return { error: message };
   }
 
@@ -98,10 +117,11 @@ export async function startDocumentProcessing(
     });
     if (runError) return { error: runError.message };
 
-    await supabase
+    const { error: flipError } = await supabase
       .from("sw_representations")
       .update({ status: "processing", error_message: null })
       .eq("id", representationId);
+    if (flipError) return { error: flipError.message };
 
     return finishProcessing(supabase, {
       representationId,
@@ -131,10 +151,11 @@ export async function startDocumentProcessing(
   });
   if (runError) return { error: runError.message };
 
-  await supabase
+  const { error: flipError } = await supabase
     .from("sw_representations")
     .update({ status: "processing", error_message: null })
     .eq("id", representationId);
+  if (flipError) return { error: flipError.message };
 
   after(async () => {
     try {
@@ -157,15 +178,7 @@ export async function startDocumentProcessing(
       const reason = redactUrls(error instanceof Error ? error.message : String(error));
       const message = `Could not process this document: ${reason}`;
       console.error("[sourcework] document OCR failed", { representationId, error: reason });
-      await supabase
-        .from("sw_representations")
-        .update({ status: "failed", error_message: message })
-        .eq("id", representationId);
-      await supabase
-        .from("sw_document_processing_runs")
-        .update({ status: "failed", error_message: message, finished_at: new Date().toISOString() })
-        .eq("representation_id", representationId)
-        .eq("attempt", attempt);
+      await failFinish(supabase, representationId, attempt, message);
     }
   });
 
@@ -195,8 +208,19 @@ async function finishProcessing(
   const { representationId, sourceId, attempt, method, provider, providerModel, result, raw } =
     params;
 
-  await supabase.from("sw_document_blocks").delete().eq("representation_id", representationId);
-  await supabase.from("sw_document_pages").delete().eq("representation_id", representationId);
+  // Idempotent clean slate: zero rows deleted is the normal first-run case.
+  const { error: clearBlocksError } = await supabase
+    .from("sw_document_blocks")
+    .delete()
+    .eq("representation_id", representationId);
+  if (clearBlocksError)
+    return await failFinish(supabase, representationId, attempt, clearBlocksError.message);
+  const { error: clearPagesError } = await supabase
+    .from("sw_document_pages")
+    .delete()
+    .eq("representation_id", representationId);
+  if (clearPagesError)
+    return await failFinish(supabase, representationId, attempt, clearPagesError.message);
 
   const { data: pageRows, error: pageError } = await supabase
     .from("sw_document_pages")
@@ -244,9 +268,13 @@ async function finishProcessing(
       return await failFinish(supabase, representationId, attempt, blockError.message);
   }
 
-  await supabase.from("sw_sources").update({ page_count: result.pages.length }).eq("id", sourceId);
+  // Cosmetic: the page count is display-only.
+  await bestEffort(
+    supabase.from("sw_sources").update({ page_count: result.pages.length }).eq("id", sourceId),
+    "Could not record the document's page count",
+  );
 
-  await supabase
+  const { error: readyError } = await supabase
     .from("sw_representations")
     .update({
       status: "ready",
@@ -255,17 +283,22 @@ async function finishProcessing(
       config: { method, provider, model: providerModel },
     })
     .eq("id", representationId);
+  if (readyError) return await failFinish(supabase, representationId, attempt, readyError.message);
 
-  await supabase
-    .from("sw_document_processing_runs")
-    .update({
-      status: "ready",
-      provider_model: providerModel,
-      raw_response: raw,
-      finished_at: new Date().toISOString(),
-    })
-    .eq("representation_id", representationId)
-    .eq("attempt", attempt);
+  // The run row is an audit log; the representation above is what the screens read.
+  await bestEffort(
+    supabase
+      .from("sw_document_processing_runs")
+      .update({
+        status: "ready",
+        provider_model: providerModel,
+        raw_response: raw,
+        finished_at: new Date().toISOString(),
+      })
+      .eq("representation_id", representationId)
+      .eq("attempt", attempt),
+    "Could not record the document run as ready",
+  );
 
   // Same reasoning as the transcription webhook: an indexing failure must
   // not turn a document that extracted perfectly well into a failed
@@ -289,14 +322,20 @@ async function failFinish(
   attempt: number,
   message: string,
 ): Promise<{ error: string }> {
-  await supabase
-    .from("sw_representations")
-    .update({ status: "failed", error_message: message })
-    .eq("id", representationId);
-  await supabase
-    .from("sw_document_processing_runs")
-    .update({ status: "failed", error_message: message, finished_at: new Date().toISOString() })
-    .eq("representation_id", representationId)
-    .eq("attempt", attempt);
+  await bestEffort(
+    supabase
+      .from("sw_representations")
+      .update({ status: "failed", error_message: message })
+      .eq("id", representationId),
+    "Could not mark the representation failed",
+  );
+  await bestEffort(
+    supabase
+      .from("sw_document_processing_runs")
+      .update({ status: "failed", error_message: message, finished_at: new Date().toISOString() })
+      .eq("representation_id", representationId)
+      .eq("attempt", attempt),
+    "Could not mark the document run failed",
+  );
   return { error: message };
 }

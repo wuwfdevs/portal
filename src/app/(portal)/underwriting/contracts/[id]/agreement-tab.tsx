@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { REVISION_STATUS } from "@/lib/underwriting/status";
+import { pluralize } from "@/lib/format";
 
 /** How the contract's separation rule reads to a person. */
 export function separationSummary(contract: ContractDetail): string {
@@ -252,7 +253,7 @@ export function AgreementTab({
                     <span className="text-xs text-ink-400">
                       effective {revision.effective_from}
                       {revision.received_at ? ` · received ${revision.received_at}` : ""}
-                      {` · ${lines} line${lines === 1 ? "" : "s"}`}
+                      {` · ${pluralize(lines, "line")}`}
                     </span>
                   </span>
                   {revision.status === "draft" ? (

@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { signedUrl } from "@/lib/storage-sign";
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
 
 // Same shape as lib/transcription/storage.ts and lib/remote-interview/storage.ts,
@@ -14,15 +14,8 @@ export async function getSignedAnswerUrl(
   storagePath: string,
   downloadFilename?: string,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(AUDIENCE_LISTENING_MEDIA_BUCKET)
-    .createSignedUrl(
-      storagePath,
-      PLAYBACK_URL_TTL_SECONDS,
-      downloadFilename ? { download: downloadFilename } : undefined,
-    );
-
-  if (error || !data) return null;
-  return data.signedUrl;
+  return signedUrl(AUDIENCE_LISTENING_MEDIA_BUCKET, storagePath, {
+    ttlSeconds: PLAYBACK_URL_TTL_SECONDS,
+    download: downloadFilename,
+  });
 }

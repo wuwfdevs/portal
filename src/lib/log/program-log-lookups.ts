@@ -9,6 +9,7 @@
 // and makes the pick; nothing here decides what the document says.
 
 import type OpenAI from "openai";
+import { isValidDateISO } from "@/lib/dates";
 import { entriesInForceOn } from "@/lib/log/schedule";
 import type {
   PlanContentItem,
@@ -97,7 +98,7 @@ export function runImportLookup(
 }
 
 export function scheduleForDate(date: string, entries: PlanScheduleEntry[]) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (!isValidDateISO(date)) {
     return { entries: [], note: "date must be YYYY-MM-DD." };
   }
   const active = entriesInForceOn(entries, date)

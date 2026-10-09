@@ -29,6 +29,7 @@ import {
   searchArticles,
   type SearchHit,
 } from "@/lib/resources/queries";
+import { pluralize } from "@/lib/format";
 
 const KIND_LABELS = { procedure: "Procedure", guide: "Guide", release_note: "Release note" };
 /** Guide titles shown on a tool card, and procedure titles on an area card. */
@@ -145,7 +146,7 @@ async function SearchResults({ query, scope }: { query: string; scope: SearchSco
     <section>
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-500">
         <span>
-          {shown.length} result{shown.length === 1 ? "" : "s"} for &ldquo;{query}&rdquo;
+          {pluralize(shown.length, "result")} for &ldquo;{query}&rdquo;
         </span>
         <TextLink href="/resources" className="px-0 text-xs font-semibold">
           Clear search
@@ -269,7 +270,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                         {entry.tool.name}
                       </Link>
                       <span className="text-[13px] text-ink-500">
-                        {entry.count} guide{entry.count === 1 ? "" : "s"}
+                        {pluralize(entry.count, "guide")}
                       </span>
                     </div>
                   </div>

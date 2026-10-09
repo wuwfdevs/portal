@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { signedUrl } from "@/lib/storage-sign";
 import { REMOTE_INTERVIEW_MEDIA_BUCKET } from "@/lib/remote-interview/media";
 
 // A signed URL is short-lived and generated per request rather than cached
@@ -17,11 +17,8 @@ export async function getSignedTrackUrl(
   storagePath: string,
   downloadFilename: string,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(REMOTE_INTERVIEW_MEDIA_BUCKET)
-    .createSignedUrl(storagePath, DOWNLOAD_URL_TTL_SECONDS, { download: downloadFilename });
-
-  if (error || !data) return null;
-  return data.signedUrl;
+  return signedUrl(REMOTE_INTERVIEW_MEDIA_BUCKET, storagePath, {
+    ttlSeconds: DOWNLOAD_URL_TTL_SECONDS,
+    download: downloadFilename,
+  });
 }

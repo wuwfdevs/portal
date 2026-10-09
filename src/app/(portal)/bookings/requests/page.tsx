@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { trimToNull } from "@/lib/validation";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
@@ -43,7 +44,7 @@ export default async function RequestsPage({
   const view: ProjectListView = (VIEWS as readonly string[]).includes(params.view ?? "")
     ? (params.view as ProjectListView)
     : "open";
-  const q = params.q?.trim() || null;
+  const q = trimToNull(params.q);
   const page = parsePage(params.page);
   const nowISO = new Date().toISOString();
 

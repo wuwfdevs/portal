@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { field } from "@/lib/form-fields";
 import { assertLogAccess } from "@/lib/log/access";
 import { ForbiddenError } from "@/lib/auth/authz";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
@@ -27,10 +28,6 @@ import type { LogMissReason } from "@/lib/database.types";
 // boundary. A relocation is a plain rundown edit, not a broadcast outcome;
 // see lib/log/rundown-relocation.ts and lib/log/mid-broadcast.ts's file
 // header.
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 function rundownPath(rundownId: string): string {
   return `/log/rundowns/${rundownId}`;
@@ -217,7 +214,7 @@ export async function syncBroadcastAction(
             },
         { confirmed: true },
       );
-      return result.ok ? { status: "ok" } : { status: "rejected", message: result.message };
+      return result.ok ? { status: "ok" } : { status: "rejected", message: result.error };
     }
     case "relocate_item": {
       const result = await relocateItem(

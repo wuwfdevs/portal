@@ -3,6 +3,8 @@
 // lib/log/timezone.ts, dollars on a rate card in lib/bookings/rates.ts) stay
 // with their domain; the generic ones live here.
 
+import { roundCents } from "@/lib/money";
+
 const UNITS = ["KB", "MB", "GB"];
 
 /** "812 B", "4.2 MB", "120 MB". */
@@ -58,4 +60,20 @@ export function formatUsd(value: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+/**
+ * "1 day", "3 days", "2.5 hours". Whole counts print as integers; a
+ * fractional one keeps up to two decimals. `plural` is for the nouns that
+ * don't take an "s".
+ */
+export function pluralize(count: number, noun: string, plural: string = `${noun}s`): string {
+  const text = Number.isInteger(count) ? String(count) : String(roundCents(count));
+  return `${text} ${count === 1 ? noun : plural}`;
+}
+
+/** Whole days from an ISO timestamp to `now`, floored; never negative. */
+export function daysSince(isoTimestamp: string, now: Date = new Date()): number {
+  const elapsed = now.getTime() - new Date(isoTimestamp).getTime();
+  return Math.max(0, Math.floor(elapsed / 86_400_000));
 }

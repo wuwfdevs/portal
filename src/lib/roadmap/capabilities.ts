@@ -40,7 +40,7 @@ const POST_STATUS = z.enum([
 ]);
 
 export type CreateRoadmapPostResult =
-  { ok: true; postId: string; url: string } | { ok: false; message: string };
+  { ok: true; postId: string; url: string } | { ok: false; error: string };
 
 /**
  * `body` is plain text here rather than a ProseMirror document: an agent has
@@ -67,7 +67,7 @@ export const createRoadmapPost = defineCapability({
     const { profile } = await assertRoadmapAccess();
 
     const parsed = parseRichText(plainTextToRichTextDoc(input.body));
-    if (!parsed) return { ok: false, message: "Could not read that description." };
+    if (!parsed) return { ok: false, error: "Could not read that description." };
     const bodyText = richTextToPlainText(parsed);
 
     const problem = validatePostInput({
@@ -77,7 +77,7 @@ export const createRoadmapPost = defineCapability({
       toolId: input.toolId ?? null,
       proposedToolName: input.proposedToolName ?? "",
     });
-    if (problem) return { ok: false, message: problem };
+    if (problem) return { ok: false, error: problem };
 
     const { data, error } = await supabase
       .from("rd_posts")
@@ -95,9 +95,9 @@ export const createRoadmapPost = defineCapability({
       .single();
     if (error) {
       console.error("Could not file the request:", error);
-      return { ok: false, message: `Could not file the request: ${error.message}` };
+      return { ok: false, error: `Could not file the request: ${error.message}` };
     }
-    if (!data) return { ok: false, message: "Could not file the request — no row was created." };
+    if (!data) return { ok: false, error: "Could not file the request — no row was created." };
 
     return { ok: true, postId: data.id, url: `/roadmap/${data.id}` };
   },
@@ -155,7 +155,7 @@ export const listRoadmapPosts = defineCapability({
 });
 
 export type VoteOnRoadmapPostResult =
-  { ok: true; voted: boolean; voteCount: number } | { ok: false; message: string };
+  { ok: true; voted: boolean; voteCount: number } | { ok: false; error: string };
 
 /**
  * Reads the current vote before acting rather than blindly toggling: an
@@ -183,34 +183,37 @@ export const voteOnRoadmapPost = defineCapability({
       .eq("user_id", profile.id)
       .maybeSingle();
     if (lookupError) {
-      return { ok: false, message: `Could not check your vote: ${lookupError.message}` };
+      return { ok: false, error: `Could not check your vote: ${lookupError.message}` };
     }
 
     if (input.action === "vote" && !existing) {
       const { error } = await supabase
         .from("rd_votes")
         .insert({ post_id: input.postId, user_id: profile.id });
-      if (error) return { ok: false, message: `Could not record your vote: ${error.message}` };
+      if (error) return { ok: false, error: `Could not record your vote: ${error.message}` };
     } else if (input.action === "unvote" && existing) {
       const { error } = await supabase
         .from("rd_votes")
         .delete()
         .eq("post_id", input.postId)
         .eq("user_id", profile.id);
-      if (error) return { ok: false, message: `Could not remove your vote: ${error.message}` };
+      if (error) return { ok: false, error: `Could not remove your vote: ${error.message}` };
     }
 
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from("rd_votes")
       .select("post_id", { count: "exact", head: true })
       .eq("post_id", input.postId);
+    if (countError) {
+      return { ok: false, error: `Could not count the votes: ${countError.message}` };
+    }
 
     return { ok: true, voted: input.action === "vote", voteCount: count ?? 0 };
   },
 });
 
 export type AddRoadmapCommentResult =
-  { ok: true; commentId: string } | { ok: false; message: string };
+  { ok: true; commentId: string } | { ok: false; error: string };
 
 export const addRoadmapComment = defineCapability({
   id: "roadmap.comment.add",
@@ -223,7 +226,7 @@ export const addRoadmapComment = defineCapability({
 
     const parsed = parseRichText(plainTextToRichTextDoc(input.body));
     if (!parsed || isEmptyRichText(parsed)) {
-      return { ok: false, message: "Write something before posting a comment." };
+      return { ok: false, error: "Write something before posting a comment." };
     }
     const bodyText = richTextToPlainText(parsed);
 
@@ -232,8 +235,8 @@ export const addRoadmapComment = defineCapability({
       .insert({ post_id: input.postId, author_id: profile.id, body: parsed, body_text: bodyText })
       .select("id")
       .single();
-    if (error) return { ok: false, message: `Could not post the comment: ${error.message}` };
-    if (!data) return { ok: false, message: "Could not post the comment — no row was created." };
+    if (error) return { ok: false, error: `Could not post the comment: ${error.message}` };
+    if (!data) return { ok: false, error: "Could not post the comment — no row was created." };
 
     return { ok: true, commentId: data.id };
   },

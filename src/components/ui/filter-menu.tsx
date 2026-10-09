@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { cn } from "@/lib/cn";
 import { appliedFilterLabels, type FilterGroup } from "@/lib/filter-groups";
+import { useDismissable } from "@/lib/use-dismissable";
 
 /**
  * A list's filters behind one button (docs/ui-patterns.md, "Filters"). The
@@ -19,26 +20,14 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
   const [open, setOpen] = useState(false);
   const applied = appliedFilterLabels(groups);
 
-  useEffect(() => {
-    if (!open) return;
-    function close() {
+  useDismissable({
+    open,
+    refs: [ref],
+    onDismiss: (reason) => {
       if (ref.current) ref.current.open = false;
-    }
-    function onPointerDown(event: MouseEvent) {
-      if (!ref.current?.contains(event.target as Node)) close();
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      close();
-      ref.current?.querySelector("summary")?.focus();
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+      if (reason === "escape") ref.current?.querySelector("summary")?.focus();
+    },
+  });
 
   if (groups.length === 0) return null;
 

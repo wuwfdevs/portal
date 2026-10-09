@@ -14,6 +14,8 @@
 // or dedup layer here (see docs/log-design.md §8's 2026-09-22 revision for
 // why the previous one was removed).
 
+import { collapseWhitespace } from "@/lib/text";
+import { isValidDateISO } from "@/lib/dates";
 import type { LogOpportunityRequirement } from "@/lib/database.types";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import { estimateReadSeconds } from "@/lib/log/read-time";
@@ -405,7 +407,6 @@ export const IMPORTED_BREAK_REQUIREMENT: LogOpportunityRequirement = "optional";
 
 const DEFAULT_CREDIT_SECONDS = 30;
 const DEFAULT_FILL_SECONDS = 60;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2}:\d{2}$/;
 
 function normalizeName(value: string): string {
@@ -413,7 +414,7 @@ function normalizeName(value: string): string {
 }
 
 function normalizeScript(value: string | null): string {
-  return (value ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  return collapseWhitespace((value ?? "").toLowerCase());
 }
 
 /**
@@ -424,7 +425,7 @@ function normalizeScript(value: string | null): string {
  * paragraph structure), so every whitespace run collapses to one space.
  */
 export function cleanScript(value: string | null | undefined): string | null {
-  const cleaned = (value ?? "").replace(/\s+/g, " ").trim();
+  const cleaned = collapseWhitespace(value ?? "");
   return cleaned === "" ? null : cleaned;
 }
 
@@ -467,7 +468,7 @@ export function assembleProgramLogPlan(inputs: AssembleInputs): ProgramLogPlan {
     description: row.description,
   }));
 
-  const airDate = DATE_RE.test(output.air_date) ? output.air_date : "";
+  const airDate = isValidDateISO(output.air_date) ? output.air_date : "";
   if (airDate === "")
     warnings.push("The export's air date could not be read, so no rundowns can be created.");
 

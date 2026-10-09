@@ -19,6 +19,8 @@ import type {
   BkPricingTreatment,
 } from "@/lib/database.types";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { roundCents } from "@/lib/money";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { blockReservesWindow, type ReservedBlockLike } from "./agreements";
 
 export const HOURS_PER_PROJECT_DAY = 8;
@@ -172,12 +174,6 @@ export function parseWindows(value: unknown): ResourceWindow[] {
   return windows;
 }
 
-/** "HH:MM" (or "HH:MM:SS") to minutes since midnight. */
-export function timeToMinutes(time: string): number {
-  const [h = "0", m = "0"] = time.split(":");
-  return Number(h) * 60 + Number(m);
-}
-
 /** A time column value or "HH:MM" as "HH:MM". */
 export function toHHMM(time: string): string {
   return time.slice(0, 5);
@@ -185,11 +181,12 @@ export function toHHMM(time: string): string {
 
 /** "8:00 AM – 12:00 PM" */
 export function formatWindow(start: string, end: string): string {
-  return `${formatClock(start)} – ${formatClock(end)}`;
+  return `${formatClockTime12h(start)} – ${formatClockTime12h(end)}`;
 }
 
-export function formatClock(time: string): string {
-  const minutes = timeToMinutes(time);
+/** "13:30" as "1:30 PM" (not the m:ss formatter in @/lib/format). */
+export function formatClockTime12h(time: string): string {
+  const minutes = parseTimeToMinutes(time);
   const hour = Math.floor(minutes / 60);
   const minute = minutes % 60;
   const period = hour < 12 ? "AM" : "PM";
@@ -202,8 +199,8 @@ export function windowsOverlap(
   b: { window_start: string; window_end: string },
 ): boolean {
   return (
-    timeToMinutes(a.window_start) < timeToMinutes(b.window_end) &&
-    timeToMinutes(a.window_end) > timeToMinutes(b.window_start)
+    parseTimeToMinutes(a.window_start) < parseTimeToMinutes(b.window_end) &&
+    parseTimeToMinutes(a.window_end) > parseTimeToMinutes(b.window_start)
   );
 }
 
@@ -222,17 +219,13 @@ export function bookingIsLive(booking: BookingLike, nowISO: string): boolean {
   return true;
 }
 
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 function hoursOf(item: { hours: HoursByClass }, classId: string): number {
   return Number(item.hours[classId] ?? 0);
 }
 
 /** The hours a booking or hold carries across every class. */
 export function totalHours(hours: HoursByClass): number {
-  return round2(Object.values(hours).reduce((total, value) => total + Number(value), 0));
+  return roundCents(Object.values(hours).reduce((total, value) => total + Number(value), 0));
 }
 
 export interface ClassCapacitySummary {
@@ -270,17 +263,17 @@ export function classCapacity(
   );
   const net = Number(capacity.net_hours);
   const hasReserve = capacity.reserve_share !== null && capacity.reserve_share !== undefined;
-  const reserve = hasReserve ? round2(net * Number(capacity.reserve_share)) : 0;
+  const reserve = hasReserve ? roundCents(net * Number(capacity.reserve_share)) : 0;
   // Only a class with a reserve has strategic hours to draw it; without one a
   // strategic booking draws open capacity like any other (§22.2).
   const drawsReserve = (b: BookingLike) => hasReserve && b.treatment === "strategic";
-  const strategicBooked = round2(
+  const strategicBooked = roundCents(
     live.filter(drawsReserve).reduce((t, b) => t + hoursOf(b, classId), 0),
   );
-  const nonStrategicBooked = round2(
+  const nonStrategicBooked = roundCents(
     live.filter((b) => !drawsReserve(b)).reduce((t, b) => t + hoursOf(b, classId), 0),
   );
-  const held = round2(state.holds.reduce((t, h) => t + hoursOf(h, classId), 0));
+  const held = roundCents(state.holds.reduce((t, h) => t + hoursOf(h, classId), 0));
   return {
     labor_class_id: classId,
     name: state.classes.find((cls) => cls.id === classId)?.name ?? "Labor",
@@ -288,11 +281,11 @@ export function classCapacity(
     hasReserve,
     reserve,
     strategicBooked,
-    reserveRemaining: round2(reserve - strategicBooked),
+    reserveRemaining: roundCents(reserve - strategicBooked),
     held,
     nonStrategicBooked,
-    open: round2(net - reserve - held - nonStrategicBooked),
-    booked: round2(strategicBooked + nonStrategicBooked),
+    open: roundCents(net - reserve - held - nonStrategicBooked),
+    booked: roundCents(strategicBooked + nonStrategicBooked),
     headcount: Number(capacity.headcount),
     hoursPerPersonDay: Number(capacity.hours_per_person_day),
   };
@@ -323,7 +316,7 @@ export function totalCapacity(
   | "booked"
 > {
   const add = (pick: (row: ClassCapacitySummary) => number) =>
-    round2(summaries.reduce((total, row) => total + pick(row), 0));
+    roundCents(summaries.reduce((total, row) => total + pick(row), 0));
   return {
     net: add((r) => r.net),
     reserve: add((r) => r.reserve),
@@ -338,8 +331,8 @@ export function totalCapacity(
 
 /** Hours as "12 h" or "1.5 days (12 h)" — hours are the unit, days the reading. */
 export function formatHours(hours: number): string {
-  const rounded = round2(hours);
-  const days = round2(rounded / HOURS_PER_PROJECT_DAY);
+  const rounded = roundCents(hours);
+  const days = roundCents(rounded / HOURS_PER_PROJECT_DAY);
   if (Math.abs(rounded) < HOURS_PER_PROJECT_DAY) return `${trim(rounded)} h`;
   return `${trim(days)} ${Math.abs(days) === 1 ? "day" : "days"} (${trim(rounded)} h)`;
 }
@@ -363,7 +356,7 @@ export function classHoursOn(
   const fromHolds = holds
     .filter((h) => h.date === dateISO)
     .reduce((t, h) => t + hoursOf(h, classId), 0);
-  return round2(fromBookings + fromHolds);
+  return roundCents(fromBookings + fromHolds);
 }
 
 // The rule --------------------------------------------------------------------------------------------------
@@ -495,7 +488,7 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
     if (!capacity) continue;
     const name = className(state, classId);
 
-    const dayCap = round2(Number(capacity.headcount) * Number(capacity.hours_per_person_day));
+    const dayCap = roundCents(Number(capacity.headcount) * Number(capacity.hours_per_person_day));
     const dayHours = classHoursOn(
       request.date,
       classId,
@@ -504,7 +497,7 @@ function findRefusal(request: BookingRequest, state: CalendarState): BookingRefu
       state.nowISO,
       request.excludeBookingId,
     );
-    const dayRemaining = round2(dayCap - dayHours);
+    const dayRemaining = roundCents(dayCap - dayHours);
     if (asked > dayRemaining) {
       return {
         reason: "day_full",
@@ -681,8 +674,8 @@ export function monthlyCapacity(state: CalendarState, excludeBookingId?: string)
       0,
     );
   return [...dayCounts.entries()].map(([month, days]) => {
-    const openShare = totalDays === 0 ? 0 : round2((openBeforeBookings * days) / totalDays);
-    const booked = round2(
+    const openShare = totalDays === 0 ? 0 : roundCents((openBeforeBookings * days) / totalDays);
+    const booked = roundCents(
       live.filter((b) => b.date.startsWith(month)).reduce((t, b) => t + trackedHours(b), 0),
     );
     return {
@@ -690,7 +683,7 @@ export function monthlyCapacity(state: CalendarState, excludeBookingId?: string)
       days,
       openShare,
       nonStrategicBooked: booked,
-      openRemaining: round2(openShare - booked),
+      openRemaining: roundCents(openShare - booked),
     };
   });
 }
@@ -704,7 +697,7 @@ export function monthlyCapacity(state: CalendarState, excludeBookingId?: string)
 export function monthShareWarning(request: BookingRequest, state: CalendarState): string | null {
   if (request.treatment === "strategic") return null;
   const tracked = new Set(state.capacity.map((row) => row.labor_class_id));
-  const asked = round2(
+  const asked = roundCents(
     Object.entries(request.hours).reduce(
       (total, [classId, hours]) => total + (tracked.has(classId) ? Number(hours) : 0),
       0,
@@ -796,7 +789,8 @@ export function hoursByClass(
   const record: HoursByClass = {};
   for (const row of rows) {
     const hours = Number(row.hours);
-    if (hours > 0) record[row.labor_class_id] = round2((record[row.labor_class_id] ?? 0) + hours);
+    if (hours > 0)
+      record[row.labor_class_id] = roundCents((record[row.labor_class_id] ?? 0) + hours);
   }
   return record;
 }

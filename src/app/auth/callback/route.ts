@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeLocalPath } from "@/lib/safe-path";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -15,7 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // `next` comes from the query string, so it is only ever followed as a local path.
+  const next = safeLocalPath(searchParams.get("next"), "/dashboard");
 
   function failTo(reason: string) {
     return NextResponse.redirect(

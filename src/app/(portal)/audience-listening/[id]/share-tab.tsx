@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import {
   publicQueryUrl,
   recommendedEmbedHeight,
 } from "@/lib/audience-listening/embed";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * The two things a reporter copies out of this tool. Client-side because both
@@ -101,16 +101,10 @@ export function ShareTab({
 
 /** Mirrors the guest join link's copy affordance in Remote Interview. */
 function CopyButton({ value, label }: { value: string; label: string }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const { copy, status } = useCopyToClipboard();
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("copied");
-      setTimeout(() => setStatus("idle"), 2000);
-    } catch {
-      setStatus("failed");
-    }
+  function handleCopy() {
+    void copy(value);
   }
 
   return (

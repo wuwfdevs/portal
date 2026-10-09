@@ -1,3 +1,5 @@
+import { countWords as countWordsIn } from "@/lib/text";
+
 /**
  * How long a script takes to read aloud, estimated from its word count —
  * the default planned length for a credit or live read a host reads on
@@ -16,8 +18,7 @@
 export const READ_WORDS_PER_MINUTE = 160;
 
 export function countWords(script: string): number {
-  const trimmed = script.replace(/\([^()]*\)/g, " ").trim();
-  return trimmed === "" ? 0 : trimmed.split(/\s+/).length;
+  return countWordsIn(script.replace(/\([^()]*\)/g, " "));
 }
 
 /** Whole seconds, at least 1; null for an empty or missing script. */

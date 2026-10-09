@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { trimToNull } from "@/lib/validation";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import type { LogRundownStatus, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 
@@ -177,7 +178,7 @@ export async function placeCredit(input: PlaceCreditInput): Promise<
     p_break_id: input.breakId,
     p_schedule_line_id: input.scheduleLineId,
     p_copy_id: input.copyId,
-    p_override_reason: input.overrideReason?.trim() || null,
+    p_override_reason: trimToNull(input.overrideReason),
     p_makegood_id: input.makegoodId ?? null,
     p_automated: input.automated ?? false,
   });

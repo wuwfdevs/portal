@@ -12,15 +12,7 @@ import type {
   UwResolutionAction,
   UwResolutionStatus,
 } from "@/lib/database.types";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
+import { field, optionalField } from "@/lib/form-fields";
 
 function exceptionPath(id: string): string {
   return `/underwriting/exceptions/${id}`;
@@ -77,11 +69,12 @@ export async function resolveException(formData: FormData): Promise<void> {
   // the privileged action — re-saving an already-waived exception (e.g.
   // editing just the notes) must not re-log the waiver against whoever
   // happened to click Save this time.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("uw_exceptions")
     .select("resolution_action")
     .eq("id", id)
     .maybeSingle();
+  failIfError(existingError, path, "Could not read this exception");
   const isNewWaiver = resolutionAction === "waive" && existing?.resolution_action !== "waive";
 
   const { error } = await supabase

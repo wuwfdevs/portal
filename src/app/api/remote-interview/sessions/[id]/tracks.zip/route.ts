@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { assertToolAccess, ForbiddenError } from "@/lib/auth/authz";
+import { assertToolAccess } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { REMOTE_INTERVIEW_MEDIA_BUCKET, trackDownloadFilename } from "@/lib/remote-interview/media";
 import { createZipStream, uniqueEntryName, type ZipEntry } from "@/lib/transcription/zip";
 
@@ -24,14 +25,8 @@ export async function GET(
 ): Promise<Response> {
   const { id: sessionId } = await params;
 
-  try {
-    await assertToolAccess("remote-interview");
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(() => assertToolAccess("remote-interview"));
+  if (!guard.ok) return guard.response;
 
   const supabase = await createClient();
 
@@ -53,8 +48,14 @@ export async function GET(
     .select("id, display_name")
     .eq("session_id", sessionId);
   if (participantsError) {
-    console.error("Read failed (this session's participants, for a track archive):", participantsError);
-    return NextResponse.json({ error: "Could not load this session's participants." }, { status: 500 });
+    console.error(
+      "Read failed (this session's participants, for a track archive):",
+      participantsError,
+    );
+    return NextResponse.json(
+      { error: "Could not load this session's participants." },
+      { status: 500 },
+    );
   }
   const displayNameById = new Map((participants ?? []).map((p) => [p.id, p.display_name]));
 

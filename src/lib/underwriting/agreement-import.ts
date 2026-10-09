@@ -19,6 +19,7 @@
 // document's own words, for the staffer to enter by hand.
 
 import type { UwScheduleEntryKind, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
+import { trimToNull } from "@/lib/validation";
 import { isValidDateISO } from "./dates";
 import { describeScheduleLine } from "./demand";
 import { totalQuantity } from "./demand-compiler";
@@ -432,11 +433,6 @@ export interface DraftContractFacts {
 export type OrderFactsResult =
   { ok: true; value: DraftContractFacts; warnings: string[] } | { ok: false; error: string };
 
-function text(value: string | null | undefined): string | null {
-  const trimmed = value?.trim() ?? "";
-  return trimmed === "" ? null : trimmed;
-}
-
 /**
  * What the staffer typed on the order step takes precedence; the
  * document's reading fills what was left blank. The underwriter must be
@@ -459,7 +455,7 @@ export function mergeOrderFacts(
       : findByName(underwriters, order.underwriter);
   const underwriter = typedUnderwriter ?? readUnderwriter;
   if (!underwriter) {
-    const named = text(order.new_underwriter_name) ?? text(order.underwriter);
+    const named = trimToNull(order.new_underwriter_name) ?? trimToNull(order.underwriter);
     return {
       ok: false,
       error:
@@ -480,7 +476,7 @@ export function mergeOrderFacts(
     return { ok: false, error: "The run's end date is before its start date." };
 
   // Never composed: an order with no printed number has none (2026-09-30).
-  const identifier = text(typed.contract_identifier) ?? text(order.contract_identifier);
+  const identifier = trimToNull(typed.contract_identifier) ?? trimToNull(order.contract_identifier);
 
   const typedTotal = Number.parseFloat(typed.sponsorship_total);
   const sponsorshipTotal = Number.isFinite(typedTotal)
@@ -503,13 +499,14 @@ export function mergeOrderFacts(
       effective_from: effectiveFrom,
       effective_to: effectiveTo,
       sponsorship_total: sponsorshipTotal,
-      sponsorship_category: text(typed.sponsorship_category) ?? text(order.sponsorship_category),
-      notes: text(typed.notes),
+      sponsorship_category:
+        trimToNull(typed.sponsorship_category) ?? trimToNull(order.sponsorship_category),
+      notes: trimToNull(typed.notes),
       stated_total_spots: statedTotalSpots,
       affidavit_required: order.affidavit_required === true,
       makegood_requires_agency_approval: order.makegood_requires_agency_approval === true,
-      separation_source_text: text(order.separation_source_text),
-      preemption_policy: text(order.preemption_policy),
+      separation_source_text: trimToNull(order.separation_source_text),
+      preemption_policy: trimToNull(order.preemption_policy),
     },
     warnings,
   };

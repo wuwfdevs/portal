@@ -2,6 +2,7 @@
 // each with how many of its validated inputs are done (docs/bookings-design.md §23).
 // Packages carry no validation state, so their row counts packages instead.
 
+import { pluralize } from "@/lib/format";
 import type { ValidationState } from "./rates";
 import { ratesHref, type RatesSection } from "./paths";
 
@@ -71,7 +72,7 @@ export function buildInputsRows(
 
 /** "[n] of [N] validated", "All [N] validated", or "[N] packages". */
 export function progressLabel(row: Pick<InputsRow, "pending" | "total" | "section">): string {
-  if (row.pending === null) return `${row.total} ${row.total === 1 ? "package" : "packages"}`;
+  if (row.pending === null) return pluralize(row.total, "package");
   if (row.total === 0) return "Nothing yet";
   if (row.pending === 0) return `All ${row.total} validated`;
   return `${row.total - row.pending} of ${row.total} validated`;

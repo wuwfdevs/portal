@@ -38,6 +38,8 @@ import { Card } from "@/components/ui/card";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CONTRACT_STATUS, REVISION_STATUS } from "@/lib/underwriting/status";
+import { pluralize } from "@/lib/format";
+import { groupBy } from "@/lib/collections";
 
 const TABS = ["schedule", "copy", "agreement"] as const;
 type Tab = (typeof TABS)[number];
@@ -114,12 +116,7 @@ export default async function ContractDetailPage({
     contract.bucketsByLine,
     { poolNameById, programNameById },
   );
-  const viewsByRevision = new Map<string, ScheduleLineDemandView[]>();
-  for (const view of views) {
-    const list = viewsByRevision.get(view.scheduleLine.revision_id) ?? [];
-    list.push(view);
-    viewsByRevision.set(view.scheduleLine.revision_id, list);
-  }
+  const viewsByRevision = groupBy(views, (view) => view.scheduleLine.revision_id);
   const currentViews = (
     contract.currentRevision ? (viewsByRevision.get(contract.currentRevision.id) ?? []) : []
   ).filter((view) => view.scheduleLine.status === "active");
@@ -535,7 +532,7 @@ export default async function ContractDetailPage({
                 </p>
               ) : (
                 <p className="text-[13px] text-ink-700">
-                  {openExceptionCount} open exception{openExceptionCount === 1 ? "" : "s"}.{" "}
+                  {pluralize(openExceptionCount, "open exception")}.{" "}
                   <TextLink
                     href={`/underwriting/exceptions?q=${encodeURIComponent(contract.underwriter.name)}`}
                   >

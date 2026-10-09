@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { clearCredit } from "@/lib/underwriting/placement";
 import {
@@ -19,12 +19,15 @@ import {
   poolReachability,
   type LineReachLike,
 } from "@/lib/underwriting/pool-targets";
-import { isValidDateISO } from "@/lib/underwriting/dates";
+import { isValidDateISO } from "@/lib/dates";
 import { activateRevision } from "@/lib/underwriting/revisions";
 import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
 import { MAX_ROTATION_WEIGHT } from "@/lib/underwriting/rotation";
 import { stationTodayISO } from "@/lib/log/timezone";
+import { pathIsUnder } from "@/lib/storage-paths";
+import { signedUrl } from "@/lib/storage-sign";
 import type { UwContractStatus, UwSeparationPolicy } from "@/lib/database.types";
+import { field, isUuid, optionalField, optionalInt } from "@/lib/form-fields";
 
 const CONTRACTS_LIST_PATH = "/underwriting/contracts";
 const UNDERWRITERS_LIST_PATH = "/underwriting/underwriters";
@@ -37,10 +40,6 @@ function contractPath(id: string): string {
 
 function underwriterPath(id: string): string {
   return `${UNDERWRITERS_LIST_PATH}/${id}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
 }
 
 const WIZARD_STEPS = new Set(["order", "schedule", "copy", "policy"]);
@@ -56,18 +55,6 @@ function copyReturnPath(formData: FormData, contractId: string): string {
   return field(formData, "return_to") === "copy"
     ? `${contractPath(contractId)}/copy`
     : `${contractPath(contractId)}?tab=copy`;
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
-}
-
-function optionalInt(formData: FormData, name: string): number | null {
-  const raw = optionalField(formData, name);
-  if (raw === null) return null;
-  const value = Number.parseInt(raw, 10);
-  return Number.isFinite(value) ? value : null;
 }
 
 // Industry categories ------------------------------------------------------
@@ -302,11 +289,12 @@ export async function setContractStatus(formData: FormData): Promise<void> {
   // Only a genuine draft/active/expired -> terminated transition is the
   // privileged action — resubmitting this form while already terminated
   // (nothing changed) must not add a fresh audit row every time.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("uw_contracts")
     .select("status")
     .eq("id", id)
     .maybeSingle();
+  failIfError(existingError, path, "Could not read the contract");
   const isNewTermination = status === "terminated" && existing?.status !== "terminated";
   // Activation is the approval step — the moment a contract's lines start
   // scheduling — so it gets a durable trace naming who did it, the same
@@ -436,6 +424,9 @@ export async function completeContractDocumentUpload(
   storagePath: string,
 ): Promise<{ error?: string }> {
   await assertUnderwritingAccess();
+  if (!isUuid(contractId) || !pathIsUnder(contractId, storagePath)) {
+    return { error: "That document does not belong to this contract." };
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("uw_contracts")
@@ -454,12 +445,12 @@ export async function getContractDocumentDownloadUrl(
   storagePath: string,
 ): Promise<{ url?: string; error?: string }> {
   await assertUnderwritingAccess();
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from("underwriting-documents")
-    .createSignedUrl(storagePath, 300);
-  if (error || !data) return { error: "Could not create a download link." };
-  return { url: data.signedUrl };
+  if (!isUuid(contractId) || !pathIsUnder(contractId, storagePath)) {
+    return { error: "That document does not belong to this contract." };
+  }
+  const url = await signedUrl("underwriting-documents", storagePath, { ttlSeconds: 300 });
+  if (!url) return { error: "Could not create a download link." };
+  return { url };
 }
 
 // Revisions --------------------------------------------------------------------
@@ -483,21 +474,23 @@ export async function createRevisionFromCurrent(formData: FormData): Promise<voi
     failWith(path, "The received date isn't a date.");
 
   const supabase = await createClient();
-  const { data: existingDraft } = await supabase
+  const { data: existingDraft, error: existingDraftError } = await supabase
     .from("uw_contract_revisions")
     .select("id")
     .eq("contract_id", contractId)
     .eq("status", "draft")
     .maybeSingle();
+  failIfError(existingDraftError, path, "Could not read the contract's revisions");
   if (existingDraft)
     failWith(path, "This contract already has a draft revision — activate or cancel it first.");
 
-  const { data: current } = await supabase
+  const { data: current, error: currentError } = await supabase
     .from("uw_contract_revisions")
     .select("id")
     .eq("contract_id", contractId)
     .eq("status", "current")
     .maybeSingle();
+  failIfError(currentError, path, "Could not read the current revision");
 
   const { data: draft, error } = await supabase
     .from("uw_contract_revisions")
@@ -517,11 +510,12 @@ export async function createRevisionFromCurrent(formData: FormData): Promise<voi
   if (!draft) failWith(path, "Could not create the revision.");
 
   if (current && formData.get("copy_lines") === "on") {
-    const { data: lines } = await supabase
+    const { data: lines, error: linesError } = await supabase
       .from("uw_contract_schedule_lines")
       .select("*")
       .eq("revision_id", current.id)
       .eq("status", "active");
+    failIfError(linesError, path, "Created the revision but could not read its lines to copy");
     for (const line of lines ?? []) {
       const { id: oldId, created_at: _createdAt, updated_at: _updatedAt, ...rest } = line;
       void _createdAt;
@@ -533,11 +527,12 @@ export async function createRevisionFromCurrent(formData: FormData): Promise<voi
         .single();
       failIfError(copyError, path, "Created the revision but could not copy a line");
       if (!copied) continue;
-      const { data: buckets } = await supabase
+      const { data: buckets, error: bucketsError } = await supabase
         .from("uw_demand_buckets")
         .select("period_start, period_end, quantity_required, source_label")
         .eq("schedule_line_id", oldId)
         .eq("status", "active");
+      failIfError(bucketsError, path, "Created the revision but could not read a line's demand");
       if (buckets && buckets.length > 0) {
         const { error: bucketError } = await supabase
           .from("uw_demand_buckets")
@@ -644,11 +639,12 @@ export async function cancelFlight(formData: FormData): Promise<void> {
   if (!isValidDateISO(from)) failWith(path, "Give the date the cancellation takes effect.");
 
   const supabase = await createClient();
-  const { data: lines } = await supabase
+  const { data: lines, error: linesError } = await supabase
     .from("uw_contract_schedule_lines")
     .select("id")
     .eq("flight_id", flightId)
     .eq("status", "active");
+  failIfError(linesError, path, "Could not read the flight's lines");
   for (const line of lines ?? []) {
     const message = await cancelScheduleLineFrom(line.id, from, profile.id);
     if (message) failWith(path, message);
@@ -770,12 +766,13 @@ export async function addScheduleLine(formData: FormData): Promise<void> {
   if (!parsed.ok) failWith(path, parsed.error);
 
   const supabase = await createClient();
-  const { data: revision } = await supabase
+  const { data: revision, error: revisionError } = await supabase
     .from("uw_contract_revisions")
     .select("id, status")
     .eq("id", revisionId)
     .eq("contract_id", contractId)
     .maybeSingle();
+  failIfError(revisionError, path, "Could not read the revision");
   if (!revision || (revision.status !== "current" && revision.status !== "draft"))
     failWith(path, "Lines can only be added to the current revision or a draft.");
   await requirePoolReachesLine(supabase, parsed.value.line, path);
@@ -867,6 +864,7 @@ export async function updateScheduleLine(formData: FormData): Promise<void> {
     .eq("id", lineId);
   failIfError(error, editPath, "Could not save the schedule line");
 
+  // Idempotent: replace-all, so zero existing rows is fine.
   const { error: clearError } = await supabase
     .from("uw_demand_buckets")
     .delete()
@@ -901,22 +899,25 @@ async function cancelScheduleLineFrom(
   actorId: string,
 ): Promise<string | null> {
   const supabase = await createClient();
-  const { data: placements } = await supabase
+  const { data: placements, error: placementsError } = await supabase
     .from("uw_scheduled_placements")
     .select("id")
     .eq("schedule_line_id", lineId)
     .neq("status", "superseded")
     .gte("placement_date", from);
+  if (placementsError)
+    return `Could not read the line's future placements: ${placementsError.message}`;
   for (const placement of placements ?? []) {
     const result = await clearCredit(placement.id);
     if (!result.ok) return `Could not clear a future placement: ${result.message}`;
   }
-  const { data: voidBuckets } = await supabase
+  const { data: voidBuckets, error: voidBucketsError } = await supabase
     .from("uw_demand_buckets")
     .select("id")
     .eq("schedule_line_id", lineId)
     .eq("status", "active")
     .gte("period_end", from);
+  if (voidBucketsError) return `Could not read the line's demand: ${voidBucketsError.message}`;
   const voidIds = (voidBuckets ?? []).map((bucket) => bucket.id);
   if (voidIds.length > 0) {
     const { error: bucketError } = await supabase
@@ -925,13 +926,15 @@ async function cancelScheduleLineFrom(
       .in("id", voidIds);
     if (bucketError) return `Could not cancel the line's demand: ${bucketError.message}`;
     // Makegoods still awaiting a slot for demand that no longer exists.
-    await supabase
+    const { error: makegoodError } = await supabase
       .from("uw_makegoods")
       .update({ status: "cancelled" })
       .eq("schedule_line_id", lineId)
       .eq("status", "scheduled")
       .is("scheduled_placement_id", null)
       .in("demand_bucket_id", voidIds);
+    if (makegoodError)
+      return `Could not cancel the line's open makegoods: ${makegoodError.message}`;
   }
 
   const { error } = await supabase
@@ -976,13 +979,17 @@ export async function removeDraftScheduleLine(formData: FormData): Promise<void>
 
   const supabase = await createClient();
   await requireRewritableLine(supabase, lineId, contractId, failPath);
+  // Idempotent: a line with no demand rows yet is still removable.
   const { error: bucketError } = await supabase
     .from("uw_demand_buckets")
     .delete()
     .eq("schedule_line_id", lineId);
   failIfError(bucketError, failPath, "Could not remove the line's demand");
-  const { error } = await supabase.from("uw_contract_schedule_lines").delete().eq("id", lineId);
-  failIfError(error, failPath, "Could not remove the schedule line");
+  await deleteOrFail(
+    supabase.from("uw_contract_schedule_lines").delete().eq("id", lineId).select("id"),
+    failPath,
+    "Could not remove the schedule line",
+  );
 
   revalidatePath(path);
   redirect(path);
@@ -1127,12 +1134,16 @@ export async function unlinkCopyFromContract(formData: FormData): Promise<void> 
   const path = copyReturnPath(formData, contractId);
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("uw_contract_copy")
-    .delete()
-    .eq("contract_id", contractId)
-    .eq("copy_id", copyId);
-  failIfError(error, path, "Could not unlink that copy");
+  await deleteOrFail(
+    supabase
+      .from("uw_contract_copy")
+      .delete()
+      .eq("contract_id", contractId)
+      .eq("copy_id", copyId)
+      .select("copy_id"),
+    path,
+    "Could not unlink that copy",
+  );
   // Placements already carrying the unlinked message keep it (the walk never
   // clears a placement); everything else re-sequences without it.
   await rebalanceContractRotation(contractId, profile.id);

@@ -33,11 +33,12 @@ export type SkipReason =
  */
 export async function syncBookingPlan(projectId: string, actorId: string): Promise<SyncResult> {
   const supabase = await createClient();
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("bk_projects")
     .select("*")
     .eq("id", projectId)
     .maybeSingle();
+  if (projectError) throw new Error(`Could not read the request: ${projectError.message}`);
   if (!project) return { status: "skipped", reason: "not_found" };
   if (project.disposition !== null) return { status: "skipped", reason: "closed" };
   if (project.stage !== "request") return { status: "skipped", reason: "past_request_stage" };
@@ -45,13 +46,21 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
   if (project.requested === "airtime") return { status: "skipped", reason: "no_production" };
   if (!project.event_starts_on) return { status: "skipped", reason: "no_event_date" };
 
-  const [{ data: lines }, { data: blocks }, { data: partner }, plan] = await Promise.all([
+  const [
+    { data: lines, error: linesError },
+    { data: blocks, error: blocksError },
+    { data: partner, error: partnerError },
+    plan,
+  ] = await Promise.all([
     supabase.from("bk_estimate_lines").select("*").eq("project_id", projectId),
     supabase.from("bk_reserved_blocks").select("id").eq("project_id", projectId).limit(1),
     supabase.from("bk_partners").select("name").eq("id", project.partner_id).maybeSingle(),
     // The plan is the active one whose dates contain the event (§22.3), not "the" active plan.
     getPlanForDate(project.event_starts_on),
   ]);
+  for (const error of [linesError, blocksError, partnerError]) {
+    if (error) throw new Error(`Could not read the request's estimate: ${error.message}`);
+  }
   if ((blocks ?? []).length > 0) return { status: "skipped", reason: "reserved_blocks" };
   const planLines: PlanLine[] = (lines ?? []).map((line) => ({
     quantity: Number(line.quantity),
@@ -93,7 +102,7 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
       note: result.message,
     });
     // The refusal by resource, once per project, date, resource and reason (§20.8).
-    const { data: seen } = await supabase
+    const { data: seen, error: seenError } = await supabase
       .from("bk_booking_events")
       .select("id")
       .eq("project_id", projectId)
@@ -101,8 +110,9 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
       .eq("date", project.event_starts_on)
       .eq("reason", result.message)
       .limit(1);
+    if (seenError) throw new Error(`Could not read the refusals: ${seenError.message}`);
     if ((seen ?? []).length === 0) {
-      await supabase.from("bk_booking_events").insert({
+      const { error: refusedError } = await supabase.from("bk_booking_events").insert({
         plan_id: plan.id,
         project_id: projectId,
         pool_id: result.poolId,
@@ -111,6 +121,8 @@ export async function syncBookingPlan(projectId: string, actorId: string): Promi
         reason: result.message,
         created_by: actorId,
       });
+      // Report input only (the term report's refusals by resource): log, don't fail the sync.
+      if (refusedError) console.error("Could not record the refused date:", refusedError);
     }
     return { status: "exception", plan: result };
   }

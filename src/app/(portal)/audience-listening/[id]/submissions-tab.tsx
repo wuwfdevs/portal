@@ -11,6 +11,7 @@ import {
 } from "@/lib/audience-listening/review";
 import type { AlAnswer, AlQuery, AlSubmission } from "@/lib/audience-listening/queries";
 import { sendQueuedAnswersAction } from "../actions";
+import { pluralize } from "@/lib/format";
 
 function formatSubmittedAt(value: string | null): string {
   if (!value) return "—";
@@ -56,7 +57,7 @@ export function SubmissionsTab({
           }
         >
           <span className="font-semibold">
-            {queuedCount} answer{queuedCount === 1 ? "" : "s"} queued for transcription.
+            {pluralize(queuedCount, "answer")} queued for transcription.
           </span>{" "}
           This query is set to transcribe automatically — sending needs one press, because there is
           no background job runner in this portal.

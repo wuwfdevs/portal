@@ -9,10 +9,12 @@
 // ordinary member. Matching mirrors the private.is_roadmap_curator() SQL
 // helper, which is where it is actually enforced.
 
+import { singleRole } from "@/lib/role-keys";
+
 export type RoadmapRole = "member" | "curator";
 
 export function normalizeToolRole(toolRole: string | null): RoadmapRole {
-  return toolRole?.trim().toLowerCase() === "curator" ? "curator" : "member";
+  return singleRole(toolRole, "curator", "member");
 }
 
 /** What each recognized tool_role value means, for the admin grant UI's dropdown. */

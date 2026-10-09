@@ -6,12 +6,14 @@
 // returns the bookings or an exception in plain language with the nearest
 // alternatives. It never returns a partial or mismatched plan.
 
+import { dayOfWeekISO } from "@/lib/dates";
 import { shiftDateISO } from "@/lib/log/timezone";
+import { roundCents } from "@/lib/money";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import type { BkPricingTreatment } from "@/lib/database.types";
 import {
   checkBooking,
   formatWindow,
-  timeToMinutes,
   toHHMM,
   windowsFor,
   type BookingRefusal,
@@ -73,17 +75,13 @@ export type BookingPlan =
       alternatives: PlanAlternative[];
     };
 
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 /** Units per pool across the lines: Σ quantity × units per unit; zero rows dropped. */
 export function poolDemand(lines: readonly PlanLine[]): Record<string, number> {
   const demand: Record<string, number> = {};
   for (const line of lines) {
     for (const [poolId, units] of Object.entries(line.resource_units)) {
       const total = Number(units) * Number(line.quantity);
-      if (total > 0) demand[poolId] = round2((demand[poolId] ?? 0) + total);
+      if (total > 0) demand[poolId] = roundCents((demand[poolId] ?? 0) + total);
     }
   }
   return demand;
@@ -95,7 +93,7 @@ export function planHours(lines: readonly PlanLine[]): HoursByClass {
   for (const line of lines) {
     for (const [classId, perUnit] of Object.entries(line.labor_hours)) {
       const total = Number(perUnit) * Number(line.quantity);
-      if (total > 0) hours[classId] = round2((hours[classId] ?? 0) + total);
+      if (total > 0) hours[classId] = roundCents((hours[classId] ?? 0) + total);
     }
   }
   return hours;
@@ -106,8 +104,8 @@ function poolName(state: Pick<CalendarState, "pools">, poolId: string): string {
 }
 
 function overlapMinutes(a: PlanWindow, b: PlanWindow): number {
-  const start = Math.max(timeToMinutes(a.start), timeToMinutes(b.start));
-  const end = Math.min(timeToMinutes(a.end), timeToMinutes(b.end));
+  const start = Math.max(parseTimeToMinutes(a.start), parseTimeToMinutes(b.start));
+  const end = Math.min(parseTimeToMinutes(a.end), parseTimeToMinutes(b.end));
   return Math.max(0, end - start);
 }
 
@@ -141,7 +139,7 @@ export function plainRefusal(
 }
 
 function trim(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(round2(value));
+  return Number.isInteger(value) ? String(value) : String(roundCents(value));
 }
 
 type Attempt =
@@ -313,7 +311,7 @@ export function buildBookingPlan(input: PlanInput, state: CalendarState): Bookin
 }
 
 function isWeekend(dateISO: string): boolean {
-  const day = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+  const day = dayOfWeekISO(dateISO);
   return day === 0 || day === 6;
 }
 

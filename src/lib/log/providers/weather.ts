@@ -1,3 +1,4 @@
+import { trimToNull } from "@/lib/validation";
 import "server-only";
 import {
   buildDailyOutlook,
@@ -162,7 +163,7 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
             ? Math.round(temperature.value)
             : Math.round((temperature.value * 9) / 5 + 32);
         }
-        currentConditions = observation.properties.textDescription?.trim() || null;
+        currentConditions = trimToNull(observation.properties.textDescription);
       }
     }
   } catch {

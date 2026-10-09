@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit";
+import { uuidField } from "@/lib/action-fields";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import {
   assertBookingsAccess,
@@ -30,20 +31,12 @@ import {
 } from "@/lib/bookings/paths";
 import type { BkPartnerKind } from "@/lib/database.types";
 import { shiftDateISO } from "@/lib/log/timezone";
-import { isValidDateISO } from "@/lib/log/week-layout";
+import { field, isUuid } from "@/lib/form-fields";
+import { pathIsUnder } from "@/lib/storage-paths";
+import { signedUrl } from "@/lib/storage-sign";
+import { isValidDateISO } from "@/lib/dates";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function uuidField(formData: FormData, name: string, path: string, label: string): string {
-  const value = field(formData, name);
-  if (!UUID.test(value)) failWith(path, `${label} could not be found.`);
-  return value;
-}
 
 function revalidatePartners(partnerId?: string, agreementId?: string): void {
   revalidatePath(BOOKINGS_PATH);
@@ -102,7 +95,7 @@ export async function createPartner(formData: FormData): Promise<void> {
 
 export async function updatePartner(formData: FormData): Promise<void> {
   await assertBookingsScheduler();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
   const path = partnerEditHref(partnerId);
   const values = partnerValues(formData);
   const problem = validatePartnerForm(values);
@@ -143,7 +136,7 @@ function agreementValues(formData: FormData): AgreementFormValues {
 
 export async function createAgreement(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsScheduler();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
   const path = agreementNewHref(partnerId);
   const values = agreementValues(formData);
   const problem = validateAgreementForm(values);
@@ -162,8 +155,8 @@ export async function createAgreement(formData: FormData): Promise<void> {
 
 export async function updateAgreement(formData: FormData): Promise<void> {
   await assertBookingsScheduler();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const path = agreementEditHref(partnerId, agreementId);
   const values = agreementValues(formData);
   const problem = validateAgreementForm(values);
@@ -183,8 +176,8 @@ export async function updateAgreement(formData: FormData): Promise<void> {
 /** The executive approves a drafted agreement (§3H); bk_guard_agreement() is the boundary. */
 export async function approveAgreement(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsExecutive();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
   const { error } = await supabase
@@ -207,8 +200,8 @@ export async function approveAgreement(formData: FormData): Promise<void> {
 /** Ending an agreement: its blocks stop reserving and no project is priced under it. The director's or the executive's. */
 export async function endAgreement(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsBlockKeeper();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
   const { error } = await supabase
@@ -231,8 +224,8 @@ export async function endAgreement(formData: FormData): Promise<void> {
 /** A draft that was never approved can be deleted; the delete policy is scoped to drafts. */
 export async function deleteAgreement(formData: FormData): Promise<void> {
   await assertBookingsScheduler();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
   const { error, count } = await supabase
@@ -250,11 +243,11 @@ export async function deleteAgreement(formData: FormData): Promise<void> {
 
 export async function addReservedBlock(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsBlockKeeper();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const path = agreementHref(partnerId, agreementId, { new: "block" });
   const poolId = field(formData, "pool_id");
-  if (!UUID.test(poolId)) failWith(path, "Choose a pool.");
+  if (!isUuid(poolId)) failWith(path, "Choose a pool.");
   const listed = field(formData, "window");
   let start: string;
   let end: string;
@@ -303,21 +296,22 @@ export async function addReservedBlock(formData: FormData): Promise<void> {
 /** Release a block by hand — before its deadline, or one the director had kept. */
 export async function releaseReservedBlock(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsBlockKeeper();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const blockId = uuidField(
     formData,
     "block_id",
     agreementHref(partnerId, agreementId),
-    "That block",
+    "the block",
   );
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
-  const { data: block } = await supabase
+  const { data: block, error: blockError } = await supabase
     .from("bk_reserved_blocks")
     .select("project_id")
     .eq("id", blockId)
     .maybeSingle();
+  failIfError(blockError, path, "Could not read the block");
   if (!block) failWith(path, "That block no longer exists.");
   if (block.project_id) failWith(path, "A booked block is freed by releasing the project's date.");
   const { error } = await supabase
@@ -339,13 +333,13 @@ export async function releaseReservedBlock(formData: FormData): Promise<void> {
 /** Keep an unbooked block past its release deadline (§5); bk_guard_reserved_block() keeps this for the director. */
 export async function keepReservedBlock(formData: FormData): Promise<void> {
   const { profile } = await assertBookingsBlockKeeper();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const blockId = uuidField(
     formData,
     "block_id",
     agreementHref(partnerId, agreementId),
-    "That block",
+    "the block",
   );
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
@@ -369,13 +363,13 @@ export async function keepReservedBlock(formData: FormData): Promise<void> {
 /** Remove a block nobody took — a drafting correction, not a release. */
 export async function deleteReservedBlock(formData: FormData): Promise<void> {
   await assertBookingsBlockKeeper();
-  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "That partner");
-  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "That agreement");
+  const partnerId = uuidField(formData, "partner_id", PARTNERS_PATH, "the partner");
+  const agreementId = uuidField(formData, "agreement_id", partnerHref(partnerId), "the agreement");
   const blockId = uuidField(
     formData,
     "block_id",
     agreementHref(partnerId, agreementId),
-    "That block",
+    "the block",
   );
   const path = agreementHref(partnerId, agreementId);
   const supabase = await createClient();
@@ -399,7 +393,7 @@ export async function completeAgreementDocumentUpload(
   storagePath: string,
 ): Promise<{ error?: string }> {
   await assertBookingsScheduler();
-  if (!UUID.test(agreementId) || !storagePath.startsWith(`${agreementId}/`)) {
+  if (!isUuid(agreementId) || !pathIsUnder(agreementId, storagePath)) {
     return { error: "That upload does not belong to this agreement." };
   }
   const supabase = await createClient();
@@ -422,13 +416,10 @@ export async function getAgreementDocumentDownloadUrl(
   storagePath: string,
 ): Promise<{ url?: string; error?: string }> {
   await assertBookingsAccess();
-  if (!UUID.test(agreementId) || !storagePath.startsWith(`${agreementId}/`)) {
+  if (!isUuid(agreementId) || !pathIsUnder(agreementId, storagePath)) {
     return { error: "That document does not belong to this agreement." };
   }
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(DOCUMENTS_BUCKET)
-    .createSignedUrl(storagePath, 300);
-  if (error || !data) return { error: "Could not create a download link." };
-  return { url: data.signedUrl };
+  const url = await signedUrl(DOCUMENTS_BUCKET, storagePath, { ttlSeconds: 300 });
+  if (!url) return { error: "Could not create a download link." };
+  return { url };
 }

@@ -12,6 +12,8 @@
 //   * production — records messages into DAD and marks them recorded
 //     (private.is_underwriting_production()).
 
+import { parseRoleSet } from "@/lib/role-keys";
+
 export type UnderwritingRole = "manager" | "production";
 
 const KNOWN: readonly UnderwritingRole[] = ["manager", "production"];
@@ -20,8 +22,7 @@ const KNOWN: readonly UnderwritingRole[] = ["manager", "production"];
 export function parseUnderwritingRoles(
   toolRoles: readonly string[] | null | undefined,
 ): UnderwritingRole[] {
-  const found = new Set((toolRoles ?? []).map((role) => role.trim().toLowerCase()));
-  return KNOWN.filter((role) => found.has(role));
+  return parseRoleSet(toolRoles, KNOWN);
 }
 
 /** What each role means, for the admin grant screen's checkboxes. */

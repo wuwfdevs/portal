@@ -8,6 +8,7 @@ import {
   screenshotObjectPath,
   validateScreenshot,
 } from "@/lib/resources/screenshot-rules";
+import { removeUploadedObject, uploadObject } from "@/lib/upload-object";
 
 const PREVIEW_SECONDS = 60 * 60;
 
@@ -37,10 +38,15 @@ export function ArticleBodyField({
     const mediaId = crypto.randomUUID();
     const objectPath = screenshotObjectPath(articleId, mediaId, file.type);
 
-    const { error: uploadError } = await supabase.storage
-      .from(RESOURCES_MEDIA_BUCKET)
-      .upload(objectPath, file, { contentType: file.type, upsert: false });
-    if (uploadError) throw new Error(`The upload failed: ${uploadError.message}`);
+    const uploaded = await uploadObject({
+      client: supabase,
+      bucket: RESOURCES_MEDIA_BUCKET,
+      path: objectPath,
+      body: file,
+      contentType: file.type,
+      upsert: false,
+    });
+    if (!uploaded.ok) throw new Error(`The upload failed: ${uploaded.message}`);
 
     const { error: rowError } = await supabase.from("rc_media").insert({
       id: mediaId,
@@ -52,10 +58,12 @@ export function ArticleBodyField({
     });
     if (rowError) {
       // Don't leave an object nothing points at.
-      await supabase.storage.from(RESOURCES_MEDIA_BUCKET).remove([objectPath]);
+      await removeUploadedObject(supabase, RESOURCES_MEDIA_BUCKET, objectPath);
       throw new Error(`The screenshot couldn't be recorded: ${rowError.message}`);
     }
 
+    // The preview is a nicety: if signing fails the local object URL below stands in.
+    // eslint-disable-next-line no-restricted-syntax
     const { data: signed } = await supabase.storage
       .from(RESOURCES_MEDIA_BUCKET)
       .createSignedUrl(objectPath, PREVIEW_SECONDS);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidEmail } from "./validation";
+import { isValidEmail, trimToNull } from "./validation";
 
 describe("isValidEmail", () => {
   it("accepts a plausible work/university email", () => {
@@ -20,5 +20,14 @@ describe("isValidEmail", () => {
 
   it("trims surrounding whitespace before checking", () => {
     expect(isValidEmail("  dana.ruiz@wuwf.org  ")).toBe(true);
+  });
+});
+
+describe("trimToNull", () => {
+  it("trims, and turns blank or missing into null", () => {
+    expect(trimToNull("  x ")).toBe("x");
+    expect(trimToNull("   ")).toBeNull();
+    expect(trimToNull(null)).toBeNull();
+    expect(trimToNull(undefined)).toBeNull();
   });
 });

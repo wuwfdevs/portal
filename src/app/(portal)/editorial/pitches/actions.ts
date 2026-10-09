@@ -11,6 +11,7 @@ import {
   unarchivePitch as unarchivePitchCapability,
 } from "@/lib/editorial/capabilities";
 import type { EpFieldValue } from "@/lib/database.types";
+import { field, optionalField } from "@/lib/form-fields";
 
 export type PitchFormState =
   | { status: "idle" }
@@ -31,8 +32,8 @@ export async function savePitch(
   _prev: PitchFormState,
   formData: FormData,
 ): Promise<PitchFormState> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
+  const pitchId = field(formData, "pitch_id");
+  const title = field(formData, "title");
   const fields = await listPitchFormFields();
 
   const raw: Record<string, EpFieldValue> = {};
@@ -59,33 +60,33 @@ export async function savePitch(
         values: raw,
       };
     }
-    return { status: "error", message: result.message, fieldErrors: {}, title, values: raw };
+    return { status: "error", message: result.error, fieldErrors: {}, title, values: raw };
   }
 
   redirect(`/editorial/pitches/${result.pitchId}`);
 }
 
 export async function archivePitch(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
   const pitchPath = `/editorial/pitches/${pitchId}`;
-  const reason = String(formData.get("reason") ?? "").trim() || undefined;
+  const reason = optionalField(formData, "reason") ?? undefined;
 
   const result = await invokeCapability(
     archivePitchCapability,
     { pitchId, reason },
     { confirmed: true },
   );
-  if (!result.ok) failWith(pitchPath, result.message);
+  if (!result.ok) failWith(pitchPath, result.error);
 
   redirect(pitchPath);
 }
 
 export async function unarchivePitch(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
   const pitchPath = `/editorial/pitches/${pitchId}`;
 
   const result = await invokeCapability(unarchivePitchCapability, { pitchId }, { confirmed: true });
-  if (!result.ok) failWith(pitchPath, result.message);
+  if (!result.ok) failWith(pitchPath, result.error);
 
   redirect(pitchPath);
 }
@@ -94,14 +95,14 @@ export async function unarchivePitch(formData: FormData): Promise<void> {
 export async function archiveSelectedPitches(formData: FormData): Promise<void> {
   const pitchIds = formData.getAll("pitch_id").map(String).filter(Boolean);
   if (pitchIds.length === 0) redirect("/editorial?view=stale");
-  const reason = String(formData.get("reason") ?? "").trim() || undefined;
+  const reason = optionalField(formData, "reason") ?? undefined;
 
   const result = await invokeCapability(
     archiveSelectedPitchesCapability,
     { pitchIds, reason },
     { confirmed: true },
   );
-  if (!result.ok) failWith("/editorial?view=stale", result.message);
+  if (!result.ok) failWith("/editorial?view=stale", result.error);
 
   redirect("/editorial?view=stale");
 }

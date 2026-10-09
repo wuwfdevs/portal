@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertEditorialRole } from "@/lib/editorial/access";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { getStoryPlan, listStoryPlanMilestones, unwrapRead } from "@/lib/editorial/data";
 import {
   canTransitionStoryPlanStatus,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/editorial/story-plan";
 import { logAuditEvent } from "@/lib/audit";
 import type { EpOtrStatus, EpStandardsFlag, EpStoryPlanStatus } from "@/lib/database.types";
+import { field, optionalField } from "@/lib/form-fields";
 
 const STORY_PLAN_STATUSES: EpStoryPlanStatus[] = ["draft", "ready_for_editor", "approved"];
 
@@ -41,7 +42,7 @@ async function assertCanManagePlan(
 }
 
 export async function createStoryPlan(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
   const { profileId, isEditor } = await assertCanManagePlan(pitchId);
 
   const supabase = await createClient();
@@ -57,7 +58,7 @@ export async function createStoryPlan(formData: FormData): Promise<void> {
       pitch_id: pitchId,
       reporter_id: reporterId,
       created_by: profileId,
-      central_question: String(formData.get("seed_question") ?? "").trim() || null,
+      central_question: optionalField(formData, "seed_question"),
     })
     .select("id")
     .single();
@@ -95,8 +96,8 @@ const TEXT_FIELDS = [
 ] as const;
 
 export async function updateStoryPlan(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
-  const storyPlanId = String(formData.get("story_plan_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
+  const storyPlanId = field(formData, "story_plan_id");
   await assertCanManagePlan(pitchId);
 
   const otrStatusRaw = String(formData.get("otr_status") ?? "not_yet_sought");
@@ -109,12 +110,12 @@ export async function updateStoryPlan(formData: FormData): Promise<void> {
     .filter((flag): flag is EpStandardsFlag => STANDARDS_FLAGS.includes(flag as EpStandardsFlag));
 
   const update: Record<string, string | null> = { otr_status: otrStatus };
-  for (const field of TEXT_FIELDS) {
-    update[field] = String(formData.get(field) ?? "").trim() || null;
+  for (const key of TEXT_FIELDS) {
+    update[key] = optionalField(formData, key);
   }
 
-  const reporterId = String(formData.get("reporter_id") ?? "") || null;
-  const editorId = String(formData.get("editor_id") ?? "") || null;
+  const reporterId = optionalField(formData, "reporter_id");
+  const editorId = optionalField(formData, "editor_id");
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -132,9 +133,9 @@ export async function updateStoryPlan(formData: FormData): Promise<void> {
 }
 
 export async function transitionStoryPlanStatus(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
-  const storyPlanId = String(formData.get("story_plan_id") ?? "");
-  const toRaw = String(formData.get("to") ?? "");
+  const pitchId = field(formData, "pitch_id");
+  const storyPlanId = field(formData, "story_plan_id");
+  const toRaw = field(formData, "to");
   const { profile, role } = await assertEditorialRole("contributor");
 
   if (!STORY_PLAN_STATUSES.includes(toRaw as EpStoryPlanStatus)) redirect(planPath(pitchId));
@@ -173,12 +174,12 @@ export async function transitionStoryPlanStatus(formData: FormData): Promise<voi
 }
 
 export async function addMilestone(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
-  const storyPlanId = String(formData.get("story_plan_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
+  const storyPlanId = field(formData, "story_plan_id");
   await assertCanManagePlan(pitchId);
 
-  const label = String(formData.get("label") ?? "").trim();
-  const targetDate = String(formData.get("target_date") ?? "").trim() || null;
+  const label = field(formData, "label");
+  const targetDate = optionalField(formData, "target_date");
   if (!label) failWith(planPath(pitchId), "Give the milestone a label.");
 
   const existing = await listStoryPlanMilestones(storyPlanId);
@@ -194,10 +195,10 @@ export async function addMilestone(formData: FormData): Promise<void> {
 }
 
 export async function toggleMilestone(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
   await assertCanManagePlan(pitchId);
-  const milestoneId = String(formData.get("milestone_id") ?? "");
-  const nextCompleted = String(formData.get("next_completed") ?? "") === "true";
+  const milestoneId = field(formData, "milestone_id");
+  const nextCompleted = field(formData, "next_completed") === "true";
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -210,13 +211,16 @@ export async function toggleMilestone(formData: FormData): Promise<void> {
 }
 
 export async function deleteMilestone(formData: FormData): Promise<void> {
-  const pitchId = String(formData.get("pitch_id") ?? "");
+  const pitchId = field(formData, "pitch_id");
   await assertCanManagePlan(pitchId);
-  const milestoneId = String(formData.get("milestone_id") ?? "");
+  const milestoneId = field(formData, "milestone_id");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("ep_story_plan_milestones").delete().eq("id", milestoneId);
-  failIfError(error, planPath(pitchId), "Could not remove the milestone");
+  await deleteOrFail(
+    supabase.from("ep_story_plan_milestones").delete().eq("id", milestoneId).select("id"),
+    planPath(pitchId),
+    "Could not remove the milestone",
+  );
 
   redirect(planPath(pitchId));
 }

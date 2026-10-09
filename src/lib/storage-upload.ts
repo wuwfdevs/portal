@@ -34,6 +34,8 @@ export async function uploadWithProgress(params: {
   const { bucket, path, file, upsert = false, onProgress } = params;
 
   const supabase = createClient();
+  // getSession reads the local session; no token below already means "sign in again".
+  // eslint-disable-next-line no-restricted-syntax
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {

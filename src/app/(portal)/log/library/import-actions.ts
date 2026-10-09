@@ -12,12 +12,17 @@ import { createClient } from "@/lib/supabase/server";
 import { assertLogAccess } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { parseDadGroups, parseDadLibrary } from "@/lib/log/dad-library-import";
-import { buildDadLibraryPlan, type DadLibraryPlan, type SynthesizedPromoPlan } from "@/lib/log/dad-library-plan";
+import {
+  buildDadLibraryPlan,
+  type DadLibraryPlan,
+  type SynthesizedPromoPlan,
+} from "@/lib/log/dad-library-plan";
 import { listContentItems, listPrograms, listScheduleEntries } from "@/lib/log/queries";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
-export type ParseDadLibraryResult = { ok: true; plan: DadLibraryPlan } | { ok: false; error: string };
+export type ParseDadLibraryResult =
+  { ok: true; plan: DadLibraryPlan } | { ok: false; error: string };
 
 export async function parseDadLibraryUpload(formData: FormData): Promise<ParseDadLibraryResult> {
   await assertLogAccess();
@@ -35,7 +40,10 @@ export async function parseDadLibraryUpload(formData: FormData): Promise<ParseDa
   }
 
   const { cuts, warnings: parseWarnings } = parseDadLibrary(await libraryFile.text());
-  const groups = groupsFile instanceof File && groupsFile.size > 0 ? parseDadGroups(await groupsFile.text()) : [];
+  const groups =
+    groupsFile instanceof File && groupsFile.size > 0
+      ? parseDadGroups(await groupsFile.text())
+      : [];
 
   const [programs, scheduleEntries, contentItems] = await Promise.all([
     listPrograms(),
@@ -48,7 +56,10 @@ export async function parseDadLibraryUpload(formData: FormData): Promise<ParseDa
     groups,
     programs: programs.map((program) => ({ id: program.id, name: program.name })),
     scheduleEntries,
-    existingItems: contentItems.map((item) => ({ id: item.id, dad_cart_number: item.dad_cart_number })),
+    existingItems: contentItems.map((item) => ({
+      id: item.id,
+      dad_cart_number: item.dad_cart_number,
+    })),
   });
   plan.warnings = [...parseWarnings, ...plan.warnings];
 
@@ -56,7 +67,14 @@ export async function parseDadLibraryUpload(formData: FormData): Promise<ParseDa
 }
 
 export type ExecuteDadLibraryImportResult =
-  | { ok: true; itemsCreated: number; itemsUpdated: number; promosCreated: number; promosUpdated: number; failures: string[] }
+  | {
+      ok: true;
+      itemsCreated: number;
+      itemsUpdated: number;
+      promosCreated: number;
+      promosUpdated: number;
+      failures: string[];
+    }
   | { ok: false; error: string };
 
 async function upsertSynthesizedPromo(
@@ -80,7 +98,10 @@ async function upsertSynthesizedPromo(
       })
       .select("id")
       .single();
-    if (itemError || !item) return { ok: false, error: `Could not create the ${promo.programName} promo.` };
+    if (itemError || !item) {
+      console.error("Could not create a promo:", itemError);
+      return { ok: false, error: `Could not create the ${promo.programName} promo.` };
+    }
 
     const { error: componentsError } = await supabase.from("log_content_components").insert([
       {
@@ -104,7 +125,10 @@ async function upsertSynthesizedPromo(
         script: promo.tagScript,
       },
     ]);
-    if (componentsError) return { ok: false, error: `Created the ${promo.programName} promo but not its components.` };
+    if (componentsError) {
+      console.error("Could not create a promo's components:", componentsError);
+      return { ok: false, error: `Created the ${promo.programName} promo but not its components.` };
+    }
     return { ok: true, created: true };
   }
 
@@ -117,53 +141,74 @@ async function upsertSynthesizedPromo(
       approval_status: "approved",
     })
     .eq("id", promo.existingItemId);
-  if (itemError) return { ok: false, error: `Could not update the ${promo.programName} promo.` };
+  if (itemError) {
+    console.error("Could not update a promo:", itemError);
+    return { ok: false, error: `Could not update the ${promo.programName} promo.` };
+  }
 
   const { data: components, error: componentsReadError } = await supabase
     .from("log_content_components")
     .select("id, component_type")
     .eq("content_item_id", promo.existingItemId);
-  if (componentsReadError) return { ok: false, error: `Could not read the ${promo.programName} promo's components.` };
-
-  const recordedAudio = (components ?? []).find((component) => component.component_type === "recorded_audio");
-  const liveOutro = (components ?? []).find((component) => component.component_type === "live_outro");
-
-  if (recordedAudio) {
-    await supabase
-      .from("log_content_components")
-      .update({ duration_seconds: promo.recordedAudioDurationSeconds, dad_cart_number: promo.representativeCutNumber })
-      .eq("id", recordedAudio.id);
-  } else {
-    await supabase.from("log_content_components").insert({
-      content_item_id: promo.existingItemId,
-      component_type: "recorded_audio",
-      sequence: 1,
-      duration_seconds: promo.recordedAudioDurationSeconds,
-      required: true,
-      dad_cart_number: promo.representativeCutNumber,
-    });
+  if (componentsReadError) {
+    console.error("Could not read a promo\'s components:", componentsReadError);
+    return { ok: false, error: `Could not read the ${promo.programName} promo's components.` };
   }
 
-  if (liveOutro) {
-    await supabase
-      .from("log_content_components")
-      .update({ duration_seconds: promo.tagDurationSeconds, script: promo.tagScript, required: false })
-      .eq("id", liveOutro.id);
-  } else {
-    await supabase.from("log_content_components").insert({
-      content_item_id: promo.existingItemId,
-      component_type: "live_outro",
-      sequence: 2,
-      duration_seconds: promo.tagDurationSeconds,
-      required: false,
-      script: promo.tagScript,
-    });
+  const recordedAudio = (components ?? []).find(
+    (component) => component.component_type === "recorded_audio",
+  );
+  const liveOutro = (components ?? []).find(
+    (component) => component.component_type === "live_outro",
+  );
+
+  const componentWrites = [
+    recordedAudio
+      ? await supabase
+          .from("log_content_components")
+          .update({
+            duration_seconds: promo.recordedAudioDurationSeconds,
+            dad_cart_number: promo.representativeCutNumber,
+          })
+          .eq("id", recordedAudio.id)
+      : await supabase.from("log_content_components").insert({
+          content_item_id: promo.existingItemId,
+          component_type: "recorded_audio",
+          sequence: 1,
+          duration_seconds: promo.recordedAudioDurationSeconds,
+          required: true,
+          dad_cart_number: promo.representativeCutNumber,
+        }),
+    liveOutro
+      ? await supabase
+          .from("log_content_components")
+          .update({
+            duration_seconds: promo.tagDurationSeconds,
+            script: promo.tagScript,
+            required: false,
+          })
+          .eq("id", liveOutro.id)
+      : await supabase.from("log_content_components").insert({
+          content_item_id: promo.existingItemId,
+          component_type: "live_outro",
+          sequence: 2,
+          duration_seconds: promo.tagDurationSeconds,
+          required: false,
+          script: promo.tagScript,
+        }),
+  ];
+  const writeError = componentWrites.find((write) => write.error)?.error;
+  if (writeError) {
+    console.error("Could not update a promo's components:", writeError);
+    return { ok: false, error: `Could not update the ${promo.programName} promo's components.` };
   }
 
   return { ok: true, created: false };
 }
 
-export async function executeDadLibraryImport(planJson: string): Promise<ExecuteDadLibraryImportResult> {
+export async function executeDadLibraryImport(
+  planJson: string,
+): Promise<ExecuteDadLibraryImportResult> {
   const { profile } = await assertLogAccess();
 
   let plan: DadLibraryPlan;
@@ -198,8 +243,10 @@ export async function executeDadLibraryImport(planJson: string): Promise<Execute
         created_by: profile.id,
       })),
     );
-    if (error) failures.push(`Could not create ${toCreate.length} new content item(s).`);
-    else itemsCreated = toCreate.length;
+    if (error) {
+      console.error("Could not create content items:", error);
+      failures.push(`Could not create ${toCreate.length} new content item(s).`);
+    } else itemsCreated = toCreate.length;
   }
 
   for (const item of toUpdate) {
@@ -213,8 +260,10 @@ export async function executeDadLibraryImport(planJson: string): Promise<Execute
         approval_status: "approved",
       })
       .eq("id", item.existingItemId!);
-    if (error) failures.push(`Could not update "${item.title}" (cart ${item.cutNumber}).`);
-    else itemsUpdated += 1;
+    if (error) {
+      console.error("Could not update a content item:", error);
+      failures.push(`Could not update "${item.title}" (cart ${item.cutNumber}).`);
+    } else itemsUpdated += 1;
   }
 
   let promosCreated = 0;

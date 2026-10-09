@@ -1,26 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /** Copies a DAD cut number to the clipboard, so it can be pasted into DAD when recording. */
 export function CopyCutButton({ cut }: { cut: string }) {
-  const [copied, setCopied] = useState(false);
+  const { copy, status } = useCopyToClipboard(1500);
+  const copied = status === "copied";
   return (
     <Button
       type="button"
       variant="secondary"
       size="sm"
       aria-label={`Copy cut ${cut}`}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(cut);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch {
-          setCopied(false);
-        }
-      }}
+      onClick={() => void copy(cut)}
     >
       <svg
         width="14"

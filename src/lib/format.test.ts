@@ -6,6 +6,8 @@ import {
   formatShortDate,
   formatShortDateTime,
   formatUsd,
+  daysSince,
+  pluralize,
 } from "./format";
 
 describe("formatBytes", () => {
@@ -36,5 +38,27 @@ describe("dates and money", () => {
   });
   it("formats whole dollars", () => {
     expect(formatUsd(1150)).toBe("$1,150");
+  });
+});
+
+describe("pluralize", () => {
+  it("pluralizes by count", () => {
+    expect(pluralize(1, "day")).toBe("1 day");
+    expect(pluralize(0, "day")).toBe("0 days");
+    expect(pluralize(3, "day")).toBe("3 days");
+  });
+  it("takes an irregular plural and prints fractions", () => {
+    expect(pluralize(2, "person", "people")).toBe("2 people");
+    expect(pluralize(2.5, "hour")).toBe("2.5 hours");
+  });
+});
+
+describe("daysSince", () => {
+  const now = new Date("2026-10-09T12:00:00Z");
+  it("counts whole days, floored", () => {
+    expect(daysSince("2026-10-06T13:00:00Z", now)).toBe(2);
+  });
+  it("is never negative", () => {
+    expect(daysSince("2026-10-20T00:00:00Z", now)).toBe(0);
   });
 });

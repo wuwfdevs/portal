@@ -13,10 +13,9 @@ import { defineCapability } from "@/lib/capabilities/define";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { generateJoinToken, storagePrefixFor } from "./tokens";
 import { logAuditEvent } from "@/lib/audit";
+import type { ActionResult } from "@/lib/action-response";
 
-export type CreateSessionResult =
-  | { ok: true; sessionId: string; url: string }
-  | { ok: false; message: string };
+export type CreateSessionResult = ActionResult<{ sessionId: string; url: string }>;
 
 /**
  * Creates a session and its host participant row together. The host is a
@@ -37,7 +36,7 @@ export const createSession = defineCapability({
   confirmation: "none",
   async handler({ supabase }, input): Promise<CreateSessionResult> {
     const { profile } = await assertToolAccess("remote-interview");
-    if (!input.title) return { ok: false, message: "Give the session a title." };
+    if (!input.title) return { ok: false, error: "Give the session a title." };
 
     const { data: session, error: sessionError } = await supabase
       .from("ri_sessions")
@@ -51,10 +50,10 @@ export const createSession = defineCapability({
       .single();
     if (sessionError) {
       console.error("Could not create the session:", sessionError);
-      return { ok: false, message: `Could not create the session: ${sessionError.message}` };
+      return { ok: false, error: `Could not create the session: ${sessionError.message}` };
     }
     if (!session) {
-      return { ok: false, message: "Could not create the session — no row was created." };
+      return { ok: false, error: "Could not create the session — no row was created." };
     }
 
     const hostId = randomUUID();
@@ -72,7 +71,7 @@ export const createSession = defineCapability({
       console.error("Created the session, but could not add host:", hostError);
       return {
         ok: false,
-        message: `Created the session, but could not add you as host: ${hostError.message}`,
+        error: `Created the session, but could not add you as host: ${hostError.message}`,
       };
     }
 

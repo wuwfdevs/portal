@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { field, optionalField } from "@/lib/form-fields";
 import { assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { parseNprMapping } from "@/lib/log/program-npr";
@@ -15,15 +16,6 @@ const NEW_PROGRAM_PATH = `${LIST_PATH}?new=1`;
 
 function programPath(id: string): string {
   return `${LIST_PATH}/${id}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
 }
 
 const PROGRAM_KINDS: LogProgramKind[] = ["recurring", "special"];
@@ -217,6 +209,8 @@ export async function updateProgram(formData: FormData): Promise<void> {
   if (!data || data.length === 0) failWith(editPath, "Could not save the program.");
 
   if (before.npr_collection_id !== npr.collectionId) {
+    // A cache clear: the program may have no cached episodes from today on, so
+    // zero deleted rows is the normal case, not a refusal.
     const { error: clearError } = await supabase
       .from("log_npr_episodes")
       .delete()

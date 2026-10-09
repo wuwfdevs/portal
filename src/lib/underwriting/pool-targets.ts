@@ -7,6 +7,8 @@
  */
 
 import type { UwTimeMode } from "@/lib/database.types";
+import { optionalField } from "@/lib/form-fields";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { normalizeWindowEnd } from "./schedule-line-form";
 
 export interface PoolTargetInput {
@@ -22,11 +24,6 @@ export type ParsedPoolTarget =
   | { kind: "error"; message: string }
   | { kind: "target"; target: PoolTargetInput };
 
-function optional(formData: FormData, name: string): string | null {
-  const value = String(formData.get(name) ?? "").trim();
-  return value === "" ? null : value;
-}
-
 /**
  * Reads the target fields under `prefix` (e.g. `target_3_`). A row with no
  * program, no window, no days, and no notes is `blank` — the create card
@@ -34,10 +31,10 @@ function optional(formData: FormData, name: string): string | null {
  * rather than saved as an "any program, any time" target by accident.
  */
 export function parseTarget(formData: FormData, prefix: string): ParsedPoolTarget {
-  const programId = optional(formData, `${prefix}program_id`);
-  const windowStart = optional(formData, `${prefix}window_start`);
-  const windowEnd = normalizeWindowEnd(optional(formData, `${prefix}window_end`));
-  const notes = optional(formData, `${prefix}notes`);
+  const programId = optionalField(formData, `${prefix}program_id`);
+  const windowStart = optionalField(formData, `${prefix}window_start`);
+  const windowEnd = normalizeWindowEnd(optionalField(formData, `${prefix}window_end`));
+  const notes = optionalField(formData, `${prefix}notes`);
   const days = [
     ...new Set(
       formData
@@ -177,34 +174,31 @@ export type PoolReachability =
   /** Targets exist and none serves the line's program, days, or time — a contradiction to refuse. */
   | { kind: "unreachable"; why: "program" | "days" | "time" };
 
-function minutes(time: string): number {
-  const [hour, minute] = time.split(":");
-  return Number(hour) * 60 + Number(minute);
-}
-
 /** Does this target's window (null = any time) admit a break the line's time rule could use? */
 function targetReachesTime(target: PoolTargetReach, line: LineReachLike): boolean {
   if (target.window_start === null || target.window_end === null) return true;
-  const start = minutes(target.window_start);
-  const end = minutes(target.window_end);
+  const start = parseTimeToMinutes(target.window_start);
+  const end = parseTimeToMinutes(target.window_end);
   switch (line.time_mode) {
     case "preferred": {
       if (line.preferred_time === null) return true;
-      const at = minutes(line.preferred_time);
+      const at = parseTimeToMinutes(line.preferred_time);
       return at >= start && at < end;
     }
     case "exact": {
       // A break up to the guard's tolerance either side satisfies the line,
       // so the window only has to touch that band.
       if (line.preferred_time === null) return true;
-      const at = minutes(line.preferred_time);
+      const at = parseTimeToMinutes(line.preferred_time);
       return (
         at + EXACT_REACH_TOLERANCE_MINUTES >= start && at - EXACT_REACH_TOLERANCE_MINUTES < end
       );
     }
     case "window": {
       if (line.window_start === null || line.window_end === null) return true;
-      return minutes(line.window_start) < end && minutes(line.window_end) > start;
+      return (
+        parseTimeToMinutes(line.window_start) < end && parseTimeToMinutes(line.window_end) > start
+      );
     }
     case "any":
     case "opening":
@@ -246,7 +240,7 @@ const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frid
 
 /** "16:48:00" → "4:48 PM". */
 export function formatWallClock(time: string): string {
-  const total = minutes(time);
+  const total = parseTimeToMinutes(time);
   const hour24 = Math.floor(total / 60);
   const minute = total % 60;
   const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;

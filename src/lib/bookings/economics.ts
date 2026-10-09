@@ -14,13 +14,14 @@
 // Costs are exact (never rounded to cents or to the card's $25 step); the card's
 // rounding is a pricing policy applied to the rate only (§19.1).
 
+import { roundTo } from "@/lib/money";
 import type { BkEstimateLineKind, BkPricingTreatment } from "@/lib/database.types";
 import { adjustedLinePrice, isAdjusted, unitCostsFromRows, type UnitCostRowLike } from "./pricing";
 import type { HoursByClass } from "./scheduling";
 
 /** Six decimals: floating-point noise out, no rounding to cents or to the card's step. */
 export function exactAmount(value: number): number {
-  return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
+  return roundTo(value, 6);
 }
 
 export interface EconomicsLine {
@@ -157,12 +158,20 @@ export function computeEconomics(
         const costs = unitCostsFromRows(unitCosts);
         for (const [classId, hours] of Object.entries(line.labor_hours)) {
           const rate = costs.labor.find((l) => l.id === classId);
-          if (!rate) return { ok: false, error: `${line.label} uses a labor class the rate card has no cost for.` };
+          if (!rate)
+            return {
+              ok: false,
+              error: `${line.label} uses a labor class the rate card has no cost for.`,
+            };
           laborCost += Number(hours) * rate.hourly * quantity;
         }
         for (const [poolId, units] of Object.entries(line.resource_units ?? {})) {
           const rate = costs.pools.find((p) => p.id === poolId);
-          if (!rate) return { ok: false, error: `${line.label} uses equipment or space the rate card has no cost for.` };
+          if (!rate)
+            return {
+              ok: false,
+              error: `${line.label} uses equipment or space the rate card has no cost for.`,
+            };
           resourceCost += Number(units) * rate.perUnit * quantity;
         }
         const adjusted = adjustedLinePrice(
@@ -194,7 +203,10 @@ export function computeEconomics(
         (c) => c.kind === "labor" && c.labor_class_id === line.labor_class_id,
       );
       if (!cardLine || cardLine.exact_cost === null) {
-        return { ok: false, error: `${line.label}'s cost can't be modeled from the rate card in use.` };
+        return {
+          ok: false,
+          error: `${line.label}'s cost can't be modeled from the rate card in use.`,
+        };
       }
       const hours = Object.values(line.labor_hours).reduce((total, h) => total + Number(h), 0);
       laborCost = Number(cardLine.exact_cost) * hours * quantity;

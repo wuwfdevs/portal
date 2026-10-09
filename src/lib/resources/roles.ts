@@ -7,10 +7,12 @@
 // else (or no grant) is a reader. Matching mirrors the private.
 // is_resources_editor() SQL helper, which is where it is enforced.
 
+import { singleRole } from "@/lib/role-keys";
+
 export type ResourcesRole = "reader" | "editor";
 
 export function normalizeToolRole(toolRole: string | null): ResourcesRole {
-  return toolRole?.trim().toLowerCase() === "editor" ? "editor" : "reader";
+  return singleRole(toolRole, "editor", "reader");
 }
 
 /** What each recognized tool_role value means, for the admin grant UI's dropdown. */

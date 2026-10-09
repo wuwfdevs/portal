@@ -11,7 +11,6 @@ import {
   formatPlacementDateTime,
   listPlaceableRundownBreaks,
   listProgramOptions,
-  type PlaceableRundownBreak,
 } from "@/lib/underwriting/placement";
 import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
@@ -29,6 +28,7 @@ import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { groupBy, indexBy } from "@/lib/collections";
 
 /**
  * Place a credit by hand (docs/underwriting-traffic-redesign.md §11.7) —
@@ -61,7 +61,7 @@ export default async function PlaceCreditPage({
     line.status === "active" &&
     line.revision_id === contract.currentRevision?.id;
 
-  const linkByCopy = new Map(contract.copyLinks.map((link) => [link.copy_id, link]));
+  const linkByCopy = indexBy(contract.copyLinks, (link) => link.copy_id);
   const lineScopes = contract.copyLinks.map((link) => ({ lineId: link.schedule_line_id }));
   const lineCopy = contract.copy.filter((item) => {
     const link = linkByCopy.get(item.id);
@@ -92,18 +92,16 @@ export default async function PlaceCreditPage({
   );
 
   const rows = buildPeriodRows(view.buckets, view.placements);
-  const rowByBucket = new Map(rows.map((row) => [row.bucketId, row]));
+  const rowByBucket = indexBy(rows, (row) => row.bucketId);
   const weekRow = week ? (rowByBucket.get(week) ?? null) : null;
   const breaks = placeable?.ok ? placeable.breaks : [];
   const scoped = weekRow ? breaks.filter((brk) => brk.bucket_id === weekRow.bucketId) : breaks;
 
   const groups: BreakPickerGroup[] = [];
-  const byBucket = new Map<string, PlaceableRundownBreak[]>();
-  for (const brk of [...scoped].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))) {
-    const list = byBucket.get(brk.bucket_id) ?? [];
-    list.push(brk);
-    byBucket.set(brk.bucket_id, list);
-  }
+  const byBucket = groupBy(
+    [...scoped].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)),
+    (brk) => brk.bucket_id,
+  );
   for (const [bucketId, list] of [...byBucket].sort(([a], [b]) => {
     const ra = rowByBucket.get(a);
     const rb = rowByBucket.get(b);

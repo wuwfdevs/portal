@@ -5,7 +5,7 @@ import {
   answerObjectPath,
   describeDuration,
   extensionForContentType,
-  formatClock,
+  formatStopwatch,
   isAllowedAnswerType,
   normalizeContentType,
 } from "./media";
@@ -87,16 +87,16 @@ describe("answerDownloadFilename", () => {
   });
 });
 
-describe("formatClock", () => {
+describe("formatStopwatch", () => {
   it("reads as a stopwatch", () => {
-    expect(formatClock(0)).toBe("0:00");
-    expect(formatClock(9)).toBe("0:09");
-    expect(formatClock(65)).toBe("1:05");
-    expect(formatClock(600)).toBe("10:00");
+    expect(formatStopwatch(0)).toBe("0:00");
+    expect(formatStopwatch(9)).toBe("0:09");
+    expect(formatStopwatch(65)).toBe("1:05");
+    expect(formatStopwatch(600)).toBe("10:00");
   });
 
   it("never shows a negative time", () => {
-    expect(formatClock(-3)).toBe("0:00");
+    expect(formatStopwatch(-3)).toBe("0:00");
   });
 });
 

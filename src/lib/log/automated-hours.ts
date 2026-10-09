@@ -14,6 +14,7 @@
 // day-segment logic is shared with underwriting-hours.ts (hours closed to
 // underwriting auto-fill), which has the same shape of record.
 
+import { dayOfWeekISO } from "@/lib/dates";
 import { STATION_TIME_ZONE, shiftDateISO, stationLocalDateTimeToUTC } from "./timezone";
 
 export interface WeeklyAutomatedWindow {
@@ -64,7 +65,7 @@ export function stationLocalParts(instantISO: string): StationLocalParts {
   const dateISO = `${parts.year}-${parts.month}-${parts.day}`;
   return {
     dateISO,
-    dayOfWeek: new Date(`${dateISO}T00:00:00Z`).getUTCDay(),
+    dayOfWeek: dayOfWeekISO(dateISO),
     seconds: Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second),
   };
 }

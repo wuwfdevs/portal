@@ -6,12 +6,13 @@ import {
   joinWaitingRoom,
   logPreflightResult,
 } from "@/lib/remote-interview/guest";
+import type { ActionResult } from "@/lib/action-response";
 import { createMeetingToken, ensureRoom } from "@/lib/remote-interview/daily";
 
 const INVALID_LINK_MESSAGE =
   "This link isn't valid, or it has expired or been revoked. Ask the host to send you a new one.";
 
-export type BindResult = { ok: true } | { ok: false; message: string };
+export type BindResult = ActionResult;
 
 /**
  * Called once, client-side, on first load of /join/[token]: establishes an
@@ -21,7 +22,7 @@ export type BindResult = { ok: true } | { ok: false; message: string };
 export async function bindGuestJoin(token: string): Promise<BindResult> {
   const participant = await bindGuestParticipant(token);
   if (!participant) {
-    return { ok: false, message: INVALID_LINK_MESSAGE };
+    return { ok: false, error: INVALID_LINK_MESSAGE };
   }
   return { ok: true };
 }
@@ -35,7 +36,7 @@ export type PreflightSubmission = {
   userAgent: string;
 };
 
-export type CompletePreflightResult = { ok: true } | { ok: false; message: string };
+export type CompletePreflightResult = ActionResult;
 
 /** Marks preflight done and moves the guest into the waiting room (design doc §3B → §3C). */
 export async function completePreflight(
@@ -43,14 +44,14 @@ export async function completePreflight(
 ): Promise<CompletePreflightResult> {
   const displayName = submission.displayName.trim();
   if (!displayName) {
-    return { ok: false, message: "Enter your name before continuing." };
+    return { ok: false, error: "Enter your name before continuing." };
   }
 
   const participant = await joinWaitingRoom(submission.participantId, displayName);
   if (!participant) {
     return {
       ok: false,
-      message: "Couldn't join the waiting room — this link may have been revoked. Reload the page.",
+      error: "Couldn't join the waiting room — this link may have been revoked. Reload the page.",
     };
   }
 
@@ -66,8 +67,7 @@ export async function completePreflight(
 }
 
 export type GuestCallCredentials = { roomUrl: string; token: string };
-export type GetGuestCallTokenResult =
-  { ok: true; data: GuestCallCredentials } | { ok: false; message: string };
+export type GetGuestCallTokenResult = ActionResult<{ data: GuestCallCredentials }>;
 
 /**
  * Mints a non-owner Daily join token for an admitted guest (design doc §3D:
@@ -81,13 +81,13 @@ export type GetGuestCallTokenResult =
 export async function getGuestCallToken(token: string): Promise<GetGuestCallTokenResult> {
   const participant = await getBoundParticipant(token);
   if (!participant) {
-    return { ok: false, message: INVALID_LINK_MESSAGE };
+    return { ok: false, error: INVALID_LINK_MESSAGE };
   }
   if (participant.revoked_at) {
-    return { ok: false, message: INVALID_LINK_MESSAGE };
+    return { ok: false, error: INVALID_LINK_MESSAGE };
   }
   if (!participant.admitted_at) {
-    return { ok: false, message: "You haven't been admitted yet." };
+    return { ok: false, error: "You haven't been admitted yet." };
   }
 
   try {
@@ -103,7 +103,7 @@ export async function getGuestCallToken(token: string): Promise<GetGuestCallToke
     console.error("getGuestCallToken failed:", err);
     return {
       ok: false,
-      message: err instanceof Error ? err.message : "Could not reach the call provider.",
+      error: err instanceof Error ? err.message : "Could not reach the call provider.",
     };
   }
 }

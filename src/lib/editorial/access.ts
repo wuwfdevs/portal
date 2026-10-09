@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ForbiddenError, requireActiveProfile } from "@/lib/auth/authz";
 import { getCurrentProfile, type Profile } from "@/lib/auth/session";
 import { isActive } from "@/lib/auth/predicates";
+import { unwrapRead } from "@/lib/read-result";
 import { normalizeToolRole, roleAtLeast, type EditorialRole } from "./roles";
 
 export const EDITORIAL_TOOL_KEY = "editorial-planning";
@@ -16,20 +17,22 @@ export interface EditorialContext {
 
 async function lookupContext(profile: Profile): Promise<EditorialContext | null> {
   const supabase = await createClient();
-  const { data: tool } = await supabase
-    .from("tools")
-    .select("id, enabled")
-    .eq("key", EDITORIAL_TOOL_KEY)
-    .maybeSingle();
+  const tool = unwrapRead(
+    await supabase.from("tools").select("id, enabled").eq("key", EDITORIAL_TOOL_KEY).maybeSingle(),
+    "the Editorial Planning tool",
+  );
   if (!tool?.enabled) return null;
 
-  const { data: grant } = await supabase
-    .from("tool_access")
-    .select("tool_role")
-    .eq("user_id", profile.id)
-    .eq("tool_id", tool.id)
-    .is("revoked_at", null)
-    .maybeSingle();
+  const grant = unwrapRead(
+    await supabase
+      .from("tool_access")
+      .select("tool_role")
+      .eq("user_id", profile.id)
+      .eq("tool_id", tool.id)
+      .is("revoked_at", null)
+      .maybeSingle(),
+    "your Editorial Planning access",
+  );
   if (!grant) return null;
 
   return { profile, role: normalizeToolRole(grant.tool_role), toolId: tool.id };

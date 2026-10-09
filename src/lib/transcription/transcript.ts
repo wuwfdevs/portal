@@ -3,6 +3,7 @@
 
 import type { TranscribedWord } from "./asr-provider";
 import { formatDuration } from "./media";
+import { countWords } from "@/lib/text";
 
 export function speakerDisplayLabel(diarizationLabel: string, displayName: string | null): string {
   return displayName?.trim() || `Speaker ${diarizationLabel}`;
@@ -160,11 +161,6 @@ export function partitionWords(
 
   const boundary = Math.min(countWords(text.slice(0, splitAtChar)), words.length);
   return { first: words.slice(0, boundary), second: words.slice(boundary) };
-}
-
-function countWords(text: string): number {
-  const trimmed = text.trim();
-  return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
 /**

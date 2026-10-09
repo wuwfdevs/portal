@@ -11,6 +11,9 @@ import { getSourceRef } from "@/lib/transcription/projects";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { sourcePath } from "@/lib/transcription/links";
+import { ilikeTerm } from "@/lib/list-search";
+import { field, optionalField } from "@/lib/form-fields";
+import { isValidDateISO } from "@/lib/dates";
 import type { SwSourceKind } from "@/lib/database.types";
 
 // Attaching an existing source to a second project (docs/sourcework-design.md
@@ -38,14 +41,18 @@ export interface AttachableSource {
 export async function listAttachableSources(
   projectId: string,
   query: string,
-): Promise<AttachableSource[]> {
+): Promise<{ sources: AttachableSource[]; error: string | null }> {
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: attached } = await supabase
+  const { data: attached, error: attachedError } = await supabase
     .from("sw_project_sources")
     .select("source_id")
     .eq("project_id", projectId);
+  if (attachedError) {
+    console.error("Read failed (a project's attached sources):", attachedError);
+    return { sources: [], error: "Could not load the sources. Please try again." };
+  }
   const attachedIds = new Set((attached ?? []).map((row) => row.source_id));
 
   let sourceQuery = supabase
@@ -53,22 +60,28 @@ export async function listAttachableSources(
     .select("id, kind, title, interview_date, original_duration_ms, page_count")
     .order("created_at", { ascending: false })
     .limit(50);
-  const trimmed = query.trim();
-  if (trimmed) sourceQuery = sourceQuery.ilike("title", `%${trimmed}%`);
+  const term = ilikeTerm(query);
+  if (term) sourceQuery = sourceQuery.ilike("title", `%${term}%`);
 
   const { data, error } = await sourceQuery;
-  if (error) return [];
+  if (error) {
+    console.error("Read failed (the attachable sources):", error);
+    return { sources: [], error: "Could not load the sources. Please try again." };
+  }
 
-  return (data ?? [])
-    .filter((source) => !attachedIds.has(source.id))
-    .map((source) => ({
-      id: source.id,
-      kind: source.kind,
-      title: source.title,
-      interviewDate: source.interview_date,
-      durationMs: source.original_duration_ms,
-      pageCount: source.page_count,
-    }));
+  return {
+    error: null,
+    sources: (data ?? [])
+      .filter((source) => !attachedIds.has(source.id))
+      .map((source) => ({
+        id: source.id,
+        kind: source.kind,
+        title: source.title,
+        interviewDate: source.interview_date,
+        durationMs: source.original_duration_ms,
+        pageCount: source.page_count,
+      })),
+  };
 }
 
 /** Attaches an existing source to a project — the many-to-many shape sw_project_sources has carried since Phase 1. */
@@ -82,7 +95,10 @@ export async function attachSourceToProject(
   const { error } = await supabase
     .from("sw_project_sources")
     .insert({ project_id: projectId, source_id: sourceId, added_by: profile.id });
-  if (error) return { error: "Could not attach that source. Please try again." };
+  if (error) {
+    console.error("Could not attach that source. Please try again:", error);
+    return { error: "Could not attach that source. Please try again." };
+  }
 
   revalidatePath(`/sourcework/${projectId}`);
   return {};
@@ -103,12 +119,16 @@ export async function removeSourceFromProject(
   await assertToolAccess("transcription");
   const supabase = await createClient();
 
+  // Deliberately idempotent: detaching a source that is already detached is the state asked for.
   const { error } = await supabase
     .from("sw_project_sources")
     .delete()
     .eq("project_id", projectId)
     .eq("source_id", sourceId);
-  if (error) return { error: "Could not remove that source from the project." };
+  if (error) {
+    console.error("Could not detach the source:", error);
+    return { error: "Could not remove that source from the project." };
+  }
 
   revalidatePath(`/sourcework/${projectId}`);
   revalidatePath("/sourcework");
@@ -129,11 +149,15 @@ export async function deleteSourceEntirely(sourceId: string): Promise<{ error?: 
   const { profile } = await assertToolAccess("transcription");
   const supabase = await createClient();
 
-  const { data: source } = await supabase
+  const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
     .select("created_by")
     .eq("id", sourceId)
     .maybeSingle();
+  if (sourceError) {
+    console.error("Could not read the source to delete:", sourceError);
+    return { error: "Could not delete the source. Please try again." };
+  }
 
   if (!source || source.created_by !== profile.id) {
     return { error: "You can only delete a source you uploaded." };
@@ -229,10 +253,11 @@ export async function failSourceUpload(input: {
   await assertToolAccess("transcription");
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("sw_sources")
     .update({ status: "failed", error_message: input.message })
     .eq("id", input.sourceId);
+  if (error) console.error("Could not mark the source upload failed:", error);
 
   revalidatePath(`/sourcework/${input.projectId}`);
 }
@@ -248,18 +273,19 @@ export async function failSourceUpload(input: {
 export async function updateSource(formData: FormData): Promise<void> {
   await assertToolAccess("transcription");
 
-  const sourceId = String(formData.get("source_id") ?? "");
-  const projectId = String(formData.get("project_id") ?? "") || null;
+  const sourceId = field(formData, "source_id");
+  const projectId = optionalField(formData, "project_id");
   const back = sourcePath(sourceId, { projectId });
+  // withQuery would add a second "?" when `back` already carries ?project=.
   const editPath = `${back}${back.includes("?") ? "&" : "?"}edit=1`;
 
-  const title = String(formData.get("title") ?? "").trim();
+  const title = field(formData, "title");
   if (!title) failWith(editPath, "A source needs a title.");
 
   const update: { title: string; interview_date?: string | null } = { title };
   if (formData.has("interview_date")) {
-    const date = String(formData.get("interview_date") ?? "").trim();
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) failWith(editPath, "That date isn't valid.");
+    const date = field(formData, "interview_date");
+    if (date && !isValidDateISO(date)) failWith(editPath, "That date isn't valid.");
     update.interview_date = date || null;
   }
 
@@ -267,10 +293,11 @@ export async function updateSource(formData: FormData): Promise<void> {
   const { error } = await supabase.from("sw_sources").update(update).eq("id", sourceId);
   failIfError(error, editPath, "Could not save the source");
 
-  const { data: representations } = await supabase
+  const { data: representations, error: representationsError } = await supabase
     .from("sw_representations")
     .select("id")
     .eq("source_id", sourceId);
+  failIfError(representationsError, editPath, "Could not re-index the source");
   for (const representation of representations ?? []) {
     await embedPendingForRepresentation(supabase, representation.id);
   }

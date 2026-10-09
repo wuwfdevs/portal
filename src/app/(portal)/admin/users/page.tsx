@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,22 +25,31 @@ function formatDate(value: string | null): string {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string; invited?: string; resent?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    invited?: string;
+    resent?: string;
+    error?: string;
+  }>;
 }) {
-  const { status: statusFilter, q, invited, resent } = await searchParams;
+  const { status: statusFilter, q, invited, resent, error } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: profiles }, { data: grants }, { data: tools }, { data: pendingRequests }] =
-    await Promise.all([
-      supabase.from("profiles").select("*").order("display_name"),
-      supabase.from("tool_access").select("user_id, tool_id").is("revoked_at", null),
-      supabase.from("tools").select("id, name").neq("status", "proposed"),
-      supabase
-        .from("access_requests")
-        .select("*")
-        .eq("status", "pending")
-        .order("requested_at", { ascending: false }),
-    ]);
+  const [profilesResult, grantsResult, toolsResult, pendingResult] = await Promise.all([
+    supabase.from("profiles").select("*").order("display_name"),
+    supabase.from("tool_access").select("user_id, tool_id").is("revoked_at", null),
+    supabase.from("tools").select("id, name").neq("status", "proposed"),
+    supabase
+      .from("access_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("requested_at", { ascending: false }),
+  ]);
+  const profiles = unwrapRead(profilesResult, "the users");
+  const grants = unwrapRead(grantsResult, "the users' tool access");
+  const tools = unwrapRead(toolsResult, "the tools");
+  const pendingRequests = unwrapRead(pendingResult, "the pending access requests");
 
   const toolNameById = new Map((tools ?? []).map((tool) => [tool.id, tool.name]));
   const accessByUser = new Map<string, string[]>();
@@ -83,6 +93,7 @@ export default async function AdminUsersPage({
         <PrimaryLink href="/admin/users/invite">+ Invite user</PrimaryLink>
       </ListToolbar>
 
+      {error && <Alert className="mb-4">{error}</Alert>}
       {(invited || resent) && (
         <Alert variant="success" className="mb-4">
           {invited ? `Invitation sent to ${invited}.` : `Invitation re-sent to ${resent}.`}

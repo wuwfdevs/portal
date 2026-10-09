@@ -4,17 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertUnderwritingAccess } from "@/lib/underwriting/access";
-import { failWith } from "@/lib/editorial/action-result";
+import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { clearCredit, placeCredit } from "@/lib/underwriting/placement";
 import {
   rebalanceContractRotation,
   resolveCopyForBreak,
 } from "@/lib/underwriting/rotation-rebalance";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
+import { field } from "@/lib/form-fields";
 
 function contractPath(id: string): string {
   return `/underwriting/contracts/${id}`;
@@ -72,11 +69,12 @@ export async function placeCreditAction(formData: FormData): Promise<void> {
   // docs/underwriting-design.md §6's "overriding expired/unapproved copy
   // into a placement" as one of the four privileged, audited actions.
   const supabase = await createClient();
-  const { data: placement } = await supabase
+  const { data: placement, error: placementError } = await supabase
     .from("uw_scheduled_placements")
     .select("override_reason")
     .eq("id", result.placementId)
     .maybeSingle();
+  failIfError(placementError, failPath, "Could not read the new placement");
   if (placement?.override_reason) {
     await logAuditEvent({
       actorId: profile.id,

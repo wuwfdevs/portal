@@ -22,7 +22,10 @@ export async function searchDadCuts(
   await assertUnderwritingAccess();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("log_search_dad_cuts", { p_query: query });
-  if (error) return { ok: false, error: "Could not search the DAD library." };
+  if (error) {
+    console.error("Could not search the DAD library", error);
+    return { ok: false, error: "Could not search the DAD library." };
+  }
   if (!data || "error" in data) return { ok: false, error: "Could not search the DAD library." };
   return { ok: true, cuts: data.cuts };
 }

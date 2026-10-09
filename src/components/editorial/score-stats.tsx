@@ -1,5 +1,6 @@
 import { StatTile } from "@/components/ui/stat-tile";
 import { formatScore } from "@/lib/editorial/format";
+import { pluralize } from "@/lib/format";
 
 /**
  * A round's three scores as labeled stat tiles,
@@ -54,7 +55,7 @@ export function ScoreStats({
             <span aria-hidden="true"> · </span>
           </>
         )}
-        {reviewerCount} {reviewerCount === 1 ? "review" : "reviews"}
+        {pluralize(reviewerCount, "review")}
       </p>
     </div>
   );

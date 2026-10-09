@@ -76,7 +76,7 @@ export function Call({
       const result = await getGuestCallToken(token);
       if (cancelled) return;
       if (!result.ok) {
-        setCallError(result.message);
+        setCallError(result.error);
         setCallState("error");
         return;
       }

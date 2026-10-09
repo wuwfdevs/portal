@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/input";
 import { useRightPanel } from "@/components/right-panel";
+import { readSseEvents, SSE_STOPPED_MESSAGE, SSE_UNREACHABLE_MESSAGE } from "@/lib/read-sse";
 
 // The in-portal agent's chat surface (Phase D, docs/agent-capabilities-design.md
 // §7) — a persistent bubble that toggles a panel, available on every portal
@@ -142,11 +143,17 @@ export function AgentChatWidget() {
     box.setSelectionRange(box.value.length, box.value.length);
   }, [appliedDraftId]);
 
+  // Leaving the portal mid-reply aborts the stream, so nothing lands after unmount.
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [history, pending, loading, streamingText]);
 
   async function postChat(body: Record<string, unknown>): Promise<void> {
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     setStreamingText("");
@@ -155,6 +162,7 @@ export function AgentChatWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
       if (!response.ok || !response.body) {
         const data = await response.json().catch(() => null);
@@ -162,53 +170,37 @@ export function AgentChatWidget() {
         return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let sawTerminalEvent = false;
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() ?? "";
-        for (const chunk of chunks) {
-          const line = chunk.trim();
-          if (!line.startsWith("data:")) continue;
-          let event: AgentStreamEvent;
-          try {
-            event = JSON.parse(line.slice("data:".length).trim()) as AgentStreamEvent;
-          } catch {
-            continue;
-          }
-          if (event.type === "delta") {
-            setStreamingText((text) => (text ?? "") + (event.text ?? ""));
-          } else if (event.type === "pendingConfirmation") {
-            sawTerminalEvent = true;
-            if (event.history) setHistory(event.history);
-            setPending(event.pendingConfirmation ?? null);
-            setStreamingText(null);
-          } else if (event.type === "done") {
-            sawTerminalEvent = true;
-            if (event.history) setHistory(event.history);
-            setStreamingText(null);
-          } else if (event.type === "error") {
-            sawTerminalEvent = true;
-            setError(event.message ?? "Something went wrong.");
-            setStreamingText(null);
-          }
+      for await (const event of readSseEvents<AgentStreamEvent>(response, controller.signal)) {
+        if (event.type === "delta") {
+          setStreamingText((text) => (text ?? "") + (event.text ?? ""));
+        } else if (event.type === "pendingConfirmation") {
+          sawTerminalEvent = true;
+          if (event.history) setHistory(event.history);
+          setPending(event.pendingConfirmation ?? null);
+          setStreamingText(null);
+        } else if (event.type === "done") {
+          sawTerminalEvent = true;
+          if (event.history) setHistory(event.history);
+          setStreamingText(null);
+        } else if (event.type === "error") {
+          sawTerminalEvent = true;
+          setError(event.message ?? "Something went wrong.");
+          setStreamingText(null);
         }
       }
 
+      if (controller.signal.aborted) return;
       if (!sawTerminalEvent) {
-        setError("The assistant stopped responding unexpectedly.");
+        setError(SSE_STOPPED_MESSAGE);
       }
     } catch {
-      setError("Couldn't reach the assistant. Try again.");
+      if (!controller.signal.aborted) setError(SSE_UNREACHABLE_MESSAGE);
     } finally {
-      setStreamingText(null);
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setStreamingText(null);
+        setLoading(false);
+      }
     }
   }
 

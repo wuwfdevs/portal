@@ -7,13 +7,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { pluralize } from "@/lib/format";
+import { isValidDateISO } from "@/lib/dates";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
 import { computeEndTime, entriesInForceOn, formatAirTime } from "@/lib/log/schedule";
 import { RUNDOWN_STATUS } from "@/lib/log/status-badges";
 import { formatStationDateLong, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { generateRundown } from "./rundown-actions";
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 const COUNT_PARAM = /^\d{1,4}$/;
 
@@ -57,7 +57,7 @@ export default async function LogTodayPage({
 }) {
   const { date: dateParam, error, imported, unresolved } = await searchParams;
   const today = stationTodayISO();
-  const selectedDate = dateParam && DATE_ONLY.test(dateParam) ? dateParam : today;
+  const selectedDate = isValidDateISO(dateParam) ? dateParam : today;
   const [programs, scheduleEntries] = await Promise.all([listPrograms(), listScheduleEntries()]);
   // One row per program: a one-time change replaces the recurring entry for its dates.
   const activeOnDate = entriesInForceOn(scheduleEntries, selectedDate).sort((a, b) =>
@@ -144,8 +144,8 @@ export default async function LogTodayPage({
       {importedCount !== null && (
         <Alert variant="success" className="mb-4">
           <strong>
-            Imported {importedCount} {importedCount === 1 ? "rundown" : "rundowns"} for{" "}
-            {formatStationDateLong(selectedDate)}.
+            Imported {pluralize(importedCount, "rundown")} for {formatStationDateLong(selectedDate)}
+            .
           </strong>
           {unresolvedCount > 0 &&
             ` ${unresolvedCount} ${unresolvedCount === 1 ? "row" : "rows"} in the log could not be placed and ${unresolvedCount === 1 ? "was" : "were"} not imported.`}{" "}

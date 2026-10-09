@@ -26,6 +26,7 @@ import { clearCreditAction } from "../../placement-actions";
 import { LineMenu } from "./line-menu";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { pluralize } from "@/lib/format";
 
 export const FULFILLMENT_VARIANT: Record<FulfillmentStatus, BadgeVariant> = {
   no_target: "neutral",
@@ -297,7 +298,7 @@ function LineDetails({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-panel-50 px-3.5 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
-            {rows.length} period{rows.length === 1 ? "" : "s"}
+            {pluralize(rows.length, "period")}
           </span>
           {notes.length > 0 && <span className="text-xs text-ink-500">{notes.join(" · ")}</span>}
         </div>

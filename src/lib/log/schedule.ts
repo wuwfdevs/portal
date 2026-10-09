@@ -3,6 +3,9 @@
 // covers it; the "Today" screen and (once it exists) rundown generation
 // should both call this rather than re-deriving it.
 
+import { groupBy } from "@/lib/collections";
+import { parseTimeToMinutes } from "@/lib/time-of-day";
+import { dayOfWeekISO } from "@/lib/dates";
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
 export interface ScheduleEntryLike {
@@ -22,7 +25,7 @@ export function isScheduleEntryActiveOn(entry: ScheduleEntryLike, dateISO: strin
   if (entry.end_date && entry.end_date < dateISO) return false;
 
   if (entry.days_of_week.length > 0) {
-    const dayOfWeek = new Date(`${dateISO}T00:00:00Z`).getUTCDay();
+    const dayOfWeek = dayOfWeekISO(dateISO);
     return entry.days_of_week.includes(dayOfWeek);
   }
 
@@ -72,12 +75,7 @@ export function entriesInForceOn<T extends ProgramScheduleEntryLike>(
   entries: T[],
   dateISO: string,
 ): T[] {
-  const byProgram = new Map<string, T[]>();
-  for (const entry of entries) {
-    const list = byProgram.get(entry.program_id);
-    if (list) list.push(entry);
-    else byProgram.set(entry.program_id, [entry]);
-  }
+  const byProgram = groupBy(entries, (entry) => entry.program_id);
   const inForce = new Set<T>();
   for (const programEntries of byProgram.values()) {
     const winner = resolveEntryInForce(programEntries, dateISO);
@@ -98,8 +96,7 @@ export function formatAirTime(airTime: string): string {
 
 /** The clock time a program scheduled at `airTime` for `durationMinutes` ends, formatted the same way. */
 export function computeEndTime(airTime: string, durationMinutes: number): string {
-  const [hourStr, minuteStr] = airTime.split(":");
-  const startMinutes = Number(hourStr) * 60 + Number(minuteStr);
+  const startMinutes = parseTimeToMinutes(airTime);
   const endMinutes = (startMinutes + durationMinutes) % (24 * 60);
   const hour = Math.floor(endMinutes / 60);
   const minute = endMinutes % 60;

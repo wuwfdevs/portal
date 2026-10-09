@@ -11,6 +11,8 @@ import {
   documentExtensionFor,
   isAllowedDocumentUploadType,
 } from "@/lib/document-upload";
+import { uploadObject } from "@/lib/upload-object";
+import { actionFailureMessage } from "@/lib/use-action";
 
 type ActionResult = { error?: string | null };
 
@@ -72,17 +74,27 @@ export function RecordDocumentUpload({
     setStatus("uploading");
     const storagePath = `${basePath}.${documentExtensionFor(file.type)}`;
     const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(storagePath, file, { contentType: file.type, upsert: true });
-    if (uploadError) {
-      setError(uploadError.message);
+    const uploaded = await uploadObject({
+      client: supabase,
+      bucket,
+      path: storagePath,
+      body: file,
+      contentType: file.type,
+      upsert: true,
+    });
+    if (!uploaded.ok) {
+      setError(uploaded.message);
       setStatus("idle");
       input.value = "";
       return;
     }
 
-    const result = await complete(storagePath);
+    let result: ActionResult;
+    try {
+      result = await complete(storagePath);
+    } catch (caught) {
+      result = { error: actionFailureMessage(caught) };
+    }
     setStatus("idle");
     input.value = "";
     if (result.error) {

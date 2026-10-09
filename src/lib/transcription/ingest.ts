@@ -1,4 +1,5 @@
 import "server-only";
+import { bestEffort } from "@/lib/transcription/best-effort";
 import type { createClient } from "@/lib/supabase/server";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
@@ -83,7 +84,10 @@ export async function createProjectWithSource(
     .select("id")
     .single();
   if (sourceError || !source) {
-    await supabase.from("tw_projects").delete().eq("id", project.id);
+    await bestEffort(
+      supabase.from("tw_projects").delete().eq("id", project.id),
+      "Could not clean up the partly created project",
+    );
     return { error: sourceError?.message ?? "Could not create the source." };
   }
 
@@ -91,8 +95,14 @@ export async function createProjectWithSource(
     .from("sw_project_sources")
     .insert({ project_id: project.id, source_id: source.id, added_by: input.createdBy });
   if (linkError) {
-    await supabase.from("sw_sources").delete().eq("id", source.id);
-    await supabase.from("tw_projects").delete().eq("id", project.id);
+    await bestEffort(
+      supabase.from("sw_sources").delete().eq("id", source.id),
+      "Could not clean up the partly created source",
+    );
+    await bestEffort(
+      supabase.from("tw_projects").delete().eq("id", project.id),
+      "Could not clean up the partly created project",
+    );
     return { error: linkError.message };
   }
 
@@ -102,8 +112,14 @@ export async function createProjectWithSource(
     status: "pending",
   });
   if (representationError) {
-    await supabase.from("sw_sources").delete().eq("id", source.id);
-    await supabase.from("tw_projects").delete().eq("id", project.id);
+    await bestEffort(
+      supabase.from("sw_sources").delete().eq("id", source.id),
+      "Could not clean up the partly created source",
+    );
+    await bestEffort(
+      supabase.from("tw_projects").delete().eq("id", project.id),
+      "Could not clean up the partly created project",
+    );
     return { error: representationError.message };
   }
 
@@ -179,7 +195,10 @@ export async function createSourceForExistingProject(
     status: "pending",
   });
   if (representationError) {
-    await supabase.from("sw_sources").delete().eq("id", source.id);
+    await bestEffort(
+      supabase.from("sw_sources").delete().eq("id", source.id),
+      "Could not clean up the partly created source",
+    );
     return { error: representationError.message };
   }
 
@@ -187,7 +206,10 @@ export async function createSourceForExistingProject(
     .from("sw_project_sources")
     .insert({ project_id: input.projectId, source_id: source.id, added_by: input.createdBy });
   if (linkError) {
-    await supabase.from("sw_sources").delete().eq("id", source.id);
+    await bestEffort(
+      supabase.from("sw_sources").delete().eq("id", source.id),
+      "Could not clean up the partly created source",
+    );
     return { error: linkError.message };
   }
 
@@ -222,19 +244,25 @@ export async function startTranscriptionForProject(
       !webhookSecret && "TRANSCRIPTION_WEBHOOK_SECRET",
     ].filter((name): name is string => Boolean(name));
     const message = `Transcription isn't configured yet (missing ${missing.join(" and ")}).`;
-    await supabase
-      .from("sw_representations")
-      .update({ status: "failed", error_message: message })
-      .eq("id", representationId);
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({ status: "failed", error_message: message })
+        .eq("id", representationId),
+      "Could not mark the representation failed",
+    );
     return { error: message };
   }
 
   if (!mediaUrl) {
     const message = "Couldn't read the uploaded media file. Please re-upload.";
-    await supabase
-      .from("sw_representations")
-      .update({ status: "failed", error_message: message })
-      .eq("id", representationId);
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({ status: "failed", error_message: message })
+        .eq("id", representationId),
+      "Could not mark the representation failed",
+    );
     return { error: message };
   }
 
@@ -245,7 +273,7 @@ export async function startTranscriptionForProject(
       webhookSecret,
     });
 
-    await supabase
+    const { error: recordError } = await supabase
       .from("sw_representations")
       .update({
         status: "processing",
@@ -253,6 +281,9 @@ export async function startTranscriptionForProject(
         error_message: null,
       })
       .eq("id", representationId);
+    // Without the job id saved the webhook can never find this row, so it is a failure, not a detail.
+    if (recordError)
+      throw new Error(`Could not record the transcription job: ${recordError.message}`);
 
     return {};
   } catch (error) {
@@ -268,10 +299,13 @@ export async function startTranscriptionForProject(
       error: reason,
     });
 
-    await supabase
-      .from("sw_representations")
-      .update({ status: "failed", error_message: message })
-      .eq("id", representationId);
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({ status: "failed", error_message: message })
+        .eq("id", representationId),
+      "Could not mark the representation failed",
+    );
     return { error: message };
   }
 }

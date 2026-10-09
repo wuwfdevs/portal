@@ -45,6 +45,7 @@ import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CONTRACT_STATUS } from "@/lib/underwriting/status";
+import { groupBy, indexBy } from "@/lib/collections";
 
 /** How far ahead an open, unfillable period counts as a conflict worth flagging today. */
 const LOOK_AHEAD_DAYS = 14;
@@ -99,15 +100,16 @@ export default async function UnderwritingDashboardPage({
     listScheduleLinePlacementContexts(scheduleLines),
     loadUnderwritingHours(),
   ]);
-  const poolById = new Map(pools.map((pool) => [pool.id, pool]));
+  const poolById = indexBy(pools, (pool) => pool.id);
   const names = {
     poolNameById: new Map(pools.map((pool) => [pool.id, pool.name])),
     programNameById: new Map(programs.map((program) => [program.id, program.name])),
   };
   const views: ScheduleLineDemandView[] = [];
+  const linesByContract = groupBy(scheduleLines, (line) => line.contract_id);
   for (const contractId of contractIds) {
-    const contract = scheduleLines.find((line) => line.contract_id === contractId)!.contract;
-    const lines = scheduleLines.filter((line) => line.contract_id === contractId);
+    const lines = linesByContract.get(contractId)!;
+    const contract = lines[0]!.contract;
     views.push(...(await buildScheduleLineDemandViews(contract, lines, bucketsByLine, names)));
   }
   const placeableByLine = new Map(

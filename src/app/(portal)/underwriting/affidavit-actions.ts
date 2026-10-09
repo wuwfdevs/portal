@@ -20,6 +20,7 @@ import {
 } from "@/lib/underwriting/affidavits";
 import { renderAffidavitPdf } from "@/lib/underwriting/affidavit-pdf";
 import { affidavitPdfProps } from "@/lib/underwriting/affidavit-pdf-props";
+import { field } from "@/lib/form-fields";
 
 const LIST_PATH = "/underwriting/affidavits";
 const DOCUMENTS_BUCKET = "underwriting-documents";
@@ -28,11 +29,7 @@ function affidavitPath(id: string): string {
   return `${LIST_PATH}/${id}`;
 }
 
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-type GenerateResult = { ok: true; id: string } | { ok: false; message: string };
+type GenerateResult = { ok: true; id: string } | { ok: false; error: string };
 
 /**
  * Workflow G: assembles every broadcast event behind this contract's
@@ -51,10 +48,10 @@ async function generateOne(
   periodEnd: string,
 ): Promise<GenerateResult> {
   if (contractId === "" || periodStart === "" || periodEnd === "") {
-    return { ok: false, message: "Choose a contract and a campaign period." };
+    return { ok: false, error: "Choose a contract and a campaign period." };
   }
   if (periodEnd < periodStart) {
-    return { ok: false, message: "The campaign period's end date can't be before its start date." };
+    return { ok: false, error: "The campaign period's end date can't be before its start date." };
   }
 
   const supabase = await createClient();
@@ -64,17 +61,19 @@ async function generateOne(
     .eq("id", contractId)
     .maybeSingle();
   if (contractError)
-    return { ok: false, message: `Could not read the contract: ${contractError.message}` };
-  if (!contract) return { ok: false, message: "That contract no longer exists." };
+    return { ok: false, error: `Could not read the contract: ${contractError.message}` };
+  if (!contract) return { ok: false, error: "That contract no longer exists." };
 
   const evidence = await findAffidavitEvidence(contractId, periodStart, periodEnd);
 
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("uw_affidavits")
     .select("id", { count: "exact", head: true })
     .eq("contract_id", contractId)
     .eq("campaign_period_start", periodStart)
     .eq("campaign_period_end", periodEnd);
+  if (countError)
+    return { ok: false, error: `Could not read earlier affidavits: ${countError.message}` };
   const reportIdentifier = buildReportIdentifier(
     // An internal report id, not an order number: a contract without one
     // falls back to the start of its own id.
@@ -98,7 +97,7 @@ async function generateOne(
   if (error || !affidavit) {
     return {
       ok: false,
-      message: `Could not generate the affidavit${error ? `: ${error.message}` : "."}`,
+      error: `Could not generate the affidavit${error ? `: ${error.message}` : "."}`,
     };
   }
 
@@ -113,7 +112,7 @@ async function generateOne(
     if (lineItemsError) {
       return {
         ok: false,
-        message: `Generated the affidavit, but could not attach its evidence: ${lineItemsError.message}`,
+        error: `Generated the affidavit, but could not attach its evidence: ${lineItemsError.message}`,
       };
     }
   }
@@ -132,7 +131,7 @@ export async function generateAffidavit(formData: FormData): Promise<void> {
   const newPath = newAffidavitHref({ contractId, start: periodStart, end: periodEnd });
 
   const result = await generateOne(profile.id, contractId, periodStart, periodEnd);
-  if (!result.ok) failWith(newPath, result.message);
+  if (!result.ok) failWith(newPath, result.error);
 
   revalidatePath(LIST_PATH);
   redirect(affidavitPath(result.id));
@@ -157,7 +156,7 @@ export async function generateAffidavitsForMonth(formData: FormData): Promise<vo
   const failures: string[] = [];
   for (const [contractId, periodStart, periodEnd] of rows) {
     const result = await generateOne(profile.id, contractId, periodStart, periodEnd);
-    if (!result.ok) failures.push(result.message);
+    if (!result.ok) failures.push(result.error);
   }
 
   revalidatePath(LIST_PATH);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type OpenAI from "openai";
-import { assertActiveProfile, ForbiddenError } from "@/lib/auth/authz";
+import { assertActiveProfile } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import { streamAgentTurn, type AgentStreamEvent } from "@/lib/agent/chat";
 
 /**
@@ -45,15 +46,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  let profile;
-  try {
-    profile = await assertActiveProfile();
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(assertActiveProfile);
+  if (!guard.ok) return guard.response;
+  const profile = guard.value;
 
   const rawBody = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(rawBody);

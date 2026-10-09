@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { overlapMessage, parseChangeForm, parseWeeklyWindowForm } from "./hour-window-form";
+import {
+  hoursPagePath,
+  overlapMessage,
+  parseChangeForm,
+  parseWeeklyWindowForm,
+} from "./hour-window-form";
 
 function form(entries: Record<string, string | string[]>): FormData {
   const data = new FormData();
@@ -118,5 +123,21 @@ describe("overlapMessage", () => {
     expect(overlapMessage("23P01")).toMatch(/already covers/);
     expect(overlapMessage("23505")).toBeNull();
     expect(overlapMessage(undefined)).toBeNull();
+  });
+});
+
+describe("hoursPagePath", () => {
+  it("returns the bare path with no view or date", () => {
+    expect(hoursPagePath("/log/x", form({}))).toBe("/log/x");
+  });
+
+  it("keeps a month view and a real date, and appends extras", () => {
+    expect(
+      hoursPagePath("/log/x", form({ view: "month", date: "2026-10-09" }), { new: "weekly" }),
+    ).toBe("/log/x?view=month&date=2026-10-09&new=weekly");
+  });
+
+  it("drops an impossible date and any other view", () => {
+    expect(hoursPagePath("/log/x", form({ view: "week", date: "2026-02-30" }))).toBe("/log/x");
   });
 });

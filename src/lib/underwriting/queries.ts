@@ -2,6 +2,9 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { getDisplayNames } from "@/lib/profile-names";
+import { groupBy } from "@/lib/collections";
+import { minutesOfDayInStationTime } from "./rundown-provisioning";
 import {
   buildAffidavitMonth,
   otherMonthsOwed,
@@ -32,7 +35,7 @@ import {
   type AffidavitDocument,
 } from "./affidavits";
 import type { SelectionDemand } from "./inventory-selection";
-import { exceptionStep, type ExceptionStepInput } from "./exception-filters";
+import { exceptionStep } from "./exception-filters";
 import type { TrafficNavCounts } from "./nav";
 import type { Database } from "@/lib/database.types";
 
@@ -64,22 +67,6 @@ export type UwMakegoodRow = Database["public"]["Tables"]["uw_makegoods"]["Row"];
 export type UwAffidavitRow = Database["public"]["Tables"]["uw_affidavits"]["Row"];
 export type UwAffidavitLineItemRow = Database["public"]["Tables"]["uw_affidavit_line_items"]["Row"];
 export type LogBroadcastEventRow = Database["public"]["Tables"]["log_broadcast_events"]["Row"];
-
-/**
- * Display names are a courtesy column: `profiles` RLS only shows a non-admin
- * their own row, so this read is frequently short and must never be an
- * error — same commented exception as lib/roadmap/queries.ts's own
- * displayNames().
- */
-async function displayNames(userIds: (string | null)[]): Promise<Map<string, string>> {
-  const unique = [...new Set(userIds.filter((id): id is string => id !== null))];
-  if (unique.length === 0) return new Map();
-
-  const supabase = await createClient();
-  const result = await supabase.from("profiles").select("id, display_name").in("id", unique);
-  const rows = result.error ? [] : (result.data ?? []);
-  return new Map(rows.map((row) => [row.id, row.display_name]));
-}
 
 // Underwriters -----------------------------------------------------------
 
@@ -334,8 +321,7 @@ export async function getContractDetail(id: string): Promise<ContractDetail | nu
 export async function listBucketsForLines(
   lineIds: string[],
 ): Promise<Map<string, UwDemandBucketRow[]>> {
-  const result = new Map<string, UwDemandBucketRow[]>();
-  if (lineIds.length === 0) return result;
+  if (lineIds.length === 0) return new Map();
   const supabase = await createClient();
   const rows =
     unwrapRead(
@@ -346,12 +332,7 @@ export async function listBucketsForLines(
         .order("period_start"),
       "these schedule lines' demand buckets",
     ) ?? [];
-  for (const row of rows) {
-    const list = result.get(row.schedule_line_id) ?? [];
-    list.push(row);
-    result.set(row.schedule_line_id, list);
-  }
-  return result;
+  return groupBy(rows, (row) => row.schedule_line_id);
 }
 
 // Copy -----------------------------------------------------------------------
@@ -534,8 +515,7 @@ export interface PlacementWithOutcome extends UwScheduledPlacementRow {
 export async function listPlacementsWithOutcomes(
   lineIds: string[],
 ): Promise<Map<string, PlacementWithOutcome[]>> {
-  const result = new Map<string, PlacementWithOutcome[]>();
-  if (lineIds.length === 0) return result;
+  if (lineIds.length === 0) return new Map();
   const supabase = await createClient();
   const placements =
     unwrapRead(
@@ -562,17 +542,15 @@ export async function listPlacementsWithOutcomes(
         ) ?? []);
   const outcomeByItem = new Map(events.map((event) => [event.rundown_item_id, event.outcome]));
 
-  for (const placement of placements) {
+  const withOutcomes: PlacementWithOutcome[] = placements.map((placement) => {
     const raw = placement.log_rundown_item_id
       ? outcomeByItem.get(placement.log_rundown_item_id)
       : undefined;
     const outcome: PlacementForFulfillment["outcome"] =
       raw === undefined ? "pending" : raw === "aired_as_scheduled" ? "aired" : "not_aired";
-    const list = result.get(placement.schedule_line_id) ?? [];
-    list.push({ ...placement, outcome });
-    result.set(placement.schedule_line_id, list);
-  }
-  return result;
+    return { ...placement, outcome };
+  });
+  return groupBy(withOutcomes, (placement) => placement.schedule_line_id);
 }
 
 export interface OpenItemsForLine {
@@ -754,19 +732,6 @@ export async function getScheduleLine(id: string): Promise<UwContractScheduleLin
 }
 
 export { minutesFromTimeString };
-
-/** Minutes since midnight in the station's own zone for a placement's scheduled_at. */
-function minutesOfDayInStationTime(iso: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    hourCycle: "h23",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).formatToParts(new Date(iso));
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
-  return hour * 60 + minute;
-}
 
 /**
  * The scheduler's view of one line: its open demand buckets (active, with
@@ -1185,12 +1150,10 @@ export async function listExceptions(): Promise<ExceptionListItem[]> {
       .order("created_at", { ascending: false }),
   ]);
   const contractById = new Map(contracts.map((contract) => [contract.id, contract]));
-  const makegoodsByException = new Map<string, UwMakegoodRow[]>();
-  for (const makegood of unwrapRead(makegoodsResult, "these exceptions' makegoods") ?? []) {
-    const list = makegoodsByException.get(makegood.exception_id) ?? [];
-    list.push(makegood);
-    makegoodsByException.set(makegood.exception_id, list);
-  }
+  const makegoodsByException = groupBy(
+    unwrapRead(makegoodsResult, "these exceptions' makegoods") ?? [],
+    (makegood) => makegood.exception_id,
+  );
 
   return exceptions.flatMap((exception) => {
     const scheduleLine = scheduleLineById.get(exception.schedule_line_id);
@@ -1495,7 +1458,7 @@ export async function getAffidavitDetail(id: string): Promise<AffidavitDetail | 
   if (!contract) return null;
 
   const [certifyingStaffNames, lineItemsResult, scheduleLinesResult] = await Promise.all([
-    displayNames([affidavit.certifying_staff_id]),
+    getDisplayNames([affidavit.certifying_staff_id], { degrade: true }),
     supabase.from("uw_affidavit_line_items").select("*").eq("affidavit_id", id),
     supabase
       .from("uw_contract_schedule_lines")
@@ -1895,12 +1858,7 @@ export async function getTrafficNavCounts(includeAffidavits: boolean): Promise<T
   ]);
   const open = unwrapRead(openResult, "the open exceptions") ?? [];
   const scheduled = unwrapRead(scheduledResult, "the scheduled makegoods") ?? [];
-  const makegoodsByException = new Map<string, ExceptionStepInput["makegoods"][number][]>();
-  for (const makegood of scheduled) {
-    const list = makegoodsByException.get(makegood.exception_id) ?? [];
-    list.push(makegood);
-    makegoodsByException.set(makegood.exception_id, list);
-  }
+  const makegoodsByException = groupBy(scheduled, (makegood) => makegood.exception_id);
   const exceptionsNeedingDecision = open.filter(
     (exception) =>
       exceptionStep({ ...exception, makegoods: makegoodsByException.get(exception.id) ?? [] }) ===
@@ -1973,10 +1931,11 @@ export async function getContractCopyContext(
   const contractById = new Map(contracts.map((row) => [row.id, row]));
   const underwriterNameById = new Map(underwriters.map((row) => [row.id, row.name]));
   const linksByCopy = new Map<string, string[]>();
-  for (const link of links) {
-    const list = linksByCopy.get(link.copy_id) ?? [];
-    list.push(link.contract_id);
-    linksByCopy.set(link.copy_id, list);
+  for (const [copyId, copyLinks] of groupBy(links, (link) => link.copy_id)) {
+    linksByCopy.set(
+      copyId,
+      copyLinks.map((link) => link.contract_id),
+    );
   }
   const linkedHere = new Set(contract.copy.map((item) => item.id));
 

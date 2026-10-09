@@ -6,6 +6,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { reindexProjectSearch } from "../actions";
 import { removeSourceFromProject, deleteSourceEntirely } from "./source-actions";
 import { projectPath } from "@/lib/transcription/links";
+import { pluralize } from "@/lib/format";
 
 /**
  * A source's own actions, on the source screen. Rebuild the search index, and
@@ -55,13 +56,13 @@ export function SourceActionsMenu({
     const chunks = result.chunks ?? 0;
     if (result.embeddingError) {
       setMessage(
-        `Indexed ${chunks} passage${chunks === 1 ? "" : "s"} for keyword search, but topic search couldn't be built. It will retry on the next edit.`,
+        `Indexed ${pluralize(chunks, "passage")} for keyword search, but topic search couldn't be built. It will retry on the next edit.`,
       );
     } else if (result.embedded) {
-      setMessage(`Indexed ${chunks} passage${chunks === 1 ? "" : "s"}, ready to search.`);
+      setMessage(`Indexed ${pluralize(chunks, "passage")}, ready to search.`);
     } else {
       setMessage(
-        `Indexed ${chunks} passage${chunks === 1 ? "" : "s"} for keyword search. Topic search needs an embeddings key.`,
+        `Indexed ${pluralize(chunks, "passage")} for keyword search. Topic search needs an embeddings key.`,
       );
     }
     router.refresh();
@@ -80,10 +81,7 @@ export function SourceActionsMenu({
     router.push(projectId ? projectPath(projectId) : "/sourcework?tab=sources");
   }
 
-  const others =
-    otherProjectCount > 0
-      ? `${otherProjectCount} other project${otherProjectCount === 1 ? "" : "s"}`
-      : null;
+  const others = otherProjectCount > 0 ? `${pluralize(otherProjectCount, "other project")}` : null;
 
   return (
     <div className="flex flex-col items-end gap-2">

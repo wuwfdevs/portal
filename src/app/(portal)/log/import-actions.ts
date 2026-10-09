@@ -11,6 +11,7 @@
 // reach anything the session couldn't already write.
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidDateISO } from "@/lib/dates";
 import { assertLogAccess } from "@/lib/log/access";
 import { logAuditEvent } from "@/lib/audit";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
@@ -71,7 +72,10 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
     supabase.rpc("log_import_list_underwriting_copy"),
   ]);
 
-  if (uwResult.error) return { ok: false, error: "Could not read the underwriting copy library." };
+  if (uwResult.error) {
+    console.error("Could not read the underwriting copy library:", uwResult.error);
+    return { ok: false, error: "Could not read the underwriting copy library." };
+  }
   const uwData = uwResult.data as
     { underwriters: PlanUnderwriter[]; copy: PlanCopy[] } | { error: string };
   if ("error" in uwData)
@@ -106,7 +110,7 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
   });
   if (!ai.ok) return { ok: false, error: ai.error };
 
-  const airDate = /^\d{4}-\d{2}-\d{2}$/.test(ai.output.air_date) ? ai.output.air_date : null;
+  const airDate = isValidDateISO(ai.output.air_date) ? ai.output.air_date : null;
   const rundownsResult = airDate
     ? await supabase
         .from("log_rundowns")
@@ -114,7 +118,10 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
         .eq("air_date", airDate)
         .is("superseded_at", null)
     : { data: [], error: null };
-  if (rundownsResult.error) return { ok: false, error: "Could not check for existing rundowns." };
+  if (rundownsResult.error) {
+    console.error("Could not check for existing rundowns:", rundownsResult.error);
+    return { ok: false, error: "Could not check for existing rundowns." };
+  }
 
   const plan = assembleProgramLogPlan({
     output: ai.output,
@@ -200,7 +207,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
   } catch {
     return { ok: false, error: "The import plan could not be read — re-upload the export." };
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(plan.airDate ?? "")) {
+  if (!isValidDateISO(plan.airDate)) {
     return { ok: false, error: "The plan has no valid air date — re-upload the export." };
   }
   if (!Array.isArray(plan.rundowns) || !Array.isArray(plan.copyPlans)) {
@@ -238,6 +245,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
           p_duration_seconds: copyPlan.durationSeconds,
         });
         if (updated.error) {
+          console.error("Could not update copy script:", updated.error);
           return {
             ok: false,
             error: `Could not update the library script for "${copyPlan.underwriterName} / ${copyPlan.label}".`,
@@ -251,6 +259,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       p_name: copyPlan.underwriterName,
     });
     if (underwriter.error || typeof underwriter.data !== "string") {
+      console.error("Could not create underwriter:", underwriter.error);
       return { ok: false, error: `Could not create underwriter "${copyPlan.underwriterName}".` };
     }
     if (copyPlan.underwriterIsNew) underwritersCreated += 1;
@@ -262,6 +271,7 @@ export async function executeProgramLogImport(planJson: string): Promise<Execute
       p_duration_seconds: copyPlan.durationSeconds,
     });
     if (copy.error || typeof copy.data !== "string") {
+      console.error("Could not create copy:", copy.error);
       return {
         ok: false,
         error: `Could not create copy "${copyPlan.label}" for "${copyPlan.underwriterName}".`,

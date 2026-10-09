@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FieldHint, Label, Textarea } from "@/components/ui/input";
 import { countWords, estimateReadSeconds, READ_WORDS_PER_MINUTE } from "@/lib/log/read-time";
+import { pluralize } from "@/lib/format";
 
 /**
  * The script textarea with its read-time estimate updating as the words
@@ -38,11 +39,13 @@ export function ScriptField({
       />
       <FieldHint>
         {seconds === null ? (
-          <>A live read is planned at its estimated read time when the timed length is left blank.</>
+          <>
+            A live read is planned at its estimated read time when the timed length is left blank.
+          </>
         ) : (
           <>
             <span className="font-bold text-ink-700">~{seconds}s</span> at {READ_WORDS_PER_MINUTE}{" "}
-            words per minute · {words} word{words === 1 ? "" : "s"} · parenthesized host directions
+            words per minute · {pluralize(words, "word")} · parenthesized host directions
             aren&apos;t counted
           </>
         )}

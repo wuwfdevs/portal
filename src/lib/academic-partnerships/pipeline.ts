@@ -58,12 +58,7 @@ export function dispositionRequiresReason(disposition: ApDisposition): boolean {
   return disposition === "deferred" || disposition === "declined" || disposition === "withdrawn";
 }
 
-/** Whole days between two ISO timestamps, floored — used for "age" and "time in stage". */
-export function daysSince(isoTimestamp: string, now: Date = new Date()): number {
-  const then = new Date(isoTimestamp).getTime();
-  const diffMs = now.getTime() - then;
-  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-}
+export { daysSince } from "@/lib/format";
 
 /** "Today" / "1 day" / "N days" — for a kanban card's age or time-in-stage line. */
 export function formatDays(days: number): string {

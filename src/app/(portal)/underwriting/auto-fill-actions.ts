@@ -15,10 +15,9 @@ import { getContract, getContractDetail, getScheduleLine } from "@/lib/underwrit
 import type { UnplaceableReason } from "@/lib/underwriting/inventory-selection";
 import { CAPACITY_CONFLICT_LABEL } from "@/lib/underwriting/bump-plan";
 import { rebalanceContractRotation } from "@/lib/underwriting/rotation-rebalance";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
+import { field } from "@/lib/form-fields";
+import { pluralize } from "@/lib/format";
+import { countBy } from "@/lib/collections";
 
 const UNPLACEABLE_LABEL: Record<UnplaceableReason, string> = {
   no_inventory: "no eligible break exists yet",
@@ -32,35 +31,32 @@ const UNPLACEABLE_LABEL: Record<UnplaceableReason, string> = {
 function summarizeAutoFill(result: AutoFillResult): string {
   const parts: string[] = [];
   if (result.rundownsGeneratedCount > 0) {
-    parts.push(
-      `generated ${result.rundownsGeneratedCount} rundown${result.rundownsGeneratedCount === 1 ? "" : "s"} to place into`,
-    );
+    parts.push(`generated ${pluralize(result.rundownsGeneratedCount, "rundown")} to place into`);
   }
   if (result.placedCount > 0) {
-    parts.push(`placed ${result.placedCount} credit${result.placedCount === 1 ? "" : "s"}`);
+    parts.push(`placed ${pluralize(result.placedCount, "credit")}`);
   }
   if (result.makegoodsResolvedCount > 0) {
     parts.push(`${result.makegoodsResolvedCount} of those scheduled a makegood`);
   }
   if (result.unschedulableAirDates.length > 0) {
     parts.push(
-      `${result.unschedulableAirDates.length} date${result.unschedulableAirDates.length === 1 ? "" : "s"} have no schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
+      `${pluralize(result.unschedulableAirDates.length, "date")} have no schedule entry, clock version, or underwriting-eligible local opportunity to generate a rundown against`,
     );
   }
   if (result.closedAirDates.length > 0) {
     parts.push(
-      `${result.closedAirDates.length} date${result.closedAirDates.length === 1 ? "" : "s"} fall entirely in hours closed to underwriting (On Air → Schedule → Underwriting)`,
+      `${pluralize(result.closedAirDates.length, "date")} fall entirely in hours closed to underwriting (On Air → Schedule → Underwriting)`,
     );
   }
   if (result.bumps.length > 0) {
     parts.push(
-      `moved ${result.bumps.length} movable credit${result.bumps.length === 1 ? "" : "s"} to seat a fixed-position one`,
+      `moved ${pluralize(result.bumps.length, "movable credit")} to seat a fixed-position one`,
     );
   }
-  const counts = new Map<UnplaceableReason, number>();
-  for (const unit of result.unplaceable) counts.set(unit.why, (counts.get(unit.why) ?? 0) + 1);
+  const counts = countBy(result.unplaceable, (unit) => unit.why);
   for (const [why, count] of counts) {
-    parts.push(`${count} unit${count === 1 ? "" : "s"} still unplaced — ${UNPLACEABLE_LABEL[why]}`);
+    parts.push(`${pluralize(count, "unit")} still unplaced — ${UNPLACEABLE_LABEL[why]}`);
   }
   for (const conflict of result.capacityConflicts) {
     parts.push(
@@ -69,7 +65,7 @@ function summarizeAutoFill(result: AutoFillResult): string {
   }
   if (result.errors.length > 0) {
     parts.push(
-      `${result.errors.length} placement attempt${result.errors.length === 1 ? "" : "s"} failed (${result.errors[0]})`,
+      `${pluralize(result.errors.length, "placement attempt")} failed (${result.errors[0]})`,
     );
   }
   // A skipped line in a contract-wide run sits beside what the other lines

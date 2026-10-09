@@ -16,6 +16,7 @@ import {
   parseEntrySpec,
   totalQuantity,
   type EntrySpec,
+  DAY_LABEL,
 } from "./demand-compiler";
 import { addDays, dayOfWeek, shortDate } from "./dates";
 import { eligibleDatesInBucket, type BucketLike, type LineEligibilityLike } from "./eligibility";
@@ -261,8 +262,6 @@ export function describeScheduleLine(
 }
 
 // Review -------------------------------------------------------------------
-
-const DAY_LABEL = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export interface ReviewWarning {
   code:

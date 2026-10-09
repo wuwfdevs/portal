@@ -11,7 +11,7 @@ import {
   MAX_ANSWER_BYTES,
   RECORDING_MIME_CANDIDATES,
   describeDuration,
-  formatClock,
+  formatStopwatch,
   normalizeContentType,
 } from "@/lib/audience-listening/media";
 import {
@@ -39,6 +39,10 @@ import {
   saveDetails,
   submitResponse,
 } from "@/lib/audience-listening/participant-client";
+import { safeGet, safeRemove, safeSet } from "@/lib/safe-storage";
+import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
+import { uploadObject } from "@/lib/upload-object";
+import { pluralize } from "@/lib/format";
 
 /**
  * The whole public participation flow, standalone and embedded alike.
@@ -208,7 +212,7 @@ export function Participate({
   // list still shows it as saved.
   useEffect(() => {
     if (previewMode) return;
-    const stored = sessionStorage.getItem(submissionStorageKey(query.public_id));
+    const stored = safeGet("session", submissionStorageKey(query.public_id));
     if (!stored) return;
 
     let cancelled = false;
@@ -239,12 +243,7 @@ export function Participate({
     [answers],
   );
 
-  useEffect(() => {
-    if (!hasUnsavedWork) return;
-    const handler = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [hasUnsavedWork]);
+  useBeforeUnloadGuard(hasUnsavedWork);
 
   const stopTicking = useCallback(() => {
     if (tickRef.current) clearInterval(tickRef.current);
@@ -285,7 +284,7 @@ export function Participate({
       return;
     }
     setSubmissionId(result.submissionId);
-    sessionStorage.setItem(submissionStorageKey(query.public_id), result.submissionId);
+    safeSet("session", submissionStorageKey(query.public_id), result.submissionId);
     setScreen("mic");
   }
 
@@ -443,11 +442,18 @@ export function Participate({
     // auth.uid() against this submission's participant_user_id, so the upload
     // has to authenticate as the identical session that created it.
     const supabase = createPublicAudienceClient();
-    const { error: uploadError } = await supabase.storage
-      .from(AUDIENCE_LISTENING_MEDIA_BUCKET)
-      .upload(reserved.storagePath, answer.blob, { contentType, upsert: true });
+    const uploaded = await uploadObject({
+      client: supabase,
+      bucket: AUDIENCE_LISTENING_MEDIA_BUCKET,
+      path: reserved.storagePath,
+      body: answer.blob,
+      contentType,
+      upsert: true,
+    });
 
-    if (uploadError) {
+    // The participant-facing wording below is deliberately fixed, whatever
+    // Storage said.
+    if (!uploaded.ok) {
       setAnswer(currentQuestion.id, {
         take: "failed",
         error: "Your answer didn't reach us — check your connection and try again.",
@@ -531,7 +537,7 @@ export function Participate({
       return;
     }
 
-    sessionStorage.removeItem(submissionStorageKey(query.public_id));
+    safeRemove("session", submissionStorageKey(query.public_id));
     setSubmittedCount(result.answers);
     setScreen("done");
   }
@@ -611,7 +617,7 @@ export function Participate({
             {query.public_intro}
           </p>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">
-            {questions.length} question{questions.length === 1 ? "" : "s"} · one audio answer each
+            {pluralize(questions.length, "question")} · one audio answer each
           </p>
           <Alert variant="note">
             Your answers go to WUWF for editorial review and will not be published automatically.
@@ -749,10 +755,10 @@ export function Participate({
                 ))}
               </div>
               <p role="timer" aria-live="off" className="font-mono text-[15px] text-ink-700">
-                {formatClock(elapsedMs / 1000)}
+                {formatStopwatch(elapsedMs / 1000)}
                 <span className="text-ink-400">
                   {" / "}
-                  {formatClock(currentQuestion.max_duration_seconds)}
+                  {formatStopwatch(currentQuestion.max_duration_seconds)}
                 </span>
               </p>
               <button
@@ -768,7 +774,7 @@ export function Participate({
               <p className="text-sm font-bold text-ink-900">
                 Recorded
                 {currentAnswer.takeDurationMs
-                  ? ` — ${formatClock(currentAnswer.takeDurationMs / 1000)}`
+                  ? ` — ${formatStopwatch(currentAnswer.takeDurationMs / 1000)}`
                   : ""}
               </p>
               {currentAnswer.previewUrl && (
@@ -872,8 +878,7 @@ export function Participate({
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
             <p className="text-xs text-ink-400">
               Question {questionIndex + 1} of {questions.length}
-              {readiness.savedCount > 0 &&
-                ` · ${readiness.savedCount} answer${readiness.savedCount === 1 ? "" : "s"} saved`}
+              {readiness.savedCount > 0 && ` · ${pluralize(readiness.savedCount, "answer")} saved`}
             </p>
             <div className="flex gap-3">
               {questionIndex > 0 && !isRecording && (
@@ -914,7 +919,7 @@ export function Participate({
                     <p className="text-sm font-semibold text-ink-900">{question.prompt}</p>
                     <p className="mt-0.5 text-xs text-ink-500">
                       {state === "saved"
-                        ? `Answered${durationMs ? ` · ${formatClock(durationMs / 1000)}` : ""}`
+                        ? `Answered${durationMs ? ` · ${formatStopwatch(durationMs / 1000)}` : ""}`
                         : state === "skipped"
                           ? "Skipped"
                           : question.required
@@ -1105,8 +1110,7 @@ export function Participate({
             </svg>
           </div>
           <p className="text-[15px] leading-relaxed text-ink-700">
-            {submittedCount} answer{submittedCount === 1 ? "" : "s"} received. Thank you — you can
-            close this page.
+            {pluralize(submittedCount, "answer")} received. Thank you — you can close this page.
           </p>
           <Alert variant="note" className="text-left">
             A reporter may contact you only if you gave permission. Nothing here is published

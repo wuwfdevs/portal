@@ -4,8 +4,9 @@
 // files read them here. Pure — a problem is reported as a message for the
 // caller to failWith(), never thrown. Tested in hour-window-form.test.ts.
 
+import { field } from "@/lib/form-fields";
+import { isValidDateISO } from "@/lib/dates";
 import { stationLocalToUTC } from "./automated-hours";
-import { isValidDateISO } from "./week-layout";
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const REASON_MAX = 200;
@@ -27,10 +28,6 @@ export interface ChangeFields<Mode extends string> {
 }
 
 export type ParsedForm<T> = { ok: true; fields: T } | { ok: false; message: string };
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 function reasonFrom(formData: FormData): string | null {
   const reason = field(formData, "reason");
@@ -112,4 +109,22 @@ export function overlapMessage(code: string | undefined): string | null {
   return code === "23P01"
     ? "Another one-time change already covers part of that time. Edit or remove it first."
     : null;
+}
+
+/**
+ * Where an Automated hours / Underwriting hours action lands: the page at
+ * `basePath` with its view and date kept, plus any card to reopen on error.
+ */
+export function hoursPagePath(
+  basePath: string,
+  formData: FormData,
+  extra: Record<string, string> = {},
+): string {
+  const params = new URLSearchParams();
+  if (field(formData, "view") === "month") params.set("view", "month");
+  const date = field(formData, "date");
+  if (isValidDateISO(date)) params.set("date", date);
+  for (const [key, value] of Object.entries(extra)) params.set(key, value);
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
 }

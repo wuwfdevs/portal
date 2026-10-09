@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { checkboxField, field } from "@/lib/form-fields";
 import {
   hasCourseBasedTrack,
   hasResearchTrack,
@@ -27,10 +28,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const DEFAULT_CONFIRMATION =
   "Thank you. WUWF will review your inquiry and follow up by email. Submitting this form does not guarantee a partnership, publication, distribution, or news coverage.";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 const PARTNERSHIP_TYPE_VALUES: ApPartnershipType[] = [
   "classroom_visit",
@@ -111,7 +108,7 @@ export async function submitInquiry(
     support_requested: field(formData, "support_requested"),
     deliverables: field(formData, "deliverables"),
     relevant_dates: field(formData, "relevant_dates"),
-    may_publish: formData.get("may_publish") === "on",
+    may_publish: checkboxField(formData, "may_publish"),
     additional_context: field(formData, "additional_context"),
     research_topic: includeResearchFields ? field(formData, "research_topic") : "",
     research_relevance: includeResearchFields ? field(formData, "research_relevance") : "",

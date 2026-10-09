@@ -5,6 +5,7 @@
 // the version, the provisional note) sits behind "Show calculation".
 
 import type { BkPricingTreatment } from "@/lib/database.types";
+import { pluralize } from "@/lib/format";
 import { PRODUCTION_RATE_LABEL } from "./labels";
 import type { EstimateState } from "./projects";
 import { roundCents, formatDollars } from "./rates";
@@ -102,11 +103,6 @@ export function capacityStatusFor(facts: {
   return facts.eventDate ? { kind: "unplanned" } : { kind: "no_date" };
 }
 
-function pluralize(count: number, noun: string): string {
-  const text = Number.isInteger(count) ? String(count) : String(roundCents(count));
-  return `${text} ${noun}${count === 1 ? "" : "s"}`;
-}
-
 export function hoursPhrase(hours: { staff: number; student: number }): string | null {
   const parts: string[] = [];
   if (hours.staff > 0) parts.push(pluralize(hours.staff, "staff hour"));
@@ -128,7 +124,10 @@ export function contributionPhrase(input: {
   if (treatment === "external") return "No WUWF contribution";
   if (contribution !== null) {
     if (contribution <= 0) return "No WUWF contribution — the partner covers the full cost";
-    const hours = staffHours > 0 && treatment === "strategic" ? ` (${pluralize(staffHours, "staff hour")})` : "";
+    const hours =
+      staffHours > 0 && treatment === "strategic"
+        ? ` (${pluralize(staffHours, "staff hour")})`
+        : "";
     return `WUWF contributes ${formatDollars(contribution)}${hours}`;
   }
   if (treatment === "strategic" && staffHours > 0) {
@@ -142,7 +141,7 @@ export function estimatePhrase(state: EstimateState, readyToSend: boolean): stri
     case "none":
       return readyToSend ? "Ready to send" : "Not ready to send";
     case "sent":
-      return `Estimate expires in ${state.daysLeft} day${state.daysLeft === 1 ? "" : "s"}`;
+      return `Estimate expires in ${pluralize(state.daysLeft, "day")}`;
     case "expired":
       return "Estimate expired";
     case "approved":
@@ -203,5 +202,7 @@ export function buildSummary(input: SummaryInput): { parts: SummaryPart[]; text:
 /** A package line's name as the summary names it. */
 export function serviceName(line: Pick<SummaryLine, "label" | "quantity">): string {
   const quantity = Number(line.quantity);
-  return quantity === 1 ? line.label : `${Number.isInteger(quantity) ? quantity : roundCents(quantity)} × ${line.label}`;
+  return quantity === 1
+    ? line.label
+    : `${Number.isInteger(quantity) ? quantity : roundCents(quantity)} × ${line.label}`;
 }

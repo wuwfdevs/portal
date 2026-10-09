@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertAdministrator } from "@/lib/auth/authz";
 import { logAuditEvent } from "@/lib/audit";
-import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
+import { field } from "@/lib/form-fields";
+import { safeLocalPath } from "@/lib/safe-path";
 import { assertRoadmapAccess, assertRoadmapCurator } from "@/lib/roadmap/access";
 import {
   isEmptyRichText,
@@ -30,10 +32,6 @@ const TOOL_KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 function postPath(postId: string): string {
   return `${LIST_PATH}/${postId}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
 }
 
 function kindField(formData: FormData): RdPostKind {
@@ -139,9 +137,12 @@ export async function deletePost(formData: FormData): Promise<void> {
   const postId = field(formData, "post_id");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.from("rd_posts").delete().eq("id", postId).select("id");
-  failIfError(error, postPath(postId), "Could not delete the request");
-  refusedByRls(data, postPath(postId), "You can only delete your own request.");
+  await deleteOrFail(
+    supabase.from("rd_posts").delete().eq("id", postId).select("id"),
+    postPath(postId),
+    "Could not delete the request",
+    "You can only delete your own request.",
+  );
 
   // Deleting takes other people's votes and comments with it, so it is audited
   // even when the author does it to their own post.
@@ -166,11 +167,14 @@ export async function deletePost(formData: FormData): Promise<void> {
 export async function toggleVote(formData: FormData): Promise<void> {
   const { profile } = await assertRoadmapAccess();
   const postId = field(formData, "post_id");
-  const returnTo = field(formData, "return_to") || postPath(postId);
+  const returnTo = safeLocalPath(field(formData, "return_to"), postPath(postId), {
+    prefixes: [LIST_PATH],
+  });
   const voted = field(formData, "voted") === "true";
 
   const supabase = await createClient();
   if (voted) {
+    // Idempotent: removing a vote that is already gone is not a failure.
     const { error } = await supabase
       .from("rd_votes")
       .delete()
@@ -238,13 +242,12 @@ export async function deleteComment(formData: FormData): Promise<void> {
   const path = postPath(postId);
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("rd_comments")
-    .delete()
-    .eq("id", commentId)
-    .select("id");
-  failIfError(error, path, "Could not delete the comment");
-  refusedByRls(data, path, "You can only delete your own comment.");
+  await deleteOrFail(
+    supabase.from("rd_comments").delete().eq("id", commentId).select("id"),
+    path,
+    "Could not delete the comment",
+    "You can only delete your own comment.",
+  );
 
   redirect(path);
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import { field } from "@/lib/form-fields";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -9,7 +10,7 @@ import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { hasBlockingIssues, rowsFromEvents, serializeDadLog } from "@/lib/log/dad-export";
 import { loadDadDay, sha256 } from "@/lib/log/dad-export-queries";
-import { isValidDateISO } from "@/lib/log/week-layout";
+import { isValidDateISO } from "@/lib/dates";
 
 const EXPORTS_BUCKET = "log-exports";
 
@@ -22,7 +23,7 @@ const EXPORTS_BUCKET = "log-exports";
  */
 export async function releaseDadLog(formData: FormData): Promise<void> {
   const { profile } = await assertLogTraffic();
-  const date = String(formData.get("date") ?? "");
+  const date = field(formData, "date");
   if (!isValidDateISO(date)) failWith("/log/dad-log", "That isn't a date.");
   const path = `/log/dad-log?date=${date}`;
 

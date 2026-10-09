@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { bestEffort } from "@/lib/transcription/best-effort";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { reindexRepresentation } from "@/lib/transcription/indexing";
 import { WEBHOOK_AUTH_HEADER_NAME } from "@/lib/transcription/providers/assemblyai";
@@ -23,6 +24,11 @@ function isAuthorized(request: Request): boolean {
   return timingSafeEqual(expectedBuf, providedBuf);
 }
 
+/** Throws on a failed write so the handler's catch marks the representation failed instead of ready. */
+function orThrow(result: { error: { message: string } | null }, what: string): void {
+  if (result.error) throw new Error(`${what}: ${result.error.message}`);
+}
+
 export async function POST(request: Request): Promise<Response> {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,11 +41,16 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const supabase = createAdminClient();
-  const { data: representation } = await supabase
+  const { data: representation, error: lookupError } = await supabase
     .from("sw_representations")
     .select("id")
     .eq("provider_job_id", providerJobId)
     .maybeSingle();
+  if (lookupError) {
+    // A 5xx makes the provider retry the callback, which is right for a database outage.
+    console.error("[transcription] webhook could not look up the job", lookupError);
+    return NextResponse.json({ error: "Could not look up the job." }, { status: 500 });
+  }
 
   // Nothing to do — an unrecognized or already-processed job id. Acknowledge
   // rather than error, so the provider doesn't keep retrying the callback.
@@ -55,13 +66,19 @@ export async function POST(request: Request): Promise<Response> {
     // Phase 2: a retry always means starting fresh, and nothing downstream
     // (speaker naming, transcript edits, clips) exists yet to lose — see
     // design doc's phased plan.
-    await supabase.from("tw_segments").delete().eq("representation_id", representation.id);
-    await supabase.from("tw_speakers").delete().eq("representation_id", representation.id);
+    orThrow(
+      await supabase.from("tw_segments").delete().eq("representation_id", representation.id),
+      "Could not clear the old segments",
+    );
+    orThrow(
+      await supabase.from("tw_speakers").delete().eq("representation_id", representation.id),
+      "Could not clear the old speakers",
+    );
 
     const speakerLabels = [...new Set(validUtterances.map((u) => u.speakerLabel))];
     const speakerIdByLabel = new Map<string, string>();
     if (speakerLabels.length > 0) {
-      const { data: speakers } = await supabase
+      const { data: speakers, error: speakersError } = await supabase
         .from("tw_speakers")
         .insert(
           speakerLabels.map((diarization_label) => ({
@@ -70,29 +87,36 @@ export async function POST(request: Request): Promise<Response> {
           })),
         )
         .select("id, diarization_label");
+      orThrow({ error: speakersError }, "Could not save the speakers");
       for (const speaker of speakers ?? []) {
         speakerIdByLabel.set(speaker.diarization_label, speaker.id);
       }
     }
 
     if (validUtterances.length > 0) {
-      await supabase.from("tw_segments").insert(
-        validUtterances.map((u, index) => ({
-          representation_id: representation.id,
-          speaker_id: speakerIdByLabel.get(u.speakerLabel) ?? null,
-          position: index,
-          start_ms: u.startMs,
-          end_ms: u.endMs,
-          text: u.text,
-          words: u.words,
-        })),
+      orThrow(
+        await supabase.from("tw_segments").insert(
+          validUtterances.map((u, index) => ({
+            representation_id: representation.id,
+            speaker_id: speakerIdByLabel.get(u.speakerLabel) ?? null,
+            position: index,
+            start_ms: u.startMs,
+            end_ms: u.endMs,
+            text: u.text,
+            words: u.words,
+          })),
+        ),
+        "Could not save the transcript",
       );
     }
 
-    await supabase
-      .from("sw_representations")
-      .update({ status: "ready", error_message: null })
-      .eq("id", representation.id);
+    orThrow(
+      await supabase
+        .from("sw_representations")
+        .update({ status: "ready", error_message: null })
+        .eq("id", representation.id),
+      "Could not mark the transcript ready",
+    );
 
     // Build the search index while the transcript is fresh, so a project is
     // findable the moment it's ready rather than after someone remembers to
@@ -110,13 +134,20 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
   } catch (error) {
-    await supabase
-      .from("sw_representations")
-      .update({
-        status: "failed",
-        error_message: error instanceof Error ? error.message : "Transcription failed.",
-      })
-      .eq("id", representation.id);
+    console.error("[transcription] webhook processing failed", {
+      representationId: representation.id,
+      error,
+    });
+    await bestEffort(
+      supabase
+        .from("sw_representations")
+        .update({
+          status: "failed",
+          error_message: error instanceof Error ? error.message : "Transcription failed.",
+        })
+        .eq("id", representation.id),
+      "Could not mark the representation failed",
+    );
   }
 
   return NextResponse.json({ ok: true });

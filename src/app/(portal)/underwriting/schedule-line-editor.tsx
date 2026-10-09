@@ -19,6 +19,7 @@ import {
 } from "@/lib/underwriting/schedule-line-form";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { pluralize } from "@/lib/format";
 
 /**
  * The order-entry form for one schedule line (docs/underwriting-traffic-
@@ -120,10 +121,6 @@ function weeksBetween(start: string, end: string): Week[] {
 function toCount(raw: string): number {
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 export function ScheduleLineEditor({
@@ -523,7 +520,7 @@ export function ScheduleLineEditor({
               </div>
               <span className="text-[13px] font-semibold text-ink-900">
                 {parsed.ok
-                  ? `${plural(parsed.value.buckets.length, "date")} · ${plural(compiledTotal, "credit")}`
+                  ? `${pluralize(parsed.value.buckets.length, "date")} · ${pluralize(compiledTotal, "credit")}`
                   : ""}
               </span>
             </div>
@@ -602,7 +599,7 @@ export function ScheduleLineEditor({
               <span className="text-[13px] font-semibold text-ink-900">
                 {weeks.length === 0
                   ? "No weeks — give the line an end date"
-                  : `${plural(weeks.length, "week")} · ${gridStats.withCredits} with credits · ${gridStats.dark} dark · ${plural(gridStats.total, "credit")}${weeks.length >= MAX_WEEKS ? ` · capped at ${MAX_WEEKS}` : ""}`}
+                  : `${pluralize(weeks.length, "week")} · ${gridStats.withCredits} with credits · ${gridStats.dark} dark · ${pluralize(gridStats.total, "credit")}${weeks.length >= MAX_WEEKS ? ` · capped at ${MAX_WEEKS}` : ""}`}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -750,7 +747,7 @@ export function ScheduleLineEditor({
             <FieldHint>
               A line needs a pool, a program, or both. Naming a program narrows the pool to it
               {permittedProgramIds !== null &&
-                ` — only the ${plural(offeredPrograms.length, "program")} this pool covers ${offeredPrograms.length === 1 ? "is" : "are"} offered`}
+                ` — only the ${pluralize(offeredPrograms.length, "program")} this pool covers ${offeredPrograms.length === 1 ? "is" : "are"} offered`}
               .
             </FieldHint>
           </div>
@@ -933,7 +930,7 @@ export function ScheduleLineEditor({
           </div>
           <p className="mt-2 text-[13px] leading-snug text-ink-700">
             {demand.ok
-              ? `${compiledDescription}${poolName || programName ? ` in ${poolName ?? programName}` : ""}.${partialCount > 0 ? ` ${plural(partialCount, "partial period")} counted at full quantity, never prorated.` : ""}`
+              ? `${compiledDescription}${poolName || programName ? ` in ${poolName ?? programName}` : ""}.${partialCount > 0 ? ` ${pluralize(partialCount, "partial period")} counted at full quantity, never prorated.` : ""}`
               : demand.error}
           </p>
           {blockers.length > 0 && (

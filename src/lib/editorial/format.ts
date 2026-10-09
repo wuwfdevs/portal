@@ -1,15 +1,13 @@
 // Tiny display formatters shared by the editorial screens.
 
+import { daysSince } from "@/lib/format";
+
 export function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
-}
-
-function daysSince(value: string, now: Date): number {
-  return Math.floor((now.getTime() - new Date(value).getTime()) / (24 * 60 * 60 * 1000));
 }
 
 /**

@@ -5,6 +5,9 @@
 // small stored shape (log_weather_reading.alerts), ranks it, and words each
 // alert's timing.
 
+import { groupBy } from "@/lib/collections";
+import { collapseWhitespace } from "@/lib/text";
+import { trimToNull } from "@/lib/validation";
 import { STATION_TIME_ZONE } from "./timezone";
 
 /** What a host needs to tell apart at a glance — the Badge variant it renders as is danger / warning / neutral. */
@@ -119,11 +122,6 @@ interface NwsAlertFeature {
   };
 }
 
-function textOrNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
-}
-
 /** Reads NWS's /alerts/active response. Drops tests/exercises, cancellations, and anything without an event name. */
 export function parseNwsAlerts(
   response: { features?: NwsAlertFeature[] } | null | undefined,
@@ -131,7 +129,7 @@ export function parseNwsAlerts(
   const alerts: WeatherAlert[] = [];
   for (const feature of response?.features ?? []) {
     const p = feature.properties;
-    const event = textOrNull(p?.event);
+    const event = trimToNull(p?.event);
     if (!p || !event) continue;
     if (p.status && p.status !== "Actual") continue;
     // Cancel withdraws an alert; Ack and Error are system traffic, not hazards.
@@ -154,12 +152,12 @@ export function parseNwsAlerts(
       tier: classifyAlertTier(event, severity),
       severity,
       urgency: p.urgency ?? "Unknown",
-      headline: textOrNull(p.headline),
-      description: textOrNull(p.description),
-      instruction: textOrNull(p.instruction),
-      areaDesc: textOrNull(p.areaDesc),
+      headline: trimToNull(p.headline),
+      description: trimToNull(p.description),
+      instruction: trimToNull(p.instruction),
+      areaDesc: trimToNull(p.areaDesc),
       places,
-      senderName: textOrNull(p.senderName),
+      senderName: trimToNull(p.senderName),
       issuedAt: p.sent ?? p.effective ?? null,
       startsAt: p.onset ?? p.effective ?? null,
       supersedes: (p.references ?? [])
@@ -439,11 +437,7 @@ export function mergeAlerts(...lists: WeatherAlert[][]): WeatherAlert[] {
  * statement NWS reissues, so only the newest is kept.
  */
 export function consolidateAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
-  const groups = new Map<string, WeatherAlert[]>();
-  for (const alert of removeSuperseded(alerts)) {
-    const key = alert.event.trim().toLowerCase();
-    groups.set(key, [...(groups.get(key) ?? []), alert]);
-  }
+  const groups = groupBy(removeSuperseded(alerts), (alert) => alert.event.trim().toLowerCase());
   return sortAlerts([...groups.values()].map(mergeEventGroup));
 }
 
@@ -550,7 +544,7 @@ export function memberCountLabel(alert: Pick<WeatherAlert, "members">): string |
 export function alertPreview(alert: WeatherAlert, max = 110): string | null {
   const lead = alertLeadText(alert);
   if (!lead) return null;
-  const text = lead.replace(/\s+/g, " ").trim();
+  const text = collapseWhitespace(lead);
   if (text.length <= max) return text;
   const cut = text.slice(0, max).replace(/\s+\S*$/, "");
   return `${cut || text.slice(0, max)}…`;
@@ -558,11 +552,7 @@ export function alertPreview(alert: WeatherAlert, max = 110): string | null {
 
 /** The members whose row label would be identical to another's, so they need a preview to be told apart. */
 export function membersNeedingPreview(members: WeatherAlert[]): Set<string> {
-  const byName = new Map<string, WeatherAlert[]>();
-  for (const member of members) {
-    const name = memberName(member);
-    byName.set(name, [...(byName.get(name) ?? []), member]);
-  }
+  const byName = groupBy(members, memberName);
   return new Set(
     [...byName.values()]
       .filter((group) => group.length > 1)

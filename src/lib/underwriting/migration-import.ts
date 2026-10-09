@@ -71,11 +71,12 @@ export async function runMigrationItem(
   // A contract already carrying this key — an earlier run created it and
   // was cut off before recording it. Link it; never create a second.
   const linkExisting = async (): Promise<MigrationRunResult | null> => {
-    const { data: contract } = await supabase
+    const { data: contract, error: contractError } = await supabase
       .from("uw_contracts")
       .select("id")
       .eq("import_source_key", item.source_key)
       .maybeSingle();
+    if (contractError) return { ok: false, status: "failed", error: contractError.message };
     if (!contract) return null;
     const result: MigrationItemResult = {
       lines_read: 0,

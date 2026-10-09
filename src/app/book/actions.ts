@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { field } from "@/lib/form-fields";
 import { clientIpFromHeaders, hashIpAddress } from "@/lib/academic-partnerships/rate-limit";
 import {
   buildIntakePayload,
@@ -18,10 +19,6 @@ export type SubmitRequestState =
 
 const DEFAULT_CONFIRMATION =
   "Thank you. WUWF's production staff will review your request and follow up by email with an estimate. Nothing is booked until you approve that estimate.";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 /**
  * The one write this public route makes. Every real check (open or closed,

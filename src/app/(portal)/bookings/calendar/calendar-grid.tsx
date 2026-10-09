@@ -1,6 +1,7 @@
 import { WeekMonthLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { dayOfWeekISO } from "@/lib/dates";
 import { blockReservesWindow } from "@/lib/bookings/agreements";
 import {
   bookingIsLive,
@@ -341,7 +342,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
   const first = `${date.slice(0, 7)}-01`;
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   // Monday-first: Monday = 0.
-  const leading = (new Date(`${first}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const leading = (dayOfWeekISO(first) + 6) % 7;
   const previousMonth = shiftDateISO(first, -1).slice(0, 7) + "-01";
   const nextMonth = shiftDateISO(first, 31).slice(0, 7) + "-01";
   const cells = Array.from({ length: Math.ceil((leading + daysInMonth) / 7) * 7 }, (_, i) => {

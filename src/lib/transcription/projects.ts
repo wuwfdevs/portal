@@ -5,6 +5,7 @@ import { parseWords } from "@/lib/transcription/transcript";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database, SwSourceKind } from "@/lib/database.types";
 import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 
 export type TwProject = Database["public"]["Tables"]["tw_projects"]["Row"];
@@ -125,13 +126,16 @@ export async function getPrimarySourceForProject(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,
 ): Promise<ProjectSourceRef | null> {
-  const { data: link } = await supabase
-    .from("sw_project_sources")
-    .select("source_id")
-    .eq("project_id", projectId)
-    .order("added_at")
-    .limit(1)
-    .maybeSingle();
+  const link = unwrapRead(
+    await supabase
+      .from("sw_project_sources")
+      .select("source_id")
+      .eq("project_id", projectId)
+      .order("added_at")
+      .limit(1)
+      .maybeSingle(),
+    "the project's primary source",
+  );
   if (!link) return null;
   return getSourceRef(supabase, link.source_id);
 }
@@ -141,12 +145,15 @@ export async function getSourceRef(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<ProjectSourceRef> {
-  const { data: representation } = await supabase
-    .from("sw_representations")
-    .select("id")
-    .eq("source_id", sourceId)
-    .in("kind", ["transcript", "document_text"])
-    .maybeSingle();
+  const representation = unwrapRead(
+    await supabase
+      .from("sw_representations")
+      .select("id")
+      .eq("source_id", sourceId)
+      .in("kind", ["transcript", "document_text"])
+      .maybeSingle(),
+    "the source's representation",
+  );
 
   return { sourceId, representationId: representation?.id ?? null };
 }
@@ -324,13 +331,16 @@ export async function getPrimaryProjectIdForSource(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<string | null> {
-  const { data } = await supabase
-    .from("sw_project_sources")
-    .select("project_id")
-    .eq("source_id", sourceId)
-    .order("added_at")
-    .limit(1)
-    .maybeSingle();
+  const data = unwrapRead(
+    await supabase
+      .from("sw_project_sources")
+      .select("project_id")
+      .eq("source_id", sourceId)
+      .order("added_at")
+      .limit(1)
+      .maybeSingle(),
+    "the source's primary project",
+  );
   return data?.project_id ?? null;
 }
 
@@ -344,10 +354,10 @@ export async function listProjectIdsForSource(
   supabase: Awaited<ReturnType<typeof createClient>>,
   sourceId: string,
 ): Promise<string[]> {
-  const { data } = await supabase
-    .from("sw_project_sources")
-    .select("project_id")
-    .eq("source_id", sourceId);
+  const data = unwrapRead(
+    await supabase.from("sw_project_sources").select("project_id").eq("source_id", sourceId),
+    "the projects that reference this source",
+  );
   return (data ?? []).map((row) => row.project_id);
 }
 
@@ -599,9 +609,12 @@ export async function listProjectsPage(options: {
     .order("last_activity", { ascending: false })
     .order("id")
     .range(from, to);
-  const data = unwrapRead(result, "the project list") ?? [];
+  const { rows: data, total } = await readPage(result, "the project list", async () => {
+    const counts = await countProjectFilters(options.userId);
+    return counts[options.filter];
+  });
   return {
-    total: result.count ?? data.length,
+    total,
     rows: data.map((row) => ({
       id: row.id,
       title: row.title,

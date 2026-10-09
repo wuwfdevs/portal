@@ -28,6 +28,7 @@
 // A group this table has never seen is skipped too, with a warning, rather
 // than silently guessed at or silently dropped.
 
+import { groupBy } from "@/lib/collections";
 import type { LogContentType } from "@/lib/database.types";
 import { formatAirTime } from "@/lib/log/schedule";
 import type { DadGroup, DadLibraryCut } from "@/lib/log/dad-library-import";
@@ -252,12 +253,7 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
       .map((item) => [item.dad_cart_number!, item.id]),
   );
 
-  const cutsByGroup = new Map<string, DadLibraryCut[]>();
-  for (const cut of inputs.cuts) {
-    const list = cutsByGroup.get(cut.group);
-    if (list) list.push(cut);
-    else cutsByGroup.set(cut.group, [cut]);
-  }
+  const cutsByGroup = groupBy(inputs.cuts, (cut) => cut.group);
 
   const groupSummaries: GroupSummary[] = [];
   const directItems: DirectItemPlan[] = [];

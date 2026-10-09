@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
+import { useDismissable } from "@/lib/use-dismissable";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 export interface ActionMenuItem {
@@ -74,33 +75,28 @@ export function ActionMenu({
     setError(null);
   }
 
+  // A sheet closes from its backdrop's click, not on pointerdown: closing on
+  // pointerdown unmounts it before the click, and the tap then lands on
+  // whatever was underneath. The panel is portaled to <body>, so it's outside
+  // containerRef — both count as inside.
+  useDismissable({
+    open,
+    refs: [containerRef, panelRef],
+    onDismiss: (reason) => {
+      if (busy || (reason === "outside" && narrow)) return;
+      close();
+    },
+  });
+
   useEffect(() => {
     if (!open) return;
-    // A sheet closes from its backdrop's click, not on pointerdown: closing on
-    // pointerdown unmounts it before the click, and the tap then lands on
-    // whatever was underneath.
-    function handlePointerDown(event: PointerEvent) {
-      if (narrow || busy) return;
-      const target = event.target as Node;
-      // The panel is portaled to <body>, so it's outside containerRef — check both.
-      if (!containerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        close();
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !busy) close();
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
     // The page behind a sheet should not scroll under the finger.
     const previousOverflow = document.body.style.overflow;
     if (narrow) document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, narrow, busy]);
+  }, [open, narrow]);
 
   if (items.length === 0) return null;
 

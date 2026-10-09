@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   canDrillDown as canDrillDownRule,
@@ -21,6 +21,7 @@ import type {
 } from "@/lib/editorial-inquiry/queries";
 import type { EditorialTurnOutcome, EditorialTurnStreamEvent } from "@/lib/editorial-inquiry/turn";
 import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
+import { readSseEvents, SSE_STOPPED_MESSAGE, SSE_UNREACHABLE_MESSAGE } from "@/lib/read-sse";
 import { Canvas } from "./canvas";
 import {
   InspectorPanel,
@@ -184,6 +185,13 @@ export function InquiryWorkspace({
     return inFlight;
   }
 
+  // Turns can overlap (one per question); leaving the workspace aborts them all.
+  const turnControllers = useRef(new Set<AbortController>());
+  useEffect(() => {
+    const controllers = turnControllers.current;
+    return () => controllers.forEach((controller) => controller.abort());
+  }, []);
+
   /**
    * One streaming editorial turn — Branch, Drill down, Evaluate, or a
    * Discuss message. Mirrors agent-chat-widget's SSE parsing; deltas land in
@@ -202,12 +210,15 @@ export function InquiryWorkspace({
       setPendingByQuestion((p) => ({ ...p, [id]: mode }));
     }
     setStreaming({ questionId: id, text: "" });
+    const controller = new AbortController();
+    turnControllers.current.add(controller);
     try {
       await loadThreadOnce(id);
       const response = await fetch("/api/editorial-inquiry/turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionId: id, mode, message }),
+        signal: controller.signal,
       });
       if (!response.ok || !response.body) {
         const data = await response.json().catch(() => null);
@@ -215,59 +226,48 @@ export function InquiryWorkspace({
         return false;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let sawTerminalEvent = false;
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() ?? "";
-        for (const chunk of chunks) {
-          const line = chunk.trim();
-          if (!line.startsWith("data:")) continue;
-          let event: EditorialTurnStreamEvent;
-          try {
-            event = JSON.parse(line.slice("data:".length).trim()) as EditorialTurnStreamEvent;
-          } catch {
-            continue;
-          }
-          if (event.type === "delta") {
-            setStreaming((s) =>
-              s && s.questionId === id ? { ...s, text: s.text + (event.text ?? "") } : s,
-            );
-          } else if (event.type === "done") {
-            sawTerminalEvent = true;
-            succeeded = true;
-            applyTurnOutcome(id, event.outcome);
-          } else if (event.type === "error") {
-            sawTerminalEvent = true;
-            setError(event.message ?? "Something went wrong.");
-          }
+      for await (const event of readSseEvents<EditorialTurnStreamEvent>(
+        response,
+        controller.signal,
+      )) {
+        if (event.type === "delta") {
+          setStreaming((s) =>
+            s && s.questionId === id ? { ...s, text: s.text + (event.text ?? "") } : s,
+          );
+        } else if (event.type === "done") {
+          sawTerminalEvent = true;
+          succeeded = true;
+          applyTurnOutcome(id, event.outcome);
+        } else if (event.type === "error") {
+          sawTerminalEvent = true;
+          setError(event.message ?? "Something went wrong.");
         }
       }
 
+      if (controller.signal.aborted) return succeeded;
       if (!sawTerminalEvent) {
-        setError("The assistant stopped responding unexpectedly.");
+        setError(SSE_STOPPED_MESSAGE);
       }
       return succeeded;
     } catch {
-      setError("Couldn't reach the assistant. Try again.");
+      if (!controller.signal.aborted) setError(SSE_UNREACHABLE_MESSAGE);
       return false;
     } finally {
-      setStreaming((s) => (s && s.questionId === id ? null : s));
-      if (mode === "discuss") {
-        setChatSending(false);
-        setInFlightChat(null);
-      } else {
-        setPendingByQuestion((p) => {
-          const next = { ...p };
-          delete next[id];
-          return next;
-        });
+      turnControllers.current.delete(controller);
+      // An aborted turn means the workspace is gone: nothing left to update.
+      if (!controller.signal.aborted) {
+        setStreaming((s) => (s && s.questionId === id ? null : s));
+        if (mode === "discuss") {
+          setChatSending(false);
+          setInFlightChat(null);
+        } else {
+          setPendingByQuestion((p) => {
+            const next = { ...p };
+            delete next[id];
+            return next;
+          });
+        }
       }
     }
   }

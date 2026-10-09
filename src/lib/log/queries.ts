@@ -1,7 +1,10 @@
+import { groupBy } from "@/lib/collections";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
+import { orIlike } from "@/lib/list-search";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import type { SyncRundown } from "@/lib/log/clock-sync";
 import type { RundownOpportunityLike } from "@/lib/log/rundown-generation";
@@ -153,18 +156,11 @@ export async function getClockTemplateDetail(id: string): Promise<ClockTemplateD
     (a, b) => (a.slot.start_offset_seconds ?? 0) - (b.slot.start_offset_seconds ?? 0),
   );
 
-  const slotsByVersion = new Map<string, LogClockSlotRow[]>();
-  for (const slot of slots) {
-    const existing = slotsByVersion.get(slot.clock_version_id);
-    if (existing) existing.push(slot);
-    else slotsByVersion.set(slot.clock_version_id, [slot]);
-  }
-  const opportunitiesByVersion = new Map<string, LogLocalOpportunityWithSlot[]>();
-  for (const opportunity of opportunities) {
-    const existing = opportunitiesByVersion.get(opportunity.clock_version_id);
-    if (existing) existing.push(opportunity);
-    else opportunitiesByVersion.set(opportunity.clock_version_id, [opportunity]);
-  }
+  const slotsByVersion = groupBy(slots, (slot) => slot.clock_version_id);
+  const opportunitiesByVersion = groupBy(
+    opportunities,
+    (opportunity) => opportunity.clock_version_id,
+  );
 
   return {
     ...template,
@@ -245,12 +241,7 @@ export async function listClockSummaries(asOfDate: string): Promise<Map<string, 
       "the clock versions",
     ) ?? [];
 
-  const byTemplate = new Map<string, LogClockVersionRow[]>();
-  for (const version of versions) {
-    const existing = byTemplate.get(version.clock_template_id);
-    if (existing) existing.push(version);
-    else byTemplate.set(version.clock_template_id, [version]);
-  }
+  const byTemplate = groupBy(versions, (version) => version.clock_template_id);
 
   const chosen = new Map<string, LogClockVersionRow | null>();
   for (const [templateId, templateVersions] of byTemplate) {
@@ -272,12 +263,7 @@ export async function listClockSummaries(asOfDate: string): Promise<Map<string, 
             .order("position"),
           "the clock slots",
         ) ?? []);
-  const slotsByVersion = new Map<string, LogClockSlotRow[]>();
-  for (const slot of slots) {
-    const existing = slotsByVersion.get(slot.clock_version_id);
-    if (existing) existing.push(slot);
-    else slotsByVersion.set(slot.clock_version_id, [slot]);
-  }
+  const slotsByVersion = groupBy(slots, (slot) => slot.clock_version_id);
 
   const summaries = new Map<string, ClockSummary>();
   for (const [templateId, templateVersions] of byTemplate) {
@@ -371,12 +357,7 @@ export async function listContentItemsWithComponents(
       "these content items' components",
     ) ?? [];
 
-  const componentsByItem = new Map<string, LogContentComponentRow[]>();
-  for (const component of components) {
-    const existing = componentsByItem.get(component.content_item_id);
-    if (existing) existing.push(component);
-    else componentsByItem.set(component.content_item_id, [component]);
-  }
+  const componentsByItem = groupBy(components, (component) => component.content_item_id);
 
   return items.map((item) => ({ ...item, components: componentsByItem.get(item.id) ?? [] }));
 }
@@ -392,9 +373,7 @@ export interface ContentLibraryPageFilters extends ContentLibraryFilters {
  * they are stripped from the term rather than escaped.
  */
 function contentSearchFilter(search: string | undefined): string | null {
-  const term = (search ?? "").replace(/[%_,()"\\]/g, " ").trim();
-  if (!term) return null;
-  return `title.ilike.%${term}%,dad_cart_number.ilike.%${term}%,script.ilike.%${term}%`;
+  return orIlike(["title", "dad_cart_number", "script"], search);
 }
 
 /**
@@ -416,13 +395,9 @@ export async function listContentLibraryPage(
   const searchFilter = contentSearchFilter(filters.search);
   if (searchFilter) query = query.or(searchFilter);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
-  // Past the end, PostgREST answers 416 (PGRST103) rather than an empty page;
-  // report no rows and let the screen redirect to the last page.
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countContentItems(filters) };
-  }
-  const items = unwrapRead(result, "the content library") ?? [];
-  const total = result.count ?? 0;
+  const { rows: items, total } = await readPage(result, "the content library", () =>
+    countContentItems(filters),
+  );
   if (items.length === 0) return { rows: [], total };
 
   const components =
@@ -436,12 +411,7 @@ export async function listContentLibraryPage(
         ),
       "these content items' components",
     ) ?? [];
-  const componentsByItem = new Map<string, LogContentComponentRow[]>();
-  for (const component of components) {
-    const existing = componentsByItem.get(component.content_item_id);
-    if (existing) existing.push(component);
-    else componentsByItem.set(component.content_item_id, [component]);
-  }
+  const componentsByItem = groupBy(components, (component) => component.content_item_id);
   return {
     rows: items.map((item) => ({ ...item, components: componentsByItem.get(item.id) ?? [] })),
     total,
@@ -509,12 +479,7 @@ export async function getContentItemsWithComponents(
       "these content items' components",
     ) ?? [];
 
-  const componentsByItem = new Map<string, LogContentComponentRow[]>();
-  for (const component of components) {
-    const existing = componentsByItem.get(component.content_item_id);
-    if (existing) existing.push(component);
-    else componentsByItem.set(component.content_item_id, [component]);
-  }
+  const componentsByItem = groupBy(components, (component) => component.content_item_id);
 
   return new Map(
     items.map((item) => [
@@ -898,28 +863,22 @@ export async function getRundownDetail(id: string): Promise<RundownDetail | null
   ]);
 
   const contentItemById = new Map(contentItems.map((item) => [item.id, item]));
-  const componentsByContentItem = new Map<string, LogContentComponentRow[]>();
-  for (const component of components) {
-    const existing = componentsByContentItem.get(component.content_item_id);
-    if (existing) existing.push(component);
-    else componentsByContentItem.set(component.content_item_id, [component]);
-  }
+  const componentsByContentItem = groupBy(components, (component) => component.content_item_id);
 
-  const itemsByBreak = new Map<string, RundownItemDetail[]>();
-  for (const item of items) {
-    const contentItem = item.content_item_id
-      ? (contentItemById.get(item.content_item_id) ?? null)
-      : null;
-    const detail: RundownItemDetail = {
-      ...item,
-      contentItem: contentItem
-        ? { ...contentItem, components: componentsByContentItem.get(contentItem.id) ?? [] }
-        : null,
-    };
-    const existing = itemsByBreak.get(item.break_id);
-    if (existing) existing.push(detail);
-    else itemsByBreak.set(item.break_id, [detail]);
-  }
+  const itemsByBreak = groupBy(
+    items.map((item): RundownItemDetail => {
+      const contentItem = item.content_item_id
+        ? (contentItemById.get(item.content_item_id) ?? null)
+        : null;
+      return {
+        ...item,
+        contentItem: contentItem
+          ? { ...contentItem, components: componentsByContentItem.get(contentItem.id) ?? [] }
+          : null,
+      };
+    }),
+    (detail) => detail.break_id,
+  );
 
   return {
     ...rundown,

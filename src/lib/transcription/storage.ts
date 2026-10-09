@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { signedUrl } from "@/lib/storage-sign";
 import { TRANSCRIPTION_MEDIA_BUCKET } from "@/lib/transcription/media";
 
 const PLAYBACK_URL_TTL_SECONDS = 60 * 30; // 30 minutes — reload the page to refresh.
@@ -22,17 +22,10 @@ export async function getSignedMediaUrl(
   storagePath: string,
   downloadFilename?: string,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(TRANSCRIPTION_MEDIA_BUCKET)
-    .createSignedUrl(
-      storagePath,
-      PLAYBACK_URL_TTL_SECONDS,
-      downloadFilename ? { download: downloadFilename } : undefined,
-    );
-
-  if (error || !data) return null;
-  return data.signedUrl;
+  return signedUrl(TRANSCRIPTION_MEDIA_BUCKET, storagePath, {
+    ttlSeconds: PLAYBACK_URL_TTL_SECONDS,
+    download: downloadFilename,
+  });
 }
 
 /**
@@ -41,11 +34,5 @@ export async function getSignedMediaUrl(
  * still-authenticated uploader's own request (see completeSourceUpload).
  */
 export async function getSignedMediaUrlForIngest(storagePath: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(TRANSCRIPTION_MEDIA_BUCKET)
-    .createSignedUrl(storagePath, INGEST_URL_TTL_SECONDS);
-
-  if (error || !data) return null;
-  return data.signedUrl;
+  return signedUrl(TRANSCRIPTION_MEDIA_BUCKET, storagePath, { ttlSeconds: INGEST_URL_TTL_SECONDS });
 }

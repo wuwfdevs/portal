@@ -1,7 +1,9 @@
+import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WeekMonthLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { dayOfWeekISO } from "@/lib/dates";
 import {
   automatedHoursOnDay,
   automatedSegments,
@@ -293,8 +295,7 @@ function WeekView({
     blocks: primary.blocksOn(dateISO),
     bands: context.blocksOn(dateISO),
     programs: entriesInForceOn(entries, dateISO).map((entry) => {
-      const [h = "0", m = "0"] = entry.air_time.split(":");
-      const start = Number(h) * 60 + Number(m);
+      const start = parseTimeToMinutes(entry.air_time);
       return {
         key: entry.id,
         name: entry.programName,
@@ -472,7 +473,7 @@ function MonthView({ date, today, primary, context, weekHref, monthHref }: Hours
   const month = Number(date.slice(5, 7));
   const first = `${date.slice(0, 7)}-01`;
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const leading = new Date(`${first}T12:00:00Z`).getUTCDay();
+  const leading = dayOfWeekISO(first);
   const previousMonth = shiftDateISO(first, -1).slice(0, 7) + "-01";
   const nextMonth = shiftDateISO(first, 31).slice(0, 7) + "-01";
   const cells = Array.from({ length: Math.ceil((leading + daysInMonth) / 7) * 7 }, (_, i) => {

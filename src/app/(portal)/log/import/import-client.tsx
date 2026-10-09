@@ -43,11 +43,12 @@ import {
   parseProgramLogUpload,
   type ExecuteImportResult,
 } from "../import-actions";
-import { formatBytes as formatFileSize, formatClock as formatSeconds } from "@/lib/format";
-
-function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
-}
+import {
+  formatBytes as formatFileSize,
+  formatClock as formatSeconds,
+  pluralize,
+} from "@/lib/format";
+import { actionFailureMessage } from "@/lib/use-action";
 
 const IMPORT_STEPS = [{ label: "Upload" }, { label: "Review" }, { label: "Confirm" }];
 
@@ -82,9 +83,13 @@ export function ImportClient({ fromDate }: { fromDate: string | null }) {
     startTransition(async () => {
       setError(null);
       setResult(null);
-      const response = await parseProgramLogUpload(formData);
-      if (response.ok) setPlan(response.plan);
-      else setError(response.error);
+      try {
+        const response = await parseProgramLogUpload(formData);
+        if (response.ok) setPlan(response.plan);
+        else setError(response.error);
+      } catch (caught) {
+        setError(actionFailureMessage(caught));
+      }
     });
   };
 
@@ -92,22 +97,26 @@ export function ImportClient({ fromDate }: { fromDate: string | null }) {
     if (!plan) return;
     startTransition(async () => {
       setError(null);
-      const response = await executeProgramLogImport(JSON.stringify(plan));
-      if (response.ok) {
-        const created = response.rundowns.filter((rundown) => rundown.skippedReason === null);
-        // A clean import lands back on Today at the log's own date, which is
-        // where the rundowns now show. One with a skipped rundown stays here:
-        // the per-rundown reasons are what the host needs to read next.
-        if (created.length === response.rundowns.length && created.length > 0) {
-          router.push(
-            `/log?date=${plan.airDate}&imported=${created.length}&unresolved=${plan.unresolved.length}`,
-          );
-          return;
+      try {
+        const response = await executeProgramLogImport(JSON.stringify(plan));
+        if (response.ok) {
+          const created = response.rundowns.filter((rundown) => rundown.skippedReason === null);
+          // A clean import lands back on Today at the log's own date, which is
+          // where the rundowns now show. One with a skipped rundown stays here:
+          // the per-rundown reasons are what the host needs to read next.
+          if (created.length === response.rundowns.length && created.length > 0) {
+            router.push(
+              `/log?date=${plan.airDate}&imported=${created.length}&unresolved=${plan.unresolved.length}`,
+            );
+            return;
+          }
+          setResult(response);
+          setPlan(null);
+        } else {
+          setError(response.error);
         }
-        setResult(response);
-        setPlan(null);
-      } else {
-        setError(response.error);
+      } catch (caught) {
+        setError(actionFailureMessage(caught));
       }
     });
   };
@@ -207,9 +216,9 @@ function ImportOutcome({
     <Card className="bg-panel-50 p-4">
       <h2 className="text-sm font-bold text-ink-900">Import complete</h2>
       <p className="mt-1 text-sm text-ink-700">
-        {plural(created, "rundown")} created · {plural(result.copyCreated, "new copy record")} (
-        {plural(result.underwritersCreated, "new underwriter")}) · {result.copyReused} reused from
-        the library
+        {pluralize(created, "rundown")} created · {pluralize(result.copyCreated, "new copy record")}{" "}
+        ({pluralize(result.underwritersCreated, "new underwriter")}) · {result.copyReused} reused
+        from the library
         {result.copyUpdated > 0 &&
           `, ${result.copyUpdated} of them updated to the export's wording`}
         .
@@ -293,7 +302,7 @@ function PlanPreview({
         <Button type="button" onClick={onConfirm} disabled={pending || creatable.length === 0}>
           {pending
             ? "Importing…"
-            : `Import ${plural(creatable.length, "rundown")}${plan.airDate ? ` for ${plan.airDate}` : ""}`}
+            : `Import ${pluralize(creatable.length, "rundown")}${plan.airDate ? ` for ${plan.airDate}` : ""}`}
         </Button>
         <Button type="button" variant="secondary" onClick={onReset} disabled={pending}>
           Start over
@@ -406,7 +415,7 @@ function PlanPreview({
             <li className="px-4 py-2.5">
               <details>
                 <summary className={DETAILS_SUMMARY}>
-                  {plural(unchangedCopy.length, "credit")} reuse library copy unchanged
+                  {pluralize(unchangedCopy.length, "credit")} reuse library copy unchanged
                 </summary>
                 <ul className="mt-2 flex flex-col gap-1">
                   {unchangedCopy.map((copy) => (
@@ -429,7 +438,7 @@ function PlanPreview({
       {plan.notes.length > 0 && (
         <details className="rounded border border-line px-4 py-2.5">
           <summary className={DETAILS_SUMMARY}>
-            {plural(plan.notes.length, "operational note")} not imported
+            {pluralize(plan.notes.length, "operational note")} not imported
           </summary>
           <ul className="mt-2 flex flex-col gap-1">
             {plan.notes.map((note) => (
@@ -454,7 +463,7 @@ function RundownPreview({ rundown }: { rundown: RundownPlan }) {
         <span className="text-sm font-semibold text-ink-900">{rundown.programName}</span>
         <span className="text-xs text-ink-500">
           {rundown.shiftStartTime.slice(0, 5)} · {rundown.shiftDurationMinutes} min ·{" "}
-          {plural(itemCount, "item")} in {plural(filled.length, "break")}
+          {pluralize(itemCount, "item")} in {pluralize(filled.length, "break")}
         </span>
         {rundown.existingRundownId !== null && (
           <Badge variant="warning">already exists — will be skipped</Badge>
@@ -470,7 +479,7 @@ function RundownPreview({ rundown }: { rundown: RundownPlan }) {
       {empty.length > 0 && (
         <details className="mt-1.5">
           <summary className={DETAILS_SUMMARY}>
-            {plural(empty.length, "open clock opportunity", "open clock opportunities")}
+            {pluralize(empty.length, "open clock opportunity", "open clock opportunities")}
           </summary>
           <ul className="mt-1 flex flex-col gap-0.5">
             {empty.map((brk) => (

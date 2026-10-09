@@ -4030,6 +4030,22 @@ Claude/ChatGPT clients) is next — do not start it without an explicit instruct
 still needs its own auth design first (design doc §8) — Phase D's cookie-based session
 auth doesn't extend to a client with no browser session.
 
+**Logic patterns — one implementation per piece of logic (2026-10-09).** Read
+`docs/logic-patterns.md` before writing a Server Action, a list query, a gate, or a client
+component that polls, copies, listens or uploads; this note is a pointer. A 2026-10-09 audit found
+the same helpers pasted into dozens of files — and copies that had drifted into different
+behavior — so they now live in tested modules under `src/lib/` (`form-fields`, `action-fields`,
+`dates`, `time-of-day`, `money`, `text`, `collections`, `list-search`'s `likeTerm`/`orIlike`,
+`pagination-read`'s `readPage`, `profile-names`, `storage-sign`/`storage-paths`, `safe-path`,
+`role-keys`, `auth/tool-grant`, `auth/route-guard`, and the client hooks). The rules that matter
+most: a delete runs through `deleteOrFail` (zero rows matched is not an error to Postgres); a
+`return_to`/`next` path goes through `safeLocalPath`; a storage path from the browser is checked
+with `pathIsUnder`; user text enters an `ilike`/`or()` only through `likeTerm`/`orIlike`; a ranged
+list read goes through `readPage`; dates validate strictly (`2026-02-30` is not a date); and
+ESLint now fails `const { data } = await …` without `error`. Same audit fixed an open redirect in
+`/auth/callback`, a contract-document download that never used its `contractId`, and admin
+writes that reported success without checking the result.
+
 ## Architecture
 
 - **Modular monolith.** One Next.js app, one repository. Route groups
@@ -4316,6 +4332,8 @@ make explicitly, not by default.
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename
   things "while you're in there," or add abstractions for a single current use.
+- Reuse the shared logic modules (`docs/logic-patterns.md`) instead of writing a local `field()`,
+  `isValidDateISO`, `round2`, `withQuery`, display-name lookup, or popover/clipboard/poller hook.
 - Never discard a Supabase `error`. A read that falls back to `[]` and a write that
   redirects as though it succeeded both render exactly like a healthy screen, so a real
   outage looks like a UI bug — that is how an unapplied migration once passed for "the

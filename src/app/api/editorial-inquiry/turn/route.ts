@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assertToolAccess, ForbiddenError } from "@/lib/auth/authz";
+import { guardRoute } from "@/lib/auth/route-guard";
 import {
   streamEditorialTurnEvents,
   type EditorialTurnStreamEvent,
@@ -42,14 +43,8 @@ export async function POST(request: Request) {
   // Gate before the stream opens so an unauthorized caller gets a real 401,
   // not a 200 event stream carrying an error (mirrors /api/agent/chat).
   // streamEditorialTurnEvents asserts again itself — defense in depth.
-  try {
-    await assertToolAccess("editorial-inquiry");
-  } catch (error) {
-    if (error instanceof ForbiddenError) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    }
-    throw error;
-  }
+  const guard = await guardRoute(() => assertToolAccess("editorial-inquiry"));
+  if (!guard.ok) return guard.response;
 
   const rawBody = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(rawBody);

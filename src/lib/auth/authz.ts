@@ -5,6 +5,7 @@ import { getCurrentProfile, type Profile } from "@/lib/auth/session";
 import { isActive, isActiveAdministrator } from "@/lib/auth/predicates";
 import { getToolByKey, type Tool } from "@/lib/tools";
 import { grantRequiredForTool } from "@/lib/tool-access-rules";
+import { unwrapRead } from "@/lib/read-result";
 
 /**
  * Single source of truth for "is this user allowed to do X". Every
@@ -66,13 +67,16 @@ export async function assertAdministrator(): Promise<Profile> {
 /** Whether the given user currently has an active (non-revoked) grant for a tool. */
 export async function hasToolAccess(userId: string, toolId: string): Promise<boolean> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("tool_access")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("tool_id", toolId)
-    .is("revoked_at", null)
-    .maybeSingle();
+  const data = unwrapRead(
+    await supabase
+      .from("tool_access")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("tool_id", toolId)
+      .is("revoked_at", null)
+      .maybeSingle(),
+    "tool access",
+  );
 
   return data !== null;
 }

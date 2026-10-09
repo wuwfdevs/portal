@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
+import { getDisplayNames } from "@/lib/profile-names";
+import { orIlike } from "@/lib/list-search";
 import type { ApDisposition, ApPartnershipType, ApStage, Database } from "@/lib/database.types";
 import { ACADEMIC_PARTNERSHIPS_TOOL_KEY } from "./access";
 
@@ -31,21 +33,6 @@ export interface SubmissionListItem extends ApSubmissionRow {
   ownerName: string | null;
 }
 
-/**
- * Display names are a courtesy column: `profiles` RLS only shows a non-admin
- * their own row, so this read is frequently short and must never be an
- * error. Same commented exception as lib/roadmap/queries.ts.
- */
-async function displayNames(userIds: (string | null)[]): Promise<Map<string, string>> {
-  const unique = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
-  if (unique.length === 0) return new Map();
-
-  const supabase = await createClient();
-  const result = await supabase.from("profiles").select("id, display_name").in("id", unique);
-  const rows = result.error ? [] : (result.data ?? []);
-  return new Map(rows.map((row) => [row.id, row.display_name]));
-}
-
 /** The kanban board: every submission still active in the pipeline (disposition is null). */
 export async function listPipelineSubmissions(): Promise<SubmissionListItem[]> {
   const supabase = await createClient();
@@ -59,7 +46,10 @@ export async function listPipelineSubmissions(): Promise<SubmissionListItem[]> {
       "the partnership pipeline",
     ) ?? [];
 
-  const names = await displayNames(rows.map((row) => row.owner_id));
+  const names = await getDisplayNames(
+    rows.map((row) => row.owner_id),
+    { degrade: true },
+  );
   return rows.map((row) => ({
     ...row,
     ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
@@ -84,12 +74,11 @@ export async function listAllSubmissions(
   // track); "filter to this type" means "this type is among them".
   if (filters.partnershipType)
     query = query.contains("partnership_types", [filters.partnershipType]);
-  if (filters.search?.trim()) {
-    const term = filters.search.trim().replace(/[%,]/g, "");
-    query = query.or(
-      `faculty_name.ilike.%${term}%,email.ilike.%${term}%,department.ilike.%${term}%,course_title.ilike.%${term}%,description.ilike.%${term}%`,
-    );
-  }
+  const searchFilter = orIlike(
+    ["faculty_name", "email", "department", "course_title", "description"],
+    filters.search,
+  );
+  if (searchFilter) query = query.or(searchFilter);
 
   const rows =
     unwrapRead(
@@ -97,7 +86,10 @@ export async function listAllSubmissions(
       "the partnership submissions",
     ) ?? [];
 
-  const names = await displayNames(rows.map((row) => row.owner_id));
+  const names = await getDisplayNames(
+    rows.map((row) => row.owner_id),
+    { degrade: true },
+  );
   return rows.map((row) => ({
     ...row,
     ownerName: row.owner_id ? (names.get(row.owner_id) ?? null) : null,
@@ -138,7 +130,10 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
       "this submission's activity log",
     ) ?? [];
 
-  const names = await displayNames([submission.owner_id, ...events.map((event) => event.actor_id)]);
+  const names = await getDisplayNames(
+    [submission.owner_id, ...events.map((event) => event.actor_id)],
+    { degrade: true },
+  );
 
   return {
     ...submission,
@@ -153,11 +148,14 @@ export async function getSubmissionDetail(id: string): Promise<SubmissionDetail 
 /** Active staff who hold a grant on this tool — the owner-assignment picker's options. */
 export async function listToolMembers(): Promise<{ id: string; displayName: string }[]> {
   const supabase = await createClient();
-  const { data: tool } = await supabase
-    .from("tools")
-    .select("id")
-    .eq("key", ACADEMIC_PARTNERSHIPS_TOOL_KEY)
-    .maybeSingle();
+  const tool = unwrapRead(
+    await supabase
+      .from("tools")
+      .select("id")
+      .eq("key", ACADEMIC_PARTNERSHIPS_TOOL_KEY)
+      .maybeSingle(),
+    "the tool registry",
+  );
   if (!tool) return [];
 
   const grants =
@@ -171,7 +169,7 @@ export async function listToolMembers(): Promise<{ id: string; displayName: stri
     ) ?? [];
   if (grants.length === 0) return [];
 
-  const names = await displayNames(grants.map((grant) => grant.user_id));
+  const names = await getDisplayNames(grants.map((grant) => grant.user_id));
   return grants
     .map((grant) => ({ id: grant.user_id, displayName: names.get(grant.user_id) ?? "A colleague" }))
     .sort((a, b) => a.displayName.localeCompare(b.displayName));

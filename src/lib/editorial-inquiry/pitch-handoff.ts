@@ -7,6 +7,7 @@
 // never writes an ep_pitches row directly.
 
 import { labelForEvidentiaryStatus, type ContextNoteRecord, type QuestionRecord } from "./tree";
+import { truncate } from "@/lib/text";
 
 const TITLE_MAX_LENGTH = 200;
 
@@ -31,7 +32,7 @@ export function buildPitchHandoffDraft(params: {
   inheritedNotes: ContextNoteRecord[];
 }): PitchHandoffDraft {
   const text = params.storyQuestion.text.trim();
-  const title = text.length > TITLE_MAX_LENGTH ? `${text.slice(0, TITLE_MAX_LENGTH - 1)}…` : text;
+  const title = truncate(text, TITLE_MAX_LENGTH);
 
   const sourcesMaterials = params.inheritedNotes
     .map((n) => {

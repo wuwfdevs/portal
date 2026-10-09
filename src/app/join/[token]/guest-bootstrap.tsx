@@ -27,7 +27,7 @@ export function GuestBootstrap({ token }: { token: string }) {
       if (result.ok) {
         router.refresh();
       } else {
-        setError(result.message);
+        setError(result.error);
       }
     });
     return () => {
@@ -37,11 +37,7 @@ export function GuestBootstrap({ token }: { token: string }) {
 
   return (
     <GuestShell>
-      {error ? (
-        <Alert>{error}</Alert>
-      ) : (
-        <p className="text-sm text-ink-500">Joining…</p>
-      )}
+      {error ? <Alert>{error}</Alert> : <p className="text-sm text-ink-500">Joining…</p>}
     </GuestShell>
   );
 }

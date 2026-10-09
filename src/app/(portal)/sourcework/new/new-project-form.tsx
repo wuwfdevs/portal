@@ -16,6 +16,7 @@ import {
 } from "../[id]/source-actions";
 import { StagedFiles } from "../staged-files";
 import { useSourceUploads, type StagedFile } from "../use-source-uploads";
+import { pluralize } from "@/lib/format";
 
 function actionsFor(projectId: string): SourceUploadActions {
   return {
@@ -161,7 +162,7 @@ export function NewProjectForm() {
             ? "Working…"
             : staged.length === 0
               ? "Create project"
-              : `Create project and upload ${staged.length} file${staged.length === 1 ? "" : "s"}`}
+              : `Create project and upload ${pluralize(staged.length, "file")}`}
         </Button>
       )}
     </form>

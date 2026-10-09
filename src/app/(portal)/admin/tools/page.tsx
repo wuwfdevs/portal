@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { Alert } from "@/components/ui/alert";
+import { unwrapRead } from "@/lib/read-result";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { TOOL_STATUS } from "@/lib/admin-status";
@@ -12,12 +14,21 @@ const DEFAULT_ACCESS_LABEL: Record<ToolDefaultAccess, string> = {
   open: "Open",
 };
 
-export default async function AdminToolsPage() {
+export default async function AdminToolsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const supabase = await createClient();
-  const { data: tools } = await supabase.from("tools").select("*").order("sort_order");
+  const tools = unwrapRead(
+    await supabase.from("tools").select("*").order("sort_order"),
+    "the tools",
+  );
 
   return (
     <div className="flex flex-col gap-4">
+      {error && <Alert>{error}</Alert>}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[13px] text-ink-500">
           Rows come from migrations. A <span className="font-semibold">proposed</span> tool is the

@@ -1,3 +1,4 @@
+import { countBy } from "@/lib/collections";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -269,13 +270,7 @@ export default async function RundownDetailPage({
     shiftEndAtISO: rundown.shift_end_at,
     nowISO: now,
   });
-  const eventCountByItem = new Map<string, number>();
-  for (const event of events) {
-    eventCountByItem.set(
-      event.rundown_item_id,
-      (eventCountByItem.get(event.rundown_item_id) ?? 0) + 1,
-    );
-  }
+  const eventCountByItem = countBy(events, (event) => event.rundown_item_id);
   // Distinct from "confirmed" (eventCountByItem > 0, which is also true for
   // a missed item): an underwriting credit that's only ever been marked
   // missed can still be relocated (see lib/log/rundown-relocation.ts) — only

@@ -7,9 +7,13 @@ import type { SettledProject } from "./settlements";
 import type { ProjectDateFacts } from "./badges";
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { countBy, groupBy } from "@/lib/collections";
 import { unwrapRead } from "@/lib/read-result";
+import { getDisplayNames } from "@/lib/profile-names";
 import type { Database } from "@/lib/database.types";
+import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
+import { ilikeTerm } from "@/lib/list-search";
 import { stationTodayISO } from "@/lib/log/timezone";
 import {
   agreementConsumption,
@@ -138,6 +142,8 @@ export async function getVersionDetail(version: BkVersionRow): Promise<VersionDe
   ]);
   const laborRows = unwrapRead(labor, "package labor") ?? [];
   const resourceRows = unwrapRead(resources, "package resources") ?? [];
+  const laborByPackage = groupBy(laborRows, (row) => row.package_id);
+  const resourcesByPackage = groupBy(resourceRows, (row) => row.package_id);
   return {
     version,
     assumptions: unwrapRead(assumptions, "rate model assumptions") ?? [],
@@ -145,12 +151,14 @@ export async function getVersionDetail(version: BkVersionRow): Promise<VersionDe
     pools: unwrapRead(pools, "resource pool figures") ?? [],
     packages: packageRows.map((pkg) => ({
       ...pkg,
-      labor: laborRows
-        .filter((row) => row.package_id === pkg.id)
-        .map((row) => ({ labor_class_id: row.labor_class_id, hours: Number(row.hours) })),
-      resources: resourceRows
-        .filter((row) => row.package_id === pkg.id)
-        .map((row) => ({ pool_id: row.pool_id, units: Number(row.units) })),
+      labor: (laborByPackage.get(pkg.id) ?? []).map((row) => ({
+        labor_class_id: row.labor_class_id,
+        hours: Number(row.hours),
+      })),
+      resources: (resourcesByPackage.get(pkg.id) ?? []).map((row) => ({
+        pool_id: row.pool_id,
+        units: Number(row.units),
+      })),
     })),
     classes,
     poolCatalog,
@@ -198,17 +206,12 @@ export async function listRateModelEvents(limit = 100): Promise<RateModelEvent[]
   const versionIds = [
     ...new Set(events.map((event) => event.version_id).filter(Boolean)),
   ] as string[];
-  const [profiles, versions] = await Promise.all([
-    actorIds.length > 0
-      ? supabase.from("profiles").select("id, display_name").in("id", actorIds)
-      : Promise.resolve({ data: [], error: null }),
+  const [names, versions] = await Promise.all([
+    getDisplayNames(actorIds),
     versionIds.length > 0
       ? supabase.from("bk_rate_model_versions").select("id, label").in("id", versionIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
-  const names = new Map(
-    (unwrapRead(profiles, "change log actors") ?? []).map((row) => [row.id, row.display_name]),
-  );
   const labels = new Map(
     (unwrapRead(versions, "change log versions") ?? []).map((row) => [row.id, row.label]),
   );
@@ -315,6 +318,8 @@ export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar
   ]);
   const holdLaborRows = unwrapRead(holdLabor, "hold labor") ?? [];
   const bookingLaborRows = unwrapRead(bookingLabor, "booking labor") ?? [];
+  const holdLaborByHold = groupBy(holdLaborRows, (row) => row.hold_id);
+  const bookingLaborByBooking = groupBy(bookingLaborRows, (row) => row.booking_id);
   const poolOrder = new Map(pools.map((pool, index) => [pool.id, index]));
   return {
     plan,
@@ -325,11 +330,11 @@ export async function getPlanCalendar(plan: BkTermPlanRow): Promise<PlanCalendar
     blackouts: unwrapRead(blackouts, "blackouts") ?? [],
     holds: holdRows.map((hold) => ({
       ...hold,
-      hours: hoursByClass(holdLaborRows.filter((row) => row.hold_id === hold.id)),
+      hours: hoursByClass(holdLaborByHold.get(hold.id) ?? []),
     })),
     bookings: bookingRows.map((booking) => ({
       ...booking,
-      hours: hoursByClass(bookingLaborRows.filter((row) => row.booking_id === booking.id)),
+      hours: hoursByClass(bookingLaborByBooking.get(booking.id) ?? []),
     })),
     reservedBlocks,
     classes,
@@ -427,15 +432,15 @@ export async function listProjectsPage(options: {
   for (const [column, operator, value] of viewFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  if (options.q) query = query.ilike("title", `%${options.q.replace(/[%_]/g, "")}%`);
+  const titleTerm = ilikeTerm(options.q);
+  if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query.order("created_at", { ascending: false }).order("id").range(from, to);
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countProjects(options.view, options.q) };
-  }
-  const rows = unwrapRead(result, "requests") ?? [];
+  const { rows, total } = await readPage(result, "requests", () =>
+    countProjects(options.view, options.q),
+  );
   return {
     rows: withPartners(rows, await partnersById(rows.map((row) => row.partner_id))),
-    total: result.count ?? 0,
+    total,
   };
 }
 
@@ -445,7 +450,8 @@ export async function countProjects(view: ProjectListView, q: string | null): Pr
   for (const [column, operator, value] of viewFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  if (q) query = query.ilike("title", `%${q.replace(/[%_]/g, "")}%`);
+  const titleTerm = ilikeTerm(q);
+  if (titleTerm) query = query.ilike("title", `%${titleTerm}%`);
   const result = await query;
   unwrapRead(result, "request count");
   return result.count ?? 0;
@@ -527,9 +533,12 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
             bookingRows.map((b) => b.id),
           )
       : Promise.resolve({ data: [], error: null }),
-    displayNames([...eventRows.map((e) => e.actor_id), project.owner_id]),
+    getDisplayNames([...eventRows.map((e) => e.actor_id), project.owner_id]),
   ]);
-  const laborRows = unwrapRead(labor, "the dates' hours") ?? [];
+  const laborByBooking = groupBy(
+    unwrapRead(labor, "the dates' hours") ?? [],
+    (row) => row.booking_id,
+  );
   return {
     project,
     partner: partnerRow,
@@ -537,7 +546,7 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
     lines: unwrapRead(lines, "estimate lines") ?? [],
     bookings: bookingRows.map((booking) => ({
       ...booking,
-      hours: hoursByClass(laborRows.filter((row) => row.booking_id === booking.id)),
+      hours: hoursByClass(laborByBooking.get(booking.id) ?? []),
     })),
     commitments: unwrapRead(commitments, "airtime commitments") ?? [],
     events: eventRows.map((event) => ({
@@ -547,14 +556,6 @@ export async function getProjectDetail(id: string): Promise<ProjectDetail | null
     version_label: unwrapRead(version, "rate model version")?.label ?? null,
     owner_name: project.owner_id ? (names.get(project.owner_id) ?? null) : null,
   };
-}
-
-async function displayNames(userIds: (string | null)[]): Promise<Map<string, string>> {
-  const unique = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
-  if (unique.length === 0) return new Map();
-  const supabase = await createClient();
-  const result = await supabase.from("profiles").select("id, display_name").in("id", unique);
-  return new Map((unwrapRead(result, "names") ?? []).map((row) => [row.id, row.display_name]));
 }
 
 /** Every airtime commitment with its project's title, for the envelope check and the dashboard. */
@@ -647,7 +648,7 @@ export async function listBookingsMembers(
       "the list of tool members",
     ) ?? [];
   if (grants.length === 0) return [];
-  const names = await displayNames(grants.map((grant) => grant.user_id));
+  const names = await getDisplayNames(grants.map((grant) => grant.user_id));
   return grants
     .map((grant) => ({ id: grant.user_id, displayName: names.get(grant.user_id) ?? "A colleague" }))
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -697,10 +698,6 @@ function partnerFilters(view: PartnerListView): [string, string, string][] {
   return view === "all" ? [] : [["kind", "eq", view]];
 }
 
-function escapeLike(q: string): string {
-  return q.replace(/[%_]/g, "");
-}
-
 /** One page of partners, filtered and searched in the query (docs/ui-patterns.md, "Pagination"), by name. */
 export async function listPartnersPage(options: {
   view: PartnerListView;
@@ -713,13 +710,13 @@ export async function listPartnersPage(options: {
   for (const [column, operator, value] of partnerFilters(options.view)) {
     query = query.filter(column, operator, value);
   }
-  if (options.q) query = query.ilike("name", `%${escapeLike(options.q)}%`);
+  const nameTerm = ilikeTerm(options.q);
+  if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query.order("name").order("id").range(from, to);
-  if (result.error?.code === "PGRST103") {
-    return { rows: [], total: await countPartners(options.view, options.q) };
-  }
-  const rows = unwrapRead(result, "partners") ?? [];
-  if (rows.length === 0) return { rows: [], total: result.count ?? 0 };
+  const { rows, total } = await readPage(result, "partners", () =>
+    countPartners(options.view, options.q),
+  );
+  if (rows.length === 0) return { rows: [], total };
   const ids = rows.map((row) => row.id);
   const [agreements, projects] = await Promise.all([
     supabase.from("bk_agreements").select("partner_id, status").in("partner_id", ids),
@@ -732,17 +729,23 @@ export async function listPartnersPage(options: {
   ]);
   const agreementRows = unwrapRead(agreements, "agreements") ?? [];
   const projectRows = unwrapRead(projects, "open requests") ?? [];
+  const agreementCounts = countBy(
+    agreementRows.filter((a) => a.status !== "ended"),
+    (a) => a.partner_id,
+  );
+  const activeAgreementCounts = countBy(
+    agreementRows.filter((a) => a.status === "active"),
+    (a) => a.partner_id,
+  );
+  const openProjectCounts = countBy(projectRows, (p) => p.partner_id);
   return {
     rows: rows.map((row) => ({
       ...row,
-      agreement_count: agreementRows.filter((a) => a.partner_id === row.id && a.status !== "ended")
-        .length,
-      active_agreement_count: agreementRows.filter(
-        (a) => a.partner_id === row.id && a.status === "active",
-      ).length,
-      open_project_count: projectRows.filter((p) => p.partner_id === row.id).length,
+      agreement_count: agreementCounts.get(row.id) ?? 0,
+      active_agreement_count: activeAgreementCounts.get(row.id) ?? 0,
+      open_project_count: openProjectCounts.get(row.id) ?? 0,
     })),
-    total: result.count ?? 0,
+    total,
   };
 }
 
@@ -752,7 +755,8 @@ export async function countPartners(view: PartnerListView, q: string | null): Pr
   for (const [column, operator, value] of partnerFilters(view)) {
     query = query.filter(column, operator, value);
   }
-  if (q) query = query.ilike("name", `%${escapeLike(q)}%`);
+  const nameTerm = ilikeTerm(q);
+  if (nameTerm) query = query.ilike("name", `%${nameTerm}%`);
   const result = await query;
   unwrapRead(result, "partner count");
   return result.count ?? 0;
@@ -894,7 +898,7 @@ export async function getAgreementDetail(id: string): Promise<AgreementDetail | 
   const versionIds = [...new Set(packageRows.map((p) => p.version_id))];
   const [consumption, names, versions] = await Promise.all([
     agreementConsumptionFor(agreement, projectRows),
-    displayNames([agreement.approved_by, ...blockRows.map((b) => b.kept_by)]),
+    getDisplayNames([agreement.approved_by, ...blockRows.map((b) => b.kept_by)]),
     versionIds.length > 0
       ? supabase.from("bk_rate_model_versions").select("id, label").in("id", versionIds)
       : Promise.resolve({ data: [], error: null }),
@@ -983,12 +987,13 @@ export async function agreementConsumptionFor(
           "booking labor",
         ) ?? [])
       : [];
+  const laborByBooking = groupBy(labor, (row) => row.booking_id);
   return agreementConsumption({
     agreement,
     bookings: bookingRows.map((b) => ({
       project_id: b.project_id,
       treatment: b.treatment,
-      hours: hoursByClass(labor.filter((row) => row.booking_id === b.id)),
+      hours: hoursByClass(laborByBooking.get(b.id) ?? []),
     })),
     classes,
     commitments: unwrapRead(commitments, "airtime commitments") ?? [],
@@ -1024,9 +1029,10 @@ export async function listAgreementsWithBlocks(): Promise<
         ),
       "reserved blocks",
     ) ?? [];
+  const blocksByAgreement = groupBy(blocks, (b) => b.agreement_id);
   return agreements.map((agreement) => ({
     ...agreement,
-    blocks: blocks.filter((b) => b.agreement_id === agreement.id),
+    blocks: blocksByAgreement.get(agreement.id) ?? [],
   }));
 }
 
@@ -1240,28 +1246,26 @@ export async function listObservedInputs(plan: {
       (unwrapRead(projectRows, "projects") ?? []).filter((p) => inTerm(p, plan)).map((p) => p.id),
     );
     const lines = unwrapRead(lineRows, "estimate lines") ?? [];
+    const linesByProject = groupBy(lines, (l) => l.project_id);
+    const usedByProject = groupBy(usedRows, (row) => row.project_id);
     projects = [...inTermIds].map((id) => ({
       id,
-      lines: lines
-        .filter((l) => l.project_id === id)
-        .map((l) => ({
-          kind: l.kind,
-          package_id: l.package_id,
-          label: l.label,
-          quantity: Number(l.quantity),
-          labor_hours: l.labor_hours ?? {},
-          resource_units: l.resource_units ?? {},
-          recipe_labor_hours: l.recipe_labor_hours,
-          recipe_resource_units: l.recipe_resource_units,
-        })),
-      confirmed: usedRows
-        .filter((row) => row.project_id === id)
-        .map((row) => ({
-          kind: row.kind,
-          id: (row.kind === "labor" ? row.labor_class_id : row.pool_id) ?? "",
-          planned: Number(row.planned),
-          used: Number(row.used),
-        })),
+      lines: (linesByProject.get(id) ?? []).map((l) => ({
+        kind: l.kind,
+        package_id: l.package_id,
+        label: l.label,
+        quantity: Number(l.quantity),
+        labor_hours: l.labor_hours ?? {},
+        resource_units: l.resource_units ?? {},
+        recipe_labor_hours: l.recipe_labor_hours,
+        recipe_resource_units: l.recipe_resource_units,
+      })),
+      confirmed: (usedByProject.get(id) ?? []).map((row) => ({
+        kind: row.kind,
+        id: (row.kind === "labor" ? row.labor_class_id : row.pool_id) ?? "",
+        planned: Number(row.planned),
+        used: Number(row.used),
+      })),
     }));
   }
   return {

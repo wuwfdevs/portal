@@ -9,6 +9,7 @@
 // the writes are the migration route's actions.ts, and each entry goes
 // through agreement-import-service.ts, the one import path.
 
+import { trimToNull } from "@/lib/validation";
 import { isValidDateISO } from "./dates";
 import type { AgreementModelOutput, NamedId, TypedOrderFields } from "./agreement-import";
 
@@ -146,25 +147,15 @@ function headerKey(header: string): string {
     .replace(/^_|_$/g, "");
 }
 
-function blankToNull(value: string | undefined): string | null {
-  const trimmed = value?.trim() ?? "";
-  return trimmed === "" ? null : trimmed;
-}
-
-/** A real calendar date — isValidDateISO() checks the shape, and Date rolls Feb 30 over to March. */
-function isCalendarDate(iso: string): boolean {
-  return isValidDateISO(iso) && new Date(`${iso}T00:00:00Z`).toISOString().slice(0, 10) === iso;
-}
-
 /** YYYY-MM-DD, or M/D/YYYY (and M/D/YY, as 20YY) — the two shapes a spreadsheet export produces. */
 export function parseManifestDate(value: string): string | null {
   const trimmed = value.trim();
-  if (isCalendarDate(trimmed)) return trimmed;
+  if (isValidDateISO(trimmed)) return trimmed;
   const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(trimmed);
   if (!match) return null;
   const year = match[3]!.length === 2 ? `20${match[3]}` : match[3]!;
   const iso = `${year}-${match[1]!.padStart(2, "0")}-${match[2]!.padStart(2, "0")}`;
-  return isCalendarDate(iso) ? iso : null;
+  return isValidDateISO(iso) ? iso : null;
 }
 
 /** "$1,234.50" → 1234.5; blank → null; anything else unreadable → NaN. */
@@ -239,7 +230,7 @@ export function parseMigrationManifest(text: string): ParsedManifest {
     const row = offset + 1;
     const cell = (field: ManifestField) => {
       const index = columnOf.get(field);
-      return index === undefined ? null : blankToNull(cells[index]);
+      return index === undefined ? null : trimToNull(cells[index]);
     };
     const rowErrors: string[] = [];
 

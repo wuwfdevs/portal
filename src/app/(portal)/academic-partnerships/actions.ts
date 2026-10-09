@@ -11,6 +11,8 @@ import { logSubmissionEvent } from "@/lib/academic-partnerships/activity";
 import { logAuditEvent } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { field, optionalField } from "@/lib/form-fields";
+import { getDisplayNames } from "@/lib/profile-names";
 import {
   DISPOSITION_LABEL,
   DISPOSITIONS,
@@ -24,15 +26,6 @@ const LIST_PATH = "/academic-partnerships";
 
 function detailPath(id: string): string {
   return `${LIST_PATH}/${id}`;
-}
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function optionalField(formData: FormData, name: string): string | null {
-  const value = field(formData, name);
-  return value === "" ? null : value;
 }
 
 /**
@@ -50,11 +43,17 @@ export async function setSubmissionStage(
   if (!STAGES.includes(stage)) return { error: "That is not a stage a submission can be in." };
 
   const supabase = await createClient();
-  const { data: before } = await supabase
+  const { data: before, error: beforeError } = await supabase
     .from("ap_submissions")
-    .select("stage")
+    .select("stage, disposition")
     .eq("id", submissionId)
     .maybeSingle();
+  if (beforeError) {
+    console.error("Could not read submission before stage change", beforeError);
+    return { error: "Could not move this submission. Please try again." };
+  }
+  // A drop onto the column it is already in (and not set aside) changes nothing.
+  if (before && before.stage === stage && before.disposition === null) return {};
 
   const { error } = await supabase
     .from("ap_submissions")
@@ -108,11 +107,13 @@ export async function assignOwner(formData: FormData): Promise<void> {
   const ownerId = optionalField(formData, "owner_id");
 
   const supabase = await createClient();
-  const { data: before } = await supabase
+  const { data: before, error: beforeError } = await supabase
     .from("ap_submissions")
     .select("owner_id")
     .eq("id", submissionId)
     .maybeSingle();
+  failIfError(beforeError, path, "Could not change the owner");
+  if (before && before.owner_id === ownerId) redirect(path);
 
   const { error } = await supabase
     .from("ap_submissions")
@@ -120,7 +121,7 @@ export async function assignOwner(formData: FormData): Promise<void> {
     .eq("id", submissionId);
   failIfError(error, path, "Could not change the owner");
 
-  const names = await ownerNames([before?.owner_id ?? null, ownerId]);
+  const names = await getDisplayNames([before?.owner_id, ownerId], { degrade: true });
   await logSubmissionEvent({
     submissionId,
     actorId: profile.id,
@@ -138,14 +139,6 @@ export async function assignOwner(formData: FormData): Promise<void> {
 
   revalidatePath(LIST_PATH);
   redirect(path);
-}
-
-async function ownerNames(ids: (string | null)[]): Promise<Map<string, string>> {
-  const unique = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
-  if (unique.length === 0) return new Map();
-  const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, display_name").in("id", unique);
-  return new Map((data ?? []).map((row) => [row.id, row.display_name]));
 }
 
 export async function addNote(formData: FormData): Promise<void> {
@@ -315,11 +308,15 @@ export async function deleteSubmission(submissionId: string): Promise<{ error?: 
   const { profile } = await assertAcademicPartnershipsCoordinator();
 
   const supabase = await createClient();
-  const { data: submission } = await supabase
+  const { data: submission, error: readError } = await supabase
     .from("ap_submissions")
     .select("faculty_name, department")
     .eq("id", submissionId)
     .maybeSingle();
+  if (readError) {
+    console.error("Could not read submission before delete", readError);
+    return { error: "Could not delete this inquiry. Please try again." };
+  }
 
   const { data, error } = await supabase
     .from("ap_submissions")
@@ -378,7 +375,9 @@ async function afterEmailAction(params: {
       .from("ap_submissions")
       .update({ stage: "meeting_requested", disposition: null })
       .eq("id", params.submissionId);
-    if (!error) {
+    if (error) {
+      console.error("Could not move submission to meeting requested", error);
+    } else {
       await logSubmissionEvent({
         submissionId: params.submissionId,
         actorId: params.profileId,

@@ -1,5 +1,6 @@
 "use server";
 
+import { field } from "@/lib/form-fields";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -8,10 +9,6 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { assertBookingsIntakeEditor } from "@/lib/bookings/access";
 import { parseOfferedPackages } from "@/lib/bookings/intake";
 import { INTAKE_PATH } from "@/lib/bookings/paths";
-
-function field(formData: FormData, name: string): string {
-  return String(formData.get(name) ?? "").trim();
-}
 
 /**
  * The public form's settings: open or closed, its three pieces of copy, and

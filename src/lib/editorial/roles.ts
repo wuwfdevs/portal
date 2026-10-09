@@ -5,6 +5,8 @@
 // recognizes three canonical values and treats anything else (including null)
 // as the base 'contributor' role. Matching mirrors the ep_role() SQL helper.
 
+import { normalizeRoleKey } from "@/lib/role-keys";
+
 export type EditorialRole = "contributor" | "reviewer" | "editor";
 
 const ROLE_RANK: Record<EditorialRole, number> = {
@@ -14,7 +16,7 @@ const ROLE_RANK: Record<EditorialRole, number> = {
 };
 
 export function normalizeToolRole(toolRole: string | null): EditorialRole {
-  const lowered = toolRole?.trim().toLowerCase();
+  const lowered = normalizeRoleKey(toolRole);
   return lowered === "editor" || lowered === "reviewer" ? lowered : "contributor";
 }
 
@@ -26,5 +28,9 @@ export function roleAtLeast(role: EditorialRole, minimum: EditorialRole): boolea
 export const ROLE_OPTIONS: { value: EditorialRole; label: string; description: string }[] = [
   { value: "contributor", label: "Contributor", description: "Submit and edit their own pitches" },
   { value: "reviewer", label: "Reviewer", description: "Score pitches in weekly meetings" },
-  { value: "editor", label: "Editor", description: "Decide pitches, edit the rubric and submission form" },
+  {
+    value: "editor",
+    label: "Editor",
+    description: "Decide pitches, edit the rubric and submission form",
+  },
 ];
