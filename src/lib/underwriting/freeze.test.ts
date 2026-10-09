@@ -37,6 +37,22 @@ describe("frozen rundowns", () => {
     ).toBeNull();
   });
 
+  it("blocks a superseded rundown before any other reason", () => {
+    const now = "2026-09-25T11:30:00Z";
+    expect(
+      automationBlockFor(
+        { rundownSuperseded: true, rundownStatus: "generated", scheduledAt: "2026-09-25T12:00:00Z" },
+        now,
+      ),
+    ).toBe("rundown_superseded");
+    expect(
+      automationBlockFor(
+        { rundownSuperseded: true, rundownStatus: "in_progress", scheduledAt: "2026-09-25T11:00:00Z" },
+        now,
+      ),
+    ).toBe("rundown_superseded");
+  });
+
   it("refuses an addition in closed hours, after the freeze rule, and never a clear", () => {
     const now = "2026-09-25T11:30:00Z";
     const closed = {

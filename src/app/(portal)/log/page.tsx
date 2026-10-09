@@ -8,7 +8,7 @@ import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
-import { computeEndTime, formatAirTime, isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { computeEndTime, entriesInForceOn, formatAirTime } from "@/lib/log/schedule";
 import { RUNDOWN_STATUS } from "@/lib/log/status-badges";
 import { formatStationDateLong, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
 import { generateRundown } from "./rundown-actions";
@@ -59,9 +59,10 @@ export default async function LogTodayPage({
   const today = stationTodayISO();
   const selectedDate = dateParam && DATE_ONLY.test(dateParam) ? dateParam : today;
   const [programs, scheduleEntries] = await Promise.all([listPrograms(), listScheduleEntries()]);
-  const activeOnDate = scheduleEntries
-    .filter((entry) => isScheduleEntryActiveOn(entry, selectedDate))
-    .sort((a, b) => a.air_time.localeCompare(b.air_time));
+  // One row per program: a one-time change replaces the recurring entry for its dates.
+  const activeOnDate = entriesInForceOn(scheduleEntries, selectedDate).sort((a, b) =>
+    a.air_time.localeCompare(b.air_time),
+  );
   const rundownByProgram = new Map(
     (await listRundownsForDate(selectedDate)).map((rundown) => [rundown.program_id, rundown]),
   );
@@ -199,7 +200,14 @@ export default async function LogTodayPage({
                     <Cell stack="title" className="font-semibold text-ink-900">
                       {entry.programName}
                     </Cell>
-                    <Cell label="Clock">{entry.clockTemplateName}</Cell>
+                    <Cell label="Clock">
+                      {entry.clockTemplateName}
+                      {entry.entry_type === "override" && (
+                        <Badge variant="accent" className="ml-2">
+                          One-time change
+                        </Badge>
+                      )}
+                    </Cell>
                     <Cell stack="aside">
                       {rundown ? (
                         <Link href={`/log/rundowns/${rundown.id}`}>

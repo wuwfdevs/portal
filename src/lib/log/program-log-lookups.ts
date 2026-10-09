@@ -9,7 +9,7 @@
 // and makes the pick; nothing here decides what the document says.
 
 import type OpenAI from "openai";
-import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
+import { entriesInForceOn } from "@/lib/log/schedule";
 import type {
   PlanContentItem,
   PlanCopy,
@@ -100,8 +100,7 @@ export function scheduleForDate(date: string, entries: PlanScheduleEntry[]) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { entries: [], note: "date must be YYYY-MM-DD." };
   }
-  const active = entries
-    .filter((entry) => isScheduleEntryActiveOn(entry, date))
+  const active = entriesInForceOn(entries, date)
     .sort((a, b) => a.air_time.localeCompare(b.air_time))
     .map((entry) => ({
       schedule_entry_id: entry.id,

@@ -3,9 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assertLogAccess } from "@/lib/log/access";
+import { assertLogAccess, assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
+import { resolveEntryInForce } from "@/lib/log/schedule";
+import { findOutOfStepRundowns } from "@/lib/log/clock-sync";
 import {
   BREAK_OCCURRENCE_CONFLICT,
   breakInsertRow,
@@ -18,7 +20,7 @@ import {
   WEATHER_DEFAULT_DURATION_SECONDS,
   WEATHER_ITEM_SENTINEL,
 } from "@/lib/log/content-library";
-import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
+import { stationLocalDateTimeToUTC, stationTodayISO } from "@/lib/log/timezone";
 import { estimateReadSeconds } from "@/lib/log/read-time";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { buildRundownItem } from "@/lib/log/capabilities";
@@ -31,8 +33,11 @@ import {
   getRundownItem,
   getScheduleEntry,
   listLocalOpportunitiesForVersion,
+  listScheduleEntriesForProgram,
+  listUpcomingRundownsWithClock,
   toRundownOpportunity,
 } from "@/lib/log/queries";
+import type { LogScheduleRow } from "@/lib/log/queries";
 import type { LogContentType } from "@/lib/database.types";
 
 function field(formData: FormData, name: string): string {
@@ -111,7 +116,10 @@ async function renumberBreakItems(
 ): Promise<string | null> {
   const results = await Promise.all(
     orderedItemIds.map((id, index) =>
-      supabase.from("log_rundown_items").update({ position: index + 1 }).eq("id", id),
+      supabase
+        .from("log_rundown_items")
+        .update({ position: index + 1 })
+        .eq("id", id),
     ),
   );
   return results.find((result) => result.error) ? "Could not reorder this break's items." : null;
@@ -151,33 +159,40 @@ async function placeNewItemAtPosition(
   return renumberBreakItems(supabase, finalOrder);
 }
 
+/** The parts of a schedule entry a rundown is built from. */
+type GenerationEntry = Pick<
+  LogScheduleRow,
+  "id" | "program_id" | "clock_template_id" | "air_time" | "duration_minutes"
+>;
+
+type GenerateResult =
+  { ok: true; rundownId: string; created: boolean } | { ok: false; error: string };
+
 /**
- * Generates (or, if one already exists, just links to) the rundown for a
- * schedule entry's program on a given air date — docs/log-design.md
- * Workflow E. Idempotent: log_rundowns' unique (program_id, air_date)
- * constraint backs this up at the database level too. Every local
+ * Creates the rundown for a schedule entry's program on an air date, or
+ * returns the live (not superseded) one that already exists. Every local
  * opportunity gets a break (including optional ones, which render as
  * "carrying network" until something is placed) — see
- * lib/log/rundown-generation.ts.
+ * lib/log/rundown-generation.ts. Returns a result instead of redirecting so
+ * both generateRundown (one date, one click) and switchProgramRundowns (many
+ * dates) can report what happened.
  */
-export async function generateRundown(formData: FormData): Promise<void> {
-  await assertLogAccess();
-  const scheduleEntryId = field(formData, "schedule_entry_id");
-  const airDate = field(formData, "air_date");
-  if (scheduleEntryId === "" || airDate === "")
-    failWith("/log", "Choose a program to generate a rundown for.");
-
-  const scheduleEntry = await getScheduleEntry(scheduleEntryId);
-  if (!scheduleEntry) failWith("/log", "That schedule entry no longer exists.");
-
+async function generateRundownForEntry(
+  scheduleEntry: GenerationEntry,
+  airDate: string,
+): Promise<GenerateResult> {
   const existing = await getRundownForProgramOnDate(scheduleEntry.program_id, airDate);
-  if (existing) redirect(rundownPath(existing.id));
+  if (existing) return { ok: true, rundownId: existing.id, created: false };
 
   const template = await getClockTemplateDetail(scheduleEntry.clock_template_id);
   const version = template ? resolveCurrentVersion(template.versions, airDate) : null;
-  if (!version) failWith("/log", "This program's clock has no version in effect on that date.");
+  if (!version) {
+    return { ok: false, error: "This program's clock has no version in effect on that date." };
+  }
 
-  const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(toRundownOpportunity);
+  const opportunities = (await listLocalOpportunitiesForVersion(version.id)).map(
+    toRundownOpportunity,
+  );
 
   const shiftStartAt = stationLocalDateTimeToUTC(airDate, scheduleEntry.air_time);
   const shiftEndAt = new Date(
@@ -199,8 +214,13 @@ export async function generateRundown(formData: FormData): Promise<void> {
     })
     .select("id")
     .single();
-  failIfError(rundownError, "/log", "Could not generate the rundown");
-  if (!rundown) failWith("/log", "Could not generate the rundown.");
+  if (rundownError || !rundown) {
+    console.error("Could not generate the rundown:", rundownError);
+    return {
+      ok: false,
+      error: `Could not generate the rundown: ${rundownError?.message ?? "no row was returned"}`,
+    };
+  }
 
   const drafts = buildRundownBreakDrafts(
     opportunities,
@@ -219,16 +239,108 @@ export async function generateRundown(formData: FormData): Promise<void> {
         { onConflict: BREAK_OCCURRENCE_CONFLICT, ignoreDuplicates: true },
       )
       .select("id, local_opportunity_id, scheduled_at");
-    failIfError(
-      breaksError,
-      "/log",
-      "Rundown created, but its local-opportunity breaks could not be generated",
-    );
+    if (breaksError) {
+      console.error("Rundown created, but its breaks could not be generated:", breaksError);
+      return {
+        ok: false,
+        error: `Rundown created, but its local-opportunity breaks could not be generated: ${breaksError.message}`,
+      };
+    }
     await placeAssignedContent(supabase, insertedBreaks ?? [], drafts, airDate);
   }
 
+  return { ok: true, rundownId: rundown.id, created: true };
+}
+
+/**
+ * Generates (or, if one already exists, just links to) the rundown for a
+ * program on a given air date — docs/log-design.md Workflow E. Idempotent:
+ * log_rundowns' partial unique index over (program_id, air_date) where not
+ * superseded backs this up at the database level too.
+ */
+export async function generateRundown(formData: FormData): Promise<void> {
+  await assertLogAccess();
+  const scheduleEntryId = field(formData, "schedule_entry_id");
+  const airDate = field(formData, "air_date");
+  if (scheduleEntryId === "" || airDate === "")
+    failWith("/log", "Choose a program to generate a rundown for.");
+
+  const postedEntry = await getScheduleEntry(scheduleEntryId);
+  if (!postedEntry) failWith("/log", "That schedule entry no longer exists.");
+
+  // Whatever row the click came from, the rundown is built from the entry in
+  // force for that program on that date — a one-time change replaces the
+  // recurring entry, so a stale Generate button can't build the wrong clock.
+  const scheduleEntry = resolveEntryInForce(
+    await listScheduleEntriesForProgram(postedEntry.program_id),
+    airDate,
+  );
+  if (!scheduleEntry) failWith("/log", "This program has no schedule entry in force on that date.");
+
+  const result = await generateRundownForEntry(scheduleEntry, airDate);
+  if (!result.ok) failWith("/log", result.error);
+
   revalidatePath("/log");
-  redirect(rundownPath(rundown.id));
+  redirect(rundownPath(result.rundownId));
+}
+
+/**
+ * Brings a program's upcoming rundowns in line with its schedule after a
+ * one-time change (FPREN Phase I storm coverage, say) was added, shortened or
+ * removed. Each rundown that is still ungenerated-for-air and no longer
+ * matches the entry in force (lib/log/clock-sync.ts) is superseded —
+ * log_supersede_rundown keeps it, records its placed underwriting credits as
+ * missed (special_coverage) so Traffic reviews them, and refuses one that has
+ * started or has events — and a replacement is generated on the right clock.
+ * Program director only; the database function enforces it too.
+ */
+export async function switchProgramRundowns(formData: FormData): Promise<void> {
+  await assertProgramDirector();
+  const programId = field(formData, "program_id");
+  if (programId === "") failWith("/log/programs", "Choose a program.");
+  const path = `/log/programs/${programId}`;
+
+  const today = stationTodayISO();
+  const [entries, rundowns] = await Promise.all([
+    listScheduleEntriesForProgram(programId),
+    listUpcomingRundownsWithClock(programId, today),
+  ]);
+  const outOfStep = findOutOfStepRundowns(rundowns, entries, new Date().toISOString());
+  if (outOfStep.length === 0) {
+    redirect(`${path}?switched=0`);
+  }
+
+  const supabase = await createClient();
+  let switched = 0;
+  let credits = 0;
+  const problems: string[] = [];
+  for (const item of outOfStep) {
+    const { data, error } = await supabase.rpc("log_supersede_rundown", {
+      p_rundown_id: item.rundown.id,
+      p_note: `Schedule entry in force: ${item.entry.id}.`,
+    });
+    if (error || !data || "error" in data) {
+      const reason = error?.message ?? (data && "error" in data ? data.error : "no result");
+      problems.push(`${item.rundown.air_date}: ${reason}`);
+      continue;
+    }
+    credits += data.credits_recorded;
+
+    const generated = await generateRundownForEntry(item.entry, item.rundown.air_date);
+    if (!generated.ok) {
+      problems.push(
+        `${item.rundown.air_date}: the old rundown was retired but the new one was not built (${generated.error}) — generate it from Today.`,
+      );
+      continue;
+    }
+    switched += 1;
+  }
+
+  revalidatePath("/log");
+  revalidatePath(path);
+  const query = new URLSearchParams({ switched: String(switched), credits: String(credits) });
+  if (problems.length > 0) query.set("error", problems.join(" · "));
+  redirect(`${path}?${query.toString()}`);
 }
 
 /**
@@ -249,8 +361,13 @@ export async function syncRundownBreaks(formData: FormData): Promise<void> {
 
   const rundown = await getRundownDetail(rundownId);
   if (!rundown) failWith("/log", "That rundown no longer exists.");
+  if (rundown.superseded_at) {
+    failWith(path, "This rundown was replaced by one on another clock, so it isn't synced.");
+  }
 
-  const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(toRundownOpportunity);
+  const opportunities = (await listLocalOpportunitiesForVersion(rundown.clock_version_id)).map(
+    toRundownOpportunity,
+  );
   const shiftDurationMinutes = Math.round(
     (new Date(rundown.shift_end_at).getTime() - new Date(rundown.shift_start_at).getTime()) /
       60_000,
@@ -391,7 +508,10 @@ export async function createLiveReadItem(formData: FormData): Promise<void> {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
     failWith(path, "Enter a duration in seconds, or a script to estimate it from.");
   if (keepInLibrary && sourceNprItemId !== "")
-    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
+    failWith(
+      path,
+      "An NPR look-ahead is tied to today's episode and can't be kept in the library.",
+    );
   const libraryContentType = keepInLibrary ? libraryContentTypeFromForm(formData, path) : null;
 
   const supabase = await createClient();
@@ -475,7 +595,10 @@ export async function saveLiveReadToLibrary(formData: FormData): Promise<void> {
   if (item.item_kind !== "live_read" || item.live_read_title === null)
     failWith(path, "Only a one-off live read can be saved to the library.");
   if (item.source_npr_item_id !== null)
-    failWith(path, "An NPR look-ahead is tied to today's episode and can't be kept in the library.");
+    failWith(
+      path,
+      "An NPR look-ahead is tied to today's episode and can't be kept in the library.",
+    );
 
   const supabase = await createClient();
   const contentItemId = await insertLibraryItemFromLiveRead(supabase, path, {
@@ -534,7 +657,8 @@ export async function applyOverridesToLibraryItem(formData: FormData): Promise<v
 
   const contentItem = await getContentItemDetail(item.content_item_id);
   if (!contentItem) failWith(path, "That library item no longer exists.");
-  const applyDuration = item.override_duration_seconds !== null && contentItem.components.length === 0;
+  const applyDuration =
+    item.override_duration_seconds !== null && contentItem.components.length === 0;
 
   const supabase = await createClient();
   const { error: masterError } = await supabase

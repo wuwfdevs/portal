@@ -228,8 +228,15 @@ export function describeScheduleTiming(entry: PlanScheduleEntry): string {
   return `${names} at ${time}`;
 }
 
-function pickPrimaryScheduleEntry(programId: string, entries: PlanScheduleEntry[]): PlanScheduleEntry | null {
-  const candidates = entries.filter((entry) => entry.program_id === programId);
+function pickPrimaryScheduleEntry(
+  programId: string,
+  entries: PlanScheduleEntry[],
+): PlanScheduleEntry | null {
+  const programEntries = entries.filter((entry) => entry.program_id === programId);
+  // The standing schedule describes a program; a one-time change (a storm
+  // clock, say) is temporary and must not become the phrase listeners hear.
+  const standing = programEntries.filter((entry) => entry.entry_type === "recurring");
+  const candidates = standing.length > 0 ? standing : programEntries;
   if (candidates.length === 0) return null;
   // Prefer the entry covering the most days (the "usual" airing) so a
   // one-off exception (World Cafe's shorter Thursday, per its schedule note)
@@ -240,7 +247,9 @@ function pickPrimaryScheduleEntry(programId: string, entries: PlanScheduleEntry[
 export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPlan {
   const warnings: string[] = [];
   const existingByCart = new Map(
-    inputs.existingItems.filter((item) => item.dad_cart_number !== null).map((item) => [item.dad_cart_number!, item.id]),
+    inputs.existingItems
+      .filter((item) => item.dad_cart_number !== null)
+      .map((item) => [item.dad_cart_number!, item.id]),
   );
 
   const cutsByGroup = new Map<string, DadLibraryCut[]>();
@@ -257,7 +266,9 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
     { program: PlanProgram; cuts: DadLibraryCut[]; groups: Set<string> }
   >();
 
-  for (const [group, cuts] of [...cutsByGroup.entries()].sort((a, b) => b[1].length - a[1].length)) {
+  for (const [group, cuts] of [...cutsByGroup.entries()].sort(
+    (a, b) => b[1].length - a[1].length,
+  )) {
     if (SKIP_GROUPS.has(group)) {
       groupSummaries.push({ group, cutCount: cuts.length, treatment: "skip", contentType: null });
       continue;
@@ -265,7 +276,12 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
 
     const directType = DIRECT_CONTENT_TYPE_BY_GROUP[group];
     if (directType) {
-      groupSummaries.push({ group, cutCount: cuts.length, treatment: "direct", contentType: directType });
+      groupSummaries.push({
+        group,
+        cutCount: cuts.length,
+        treatment: "direct",
+        contentType: directType,
+      });
       for (const cut of cuts) {
         directItems.push({
           cutNumber: cut.cutNumber,
@@ -281,7 +297,12 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
     }
 
     if (COLLAPSE_GROUPS.has(group)) {
-      groupSummaries.push({ group, cutCount: cuts.length, treatment: "collapse", contentType: "program_promo" });
+      groupSummaries.push({
+        group,
+        cutCount: cuts.length,
+        treatment: "collapse",
+        contentType: "program_promo",
+      });
       for (const cut of cuts) {
         const program = matchProgramForPromo(cut.title, inputs.programs);
         if (!program) {
@@ -321,7 +342,9 @@ export function buildDadLibraryPlan(inputs: DadLibraryPlanInputs): DadLibraryPla
       ? `Join us for ${program.name}, ${describeScheduleTiming(scheduleEntry)}.`
       : `Join us for ${program.name}.`;
     if (!scheduleEntry) {
-      warnings.push(`${program.name} has no schedule entry, so its canonical promo has no air-time tag.`);
+      warnings.push(
+        `${program.name} has no schedule entry, so its canonical promo has no air-time tag.`,
+      );
     }
     synthesizedPromos.push({
       programId: program.id,

@@ -108,7 +108,11 @@ export async function parseProgramLogUpload(formData: FormData): Promise<ParseIm
 
   const airDate = /^\d{4}-\d{2}-\d{2}$/.test(ai.output.air_date) ? ai.output.air_date : null;
   const rundownsResult = airDate
-    ? await supabase.from("log_rundowns").select("id, program_id, source").eq("air_date", airDate)
+    ? await supabase
+        .from("log_rundowns")
+        .select("id, program_id, source")
+        .eq("air_date", airDate)
+        .is("superseded_at", null)
     : { data: [], error: null };
   if (rundownsResult.error) return { ok: false, error: "Could not check for existing rundowns." };
 

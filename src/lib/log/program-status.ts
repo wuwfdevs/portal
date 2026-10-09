@@ -110,7 +110,7 @@ export function formatDateShort(dateISO: string, weekday = false): string {
 }
 
 /**
- * The dates a one-time change or holiday entry covers, for the place a recurring
+ * The dates a one-time change covers, for the place a recurring
  * entry shows its days: "Sat, Oct 3", "Oct 3 – Oct 5", or "From Oct 3" when it
  * has no end date.
  */

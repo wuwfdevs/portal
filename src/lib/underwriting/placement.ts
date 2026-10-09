@@ -106,6 +106,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   override_requires_manager: "Overriding expired or unapproved copy requires a manager.",
   unknown_placement: "That placement no longer exists.",
   already_cleared: "That placement was already cleared.",
+  rundown_superseded:
+    "That rundown was replaced by one on another clock — nothing is placed into it. Its credits are in the exception queue.",
   rundown_frozen:
     "That rundown is live or already submitted — automation never writes into it; a host can still act on it from On Air.",
   break_in_past: "That break has already started — automation never writes into the past.",

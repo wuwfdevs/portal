@@ -97,7 +97,7 @@ flagged. See §5 (Morning Edition's five seeded opportunities) and §6
 (`log_rundown_breaks`) for how this plays out downstream.
 
 ### Program
-A recurring or special broadcast program (§3, §4.1) — *Morning Edition*,
+A recurring or special broadcast program (§3) — *Morning Edition*,
 *Ranger Rick's Radio Hour*, a pledge-drive special. Identifies scheduled air
 periods; doesn't itself carry timing structure.
 
@@ -224,8 +224,48 @@ ring and local opportunities on an outer one (`lib/log/clock-face.ts`,
 
 ### B. Scheduling programs (producer)
 Maintains the recurring weekly grid, associates each program with a clock
-template, and layers in date-bounded substitutions, holidays, and temporary
-pledge-drive/breaking-coverage exceptions (§4.1, §4.3).
+template, and layers in date-bounded substitutions and temporary
+pledge-drive/breaking-coverage exceptions (see "One-time clock changes"
+below). There is no holiday entry type: the station does not use a different
+clock on a holiday, and a day that is simply automated is set under Automation.
+
+#### One-time clock changes (2026-10-09)
+A one-time change is a `log_schedule` entry with `entry_type = 'override'`. It
+names a different clock for a date range and replaces the program's recurring
+entry on those dates. Its first real use is FPREN Phase I storm coverage
+(floridastorms.org/coverage-phases): one clock per program, decided days ahead,
+covering whole program airings. Phase II and III add content to breaks a clock
+already has and need no clock change.
+
+- **Which entry is in force** is decided in one place, `resolveEntryInForce` /
+  `entriesInForceOn` in `lib/log/schedule.ts`: a one-time change beats the
+  recurring entry; between two of a kind, the later start date wins. Today,
+  rundown generation, the week grid and calendar, the DAD export's warning, the
+  program-log import lookup and Underwriting's rundown provisioning all use it.
+  `lib/log/schedule.ts`'s `isScheduleEntryActiveOn` alone says only whether an
+  entry covers a date. Bookings' SQL and `automated-hours-display.ts` read
+  recurring entries only, on purpose: they describe the standing schedule.
+- **A rundown is pinned** to the clock it was generated from, and Traffic
+  provisions rundowns weeks ahead, so a change entered later leaves some dates on
+  the old clock. `lib/log/clock-sync.ts` finds them and the program page offers
+  "Switch".
+- **Switching supersedes, never deletes.** `log_supersede_rundown()` (program
+  director) marks the rundown `superseded_at`, keeps its items, events and
+  exceptions, and a replacement is generated. Only a rundown that is `generated`,
+  not yet started, with no events and not imported can be switched. Deleting would
+  cascade away the very trace Traffic needs.
+- **Credits go through the ordinary exception path.** Each placed credit is
+  recorded as `missed` with the `special_coverage` reason and the
+  `management_correction` source, which raises an exception through the existing
+  trigger; staff decide on a makegood or a waiver. A missed placement still
+  consumes its unit, so auto-fill never re-places it; the replacement comes only
+  through the makegood queue.
+- **Readers that ignore a superseded rundown:** Today, the DAD export, the import
+  lookup, `log_list_placeable_rundown_breaks`, rundown provisioning,
+  `uw_automation_block` (`rundown_superseded`), and the host start, submit and
+  attest actions. A trigger refuses new items on one, and
+  `log_clear_underwriting_credit` keeps the item on one so a later cancel or
+  revision cannot erase the record.
 
 ### C. Managing the content library (newsroom, promotions, any member)
 Newsroom staff create news items with scripts, summaries, expected
