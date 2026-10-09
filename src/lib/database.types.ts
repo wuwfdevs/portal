@@ -863,6 +863,200 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      sw_research_questions: {
+        Row: {
+          id: string;
+          project_id: string;
+          position: number;
+          question: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          archived_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_research_questions"]["Row"]> & {
+          project_id: string;
+          question: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_research_questions"]["Row"]>;
+        Relationships: [];
+      };
+      sw_context_notes: {
+        Row: {
+          id: string;
+          project_id: string;
+          title: string;
+          summary: string;
+          url: string;
+          retrieved_at: string;
+          status: "active" | "dismissed";
+          run_id: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_context_notes"]["Row"]> & {
+          project_id: string;
+          title: string;
+          summary: string;
+          url: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_context_notes"]["Row"]>;
+        Relationships: [];
+      };
+      sw_analysis_runs: {
+        Row: {
+          id: string;
+          kind: "context" | "extraction";
+          project_id: string;
+          source_id: string | null;
+          prompt_version_id: string | null;
+          trial: boolean;
+          model: string;
+          status: "running" | "succeeded" | "failed";
+          counts: unknown;
+          queries: unknown;
+          error: string | null;
+          created_by: string;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]> & {
+          kind: "context" | "extraction";
+          project_id: string;
+          model: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]>;
+        Relationships: [];
+      };
+      sw_data_points: {
+        Row: {
+          id: string;
+          project_id: string;
+          source_id: string;
+          representation_id: string;
+          question_id: string | null;
+          relevance: "question" | "story";
+          story_element: "character" | "place" | "moment" | "detail" | "background" | null;
+          claim: string;
+          ai_claim: string;
+          speaker_id: string | null;
+          kind: "firsthand" | "secondhand" | "opinion" | "factual";
+          status: "suggested" | "accepted" | "rejected";
+          prompt_version_id: string | null;
+          run_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_data_points"]["Row"]> & {
+          project_id: string;
+          source_id: string;
+          representation_id: string;
+          relevance: "question" | "story";
+          claim: string;
+          ai_claim: string;
+          kind: "firsthand" | "secondhand" | "opinion" | "factual";
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_data_points"]["Row"]>;
+        Relationships: [];
+      };
+      sw_data_point_spans: {
+        Row: {
+          id: string;
+          data_point_id: string;
+          position: number;
+          locator_kind: "temporal" | "document";
+          start_ms: number | null;
+          end_ms: number | null;
+          page_number: number | null;
+          first_block_id: string | null;
+          last_block_id: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_data_point_spans"]["Row"]> & {
+          data_point_id: string;
+          position: number;
+          locator_kind: "temporal" | "document";
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_data_point_spans"]["Row"]>;
+        Relationships: [];
+      };
+      sw_prompt_versions: {
+        Row: {
+          id: string;
+          slot: string;
+          version: number;
+          body: string;
+          note: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_prompt_versions"]["Row"]> & {
+          slot: string;
+          version: number;
+          body: string;
+          created_by: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      sw_prompt_live: {
+        Row: {
+          slot: string;
+          version_id: string;
+          moved_by: string;
+          moved_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_prompt_live"]["Row"]> & {
+          slot: string;
+          version_id: string;
+          moved_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_prompt_live"]["Row"]>;
+        Relationships: [];
+      };
+      sw_prompt_drafts: {
+        Row: {
+          slot: string;
+          user_id: string;
+          body: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_prompt_drafts"]["Row"]> & {
+          slot: string;
+          user_id: string;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_prompt_drafts"]["Row"]>;
+        Relationships: [];
+      };
+      sw_prompt_trials: {
+        Row: {
+          id: string;
+          slot: string;
+          draft_body: string;
+          live_version_id: string | null;
+          project_id: string;
+          source_id: string;
+          status: "running" | "succeeded" | "failed";
+          error: string | null;
+          results: unknown;
+          created_by: string;
+          created_at: string;
+          finished_at: string | null;
+          expires_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_prompt_trials"]["Row"]> & {
+          slot: string;
+          draft_body: string;
+          project_id: string;
+          source_id: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_prompt_trials"]["Row"]>;
+        Relationships: [];
+      };
       tw_speakers: {
         Row: {
           id: string;
@@ -3830,6 +4024,26 @@ export interface Database {
     };
     Views: {
       /** security_invoker view: one row per Sourcework project with counts, for the Projects list. */
+      sw_data_point_counts: {
+        Row: {
+          project_id: string;
+          source_id: string;
+          /** Everything not rejected. */
+          total: number;
+          to_review: number;
+          accepted: number;
+          rejected: number;
+        };
+        Relationships: [];
+      };
+      sw_data_point_question_counts: {
+        Row: {
+          project_id: string;
+          question_id: string;
+          total: number;
+        };
+        Relationships: [];
+      };
       sw_project_overview: {
         Row: {
           id: string;
@@ -3849,6 +4063,16 @@ export interface Database {
       };
     };
     Functions: {
+      /** Security invoker (20261012120000). Accepted and rejected data points per prompt version; a null version is the built-in text. */
+      sw_extraction_accept_rates: {
+        Args: Record<string, never>;
+        Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
+      };
+      /** Security invoker (20261012120000). Saves the next version of a prompt slot and makes it live; returns the version number. */
+      sw_publish_prompt: {
+        Args: { p_slot: string; p_body: string; p_note: string | null };
+        Returns: number;
+      };
       /** Security invoker (20261011120000). Saves a piece's blocks as its next version; returns the new version, or -1 when the piece moved on since p_base_version. */
       /** Security invoker (20261011120000). The speaker at each excerpt's first word, where the transcript has one. */
       sw_excerpt_speakers: {
