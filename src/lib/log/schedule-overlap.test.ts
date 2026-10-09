@@ -49,11 +49,14 @@ describe("findScheduleOverlaps", () => {
     expect(everyDay[0]?.days).toEqual([2, 6]);
   });
 
-  it("treats a one-time change as covering every day in range", () => {
-    const result = findScheduleOverlaps(base, [
-      other({ entry_type: "override", days_of_week: [1] }),
+  it("gates a one-time change by its days, and covers every day when it lists none", () => {
+    expect(
+      findScheduleOverlaps(base, [other({ entry_type: "override", days_of_week: [1] })]),
+    ).toEqual([]);
+    const everyDay = findScheduleOverlaps(base, [
+      other({ entry_type: "override", days_of_week: [] }),
     ]);
-    expect(result[0]?.days).toEqual([6]);
+    expect(everyDay[0]?.days).toEqual([6]);
   });
 
   it("ignores non-overlapping date ranges, and open-ended ones overlap", () => {

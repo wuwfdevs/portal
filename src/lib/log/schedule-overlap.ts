@@ -1,9 +1,9 @@
 // Pure schedule-overlap check — no Supabase import, colocated test. Advisory:
 // the schedule editor shows what would air at the same time as an entry being
 // edited; nothing here blocks a save. Day/date conventions follow
-// `isScheduleEntryActiveOn` (schedule.ts): only a recurring entry with days
-// gates by weekday, so an empty list, or an override entry, covers
-// every day in its date range.
+// `isScheduleEntryActiveOn` (schedule.ts): an entry that lists days gates by
+// weekday (recurring or one-time change alike); an empty list covers every day
+// in its date range.
 
 import type { LogScheduleEntryType } from "@/lib/database.types";
 
@@ -38,10 +38,8 @@ const DAY = 1440;
 const WEEK = 7 * DAY;
 
 /** The weekdays an entry airs on, resolved the way `isScheduleEntryActiveOn` does. */
-export function effectiveDays(
-  entry: Pick<OverlapCandidate, "entry_type" | "days_of_week">,
-): number[] {
-  if (entry.entry_type === "recurring" && entry.days_of_week.length > 0) {
+export function effectiveDays(entry: Pick<OverlapCandidate, "days_of_week">): number[] {
+  if (entry.days_of_week.length > 0) {
     return [...new Set(entry.days_of_week)].sort((a, b) => a - b);
   }
   return [0, 1, 2, 3, 4, 5, 6];

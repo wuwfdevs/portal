@@ -29,6 +29,13 @@ const LENGTH_CHIPS = [
   { minutes: 240, text: "4 h" },
 ];
 
+/** A program's standing (recurring) times, used to pre-fill a one-time change. */
+export interface StandingSchedule {
+  days_of_week: number[];
+  air_time: string;
+  duration_minutes: number;
+}
+
 export interface ScheduleEditorEntry {
   clock_template_id: string;
   entry_type: LogScheduleEntryType;
@@ -56,6 +63,7 @@ export function ScheduleEditor({
   templates,
   defaultClockId,
   others,
+  standing,
   todayISO,
   submitLabel = "Save schedule",
   cancelHref,
@@ -71,6 +79,12 @@ export function ScheduleEditor({
   defaultClockId?: string;
   /** Every schedule entry, for the overlap check (the entry being edited is skipped by id). */
   others: OverlapOther[];
+  /**
+   * The program's current standing times. Choosing "One-time change" on a form
+   * that is still blank pre-fills days, start and length from it, so a clock swap
+   * keeps the program's normal airing and only the clock and dates change.
+   */
+  standing?: StandingSchedule;
   /** Station "today" from the server — the client never reads the clock. */
   todayISO: string;
   submitLabel?: string;
@@ -90,6 +104,14 @@ export function ScheduleEditor({
   );
   const endRef = useRef<HTMLInputElement>(null);
 
+  const chooseEntryType = (next: LogScheduleEntryType) => {
+    setEntryType(next);
+    if (next === "recurring" || !standing) return;
+    if (days.length === 0) setDays(standing.days_of_week);
+    if (airTime === "") setAirTime(standing.air_time.slice(0, 5));
+    if (duration === "") setDuration(String(standing.duration_minutes));
+  };
+
   const toggleDay = (day: number) =>
     setDays((current) =>
       current.includes(day) ? current.filter((d) => d !== day) : [...current, day],
@@ -99,10 +121,7 @@ export function ScheduleEditor({
   const recurring = entryType === "recurring";
   const hasDays = !recurring || days.length > 0;
   const ready = hasDays && durationMinutes > 0 && airTime !== "";
-  const airingDays = useMemo(
-    () => effectiveDays({ entry_type: entryType, days_of_week: days }),
-    [entryType, days],
-  );
+  const airingDays = useMemo(() => effectiveDays({ days_of_week: days }), [days]);
 
   const overlaps = useMemo(
     () =>
@@ -145,7 +164,7 @@ export function ScheduleEditor({
       : "Set a time and length";
   const daysText = !hasDays
     ? "Pick at least one day"
-    : `${recurring ? describeDaysOfWeek(days) : "Every day in its dates"}${
+    : `${days.length > 0 ? describeDaysOfWeek(days) : "Every day in its dates"}${
         durationMinutes > 0 ? ` · ${formatLengthLong(durationMinutes)}` : ""
       }`;
 
@@ -157,15 +176,15 @@ export function ScheduleEditor({
         {error && <Alert>{error}</Alert>}
         <input type="hidden" name="program_id" value={programId} />
         {entryId && <input type="hidden" name="entry_id" value={entryId} />}
-        {recurring &&
-          days.map((day) => <input key={day} type="hidden" name="days_of_week" value={day} />)}
+        {days.map((day) => (
+          <input key={day} type="hidden" name="days_of_week" value={day} />
+        ))}
 
-        <fieldset className="min-w-0 border-0 p-0" disabled={!recurring}>
+        <fieldset className="min-w-0 border-0 p-0">
           <legend className="mb-2 p-0 text-sm font-bold text-ink-900">Days</legend>
-          <div className={cn("flex flex-wrap gap-1.5", !recurring && "opacity-50")}>
+          <div className="flex flex-wrap gap-1.5">
             {DAY_ORDER.map((day) => {
-              // A one-time change airs every day between its dates, so no day reads as picked.
-              const on = recurring && days.includes(day);
+              const on = days.includes(day);
               return (
                 <button
                   key={day}
@@ -184,35 +203,33 @@ export function ScheduleEditor({
               );
             })}
           </div>
-          {recurring && (
-            <div className="mt-2 flex gap-4 text-sm font-semibold">
-              <button
-                type="button"
-                onClick={() => setDays([1, 2, 3, 4, 5])}
-                className="text-brand-link hover:underline"
-              >
-                Weekdays
-              </button>
-              <button
-                type="button"
-                onClick={() => setDays([6, 0])}
-                className="text-brand-link hover:underline"
-              >
-                Weekend
-              </button>
-              <button
-                type="button"
-                onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])}
-                className="text-brand-link hover:underline"
-              >
-                Every day
-              </button>
-            </div>
-          )}
+          <div className="mt-2 flex gap-4 text-sm font-semibold">
+            <button
+              type="button"
+              onClick={() => setDays([1, 2, 3, 4, 5])}
+              className="text-brand-link hover:underline"
+            >
+              Weekdays
+            </button>
+            <button
+              type="button"
+              onClick={() => setDays([6, 0])}
+              className="text-brand-link hover:underline"
+            >
+              Weekend
+            </button>
+            <button
+              type="button"
+              onClick={() => setDays([0, 1, 2, 3, 4, 5, 6])}
+              className="text-brand-link hover:underline"
+            >
+              Every day
+            </button>
+          </div>
           {!recurring && (
             <FieldHint>
-              A one-time change airs every day between its start and end dates, so days aren&rsquo;t
-              picked here. Set the dates below.
+              A one-time change airs only on the days picked, between its start and end dates. Leave
+              every day off to cover all of them.
             </FieldHint>
           )}
         </fieldset>
@@ -336,7 +353,7 @@ export function ScheduleEditor({
               id="entry_type"
               name="entry_type"
               value={entryType}
-              onChange={(event) => setEntryType(event.target.value as LogScheduleEntryType)}
+              onChange={(event) => chooseEntryType(event.target.value as LogScheduleEntryType)}
             >
               <option value="recurring">Recurring</option>
               <option value="override">One-time change</option>

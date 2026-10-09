@@ -93,8 +93,8 @@ function readScheduleEntryFields(formData: FormData, formPath: string): Schedule
     programId,
     clockTemplateId,
     entryType,
-    // Days gate only a recurring entry; a one-time change covers every day in its dates.
-    daysOfWeek: entryType === "recurring" ? daysOfWeek : [],
+    // Days gate any entry; none means every day in its dates.
+    daysOfWeek,
     startDate,
     endDate: optionalField(formData, "end_date"),
     airTime,

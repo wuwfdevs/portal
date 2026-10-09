@@ -18,6 +18,7 @@ import {
   CLOCK_VARIANT_LABEL,
   deriveProgramStatus,
   formatDateShort,
+  formatDaysOfWeek,
   formatEntryDates,
   describeDaysOfWeek,
   formatLengthLong,
@@ -263,7 +264,13 @@ export default async function ProgramDetailPage({
                       formatLengthLong(entry.duration_minutes),
                       `from ${formatDateShort(entry.start_date)}`,
                     ]
-                  : ["One-time change", formatLengthLong(entry.duration_minutes)];
+                  : [
+                      "One-time change",
+                      ...(entry.days_of_week.length > 0
+                        ? [formatDaysOfWeek(entry.days_of_week)]
+                        : []),
+                      formatLengthLong(entry.duration_minutes),
+                    ];
                 if (recurring && entry.end_date && !isEnded)
                   summaryParts.push(`to ${formatDateShort(entry.end_date)}`);
                 if (next) summaryParts.push(`next airing ${formatDateShort(next, true)}`);
