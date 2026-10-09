@@ -194,7 +194,7 @@ references the source.
 - `sw_piece_formats` / `sw_piece_format_versions`: a **format** has a name and
   kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and immutable versions
   holding the section structure and style language (§5.6).
-- `sw_pieces`: `id, project_id, format_version_id, title, status, created_by`,
+- `sw_pieces`: `id, project_id, format_version_id (nullable), target_seconds (nullable), title, status, created_by`,
   with `sw_piece_versions (piece_id, version, body jsonb, saved_by, saved_via
   ('person' | 'assistant' | 'generation'), created_at)`, insert-only. `body` is an
   ordered list of `{ id, type: 'narration', text }` and
@@ -327,7 +327,22 @@ hand exactly as today.
 ### 5.6 Pieces (optional)
 
 A **piece** is a finished item made from a project's material: a wrap, a voicer,
-a script, a cut-and-copy. A **format** defines: a name and kind; ordered sections,
+a script, a cut-and-copy. **A piece starts blank and is built by hand by default.**
+AI drafting from a format is optional and available at any point.
+
+The flow: **Pieces** tab → **+ New piece** → the editor opens at once on an empty
+piece with an editable title (no form first) → build it from narration and excerpts,
+or choose **Draft with AI** → pick a **format**, the **material** (accepted themes,
+all on by default; only accepted excerpts are ever used) and an optional
+**direction** → **Generate draft** → land back in the editor with the draft in place
+and a note ("Drafted from Radio wrap v3 · 0:57 of 1:00 · Undo") → iterate by hand or
+with the assistant. On a piece that already has blocks the same action reads
+**Redraft with AI**, says it replaces what is there, and is undone from History. The
+piece records which format drafted it (`format_version_id`, null for a piece written
+by hand) and the Pieces list says "Written by hand" or "Radio wrap format, then
+edited". A piece with no format has no target length until the writer sets one.
+
+A **format** defines: a name and kind; ordered sections,
 each `narration` or `actuality` with guidance and optional count limits; a target
 duration; the number of actualities; and style language. A run takes a project's
 accepted themes and accepted excerpts (or a subset the reporter picks), the format
@@ -374,7 +389,8 @@ Reading the code, three things are needed:
    `lib/capabilities/registry.ts`, key `transcription`): read a piece; replace a
    narration block's text; insert, remove and **reorder** blocks; place or swap an
    actuality **by excerpt id**; search excerpts (reusing `sourcework.project.search`);
-   and **create a piece from a format** for a project. Edits need no confirmation
+   **create a blank piece**, and **draft or redraft a piece from a format** for a
+   project. Edits need no confirmation
    step, because every one writes a version and is undoable, which differs from
    `log.rundownItem.recordOutcome`; each call is still audited as `mcp.*`. An
    actuality is placed by id only, so the assistant cannot alter quote text, and
@@ -395,7 +411,7 @@ How this fits the screens that exist, from the reporter's and editor's work:
 | Review per source | Source workspace, **Data points** mode (§5.3). |
 | See what is emerging | **Themes** tab: a "Waiting for you" strip (data points to review by source, accepted points not yet in a theme, suggestions), a filterable table with sources, speakers and evidence counts, and suggested rows with Accept, Edit, Reject. The tab badge counts decisions waiting, the way Traffic's Needs attention does. |
 | Go deep on one theme | **Theme page** (§5.4), then **Suggested quotes** (§5.5). |
-| Make something | **Pieces** tab and the piece editor (§5.6, §5.7). |
+| Make something | **Pieces** tab → **+ New piece** opens a blank editor; **Draft with AI** (optional) picks a format and material; then edit by hand or with the assistant (§5.6, §5.7). |
 | Maintain the language | **Editors** page (prompts and piece formats), reached from Sourcework's setup, editors only (§6). |
 
 The project tab row becomes Sources · Themes · Excerpts · Pieces, with Setup at the right edge (`TabNav`; the
@@ -610,6 +626,10 @@ live formats side by side, writing nothing to the project.
    available before promising it.
 
 ## 11. Decisions taken in review (2026-10-09)
+
+- **A piece is written by hand by default; AI drafting from a format is optional** and
+  available from an empty piece or later as Redraft. Creating a piece opens the editor
+  directly (§5.6).
 
 - **Everything must work on a phone.** No screen is desktop-only (§5.9).
 
