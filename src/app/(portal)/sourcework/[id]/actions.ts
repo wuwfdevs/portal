@@ -29,12 +29,14 @@ async function assertTranscriptionAccess() {
   return createClient();
 }
 
-function revalidateProject(projectId: string) {
-  revalidatePath(`/sourcework/${projectId}`);
+/** `projectId` is null for a source that is in no project; its own screen is what needs refreshing then. */
+function revalidateProject(projectId: string | null) {
+  if (projectId) revalidatePath(`/sourcework/${projectId}`);
+  else revalidatePath("/sourcework/sources/[id]", "page");
 }
 
 export async function renameSpeaker(input: {
-  projectId: string;
+  projectId: string | null;
   speakerId: string;
   displayName: string;
 }): Promise<{ error?: string }> {
@@ -60,7 +62,7 @@ export async function renameSpeaker(input: {
  * is checked here rather than trusted from the client.
  */
 export async function mergeSpeakers(input: {
-  projectId: string;
+  projectId: string | null;
   fromSpeakerId: string;
   intoSpeakerId: string;
 }): Promise<{ error?: string }> {
@@ -97,7 +99,7 @@ export async function mergeSpeakers(input: {
 }
 
 export async function reassignSegmentSpeaker(input: {
-  projectId: string;
+  projectId: string | null;
   segmentId: string;
   speakerId: string | null;
 }): Promise<{ error?: string }> {
@@ -121,7 +123,7 @@ export async function reassignSegmentSpeaker(input: {
  * docs/transcription-workspace-design.md §5).
  */
 export async function updateSegmentText(input: {
-  projectId: string;
+  projectId: string | null;
   segmentId: string;
   text: string;
 }): Promise<{ error?: string }> {
@@ -156,7 +158,7 @@ export async function updateSegmentText(input: {
  * are already gone.
  */
 export async function splitSegment(input: {
-  projectId: string;
+  projectId: string | null;
   segmentId: string;
   splitAtChar: number;
 }): Promise<{ error?: string }> {
@@ -225,7 +227,7 @@ export async function splitSegment(input: {
  * again) as the timings allow.
  */
 export async function mergeSegmentWithNext(input: {
-  projectId: string;
+  projectId: string | null;
   segmentId: string;
 }): Promise<{ error?: string }> {
   const supabase = await assertTranscriptionAccess();

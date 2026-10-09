@@ -386,7 +386,12 @@ search hit. **A source has two views.** With `?project=` it is that project's so
 the way to the other sources, nothing lists projects, and the menu offers "Remove from this project…".
 Without it (the Source Library) it stands alone: back to the library, a fourth **Projects** tab in the
 same tab row (`sources/[id]/source-projects-list.tsx` — title and background per project, a filter once
-there are eight; a section below the workspace on desktop and for documents), and only "Delete source…".
+there are eight), and only "Delete source…". The row (`[id]/pane-tabs.tsx`) is Transcript · Excerpts ·
+Speakers · Projects on a phone; from `lg` up Excerpts and Speakers are `phoneOnly` (the rail and the
+speakers menu are already beside the transcript) so it is Transcript · Projects. A PDF is Document ·
+Projects (`sources/[id]/document-tabs.tsx`). Opened from a project there is no row on desktop. A source in
+no project opens like any other: the workspace actions take a nullable `projectId` that only decides
+which page to revalidate.
 **Build every link to either screen with `lib/transcription/links.ts`'s
 `projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
 `/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
