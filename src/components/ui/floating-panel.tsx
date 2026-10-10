@@ -79,6 +79,7 @@ export function FloatingPanel({
   ref,
   role,
   id,
+  layoutKey,
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   open: boolean;
@@ -89,6 +90,8 @@ export function FloatingPanel({
   ref?: Ref<HTMLDivElement>;
   role?: string;
   id?: string;
+  /** Change it when the panel's content changes size (a menu swapping to a confirm step) to re-measure. */
+  layoutKey?: string | number;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   // Mount on first open, then stay mounted (hidden) while closed — the same
@@ -161,7 +164,7 @@ export function FloatingPanel({
       window.removeEventListener("resize", place);
       panel.style.visibility = "hidden";
     };
-  }, [open, align, offset, anchorRef, mounted]);
+  }, [open, align, offset, anchorRef, mounted, layoutKey]);
 
   if (!mounted || typeof document === "undefined") return null;
 

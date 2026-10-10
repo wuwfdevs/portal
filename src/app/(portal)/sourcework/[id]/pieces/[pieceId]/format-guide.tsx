@@ -14,8 +14,6 @@ export interface GuideFormat {
   spec: FormatSpec;
 }
 
-const SECTION_LABEL = { narration: "Narration", actuality: "Actuality", anchor: "Anchor intro" };
-
 /**
  * The format a piece is written to (docs/sourcework-analysis-design.md §6.3), for a piece
  * written by hand as much as a drafted one: pick it, then read its guide while writing.
@@ -76,22 +74,12 @@ export function FormatGuide({
           className="rounded border border-line bg-panel-50 px-3.5 py-3 text-[13px] text-ink-700"
         >
           <p>
-            <strong>{lengthRangeLabel(current.spec)}</strong> is on target (the anchor&rsquo;s intro
-            isn&rsquo;t timed). Usually {actualityRangeLabel(current.spec)}; you have{" "}
-            {actualityCount}. Fewer is fine when fewer clips earn their place.
+            <strong>{lengthRangeLabel(current.spec)}</strong> is on target
+            {current.spec.anchorIntro ? " (the anchor\u2019s intro isn\u2019t timed)" : ""}. Usually{" "}
+            {actualityRangeLabel(current.spec)}; you have {actualityCount}. Fewer is fine when fewer
+            clips earn their place.
           </p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            {current.spec.sections.map((section, index) => (
-              <li key={index}>
-                <span className="font-semibold">
-                  {SECTION_LABEL[section.type]}
-                  {section.optional ? " (optional)" : ""}:
-                </span>{" "}
-                {section.guidance}
-              </li>
-            ))}
-          </ol>
-          {current.spec.style && <p className="mt-2 text-ink-500">{current.spec.style}</p>}
+          {current.spec.style && <p className="mt-2 whitespace-pre-line">{current.spec.style}</p>}
         </section>
       )}
     </div>
