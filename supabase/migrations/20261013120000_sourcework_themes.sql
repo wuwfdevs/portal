@@ -108,7 +108,9 @@ create unique index sw_data_points_id_project_key on public.sw_data_points (id, 
 create index sw_data_points_stale_idx on public.sw_data_points (project_id)
   where embedding_stale and status = 'accepted';
 
-create function public.sw_flag_data_point_embedding()
+-- `create or replace`: both hosted projects already carry this exact function, left behind by the
+-- abandoned sketch of this phase whose tables Phase A's migration dropped (the function survived).
+create or replace function public.sw_flag_data_point_embedding()
 returns trigger
 language plpgsql
 set search_path = public
