@@ -21,6 +21,7 @@ export type PointSelectionOrigin = "transcript" | "rail";
 export function DataPointCard({
   point,
   tag,
+  tagTitle,
   isSelected,
   selectionOrigin,
   onSelect,
@@ -32,6 +33,8 @@ export function DataPointCard({
 }: {
   point: DataPoint;
   tag: string;
+  /** The question the tag names, as worded (hover text). */
+  tagTitle?: string;
   isSelected: boolean;
   selectionOrigin: PointSelectionOrigin | null;
   onSelect: () => void;
@@ -93,7 +96,9 @@ export function DataPointCard({
         rejected && "opacity-70",
       )}
     >
-      <p className="text-[11px] font-bold uppercase tracking-wide text-ink-500">{tag}</p>
+      <p title={tagTitle} className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+        {tag}
+      </p>
 
       {editing ? (
         <div className="mt-1.5" onClick={(event) => event.stopPropagation()}>

@@ -389,6 +389,8 @@ export async function getThemeDetail(
         sourceTitle: sourceTitles.get(point.sourceId) ?? "Source",
         stance: membership.stance,
         claim: point.claim,
+        relevance: point.relevance,
+        questionId: point.questionId,
         position: evidencePosition(pointSpans),
       },
       spans: pointSpans,
@@ -436,12 +438,20 @@ export async function listPointsNotInTheme(
   themeId: string,
   sourceTitles: ReadonlyMap<string, string>,
   limit = 200,
-): Promise<{ id: string; claim: string; sourceTitle: string }[]> {
+): Promise<
+  {
+    id: string;
+    claim: string;
+    sourceTitle: string;
+    relevance: "question" | "story";
+    questionId: string | null;
+  }[]
+> {
   const supabase = await createClient();
   const [pointResult, memberResult] = await Promise.all([
     supabase
       .from("sw_data_points")
-      .select("id, source_id, claim, created_at")
+      .select("id, source_id, claim, created_at, relevance, question_id")
       .eq("project_id", projectId)
       .eq("status", "accepted")
       .order("created_at")
@@ -463,5 +473,7 @@ export async function listPointsNotInTheme(
       id: row.id,
       claim: row.claim,
       sourceTitle: sourceTitles.get(row.source_id) ?? "Source",
+      relevance: row.relevance,
+      questionId: row.question_id,
     }));
 }

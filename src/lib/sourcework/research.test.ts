@@ -11,6 +11,8 @@ import {
   reviewCounts,
   sortDataPointsBySpan,
   dataPointTag,
+  pointQuestionLabel,
+  questionTitle,
   type DataPointSpan,
 } from "./research";
 
@@ -64,6 +66,26 @@ describe("dataPointTag", () => {
         labels,
       ),
     ).toBe("Secondhand · Story · Place");
+  });
+});
+
+describe("pointQuestionLabel and questionTitle", () => {
+  const labels = new Map([["q1", "Q1"]]);
+  const texts = new Map([["q1", "What happened to the tunnel?"]]);
+  const question = { relevance: "question" as const, questionId: "q1" };
+  const story = { relevance: "story" as const, questionId: null };
+  const orphan = { relevance: "question" as const, questionId: "gone" };
+
+  it("labels a point by its question, or as Story", () => {
+    expect(pointQuestionLabel(question, labels)).toBe("Q1");
+    expect(pointQuestionLabel(story, labels)).toBe("Story");
+    expect(pointQuestionLabel(orphan, labels)).toBeNull();
+  });
+
+  it("gives the question as worded for the hover text", () => {
+    expect(questionTitle(question, labels, texts)).toBe("Q1 — What happened to the tunnel?");
+    expect(questionTitle(story, labels, texts)).toMatch(/story/i);
+    expect(questionTitle(orphan, labels, texts)).toBeUndefined();
   });
 });
 

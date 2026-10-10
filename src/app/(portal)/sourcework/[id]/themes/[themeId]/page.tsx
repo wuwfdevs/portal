@@ -15,8 +15,8 @@ import { getProjectById } from "@/lib/transcription/projects";
 import { projectPath, sourcePath, themePath, themeQuotesPath } from "@/lib/transcription/links";
 import { listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { getThemeDetail, listPointsNotInTheme } from "@/lib/sourcework/theme-queries";
-import { quoteAvailability } from "@/lib/sourcework/quotes";
 import { countWaitingQuotes, listThemeExcerpts } from "@/lib/sourcework/quote-queries";
+import { quoteAvailability } from "@/lib/sourcework/quotes";
 import {
   STANCE_LABEL,
   filterEvidence,
@@ -29,7 +29,8 @@ import {
   sourcesLabel,
   type EvidenceShow,
 } from "@/lib/sourcework/themes";
-import type { DataPointSpan } from "@/lib/sourcework/research";
+import { pointQuestionLabel, questionTitle, type DataPointSpan } from "@/lib/sourcework/research";
+import { QuestionChip } from "../../question-chip";
 import { ThemeDecisionButtons } from "../../theme-decision-buttons";
 import { SuggestQuotesProvider } from "./suggest-quotes";
 import { ThemeExcerptsPanel } from "./theme-excerpts";
@@ -48,7 +49,7 @@ const SHOWN_PER_SOURCE = 3;
 /**
  * One theme (docs/sourcework-analysis-design.md §5.4): the claim, how broadly
  * it is backed, the evidence by source — supporting and complicating side by
- * side — and the reporter's memo. Its representative excerpts, and Suggest quotes (Phase C), are in the side column.
+ * side — and the reporter's memo. Excerpts for the theme arrive with Phase C.
  */
 export default async function ThemePage({
   params,
@@ -86,7 +87,13 @@ export default async function ThemePage({
     countWaitingQuotes(themeId),
   ]);
   const labels = new Map(questions.map((question) => [question.id, question.label]));
+  const texts = new Map(questions.map((question) => [question.id, question.question]));
   const answers = questionLine(detail.questionIds, labels);
+  const candidatesWithQuestion = candidates.map((candidate) => ({
+    ...candidate,
+    questionLabel: pointQuestionLabel(candidate, labels),
+    questionHint: questionTitle(candidate, labels, texts),
+  }));
 
   const here = themePath(id, themeId);
   const backHref = projectPath(id, "themes");
@@ -272,6 +279,8 @@ export default async function ThemePage({
                       dataPointId={item.dataPointId}
                       stance={item.stance}
                       claim={item.claim}
+                      questionLabel={pointQuestionLabel(item, labels)}
+                      questionHint={questionTitle(item, labels, texts)}
                       spans={entry.spans}
                     />
                   );
@@ -302,7 +311,7 @@ export default async function ThemePage({
             )}
 
             {theme.status !== "rejected" && candidates.length > 0 && (
-              <AddPointsPanel themeId={theme.id} candidates={candidates} />
+              <AddPointsPanel themeId={theme.id} candidates={candidatesWithQuestion} />
             )}
           </div>
 
@@ -363,6 +372,8 @@ function EvidenceRow({
   dataPointId,
   stance,
   claim,
+  questionLabel,
+  questionHint,
   spans,
 }: {
   projectId: string;
@@ -371,6 +382,8 @@ function EvidenceRow({
   dataPointId: string;
   stance: "supports" | "complicates";
   claim: string;
+  questionLabel: string | null;
+  questionHint: string | undefined;
   spans: DataPointSpan[];
 }) {
   const first = spans[0];
@@ -388,6 +401,9 @@ function EvidenceRow({
       <p className="min-w-0 flex-1 text-sm text-ink-900 max-sm:basis-full max-sm:order-last">
         {claim}
       </p>
+      <span className="mt-0.5 shrink-0 max-sm:order-first">
+        <QuestionChip label={questionLabel} title={questionHint} />
+      </span>
       {first?.kind === "temporal" && (
         <Link
           href={sourcePath(sourceId, { projectId, t: first.startMs })}

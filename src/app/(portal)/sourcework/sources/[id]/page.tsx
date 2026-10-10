@@ -398,6 +398,9 @@ async function loadResearchView(
   return {
     points: sortDataPointsBySpan(points),
     labels: Object.fromEntries(questions.map((question) => [question.id, question.label])),
+    questionTexts: Object.fromEntries(
+      questions.map((question) => [question.id, question.question]),
+    ),
     extraction: state,
     themes: Object.fromEntries(
       [...themeLinks.entries()].map(([pointId, links]) => [

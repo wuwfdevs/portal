@@ -6,6 +6,7 @@ import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
+import { QuestionChip } from "../../question-chip";
 import {
   THEME_DEFINITION_MAX,
   THEME_MEMO_MAX,
@@ -285,6 +286,8 @@ export interface AddablePoint {
   id: string;
   claim: string;
   sourceTitle: string;
+  questionLabel: string | null;
+  questionHint?: string;
 }
 
 /** Puts accepted data points into the theme by hand (§2.8: do by hand first). */
@@ -348,7 +351,10 @@ export function AddPointsPanel({
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-ink-900">{point.claim}</p>
-                  <p className="text-xs text-ink-500">{point.sourceTitle}</p>
+                  <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
+                    <QuestionChip label={point.questionLabel} title={point.questionHint} />
+                    {point.sourceTitle}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
                   <Button

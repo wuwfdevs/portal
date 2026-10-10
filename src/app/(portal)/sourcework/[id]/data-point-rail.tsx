@@ -8,6 +8,7 @@ import {
   dataPointTag,
   defaultDataPointFilter,
   filterDataPoints,
+  questionTitle,
   reviewCounts,
   type DataPoint,
   type DataPointFilter,
@@ -22,6 +23,8 @@ export interface SourceResearchView {
   points: DataPoint[];
   /** Question id -> "Q1", for the card tags. */
   labels: Record<string, string>;
+  /** Question id -> the question as worded, for the tag's hover text. */
+  questionTexts: Record<string, string>;
   extraction: ExtractionState;
   /** Data point id -> the accepted themes it sits in, with links (the card's "Theme:" line). */
   themes: Record<string, { href: string; title: string; stance: "supports" | "complicates" }[]>;
@@ -55,6 +58,10 @@ export function DataPointRail({
 }) {
   const { points, extraction } = research;
   const labels = useMemo(() => new Map(Object.entries(research.labels)), [research.labels]);
+  const texts = useMemo(
+    () => new Map(Object.entries(research.questionTexts)),
+    [research.questionTexts],
+  );
   const counts = useMemo(() => reviewCounts(points), [points]);
   const [chosen, setChosen] = useState<DataPointFilter | null>(null);
   const filter = chosen ?? defaultDataPointFilter(counts);
@@ -150,6 +157,7 @@ export function DataPointRail({
             key={point.id}
             point={point}
             tag={dataPointTag(point, labels)}
+            tagTitle={questionTitle(point, labels, texts)}
             isSelected={point.id === selectedId}
             selectionOrigin={selectionOrigin}
             onSelect={() => onSelect(point.id)}
