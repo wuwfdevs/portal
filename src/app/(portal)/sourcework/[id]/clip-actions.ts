@@ -252,19 +252,11 @@ export async function getClipDownloadUrl(
   }
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  const [{ data: project, error: projectError }, { data: source, error: sourceError }] =
-    await Promise.all([
-      projectId
-        ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      supabase
-        .from("sw_sources")
-        .select("interview_date, created_at")
-        .eq("id", clip.source_id)
-        .maybeSingle(),
-    ]);
-  if (projectError || sourceError) {
-    console.error("Could not read the download filename's inputs:", projectError ?? sourceError);
+  const { data: project, error: projectError } = projectId
+    ? await supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
+    : { data: null, error: null };
+  if (projectError) {
+    console.error("Could not read the download filename's inputs:", projectError);
     return { error: "Could not create a download link. Please try again." };
   }
 
@@ -303,7 +295,7 @@ export async function exportClip(
 
   const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
-    .select("original_storage_path, interview_date, created_at")
+    .select("original_storage_path")
     .eq("id", clip.source_id)
     .maybeSingle();
   if (sourceError) {
