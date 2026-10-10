@@ -1,75 +1,66 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { withQuery } from "@/lib/paths";
-import { requireSourceworkEditor } from "@/lib/sourcework/access";
-import { promptSlotDefinition } from "@/lib/sourcework/prompts";
+import type { SourceworkContext } from "@/lib/sourcework/access";
 import { getLivePrompt, getPromptDraft } from "@/lib/sourcework/research-queries";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { pickDefaultSample, parseTrialShow, trialHeading } from "@/lib/sourcework/trial-sample";
-import { getTrial, listRecentTrials, listTrialSamples } from "@/lib/sourcework/trial-samples";
+import { pickDefaultQuoteSample } from "@/lib/sourcework/quote-trials";
+import {
+  getQuoteTrial,
+  listQuoteTrialSamples,
+  listRecentQuoteTrials,
+} from "@/lib/sourcework/quote-trial-queries";
+import { parseTrialShow, trialHeading } from "@/lib/sourcework/trial-sample";
 import { TRIAL_KEEP_DAYS } from "@/lib/sourcework/trials";
 import { LocalTime } from "../local-time";
+import { QuoteTrialResultView } from "./quote-trial-result";
+import { QuoteTryForm } from "./quote-try-form";
 import { TryActions } from "./try-actions";
-import { QuoteTry } from "./quote-try";
-import { TryForm } from "./try-form";
-import { TrialResultView } from "./trial-result";
 
-export const metadata = { title: "Try a draft" };
-// The trial itself runs in its own route (maxDuration 300); this page only reads.
+const SLOT = "quote_quality";
 
-export default async function TryPage({
-  searchParams,
+/**
+ * Try this draft for the quote quality guide (docs/sourcework-analysis-design.md §8.1): the sample is
+ * a theme, and the comparison is two ranked lists of clips, each playable. Nothing is added to any
+ * project, and the results are only visible to the editor who ran them.
+ */
+export async function QuoteTry({
+  context,
+  params,
 }: {
-  searchParams: Promise<{
-    slot?: string;
-    trial?: string;
-    show?: string;
-    all?: string;
-    project?: string;
-    source?: string;
-    theme?: string;
-  }>;
+  context: SourceworkContext;
+  params: { trial?: string; show?: string; all?: string; project?: string; theme?: string };
 }) {
-  const context = await requireSourceworkEditor();
-  if (!context) notFound();
-  const params = await searchParams;
-  const definition = promptSlotDefinition(params.slot);
-  if (!definition || !definition.tryable) notFound();
-  const slot = definition.slot;
-  // The quote guide is sampled on a theme and compared as two lists of playable clips.
-  if (slot === "quote_quality") return <QuoteTry context={context} params={params} />;
   const userId = context.profile.id;
-
   const trialId = uuidParam(params.trial);
   const [live, draft, samples, recent, trial] = await Promise.all([
-    getLivePrompt(slot),
-    getPromptDraft(slot, userId),
-    listTrialSamples(),
-    listRecentTrials(userId, slot),
-    trialId ? getTrial(trialId, userId, slot) : Promise.resolve(null),
+    getLivePrompt(SLOT),
+    getPromptDraft(SLOT, userId),
+    listQuoteTrialSamples(),
+    listRecentQuoteTrials(userId),
+    trialId ? getQuoteTrial(trialId, userId) : Promise.resolve(null),
   ]);
 
-  const last = recent[0] ? { projectId: recent[0].projectId, sourceId: recent[0].sourceId } : null;
+  const last = recent[0] ? { projectId: recent[0].projectId, themeId: recent[0].themeId } : null;
   const requested =
-    uuidParam(params.project) && uuidParam(params.source)
-      ? { projectId: params.project!, sourceId: params.source! }
+    uuidParam(params.project) && uuidParam(params.theme)
+      ? { projectId: params.project!, themeId: params.theme! }
       : last;
-  const sample = pickDefaultSample(samples, requested);
-  const recentSamples = [...new Set(recent.map((entry) => entry.sourceTitle))].slice(0, 3);
-  const editorHref = `/sourcework/editors?slot=${slot}`;
+  const sample = pickDefaultQuoteSample(samples, requested);
+  const recentSamples = [...new Set(recent.map((entry) => entry.themeTitle))].slice(0, 3);
+  const editorHref = `/sourcework/editors?slot=${SLOT}`;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <div className="flex max-w-4xl flex-col gap-5">
         <PageHeader
-          back={{ href: editorHref, label: `${definition.label} (draft)` }}
+          back={{ href: editorHref, label: "Quote quality guide (draft)" }}
           eyebrow="Try a draft"
           title={trialHeading(live.version)}
-          description="Runs your draft and the live version on the same source and shows what changed. Nothing is added to any project, and the results are only visible to you."
+          description="Runs your draft and the live version on the same theme and shows the clips each would suggest. Nothing is added to any project, and the results are only visible to you."
           size="page"
         />
 
@@ -77,7 +68,7 @@ export default async function TryPage({
           <Alert variant="warning">
             You don&rsquo;t have a saved draft yet.{" "}
             <Link href={editorHref} className="font-bold underline">
-              Edit the prompt
+              Edit the guide
             </Link>{" "}
             first, then come back.
           </Alert>
@@ -85,16 +76,15 @@ export default async function TryPage({
 
         {samples.length === 0 || !sample ? (
           <EmptyState>
-            There is nothing to try it on yet. A sample needs a project with at least one research
-            question and at least one source that has finished processing.
+            There is nothing to try it on yet. A sample needs an accepted theme with accepted data
+            points behind it.
           </EmptyState>
         ) : (
-          <TryForm
-            key={`${sample.projectId}:${sample.sourceId}`}
-            slot={slot}
+          <QuoteTryForm
+            key={`${sample.projectId}:${sample.themeId}`}
             samples={samples}
             initialProjectId={sample.projectId}
-            initialSourceId={sample.sourceId}
+            initialThemeId={sample.themeId}
             recentSamples={recentSamples}
             canRun={draft !== null}
           />
@@ -109,18 +99,17 @@ export default async function TryPage({
 
         {trial && (
           <>
-            <TrialResultView
+            <QuoteTrialResultView
               trial={trial}
-              slot={slot}
               show={parseTrialShow(params.show)}
               all={params.all === "1"}
               retryHref={withQuery("/sourcework/editors/try", {
-                slot,
+                slot: SLOT,
                 project: trial.projectId,
-                source: trial.sourceId,
+                theme: trial.themeId,
               })}
             />
-            {draft && <TryActions slot={slot} draftBody={draft.body} />}
+            {draft && <TryActions slot={SLOT} draftBody={draft.body} />}
           </>
         )}
 
@@ -138,11 +127,11 @@ export default async function TryPage({
               {recent.map((entry) => (
                 <li key={entry.id}>
                   <Link
-                    href={withQuery("/sourcework/editors/try", { slot, trial: entry.id })}
+                    href={withQuery("/sourcework/editors/try", { slot: SLOT, trial: entry.id })}
                     aria-current={entry.id === trialId ? "page" : undefined}
                     className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5 text-sm hover:bg-panel-50"
                   >
-                    <span className="font-semibold text-brand-link">{entry.sourceTitle}</span>
+                    <span className="font-semibold text-brand-link">{entry.themeTitle}</span>
                     <span className="text-ink-500">{entry.projectTitle}</span>
                     <span className="text-xs text-ink-400 sm:ml-auto">
                       <LocalTime iso={entry.createdAt} withDate />

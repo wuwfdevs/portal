@@ -8,7 +8,8 @@
 // writes a sw_prompt_versions row and moves sw_prompt_live; the run records the
 // version it used (null = built-in).
 
-export type PromptSlot = "context" | "extraction" | "theme_assign" | "theme_review";
+export type PromptSlot =
+  "context" | "extraction" | "theme_assign" | "theme_review" | "quote_quality";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -62,6 +63,16 @@ Prefer themes that more than one source or speaker bears on. Propose a theme res
 Put evidence that cuts against a theme inside it, marked as complicating, rather than starting a theme for the opposite view.
 
 Suggest merging two accepted themes only when, put together, they would be one claim.`;
+
+export const QUOTE_QUALITY_BUILT_IN = `A good clip is one a host can play straight after a sentence of narration and then talk over. Judge the clip by how it sounds on air, not by how much it says about the theme.
+
+- It sings. It is concrete and emotionally specific, and it is in the speaker's own voice: an image, a detail, a turn of phrase, a laugh. A summary of what happened is a data point, not a clip.
+- It stands alone. A listener who has heard nothing else understands it. Skip clips that lean on "he" or "that place" without saying who or where.
+- It starts and ends cleanly. It begins on the start of a sentence and ends where the speaker lands, with no false start, filler or half sentence at either edge. If the best clip needs a word or two trimmed, say which in your reason.
+- It is a usable length: roughly five to twenty-five seconds. Shorter is a button after narration; longer needs a reason.
+- It sounds clean. Say if you can tell that something under it is wrong, such as noise, crosstalk or the interviewer talking over the speaker.
+
+Prefer a clip that shows over one that explains. Prefer a different speaker or source over a second clip of the same point. When nothing in the evidence works on air, say so by returning no clips.`;
 
 export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
   {
@@ -129,6 +140,23 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "Everything returned is a suggestion the reporter accepts, edits or rejects. The shape is fixed by the code; your wording decides what a good theme looks like.",
     ],
     builtIn: THEME_REVIEW_BUILT_IN,
+  },
+  {
+    slot: "quote_quality",
+    label: "Quote quality guide",
+    description:
+      "Tells the model what makes a clip work on air. Used when someone chooses Suggest quotes on a theme.",
+    tryable: true,
+    gives: [
+      "The theme's title and one-sentence definition.",
+      "The accepted data points that support it, by source and speaker.",
+      "For each source, the transcript around those data points as numbered sentences, under headers naming the speaker and the time.",
+    ],
+    returns: [
+      "Up to eight clips, best first: the first and last sentence, a tier (strong, good or usable), a one-line reason it works, and the data points it exemplifies.",
+      "The model returns sentence numbers, never text or times: the code derives the start, the end and the words. Your wording decides what counts as a clip that works on air; the tiers and the shape are fixed.",
+    ],
+    builtIn: QUOTE_QUALITY_BUILT_IN,
   },
 ];
 

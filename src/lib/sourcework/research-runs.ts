@@ -9,13 +9,14 @@ import { isStaleRun } from "./run-state";
 // start two; one that died with its request is closed by whoever retries.
 
 type Client = SupabaseClient<Database>;
-export type RunKind = "context" | "extraction" | "theme_assign" | "theme_review";
+export type RunKind = "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
 
 const ALREADY_RUNNING: Record<RunKind, string> = {
   extraction: "This source is already being extracted.",
   context: "Background is already being gathered for this project.",
   theme_assign: "Data points are already being filed into themes for this project.",
   theme_review: "Themes are already being reviewed for this project.",
+  quote_suggest: "Quotes are already being suggested for this theme.",
 };
 
 export type StartedRun =
@@ -27,6 +28,8 @@ export async function startRun(
     kind: RunKind;
     projectId: string;
     sourceId: string | null;
+    /** The theme a quote run is about; every other kind leaves it out. */
+    themeId?: string | null;
     promptVersionId: string | null;
     trial: boolean;
     model: string;
@@ -37,6 +40,7 @@ export async function startRun(
     kind: args.kind,
     project_id: args.projectId,
     source_id: args.sourceId,
+    theme_id: args.themeId ?? null,
     prompt_version_id: args.promptVersionId,
     trial: args.trial,
     model: args.model,
@@ -66,6 +70,7 @@ export async function startRun(
     existing = args.sourceId
       ? existing.eq("source_id", args.sourceId)
       : existing.is("source_id", null);
+    if (args.themeId) existing = existing.eq("theme_id", args.themeId);
     const found = await existing.maybeSingle();
     if (found.error) {
       console.error("Could not read the running research run:", found.error);

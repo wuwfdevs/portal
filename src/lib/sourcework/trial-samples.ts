@@ -114,7 +114,7 @@ async function withTitles(
     error: string | null;
     results: unknown;
     project_id: string;
-    source_id: string;
+    source_id: string | null;
     created_at: string;
     finished_at: string | null;
     expires_at: string;
@@ -130,7 +130,9 @@ async function withTitles(
     supabase
       .from("sw_sources")
       .select("id, title")
-      .in("id", [...new Set(rows.map((r) => r.source_id))]),
+      .in("id", [
+        ...new Set(rows.map((r) => r.source_id).filter((id): id is string => id !== null)),
+      ]),
   ]);
   const projectTitle = new Map(
     (unwrapRead(projects, "the trial projects") ?? []).map((p) => [p.id, p.title]),
@@ -145,9 +147,9 @@ async function withTitles(
     error: row.error,
     results: parseTrialResults(row.results),
     projectId: row.project_id,
-    sourceId: row.source_id,
+    sourceId: row.source_id ?? "",
     projectTitle: projectTitle.get(row.project_id) ?? "a deleted project",
-    sourceTitle: sourceTitle.get(row.source_id) ?? "a deleted source",
+    sourceTitle: (row.source_id && sourceTitle.get(row.source_id)) || "a deleted source",
     createdAt: row.created_at,
     finishedAt: row.finished_at,
     expiresAt: row.expires_at,

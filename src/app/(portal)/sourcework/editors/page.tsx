@@ -11,10 +11,9 @@ import {
   type PromptSlot,
 } from "@/lib/sourcework/prompts";
 import {
-  getExtractionAcceptRates,
+  getAcceptRatesForSlot,
   getLivePrompt,
   getPromptDraft,
-  getThemeAcceptRates,
   listPromptVersions,
 } from "@/lib/sourcework/research-queries";
 import { initialPromptText } from "@/lib/sourcework/trial-sample";
@@ -45,19 +44,15 @@ export default async function EditorsPage({
   );
 
   // The accept rate means something for the slots whose output a person accepts or rejects: the
-  // extraction guide's data points and Review themes' themes. The built-in text has a rate of its
-  // own, keyed by null.
+  // extraction guide's data points, Review themes' themes and the quote quality guide's clips. The
+  // built-in text has a rate of its own, keyed by null.
+  const rates = await getAcceptRatesForSlot(slot);
   let liveRate: string | null = null;
-  if (slot === "extraction" || slot === "theme_review") {
-    if (live.versionId) {
-      const current = versions.find((version) => version.id === live.versionId);
-      liveRate = current ? acceptRateLabel(current.accepted, current.rejected) : null;
-    } else {
-      const rates =
-        slot === "extraction" ? await getExtractionAcceptRates() : await getThemeAcceptRates();
-      const builtIn = rates.get(null);
-      liveRate = builtIn ? acceptRateLabel(builtIn.accepted, builtIn.rejected) : null;
-    }
+  if (rates) {
+    const current = live.versionId
+      ? versions.find((version) => version.id === live.versionId)
+      : rates.get(null);
+    liveRate = current ? acceptRateLabel(current.accepted, current.rejected) : null;
   }
 
   const slots = PROMPT_SLOTS.map(({ slot: value, label }) => ({ slot: value, label }));

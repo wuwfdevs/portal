@@ -28,6 +28,8 @@ export interface SourceResearchView {
   extraction: ExtractionState;
   /** Data point id -> the accepted themes it sits in, with links (the card's "Theme:" line). */
   themes: Record<string, { href: string; title: string; stance: "supports" | "complicates" }[]>;
+  /** Data point id -> the excerpts that exemplify it (the card's "Excerpt:" line). */
+  excerpts: Record<string, { href: string; title: string }[]>;
 }
 
 /**
@@ -162,6 +164,7 @@ export function DataPointRail({
             onPlay={onPlay ? () => onPlay(point) : undefined}
             onOpen={onOpen ? () => onOpen(point) : undefined}
             themes={research.themes[point.id] ?? []}
+            excerpts={research.excerpts[point.id] ?? []}
           />
         ))
       )}

@@ -30,6 +30,7 @@ import {
 } from "@/lib/sourcework/research-queries";
 import { sortDataPointsBySpan } from "@/lib/sourcework/research";
 import { listThemesForDataPoints } from "@/lib/sourcework/theme-queries";
+import { listExcerptsForDataPoints } from "@/lib/sourcework/quote-queries";
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
@@ -387,9 +388,13 @@ async function loadResearchView(
     ]),
   ]);
   const state = researchBySource.get(sourceId)?.state ?? { kind: "idle" as const };
-  const themeLinks = await listThemesForDataPoints(
-    points.filter((point) => point.status === "accepted").map((point) => point.id),
-  );
+  const acceptedIds = points
+    .filter((point) => point.status === "accepted")
+    .map((point) => point.id);
+  const [themeLinks, excerptLinks] = await Promise.all([
+    listThemesForDataPoints(acceptedIds),
+    listExcerptsForDataPoints(acceptedIds),
+  ]);
   return {
     points: sortDataPointsBySpan(points),
     labels: Object.fromEntries(questions.map((question) => [question.id, question.label])),
@@ -404,6 +409,15 @@ async function loadResearchView(
           href: themePath(projectId, link.themeId),
           title: link.title,
           stance: link.stance,
+        })),
+      ]),
+    ),
+    excerpts: Object.fromEntries(
+      [...excerptLinks.entries()].map(([pointId, links]) => [
+        pointId,
+        links.map((link) => ({
+          href: sourcePath(sourceId, { projectId, clip: link.excerptId }),
+          title: link.title,
         })),
       ]),
     ),

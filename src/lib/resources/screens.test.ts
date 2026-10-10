@@ -39,6 +39,9 @@ describe("helpContextForPath", () => {
     expect(helpContextForPath("/sourcework/0b6c3a52/themes/9f1")?.screenKey).toBe(
       "sourcework.theme",
     );
+    expect(helpContextForPath("/sourcework/0b6c3a52/themes/9f1/quotes")?.screenKey).toBe(
+      "sourcework.theme_quotes",
+    );
   });
 
   it("tells Editorial Inquiry apart from Editorial Planning", () => {

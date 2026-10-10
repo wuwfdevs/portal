@@ -29,6 +29,7 @@ export function DataPointCard({
   onOpen,
   openLabel,
   themes = [],
+  excerpts = [],
 }: {
   point: DataPoint;
   tag: string;
@@ -44,6 +45,8 @@ export function DataPointCard({
   openLabel?: string;
   /** The accepted themes this point sits in; shown on a point a person has accepted. */
   themes?: { href: string; title: string; stance: "supports" | "complicates" }[];
+  /** The excerpts that exemplify this point (accepted suggested quotes). */
+  excerpts?: { href: string; title: string }[];
 }) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -266,6 +269,23 @@ export function DataPointCard({
                 {theme.title}
               </Link>
               {theme.stance === "complicates" && " (complicates)"}
+            </span>
+          ))}
+        </p>
+      )}
+
+      {point.status === "accepted" && excerpts.length > 0 && !editing && (
+        <p className="mt-1 text-xs text-ink-500" onClick={(event) => event.stopPropagation()}>
+          {excerpts.map((excerpt, index) => (
+            <span key={excerpt.href}>
+              {index > 0 && " · "}
+              {index === 0 ? "Excerpt: " : ""}
+              <Link
+                href={excerpt.href}
+                className="font-semibold text-brand-link hover:underline max-lg:inline-block max-lg:py-2.5"
+              >
+                {excerpt.title}
+              </Link>
             </span>
           ))}
         </p>

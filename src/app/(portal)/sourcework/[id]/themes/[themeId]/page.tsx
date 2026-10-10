@@ -12,9 +12,11 @@ import { cn } from "@/lib/cn";
 import { formatShortDate, pluralize } from "@/lib/format";
 import { formatDuration } from "@/lib/transcription/media";
 import { getProjectById } from "@/lib/transcription/projects";
-import { projectPath, sourcePath, themePath } from "@/lib/transcription/links";
+import { projectPath, sourcePath, themePath, themeQuotesPath } from "@/lib/transcription/links";
 import { listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { getThemeDetail, listPointsNotInTheme } from "@/lib/sourcework/theme-queries";
+import { countWaitingQuotes, listThemeExcerpts } from "@/lib/sourcework/quote-queries";
+import { quoteAvailability } from "@/lib/sourcework/quotes";
 import {
   STANCE_LABEL,
   filterEvidence,
@@ -30,6 +32,8 @@ import {
 import { pointQuestionLabel, questionTitle, type DataPointSpan } from "@/lib/sourcework/research";
 import { QuestionChip } from "../../question-chip";
 import { ThemeDecisionButtons } from "../../theme-decision-buttons";
+import { SuggestQuotesProvider } from "./suggest-quotes";
+import { ThemeExcerptsPanel } from "./theme-excerpts";
 import { PlayIcon } from "../../transport-icons";
 import {
   AddPointsPanel,
@@ -71,11 +75,16 @@ export default async function ThemePage({
   if (detail.mergedIntoId) redirect(themePath(id, detail.mergedIntoId));
 
   const { theme, breadth } = detail;
-  const [questions, candidates] = await Promise.all([
+  const [questions, candidates, excerpts, waitingQuotes] = await Promise.all([
     listResearchQuestions(id),
     theme.status === "rejected"
       ? Promise.resolve([])
       : listPointsNotInTheme(id, themeId, sourceTitles),
+    listThemeExcerpts(
+      detail.evidence.map((entry) => entry.item.dataPointId),
+      sourceTitles,
+    ),
+    countWaitingQuotes(themeId),
   ]);
   const labels = new Map(questions.map((question) => [question.id, question.label]));
   const texts = new Map(questions.map((question) => [question.id, question.question]));
@@ -91,6 +100,23 @@ export default async function ThemePage({
   const editing = edit === "1";
   const suggested = theme.status === "suggested";
   const single = isSingleSource(breadth, project.sources.length);
+  // Quotes are clips, so the theme needs accepted evidence that points into a recording.
+  const availability = quoteAvailability({
+    themeStatus: theme.status,
+    evidence: detail.evidence.map((entry) => ({
+      hasRecordingSpan: entry.spans.some((span) => span.kind === "temporal"),
+    })),
+  });
+  const excerptsPanel = (variant: "phone" | "desktop") => (
+    <ThemeExcerptsPanel
+      projectId={id}
+      excerpts={excerpts}
+      waiting={waitingQuotes}
+      availability={availability}
+      quotesHref={themeQuotesPath(id, themeId)}
+      variant={variant}
+    />
+  );
 
   const groups = groupEvidenceBySource(
     filterEvidence(
@@ -197,130 +223,139 @@ export default async function ThemePage({
         </p>
       )}
 
-      <div className="mt-6 flex flex-col gap-8 lg:mt-7 lg:flex-row lg:items-start lg:gap-8">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <SectionHeading level="eyebrow" className="flex-1">
-              Evidence by source
-            </SectionHeading>
-            <SegmentedLinks
-              label="Show"
-              options={[
-                {
-                  label: `All · ${detail.evidence.length}`,
-                  href: showHref("all"),
-                  active: show === "all",
-                },
-                {
-                  label: `Supporting · ${breadth.supporting}`,
-                  href: showHref("supporting"),
-                  active: show === "supporting",
-                },
-                {
-                  label: `Complicating · ${breadth.complicating}`,
-                  href: showHref("complicating"),
-                  active: show === "complicating",
-                },
-              ]}
-              className="max-sm:w-full [&>a]:max-sm:h-11 [&>a]:max-sm:flex-1 [&>a]:max-sm:justify-center"
-            />
+      <SuggestQuotesProvider
+        projectId={id}
+        themeId={themeId}
+        goToHref={themeQuotesPath(id, themeId)}
+      >
+        <div className="mt-6 flex flex-col gap-8 lg:mt-7 lg:flex-row lg:items-start lg:gap-8">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            {excerptsPanel("phone")}
+            <div className="flex flex-wrap items-center gap-3">
+              <SectionHeading level="eyebrow" className="flex-1">
+                Evidence by source
+              </SectionHeading>
+              <SegmentedLinks
+                label="Show"
+                options={[
+                  {
+                    label: `All · ${detail.evidence.length}`,
+                    href: showHref("all"),
+                    active: show === "all",
+                  },
+                  {
+                    label: `Supporting · ${breadth.supporting}`,
+                    href: showHref("supporting"),
+                    active: show === "supporting",
+                  },
+                  {
+                    label: `Complicating · ${breadth.complicating}`,
+                    href: showHref("complicating"),
+                    active: show === "complicating",
+                  },
+                ]}
+                className="max-sm:w-full [&>a]:max-sm:h-11 [&>a]:max-sm:flex-1 [&>a]:max-sm:justify-center"
+              />
+            </div>
+
+            {groups.length === 0 ? (
+              <EmptyState compact>
+                {detail.evidence.length === 0
+                  ? "No accepted data points are in this theme yet. Add some below, or accept more in the sources."
+                  : "Nothing in this view."}
+              </EmptyState>
+            ) : (
+              groups.map((group) => {
+                const head = group.items.slice(0, SHOWN_PER_SOURCE);
+                const rest = group.items.slice(SHOWN_PER_SOURCE);
+                const row = (item: (typeof group.items)[number]) => {
+                  const entry = byPoint.get(item.dataPointId)!;
+                  return (
+                    <EvidenceRow
+                      key={item.dataPointId}
+                      projectId={id}
+                      themeId={theme.id}
+                      sourceId={item.sourceId}
+                      dataPointId={item.dataPointId}
+                      stance={item.stance}
+                      claim={item.claim}
+                      questionLabel={pointQuestionLabel(item, labels)}
+                      questionHint={questionTitle(item, labels, texts)}
+                      spans={entry.spans}
+                    />
+                  );
+                };
+                return (
+                  <section key={group.sourceId} className="rounded border border-line bg-white">
+                    <h3 className="border-b border-line px-5 py-3 text-sm font-bold text-ink-900">
+                      <Link
+                        href={sourcePath(group.sourceId, { projectId: id })}
+                        className="hover:text-brand-link hover:underline"
+                      >
+                        {group.sourceTitle}
+                      </Link>{" "}
+                      <span className="font-normal text-ink-500">· {groupSummary(group)}</span>
+                    </h3>
+                    <ul>{head.map(row)}</ul>
+                    {rest.length > 0 && (
+                      <details className="group">
+                        <summary className="cursor-pointer list-none border-t border-line px-5 py-2.5 text-[13px] font-bold text-brand-link group-open:hidden max-lg:min-h-11 max-lg:py-3.5">
+                          Show {rest.length} more
+                        </summary>
+                        <ul>{rest.map(row)}</ul>
+                      </details>
+                    )}
+                  </section>
+                );
+              })
+            )}
+
+            {theme.status !== "rejected" && candidates.length > 0 && (
+              <AddPointsPanel themeId={theme.id} candidates={candidatesWithQuestion} />
+            )}
           </div>
 
-          {groups.length === 0 ? (
-            <EmptyState compact>
-              {detail.evidence.length === 0
-                ? "No accepted data points are in this theme yet. Add some below, or accept more in the sources."
-                : "Nothing in this view."}
-            </EmptyState>
-          ) : (
-            groups.map((group) => {
-              const head = group.items.slice(0, SHOWN_PER_SOURCE);
-              const rest = group.items.slice(SHOWN_PER_SOURCE);
-              const row = (item: (typeof group.items)[number]) => {
-                const entry = byPoint.get(item.dataPointId)!;
-                return (
-                  <EvidenceRow
-                    key={item.dataPointId}
-                    projectId={id}
-                    themeId={theme.id}
-                    sourceId={item.sourceId}
-                    dataPointId={item.dataPointId}
-                    stance={item.stance}
-                    claim={item.claim}
-                    questionLabel={pointQuestionLabel(item, labels)}
-                    questionHint={questionTitle(item, labels, texts)}
-                    spans={entry.spans}
-                  />
-                );
-              };
-              return (
-                <section key={group.sourceId} className="rounded border border-line bg-white">
-                  <h3 className="border-b border-line px-5 py-3 text-sm font-bold text-ink-900">
-                    <Link
-                      href={sourcePath(group.sourceId, { projectId: id })}
-                      className="hover:text-brand-link hover:underline"
-                    >
-                      {group.sourceTitle}
-                    </Link>{" "}
-                    <span className="font-normal text-ink-500">· {groupSummary(group)}</span>
-                  </h3>
-                  <ul>{head.map(row)}</ul>
-                  {rest.length > 0 && (
-                    <details className="group">
-                      <summary className="cursor-pointer list-none border-t border-line px-5 py-2.5 text-[13px] font-bold text-brand-link group-open:hidden max-lg:min-h-11 max-lg:py-3.5">
-                        Show {rest.length} more
-                      </summary>
-                      <ul>{rest.map(row)}</ul>
-                    </details>
-                  )}
-                </section>
-              );
-            })
-          )}
+          <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[360px]">
+            <DetailSummary
+              title="Breadth"
+              className="max-lg:hidden"
+              items={[
+                { label: "Sources", value: sourcesLabel(breadth, project.sources.length) },
+                { label: "Speakers", value: breadth.speakerCount },
+                { label: "Supporting", value: pluralize(breadth.supporting, "data point") },
+                { label: "Complicating", value: pluralize(breadth.complicating, "data point") },
+                {
+                  label: "Accepted",
+                  value: theme.acceptedAt
+                    ? `${detail.acceptedByName ?? "Someone"} · ${formatShortDate(theme.acceptedAt)}`
+                    : "Not yet",
+                },
+              ]}
+            />
+            {single && (
+              <Alert variant="warning" className="max-lg:hidden">
+                Only one source backs this theme. That is a flag, not a verdict: look for a second
+                before leaning on it.
+              </Alert>
+            )}
 
-          {theme.status !== "rejected" && candidates.length > 0 && (
-            <AddPointsPanel themeId={theme.id} candidates={candidatesWithQuestion} />
-          )}
+            <ThemeMemo themeId={theme.id} memo={theme.memo} />
+
+            {excerptsPanel("desktop")}
+
+            {detail.history.length > 0 && (
+              <div className="text-[13px] text-ink-500">
+                <strong className="text-ink-900">History</strong>
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {detail.history.map((entry, index) => (
+                    <li key={`${entry.at}-${index}`}>{formatHistoryEntry(entry)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </aside>
         </div>
-
-        <aside className="flex w-full shrink-0 flex-col gap-5 lg:w-[360px]">
-          <DetailSummary
-            title="Breadth"
-            className="max-lg:hidden"
-            items={[
-              { label: "Sources", value: sourcesLabel(breadth, project.sources.length) },
-              { label: "Speakers", value: breadth.speakerCount },
-              { label: "Supporting", value: pluralize(breadth.supporting, "data point") },
-              { label: "Complicating", value: pluralize(breadth.complicating, "data point") },
-              {
-                label: "Accepted",
-                value: theme.acceptedAt
-                  ? `${detail.acceptedByName ?? "Someone"} · ${formatShortDate(theme.acceptedAt)}`
-                  : "Not yet",
-              },
-            ]}
-          />
-          {single && (
-            <Alert variant="warning" className="max-lg:hidden">
-              Only one source backs this theme. That is a flag, not a verdict: look for a second
-              before leaning on it.
-            </Alert>
-          )}
-
-          <ThemeMemo themeId={theme.id} memo={theme.memo} />
-
-          {detail.history.length > 0 && (
-            <div className="text-[13px] text-ink-500">
-              <strong className="text-ink-900">History</strong>
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {detail.history.map((entry, index) => (
-                  <li key={`${entry.at}-${index}`}>{formatHistoryEntry(entry)}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </aside>
-      </div>
+      </SuggestQuotesProvider>
     </div>
   );
 }

@@ -407,10 +407,10 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
       .eq("slot", slot)
       .maybeSingle()
       .then((result) => unwrapRead(result, "the live prompt")),
-    slot === "theme_review" ? getThemeAcceptRates() : getExtractionAcceptRates(),
+    getAcceptRatesForSlot(slot),
   ]);
-  // The accept rate means something for the two slots whose output a person accepts or rejects.
-  const rated = slot === "extraction" || slot === "theme_review";
+  // The accept rate means something for the slots whose output a person accepts or rejects.
+  const rated = rates !== null;
   return versions.map((row) => ({
     id: row.id,
     version: row.version,
@@ -418,10 +418,23 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
     note: row.note,
     createdAt: row.created_at,
     createdBy: row.created_by,
-    accepted: rated ? (rates.get(row.id)?.accepted ?? 0) : 0,
-    rejected: rated ? (rates.get(row.id)?.rejected ?? 0) : 0,
+    accepted: rated ? (rates?.get(row.id)?.accepted ?? 0) : 0,
+    rejected: rated ? (rates?.get(row.id)?.rejected ?? 0) : 0,
     isLive: live?.version_id === row.id,
   }));
+}
+
+/**
+ * Accepted and rejected suggestions per version of a slot, or null for a slot whose output nobody
+ * accepts or rejects (background, theme filing).
+ */
+export async function getAcceptRatesForSlot(
+  slot: PromptSlot,
+): Promise<Map<string | null, { accepted: number; rejected: number }> | null> {
+  if (slot === "extraction") return getExtractionAcceptRates();
+  if (slot === "theme_review") return getThemeAcceptRates();
+  if (slot === "quote_quality") return getQuoteAcceptRates();
+  return null;
 }
 
 /** Accepted and rejected data points per prompt version; the built-in text is keyed by `null`. */
@@ -444,6 +457,18 @@ export async function getThemeAcceptRates(): Promise<
   const supabase = await createClient();
   const rows =
     unwrapRead(await supabase.rpc("sw_theme_accept_rates"), "the theme accept rates") ?? [];
+  return new Map(
+    rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
+  );
+}
+
+/** Accepted and rejected quote suggestions per prompt version of the quote quality guide; the built-in text is keyed by `null`. */
+export async function getQuoteAcceptRates(): Promise<
+  Map<string | null, { accepted: number; rejected: number }>
+> {
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(await supabase.rpc("sw_quote_accept_rates"), "the quote accept rates") ?? [];
   return new Map(
     rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
   );
