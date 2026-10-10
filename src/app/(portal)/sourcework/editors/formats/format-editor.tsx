@@ -23,6 +23,7 @@ import {
   specsEqual,
   validateFormatSpec,
   type FormatSection,
+  type FormatSectionType,
   type FormatSpec,
 } from "@/lib/sourcework/piece-formats";
 import { LocalTime } from "../local-time";
@@ -67,6 +68,10 @@ function parseTolerance(text: string): number | null {
  * only this editor sees; Publish… makes it live with a note; Try this draft compares it with the
  * live version on a project before that.
  */
+function sectionLabel(type: FormatSectionType): string {
+  return type === "actuality" ? "Actuality" : type === "anchor" ? "Anchor intro" : "Narration";
+}
+
 export function FormatEditor({
   formatId,
   name: initialName,
@@ -252,7 +257,15 @@ export function FormatEditor({
 
   function menuFor(index: number): ActionMenuItem[] {
     const section = spec.sections[index]!;
-    const other = section.type === "narration" ? "actuality" : "narration";
+    // The anchor's lead-in is only ever the first section, and a format has one.
+    const canBeAnchor = index === 0 && !spec.sections.some((entry) => entry.type === "anchor");
+    const kindItem: ActionMenuItem =
+      section.type === "actuality"
+        ? { label: "Make it narration", onClick: () => retype(index, "narration") }
+        : {
+            label: "Make it an actuality",
+            onClick: () => retype(index, "actuality"),
+          };
     return [
       {
         label: "Move up",
@@ -264,14 +277,15 @@ export function FormatEditor({
         disabled: index === spec.sections.length - 1,
         onClick: () => setSections(moveSection(specRef.current.sections, index, 1)),
       },
+      section.type === "anchor"
+        ? { label: "Make it narration", onClick: () => retype(index, "narration") }
+        : kindItem,
+      ...(canBeAnchor && section.type !== "anchor"
+        ? [{ label: "Make it an anchor intro", onClick: () => retype(index, "anchor") }]
+        : []),
       {
-        label: other === "actuality" ? "Make it an actuality" : "Make it narration",
-        onClick: () =>
-          setSections(
-            specRef.current.sections.map((entry, at) =>
-              at === index ? { ...entry, type: other } : entry,
-            ),
-          ),
+        label: section.optional ? "Make it required" : "Make it optional",
+        onClick: () => toggleOptional(index),
       },
       {
         label: "Add a section below",
@@ -289,6 +303,25 @@ export function FormatEditor({
         onClick: () => setSections(specRef.current.sections.filter((_, at) => at !== index)),
       },
     ];
+  }
+
+  function retype(index: number, type: FormatSectionType) {
+    setSections(
+      specRef.current.sections.map((entry, at) =>
+        at === index ? { ...entry, type, ...(type === "anchor" ? { optional: true } : {}) } : entry,
+      ),
+    );
+  }
+
+  function toggleOptional(index: number) {
+    setSections(
+      specRef.current.sections.map((entry, at) => {
+        if (at !== index) return entry;
+        return entry.optional
+          ? { type: entry.type, guidance: entry.guidance }
+          : { ...entry, optional: true };
+      }),
+    );
   }
 
   const saveLabel =
@@ -431,7 +464,9 @@ export function FormatEditor({
           />
         </div>
         <fieldset>
-          <legend className="mb-1.5 block text-xs font-semibold text-ink-700">Actualities</legend>
+          <legend className="mb-1.5 block text-xs font-semibold text-ink-700">
+            Usual actualities
+          </legend>
           <div className="flex items-center gap-1.5">
             <Input
               aria-label="Fewest actualities"
@@ -495,12 +530,13 @@ export function FormatEditor({
               <div className="flex min-w-0 flex-1 flex-col gap-1 lg:flex-row lg:items-center lg:gap-2.5">
                 <span
                   className={cn(
-                    "text-[11px] font-bold uppercase tracking-[0.05em] lg:w-[84px] lg:flex-none",
+                    "text-[11px] font-bold uppercase tracking-[0.05em] lg:w-[132px] lg:flex-none",
                     section.type === "actuality" ? "text-brand-link" : "text-ink-500",
                   )}
                 >
                   <span className="lg:hidden">{index + 1} · </span>
-                  {section.type === "actuality" ? "Actuality" : "Narration"}
+                  {sectionLabel(section.type)}
+                  {section.optional && <span className="font-normal normal-case"> (optional)</span>}
                 </span>
                 <Input
                   aria-label={`Section ${index + 1} guidance`}
@@ -643,7 +679,8 @@ export function FormatEditor({
                         {version.spec.sections.map((section, index) => (
                           <li key={index}>
                             <span className="font-semibold">
-                              {section.type === "actuality" ? "Actuality" : "Narration"}:
+                              {sectionLabel(section.type)}
+                              {section.optional ? " (optional)" : ""}:
                             </span>{" "}
                             {section.guidance}
                           </li>

@@ -6,12 +6,19 @@
 
 import { formatClock } from "@/lib/format";
 
-export type FormatSectionType = "narration" | "actuality";
+/**
+ * "anchor" is the anchor's lead-in to a reporter's recorded piece: written to be read by the
+ * anchor, kept out of the piece's timed length. Everything else is the piece itself, even
+ * when an anchor reads it (a reader or a cut and copy is timed as a whole).
+ */
+export type FormatSectionType = "narration" | "actuality" | "anchor";
 
 export interface FormatSection {
   type: FormatSectionType;
   /** One line telling the model what goes here. */
   guidance: string;
+  /** A section the piece can do without (a tag, a second voice). Absent means expected. */
+  optional?: boolean;
 }
 
 /** One version's content. Stored as jsonb on sw_piece_format_versions.spec. */
@@ -79,9 +86,15 @@ export function readFormatSpec(value: unknown): FormatSpec | null {
   for (const item of raw.sections) {
     if (typeof item !== "object" || item === null) return null;
     const section = item as Record<string, unknown>;
-    if (section.type !== "narration" && section.type !== "actuality") return null;
+    if (section.type !== "narration" && section.type !== "actuality" && section.type !== "anchor") {
+      return null;
+    }
     if (typeof section.guidance !== "string") return null;
-    sections.push({ type: section.type, guidance: section.guidance });
+    sections.push({
+      type: section.type,
+      guidance: section.guidance,
+      ...(section.optional === true ? { optional: true } : {}),
+    });
   }
   return {
     targetSeconds: raw.targetSeconds,
@@ -105,6 +118,7 @@ export function validateFormatSpec(input: FormatSpec): FormatSpecCheck {
     sections: input.sections.map((section) => ({
       type: section.type,
       guidance: section.guidance.replace(/\s+/g, " ").trim(),
+      ...(section.optional ? { optional: true } : {}),
     })),
   };
   if (spec.targetSeconds < MIN_TARGET_SECONDS || spec.targetSeconds > MAX_TARGET_SECONDS) {
@@ -129,6 +143,13 @@ export function validateFormatSpec(input: FormatSpec): FormatSpecCheck {
   if (spec.sections.length === 0) return { ok: false, error: "Add at least one section." };
   if (spec.sections.length > MAX_SECTIONS) {
     return { ok: false, error: `A format can have at most ${MAX_SECTIONS} sections.` };
+  }
+  const anchorAt = spec.sections.findIndex((section) => section.type === "anchor");
+  if (anchorAt > 0 || spec.sections.filter((section) => section.type === "anchor").length > 1) {
+    return {
+      ok: false,
+      error: "An anchor intro can be the first section only, and a format has at most one.",
+    };
   }
   if (!spec.sections.some((section) => section.type === "narration")) {
     return {
@@ -190,9 +211,15 @@ export function actualityRangeLabel(
   return `${min} to ${max} actualities`;
 }
 
-/** The card line: "1:00 · 2 to 3 actualities". */
+/** "0:30–0:46": the lengths a format counts as on target. */
+export function lengthRangeLabel(spec: Pick<FormatSpec, "targetSeconds" | "toleranceSeconds">) {
+  if (spec.toleranceSeconds === 0) return formatClock(spec.targetSeconds);
+  return `${formatClock(spec.targetSeconds - spec.toleranceSeconds)}–${formatClock(spec.targetSeconds + spec.toleranceSeconds)}`;
+}
+
+/** The card line: "0:52–1:06 · 1 to 2 actualities". */
 export function describeFormat(spec: FormatSpec): string {
-  return `${formatClock(spec.targetSeconds)} · ${actualityRangeLabel(spec)}`;
+  return `${lengthRangeLabel(spec)} · ${actualityRangeLabel(spec)}`;
 }
 
 /**
@@ -201,15 +228,17 @@ export function describeFormat(spec: FormatSpec): string {
  * change the shape of the answer.
  */
 export function renderFormatGuide(name: string, spec: FormatSpec): string {
+  const hasAnchor = spec.sections.some((section) => section.type === "anchor");
+  const label = { narration: "Narration", actuality: "Actuality", anchor: "Anchor intro" } as const;
   const lines = [
     `Format: ${name}.`,
-    `Length: ${formatClock(spec.targetSeconds)}, within ${spec.toleranceSeconds} seconds either way.`,
-    `Actualities: ${actualityRangeLabel(spec)}.`,
+    `Length: aim for ${formatClock(spec.targetSeconds)}; ${lengthRangeLabel(spec)} is on target.${hasAnchor ? " The anchor intro is not counted." : ""}`,
+    `Actualities: ${actualityRangeLabel(spec)} is the usual range. It is a guide, not a quota: use fewer when fewer clips earn their place, and never add a weaker clip to reach the number.`,
     "",
-    "Sections, in order:",
+    "Sections, in order (an outline of what the piece needs to do, not a template to fill; sections marked optional can go when the material doesn't call for them):",
     ...spec.sections.map(
       (section, index) =>
-        `${index + 1}. ${section.type === "narration" ? "Narration" : "Actuality"}: ${section.guidance}`,
+        `${index + 1}. ${label[section.type]}${section.optional ? " (optional)" : ""}: ${section.guidance}`,
     ),
   ];
   if (spec.style) lines.push("", "Style:", spec.style);

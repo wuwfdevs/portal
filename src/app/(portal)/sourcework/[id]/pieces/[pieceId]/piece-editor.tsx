@@ -25,6 +25,7 @@ import {
   pieceAsText,
   removeBlock,
   setActualityTrim,
+  setNarrationRole,
   setNarrationText,
   swapExcerpt,
   undoAssistantChange,
@@ -41,10 +42,12 @@ import {
   renamePiece,
   restorePieceVersion,
   savePieceBody,
+  setPieceFormat,
   setPieceTarget,
   type PieceVersionRow,
 } from "../actions";
 import { DraftWithAi, type DraftFormatOption } from "./draft-with-ai";
+import { FormatGuide, type GuideFormat } from "./format-guide";
 import { ExcerptPicker } from "./excerpt-picker";
 import { ActualityRow, FooterButton, NarrationRow } from "./piece-blocks";
 import { PieceInsertionPoint } from "./piece-insertion-point";
@@ -59,11 +62,14 @@ type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 export function PieceEditor({
   piece,
   pickerExcerpts,
+  formats,
   draftFormats,
   draftMaterial,
 }: {
   piece: PieceDetail;
   pickerExcerpts: PieceExcerpt[];
+  /** Every published format, for writing to one by hand. */
+  formats: GuideFormat[];
   /** The formats Draft with AI offers; empty unless the piece is blank. */
   draftFormats: DraftFormatOption[];
   /** The themes and excerpts Draft with AI would use; null unless the piece is blank. */
@@ -78,6 +84,7 @@ export function PieceEditor({
   const [blocks, setBlocks] = useState<PieceBlock[]>(piece.blocks);
   const [title, setTitle] = useState(piece.title);
   const [targetSeconds, setTargetSeconds] = useState(piece.targetSeconds);
+  const [formatId, setFormatId] = useState<string | null>(piece.origin.format?.id ?? null);
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState("");
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -286,8 +293,17 @@ export function PieceEditor({
       },
     ];
     if (block.type === "narration") {
+      const anchor = block.role === "anchor";
       return [
         ...move,
+        {
+          label: anchor ? "Make it part of the piece" : "Mark as anchor intro",
+          hint: anchor
+            ? undefined
+            : "Read by the anchor before the piece. It isn't timed with the piece.",
+          onClick: () =>
+            commit(setNarrationRole(blocksRef.current, block.id, anchor ? undefined : "anchor")),
+        },
         {
           label: "Remove block…",
           variant: "danger",
@@ -359,6 +375,17 @@ export function PieceEditor({
     setHeaderError(null);
     setTargetSeconds(parsed);
     setEditingTarget(false);
+  }
+
+  async function chooseFormat(next: string | null) {
+    const result = await setPieceFormat({ pieceId: piece.id, formatId: next });
+    if (!result.ok) {
+      setHeaderError(result.error);
+      return;
+    }
+    setHeaderError(null);
+    setFormatId(next);
+    if (result.targetSeconds !== null) setTargetSeconds(result.targetSeconds);
   }
 
   async function openHistory() {
@@ -594,9 +621,20 @@ export function PieceEditor({
             <span className="text-xs text-ink-500">
               Narration {formatClock(length.narrationSeconds)} · Actualities{" "}
               {formatClock(length.actualitySeconds)}
+              {length.anchorSeconds > 0 &&
+                ` · Anchor intro ${formatClock(length.anchorSeconds)}, not timed`}
             </span>
           </>
         )}
+      </div>
+
+      <div className="mt-3">
+        <FormatGuide
+          formats={formats}
+          formatId={formatId}
+          actualityCount={blocks.filter((block) => block.type === "actuality").length}
+          onChange={(next) => void chooseFormat(next)}
+        />
       </div>
 
       {justDrafted && piece.origin.format && (

@@ -122,7 +122,7 @@ export function NarrationRow({
   return (
     <BlockRow
       id={block.id}
-      label="Narration"
+      label={block.role === "anchor" ? "Anchor intro" : "Narration"}
       seconds={seconds}
       accent="narration"
       menu={
@@ -137,14 +137,15 @@ export function NarrationRow({
     >
       <div className="rounded border border-line bg-white px-3.5 py-2.5 focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-surface">
         <p className={cn(BLOCK_LABEL, "lg:hidden", "!w-auto text-ink-500")}>
-          Narration · {formatClock(seconds)}
+          {block.role === "anchor" ? "Anchor intro · not timed" : "Narration"} ·{" "}
+          {formatClock(seconds)}
         </p>
         <textarea
           ref={ref}
           value={block.text}
           rows={1}
-          aria-label="Narration"
-          placeholder="Write narration…"
+          aria-label={block.role === "anchor" ? "Anchor intro" : "Narration"}
+          placeholder={block.role === "anchor" ? "Write the anchor intro…" : "Write narration…"}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             const el = event.currentTarget;

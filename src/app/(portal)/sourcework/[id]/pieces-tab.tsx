@@ -6,6 +6,8 @@ import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/tab
 import { formatClock, formatShortDate } from "@/lib/format";
 import { piecePath } from "@/lib/transcription/links";
 import type { PieceListRow } from "@/lib/sourcework/piece-queries";
+import { Select } from "@/components/ui/input";
+import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
 import { createPiece } from "./pieces/actions";
 
 /**
@@ -13,7 +15,7 @@ import { createPiece } from "./pieces/actions";
  * starts blank and opens straight into the editor — the button is a form
  * because creating a row is a write, not a navigation.
  */
-export function PiecesTab({
+export async function PiecesTab({
   projectId,
   pieces,
   search,
@@ -24,6 +26,7 @@ export function PiecesTab({
   search: string;
   totalCount: number;
 }) {
+  const formats = await listLiveFormats();
   return (
     <div>
       <ListToolbar
@@ -39,8 +42,23 @@ export function PiecesTab({
             : undefined
         }
       >
-        <form action={createPiece}>
+        <form action={createPiece} className="flex items-center gap-2">
           <input type="hidden" name="project_id" value={projectId} />
+          {formats.length > 0 && (
+            <Select
+              name="format_id"
+              aria-label="Start from a format"
+              defaultValue=""
+              className="w-auto max-w-44 max-sm:min-h-11"
+            >
+              <option value="">No format</option>
+              {formats.map((format) => (
+                <option key={format.id} value={format.id}>
+                  {format.name}
+                </option>
+              ))}
+            </Select>
+          )}
           <Button type="submit" className="max-sm:min-h-11">
             + New piece
           </Button>

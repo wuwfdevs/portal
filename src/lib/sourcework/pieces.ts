@@ -10,6 +10,11 @@ export interface NarrationBlock {
   id: string;
   type: "narration";
   text: string;
+  /**
+   * "anchor": the anchor's lead-in to a reporter's recorded piece. It is read by someone else,
+   * so it is not part of the piece's timed length. Absent means the piece itself.
+   */
+  role?: "anchor";
 }
 
 export interface ActualityBlock {
@@ -57,7 +62,13 @@ export function parsePieceBody(value: unknown): PieceBlock[] | null {
     seen.add(raw.id);
     if (raw.type === "narration") {
       if (typeof raw.text !== "string" || raw.text.length > MAX_NARRATION_CHARS) return null;
-      blocks.push({ id: raw.id, type: "narration", text: raw.text });
+      if (raw.role !== undefined && raw.role !== "anchor") return null;
+      blocks.push({
+        id: raw.id,
+        type: "narration",
+        text: raw.text,
+        ...(raw.role === "anchor" ? { role: "anchor" as const } : {}),
+      });
     } else if (raw.type === "actuality") {
       if (typeof raw.excerpt_id !== "string" || !UUID.test(raw.excerpt_id)) return null;
       const block: ActualityBlock = { id: raw.id, type: "actuality", excerpt_id: raw.excerpt_id };
@@ -75,8 +86,21 @@ export function parsePieceBody(value: unknown): PieceBlock[] | null {
   return blocks;
 }
 
-export function newNarration(id: string, text = ""): NarrationBlock {
-  return { id, type: "narration", text };
+export function newNarration(id: string, text = "", role?: "anchor"): NarrationBlock {
+  return { id, type: "narration", text, ...(role ? { role } : {}) };
+}
+
+/** Marks a narration block as the anchor's lead-in, or puts it back in the piece. */
+export function setNarrationRole(
+  blocks: readonly PieceBlock[],
+  id: string,
+  role: "anchor" | undefined,
+): PieceBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== id || block.type !== "narration") return block;
+    const rest: NarrationBlock = { id: block.id, type: "narration", text: block.text };
+    return role ? { ...rest, role } : rest;
+  });
 }
 
 export function newActuality(id: string, excerptId: string): ActualityBlock {
@@ -107,8 +131,11 @@ export function blockSeconds(
 
 export interface PieceLength {
   totalSeconds: number;
+  /** The reporter's words in the piece; an anchor intro is not in here. */
   narrationSeconds: number;
   actualitySeconds: number;
+  /** The anchor's lead-in, kept out of totalSeconds (the piece's timed length). */
+  anchorSeconds: number;
   perBlock: Map<string, number>;
 }
 
@@ -120,16 +147,19 @@ export function computePieceLength(
   const perBlock = new Map<string, number>();
   let narrationSeconds = 0;
   let actualitySeconds = 0;
+  let anchorSeconds = 0;
   for (const block of blocks) {
     const seconds = blockSeconds(block, byId);
     perBlock.set(block.id, seconds);
-    if (block.type === "narration") narrationSeconds += seconds;
+    if (block.type === "narration" && block.role === "anchor") anchorSeconds += seconds;
+    else if (block.type === "narration") narrationSeconds += seconds;
     else actualitySeconds += seconds;
   }
   return {
     totalSeconds: narrationSeconds + actualitySeconds,
     narrationSeconds,
     actualitySeconds,
+    anchorSeconds,
     perBlock,
   };
 }
@@ -279,7 +309,12 @@ export function pieceAsText(
   const lines: string[] = [title, ""];
   for (const block of blocks) {
     if (block.type === "narration") {
-      if (block.text.trim()) lines.push(block.text.trim(), "");
+      if (block.text.trim()) {
+        lines.push(
+          block.role === "anchor" ? `[ANCHOR INTRO] ${block.text.trim()}` : block.text.trim(),
+          "",
+        );
+      }
       continue;
     }
     const found = actualityText(block);

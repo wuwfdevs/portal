@@ -63,7 +63,7 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
         )}
         {!summary.withinActualities && (
           <span className="text-xs text-warning-fg">
-            asks for {side.minActualities}–{side.maxActualities}
+            usually {side.minActualities}–{side.maxActualities}
           </span>
         )}
       </div>
@@ -76,8 +76,12 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
                 block.type === "actuality" ? "text-brand-link" : "text-ink-500",
               )}
             >
-              {block.type === "actuality" ? "Actuality" : "Narration"} ·{" "}
-              {formatClock(block.seconds)}
+              {block.type === "actuality"
+                ? "Actuality"
+                : block.anchor
+                  ? "Anchor intro (not timed)"
+                  : "Narration"}{" "}
+              · {formatClock(block.seconds)}
               {block.type === "actuality" && block.speaker && (
                 <span className="font-normal normal-case tracking-normal"> · {block.speaker}</span>
               )}

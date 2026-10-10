@@ -8,7 +8,7 @@ import type { PieceBlock } from "./pieces";
 import type { FormatSpec } from "./piece-formats";
 
 export type TrialBlock =
-  | { type: "narration"; text: string; seconds: number }
+  | { type: "narration"; text: string; seconds: number; anchor?: boolean }
   | {
       type: "actuality";
       excerptId: string;
@@ -57,7 +57,14 @@ export function trialSide(args: {
     warnings: args.warnings,
     blocks: args.blocks.map((block): TrialBlock => {
       const seconds = args.perBlockSeconds.get(block.id) ?? 0;
-      if (block.type === "narration") return { type: "narration", text: block.text, seconds };
+      if (block.type === "narration") {
+        return {
+          type: "narration",
+          text: block.text,
+          seconds,
+          ...(block.role === "anchor" ? { anchor: true } : {}),
+        };
+      }
       const excerpt = args.excerpts.get(block.excerpt_id);
       return {
         type: "actuality",
@@ -79,8 +86,8 @@ export function summarizeTrialSide(side: FormatTrialSide): {
 } {
   const actualities = side.blocks.filter((block) => block.type === "actuality").length;
   const withinLength = Math.abs(side.lengthSeconds - side.targetSeconds) <= side.toleranceSeconds;
-  const withinActualities =
-    actualities >= side.minActualities && actualities <= side.maxActualities;
+  // The range is a guide: fewer clips than usual is a choice, more than the most is flagged.
+  const withinActualities = actualities <= side.maxActualities;
   return {
     line: `${formatClock(side.lengthSeconds)} of ${formatClock(side.targetSeconds)} · ${actualities} ${
       actualities === 1 ? "actuality" : "actualities"
