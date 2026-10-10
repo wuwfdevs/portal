@@ -450,8 +450,8 @@ table has a delete policy; (2) **assignment is `after()` best effort** and a dat
 been accepted since (`theme_checked_at`) — don't make it re-ask the whole pool per click; (3) **the model returns numbers,
 never text** (`theme-prompt.ts`), and `callStructuredModel` in `extraction-ai.ts` is the one structured-output call all
 research steps share; (4) `sw_add_proposed_themes()` and `sw_merge_themes()` exist because there is no delete to undo a half
-write. Migrations `20261013120000` (schema; dry-run in a rolled-back transaction on preview, not yet applied) and
-`20261013130000` (Resources content) must be applied through `APPLIED.md`. Splits, the theme page's excerpts and Suggest
+write. Migrations `20261013120000` (schema) and `20261013130000` (Resources content) are applied to both projects
+(through `execute_sql` in one transaction, not `apply_migration`, so the Supabase migration history has no entry for them). Splits, the theme page's excerpts and Suggest
 quotes (Phase C) are not built.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
