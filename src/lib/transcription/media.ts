@@ -187,7 +187,12 @@ export function buildExcerptExportFilename(
   speaker: string | null,
   excerptTitle: string,
 ): string {
-  return `${shortSlug(projectTitle, 40, "untitled")}_${shortSlug(speaker ?? "", 24, "unnamed")}_${shortSlug(excerptTitle, 40, "excerpt")}.wav`;
+  // An excerpt already named in full (Story_Speaker_Quote) keeps its own story and speaker.
+  const full = parseExcerptName(excerptTitle);
+  const story = full?.story ?? projectTitle;
+  const who = full?.speaker ?? speaker ?? "";
+  const quote = full?.quote ?? excerptTitle;
+  return `${shortSlug(story, 40, "untitled")}_${shortSlug(who, 24, "unnamed")}_${shortSlug(quote, 40, "excerpt")}.wav`;
 }
 
 /** Same shape as a clip export, for the whole project's transcript, e.g. "2026-07-22_reeves-interview_transcript.txt". */
@@ -202,6 +207,7 @@ export function buildClipsZipFilename(dateIso: string, projectTitle: string): st
 
 import { formatClockMs } from "@/lib/format";
 import { slugify } from "@/lib/text";
+import { parseExcerptName } from "./excerpt-title";
 export { formatBytes } from "@/lib/format";
 
 /** mm:ss for under an hour, h:mm:ss beyond that. */

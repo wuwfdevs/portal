@@ -173,7 +173,10 @@ trimmed, full-resolution cut is the deliverable. (If WUWF later wants
 usual export filename (since 2026-10-10 that is
 `story_speaker_quote.wav`, e.g. `hurricane-isaias_chip-simmons_second-fatality-from-generator-fumes.wav`; the quote id is
 the excerpt's title cut at a word, and `lib/transcription/media.ts`'s `buildExcerptExportFilename` is the one place it is built).
-Because the title is the quote id, a new excerpt's title is proposed by the model (`lib/sourcework/excerpt-title-ai.ts`: three to
+An excerpt is stored under its whole name, `Story_Speaker_Quote` (`Hurricane Isaias_Chip Simmons_Second fatality from
+generator fumes`): `lib/sourcework/excerpt-name.ts` writes it right after the excerpt exists, because the speaker comes from
+the transcript under its range, and the download reads the parts back (`parseExcerptName`). A title with no underscores is
+still valid; the download then adds the story and speaker. The quote part of a new excerpt is proposed by the model (`lib/sourcework/excerpt-title-ai.ts`: three to
 seven words saying what the speaker says, low reasoning effort, `proposeClipTitle` for the selection bar, the same call when a
 suggested quote is accepted). It falls back to the first words (`suggestExcerptTitle`) with no `OPENAI_API_KEY` or on any
 failure, and never overwrites a title the reporter has typed. Clips that were never exported individually are

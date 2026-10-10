@@ -150,6 +150,16 @@ describe("buildExcerptExportFilename", () => {
     expect(name).toBe("isaias_chip-simmons_we-found-another-generator-running.wav");
   });
 
+  it("keeps the story and speaker of an excerpt already named in full", () => {
+    expect(
+      buildExcerptExportFilename(
+        "Some other project",
+        "Someone Else",
+        "Hurricane Isaias_Chip Simmons_Second fatality from generator fumes",
+      ),
+    ).toBe("hurricane-isaias_chip-simmons_second-fatality-from-generator-fumes.wav");
+  });
+
   it("falls back when there is no speaker or title", () => {
     expect(buildExcerptExportFilename("Isaias", null, "")).toBe("isaias_unnamed_excerpt.wav");
     expect(buildExcerptExportFilename("", "Speaker A", "Bridge funding")).toBe(

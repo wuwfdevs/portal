@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { speakerLabels } from "@/lib/sourcework/piece-queries";
 import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
+import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
@@ -85,6 +86,13 @@ export async function createClip(input: {
     console.error("Could not create the excerpt:", error);
     return { error: "Could not create the excerpt. Please try again." };
   }
+
+  // Named in full (Story_Speaker_Quote) before it is embedded, so the title the search reads is final.
+  await storeFullExcerptName(supabase, {
+    excerptId: data.id,
+    projectId: await getPrimaryProjectIdForSource(supabase, input.sourceId),
+    quote: title,
+  });
 
   // Embeds as soon as the clip is created, so it is semantically searchable
   // immediately rather than at the next reindex — a clip's title is exactly

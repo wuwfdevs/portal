@@ -68,3 +68,32 @@ export function cleanProposedTitle(text: string, fallback: string): string {
   if (!/[A-Za-z0-9]/.test(title)) return fallback;
   return title.charAt(0).toUpperCase() + title.slice(1);
 }
+
+/** The story, speaker and quote parts of an excerpt's name, when it is stored in full ("Story_Speaker_Quote"). */
+export interface ExcerptNameParts {
+  story: string;
+  speaker: string;
+  quote: string;
+}
+
+/** Underscores separate the parts, so they can't appear inside one. */
+function namePart(text: string): string {
+  return text.replace(/_+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** "Hurricane Isaias_Chip Simmons_Second fatality from generator fumes": the whole convention as the excerpt's own name. */
+export function composeExcerptName(story: string, speaker: string | null, quote: string): string {
+  const parts = parseExcerptName(quote);
+  if (parts) return quote;
+  return `${namePart(story) || "Untitled"}_${namePart(speaker ?? "") || "Unnamed"}_${namePart(quote)}`;
+}
+
+/** Reads a stored full name, or null for a title that is only the quote. */
+export function parseExcerptName(name: string): ExcerptNameParts | null {
+  const pieces = name.split("_");
+  if (pieces.length < 3) return null;
+  const [story, speaker, ...rest] = pieces.map(namePart);
+  const quote = rest.filter(Boolean).join(" ");
+  if (!story || !speaker || !quote) return null;
+  return { story, speaker, quote };
+}
