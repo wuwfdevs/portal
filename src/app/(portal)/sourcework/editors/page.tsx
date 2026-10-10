@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/ui/page-header";
+import { SourceworkTabs } from "../sourcework-tabs";
 import { EditorsSubNav } from "./editors-sub-nav";
 import { getDisplayNames } from "@/lib/profile-names";
 import { requireSourceworkEditor } from "@/lib/sourcework/access";
@@ -62,11 +63,11 @@ export default async function EditorsPage({
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <PageHeader
         size="page"
-        back={{ href: "/sourcework", label: "Back to projects" }}
-        title="Research prompts and piece formats"
-        description="The wording the model works from. Everyone's next run uses the live version."
-        className="mb-4"
+        title="Sourcework"
+        description="Setup: the wording the model works from. Everyone's next run uses the live version."
+        className="mb-8"
       />
+      <SourceworkTabs active="setup" isEditor className="mb-3" />
       <EditorsSubNav active="prompts" className="mb-6" />
 
       <div className="mb-4 lg:hidden">

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { TabNav } from "@/components/ui/tab-nav";
+import { SourceworkTabs } from "./sourcework-tabs";
 import { requireSourceworkContext } from "@/lib/sourcework/access";
 import {
   countProjectFilters,
@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { pluralize } from "@/lib/format";
 import { withQuery } from "@/lib/paths";
 
@@ -99,11 +99,6 @@ export default async function TranscriptionListPage({
         title="Sourcework"
         description="Every interview here is shared with the rest of the team — search past projects to reuse a quote, or start a new one."
         className="mb-8"
-        actions={
-          isEditor ? (
-            <SecondaryLink href="/sourcework/editors">Prompts and formats</SecondaryLink>
-          ) : undefined
-        }
       />
 
       <form method="get" className="mb-6 max-w-xl">
@@ -151,18 +146,7 @@ export default async function TranscriptionListPage({
         </>
       ) : (
         <>
-          <TabNav
-            className="mb-5"
-            tabs={[
-              { href: "/sourcework", label: "Projects", active: activeTab === "projects" },
-              {
-                href: "/sourcework?tab=sources",
-                label: "Sources",
-                active: activeTab === "sources",
-              },
-              { href: "/sourcework?tab=clips", label: "Excerpts", active: activeTab === "clips" },
-            ]}
-          />
+          <SourceworkTabs className="mb-5" active={activeTab} isEditor={isEditor} />
 
           {activeTab === "clips" ? (
             <ClipLibrary clips={clips} />
