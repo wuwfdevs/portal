@@ -908,9 +908,11 @@ export interface Database {
       sw_analysis_runs: {
         Row: {
           id: string;
-          kind: "context" | "extraction" | "theme_assign" | "theme_review";
+          kind: "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
           project_id: string;
           source_id: string | null;
+          /** The theme a quote_suggest run is about (20261014120000); null for every other kind. */
+          theme_id: string | null;
           prompt_version_id: string | null;
           trial: boolean;
           model: string;
@@ -923,7 +925,7 @@ export interface Database {
           finished_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]> & {
-          kind: "context" | "extraction" | "theme_assign" | "theme_review";
+          kind: "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
           project_id: string;
           model: string;
           created_by: string;
@@ -1065,6 +1067,54 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["sw_theme_merge_suggestions"]["Row"]>;
         Relationships: [];
       };
+      sw_quote_suggestions: {
+        Row: {
+          id: string;
+          project_id: string;
+          theme_id: string;
+          source_id: string;
+          representation_id: string | null;
+          speaker_id: string | null;
+          start_ms: number;
+          end_ms: number;
+          quote_text: string;
+          reason: string;
+          tier: "strong" | "good" | "usable";
+          status: "suggested" | "accepted" | "rejected";
+          excerpt_id: string | null;
+          run_id: string | null;
+          prompt_version_id: string | null;
+          created_by: string;
+          created_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_quote_suggestions"]["Row"]> & {
+          project_id: string;
+          theme_id: string;
+          source_id: string;
+          start_ms: number;
+          end_ms: number;
+          quote_text: string;
+          reason: string;
+          tier: "strong" | "good" | "usable";
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_quote_suggestions"]["Row"]>;
+        Relationships: [];
+      };
+      sw_quote_suggestion_points: {
+        Row: { suggestion_id: string; data_point_id: string };
+        Insert: { suggestion_id: string; data_point_id: string };
+        Update: never;
+        Relationships: [];
+      };
+      sw_data_point_excerpts: {
+        Row: { data_point_id: string; excerpt_id: string; created_at: string };
+        Insert: { data_point_id: string; excerpt_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
       sw_prompt_versions: {
         Row: {
           id: string;
@@ -1198,6 +1248,11 @@ export interface Database {
           embedding_stale: boolean;
           export_storage_path: string | null;
           exported_at: string | null;
+          /** 'suggested' when it began as an accepted quote suggestion (20261014120000). Informational. */
+          origin: "manual" | "suggested";
+          suggestion_reason: string | null;
+          /** 3 strong, 2 good, 1 usable; null for an excerpt made by hand. */
+          quality_tier: number | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -4184,6 +4239,22 @@ export interface Database {
       sw_nearest_themes: {
         Args: { p_project_id: string; p_data_point_ids: string[]; p_k: number };
         Returns: { data_point_id: string; theme_id: string; similarity: number }[];
+      };
+      /** Security invoker (20261014120000). Accepted and rejected quote suggestions per quote-quality-guide version; a null version is the built-in text. */
+      sw_quote_accept_rates: {
+        Args: Record<string, never>;
+        Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
+      };
+      /** Security invoker (20261014120000). Accepts a quote suggestion into an excerpt in one transaction; returns the excerpt id, or null when the suggestion is gone or already decided. */
+      sw_accept_quote_suggestion: {
+        Args: {
+          p_suggestion_id: string;
+          p_start_ms: number;
+          p_end_ms: number;
+          p_title: string;
+          p_text: string;
+        };
+        Returns: string | null;
       };
       /** Security invoker (20261013120000). Accepted and rejected themes per prompt version; a null version is the built-in text. */
       sw_theme_accept_rates: {

@@ -1,6 +1,6 @@
 # Sourcework Analysis — Design and Phased Plan
 
-Status: **Phases D (pieces by hand, 2026-10-11), A (questions, background, data points, 2026-10-12) and B (themes, 2026-10-13) are built; Phases C and E are design only.** This is the document
+Status: **Phases D (pieces by hand, 2026-10-11), A (questions, background, data points, 2026-10-12), B (themes, 2026-10-13) and C (suggested quotes, 2026-10-14) are built; Phase E is design only.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes what that doc did not:
 background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
@@ -768,3 +768,41 @@ Where the build departed from, or settled, the design above:
   them), a Try this draft for the two new prompt slots (the Editors page edits and publishes them; accept rate per version is
   measured for Review themes), and splits.
 - **Speakers** in the breadth numbers are distinct `tw_speakers` rows, so one person interviewed in two sources counts as two.
+
+## 16. Phase C as built (2026-10-14)
+
+Where the build departed from, or settled, the design above:
+
+- **A suggestion is not an excerpt row.** §4.6 put `origin` and `review_status` on `sw_source_excerpts`. Nine places read
+  that table (the rail, the library, `clips.zip`, the piece editor's picker, the search index, `tw_search`, the
+  Projects list's counts, project deletion) and one missed filter would put unreviewed model output into a finished
+  piece or an export. Suggestions live in `sw_quote_suggestions` (theme, source, start/end, the words, the why-line,
+  tier, status) with their data points in `sw_quote_suggestion_points`, and the excerpt row is written only on accept
+  by `sw_accept_quote_suggestion()` (excerpt, `sw_data_point_excerpts` links and the decision in one transaction).
+  The excerpt keeps what §4.6 wanted recorded in three columns nothing filters on: `origin`, `suggestion_reason`,
+  `quality_tier` (3 strong, 2 good, 1 usable). A theme's representative quotes are still derived (the excerpts linked
+  to its data points); there is no theme-to-excerpt table.
+- **The model returns sentence numbers, never text or times.** Same data shape as extraction: the clip is a range of the
+  sentence units `extraction-units.ts` already builds, in sources it names by number, and code derives the start, the
+  end and the words (`quote-prompt.ts`). A clip is dropped if it names a sentence the model was not shown, jumps over a
+  gap in what was shown, crosses speakers, or is outside 1.5–60 seconds. The model is shown only the transcript around
+  the theme's supporting data points (four sentences either side, merged, 360 per source, 60 data points per run), not
+  whole interviews. Documents are skipped: a quote is a clip.
+- **Complicating evidence is not offered.** The input is the theme's accepted _supporting_ data points from recordings.
+- **A run replaces only the suggestions still waiting** (`sw_quote_suggestions_delete_waiting` is the only delete, and
+  only of `status = 'suggested'`), and never proposes a stretch that overlaps half of one already accepted or rejected.
+  Runs are keyed per theme (`sw_analysis_runs.theme_id`, kind `quote_suggest`, one running per theme).
+- **Trim happens on the card before accept.** The chips move the in or out point by −250/−50/+50/+250 ms and Play plays
+  the trimmed range. The range is checked again on the server and the excerpt's words and title are re-derived from the
+  transcript for it, so an accepted excerpt never carries words the audio does not.
+- **Screens.** The theme page's Excerpts panel (side column on a desktop, above the evidence on a phone, one run shared
+  between the two) lists the excerpts that exemplify the theme and starts the run; with clips waiting it links to
+  review them. `/sourcework/[id]/themes/[themeId]/quotes` is the suggested-quotes screen, the live quote quality guide
+  beside it. A data point's card in the source workspace gained the "Excerpt:" line that §14 deferred.
+- **The quote quality guide** is the fifth prompt slot (`quote_quality`). Editors edit and publish it on the Editors
+  page and its accept rate per version is measured (`sw_quote_accept_rates()`).
+- **Not built in C:** Try this draft for the quote quality guide (§8.1 wanted it here: its sample is a theme and its
+  comparison is two ranked, playable clip lists, which the extraction trial's project-and-source sample and data-point
+  matcher do not fit, so it is a piece of work of its own); ASR confidence and audio-quality flags as inputs to
+  selection (open question 8: the transcription provider's word confidences are not kept on `tw_segments.words`, so the
+  guide asks the model to say what it can hear in the words and nothing more).

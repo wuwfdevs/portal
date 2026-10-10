@@ -454,6 +454,20 @@ write. Migrations `20261013120000` (schema) and `20261013130000` (Resources cont
 (through `execute_sql` in one transaction, not `apply_migration`, so the Supabase migration history has no entry for them). Splits, the theme page's excerpts and Suggest
 quotes (Phase C) are not built.
 
+**Sourcework analysis, Phase C (suggested quotes) has landed (2026-10-14).** Read
+`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes**
+(`/api/sourcework/themes/quotes`, `quote-run.ts`) has the model choose clips from the theme's supporting data points and
+the transcript around them; the cards are at `/sourcework/[id]/themes/[themeId]/quotes` and the theme page gained an
+Excerpts panel. Four things are load-bearing: (1) **a suggestion is not a `sw_source_excerpts` row** — it lives in
+`sw_quote_suggestions` and the excerpt is written only on accept (`sw_accept_quote_suggestion()`), so none of the nine
+readers of the excerpts table needs a filter; do not move suggestions onto that table without fixing every one. (2) **the
+model returns sentence numbers, never text or times** (`quote-prompt.ts`), and an accepted excerpt's words are re-derived
+from the transcript for the range actually accepted (after any trim). (3) a run replaces only still-waiting suggestions
+and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot is editor-owned like the others, with
+an accept rate per version; its **Try this draft is not built**. Migrations `20261014120000` (schema) and
+`20261014130000` (Resources content) are **not yet applied** to either project: apply them (preview first, then
+production), record both dates in `APPLIED.md`, then `npm run db:check`.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current
