@@ -14,7 +14,7 @@ import {
 import {
   getLivePrompt,
   listContextNotes,
-  listProjectRuns,
+  getLatestContextRun,
   listResearchQuestions,
 } from "./research-queries";
 import { finishRun, startRun } from "./research-runs";
@@ -57,8 +57,7 @@ export async function gatherContext(args: {
     };
   }
 
-  const runs = await listProjectRuns(projectId);
-  const last = runs.find((run) => run.kind === "context") ?? null;
+  const last = await getLatestContextRun(projectId);
   const fingerprint = questionsFingerprint(questions);
   if (!force) {
     const fingerprintOfLast =

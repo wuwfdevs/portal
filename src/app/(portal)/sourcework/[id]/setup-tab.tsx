@@ -4,9 +4,9 @@ import { TextLink } from "@/components/ui/primary-link";
 import type { ProjectSourceSummary } from "@/lib/transcription/projects";
 import { projectPath } from "@/lib/transcription/links";
 import {
+  getLatestContextRun,
   getSourceResearch,
   listContextNotes,
-  listProjectRuns,
   listResearchQuestions,
 } from "@/lib/sourcework/research-queries";
 import { projectStanding } from "@/lib/sourcework/run-state";
@@ -26,10 +26,10 @@ export async function SetupTab({
   projectId: string;
   sources: ProjectSourceSummary[];
 }) {
-  const [questions, notes, runs, research] = await Promise.all([
+  const [questions, notes, lastContextRun, research] = await Promise.all([
     listResearchQuestions(projectId),
     listContextNotes(projectId),
-    listProjectRuns(projectId),
+    getLatestContextRun(projectId),
     getSourceResearch(
       projectId,
       sources.map((entry) => ({
@@ -41,7 +41,6 @@ export async function SetupTab({
   ]);
 
   const activeQuestions = questions.filter((question) => question.archivedAt === null);
-  const lastContextRun = runs.find((run) => run.kind === "context") ?? null;
   const fingerprint = lastContextRun?.counts.questions_fingerprint;
   const backgroundStale = contextNeedsRefresh({
     questions: activeQuestions.map((question) => question.question),

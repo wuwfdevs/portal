@@ -50,6 +50,21 @@ export async function listTrialSamples(): Promise<SampleProject[]> {
   const sourceIds = [...new Set(links.map((link) => link.sourceId))];
   const sources: { id: string; title: string; status: string; durationMs: number | null }[] = [];
   for (const ids of chunked(sourceIds)) {
+    // A source being "ready" means its upload landed; a run also needs its
+    // transcript or document text to be ready (readSourceUnits refuses otherwise).
+    const readyRepresentations = new Set(
+      (
+        unwrapRead(
+          await supabase
+            .from("sw_representations")
+            .select("source_id")
+            .in("source_id", ids)
+            .in("kind", ["transcript", "document_text"])
+            .eq("status", "ready"),
+          "the sources' transcripts",
+        ) ?? []
+      ).map((row) => row.source_id),
+    );
     const rows =
       unwrapRead(
         await supabase
@@ -60,12 +75,14 @@ export async function listTrialSamples(): Promise<SampleProject[]> {
         "the sources",
       ) ?? [];
     sources.push(
-      ...rows.map((row) => ({
-        id: row.id,
-        title: row.title,
-        status: row.status,
-        durationMs: row.original_duration_ms,
-      })),
+      ...rows
+        .filter((row) => readyRepresentations.has(row.id))
+        .map((row) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          durationMs: row.original_duration_ms,
+        })),
     );
   }
   return eligibleSamples({ projectsWithQuestions, projects, links, sources });
