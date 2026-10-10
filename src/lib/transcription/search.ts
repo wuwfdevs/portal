@@ -38,7 +38,7 @@ export interface SearchResult {
   speakerLabel: string | null;
 }
 
-const DEFAULT_LIMIT = 30;
+export const DEFAULT_LIMIT = 30;
 
 export interface SearchScope {
   limit?: number;

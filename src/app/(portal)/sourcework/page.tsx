@@ -9,7 +9,11 @@ import {
   type ProjectListFilter,
 } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
-import { searchArchive, isSemanticSearchConfigured } from "@/lib/transcription/search";
+import {
+  DEFAULT_LIMIT as SEARCH_RESULT_LIMIT,
+  searchArchive,
+  isSemanticSearchConfigured,
+} from "@/lib/transcription/search";
 import {
   SEARCH_KIND_FILTERS,
   countResultsByKind,
@@ -124,7 +128,12 @@ export default async function TranscriptionListPage({
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-500">
             <span>
-              {pluralize(results.length, "result")} for &ldquo;{query}&rdquo;
+              {results.length >= SEARCH_RESULT_LIMIT
+                ? `Top ${results.length} results`
+                : pluralize(results.length, "result")}{" "}
+              for &ldquo;{query}&rdquo;
+              {results.length >= SEARCH_RESULT_LIMIT &&
+                " — there may be more. Try a more specific search to narrow them."}
             </span>
             <TextLink href="/sourcework">Clear search</TextLink>
           </div>
