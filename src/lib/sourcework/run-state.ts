@@ -109,7 +109,7 @@ export interface Standing {
   steps: { label: string; shortLabel: string; state: StepState }[];
   message: string;
   /** Where the message's link goes, if it has one. */
-  link: { label: string; to: "setup" | "sources" } | null;
+  link: { label: string; to: "setup" | "sources" | "themes" } | null;
 }
 
 export interface StandingSource {
@@ -117,16 +117,29 @@ export interface StandingSource {
   state: ExtractionState;
 }
 
+export interface ThemeStanding {
+  /** Accepted themes the project has. */
+  accepted: number;
+  /** Suggested themes plus merge suggestions waiting for a decision. */
+  decisions: number;
+  /** Accepted data points that sit in no live theme. */
+  unthemed: number;
+}
+
 /**
- * The four-step status on the Setup tab. It reports; it never gates. Review
- * themes is Phase B, so it is always "upcoming" until that tab exists.
+ * The four-step status on the Setup tab. It reports; it never gates. The last
+ * step is done when the project has an accepted theme and nothing is left
+ * waiting on the Themes tab; it is only "current" once every source is
+ * extracted, because new sources can send a project back.
  */
 export function projectStanding(input: {
   questionCount: number;
   sources: readonly StandingSource[];
   toReviewTotal: number;
+  themes?: ThemeStanding;
 }): Standing {
   const { questionCount, sources, toReviewTotal } = input;
+  const themes = input.themes ?? { accepted: 0, decisions: 0, unthemed: 0 };
   const total = sources.length;
   const extractable = sources.filter((source) => source.state.kind !== "source_failed");
   const processing = extractable.filter((source) => source.state.kind === "waiting");
@@ -141,11 +154,18 @@ export function projectStanding(input: {
   const extractDone =
     hasSources && extractable.length > 0 && extracted.length === extractable.length;
 
+  const themesDone =
+    extractDone &&
+    toReviewTotal === 0 &&
+    themes.accepted > 0 &&
+    themes.decisions === 0 &&
+    themes.unthemed === 0;
+
   const states: StepState[] = [
     hasQuestions ? "done" : "current",
     hasSources ? "done" : hasQuestions ? "current" : "upcoming",
     extractDone ? "done" : hasQuestions && hasSources ? "current" : "upcoming",
-    "upcoming",
+    themesDone ? "done" : extractDone ? "current" : "upcoming",
   ];
   const labels = [
     ["Research questions", "Questions"],
@@ -183,13 +203,39 @@ export function projectStanding(input: {
   }
 
   if (extractDone) {
+    const extracted = `${total === 1 ? "The source is" : `All ${total} sources are`} extracted`;
+    if (toReviewTotal > 0) {
+      return {
+        steps,
+        message: `${extracted}. ${pluralize(toReviewTotal, "data point")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`,
+        link: { label: "Go to Sources", to: "sources" },
+      };
+    }
+    if (themes.decisions > 0) {
+      return {
+        steps,
+        message: `${extracted} and reviewed. ${pluralize(themes.decisions, "theme suggestion")} ${themes.decisions === 1 ? "is" : "are"} waiting for a decision.`,
+        link: { label: "Go to Themes", to: "themes" },
+      };
+    }
+    if (themes.unthemed > 0) {
+      return {
+        steps,
+        message: `${extracted} and reviewed. ${pluralize(themes.unthemed, "accepted data point")} ${themes.unthemed === 1 ? "is" : "are"} not in a theme yet; Review themes proposes where they go.`,
+        link: { label: "Go to Themes", to: "themes" },
+      };
+    }
+    if (themes.accepted === 0) {
+      return {
+        steps,
+        message: `${extracted} and reviewed. Review themes looks for what they have in common.`,
+        link: { label: "Go to Themes", to: "themes" },
+      };
+    }
     return {
       steps,
-      message:
-        toReviewTotal > 0
-          ? `${total === 1 ? "The source is" : `All ${total} sources are`} extracted. ${pluralize(toReviewTotal, "data point")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`
-          : `${total === 1 ? "The source is" : `All ${total} sources are`} extracted and reviewed.`,
-      link: { label: "Go to Sources", to: "sources" },
+      message: `${extracted} and reviewed, and every accepted data point is in a theme.`,
+      link: { label: "Go to Themes", to: "themes" },
     };
   }
 

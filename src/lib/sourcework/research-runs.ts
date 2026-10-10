@@ -9,7 +9,14 @@ import { isStaleRun } from "./run-state";
 // start two; one that died with its request is closed by whoever retries.
 
 type Client = SupabaseClient<Database>;
-type RunKind = "context" | "extraction";
+export type RunKind = "context" | "extraction" | "theme_assign" | "theme_review";
+
+const ALREADY_RUNNING: Record<RunKind, string> = {
+  extraction: "This source is already being extracted.",
+  context: "Background is already being gathered for this project.",
+  theme_assign: "Data points are already being filed into themes for this project.",
+  theme_review: "Themes are already being reviewed for this project.",
+};
 
 export type StartedRun =
   { ok: true; runId: string } | { ok: false; error: string; alreadyRunning: boolean };
@@ -67,10 +74,7 @@ export async function startRun(
     if (!found.data || !isStaleRun(found.data.started_at)) {
       return {
         ok: false,
-        error:
-          args.kind === "extraction"
-            ? "This source is already being extracted."
-            : "Background is already being gathered for this project.",
+        error: ALREADY_RUNNING[args.kind],
         alreadyRunning: true,
       };
     }

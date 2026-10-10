@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertSourceworkContext } from "@/lib/sourcework/access";
@@ -13,6 +14,7 @@ import {
   moveAmongActive,
 } from "@/lib/sourcework/research";
 import { uuidParam } from "@/lib/sourcework/route-input";
+import { assignDataPoints, assignQuietly } from "@/lib/sourcework/theme-run";
 
 // Writes behind the research screens (docs/sourcework-analysis-design.md):
 // questions, background notes, and the review of data points. Called straight
@@ -219,6 +221,19 @@ export async function setContextNoteDismissed(input: {
 
 // Data points --------------------------------------------------------------------------------
 
+/**
+ * Accepting a data point files it into the project's themes, after the
+ * response (docs/sourcework-analysis-design.md §5.4: "automatic after accept,
+ * cheap"). There is no job queue, so this is a best-effort step in `after()`:
+ * it never fails the click, does nothing without the model key or any accepted
+ * theme, and a point it can't place waits in the pool for Review themes.
+ */
+function fileIntoThemes(projectId: string, userId: string, dataPointId: string) {
+  after(() =>
+    assignQuietly(() => assignDataPoints({ projectId, userId, dataPointIds: [dataPointId] })),
+  );
+}
+
 export type DataPointDecision = "accept" | "reject" | "undo";
 
 const STATUS_FOR: Record<DataPointDecision, "accepted" | "rejected" | "suggested"> = {
@@ -232,7 +247,7 @@ export async function reviewDataPoint(input: {
   id: string;
   decision: DataPointDecision;
 }): Promise<ActionResult> {
-  await assertSourceworkContext();
+  const { profile } = await assertSourceworkContext();
   const id = uuidParam(input.id);
   const status = STATUS_FOR[input.decision];
   if (!id || !status) return actionError("That data point doesn't exist.");
@@ -249,6 +264,7 @@ export async function reviewDataPoint(input: {
   }
   const row = updated.data[0];
   if (!row) return actionError("That data point doesn't exist.");
+  if (status === "accepted") fileIntoThemes(row.project_id, profile.id, id);
   revalidateSource(row.project_id, row.source_id);
   return actionOk();
 }
@@ -258,7 +274,7 @@ export async function reviewDataPoint(input: {
  * model's own wording stays in `ai_claim`.
  */
 export async function editDataPoint(input: { id: string; claim: string }): Promise<ActionResult> {
-  await assertSourceworkContext();
+  const { profile } = await assertSourceworkContext();
   const id = uuidParam(input.id);
   if (!id) return actionError("That data point doesn't exist.");
   const claim = typeof input.claim === "string" ? collapseWhitespace(input.claim) : "";
@@ -278,6 +294,7 @@ export async function editDataPoint(input: { id: string; claim: string }): Promi
   }
   const row = updated.data[0];
   if (!row) return actionError("That data point doesn't exist.");
+  fileIntoThemes(row.project_id, profile.id, id);
   revalidateSource(row.project_id, row.source_id);
   return actionOk();
 }

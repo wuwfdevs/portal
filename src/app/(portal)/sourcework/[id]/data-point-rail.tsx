@@ -23,6 +23,8 @@ export interface SourceResearchView {
   /** Question id -> "Q1", for the card tags. */
   labels: Record<string, string>;
   extraction: ExtractionState;
+  /** Data point id -> the accepted themes it sits in, with links (the card's "Theme:" line). */
+  themes: Record<string, { href: string; title: string; stance: "supports" | "complicates" }[]>;
 }
 
 /**
@@ -151,6 +153,7 @@ export function DataPointRail({
             onSelect={() => onSelect(point.id)}
             onPlay={onPlay ? () => onPlay(point) : undefined}
             onOpen={onOpen ? () => onOpen(point) : undefined}
+            themes={research.themes[point.id] ?? []}
           />
         ))
       )}

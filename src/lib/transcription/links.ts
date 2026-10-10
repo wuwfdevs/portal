@@ -13,7 +13,14 @@ export function piecePath(projectId: string, pieceId: string): string {
   return `/sourcework/${projectId}/pieces/${pieceId}`;
 }
 
-export function projectPath(projectId: string, view?: "excerpts" | "pieces" | "setup"): string {
+export function themePath(projectId: string, themeId: string): string {
+  return `/sourcework/${projectId}/themes/${themeId}`;
+}
+
+export function projectPath(
+  projectId: string,
+  view?: "themes" | "excerpts" | "pieces" | "setup",
+): string {
   return view ? `/sourcework/${projectId}?view=${view}` : `/sourcework/${projectId}`;
 }
 

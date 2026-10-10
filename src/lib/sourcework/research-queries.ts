@@ -19,6 +19,7 @@ import {
   type SourceExtractionInput,
 } from "./run-state";
 import { promptSlotDefinition, type PromptSlot } from "./prompts";
+import type { RunKind } from "./research-runs";
 
 // Reads behind the research screens (docs/sourcework-analysis-design.md §7).
 // Everything goes through the caller's session, so RLS is still the boundary,
@@ -29,7 +30,7 @@ type Tables = Database["public"]["Tables"];
 /** PostgREST puts `.in()` lists in the URL; a few hundred ids is plenty and a few thousand is a "Bad Request". */
 const IN_CHUNK = 100;
 
-function chunked<T>(values: readonly T[], size = IN_CHUNK): T[][] {
+export function chunked<T>(values: readonly T[], size = IN_CHUNK): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size)
     chunks.push(values.slice(index, index + size));
@@ -101,7 +102,7 @@ export async function listContextNotes(projectId: string): Promise<ContextNote[]
 
 export interface RunSummary {
   id: string;
-  kind: "context" | "extraction";
+  kind: RunKind;
   sourceId: string | null;
   status: RunStatus;
   startedAt: string;
@@ -118,7 +119,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 type RunRow = {
   id: string;
-  kind: "context" | "extraction";
+  kind: RunKind;
   source_id: string | null;
   status: RunStatus;
   started_at: string;
@@ -266,7 +267,9 @@ function toSpan(row: Tables["sw_data_point_spans"]["Row"]): DataPointSpan | null
 }
 
 /** Spans for a set of data points, chunked so a long list can't overrun the URL. */
-async function spansFor(dataPointIds: readonly string[]): Promise<Map<string, DataPointSpan[]>> {
+export async function spansFor(
+  dataPointIds: readonly string[],
+): Promise<Map<string, DataPointSpan[]>> {
   const supabase = await createClient();
   const rows: Tables["sw_data_point_spans"]["Row"][] = [];
   for (const ids of chunked(dataPointIds)) {
@@ -292,7 +295,13 @@ async function spansFor(dataPointIds: readonly string[]): Promise<Map<string, Da
   );
 }
 
-function toDataPoint(row: Tables["sw_data_points"]["Row"], spans: DataPointSpan[]): DataPoint {
+/** The columns DATA_POINT_COLUMNS selects: the embedding and theme-check columns are never read into a DataPoint. */
+export type DataPointRow = Omit<
+  Tables["sw_data_points"]["Row"],
+  "embedding" | "embedding_stale" | "theme_checked_at"
+>;
+
+export function toDataPoint(row: DataPointRow, spans: DataPointSpan[]): DataPoint {
   return {
     id: row.id,
     projectId: row.project_id,
@@ -311,7 +320,7 @@ function toDataPoint(row: Tables["sw_data_points"]["Row"], spans: DataPointSpan[
   };
 }
 
-const DATA_POINT_COLUMNS =
+export const DATA_POINT_COLUMNS =
   "id, project_id, source_id, representation_id, question_id, relevance, story_element, claim, ai_claim, speaker_id, kind, status, prompt_version_id, run_id, created_at, updated_at";
 
 /**
@@ -398,8 +407,10 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
       .eq("slot", slot)
       .maybeSingle()
       .then((result) => unwrapRead(result, "the live prompt")),
-    getExtractionAcceptRates(),
+    slot === "theme_review" ? getThemeAcceptRates() : getExtractionAcceptRates(),
   ]);
+  // The accept rate means something for the two slots whose output a person accepts or rejects.
+  const rated = slot === "extraction" || slot === "theme_review";
   return versions.map((row) => ({
     id: row.id,
     version: row.version,
@@ -407,8 +418,8 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
     note: row.note,
     createdAt: row.created_at,
     createdBy: row.created_by,
-    accepted: slot === "extraction" ? (rates.get(row.id)?.accepted ?? 0) : 0,
-    rejected: slot === "extraction" ? (rates.get(row.id)?.rejected ?? 0) : 0,
+    accepted: rated ? (rates.get(row.id)?.accepted ?? 0) : 0,
+    rejected: rated ? (rates.get(row.id)?.rejected ?? 0) : 0,
     isLive: live?.version_id === row.id,
   }));
 }
@@ -421,6 +432,18 @@ export async function getExtractionAcceptRates(): Promise<
   const rows =
     unwrapRead(await supabase.rpc("sw_extraction_accept_rates"), "the extraction accept rates") ??
     [];
+  return new Map(
+    rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
+  );
+}
+
+/** Accepted and rejected themes per prompt version of Review themes; the built-in text is keyed by `null`. */
+export async function getThemeAcceptRates(): Promise<
+  Map<string | null, { accepted: number; rejected: number }>
+> {
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(await supabase.rpc("sw_theme_accept_rates"), "the theme accept rates") ?? [];
   return new Map(
     rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
   );

@@ -32,6 +32,15 @@ describe("helpContextForPath", () => {
     );
   });
 
+  it("finds a project's Themes tab and a theme's page", () => {
+    expect(helpContextForPath("/sourcework/0b6c3a52", "?view=themes")?.screenKey).toBe(
+      "sourcework.themes",
+    );
+    expect(helpContextForPath("/sourcework/0b6c3a52/themes/9f1")?.screenKey).toBe(
+      "sourcework.theme",
+    );
+  });
+
   it("tells Editorial Inquiry apart from Editorial Planning", () => {
     expect(helpContextForPath("/editorial-inquiry")?.toolKey).toBe("editorial-inquiry");
     expect(helpContextForPath("/editorial")?.toolKey).toBe("editorial-planning");

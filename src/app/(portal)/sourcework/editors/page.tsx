@@ -14,6 +14,7 @@ import {
   getExtractionAcceptRates,
   getLivePrompt,
   getPromptDraft,
+  getThemeAcceptRates,
   listPromptVersions,
 } from "@/lib/sourcework/research-queries";
 import { initialPromptText } from "@/lib/sourcework/trial-sample";
@@ -43,15 +44,18 @@ export default async function EditorsPage({
     { degrade: true },
   );
 
-  // The accept rate means something for the extraction guide only; the built-in
-  // text has a rate of its own, keyed by null.
+  // The accept rate means something for the slots whose output a person accepts or rejects: the
+  // extraction guide's data points and Review themes' themes. The built-in text has a rate of its
+  // own, keyed by null.
   let liveRate: string | null = null;
-  if (slot === "extraction") {
+  if (slot === "extraction" || slot === "theme_review") {
     if (live.versionId) {
       const current = versions.find((version) => version.id === live.versionId);
       liveRate = current ? acceptRateLabel(current.accepted, current.rejected) : null;
     } else {
-      const builtIn = (await getExtractionAcceptRates()).get(null);
+      const rates =
+        slot === "extraction" ? await getExtractionAcceptRates() : await getThemeAcceptRates();
+      const builtIn = rates.get(null);
       liveRate = builtIn ? acceptRateLabel(builtIn.accepted, builtIn.rejected) : null;
     }
   }

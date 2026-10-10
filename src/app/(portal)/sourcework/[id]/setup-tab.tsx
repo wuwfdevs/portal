@@ -12,6 +12,12 @@ import {
 import { projectStanding } from "@/lib/sourcework/run-state";
 import { contextNeedsRefresh } from "@/lib/sourcework/context-prompt";
 import { currentStepIndex } from "@/lib/sourcework/setup-view";
+import {
+  getThemeDecisionCounts,
+  getWaitingNumbers,
+  listThemeRows,
+} from "@/lib/sourcework/theme-queries";
+import { decisionsWaiting } from "@/lib/sourcework/themes";
 import { SetupResearch } from "./setup-research";
 
 /**
@@ -26,19 +32,23 @@ export async function SetupTab({
   projectId: string;
   sources: ProjectSourceSummary[];
 }) {
-  const [questions, notes, lastContextRun, research] = await Promise.all([
-    listResearchQuestions(projectId),
-    listContextNotes(projectId),
-    getLatestContextRun(projectId),
-    getSourceResearch(
-      projectId,
-      sources.map((entry) => ({
-        sourceId: entry.sourceId,
-        status: entry.status,
-        kind: entry.source.kind,
-      })),
-    ),
-  ]);
+  const [questions, notes, lastContextRun, research, themeRows, decisions, waiting] =
+    await Promise.all([
+      listResearchQuestions(projectId),
+      listContextNotes(projectId),
+      getLatestContextRun(projectId),
+      getSourceResearch(
+        projectId,
+        sources.map((entry) => ({
+          sourceId: entry.sourceId,
+          status: entry.status,
+          kind: entry.source.kind,
+        })),
+      ),
+      listThemeRows(projectId),
+      getThemeDecisionCounts(projectId),
+      getWaitingNumbers(projectId),
+    ]);
 
   const activeQuestions = questions.filter((question) => question.archivedAt === null);
   const fingerprint = lastContextRun?.counts.questions_fingerprint;
@@ -59,6 +69,11 @@ export async function SetupTab({
       state: research.get(entry.sourceId)?.state ?? { kind: "idle" },
     })),
     toReviewTotal: [...research.values()].reduce((sum, item) => sum + item.counts.toReview, 0),
+    themes: {
+      accepted: themeRows.filter((row) => row.status === "accepted").length,
+      decisions: decisionsWaiting(decisions),
+      unthemed: waiting.unthemed,
+    },
   });
   const current = currentStepIndex(standing.steps);
 
@@ -90,7 +105,9 @@ export async function SetupTab({
                   href={
                     standing.link.to === "sources"
                       ? projectPath(projectId)
-                      : projectPath(projectId, "setup")
+                      : standing.link.to === "themes"
+                        ? projectPath(projectId, "themes")
+                        : projectPath(projectId, "setup")
                   }
                   className="inline-flex max-lg:min-h-11 max-lg:items-center"
                 >

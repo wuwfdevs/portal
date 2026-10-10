@@ -440,6 +440,20 @@ stop counting) are applied through the SQL editor, not the Supabase MCP tool, wh
 `drop`; preview first, then production, then record both dates in `APPLIED.md`. Nothing here has run against a live
 Supabase or OpenAI.
 
+**Sourcework analysis, Phase B (themes) has landed (2026-10-13).** Read `docs/sourcework-analysis-design.md` §15 first;
+this is a pointer. A project's **Themes** tab (`?view=themes`, shown once it has a question or a data point) lists
+`sw_themes` with computed breadth (`sw_theme_breadth`: sources, speakers, supporting vs complicating, never stored), a
+"Waiting for you" strip, and Accept / Edit / Reject on suggestions and merge suggestions; a theme opens at
+`/sourcework/[id]/themes/[themeId]` (evidence by source, memo, history). Four things are load-bearing: (1) **a run never
+alters an accepted theme or writes a memo**; reject hides, a removed data point keeps its row (`removed_at`), and no Phase B
+table has a delete policy; (2) **assignment is `after()` best effort** and a data point is re-checked only when a theme has
+been accepted since (`theme_checked_at`) — don't make it re-ask the whole pool per click; (3) **the model returns numbers,
+never text** (`theme-prompt.ts`), and `callStructuredModel` in `extraction-ai.ts` is the one structured-output call all
+research steps share; (4) `sw_add_proposed_themes()` and `sw_merge_themes()` exist because there is no delete to undo a half
+write. Migrations `20261013120000` (schema; dry-run in a rolled-back transaction on preview, not yet applied) and
+`20261013130000` (Resources content) must be applied through `APPLIED.md`. Splits, the theme page's excerpts and Suggest
+quotes (Phase C) are not built.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

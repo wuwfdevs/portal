@@ -29,10 +29,11 @@ import {
   getSourceResearch,
 } from "@/lib/sourcework/research-queries";
 import { sortDataPointsBySpan } from "@/lib/sourcework/research";
+import { listThemesForDataPoints } from "@/lib/sourcework/theme-queries";
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
-import { projectPath, sourcePath } from "@/lib/transcription/links";
+import { projectPath, sourcePath, themePath } from "@/lib/transcription/links";
 import { pluralize } from "@/lib/format";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -386,9 +387,22 @@ async function loadResearchView(
     ]),
   ]);
   const state = researchBySource.get(sourceId)?.state ?? { kind: "idle" as const };
+  const themeLinks = await listThemesForDataPoints(
+    points.filter((point) => point.status === "accepted").map((point) => point.id),
+  );
   return {
     points: sortDataPointsBySpan(points),
     labels: Object.fromEntries(questions.map((question) => [question.id, question.label])),
     extraction: state,
+    themes: Object.fromEntries(
+      [...themeLinks.entries()].map(([pointId, links]) => [
+        pointId,
+        links.map((link) => ({
+          href: themePath(projectId, link.themeId),
+          title: link.title,
+          stance: link.stance,
+        })),
+      ]),
+    ),
   };
 }
