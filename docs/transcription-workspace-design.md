@@ -172,7 +172,11 @@ trimmed, full-resolution cut is the deliverable. (If WUWF later wants
 (`2026-07-22_reeves-interview_clips.zip`) containing every clip under its
 usual export filename (since 2026-10-10 that is
 `story_speaker_quote.wav`, e.g. `hurricane-isaias_chip-simmons_second-fatality-from-generator-fumes.wav`; the quote id is
-the excerpt's title cut at a word, and `lib/transcription/media.ts`'s `buildExcerptExportFilename` is the one place it is built). Clips that were never exported individually are
+the excerpt's title cut at a word, and `lib/transcription/media.ts`'s `buildExcerptExportFilename` is the one place it is built).
+Because the title is the quote id, a new excerpt's title is proposed by the model (`lib/sourcework/excerpt-title-ai.ts`: three to
+seven words saying what the speaker says, low reasoning effort, `proposeClipTitle` for the selection bar, the same call when a
+suggested quote is accepted). It falls back to the first words (`suggestExcerptTitle`) with no `OPENAI_API_KEY` or on any
+failure, and never overwrites a title the reporter has typed. Clips that were never exported individually are
 rendered on the way past and kept in storage exactly as a single export is,
 so nothing is rendered twice. It streams from an API route rather than a
 Server Action — the result is a file, not data, and streaming keeps peak

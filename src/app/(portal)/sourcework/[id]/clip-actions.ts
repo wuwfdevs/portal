@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { speakerLabels } from "@/lib/sourcework/piece-queries";
+import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
@@ -351,4 +352,14 @@ export async function exportClip(
 
   await revalidateSource(supabase, clip.source_id);
   return { downloadUrl };
+}
+
+/**
+ * A short descriptive title for words the reporter has just selected, to prefill the excerpt's
+ * title (it becomes the quote id in the exported file name). Never an error: without the model
+ * key, or if the call fails, it is the first words of the selection.
+ */
+export async function proposeClipTitle(excerpt: string): Promise<{ title: string }> {
+  await assertToolAccess("transcription");
+  return { title: await proposeExcerptTitle(typeof excerpt === "string" ? excerpt : "") };
 }

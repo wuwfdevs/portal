@@ -6,7 +6,7 @@ import { assertSourceworkContext } from "@/lib/sourcework/access";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-response";
 import { uuidParam } from "@/lib/sourcework/route-input";
 import { checkQuoteRange, wordsInRange } from "@/lib/sourcework/quotes";
-import { suggestExcerptTitle } from "@/lib/transcription/excerpt-title";
+import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
 import { buildTimedTokens } from "@/lib/transcription/selection";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { getTranscriptForRepresentation } from "@/lib/transcription/projects";
@@ -95,7 +95,7 @@ export async function acceptQuote(input: {
     p_suggestion_id: id,
     p_start_ms: startMs,
     p_end_ms: endMs,
-    p_title: suggestExcerptTitle(text) || "Suggested quote",
+    p_title: (await proposeExcerptTitle(text)) || "Suggested quote",
     p_text: text,
   });
   if (accepted.error) {

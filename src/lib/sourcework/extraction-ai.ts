@@ -55,6 +55,10 @@ export async function callStructuredModel(args: {
   guide: string;
   input: string;
   client?: OpenAI | null;
+  /** Defaults to medium. A one-line answer (a title) can use less. */
+  effort?: "low" | "medium";
+  /** Includes reasoning tokens. Defaults to the large ceiling the extraction windows need. */
+  maxOutputTokens?: number;
 }): Promise<ExtractionCallResult> {
   const client = args.client ?? openAIClient();
   if (!client) return { ok: false, error: NOT_CONFIGURED };
@@ -74,8 +78,8 @@ export async function callStructuredModel(args: {
             schema: args.schema,
           },
         },
-        reasoning: { effort: "medium" },
-        max_output_tokens: MAX_OUTPUT_TOKENS,
+        reasoning: { effort: args.effort ?? "medium" },
+        max_output_tokens: args.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
         // Stored, as every model call in this portal is (an explicit, portal-wide
         // decision recorded in lib/editorial-inquiry/ai.ts): the OpenAI dashboard
         // only lists stored responses. Interview text going to a third party is

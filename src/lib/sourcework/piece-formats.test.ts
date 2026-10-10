@@ -48,7 +48,7 @@ describe("readFormatSpec", () => {
   });
 
   it("keeps the largest legacy spec (16 sections of 300 characters, a 2,000-character style) valid", () => {
-    const { anchorIntro: _anchor, ...rest } = wrap;
+    const rest = { ...wrap, anchorIntro: undefined };
     const sections = Array.from({ length: 16 }, (_, index) => ({
       type: index === 0 ? "anchor" : "narration",
       guidance: "g".repeat(300),
