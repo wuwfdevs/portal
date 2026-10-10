@@ -167,14 +167,27 @@ export function titleFromFileName(fileName: string): string {
 /** Filename slugs: lowercase, hyphenated, at most 60 characters, "untitled" for text with nothing alphanumeric in it. */
 const FILENAME_SLUG = { max: 60, fallback: "untitled" } as const;
 
-/** Predictable export filename, e.g. "2026-07-22_reeves-interview_bridge-funding.wav". */
-export function buildClipExportFilename(
-  dateIso: string,
+/** A slug cut at a word boundary, so a long title reads as a short id rather than a clipped word. */
+function shortSlug(text: string, max: number, fallback: string): string {
+  const slug = slugify(text, { fallback });
+  if (slug.length <= max) return slug;
+  const cut = slug.slice(0, max + 1);
+  const boundary = cut.lastIndexOf("-");
+  return (boundary > 0 ? cut.slice(0, boundary) : slug.slice(0, max)).replace(/-+$/g, "");
+}
+
+/**
+ * Export filename for one excerpt: the story, who is speaking, and a short id for the quote, e.g.
+ * "hurricane-isaias_chip-simmons_generator-fumes-nearly-killed.wav". The id is the excerpt's own
+ * title cut at a word, so it stays readable in a folder or a playout system. No speaker reads
+ * "unnamed". The same title twice in one archive is made unique by the zip writer.
+ */
+export function buildExcerptExportFilename(
   projectTitle: string,
-  clipTitle: string,
+  speaker: string | null,
+  excerptTitle: string,
 ): string {
-  const date = dateIso.slice(0, 10);
-  return `${date}_${slugify(projectTitle, FILENAME_SLUG)}_${slugify(clipTitle, FILENAME_SLUG)}.wav`;
+  return `${shortSlug(projectTitle, 40, "untitled")}_${shortSlug(speaker ?? "", 24, "unnamed")}_${shortSlug(excerptTitle, 40, "excerpt")}.wav`;
 }
 
 /** Same shape as a clip export, for the whole project's transcript, e.g. "2026-07-22_reeves-interview_transcript.txt". */

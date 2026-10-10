@@ -121,7 +121,11 @@ export async function countPieces(projectId: string): Promise<number> {
   return count ?? 0;
 }
 
-async function speakerLabels(supabase: Client, excerptIds: string[]): Promise<Map<string, string>> {
+/** Who speaks in each excerpt (the speaker covering most of it), by excerpt id. One RPC, so any number of ids is safe. */
+export async function speakerLabels(
+  supabase: Client,
+  excerptIds: string[],
+): Promise<Map<string, string>> {
   if (excerptIds.length === 0) return new Map();
   const rows =
     unwrapRead(

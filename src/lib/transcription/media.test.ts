@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildClipExportFilename,
+  buildExcerptExportFilename,
   buildClipsZipFilename,
   buildTranscriptExportFilename,
   excerptExportObjectPath,
@@ -130,16 +130,30 @@ describe("filename slugs", () => {
   });
 });
 
-describe("buildClipExportFilename", () => {
-  it("builds a predictable, human-readable filename", () => {
-    expect(buildClipExportFilename("2026-07-22", "Reeves interview", "Bridge funding")).toBe(
-      "2026-07-22_reeves-interview_bridge-funding.wav",
-    );
+describe("buildExcerptExportFilename", () => {
+  it("names the story, the speaker and a short id for the quote", () => {
+    expect(
+      buildExcerptExportFilename(
+        "Hurricane Isaias",
+        "Chip Simmons",
+        "Generator fumes nearly killed",
+      ),
+    ).toBe("hurricane-isaias_chip-simmons_generator-fumes-nearly-killed.wav");
   });
 
-  it("takes just the date portion of a full timestamp", () => {
-    expect(buildClipExportFilename("2026-07-22T14:03:00.000Z", "Interview", "Clip")).toBe(
-      "2026-07-22_interview_clip.wav",
+  it("cuts a long quote title at a word, not mid-word", () => {
+    const name = buildExcerptExportFilename(
+      "Isaias",
+      "Chip Simmons",
+      "We found another generator running unsafely in a closed garage two streets over",
+    );
+    expect(name).toBe("isaias_chip-simmons_we-found-another-generator-running.wav");
+  });
+
+  it("falls back when there is no speaker or title", () => {
+    expect(buildExcerptExportFilename("Isaias", null, "")).toBe("isaias_unnamed_excerpt.wav");
+    expect(buildExcerptExportFilename("", "Speaker A", "Bridge funding")).toBe(
+      "untitled_speaker-a_bridge-funding.wav",
     );
   });
 });

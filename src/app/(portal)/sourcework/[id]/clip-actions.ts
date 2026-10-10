@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
+import { speakerLabels } from "@/lib/sourcework/piece-queries";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
@@ -13,7 +14,7 @@ import {
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
-  buildClipExportFilename,
+  buildExcerptExportFilename,
   excerptExportObjectPath,
 } from "@/lib/transcription/media";
 
@@ -269,9 +270,9 @@ export async function getClipDownloadUrl(
 
   const downloadUrl = await getSignedMediaUrl(
     clip.export_storage_path,
-    buildClipExportFilename(
-      source?.interview_date ?? source?.created_at ?? new Date().toISOString(),
+    buildExcerptExportFilename(
       project?.title ?? "interview",
+      (await speakerLabels(supabase, [clipId])).get(clipId) ?? null,
       clip.title,
     ),
   );
@@ -347,9 +348,9 @@ export async function exportClip(
   if (projectError)
     console.error("Could not read the project title for the filename:", projectError);
 
-  const downloadFilename = buildClipExportFilename(
-    source.interview_date ?? source.created_at,
+  const downloadFilename = buildExcerptExportFilename(
     project?.title ?? "interview",
+    (await speakerLabels(supabase, [clipId])).get(clipId) ?? null,
     clip.title,
   );
   const downloadUrl = await getSignedMediaUrl(exportPath, downloadFilename);

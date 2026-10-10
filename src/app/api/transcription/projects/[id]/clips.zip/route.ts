@@ -1,3 +1,4 @@
+import { speakerLabels } from "@/lib/sourcework/piece-queries";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
@@ -9,7 +10,7 @@ import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
   MAX_CLIPS_ZIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
-  buildClipExportFilename,
+  buildExcerptExportFilename,
   buildClipsZipFilename,
   excerptExportObjectPath,
   formatDuration,
@@ -133,6 +134,10 @@ export async function GET(
 
   const dateIso = source.interview_date ?? source.created_at;
   const projectTitle = project.title;
+  const speakers = await speakerLabels(
+    supabase,
+    clips.map((clip) => clip.id),
+  );
   const sourceId = source.id;
   const clipRows = clips;
 
@@ -140,7 +145,10 @@ export async function GET(
     const taken = new Set<string>();
     for (const clip of clipRows) {
       yield {
-        name: uniqueEntryName(buildClipExportFilename(dateIso, projectTitle, clip.title), taken),
+        name: uniqueEntryName(
+          buildExcerptExportFilename(projectTitle, speakers.get(clip.id) ?? null, clip.title),
+          taken,
+        ),
         data: await clipAudio(supabase, sourceId, clip, sourceUrl),
       };
     }
