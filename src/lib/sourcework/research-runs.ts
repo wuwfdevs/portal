@@ -9,7 +9,8 @@ import { isStaleRun } from "./run-state";
 // start two; one that died with its request is closed by whoever retries.
 
 type Client = SupabaseClient<Database>;
-export type RunKind = "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
+export type RunKind =
+  "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest" | "piece_draft";
 
 const ALREADY_RUNNING: Record<RunKind, string> = {
   extraction: "This source is already being extracted.",
@@ -17,6 +18,7 @@ const ALREADY_RUNNING: Record<RunKind, string> = {
   theme_assign: "Data points are already being filed into themes for this project.",
   theme_review: "Themes are already being reviewed for this project.",
   quote_suggest: "Quotes are already being suggested for this theme.",
+  piece_draft: "A draft is already being written for this piece.",
 };
 
 export type StartedRun =
@@ -30,6 +32,9 @@ export async function startRun(
     sourceId: string | null;
     /** The theme a quote run is about; every other kind leaves it out. */
     themeId?: string | null;
+    /** The piece a Draft with AI run writes, and the format version it follows. */
+    pieceId?: string | null;
+    formatVersionId?: string | null;
     promptVersionId: string | null;
     trial: boolean;
     model: string;
@@ -41,6 +46,8 @@ export async function startRun(
     project_id: args.projectId,
     source_id: args.sourceId,
     theme_id: args.themeId ?? null,
+    piece_id: args.pieceId ?? null,
+    format_version_id: args.formatVersionId ?? null,
     prompt_version_id: args.promptVersionId,
     trial: args.trial,
     model: args.model,
@@ -71,6 +78,7 @@ export async function startRun(
       ? existing.eq("source_id", args.sourceId)
       : existing.is("source_id", null);
     if (args.themeId) existing = existing.eq("theme_id", args.themeId);
+    if (args.pieceId) existing = existing.eq("piece_id", args.pieceId);
     const found = await existing.maybeSingle();
     if (found.error) {
       console.error("Could not read the running research run:", found.error);

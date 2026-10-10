@@ -33,6 +33,16 @@ export interface CapabilityDefinition<Input, Output> {
   input: z.ZodType<Input>;
   requires: CapabilityRequires;
   confirmation: CapabilityConfirmation;
+  /**
+   * A few words for "Used: read piece · replace narration (2)" under an assistant reply.
+   * Optional; the id stands in for it.
+   */
+  label?: string;
+  /**
+   * True when a call changes data a page may be showing. The assistant refreshes the
+   * open page after a turn that called one (docs/sourcework-analysis-design.md §6.4).
+   */
+  writes?: boolean;
   handler: (ctx: CapabilityContext, input: Input) => Promise<Output>;
 }
 

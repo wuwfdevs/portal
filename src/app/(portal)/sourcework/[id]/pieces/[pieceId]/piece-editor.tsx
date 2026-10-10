@@ -10,6 +10,7 @@ import { formatClock } from "@/lib/format";
 import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
 import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { useRightPanel } from "@/components/right-panel";
 import { projectPath } from "@/lib/transcription/links";
 import {
   actualityRange,
@@ -26,11 +27,13 @@ import {
   setActualityTrim,
   setNarrationText,
   swapExcerpt,
+  undoAssistantChange,
   type ActualityBlock,
   type PieceBlock,
 } from "@/lib/sourcework/pieces";
 import { textForRange, type TextSegment } from "@/lib/sourcework/piece-text";
 import type { PieceDetail, PieceExcerpt } from "@/lib/sourcework/piece-queries";
+import type { MaterialSummary } from "@/lib/sourcework/piece-draft-run";
 import { ExportExcerptsButton } from "../../export-excerpts-button";
 import {
   deletePiece,
@@ -41,6 +44,7 @@ import {
   setPieceTarget,
   type PieceVersionRow,
 } from "../actions";
+import { DraftWithAi, type DraftFormatOption } from "./draft-with-ai";
 import { ExcerptPicker } from "./excerpt-picker";
 import { ActualityRow, FooterButton, NarrationRow } from "./piece-blocks";
 import { PieceInsertionPoint } from "./piece-insertion-point";
@@ -55,11 +59,18 @@ type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 export function PieceEditor({
   piece,
   pickerExcerpts,
+  draftFormats,
+  draftMaterial,
 }: {
   piece: PieceDetail;
   pickerExcerpts: PieceExcerpt[];
+  /** The formats Draft with AI offers; empty unless the piece is blank. */
+  draftFormats: DraftFormatOption[];
+  /** The themes and excerpts Draft with AI would use; null unless the piece is blank. */
+  draftMaterial: MaterialSummary | null;
 }) {
   const router = useRouter();
+  const rightPanel = useRightPanel();
   const narrow = useMediaQuery("(max-width: 1023px)");
   const { audioRef, play, stop, playingKey, error: playerError } = usePiecePlayer();
   const { copy, status: copyStatus } = useCopyToClipboard();
@@ -84,6 +95,11 @@ export function PieceEditor({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<PieceVersionRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  // "Edited by the assistant · Undo" until the next person edit (§6.4).
+  const [assistantChanges, setAssistantChanges] = useState(piece.assistantChanges);
+  // "Drafted from Radio wrap v3 · Undo", until anything else is saved.
+  const [justDrafted, setJustDrafted] = useState(piece.origin.justDrafted);
   const dragId = useRef<string | null>(null);
 
   // Save plumbing. The latest blocks live in a ref so a save in flight never
@@ -140,15 +156,38 @@ export function PieceEditor({
   );
 
   const commit = useCallback(
-    (next: PieceBlock[]) => {
+    (next: PieceBlock[], options: { keepMarkers?: boolean } = {}) => {
       blocksRef.current = next;
       setBlocks(next);
       dirtyRef.current = true;
       setSaveState((state) => (state === "conflict" ? state : "dirty"));
+      // A person's edit ends the assistant's markers and the draft note (§6.4), except
+      // undoing one marked block, which leaves the others marked.
+      if (!options.keepMarkers) setAssistantChanges({});
+      setJustDrafted(false);
       schedule();
     },
     [schedule],
   );
+
+  // The assistant works on this piece while it is open (§6.4): it says "Working in: <title>",
+  // and anything typed is saved before a message goes, so it edits what the person sees.
+  const { setAssistantContext } = rightPanel;
+  const flushNow = useCallback(async () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    await flush();
+  }, [flush]);
+  const [contextTitle, setContextTitle] = useState(piece.title);
+  useEffect(() => {
+    setAssistantContext({
+      kind: "piece",
+      pieceId: piece.id,
+      title: contextTitle,
+      beforeSend: flushNow,
+    });
+    return () => setAssistantContext(null);
+  }, [setAssistantContext, piece.id, contextTitle, flushNow]);
 
   useBeforeUnloadGuard(saveState === "dirty" || saveState === "saving");
 
@@ -202,6 +241,35 @@ export function PieceEditor({
     const range = excerpt && actualityRange(block, excerpt);
     if (!excerpt || !range) return;
     void play(block.id, excerpt.sourceId, range.startMs, range.endMs);
+  }
+
+  /** "Edited by the assistant · Undo" on a block the assistant changed (§6.4). */
+  function assistantNoteFor(block: PieceBlock): ReactNode {
+    if (!(block.id in assistantChanges)) return null;
+    const previous = assistantChanges[block.id] ?? null;
+    return (
+      <p className="mt-1.5 text-xs text-ink-500">
+        {previous ? "Edited by the assistant" : "Added by the assistant"} ·{" "}
+        <button
+          type="button"
+          onClick={() => {
+            const rest = { ...assistantChanges };
+            delete rest[block.id];
+            setAssistantChanges(rest);
+            commit(undoAssistantChange(blocksRef.current, block.id, previous), {
+              keepMarkers: true,
+            });
+          }}
+          className="font-bold text-brand-link max-lg:min-h-11"
+        >
+          Undo
+        </button>
+      </p>
+    );
+  }
+
+  function askAssistantAfter(label: string) {
+    rightPanel.askAssistant(`Write a narration block after ${label}: `);
   }
 
   function menuFor(block: PieceBlock, index: number): ActionMenuItem[] {
@@ -273,7 +341,7 @@ export function PieceEditor({
       return;
     }
     setHeaderError(null);
-    router.refresh();
+    setContextTitle(next);
   }
 
   async function saveTarget() {
@@ -323,6 +391,8 @@ export function PieceEditor({
     versionRef.current = result.version;
     blocksRef.current = result.blocks;
     setBlocks(result.blocks);
+    setAssistantChanges({});
+    setJustDrafted(false);
     setSavedAt(new Date());
     setSaveState("saved");
     const refreshed = await listPieceVersions(piece.id);
@@ -397,7 +467,14 @@ export function PieceEditor({
             htmlFor="piece-title"
             className="text-[11px] font-bold uppercase tracking-[0.05em] text-ink-400 lg:text-xs"
           >
-            Piece
+            {piece.origin.format ? (
+              <>
+                {piece.origin.format.name}
+                <span className="max-lg:hidden"> format v{piece.origin.format.version}</span>
+              </>
+            ) : (
+              "Piece"
+            )}
           </label>
           <Input
             id="piece-title"
@@ -427,6 +504,16 @@ export function PieceEditor({
               History
             </button>
           </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => rightPanel.toggle("assistant")}
+            aria-expanded={rightPanel.open === "assistant"}
+            className="max-lg:hidden"
+          >
+            Assistant
+          </Button>
           <ActionMenu label="Piece actions" items={pieceMenu} />
         </div>
       </div>
@@ -512,6 +599,28 @@ export function PieceEditor({
         )}
       </div>
 
+      {justDrafted && piece.origin.format && (
+        <p
+          className="mt-2.5 rounded border border-line bg-panel-50 px-3 py-2 text-[13px] text-ink-700"
+          role="status"
+        >
+          Drafted from {piece.origin.format.name} v{piece.origin.format.version} ·{" "}
+          {formatClock(length.totalSeconds)}
+          {targetSeconds !== null && ` of ${formatClock(targetSeconds)}`} ·{" "}
+          <button
+            type="button"
+            onClick={() => void restore(piece.version - 1)}
+            className="font-bold text-brand-link max-lg:min-h-11"
+          >
+            Undo
+          </button>
+          <span className="text-ink-500">
+            {" "}
+            · Edit it by hand, or ask the assistant for changes.
+          </span>
+        </p>
+      )}
+
       {saveState === "conflict" && (
         <div role="alert" className="mt-3 rounded border border-danger/40 bg-white p-3 text-sm">
           Someone else saved this piece while you were editing it. Reload to see their version; your
@@ -553,7 +662,11 @@ export function PieceEditor({
                     <span className="font-semibold">Version {row.version}</span>{" "}
                     <span className="text-ink-500">
                       ·{" "}
-                      {row.savedVia === "person" ? row.savedBy : `the assistant for ${row.savedBy}`}{" "}
+                      {row.savedVia === "person"
+                        ? row.savedBy
+                        : row.savedVia === "generation"
+                          ? `Draft with AI, for ${row.savedBy}`
+                          : `the assistant, for ${row.savedBy}`}{" "}
                       ·{" "}
                       {new Date(row.createdAt).toLocaleString([], {
                         dateStyle: "medium",
@@ -581,11 +694,38 @@ export function PieceEditor({
         </section>
       )}
 
-      {isBlank ? (
+      {isBlank && drafting && draftMaterial && (
+        <DraftWithAi
+          pieceId={piece.id}
+          getVersion={() => versionRef.current}
+          beforeGenerate={flushNow}
+          formats={draftFormats}
+          material={draftMaterial}
+          onCancel={() => setDrafting(false)}
+          onDrafted={() => {
+            // The draft is a new version on the server; the page reloads into it.
+            dirtyRef.current = false;
+            router.refresh();
+          }}
+        />
+      )}
+      {isBlank && !(drafting && !narrow) ? (
         <div className="mt-5 rounded border border-dashed border-line bg-panel-50 px-6 py-9 text-center max-lg:px-4 max-lg:py-6">
           <p className="text-[15px] font-bold text-ink-700">Start your piece</p>
           <p className="mx-auto mt-1 max-w-lg text-sm text-ink-500">
-            Write narration and add excerpts one block at a time.
+            {draftMaterial ? (
+              <>
+                <span className="max-lg:hidden">
+                  Write narration and add excerpts one block at a time. Or let AI draft a first
+                  version from your themes, then keep editing by hand.
+                </span>
+                <span className="lg:hidden">
+                  Add narration and excerpts one block at a time, or let AI draft a first version.
+                </span>
+              </>
+            ) : (
+              "Write narration and add excerpts one block at a time."
+            )}
           </p>
           <div className="mt-4 flex justify-center gap-2.5 max-lg:flex-col">
             <Button type="button" onClick={() => addNarrationAt(0)} className="max-lg:min-h-11">
@@ -600,6 +740,16 @@ export function PieceEditor({
             >
               + Excerpt
             </Button>
+            {draftMaterial && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setDrafting(true)}
+                className="bg-brand-surface max-lg:min-h-11"
+              >
+                Draft with AI
+              </Button>
+            )}
           </div>
           {emptyPicker &&
             panelFor(
@@ -617,13 +767,14 @@ export function PieceEditor({
               () => setEmptyPicker(false),
             )}
         </div>
-      ) : (
+      ) : isBlank ? null : (
         <div className="mt-5 flex flex-col gap-0.5">
           <PieceInsertionPoint
             id="0"
             excerpts={pickerExcerpts}
             onAddNarration={() => addNarrationAt(0)}
             onAddExcerpt={(excerpt) => addExcerptAt(0, excerpt)}
+            onAskAssistant={() => askAssistantAfter("the start (make it the first block)")}
             afterLabel="the start"
           />
           {blocks.map((block, index) => {
@@ -641,6 +792,7 @@ export function PieceEditor({
                     onChange={(text) => commit(setNarrationText(blocksRef.current, block.id, text))}
                     onEnterAtEnd={() => addNarrationAt(index + 1)}
                     onBackspaceEmpty={() => removeAndFocusPrevious(block.id)}
+                    assistantNote={assistantNoteFor(block)}
                     menuItems={menuFor(block, index)}
                     {...common}
                   />
@@ -654,6 +806,7 @@ export function PieceEditor({
                       trimmed={block.in_ms !== undefined}
                       playing={playingKey === block.id}
                       onPlay={() => playBlock(block)}
+                      assistantNote={assistantNoteFor(block)}
                       menuItems={menuFor(block, index)}
                       {...common}
                     />
@@ -734,6 +887,13 @@ export function PieceEditor({
                   excerpts={pickerExcerpts}
                   onAddNarration={() => addNarrationAt(index + 1)}
                   onAddExcerpt={(excerpt) => addExcerptAt(index + 1, excerpt)}
+                  onAskAssistant={() =>
+                    askAssistantAfter(
+                      block.type === "narration"
+                        ? `the narration that begins “${block.text.trim().slice(0, 40)}”`
+                        : `the excerpt “${(excerpts.get(block.excerpt_id)?.title ?? "").slice(0, 40)}”`,
+                    )
+                  }
                   afterLabel={
                     block.type === "narration"
                       ? `“${block.text.trim().slice(0, 28)}${block.text.trim().length > 28 ? "…" : ""}”`
@@ -794,6 +954,14 @@ export function PieceEditor({
             History
           </button>
         </span>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => rightPanel.toggle("assistant")}
+          className="min-h-11 bg-brand-surface"
+        >
+          Assistant
+        </Button>
       </div>
     </div>
   );

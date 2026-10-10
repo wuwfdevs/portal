@@ -9,6 +9,19 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 export type RightPanel = "assistant" | "help";
 
+/**
+ * What the page has open, for the assistant (docs/sourcework-analysis-design.md §6.4): a
+ * piece, so "tighten the setup" has an object. The page registers it while mounted.
+ * `beforeSend` lets the page save unsaved edits first, so the assistant reads and edits the
+ * same version the person sees.
+ */
+export interface AssistantPageContext {
+  kind: "piece";
+  pieceId: string;
+  title: string;
+  beforeSend?: () => Promise<void>;
+}
+
 interface RightPanelState {
   open: RightPanel | null;
   toggle: (panel: RightPanel) => void;
@@ -20,6 +33,8 @@ interface RightPanelState {
    */
   askAssistant: (draft: string) => void;
   assistantDraft: { id: number; text: string } | null;
+  assistantContext: AssistantPageContext | null;
+  setAssistantContext: (context: AssistantPageContext | null) => void;
 }
 
 const RightPanelContext = createContext<RightPanelState | null>(null);
@@ -27,6 +42,7 @@ const RightPanelContext = createContext<RightPanelState | null>(null);
 export function RightPanelProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState<RightPanel | null>(null);
   const [assistantDraft, setAssistantDraft] = useState<{ id: number; text: string } | null>(null);
+  const [assistantContext, setAssistantContext] = useState<AssistantPageContext | null>(null);
 
   const toggle = useCallback(
     (panel: RightPanel) => setOpen((current) => (current === panel ? null : panel)),
@@ -39,8 +55,16 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ open, toggle, close, askAssistant, assistantDraft }),
-    [open, toggle, close, askAssistant, assistantDraft],
+    () => ({
+      open,
+      toggle,
+      close,
+      askAssistant,
+      assistantDraft,
+      assistantContext,
+      setAssistantContext,
+    }),
+    [open, toggle, close, askAssistant, assistantDraft, assistantContext],
   );
   return <RightPanelContext.Provider value={value}>{children}</RightPanelContext.Provider>;
 }

@@ -75,9 +75,10 @@ export function PiecesTab({
                       {piece.title}
                     </Link>
                   </Cell>
-                  {/* Pieces drafted from a format ("Radio wrap format, then edited") arrive with Phase E. */}
-                  <Cell label="Made with" className="text-ink-500">
-                    Written by hand
+                  <Cell label="Made with" className={piece.madeWith ? undefined : "text-ink-500"}>
+                    {piece.madeWith
+                      ? `${piece.madeWith.formatName} format${piece.madeWith.edited ? ", then edited" : ""}`
+                      : "Written by hand"}
                   </Cell>
                   <Cell stack="aside" className="font-mono text-[13px]">
                     {formatClock(piece.lengthSeconds)}
@@ -94,7 +95,7 @@ export function PiecesTab({
 
       <p className="mt-3.5 max-w-xl text-[13px] text-ink-500">
         A new piece opens straight into the editor and starts blank. You build it from narration and
-        excerpts.
+        excerpts; drafting with AI from a format is optional.
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 # Sourcework Analysis — Design and Phased Plan
 
-Status: **Phases D (pieces by hand, 2026-10-11), A (questions, background, data points, 2026-10-12), B (themes, 2026-10-13) and C (suggested quotes, 2026-10-14) are built; Phase E is design only.** This is the document
+Status: **All five phases are built: D (pieces by hand, 2026-10-11), A (questions, background, data points, 2026-10-12), B (themes, 2026-10-13), C (suggested quotes, 2026-10-14) and E (formats, Draft with AI and the assistant, 2026-10-15; §17).** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes what that doc did not:
 background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
@@ -810,3 +810,53 @@ Where the build departed from, or settled, the design above:
 - **Not built in C:** ASR confidence and audio-quality flags as inputs to
   selection (open question 8: the transcription provider's word confidences are not kept on `tw_segments.words`, so the
   guide asks the model to say what it can hear in the words and nothing more).
+
+## 17. Phase E as built (2026-10-15)
+
+Where the build departed from, or settled, the design above:
+
+- **Formats are rows, versioned like the prompts.** `sw_piece_formats` (name, order, a `live_version_id` pointer),
+  `sw_piece_format_versions` (insert-only; `spec` jsonb: target and tolerance in seconds, the actuality range, ordered
+  sections, style), `sw_piece_format_drafts` (one per format per editor) and `sw_piece_format_trials` (private, 14 days).
+  `sw_publish_piece_format()` writes the next version and moves the pointer in one transaction; publishing and making a
+  version live again are audited (`sourcework.piece_format.*`). There is no delete. The `kind` §4.7 sketched is not
+  stored: nothing reads it, and the name already says what the format is. `lib/sourcework/piece-formats.ts` is the
+  model (validation, the guide text the model reads, the card line).
+- **Four formats are seeded** with a published v1 (`created_by` null, shown as "Built in"): Radio wrap (1:00, 2–3),
+  Voicer, Script (3:00, 3–6) and Cut and copy (0:45, 1). One deliberate change from the canvas: the Voicer is seeded
+  with **no actualities** (0:45), since a voicer is the reporter's voice alone; the canvas card said "1 to 2". Editors
+  can change it like any other format.
+- **Draft with AI** (`/api/sourcework/pieces/draft`, `piece-draft-run.ts`, `piece-draft-prompt.ts`) runs on the shared
+  structured-output call. The model returns blocks with an excerpt _number_ for each actuality; code maps the number to
+  the excerpt's id and drops a number it was not shown or a repeat. Its input is the chosen accepted themes with their
+  accepted data points (paraphrases, with stance), and the project's temporal excerpts — the chosen themes' first, up
+  to 80 — with their words and lengths. It is told to bracket a fact the material does not give (`[CHECK: …]`). The
+  draft is saved as a version with `saved_via = 'generation'`; the piece records `format_version_id` and
+  `drafted_version` (so the list says "Radio wrap format, then edited"), and takes the format's target if it had none.
+  A run is `sw_analysis_runs.kind = 'piece_draft'` (new `piece_id` and `format_version_id`; one running per piece).
+  The editor offers it only on an empty piece; the request carries the version it expects and is refused if the piece
+  moved on. **Undo** on the note restores the version before (version 0 now restores a blank piece).
+- **Try this draft for a format** drafts from one project's accepted material with the live version and the draft in
+  parallel and shows the two pieces side by side (stacked on a phone, Live above Draft), each with its length against
+  the target and its actuality count. A format with no live version tries the draft alone. It is sampled on a project
+  with at least one excerpt and an optional direction. Nothing is written to the project.
+- **The assistant** gets page context from the piece: the editor registers `{ pieceId, title, beforeSend }` in
+  `RightPanelProvider` (`assistantContext`), the widget shows "Working in: …", saves unsaved edits first, and sends the
+  piece id; the chat route resolves the title through the caller's session and adds a paragraph to the instructions.
+  Piece capabilities (`lib/sourcework/piece-capabilities.ts`): read, search excerpts, list formats, create, draft from a
+  format, replace narration, add narration, place an excerpt, swap, remove, move after / nudge, trim (per piece,
+  reaching into the source audio; never "everywhere"). Each edit saves the assistant's version through the same writer
+  as the editor (`piece-writes.ts`), retrying once on a concurrent save. `CapabilityDefinition` gained optional `label`
+  and `writes`; the turn reports the tools it used ("Used: read piece · replace narration (2)") and whether one wrote,
+  and the widget refreshes the page after a turn that wrote. The editor is keyed by version, so the refresh lands on
+  the saved content.
+- **Markers are derived.** "Edited by the assistant · Undo" compares the current blocks with the last version a person
+  or a draft saved (`diffAssistantChanges`); Undo puts that one block back (or removes one the assistant added) and
+  leaves the others marked. Any other person edit clears them all. A move alone is not marked.
+- **Where it differs from the canvas.** The "Assistant" button sits in the piece's header (and its phone bar), not in
+  the portal's top bar; the floating bubble is hidden on a piece below `lg`. The insertion point gained "Ask the
+  assistant to write it", which fills the assistant's compose box rather than sending. The chat route's
+  `maxDuration` is 300, since a turn can draft a piece. The Editors page is "Research prompts and piece formats" with
+  a Prompts | Piece formats `SubNav`; formats live at `/sourcework/editors/formats`.
+- **Not run against a live model.** Draft with AI, format trials and the assistant's capabilities are type-checked and
+  their pure parts tested; none has been run end to end from this sandbox.

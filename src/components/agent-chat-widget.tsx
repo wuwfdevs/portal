@@ -8,12 +8,13 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/input";
 import { useRightPanel } from "@/components/right-panel";
+import { summarizeToolsUsed } from "@/lib/agent/tools-used";
 import { readSseEvents, SSE_STOPPED_MESSAGE, SSE_UNREACHABLE_MESSAGE } from "@/lib/read-sse";
 
 // The in-portal agent's chat surface (Phase D, docs/agent-capabilities-design.md
@@ -63,6 +64,22 @@ interface AgentStreamEvent {
   history?: ChatItem[];
   pendingConfirmation?: PendingConfirmation | null;
   message?: string;
+  toolsUsed?: string[];
+  wrote?: boolean;
+}
+
+/** Index of the last assistant message in a history, where a turn's "Used:" line hangs. */
+function lastAssistantIndex(history: readonly ChatItem[]): number {
+  for (let index = history.length - 1; index >= 0; index--) {
+    const item = history[index]!;
+    if (item.type === "message" && item.role === "assistant") return index;
+  }
+  return -1;
+}
+
+interface TurnNote {
+  used: string;
+  wrote: boolean;
 }
 
 function prettifyCapabilityId(id: string): string {
@@ -107,6 +124,7 @@ function renderRichText(text: string): ReactNode[] {
 
 export function AgentChatWidget() {
   const pathname = usePathname();
+  const router = useRouter();
   // Shared with the Help panel (components/right-panel.tsx): only one of the
   // two is open at a time.
   const rightPanel = useRightPanel();
@@ -123,6 +141,10 @@ export function AgentChatWidget() {
   // and `history` (from the server, already including the finished message
   // item) takes over rendering it.
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  // "Used: read piece · replace narration (2)" under the reply of a turn that called tools,
+  // keyed by that reply's index in history.
+  const [turnNotes, setTurnNotes] = useState<Record<number, TurnNote>>({});
+  const pageContext = rightPanel.assistantContext;
   const scrollRef = useRef<HTMLDivElement>(null);
   const composeRef = useRef<HTMLTextAreaElement>(null);
   // Help's "Ask the assistant about {Tool}" arrives as a draft to finish and
@@ -151,17 +173,30 @@ export function AgentChatWidget() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [history, pending, loading, streamingText]);
 
+  function noteTurn(event: AgentStreamEvent) {
+    if (!event.history || !event.toolsUsed?.length) return;
+    const index = lastAssistantIndex(event.history);
+    if (index < 0) return;
+    const note = { used: summarizeToolsUsed(event.toolsUsed), wrote: Boolean(event.wrote) };
+    setTurnNotes((current) => ({ ...current, [index]: note }));
+  }
+
   async function postChat(body: Record<string, unknown>): Promise<void> {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
     setError(null);
     setStreamingText("");
+    let wrote = false;
     try {
+      // The page saves anything typed first, so the assistant edits what the person sees.
+      if (pageContext?.beforeSend) await pageContext.beforeSend().catch(() => undefined);
       const response = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(
+          pageContext ? { ...body, context: { pieceId: pageContext.pieceId } } : body,
+        ),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -176,11 +211,14 @@ export function AgentChatWidget() {
           setStreamingText((text) => (text ?? "") + (event.text ?? ""));
         } else if (event.type === "pendingConfirmation") {
           sawTerminalEvent = true;
+          wrote ||= Boolean(event.wrote);
           if (event.history) setHistory(event.history);
           setPending(event.pendingConfirmation ?? null);
           setStreamingText(null);
         } else if (event.type === "done") {
           sawTerminalEvent = true;
+          wrote ||= Boolean(event.wrote);
+          noteTurn(event);
           if (event.history) setHistory(event.history);
           setStreamingText(null);
         } else if (event.type === "error") {
@@ -201,6 +239,8 @@ export function AgentChatWidget() {
         setStreamingText(null);
         setLoading(false);
       }
+      // A tool changed what the page shows: bring the page up to date (§6.4).
+      if (wrote) router.refresh();
     }
   }
 
@@ -232,6 +272,9 @@ export function AgentChatWidget() {
   // the bubble there (the component itself stays mounted, so an already-open
   // panel keeps its state and its own in-panel close button still works).
   const hideBubble = pathname?.startsWith("/editorial-inquiry") ?? false;
+  // A piece docks its own bar, with an Assistant button, to the bottom of a phone screen
+  // (docs/sourcework-analysis-design.md §7.2); the bubble would sit on it.
+  const onPiece = /^\/sourcework\/[^/]+\/pieces\/[^/]+/.test(pathname ?? "");
   // Sourcework's workspace docks its player to the bottom edge on a phone, right
   // where the bubble sits; lift the bubble clear of it (below the excerpt sheet,
   // which stacks above both).
@@ -252,6 +295,7 @@ export function AgentChatWidget() {
             // put. Either right panel (this one or Help) is 24rem wide.
             anyPanelOpen && "lg:right-[calc(24rem+1.5rem)]",
             liftBubble && "max-lg:bottom-[calc(var(--player-dock-h,0px)+1rem)]",
+            onPiece && "max-lg:hidden",
           )}
         >
           {open ? (
@@ -334,14 +378,37 @@ export function AgentChatWidget() {
           </div>
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            {pageContext && (
+              <p className="inline-block rounded-full border border-line bg-white px-3 py-1 text-xs text-ink-500">
+                Working in: <strong className="text-ink-900">{pageContext.title}</strong>
+              </p>
+            )}
             {history.length === 0 && (
               <p className="text-sm leading-relaxed text-ink-400">
-                Ask about pitches, sources, sessions, or queries across the tools you have access
-                to.
+                {pageContext
+                  ? "Ask me to tighten a passage, move a quote, trim a clip, or draft the piece from a format. Every change is saved as a version you can undo."
+                  : "Ask about pitches, sources, sessions, or queries across the tools you have access to."}
               </p>
             )}
             {history.map((item, index) => (
-              <ChatEntry key={index} item={item} />
+              <div key={index}>
+                <ChatEntry item={item} />
+                {turnNotes[index] && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 pl-1 text-xs text-ink-500">
+                    <span>Used: {turnNotes[index].used}</span>
+                    {turnNotes[index].wrote && pageContext && (
+                      // On a phone the sheet covers the piece; this takes the person to it.
+                      <button
+                        type="button"
+                        onClick={rightPanel.close}
+                        className="min-h-11 font-bold text-brand-link lg:hidden"
+                      >
+                        View changes
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
             {streamingText ? (
               <Bubble align="left">{streamingText}</Bubble>
@@ -396,7 +463,11 @@ export function AgentChatWidget() {
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                pending ? "Resolve the pending action above first…" : "Ask the assistant…"
+                pending
+                  ? "Resolve the pending action above first…"
+                  : pageContext
+                    ? "Ask about this piece…"
+                    : "Ask the assistant…"
               }
               disabled={loading || Boolean(pending)}
               rows={2}

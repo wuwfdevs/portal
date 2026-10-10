@@ -5,6 +5,7 @@ import { humanizeOpenAIError } from "@/lib/openai-error";
 import { connectAgentMcpClient } from "./mcp-client";
 import { buildAgentToolBridge, type AgentToolBridge } from "./tool-bridge";
 import type { Profile } from "@/lib/auth/session";
+import { getCapability } from "@/lib/capabilities/registry";
 
 // The in-portal agent's turn loop (Phase D, docs/agent-capabilities-design.md
 // §7), driven by OpenAI's Responses API (reusing OPENAI_API_KEY — see
@@ -76,10 +77,36 @@ export interface PendingConfirmation {
   input: Record<string, unknown>;
 }
 
+/**
+ * What the person has open, so "tighten the setup" has an object
+ * (docs/sourcework-analysis-design.md §6.4). The route resolves it through the
+ * caller's own session, so it is never more than the page already showed them.
+ */
+export type AgentPageContext = {
+  kind: "piece";
+  pieceId: string;
+  projectId: string;
+  title: string;
+};
+
 export interface AgentTurnInput {
   history: OpenAI.Responses.ResponseInputItem[];
   input?: string;
   confirmation?: { toolUseId: string; approved: boolean };
+  pageContext?: AgentPageContext | null;
+}
+
+/** The instructions for one turn: the standing ones, plus what the person has open. */
+export function instructionsFor(pageContext: AgentPageContext | null | undefined): string {
+  if (!pageContext) return INSTRUCTIONS;
+  return `${INSTRUCTIONS}
+
+The person is working in a Sourcework piece: “${pageContext.title}” (pieceId ${pageContext.pieceId}, projectId ${pageContext.projectId}). When they say "the piece", "this", "the setup", "the ending" or name a quote, they mean this piece.
+- Read it with sourcework.piece.read before you change anything, and again if a call says a block is missing.
+- Change only what they asked for. Use the narrower tools (replace narration, place excerpt, reorder, trim) rather than redrafting; draft from a format only when they ask for a draft or to start over.
+- An actuality is a speaker's own recorded words. Place or swap one only by excerpt id (find ids with sourcework.piece.searchExcerpts); never write a speaker's words into narration as a quote, and never invent facts the piece and its excerpts don't support.
+- Report the length from the tool result ("0:52, three seconds under"), never your own estimate. Every change you make is saved as a version they can undo, and it is marked in the piece.
+- Say briefly what you changed and what you left alone.`;
 }
 
 export type AgentStreamEvent =
@@ -88,8 +115,17 @@ export type AgentStreamEvent =
       type: "pendingConfirmation";
       history: OpenAI.Responses.ResponseInputItem[];
       pendingConfirmation: PendingConfirmation;
+      toolsUsed: string[];
+      wrote: boolean;
     }
-  | { type: "done"; history: OpenAI.Responses.ResponseInputItem[] }
+  | {
+      type: "done";
+      history: OpenAI.Responses.ResponseInputItem[];
+      /** Short labels of the tools this turn called, in order ("read piece", "replace narration"). */
+      toolsUsed: string[];
+      /** A tool that changes what a page shows ran: the widget refreshes the page. */
+      wrote: boolean;
+    }
   | { type: "error"; message: string };
 
 export async function* streamAgentTurn(
@@ -103,9 +139,17 @@ export async function* streamAgentTurn(
     const { tools } = await mcp.listTools();
     const bridge = buildAgentToolBridge(tools);
 
+    const toolsUsed: string[] = [];
+    let wrote = false;
+    const record = (mcpName: string) => {
+      const capability = getCapability(mcpName);
+      toolsUsed.push(capability?.label ?? mcpName);
+      if (capability?.writes) wrote = true;
+    };
+
     let history: OpenAI.Responses.ResponseInputItem[];
     if (turn.confirmation) {
-      history = await resolveConfirmation(mcp, bridge, turn.history, turn.confirmation);
+      history = await resolveConfirmation(mcp, bridge, turn.history, turn.confirmation, record);
     } else if (turn.input) {
       history = [...turn.history, { role: "user", content: turn.input }];
     } else {
@@ -118,7 +162,7 @@ export async function* streamAgentTurn(
       try {
         const stream = openai.responses.stream({
           model: MODEL,
-          instructions: INSTRUCTIONS,
+          instructions: instructionsFor(turn.pageContext),
           input: history,
           tools: bridge.agentTools,
           tool_choice: "auto",
@@ -177,7 +221,7 @@ export async function* streamAgentTurn(
           const refusal = extractRefusal(output);
           if (refusal) yield { type: "delta", text: refusal };
         }
-        yield { type: "done", history };
+        yield { type: "done", history, toolsUsed, wrote };
         return;
       }
 
@@ -200,11 +244,14 @@ export async function* streamAgentTurn(
               bridge.agentTools.find((t) => t.name === functionCall.name)?.description ?? mcpName,
             input,
           },
+          toolsUsed,
+          wrote,
         };
         return;
       }
 
       const result = await callMcpTool(mcp, mcpName, input);
+      record(mcpName);
       history = appendFunctionCallOutput(history, functionCall.call_id, result.text);
     }
 
@@ -212,7 +259,7 @@ export async function* streamAgentTurn(
       type: "delta",
       text: "I've made several tool calls without finishing — ask again to continue.",
     };
-    yield { type: "done", history };
+    yield { type: "done", history, toolsUsed, wrote };
   } finally {
     await close();
   }
@@ -223,6 +270,7 @@ async function resolveConfirmation(
   bridge: AgentToolBridge,
   history: OpenAI.Responses.ResponseInputItem[],
   confirmation: { toolUseId: string; approved: boolean },
+  record: (mcpName: string) => void,
 ): Promise<OpenAI.Responses.ResponseInputItem[]> {
   const functionCall = findFunctionCall(history, confirmation.toolUseId);
   if (!functionCall) {
@@ -245,6 +293,7 @@ async function resolveConfirmation(
   const input = parseArguments(functionCall.arguments);
   delete input.confirmed;
   const result = await callMcpTool(mcp, mcpName, { ...input, confirmed: true });
+  record(mcpName);
   return appendFunctionCallOutput(history, functionCall.call_id, result.text);
 }
 
