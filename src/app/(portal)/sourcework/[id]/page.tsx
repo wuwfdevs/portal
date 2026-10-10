@@ -20,44 +20,60 @@ import { ProjectDetails } from "./project-details";
 import { ProjectExcerptsView } from "./project-excerpts-view";
 import { PiecesTab } from "./pieces-tab";
 import { SetupTab } from "./setup-tab";
+import { ThemesTab } from "./themes-tab";
 import { ExtractionControls } from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { sourcesToExtract } from "@/lib/sourcework/setup-view";
+import { getThemeDecisionCounts, hasResearchSignal } from "@/lib/sourcework/theme-queries";
+import { decisionsWaiting } from "@/lib/sourcework/themes";
 
 /**
  * One project: its sources, and the excerpts made from them. The working
  * surface for a recording or a document is its own screen
  * (`/sourcework/sources/[id]`), reached from a source card here and left with
  * its back link — this screen has no player, no transcript and no view state
- * beyond which of the tabs is showing (`?view=excerpts`, `?view=pieces`,
- * `?view=setup`). Setup sits at the right edge and is reachable before any
- * source exists: the research questions come first.
+ * beyond which of the tabs is showing (`?view=themes`, `?view=excerpts`,
+ * `?view=pieces`, `?view=setup`). Setup sits at the right edge and is reachable
+ * before any source exists: the research questions come first. Themes shows
+ * once the project has a research question or a data point.
  */
 export default async function TranscriptionProjectPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string; q?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    q?: string;
+    status?: string;
+    question?: string;
+    new?: string;
+    error?: string;
+  }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q } = await searchParams;
+  const { view, q, status, question, new: showNew, error } = await searchParams;
+  const themesView = view === "themes";
   const excerptsView = view === "excerpts";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !excerptsView && !piecesView && !setupView;
+  const sourcesView = !themesView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  const [pieceCount, pieces] = await Promise.all([
+  const [pieceCount, pieces, showThemesTab] = await Promise.all([
     countPieces(project.id),
     piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
+    themesView ? Promise.resolve(true) : hasResearchSignal(project.id),
   ]);
+  const themeDecisions = showThemesTab
+    ? decisionsWaiting(await getThemeDecisionCounts(project.id))
+    : 0;
 
   // Research state is read only where the Sources tab shows it. A project with
   // no active question reads nothing and looks as it always did.
@@ -140,6 +156,16 @@ export default async function TranscriptionProjectPage({
             active: sourcesView,
             badge: project.sources.length,
           },
+          ...(showThemesTab
+            ? [
+                {
+                  href: projectPath(project.id, "themes"),
+                  label: "Themes",
+                  active: themesView,
+                  badge: themeDecisions,
+                },
+              ]
+            : []),
           {
             href: projectPath(project.id, "excerpts"),
             label: "Excerpts",
@@ -161,6 +187,16 @@ export default async function TranscriptionProjectPage({
 
       {setupView ? (
         <SetupTab projectId={project.id} sources={project.sources} />
+      ) : themesView ? (
+        <ThemesTab
+          projectId={project.id}
+          sources={project.sources}
+          statusParam={status}
+          questionParam={question}
+          search={pieceSearch}
+          showNew={showNew === "1"}
+          error={error}
+        />
       ) : piecesView ? (
         <PiecesTab
           projectId={project.id}

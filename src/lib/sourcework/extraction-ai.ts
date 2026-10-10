@@ -39,8 +39,19 @@ export function openAIClient(): OpenAI | null {
 export const NOT_CONFIGURED =
   "Research isn't configured yet — OPENAI_API_KEY is not set. Building a piece by hand doesn't need it.";
 
-/** One window: the framing plus the editors' guide as instructions, the source as input. */
-export async function callExtractionModel(args: {
+/**
+ * One structured-output call: the fixed framing plus the editors' guide as
+ * instructions, the step's input as the message, and the model's JSON text out.
+ * Every research step shares it — extraction, and the two theme steps — so the
+ * model, the reasoning effort, the retry and the way a refusal or a truncated
+ * answer is reported are one implementation. `step` names the step in the
+ * messages ("The extraction step ran out of room…").
+ */
+export async function callStructuredModel(args: {
+  step: string;
+  schemaName: string;
+  schema: Record<string, unknown>;
+  framing: string;
   guide: string;
   input: string;
   client?: OpenAI | null;
@@ -53,14 +64,14 @@ export async function callExtractionModel(args: {
     response = await withRateLimitRetry(() =>
       client.responses.create({
         model: RESEARCH_MODEL,
-        instructions: `${EXTRACTION_FRAMING}\n\n${args.guide}`,
+        instructions: `${args.framing}\n\n${args.guide}`,
         input: args.input,
         text: {
           format: {
             type: "json_schema",
-            name: "data_points",
+            name: args.schemaName,
             strict: true,
-            schema: buildExtractionOutputSchema(),
+            schema: args.schema,
           },
         },
         reasoning: { effort: "medium" },
@@ -73,24 +84,40 @@ export async function callExtractionModel(args: {
       }),
     );
   } catch (error) {
-    console.error("Sourcework extraction call failed:", error);
+    console.error(`Sourcework ${args.step} call failed:`, error);
     return { ok: false, error: humanizeOpenAIError(error).message };
   }
 
   if (response.status === "failed") {
-    return { ok: false, error: response.error?.message ?? "The extraction step failed." };
+    return { ok: false, error: response.error?.message ?? `The ${args.step} step failed.` };
   }
   if (response.status === "incomplete") {
     return {
       ok: false,
-      error:
-        "The extraction step ran out of room before it finished this part of the source. Try again; if it keeps happening, the source may be unusually dense.",
+      error: `The ${args.step} step ran out of room before it finished. Try again; if it keeps happening, there may be unusually much for it to read.`,
     };
   }
   const refusal = response.output
     .flatMap((item) => (item.type === "message" ? item.content : []))
     .find((part) => part.type === "refusal");
-  if (refusal) return { ok: false, error: `The extraction step declined: ${refusal.refusal}` };
+  if (refusal) return { ok: false, error: `The ${args.step} step declined: ${refusal.refusal}` };
 
   return { ok: true, text: response.output_text };
+}
+
+/** One window of one source. */
+export function callExtractionModel(args: {
+  guide: string;
+  input: string;
+  client?: OpenAI | null;
+}): Promise<ExtractionCallResult> {
+  return callStructuredModel({
+    step: "extraction",
+    schemaName: "data_points",
+    schema: buildExtractionOutputSchema(),
+    framing: EXTRACTION_FRAMING,
+    guide: args.guide,
+    input: args.input,
+    client: args.client,
+  });
 }

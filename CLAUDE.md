@@ -440,6 +440,20 @@ stop counting) are applied through the SQL editor, not the Supabase MCP tool, wh
 `drop`; preview first, then production, then record both dates in `APPLIED.md`. Nothing here has run against a live
 Supabase or OpenAI.
 
+**Sourcework analysis, Phase B (themes) has landed (2026-10-13).** Read `docs/sourcework-analysis-design.md` §15 first;
+this is a pointer. A project's **Themes** tab (`?view=themes`, shown once it has a question or a data point) lists
+`sw_themes` with computed breadth (`sw_theme_breadth`: sources, speakers, supporting vs complicating, never stored), a
+"Waiting for you" strip, and Accept / Edit / Reject on suggestions and merge suggestions; a theme opens at
+`/sourcework/[id]/themes/[themeId]` (evidence by source, memo, history). Four things are load-bearing: (1) **a run never
+alters an accepted theme or writes a memo**; reject hides, a removed data point keeps its row (`removed_at`), and no Phase B
+table has a delete policy; (2) **assignment is `after()` best effort** and a data point is re-checked only when a theme has
+been accepted since (`theme_checked_at`) — don't make it re-ask the whole pool per click; (3) **the model returns numbers,
+never text** (`theme-prompt.ts`), and `callStructuredModel` in `extraction-ai.ts` is the one structured-output call all
+research steps share; (4) `sw_add_proposed_themes()` and `sw_merge_themes()` exist because there is no delete to undo a half
+write. Migrations `20261013120000` (schema) and `20261013130000` (Resources content) are applied to both projects
+(through `execute_sql` in one transaction, not `apply_migration`, so the Supabase migration history has no entry for them). Splits, the theme page's excerpts and Suggest
+quotes (Phase C) are not built.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current
@@ -4356,16 +4370,24 @@ make explicitly, not by default.
 
 ## Rules for making changes
 
-- **Every pull request gets a written title and description.** Pass an explicit `title` and
-  `body` when creating one; never let either default to the branch name, a merge-commit
-  message or a commit message. The title says what the change does, in sentence case, and is
-  never cut off. The body follows `.github/pull_request_template.md` (Summary, What changed,
-  Database when there is a migration, Test plan, Not included) and says plainly what was not
-  tested. After any push that opens or updates a PR, re-read its title and body on GitHub;
-  a PR opened for you from a branch push still has to be fixed. `.github/workflows/pr-text.yml`
-  runs `scripts/check-pr-text.mjs` and fails a PR with a branch-name or merge-commit title, a
-  title ending in an ellipsis, or a description that is empty once commit trailers and links
-  are removed. The check is a backstop, not a substitute for writing it.
+- **Every pull request gets a written title and description — and a PR you did not write the text for is the usual
+  way this goes wrong.** The Claude Code UI opens a PR from your branch push on its own, with a title and body
+  generated from commit messages: truncated, in no template shape, and sometimes wrong about the change (it once named
+  a table that does not exist). So the moment you push a branch, or a system message says a PR was created, **your next
+  action — before the summary, before anything else — is to read that PR and rewrite its title and body**, with
+  `update_pull_request`. Do not wait to be asked, and do not treat the generated text as a draft to leave. Write it
+  from the diff, not from memory: check every table, file and function name you cite, and every claim about what was
+  applied or tested, against the code and the database as they are now.
+  - Title: what the change does, in sentence case, a full sentence fragment, never the branch name, a merge or commit
+    message, or cut off.
+  - Body: follow `.github/pull_request_template.md` — Summary (why it matters, one or two sentences), What changed
+    (grouped by area), Database (only with a migration: which, applied where, `APPLIED.md`, `db:check`), Test plan,
+    Not included. Say plainly what was **not** tested; do not imply a screen was used if it was only type-checked.
+  - After every later push to the branch, re-read the PR and update the body if it no longer matches (new migrations
+    applied, scope added or dropped). Re-read it on GitHub after writing it; do not assume the update took.
+  - `.github/workflows/pr-text.yml` runs `scripts/check-pr-text.mjs` and fails a PR with a branch-name or
+    merge-commit title, a truncated title, an empty description, or a description missing the template's Summary,
+    What changed or Test plan sections. The check is a backstop, not a substitute for writing it.
 - **Resources stay in step with the code.** Any change a user would notice ships a
   migration that writes its Resources content through
   `private.rc_release_note()` and `private.rc_release_guide()`

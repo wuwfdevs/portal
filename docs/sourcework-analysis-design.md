@@ -1,6 +1,6 @@
 # Sourcework Analysis — Design and Phased Plan
 
-Status: **Phases D (pieces by hand, 2026-10-11) and A (questions, background, data points, 2026-10-12) are built; Phases B, C and E are design only.** This is the document
+Status: **Phases D (pieces by hand, 2026-10-11), A (questions, background, data points, 2026-10-12) and B (themes, 2026-10-13) are built; Phases C and E are design only.** This is the document
 `docs/sourcework-design.md` §5 requires before Phases 4 and 5 (research
 questions and data points; themes). It also scopes what that doc did not:
 background context gathering, suggested quotes, and **pieces** (a wrap, a voicer
@@ -736,3 +736,35 @@ Where the build departed from, or settled, the design above:
 - **Detached sources.** Removing a source from a project deletes only the link, so its data points stay (and return
   if the source is re-attached) but stop counting anywhere: the three count views go through the project's
   current `sw_project_sources` rows (`20261012140000`).
+
+## 15. Phase B as built (2026-10-13)
+
+Where the build departed from, or settled, the design above:
+
+- **Assignment runs after an accept, in `after()`.** Accepting or editing a data point files it into the accepted themes
+  (`theme_assign`, `lib/sourcework/theme-run.ts`'s `assignDataPoints`): best effort, silent without `OPENAI_API_KEY` or any accepted
+  theme, and a point that fits nothing is simply not filed. A point is looked at again only when a theme has been accepted since
+  (`sw_data_points.theme_checked_at`), by `assignPool`, which runs when a theme is accepted or created and at the start of Review
+  themes. So the pool is not re-asked about on every click, and Review themes only proposes from points no accepted theme claims.
+- **Embeddings narrow candidates only when there are many themes.** With five or fewer accepted themes every one is a candidate and
+  nothing is embedded. Above that, data points and themes are embedded on demand (`sw_nearest_themes`, pgvector), and a failure
+  falls back to the first twelve themes by breadth. Threshold and candidate count (§12.7) are constants in `theme-prompt.ts`, not
+  yet calibrated on a real project.
+- **Review themes** is a route handler (`/api/sourcework/themes/review`) returning one JSON result, with a `BusyPanel`. It reads at
+  most 250 unfiled points per click and says so. New themes and their members are written by `sw_add_proposed_themes()` in one
+  transaction; a title already on file, accepted, proposed, rejected or merged away, is never proposed again.
+- **Merges, not splits.** Merge suggestions are built (`sw_theme_merge_suggestions`, `sw_merge_themes()`: the data points move with
+  their stance, the folded theme keeps its row with `merged_into_id`, the target's memo records why). Split suggestions are not:
+  the canvas has no split row, and a split needs the model to partition an existing theme's evidence, which deserves its own pass.
+- **Themes tab visibility** follows §12.6: shown once a project has an active research question or any data point; the badge
+  counts suggested themes plus merges between live themes (`sw_theme_decision_counts`). The Projects list's "needs attention"
+  count includes both.
+- **Edit is a decision.** Saving an edit of a suggested theme accepts it, as it does for a data point; Edit from the list opens the
+  theme page's form (`?edit=1`). A person can also write a theme by hand (+ New theme) and add data points to it from its page.
+- **Removing is recorded.** Taking a data point out of a theme sets `removed_at`, so assignment never puts it straight back; there
+  is no delete on any Phase B table.
+- **History is derived**, not a change-log table: how the theme began, who accepted it, and later arrivals by day and source.
+- **Not built in B:** the theme page's Excerpts panel and Suggest quotes (Phase C), `parent_theme_id` and `color` (no screen uses
+  them), a Try this draft for the two new prompt slots (the Editors page edits and publishes them; accept rate per version is
+  measured for Review themes), and splits.
+- **Speakers** in the breadth numbers are distinct `tw_speakers` rows, so one person interviewed in two sources counts as two.

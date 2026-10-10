@@ -908,7 +908,7 @@ export interface Database {
       sw_analysis_runs: {
         Row: {
           id: string;
-          kind: "context" | "extraction";
+          kind: "context" | "extraction" | "theme_assign" | "theme_review";
           project_id: string;
           source_id: string | null;
           prompt_version_id: string | null;
@@ -923,7 +923,7 @@ export interface Database {
           finished_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]> & {
-          kind: "context" | "extraction";
+          kind: "context" | "extraction" | "theme_assign" | "theme_review";
           project_id: string;
           model: string;
           created_by: string;
@@ -947,6 +947,11 @@ export interface Database {
           status: "suggested" | "accepted" | "rejected";
           prompt_version_id: string | null;
           run_id: string | null;
+          /** pgvector value as PostgREST returns it: a text literal "[0.1,0.2,…]". Null until embedded (20261013120000). */
+          embedding: string | null;
+          embedding_stale: boolean;
+          /** When assignment last checked it against the accepted themes. */
+          theme_checked_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -980,6 +985,84 @@ export interface Database {
           locator_kind: "temporal" | "document";
         };
         Update: Partial<Database["public"]["Tables"]["sw_data_point_spans"]["Row"]>;
+        Relationships: [];
+      };
+      sw_themes: {
+        Row: {
+          id: string;
+          project_id: string;
+          title: string;
+          definition: string;
+          memo: string;
+          status: "suggested" | "accepted" | "rejected";
+          origin: "model" | "person";
+          /** Set when an accepted merge folded this theme into another. */
+          merged_into_id: string | null;
+          run_id: string | null;
+          prompt_version_id: string | null;
+          created_by: string;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          /** pgvector value as PostgREST returns it: a text literal. Null until embedded. */
+          embedding: string | null;
+          embedding_stale: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]> & {
+          project_id: string;
+          title: string;
+          definition: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]>;
+        Relationships: [];
+      };
+      sw_data_point_themes: {
+        Row: {
+          data_point_id: string;
+          theme_id: string;
+          project_id: string;
+          stance: "supports" | "complicates";
+          assigned_by: "model" | "person";
+          run_id: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_data_point_themes"]["Row"]> & {
+          data_point_id: string;
+          theme_id: string;
+          project_id: string;
+          stance: "supports" | "complicates";
+          assigned_by: "model" | "person";
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_data_point_themes"]["Row"]>;
+        Relationships: [];
+      };
+      sw_theme_merge_suggestions: {
+        Row: {
+          id: string;
+          project_id: string;
+          from_theme_id: string;
+          into_theme_id: string;
+          reason: string;
+          status: "suggested" | "accepted" | "rejected";
+          run_id: string | null;
+          prompt_version_id: string | null;
+          created_by: string;
+          created_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_theme_merge_suggestions"]["Row"]> & {
+          project_id: string;
+          from_theme_id: string;
+          into_theme_id: string;
+          reason: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_theme_merge_suggestions"]["Row"]>;
         Relationships: [];
       };
       sw_prompt_versions: {
@@ -4044,6 +4127,33 @@ export interface Database {
         };
         Relationships: [];
       };
+      /** security_invoker (20261013120000). Per theme: distinct sources and speakers, supporting and complicating data points. */
+      sw_theme_breadth: {
+        Row: {
+          theme_id: string;
+          project_id: string;
+          source_count: number;
+          speaker_count: number;
+          supporting: number;
+          complicating: number;
+        };
+        Relationships: [];
+      };
+      /** security_invoker (20261013120000). The research questions a theme's data points answer. */
+      sw_theme_questions: {
+        Row: { theme_id: string; project_id: string; question_id: string; total: number };
+        Relationships: [];
+      };
+      /** security_invoker (20261013120000). Per project: themes proposed and merges suggested, waiting for a decision. */
+      sw_theme_decision_counts: {
+        Row: { project_id: string; suggested_themes: number; suggested_merges: number };
+        Relationships: [];
+      };
+      /** security_invoker (20261013120000). Accepted data points that sit in no live theme. */
+      sw_unthemed_data_points: {
+        Row: { id: string; project_id: string; source_id: string };
+        Relationships: [];
+      };
       sw_project_overview: {
         Row: {
           id: string;
@@ -4058,7 +4168,7 @@ export interface Database {
           active_count: number;
           excerpt_count: number;
           last_activity: string;
-          /** Data points still waiting for a decision (20261012120000). */
+          /** Decisions waiting: data points, proposed themes and merges (20261012120000, 20261013120000). */
           review_count: number;
         };
         Relationships: [];
@@ -4069,6 +4179,31 @@ export interface Database {
       sw_extraction_accept_rates: {
         Args: Record<string, never>;
         Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
+      };
+      /** Security invoker (20261013120000). The nearest accepted themes to each data point, by embedding. */
+      sw_nearest_themes: {
+        Args: { p_project_id: string; p_data_point_ids: string[]; p_k: number };
+        Returns: { data_point_id: string; theme_id: string; similarity: number }[];
+      };
+      /** Security invoker (20261013120000). Accepted and rejected themes per prompt version; a null version is the built-in text. */
+      sw_theme_accept_rates: {
+        Args: Record<string, never>;
+        Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
+      };
+      /** Security invoker (20261013120000). Writes proposed themes and their data points in one transaction; returns how many themes. */
+      sw_add_proposed_themes: {
+        Args: {
+          p_project_id: string;
+          p_run_id: string;
+          p_prompt_version_id: string | null;
+          p_themes: unknown;
+        };
+        Returns: number;
+      };
+      /** Security invoker (20261013120000). Accepts a merge suggestion: 'merged', or why nothing changed. */
+      sw_merge_themes: {
+        Args: { p_suggestion_id: string };
+        Returns: "merged" | "missing" | "decided" | "stale";
       };
       /** Security invoker (20261012120000). Saves the next version of a prompt slot and makes it live; returns the version number. */
       sw_publish_prompt: {

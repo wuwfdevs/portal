@@ -144,8 +144,38 @@ describe("projectStanding", () => {
       ],
       toReviewTotal: 4,
     });
-    expect(stepStates(standing)).toEqual(["done", "done", "done", "upcoming"]);
+    expect(stepStates(standing)).toEqual(["done", "done", "done", "current"]);
     expect(standing.message).toContain("4 data points are waiting for review");
+  });
+  it("finishes with the themes: suggestions first, then unfiled points, then done", () => {
+    const sources = [{ title: "A", state: done }];
+    const standing = (themes: { accepted: number; decisions: number; unthemed: number }) =>
+      projectStanding({ questionCount: 1, sources, toReviewTotal: 0, themes });
+
+    const none = standing({ accepted: 0, decisions: 0, unthemed: 0 });
+    expect(stepStates(none)).toEqual(["done", "done", "done", "current"]);
+    expect(none.message).toContain("Review themes looks for what they have in common");
+    expect(none.link).toEqual({ label: "Go to Themes", to: "themes" });
+
+    const waiting = standing({ accepted: 2, decisions: 2, unthemed: 5 });
+    expect(stepStates(waiting)[3]).toBe("current");
+    expect(waiting.message).toContain("2 theme suggestions are waiting for a decision");
+
+    const unfiled = standing({ accepted: 2, decisions: 0, unthemed: 1 });
+    expect(unfiled.message).toContain("1 accepted data point is not in a theme yet");
+
+    const finished = standing({ accepted: 2, decisions: 0, unthemed: 0 });
+    expect(stepStates(finished)).toEqual(["done", "done", "done", "done"]);
+    expect(finished.message).toContain("every accepted data point is in a theme");
+  });
+  it("keeps the theme step upcoming until the sources are extracted", () => {
+    const standing = projectStanding({
+      questionCount: 1,
+      sources: [{ title: "A", state: { kind: "idle" } }],
+      toReviewTotal: 0,
+      themes: { accepted: 3, decisions: 0, unthemed: 0 },
+    });
+    expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
   });
   it("says when sources are ready to extract", () => {
     const standing = projectStanding({

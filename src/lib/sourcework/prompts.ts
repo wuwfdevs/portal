@@ -8,7 +8,7 @@
 // writes a sw_prompt_versions row and moves sw_prompt_live; the run records the
 // version it used (null = built-in).
 
-export type PromptSlot = "context" | "extraction";
+export type PromptSlot = "context" | "extraction" | "theme_assign" | "theme_review";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -16,7 +16,7 @@ export interface PromptSlotDefinition {
   label: string;
   /** One line under the heading. */
   description: string;
-  /** Whether "Try this draft" exists for it yet (§8.1: the extraction guide first). */
+  /** Whether "Try this draft" exists for it yet (§8.1: the extraction guide first, the others follow). */
   tryable: boolean;
   /** What the model is handed, for the "What the model is given and returns" panel. */
   gives: string[];
@@ -46,6 +46,22 @@ export const CONTEXT_BUILT_IN = `Look up background that helps someone read thes
 Make one note per subject: a short title, one or two sentences on what a reader needs to know, and the page that says it. Skip anything the sources explain well themselves, and skip general knowledge.
 
 Search for places, events and public figures. Never put the name of someone who was interviewed into a search, and do not look up private individuals.`;
+
+export const THEME_ASSIGN_BUILT_IN = `A data point belongs in a theme when it is evidence about what the theme claims, not merely about the same place, person or period.
+
+Supports: the data point is evidence that the claim is true, from this speaker's or document's own experience or knowledge.
+
+Complicates: the data point qualifies, limits or contradicts the claim. A speaker who was forbidden to enter the tunnels complicates "Locals treated the fort's tunnels as a private playground". Always report it; it is kept beside the supporting evidence.
+
+A data point can belong to more than one theme. If it fits none, leave it out.`;
+
+export const THEME_REVIEW_BUILT_IN = `Write each theme as a claim a reporter could defend or challenge: one sentence saying who did, thought or experienced what, and how. It is not a subject heading.
+
+Prefer themes that more than one source or speaker bears on. Propose a theme resting on one source only when it is vivid and specific, and do not claim more in its definition than that source can bear.
+
+Put evidence that cuts against a theme inside it, marked as complicating, rather than starting a theme for the opposite view.
+
+Suggest merging two accepted themes only when, put together, they would be one claim.`;
 
 export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
   {
@@ -80,6 +96,39 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "The model returns passage numbers, never text: the code derives the timestamps or page and block from them. The categories and the shape are fixed; your wording decides what is worth a data point and how a claim reads.",
     ],
     builtIn: EXTRACTION_GUIDE_BUILT_IN,
+  },
+  {
+    slot: "theme_assign",
+    label: "Theme assignment",
+    description:
+      "Tells the model when an accepted data point belongs in an existing theme, and whether it supports or complicates it. Runs by itself after a data point is accepted.",
+    tryable: false,
+    gives: [
+      "The project's accepted themes that are nearest the data points being filed, each with its title and one-sentence definition.",
+      "The data points, each with its claim, its source, its speaker and the question it answers.",
+    ],
+    returns: [
+      "For every data point, the themes it bears on and whether it supports or complicates each. An empty list means it fits none and waits for Review themes.",
+      "The model returns numbers, never text. The shape and the two stances are fixed; your wording decides what counts as bearing on a claim.",
+    ],
+    builtIn: THEME_ASSIGN_BUILT_IN,
+  },
+  {
+    slot: "theme_review",
+    label: "Theme review",
+    description:
+      "Tells the model how a theme should read, and when two themes are one. Used when someone chooses Review themes on a project.",
+    tryable: false,
+    gives: [
+      "The project's research questions and its accepted themes, which the model never rewords.",
+      "The titles of themes already proposed or turned down, so they are not proposed again.",
+      "The accepted data points that sit in no theme yet.",
+    ],
+    returns: [
+      "New themes, each with a title, a one-sentence definition and the data points behind it, marked as supporting or complicating. Merge suggestions between accepted themes, each with a reason.",
+      "Everything returned is a suggestion the reporter accepts, edits or rejects. The shape is fixed by the code; your wording decides what a good theme looks like.",
+    ],
+    builtIn: THEME_REVIEW_BUILT_IN,
   },
 ];
 
