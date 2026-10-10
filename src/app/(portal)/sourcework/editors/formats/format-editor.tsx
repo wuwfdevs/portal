@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/ui/confirm-action";
@@ -14,16 +13,10 @@ import { formatClock } from "@/lib/format";
 import { parseTargetInput } from "@/lib/sourcework/pieces";
 import {
   MAX_ACTUALITIES,
-  SECTION_GUIDANCE_MAX,
   STYLE_MAX,
   describeFormat,
-  insertSection,
-  moveSection,
-  moveSectionTo,
   specsEqual,
   validateFormatSpec,
-  type FormatSection,
-  type FormatSectionType,
   type FormatSpec,
 } from "@/lib/sourcework/piece-formats";
 import { LocalTime } from "../local-time";
@@ -64,14 +57,11 @@ function parseTolerance(text: string): number | null {
 
 /**
  * One piece format (docs/sourcework-analysis-design.md §6.3, the Formats boards): length and
- * tolerance, the actuality range, ordered sections, and a style paragraph. Autosaves a draft
+ * tolerance, the actuality range, a description of the kind of piece, whether an anchor leads in,
+ * and a style paragraph. These are guardrails: the model decides the blocks. Autosaves a draft
  * only this editor sees; Publish… makes it live with a note; Try this draft compares it with the
  * live version on a project before that.
  */
-function sectionLabel(type: FormatSectionType): string {
-  return type === "actuality" ? "Actuality" : type === "anchor" ? "Anchor intro" : "Narration";
-}
-
 export function FormatEditor({
   formatId,
   name: initialName,
@@ -109,7 +99,6 @@ export function FormatEditor({
   const [name, setName] = useState(initialName);
   const [renaming, setRenaming] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
-  const dragFrom = useRef<number | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const differs = liveSpec === null || !specsEqual(spec, liveSpec);
@@ -184,10 +173,6 @@ export function FormatEditor({
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }
 
-  function setSections(sections: FormatSection[]) {
-    change({ ...specRef.current, sections });
-  }
-
   function commitLength() {
     const seconds = parseTargetInput(lengthText);
     if (seconds === null) {
@@ -253,75 +238,6 @@ export function FormatEditor({
     setNameError(null);
     setRenaming(false);
     router.refresh();
-  }
-
-  function menuFor(index: number): ActionMenuItem[] {
-    const section = spec.sections[index]!;
-    // The anchor's lead-in is only ever the first section, and a format has one.
-    const canBeAnchor = index === 0 && !spec.sections.some((entry) => entry.type === "anchor");
-    const kindItem: ActionMenuItem =
-      section.type === "actuality"
-        ? { label: "Make it narration", onClick: () => retype(index, "narration") }
-        : {
-            label: "Make it an actuality",
-            onClick: () => retype(index, "actuality"),
-          };
-    return [
-      {
-        label: "Move up",
-        disabled: index === 0,
-        onClick: () => setSections(moveSection(specRef.current.sections, index, -1)),
-      },
-      {
-        label: "Move down",
-        disabled: index === spec.sections.length - 1,
-        onClick: () => setSections(moveSection(specRef.current.sections, index, 1)),
-      },
-      section.type === "anchor"
-        ? { label: "Make it narration", onClick: () => retype(index, "narration") }
-        : kindItem,
-      ...(canBeAnchor && section.type !== "anchor"
-        ? [{ label: "Make it an anchor intro", onClick: () => retype(index, "anchor") }]
-        : []),
-      {
-        label: section.optional ? "Make it required" : "Make it optional",
-        onClick: () => toggleOptional(index),
-      },
-      {
-        label: "Add a section below",
-        onClick: () =>
-          setSections(
-            insertSection(specRef.current.sections, index + 1, { type: "narration", guidance: "" }),
-          ),
-      },
-      {
-        label: "Remove section…",
-        variant: "danger",
-        dividerBefore: true,
-        disabled: spec.sections.length === 1,
-        confirm: { message: "Remove this section from the draft?", confirmLabel: "Remove" },
-        onClick: () => setSections(specRef.current.sections.filter((_, at) => at !== index)),
-      },
-    ];
-  }
-
-  function retype(index: number, type: FormatSectionType) {
-    setSections(
-      specRef.current.sections.map((entry, at) =>
-        at === index ? { ...entry, type, ...(type === "anchor" ? { optional: true } : {}) } : entry,
-      ),
-    );
-  }
-
-  function toggleOptional(index: number) {
-    setSections(
-      specRef.current.sections.map((entry, at) => {
-        if (at !== index) return entry;
-        return entry.optional
-          ? { type: entry.type, guidance: entry.guidance }
-          : { ...entry, optional: true };
-      }),
-    );
   }
 
   const saveLabel =
@@ -432,8 +348,8 @@ export function FormatEditor({
         )}
         {nameError && <p className="mt-1 text-sm text-danger">{nameError}</p>}
         <p className="mt-0.5 text-sm text-ink-500">
-          The shape and wording the model follows when it drafts a piece. Narration is written by
-          the model; actualities are always your excerpts.
+          The guardrails the model follows when it drafts a piece. It assembles the narration and
+          chooses the actualities itself; actualities are always your excerpts.
         </p>
       </div>
 
@@ -497,107 +413,28 @@ export function FormatEditor({
       )}
 
       <div>
-        <SectionHeading as="h3" level="eyebrow" className="mb-2">
-          Sections, in order
-        </SectionHeading>
-        <ol className="divide-y divide-line rounded border border-line">
-          {spec.sections.map((section, index) => (
-            <li
-              key={index}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragFrom.current !== null) {
-                  setSections(moveSectionTo(specRef.current.sections, dragFrom.current, index));
-                }
-                dragFrom.current = null;
-              }}
-              className="flex items-start gap-2.5 px-3.5 py-2.5 max-lg:pr-1"
-            >
-              <span
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", String(index));
-                  dragFrom.current = index;
-                }}
-                title="Drag to reorder"
-                aria-hidden="true"
-                className="hidden cursor-grab select-none pt-2 tracking-[-2px] text-ink-400 lg:block"
-              >
-                ⋮⋮
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1 lg:flex-row lg:items-center lg:gap-2.5">
-                <span
-                  className={cn(
-                    "text-[11px] font-bold uppercase tracking-[0.05em] lg:w-[132px] lg:flex-none",
-                    section.type === "actuality" ? "text-brand-link" : "text-ink-500",
-                  )}
-                >
-                  <span className="lg:hidden">{index + 1} · </span>
-                  {sectionLabel(section.type)}
-                  {section.optional && <span className="font-normal normal-case"> (optional)</span>}
-                </span>
-                <Input
-                  aria-label={`Section ${index + 1} guidance`}
-                  value={section.guidance}
-                  maxLength={SECTION_GUIDANCE_MAX}
-                  placeholder={
-                    section.type === "actuality"
-                      ? "Voice: what this clip should do."
-                      : "What the narration here should do."
-                  }
-                  onChange={(event) =>
-                    setSections(
-                      specRef.current.sections.map((entry, at) =>
-                        at === index ? { ...entry, guidance: event.target.value } : entry,
-                      ),
-                    )
-                  }
-                  className="border-transparent px-1.5 py-1 hover:border-line focus:border-brand-primary"
-                />
-              </div>
-              <ActionMenu
-                label={`Section ${index + 1} actions`}
-                trigger="quiet"
-                sheetHeading={`Section ${index + 1}`}
-                items={menuFor(index)}
-              />
-            </li>
-          ))}
-        </ol>
-        <button
-          type="button"
-          onClick={() =>
-            setSections(
-              insertSection(specRef.current.sections, specRef.current.sections.length, {
-                type: "narration",
-                guidance: "",
-              }),
-            )
-          }
-          aria-label="Add a section at the end"
-          className="group mt-1.5 flex w-full items-center gap-2 text-ink-400 hover:text-brand-primary max-lg:h-11 lg:h-6"
-        >
-          <span className="h-px flex-1 bg-line group-hover:bg-brand-primary" />
-          <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-current text-xs max-lg:h-6 max-lg:w-6 max-lg:text-base">
-            +
-          </span>
-          <span className="h-px flex-1 bg-line group-hover:bg-brand-primary" />
-        </button>
-        <p className="text-xs text-ink-400 lg:hidden">Reorder with Move up and Move down in ⋮.</p>
-      </div>
-
-      <div>
-        <Label htmlFor="format-style">Style</Label>
+        <Label htmlFor="format-style">Description and style</Label>
         <Textarea
           id="format-style"
           value={spec.style}
           maxLength={STYLE_MAX}
-          rows={4}
+          rows={7}
           onChange={(event) => change({ ...specRef.current, style: event.target.value })}
           className="leading-relaxed"
         />
+        <p className="mt-1 text-xs text-ink-400">
+          Say what this kind of piece is and how it sounds. Don&rsquo;t lay out its blocks: the
+          model decides how much narration the story needs and which actualities to place, from the
+          material it&rsquo;s given. The length and the actuality range above are the guardrails.
+        </p>
+        <label className="mt-2 flex min-h-11 items-center gap-2 text-sm text-ink-700 lg:min-h-0">
+          <input
+            type="checkbox"
+            checked={spec.anchorIntro}
+            onChange={(event) => change({ ...specRef.current, anchorIntro: event.target.checked })}
+          />
+          An anchor may read a lead-in first (optional, not counted in the length)
+        </label>
       </div>
 
       {notice && <Alert variant="note">{notice}</Alert>}
@@ -675,18 +512,10 @@ export function FormatEditor({
                   </p>
                   {viewing === version.id && version.spec && (
                     <div className="rounded border border-line bg-panel-50 p-3 text-sm text-ink-700">
-                      <ol className="list-decimal space-y-1 pl-5">
-                        {version.spec.sections.map((section, index) => (
-                          <li key={index}>
-                            <span className="font-semibold">
-                              {sectionLabel(section.type)}
-                              {section.optional ? " (optional)" : ""}:
-                            </span>{" "}
-                            {section.guidance}
-                          </li>
-                        ))}
-                      </ol>
-                      {version.spec.style && <p className="mt-2">{version.spec.style}</p>}
+                      <p className="whitespace-pre-line">{version.spec.style}</p>
+                      {version.spec.anchorIntro && (
+                        <p className="mt-2 text-ink-500">An anchor may read a lead-in first.</p>
+                      )}
                     </div>
                   )}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">

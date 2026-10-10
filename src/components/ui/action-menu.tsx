@@ -206,7 +206,11 @@ export function ActionMenu({
   });
 
   const confirmStep = confirming?.confirm ? (
-    <div className={narrow ? "flex flex-col gap-3 px-4 pb-1 pt-2" : "flex w-72 flex-col gap-3 p-3"}>
+    <div
+      className={
+        narrow ? "flex flex-col gap-3 px-4 pb-1 pt-2" : "flex w-72 max-w-full flex-col gap-3 p-3"
+      }
+    >
       <div className="text-sm font-bold text-ink-900">{confirming.label}</div>
       <div className="text-sm leading-relaxed text-ink-700">{confirming.confirm.message}</div>
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -309,6 +313,7 @@ export function ActionMenu({
           open={open}
           ref={panelRef}
           role="menu"
+          layoutKey={confirming ? "confirm" : "list"}
           className="min-w-[11rem] rounded border border-line bg-white py-1 shadow-md"
         >
           {confirmStep ?? itemList}

@@ -1,62 +1,52 @@
 // Piece formats (docs/sourcework-analysis-design.md §6.3, §8): the shape and wording
-// the model follows when it drafts a piece. Editors own the language — the sections,
-// their guidance, the length, the actuality range and the style paragraph. Code owns
+// the model follows when it drafts a piece. Editors own the language: a free-text
+// description and style, the length, the actuality range, and whether an anchor leads in. These
+// are guardrails; the model decides the blocks. Code owns
 // the block schema and places actualities by excerpt id, so a format can never make
 // the model type out a quote. Pure, shared by the editor, the server and the tests.
 
 import { formatClock } from "@/lib/format";
 
 /**
- * "anchor" is the anchor's lead-in to a reporter's recorded piece: written to be read by the
- * anchor, kept out of the piece's timed length. Everything else is the piece itself, even
- * when an anchor reads it (a reader or a cut and copy is timed as a whole).
+ * A format is a set of guardrails, not a block-by-block template. The model assembles the
+ * narration and actualities freely from the material it is given; the format says what kind of
+ * piece it is (description, style), how long it runs, how many actualities are usual, and
+ * whether an anchor reads a lead-in.
  */
-export type FormatSectionType = "narration" | "actuality" | "anchor";
-
-export interface FormatSection {
-  type: FormatSectionType;
-  /** One line telling the model what goes here. */
-  guidance: string;
-  /** A section the piece can do without (a tag, a second voice). Absent means expected. */
-  optional?: boolean;
-}
-
-/** One version's content. Stored as jsonb on sw_piece_format_versions.spec. */
 export interface FormatSpec {
   targetSeconds: number;
   toleranceSeconds: number;
   minActualities: number;
   maxActualities: number;
-  sections: FormatSection[];
+  /**
+   * The format allows an anchor to read a lead-in to a reporter's recorded piece, written first
+   * and kept out of the piece's timed length. Always optional: a piece the anchor reads itself
+   * (a reader) has none. Everything else is the piece itself, even when an anchor reads it.
+   */
+  anchorIntro: boolean;
+  /** Free text, in the editors' words: what this kind of piece is, how it sounds. Not a block outline. */
   style: string;
 }
 
 export const FORMAT_NAME_MAX = 80;
-export const SECTION_GUIDANCE_MAX = 300;
-export const STYLE_MAX = 2000;
-export const MAX_SECTIONS = 16;
+/** Sized for a converted legacy spec: 16 sections of 300 characters plus the old 2,000-character style. */
+export const STYLE_MAX = 7000;
 export const MAX_ACTUALITIES = 12;
 export const MIN_TARGET_SECONDS = 5;
 export const MAX_TARGET_SECONDS = 1800;
 export const MAX_TOLERANCE_SECONDS = 300;
 export const FORMAT_NOTE_MAX = 300;
 
-/** What a new format starts from: a setup, one voice, a close. */
+/** What a new format starts from. */
 export function blankSpec(): FormatSpec {
   return {
     targetSeconds: 60,
     toleranceSeconds: 5,
     minActualities: 1,
     maxActualities: 2,
-    sections: [
-      { type: "narration", guidance: "Setup: name the place and the question in one sentence." },
-      { type: "actuality", guidance: "Voice: the strongest first-person moment." },
-      {
-        type: "narration",
-        guidance: "Close and sign-off. Leave [REPORTER NAME] as a placeholder.",
-      },
-    ],
-    style: "Plain and factual. Keep sentences short enough to read in one breath.",
+    anchorIntro: false,
+    style:
+      "A short voiced story: set up the news and the place, let a voice carry what narration can't, and close with where things stand. Sign off with [REPORTER NAME] as a placeholder. Plain and factual; keep sentences short enough to read in one breath.",
   };
 }
 
@@ -68,6 +58,10 @@ function isInt(value: unknown): value is number {
  * Reads a stored spec (or an autosaved draft) without judging it: anything not
  * shaped like a spec comes back null. Whether it is good enough to publish or
  * try is validateFormatSpec's question.
+ *
+ * Versions are insert-only, so older ones still carry an ordered `sections` list. It is read
+ * as free text (every section's guidance, the anchor's included, in order, ahead of the style) and an anchor flag; nothing downstream
+ * treats it as a block structure any more.
  */
 export function readFormatSpec(value: unknown): FormatSpec | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
@@ -77,32 +71,37 @@ export function readFormatSpec(value: unknown): FormatSpec | null {
     !isInt(raw.toleranceSeconds) ||
     !isInt(raw.minActualities) ||
     !isInt(raw.maxActualities) ||
-    typeof raw.style !== "string" ||
-    !Array.isArray(raw.sections)
+    typeof raw.style !== "string"
   ) {
     return null;
   }
-  const sections: FormatSection[] = [];
-  for (const item of raw.sections) {
-    if (typeof item !== "object" || item === null) return null;
-    const section = item as Record<string, unknown>;
-    if (section.type !== "narration" && section.type !== "actuality" && section.type !== "anchor") {
-      return null;
+  let style = raw.style;
+  let anchorIntro = raw.anchorIntro === true;
+  if (Array.isArray(raw.sections)) {
+    const guidance: string[] = [];
+    for (const item of raw.sections) {
+      if (typeof item !== "object" || item === null) return null;
+      const section = item as Record<string, unknown>;
+      if (
+        section.type !== "narration" &&
+        section.type !== "actuality" &&
+        section.type !== "anchor"
+      ) {
+        return null;
+      }
+      if (typeof section.guidance !== "string") return null;
+      if (section.type === "anchor") anchorIntro = true;
+      guidance.push(section.guidance.trim());
     }
-    if (typeof section.guidance !== "string") return null;
-    sections.push({
-      type: section.type,
-      guidance: section.guidance,
-      ...(section.optional === true ? { optional: true } : {}),
-    });
+    style = [...guidance.filter(Boolean), style.trim()].filter(Boolean).join(" ");
   }
   return {
     targetSeconds: raw.targetSeconds,
     toleranceSeconds: raw.toleranceSeconds,
     minActualities: raw.minActualities,
     maxActualities: raw.maxActualities,
-    sections,
-    style: raw.style,
+    anchorIntro,
+    style,
   };
 }
 
@@ -114,12 +113,8 @@ const PLACEHOLDER = /\{\{\s*([^{}]*?)\s*\}\}/;
 export function validateFormatSpec(input: FormatSpec): FormatSpecCheck {
   const spec: FormatSpec = {
     ...input,
+    anchorIntro: input.anchorIntro === true,
     style: input.style.replace(/\r\n/g, "\n").trim(),
-    sections: input.sections.map((section) => ({
-      type: section.type,
-      guidance: section.guidance.replace(/\s+/g, " ").trim(),
-      ...(section.optional ? { optional: true } : {}),
-    })),
   };
   if (spec.targetSeconds < MIN_TARGET_SECONDS || spec.targetSeconds > MAX_TARGET_SECONDS) {
     return { ok: false, error: "Give the length as something between 0:05 and 30:00." };
@@ -140,48 +135,14 @@ export function validateFormatSpec(input: FormatSpec): FormatSpecCheck {
       error: `The actuality range has to run from a smaller number to a larger one, at most ${MAX_ACTUALITIES}.`,
     };
   }
-  if (spec.sections.length === 0) return { ok: false, error: "Add at least one section." };
-  if (spec.sections.length > MAX_SECTIONS) {
-    return { ok: false, error: `A format can have at most ${MAX_SECTIONS} sections.` };
-  }
-  const anchorAt = spec.sections.findIndex((section) => section.type === "anchor");
-  if (anchorAt > 0 || spec.sections.filter((section) => section.type === "anchor").length > 1) {
-    return {
-      ok: false,
-      error: "An anchor intro can be the first section only, and a format has at most one.",
-    };
-  }
-  if (!spec.sections.some((section) => section.type === "narration")) {
-    return {
-      ok: false,
-      error: "Add at least one narration section: the model writes only the narration.",
-    };
-  }
-  const actualitySections = spec.sections.filter((section) => section.type === "actuality").length;
-  if (actualitySections > spec.maxActualities) {
-    return {
-      ok: false,
-      error: `There are ${actualitySections} actuality sections but at most ${spec.maxActualities} actualities. Raise the range or remove a section.`,
-    };
-  }
-  for (const [index, section] of spec.sections.entries()) {
-    if (!section.guidance)
-      return { ok: false, error: `Section ${index + 1} needs a line of guidance.` };
-    if (section.guidance.length > SECTION_GUIDANCE_MAX) {
-      return {
-        ok: false,
-        error: `Keep section ${index + 1}'s guidance under ${SECTION_GUIDANCE_MAX} characters.`,
-      };
-    }
-  }
   if (spec.style.length > STYLE_MAX) {
     return {
       ok: false,
       error: `Keep the style under ${STYLE_MAX.toLocaleString("en-US")} characters.`,
     };
   }
-  for (const text of [spec.style, ...spec.sections.map((section) => section.guidance)]) {
-    const placeholder = PLACEHOLDER.exec(text);
+  {
+    const placeholder = PLACEHOLDER.exec(spec.style);
     if (placeholder) {
       return {
         ok: false,
@@ -225,23 +186,20 @@ export function describeFormat(spec: FormatSpec): string {
 /**
  * The editors' language as the model reads it, appended to the drafting step's
  * fixed framing. Everything here is the format's own wording; nothing in it can
- * change the shape of the answer.
+ * change the shape of the answer, and nothing in it prescribes the order of blocks.
  */
 export function renderFormatGuide(name: string, spec: FormatSpec): string {
-  const hasAnchor = spec.sections.some((section) => section.type === "anchor");
-  const label = { narration: "Narration", actuality: "Actuality", anchor: "Anchor intro" } as const;
   const lines = [
     `Format: ${name}.`,
-    `Length: aim for ${formatClock(spec.targetSeconds)}; ${lengthRangeLabel(spec)} is on target.${hasAnchor ? " The anchor intro is not counted." : ""}`,
+    `Length: aim for ${formatClock(spec.targetSeconds)}; ${lengthRangeLabel(spec)} is on target.${spec.anchorIntro ? " The anchor intro is not counted." : ""}`,
     `Actualities: ${actualityRangeLabel(spec)} is the usual range. It is a guide, not a quota: use fewer when fewer clips earn their place, and never add a weaker clip to reach the number.`,
+    spec.anchorIntro
+      ? "Anchor intro: this format allows one. When the anchor would introduce a reporter's recorded piece, begin with a single anchor_intro block written for the anchor to read. When the anchor or reporter simply reads the piece itself, write none."
+      : "Anchor intro: this format has none. Do not write an anchor_intro block.",
     "",
-    "Sections, in order (an outline of what the piece needs to do, not a template to fill; sections marked optional can go when the material doesn't call for them):",
-    ...spec.sections.map(
-      (section, index) =>
-        `${index + 1}. ${label[section.type]}${section.optional ? " (optional)" : ""}: ${section.guidance}`,
-    ),
+    "You choose how many narration blocks and which actualities, and in what order, from the material you are given.",
   ];
-  if (spec.style) lines.push("", "Style:", spec.style);
+  if (spec.style) lines.push("", "What this kind of piece is, and its style:", spec.style);
   return lines.join("\n");
 }
 
@@ -251,45 +209,6 @@ export function lengthAgainstFormat(totalSeconds: number, spec: FormatSpec): str
   const diff = totalSeconds - spec.targetSeconds;
   if (Math.abs(diff) <= spec.toleranceSeconds) return base;
   return `${base}, ${Math.abs(diff)}s ${diff > 0 ? "over" : "under"}`;
-}
-
-// Editing the sections list -------------------------------------------------------
-
-export function moveSection(
-  sections: readonly FormatSection[],
-  index: number,
-  delta: -1 | 1,
-): FormatSection[] {
-  const to = index + delta;
-  if (index < 0 || index >= sections.length || to < 0 || to >= sections.length)
-    return [...sections];
-  const next = [...sections];
-  const [moved] = next.splice(index, 1);
-  next.splice(to, 0, moved!);
-  return next;
-}
-
-export function moveSectionTo(
-  sections: readonly FormatSection[],
-  from: number,
-  to: number,
-): FormatSection[] {
-  if (from === to || from < 0 || to < 0 || from >= sections.length || to >= sections.length) {
-    return [...sections];
-  }
-  const next = [...sections];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved!);
-  return next;
-}
-
-export function insertSection(
-  sections: readonly FormatSection[],
-  index: number,
-  section: FormatSection,
-): FormatSection[] {
-  const at = Math.min(Math.max(index, 0), sections.length);
-  return [...sections.slice(0, at), section, ...sections.slice(at)];
 }
 
 export function specsEqual(a: FormatSpec, b: FormatSpec): boolean {

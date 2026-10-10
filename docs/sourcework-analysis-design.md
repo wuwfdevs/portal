@@ -216,7 +216,7 @@ note`. Insert-only. `sw_prompt_live (slot, version_id)` is the movable pointer;
   after 14 days, never touches project data (§8.1).
 - `sw_piece_formats` / `sw_piece_format_versions`: a **format** has a name and
   kind (`script`, `voicer`, `wrap`, `cut_and_copy`, …) and immutable versions
-  holding the section structure, length, actuality range and style language (§6.3).
+  holding the length, actuality range, free-text description and style, and whether an anchor leads in (§6.3, §19).
 - `sw_pieces`: `id, project_id, title, format_version_id (nullable),
 target_seconds (nullable), created_by`. `format_version_id` is null for a piece
   written by hand. `sw_piece_versions (piece_id, version, body jsonb, saved_by,
@@ -402,9 +402,10 @@ moved or removed. Conventions:
 
 ### 6.3 Formats and AI drafting
 
-A **format** defines: a name and kind; ordered sections, each `narration` or
-`actuality` with a line of guidance; a target duration with a tolerance; a range for
-the number of actualities; and style language. A draft run takes a project's
+A **format** defines: a name and kind; a target duration with a tolerance; a range for
+the number of actualities; free-text description and style language; and whether an
+anchor reads a lead-in. These are guardrails: the model assembles the narration and
+actualities freely from the material, since every story is different (§19). A draft run takes a project's
 accepted themes and accepted excerpts (or a subset the reporter picks), the format
 version, and a direction (angle, audience, sensitivities).
 
@@ -413,8 +414,8 @@ text and audio always match the source. Nothing is generated from the model's me
 of a transcript: the inputs are only data points and excerpts a person has accepted.
 
 Editors maintain formats on the Editors page like prompts (§8): a name, length and
-tolerance, actuality range, an ordered list of sections that reorder and insert the
-way blocks do, and a style paragraph. A format versions, publishes with a note, and
+tolerance, actuality range, whether an anchor leads in, and one free-text description
+and style paragraph. A format versions, publishes with a note, and
 has **Try this draft** (§8.1): drafting a piece from a chosen project's accepted
 themes and excerpts with the draft and live formats side by side, writing nothing to
 the project.
@@ -496,7 +497,7 @@ format). The rules are the existing phone layout's, applied to the new screens:
   the text area is full width at 16px, and Publish and Try this draft sit in a fixed
   bottom bar. On the Try screen the Live and Draft texts stack inside each row
   instead of sitting in columns, and the pickers stack with a full-width Run both. A
-  piece format's sections are cards reordered with Move up and Move down.
+  piece format is a few fields and one text area, with no list to reorder.
 
 Where a desktop interaction has no touch equivalent (dragging a block), the same
 action is reachable another way.
@@ -511,7 +512,7 @@ Slots (defined in code, each with a fixed output schema and variable list):
 | `extraction`                    | what counts as responsive and as each story element; how to phrase precision | output schema, categories, range format |
 | `theme_assign` / `theme_review` | how a theme definition should read                                           | schema, stance values, statuses         |
 | `quote_quality`                 | the definition of a good actuality                                           | range schema, tiers                     |
-| piece formats                   | sections, length, style                                                      | block schema, excerpt placement by id   |
+| piece formats                   | description and style, length, actuality range                               | block schema, excerpt placement by id   |
 
 Rules, borrowed from prompt-management tools:
 
@@ -816,8 +817,8 @@ Where the build departed from, or settled, the design above:
 Where the build departed from, or settled, the design above:
 
 - **Formats are rows, versioned like the prompts.** `sw_piece_formats` (name, order, a `live_version_id` pointer),
-  `sw_piece_format_versions` (insert-only; `spec` jsonb: target and tolerance in seconds, the actuality range, ordered
-  sections, style), `sw_piece_format_drafts` (one per format per editor) and `sw_piece_format_trials` (private, 14 days).
+  `sw_piece_format_versions` (insert-only; `spec` jsonb: target and tolerance in seconds, the actuality range, `anchorIntro`, style; before §19 it
+  held an ordered `sections` list, which `readFormatSpec` still reads), `sw_piece_format_drafts` (one per format per editor) and `sw_piece_format_trials` (private, 14 days).
   `sw_publish_piece_format()` writes the next version and moves the pointer in one transaction; publishing and making a
   version live again are audited (`sourcework.piece_format.*`). There is no delete. The `kind` §4.7 sketched is not
   stored: nothing reads it, and the name already says what the format is. `lib/sourcework/piece-formats.ts` is the
@@ -877,17 +878,41 @@ no edits and no pieces, so they were revised in place (`20261017120000`), never 
   ±0:08. The model has no separate min/max length; an editor can change either number.
 - **The actuality range is a usual range, not a quota.** The prompt says to use fewer when fewer clips earn their place and
   never to add a weaker clip to reach the number; a trial flags only going over the most.
-- **Spec additions** (`piece-formats.ts`, backwards compatible): a section may be `optional` (a tag, a second voice) and may
-  be of type `anchor`, the first section only. Sections are described to the model as an outline, not a template, so it
-  need not alternate narration and actualities or use a set number of speakers.
+- **Spec additions** (`piece-formats.ts`): sections could be `optional` or of type `anchor`. Superseded by §19: sections
+  are gone and the anchor is a flag.
 - **Anchor intro vs. the reporter's piece.** A narration block may carry `role: "anchor"`: shown as its own block, kept out
   of `totalSeconds` (and so out of the target comparison) and reported separately as `anchorSeconds`. A reader or cut and
   copy has no anchor intro of its own because the anchor reads, and the format times, the whole thing. The draft schema
   gains `anchor_intro` (first block only; a later one becomes narration with a warning).
 - **Formats serve hand-written pieces.** New piece takes an optional format; a piece can pick or clear one from the editor
-  (`setPieceFormat`), which sets the target and shows a collapsible guide of sections, length range and style. It never
+  (`setPieceFormat`), which sets the target and shows a collapsible guide of the length range, description and style. It never
   touches content. A piece keeps `format_version_id`; `drafted_version` is set only by Draft with AI, so "then edited"
   stays accurate.
 - **Standards** moved into the fixed drafting framing, not each format's style: attribution and accuracy, context,
   complicating evidence, actuality selection (tape for experience and feeling, narration for facts), and writing for the ear.
 - Not run against a live model; the pure parts are tested.
+
+## 19. Formats are guardrails, not block outlines (2026-10-10)
+
+Format specs carried an ordered `sections` list (each `narration`, `actuality` or `anchor`, with a line of guidance), which
+prescribed the block structure of every draft even though the prompt called it an outline. That is wrong: every story is
+different, so the model should assemble narration and actualities freely from the material it is given.
+
+- **A spec is now guardrails**: `targetSeconds`/`toleranceSeconds`, `minActualities`/`maxActualities`, `anchorIntro`
+  (boolean: the format allows an anchor to read a lead-in, written as the first block and kept out of the timed length;
+  always optional, so a reader has none) and `style`, one
+  free-text field editors use for what the piece is and how it sounds. `sections`, `moveSection`, `insertSection` and
+  `MAX_SECTIONS` are gone. A separate `description` field was tried and folded into `style`, which already existed.
+- **`renderFormatGuide` no longer numbers anything.** It states the length, the usual actuality range (a guide, not a
+  quota), whether an anchor intro is allowed, and the style text. `DRAFT_FRAMING` tells the model to choose how many
+  narration blocks the story needs and which actualities go where; the format fixes length, range and style only.
+- **Stored versions are not rewritten.** `readFormatSpec` reads an old `sections` list by putting every
+  section's guidance, the anchor's included, ahead of the style text and setting `anchorIntro` if any section was an
+  anchor; `STYLE_MAX` (7,000) is sized so the largest legacy spec still validates. Formats an editor
+  has changed keep that joined text. The five built-in formats the catalog (§18) seeded get proper descriptions as a new
+  version each (`20261018110000`), unedited ones only.
+- **The editor** is the length, plus or minus, usual actualities, one "Description and style" text area and the anchor
+  checkbox. The in-piece guide shows the same.
+- Separately fixed the same day: deleting a piece written by Draft with AI failed because `sw_analysis_runs`'s
+  `piece_draft` check required a non-trial draft run to name its piece, while the foreign key sets it null on deletion
+  (`20261018100000` drops the check).
