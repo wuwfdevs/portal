@@ -26,7 +26,7 @@ import {
   type FormatSpec,
 } from "@/lib/sourcework/piece-formats";
 import { LocalTime } from "../local-time";
-import { PublishPanel } from "../publish-panel";
+import { PublishButton, PublishNote, PublishStatus, usePublish } from "../publish-control";
 import {
   discardFormatDraft,
   makeFormatVersionLive,
@@ -98,7 +98,6 @@ export function FormatEditor({
   );
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chain = useRef<Promise<boolean>>(Promise.resolve(true));
-  const [publishing, setPublishing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -106,7 +105,6 @@ export function FormatEditor({
   const [renaming, setRenaming] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const dragFrom = useRef<number | null>(null);
-  const publishRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
   const differs = liveSpec === null || !specsEqual(spec, liveSpec);
@@ -154,10 +152,29 @@ export function FormatEditor({
     [],
   );
 
+  // One click publishes the format on screen, with the note typed beside it (if any).
+  const publish = usePublish({
+    run: async (note) => {
+      await flush();
+      const checked = validateFormatSpec(specRef.current);
+      if (!checked.ok) return checked;
+      return publishFormat({ formatId, spec: checked.spec, note });
+    },
+    onPublished: () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      draftExistsRef.current = false;
+      setDraftExists(false);
+      setSave({ kind: "idle" });
+      router.refresh();
+    },
+  });
+
   function change(next: FormatSpec) {
     setSpec(next);
     specRef.current = next;
     setNotice(null);
+    publish.dismiss();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }
@@ -318,20 +335,11 @@ export function FormatEditor({
 
   const actions = (
     <>
-      <Button
-        type="button"
-        onClick={() => {
-          setPublishing(true);
-          setTimeout(
-            () => publishRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-            50,
-          );
-        }}
-        disabled={publishing}
+      <PublishButton
+        control={publish}
+        disabled={!check.ok}
         className="max-lg:min-h-11 max-lg:flex-1"
-      >
-        Publish…
-      </Button>
+      />
       <Link
         href={`/sourcework/editors/formats/try?format=${formatId}`}
         onClick={goTry}
@@ -561,12 +569,23 @@ export function FormatEditor({
         <p className="text-xs font-semibold text-warning-fg">Not ready to publish: {check.error}</p>
       ) : (
         differs &&
-        !publishing && (
+        publish.state.kind !== "published" && (
           <p className="text-xs font-semibold text-warning-fg">
             Unpublished changes: this format is not live yet.
           </p>
         )
       )}
+
+      <PublishNote
+        control={publish}
+        id={`format-${formatId}`}
+        placeholder="Shorter setup; asks for a second voice"
+        consequence="Shown in History. Publishing changes what every reporter's next draft follows; the previous version stays available to make live again."
+      />
+      <PublishStatus
+        control={publish}
+        successMessage={(version) => `Published as v${version}. Reporters' next drafts follow it.`}
+      />
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex items-center gap-2.5 max-lg:hidden">{actions}</div>
@@ -588,33 +607,6 @@ export function FormatEditor({
         Trying a format drafts a piece from a project&rsquo;s accepted themes and excerpts, with the
         draft and the live version side by side. Nothing is saved to the project.
       </p>
-
-      {publishing && (
-        <div ref={publishRef}>
-          <PublishPanel
-            id={`format-${formatId}`}
-            placeholder="Shorter setup; asks for a second voice"
-            consequence="Publishing changes what every reporter's next draft follows; the previous version stays available to make live again."
-            publish={async (note) => {
-              await flush();
-              const checked = validateFormatSpec(specRef.current);
-              if (!checked.ok) return checked;
-              return publishFormat({ formatId, spec: checked.spec, note });
-            }}
-            onClose={() => setPublishing(false)}
-            onPublished={(version) => {
-              if (timer.current) clearTimeout(timer.current);
-              timer.current = null;
-              draftExistsRef.current = false;
-              setDraftExists(false);
-              setSave({ kind: "idle" });
-              setPublishing(false);
-              setNotice(`Published as v${version}. Reporters' next drafts follow it.`);
-              router.refresh();
-            }}
-          />
-        </div>
-      )}
 
       {historyOpen && (
         <div ref={historyRef} className="flex flex-col gap-2 rounded border border-line p-4">

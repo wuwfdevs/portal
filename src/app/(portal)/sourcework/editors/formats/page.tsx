@@ -11,6 +11,7 @@ import { requireSourceworkEditor } from "@/lib/sourcework/access";
 import { FORMAT_NAME_MAX, blankSpec } from "@/lib/sourcework/piece-formats";
 import { getFormatEditorData, listFormatsForEditors } from "@/lib/sourcework/piece-format-queries";
 import { uuidParam } from "@/lib/sourcework/route-input";
+import { SourceworkTabs } from "../../sourcework-tabs";
 import { EditorsSubNav } from "../editors-sub-nav";
 import { SlotSelect } from "../slot-select";
 import { createFormat } from "./actions";
@@ -75,11 +76,11 @@ export default async function FormatsPage({
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <PageHeader
         size="page"
-        back={{ href: "/sourcework", label: "Back to projects" }}
-        title="Research prompts and piece formats"
-        description="The wording the model works from. Everyone's next draft uses the live version."
-        className="mb-4"
+        title="Sourcework"
+        description="Setup: the wording the model works from. Everyone's next draft uses the live version."
+        className="mb-8"
       />
+      <SourceworkTabs active="setup" isEditor className="mb-3" />
       <EditorsSubNav active="formats" className="mb-6" />
 
       {creating && newCard}

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { Textarea } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -13,7 +12,7 @@ import { acceptRateLabel, validatePromptBody, type PromptSlot } from "@/lib/sour
 import { draftDiffersFromLive } from "@/lib/sourcework/trial-sample";
 import { discardPromptDraft, makeVersionLive, publishPrompt, savePromptDraft } from "./actions";
 import { LocalTime } from "./local-time";
-import { PublishPanel } from "./publish-panel";
+import { PublishButton, PublishNote, PublishStatus, usePublish } from "./publish-control";
 
 const AUTOSAVE_MS = 1200;
 
@@ -67,11 +66,9 @@ export function PromptEditor({
   );
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chain = useRef<Promise<void>>(Promise.resolve());
-  const [publishing, setPublishing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
-  const publishRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -121,10 +118,30 @@ export function PromptEditor({
     [],
   );
 
+  // One click publishes the text on screen, with the note typed beside it (if any).
+  const publish = usePublish({
+    run: async (note) => {
+      await flush();
+      // Checked here too, so the error sits by the text rather than after a round trip.
+      const checked = validatePromptBody(slot, textRef.current);
+      if (!checked.ok) return checked;
+      return publishPrompt({ slot, body: checked.body, note });
+    },
+    onPublished: () => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      draftExistsRef.current = false;
+      setDraftExists(false);
+      setSave({ kind: "idle" });
+      router.refresh();
+    },
+  });
+
   function change(value: string) {
     setText(value);
     textRef.current = value;
     setNotice(null);
+    publish.dismiss();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }
@@ -132,14 +149,6 @@ export function PromptEditor({
   async function goTry(event: React.MouseEvent) {
     event.preventDefault();
     if (await flush(true)) router.push(`/sourcework/editors/try?slot=${slot}`);
-  }
-
-  function openPublish() {
-    setPublishing(true);
-    setTimeout(
-      () => publishRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
-      50,
-    );
   }
 
   function toggleHistory() {
@@ -170,6 +179,7 @@ export function PromptEditor({
     setText(version.body);
     textRef.current = version.body;
     setNotice(`Started a draft from v${version.version}.`);
+    publish.dismiss();
     setHistoryOpen(false);
     void flush(true);
     textareaRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -207,14 +217,7 @@ export function PromptEditor({
 
   const actions = (
     <>
-      <Button
-        type="button"
-        onClick={openPublish}
-        disabled={publishing}
-        className="max-lg:min-h-12 max-lg:flex-1"
-      >
-        Publish…
-      </Button>
+      <PublishButton control={publish} className="max-lg:min-h-12 max-lg:flex-1" />
       {tryable ? (
         <Link
           href={`/sourcework/editors/try?slot=${slot}`}
@@ -242,11 +245,17 @@ export function PromptEditor({
       />
 
       {notice && <Alert variant="note">{notice}</Alert>}
-      {differs && !publishing && (
+      {differs && publish.state.kind !== "published" && (
         <p className="text-xs font-semibold text-warning-fg">
           Unpublished changes: this text is not live yet.
         </p>
       )}
+
+      <PublishNote control={publish} id={slot} />
+      <PublishStatus
+        control={publish}
+        successMessage={(version) => `Published as v${version}. It is now live for every project.`}
+      />
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex items-center gap-2.5 max-lg:hidden">{actions}</div>
@@ -264,32 +273,6 @@ export function PromptEditor({
         <span className="text-[13px] text-ink-500 lg:ml-auto max-lg:hidden">{liveLine}</span>
       </div>
       <p className="text-[13px] text-ink-500 lg:hidden">{liveLine}</p>
-
-      {publishing && (
-        <div ref={publishRef}>
-          <PublishPanel
-            id={slot}
-            publish={async (note) => {
-              await flush();
-              // Checked here too, so the error sits by the text rather than after a round trip.
-              const checked = validatePromptBody(slot, textRef.current);
-              if (!checked.ok) return checked;
-              return publishPrompt({ slot, body: checked.body, note });
-            }}
-            onClose={() => setPublishing(false)}
-            onPublished={(version) => {
-              if (timer.current) clearTimeout(timer.current);
-              timer.current = null;
-              draftExistsRef.current = false;
-              setDraftExists(false);
-              setSave({ kind: "idle" });
-              setPublishing(false);
-              setNotice(`Published as v${version}. It is now live for every project.`);
-              router.refresh();
-            }}
-          />
-        </div>
-      )}
 
       {historyOpen && (
         <div ref={historyRef} className="flex flex-col gap-2 rounded border border-line p-4">
