@@ -258,6 +258,8 @@ repo and a project's history, not the version number.
 | `20261012140000_sourcework_research_detached_sources.sql`             | 2026-10-10 | 2026-10-10 |
 | `20261013120000_sourcework_themes.sql`                                | 2026-10-10 | 2026-10-10 |
 | `20261013130000_resources_sourcework_themes.sql`                      | 2026-10-10 | 2026-10-10 |
+| `20261014120000_sourcework_suggested_quotes.sql`                      | 2026-10-10 | 2026-10-10 |
+| `20261014130000_resources_sourcework_quotes.sql`                      | 2026-10-10 | 2026-10-10 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
