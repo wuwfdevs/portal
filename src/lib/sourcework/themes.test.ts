@@ -189,6 +189,8 @@ describe("evidence", () => {
       sourceTitle: "Tom",
       stance: "supports",
       claim: "a",
+      relevance: "question",
+      questionId: "q1",
       position: 5,
     },
     {
@@ -197,6 +199,8 @@ describe("evidence", () => {
       sourceTitle: "Tom",
       stance: "supports",
       claim: "b",
+      relevance: "question",
+      questionId: "q1",
       position: 1,
     },
     {
@@ -205,6 +209,8 @@ describe("evidence", () => {
       sourceTitle: "Marlene",
       stance: "complicates",
       claim: "c",
+      relevance: "question",
+      questionId: "q1",
       position: 2,
     },
     {
@@ -213,6 +219,8 @@ describe("evidence", () => {
       sourceTitle: "Marlene",
       stance: "supports",
       claim: "d",
+      relevance: "question",
+      questionId: "q1",
       position: 9,
     },
     {
@@ -221,6 +229,8 @@ describe("evidence", () => {
       sourceTitle: "Newsletter",
       stance: "complicates",
       claim: "e",
+      relevance: "question",
+      questionId: "q1",
       position: 1,
     },
   ];

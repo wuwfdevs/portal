@@ -254,6 +254,9 @@ export interface EvidenceItem {
   sourceTitle: string;
   stance: Stance;
   claim: string;
+  /** What the point answers: a research question, or the story. */
+  relevance: "question" | "story";
+  questionId: string | null;
   /** Where the point starts, for ordering within a source. */
   position: number;
 }

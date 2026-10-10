@@ -189,6 +189,32 @@ export function dataPointTag(
 }
 
 /**
+ * What a data point answers, as a short label: "Q1" for a point that answers a
+ * question, "Story" for one that adds to the story, null when neither is known
+ * (its question was removed). Where a surface has no room for the full tag.
+ */
+export function pointQuestionLabel(
+  point: Pick<DataPoint, "relevance" | "questionId">,
+  labels: ReadonlyMap<string, string>,
+): string | null {
+  if (point.relevance === "story") return "Story";
+  return point.questionId ? (labels.get(point.questionId) ?? null) : null;
+}
+
+/** The hover text for a question label: "Q1 — the question as worded". */
+export function questionTitle(
+  point: Pick<DataPoint, "relevance" | "questionId">,
+  labels: ReadonlyMap<string, string>,
+  texts: ReadonlyMap<string, string>,
+): string | undefined {
+  if (point.relevance === "story") return "Adds to the story rather than answering a question";
+  if (!point.questionId) return undefined;
+  const label = labels.get(point.questionId);
+  const text = texts.get(point.questionId);
+  return label && text ? `${label} — ${text}` : undefined;
+}
+
+/**
  * "13:02–13:11" for one stretch, "12:41–12:58 · 13:06–13:09 · 2 spans" for a
  * memory built from two; "p. 3" / "pp. 3–4" for a document.
  */
