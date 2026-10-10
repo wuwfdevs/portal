@@ -29,7 +29,7 @@ export const DIRECTION_MAX = 1000;
 
 export const DRAFT_FRAMING = `You draft a radio piece for a public radio newsroom, from material a reporter has already accepted. You are given the newsroom's format for this kind of piece, the reporter's direction (if any), the project's accepted themes with the accepted data points behind them (short paraphrases of what sources said, each marked "supports" or "complicates"), and the excerpts you may use, numbered, each with its speaker, its length and its words.
 
-Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An anchor_intro block is what the anchor reads to introduce a reporter's recorded piece: use one only when the format says it has an anchor intro, and only as the first block. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
+Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An anchor_intro block is what the anchor reads to introduce a reporter's recorded piece: use one only when the format allows an anchor intro and the anchor would be introducing a reporter's recorded piece, and only as the first block. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
 
 Accuracy and attribution:
 - Use only what the material says. Never invent a name, a number, a date, a place or anything a person said. When a sentence needs a fact the material does not give, write a short bracketed placeholder such as [CHECK: year the gap was closed] instead of guessing.
@@ -159,8 +159,7 @@ export function buildDraftOutputSchema(): Record<string, unknown> {
 }
 
 export type DraftParse =
-  | { ok: true; blocks: PieceBlock[]; warnings: string[] }
-  | { ok: false; error: string };
+  { ok: true; blocks: PieceBlock[]; warnings: string[] } | { ok: false; error: string };
 
 /**
  * Turns the model's answer into blocks. An actuality naming an excerpt it was not

@@ -899,14 +899,16 @@ prescribed the block structure of every draft even though the prompt called it a
 different, so the model should assemble narration and actualities freely from the material it is given.
 
 - **A spec is now guardrails**: `targetSeconds`/`toleranceSeconds`, `minActualities`/`maxActualities`, `anchorIntro`
-  (boolean: the anchor reads a lead-in, written as the first block and kept out of the timed length) and `style`, one
+  (boolean: the format allows an anchor to read a lead-in, written as the first block and kept out of the timed length;
+  always optional, so a reader has none) and `style`, one
   free-text field editors use for what the piece is and how it sounds. `sections`, `moveSection`, `insertSection` and
   `MAX_SECTIONS` are gone. A separate `description` field was tried and folded into `style`, which already existed.
 - **`renderFormatGuide` no longer numbers anything.** It states the length, the usual actuality range (a guide, not a
-  quota), whether there is an anchor intro, and the style text. `DRAFT_FRAMING` tells the model to choose how many
+  quota), whether an anchor intro is allowed, and the style text. `DRAFT_FRAMING` tells the model to choose how many
   narration blocks the story needs and which actualities go where; the format fixes length, range and style only.
-- **Stored versions are not rewritten.** `readFormatSpec` reads an old `sections` list by putting each non-anchor
-  section's guidance ahead of the style text and setting `anchorIntro` if any section was an anchor. Formats an editor
+- **Stored versions are not rewritten.** `readFormatSpec` reads an old `sections` list by putting every
+  section's guidance, the anchor's included, ahead of the style text and setting `anchorIntro` if any section was an
+  anchor; `STYLE_MAX` (7,000) is sized so the largest legacy spec still validates. Formats an editor
   has changed keep that joined text. The five built-in formats the catalog (§18) seeded get proper descriptions as a new
   version each (`20261018110000`), unedited ones only.
 - **The editor** is the length, plus or minus, usual actualities, one "Description and style" text area and the anchor

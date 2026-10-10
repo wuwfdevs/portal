@@ -41,10 +41,22 @@ describe("readFormatSpec", () => {
     };
     expect(readFormatSpec(legacy)).toEqual({
       ...wrap,
-      style: `Setup. A voice. ${wrap.style}`,
+      style: `Anchor intro: the newest fact. Setup. A voice. ${wrap.style}`,
       anchorIntro: true,
     });
     expect(readFormatSpec({ ...legacy, sections: [{ type: "music", guidance: "x" }] })).toBeNull();
+  });
+
+  it("keeps the largest legacy spec (16 sections of 300 characters, a 2,000-character style) valid", () => {
+    const { anchorIntro: _anchor, ...rest } = wrap;
+    const sections = Array.from({ length: 16 }, (_, index) => ({
+      type: index === 0 ? "anchor" : "narration",
+      guidance: "g".repeat(300),
+    }));
+    const spec = readFormatSpec({ ...rest, sections, style: "s".repeat(2000) });
+    expect(spec?.anchorIntro).toBe(true);
+    expect(spec?.style).toContain("g".repeat(300));
+    expect(validateFormatSpec(spec!).ok).toBe(true);
   });
 });
 
@@ -109,6 +121,7 @@ describe("anchor intro", () => {
     expect(readFormatSpec(JSON.parse(JSON.stringify(withAnchor)))).toEqual(withAnchor);
     const guide = renderFormatGuide("Wrap", withAnchor);
     expect(guide).toContain("The anchor intro is not counted.");
-    expect(guide).toContain("Begin with a single anchor_intro block");
+    expect(guide).toContain("this format allows one");
+    expect(guide).toContain("write none");
   });
 });

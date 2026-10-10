@@ -433,7 +433,7 @@ export function FormatEditor({
             checked={spec.anchorIntro}
             onChange={(event) => change({ ...specRef.current, anchorIntro: event.target.checked })}
           />
-          An anchor reads a lead-in first (not counted in the length)
+          An anchor may read a lead-in first (optional, not counted in the length)
         </label>
       </div>
 
@@ -514,7 +514,7 @@ export function FormatEditor({
                     <div className="rounded border border-line bg-panel-50 p-3 text-sm text-ink-700">
                       <p className="whitespace-pre-line">{version.spec.style}</p>
                       {version.spec.anchorIntro && (
-                        <p className="mt-2 text-ink-500">An anchor reads a lead-in first.</p>
+                        <p className="mt-2 text-ink-500">An anchor may read a lead-in first.</p>
                       )}
                     </div>
                   )}

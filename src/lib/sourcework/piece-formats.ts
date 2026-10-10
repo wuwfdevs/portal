@@ -19,8 +19,9 @@ export interface FormatSpec {
   minActualities: number;
   maxActualities: number;
   /**
-   * The anchor reads a lead-in to a reporter's recorded piece: written first, kept out of the
-   * piece's timed length. Everything else is the piece itself, even when an anchor reads it.
+   * The format allows an anchor to read a lead-in to a reporter's recorded piece, written first
+   * and kept out of the piece's timed length. Always optional: a piece the anchor reads itself
+   * (a reader) has none. Everything else is the piece itself, even when an anchor reads it.
    */
   anchorIntro: boolean;
   /** Free text, in the editors' words: what this kind of piece is, how it sounds. Not a block outline. */
@@ -28,7 +29,8 @@ export interface FormatSpec {
 }
 
 export const FORMAT_NAME_MAX = 80;
-export const STYLE_MAX = 3000;
+/** Sized for a converted legacy spec: 16 sections of 300 characters plus the old 2,000-character style. */
+export const STYLE_MAX = 7000;
 export const MAX_ACTUALITIES = 12;
 export const MIN_TARGET_SECONDS = 5;
 export const MAX_TARGET_SECONDS = 1800;
@@ -58,7 +60,7 @@ function isInt(value: unknown): value is number {
  * try is validateFormatSpec's question.
  *
  * Versions are insert-only, so older ones still carry an ordered `sections` list. It is read
- * as free text (the sections' guidance, in order, ahead of the style) and an anchor flag; nothing downstream
+ * as free text (every section's guidance, the anchor's included, in order, ahead of the style) and an anchor flag; nothing downstream
  * treats it as a block structure any more.
  */
 export function readFormatSpec(value: unknown): FormatSpec | null {
@@ -89,7 +91,7 @@ export function readFormatSpec(value: unknown): FormatSpec | null {
       }
       if (typeof section.guidance !== "string") return null;
       if (section.type === "anchor") anchorIntro = true;
-      else guidance.push(section.guidance.trim());
+      guidance.push(section.guidance.trim());
     }
     style = [...guidance.filter(Boolean), style.trim()].filter(Boolean).join(" ");
   }
@@ -192,7 +194,7 @@ export function renderFormatGuide(name: string, spec: FormatSpec): string {
     `Length: aim for ${formatClock(spec.targetSeconds)}; ${lengthRangeLabel(spec)} is on target.${spec.anchorIntro ? " The anchor intro is not counted." : ""}`,
     `Actualities: ${actualityRangeLabel(spec)} is the usual range. It is a guide, not a quota: use fewer when fewer clips earn their place, and never add a weaker clip to reach the number.`,
     spec.anchorIntro
-      ? "Anchor intro: this format has one. Begin with a single anchor_intro block, written for the anchor to read."
+      ? "Anchor intro: this format allows one. When the anchor would introduce a reporter's recorded piece, begin with a single anchor_intro block written for the anchor to read. When the anchor or reporter simply reads the piece itself, write none."
       : "Anchor intro: this format has none. Do not write an anchor_intro block.",
     "",
     "You choose how many narration blocks and which actualities, and in what order, from the material you are given.",
