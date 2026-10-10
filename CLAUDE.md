@@ -466,8 +466,8 @@ from the transcript for the range actually accepted (after any trim). (3) a run 
 and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot is editor-owned like the others, with
 an accept rate per version and its own **Try this draft** (sampled on a theme, compared as two playable clip lists;
 `quote-trial-run.ts`, `sw_prompt_trials.theme_id`). Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
-`20261014130000` (Resources content) are **not yet applied** to either project: apply them (preview first, then
-production), record both dates in `APPLIED.md`, then `npm run db:check`.
+`20261014130000` (Resources content) are applied to **preview only** (2026-10-10, through `execute_sql` in one transaction); production is
+pending, and they have no `APPLIED.md` row until it is, so `npm run db:check` fails in the meantime.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
