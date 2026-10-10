@@ -271,14 +271,23 @@ already has and need no clock change.
 - **Switching supersedes, never deletes.** `log_supersede_rundown()` (program
   director) marks the rundown `superseded_at`, keeps its items, events and
   exceptions, and a replacement is generated. Only a rundown that is `generated`,
-  not yet started, with no events and not imported can be switched. Deleting would
-  cascade away the very trace Traffic needs.
+  not yet started and with no events can be switched, whether its breaks were
+  generated from a clock or imported from a DAD log (`log_rundowns.source` is
+  provenance, not eligibility). Deleting would cascade away the very trace
+  Traffic needs.
 - **Credits go through the ordinary exception path.** Each placed credit is
   recorded as `missed` with the `special_coverage` reason and the
   `management_correction` source, which raises an exception through the existing
   trigger; staff decide on a makegood or a waiver. A missed placement still
   consumes its unit, so auto-fill never re-places it; the replacement comes only
-  through the makegood queue.
+  through the makegood queue. A credit with no `uw_scheduled_placements` row
+  (every credit on an imported rundown) has no contract line to be owed, so the
+  trigger cannot raise an exception for it; `switchProgramRundowns` counts those
+  before the swap and reports them, and they stay on the retired rundown.
+- **Released DAD logs.** The retired rundown drops out of the DAD file, so a
+  release covering its date is no longer current (`isReleaseCurrent`). The switch
+  notice names those dates; Traffic releases a new version, since DAD plays what
+  was released.
 - **Readers that ignore a superseded rundown:** Today, the DAD export, the import
   lookup, `log_list_placeable_rundown_breaks`, rundown provisioning,
   `uw_automation_block` (`rundown_superseded`), and the host start, submit and

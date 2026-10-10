@@ -763,7 +763,6 @@ export async function listUpcomingRundownsWithClock(
     id: rundown.id,
     air_date: rundown.air_date,
     status: rundown.status,
-    source: rundown.source,
     shift_start_at: rundown.shift_start_at,
     shift_end_at: rundown.shift_end_at,
     superseded_at: rundown.superseded_at,

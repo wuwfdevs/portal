@@ -7,8 +7,9 @@
 // (rundown-actions.ts's switchProgramRundowns, via log_supersede_rundown).
 //
 // Only a rundown that is safe to replace is ever reported: still `generated`
-// (never started), still in the future, built by the app from a clock rather
-// than imported from the station's own DAD log, and not already superseded.
+// (never started), still in the future, and not already superseded. Where its
+// breaks came from (generated from a clock, or imported from the station's DAD
+// log) is provenance, not eligibility.
 // Whether it has recorded events is the database function's call, since that
 // needs a read this module doesn't have.
 
@@ -27,7 +28,6 @@ export interface SyncRundown {
   id: string;
   air_date: string;
   status: string;
-  source: string;
   shift_start_at: string;
   shift_end_at: string;
   superseded_at: string | null;
@@ -68,7 +68,6 @@ export function findOutOfStepRundowns(
   for (const rundown of rundowns) {
     if (rundown.superseded_at !== null) continue;
     if (rundown.status !== "generated") continue;
-    if (rundown.source !== "generated") continue;
     if (Date.parse(rundown.shift_start_at) <= Date.parse(nowISO)) continue;
 
     const entry = resolveEntryInForce(entries, rundown.air_date);
