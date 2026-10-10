@@ -46,6 +46,9 @@ function squash(text) {
   return text.replace(/[\s/_-]+/g, "").toLowerCase();
 }
 
+/** The template sections every description keeps (.github/pull_request_template.md); Database and Not included are optional. */
+export const REQUIRED_SECTIONS = ["Summary", "What changed", "Test plan"];
+
 /** Every reason this title/body pair isn't ready for review; empty when it is. */
 export function checkPrText({ title, body, headRef = "" }) {
   const problems = [];
@@ -63,7 +66,9 @@ export function checkPrText({ title, body, headRef = "" }) {
     problems.push("The title is a merge commit message. Say what the change does.");
   }
   if (/(…|\.\.\.)$/.test(t)) {
-    problems.push("The title is cut off mid-sentence. Finish it and move the rest to the description.");
+    problems.push(
+      "The title is cut off mid-sentence. Finish it and move the rest to the description.",
+    );
   }
 
   const prose = proseOf(body);
@@ -72,6 +77,19 @@ export function checkPrText({ title, body, headRef = "" }) {
   } else if (prose.length < MIN_BODY_CHARS) {
     problems.push(
       `The description is only ${prose.length} characters of prose (at least ${MIN_BODY_CHARS}). Say what changed and why.`,
+    );
+  }
+  // A body generated from commit messages has prose but none of the template's sections.
+  const headings = new Set(
+    (body ?? "")
+      .split(/\r?\n/)
+      .map((line) => /^#{1,6}\s+(.*?)\s*#*$/.exec(line.trim())?.[1]?.toLowerCase())
+      .filter(Boolean),
+  );
+  const missing = REQUIRED_SECTIONS.filter((name) => !headings.has(name.toLowerCase()));
+  if (prose.length > 0 && missing.length > 0) {
+    problems.push(
+      `The description is missing the template's ${missing.map((name) => `"${name}"`).join(", ")} section${missing.length === 1 ? "" : "s"} (.github/pull_request_template.md).`,
     );
   }
   return problems;
