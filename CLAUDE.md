@@ -486,12 +486,13 @@ widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four f
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
-(`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format section may be `optional` or
-`anchor` (the anchor's lead-in, first only), and the actuality range is a usual range, never a quota; (2) a narration
+(`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline
+(§19 supersedes this: no `sections`; length, a usual actuality range that is never a quota, `anchorIntro`, and one
+free-text `style` the model reads, while it chooses the blocks itself); (2) a narration
 block may carry `role: "anchor"`, which `computePieceLength` keeps out of `totalSeconds`; (3) a piece can be written to a
 format by hand (`setPieceFormat`, New piece's format select) — that sets the target and shows a guide but never touches
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
-each format's style.
+each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
