@@ -6,6 +6,7 @@ import { connectAgentMcpClient } from "./mcp-client";
 import { buildAgentToolBridge, type AgentToolBridge } from "./tool-bridge";
 import type { Profile } from "@/lib/auth/session";
 import { getCapability } from "@/lib/capabilities/registry";
+import { pieceAssistantInstructions } from "@/lib/sourcework/piece-assistant-prompt";
 
 // The in-portal agent's turn loop (Phase D, docs/agent-capabilities-design.md
 // §7), driven by OpenAI's Responses API (reusing OPENAI_API_KEY — see
@@ -101,12 +102,9 @@ export function instructionsFor(pageContext: AgentPageContext | null | undefined
   if (!pageContext) return INSTRUCTIONS;
   return `${INSTRUCTIONS}
 
-The person is working in a Sourcework piece: “${pageContext.title}” (pieceId ${pageContext.pieceId}, projectId ${pageContext.projectId}). When they say "the piece", "this", "the setup", "the ending" or name a quote, they mean this piece.
-- Read it with sourcework.piece.read before you change anything, and again if a call says a block is missing.
-- Change only what they asked for. Use the narrower tools (replace narration, place excerpt, reorder, trim) rather than redrafting; draft from a format only when they ask for a draft or to start over.
-- An actuality is a speaker's own recorded words. Place or swap one only by excerpt id (find ids with sourcework.piece.searchExcerpts); never write a speaker's words into narration as a quote, and never invent facts the piece and its excerpts don't support.
-- Report the length from the tool result ("0:52, three seconds under"), never your own estimate. Every change you make is saved as a version they can undo, and it is marked in the piece.
-- Say briefly what you changed and what you left alone.`;
+${pieceAssistantInstructions(pageContext)}
+
+An actuality is a speaker's own recorded words. Place or swap one only by excerpt id (find ids with sourcework.piece.searchExcerpts); never write a speaker's words into narration as a quote.`;
 }
 
 export type AgentStreamEvent =

@@ -211,11 +211,19 @@ export async function getFormatDraft(formatId: string, userId: string): Promise<
   return row ? readFormatSpec(row.spec) : null;
 }
 
+export interface FormatVersionSummary {
+  name: string;
+  version: number;
+  formatId: string;
+  /** What the version asked of a piece; null if the stored spec can't be read. */
+  spec: FormatSpec | null;
+}
+
 /** "Radio wrap" and its version, for a piece that records the format version that drafted it. */
 export async function describeFormatVersions(
   versionIds: readonly string[],
-): Promise<Map<string, { name: string; version: number; formatId: string }>> {
-  const result = new Map<string, { name: string; version: number; formatId: string }>();
+): Promise<Map<string, FormatVersionSummary>> {
+  const result = new Map<string, FormatVersionSummary>();
   const ids = [...new Set(versionIds)];
   if (ids.length === 0) return result;
   const supabase = await createClient();
@@ -223,7 +231,7 @@ export async function describeFormatVersions(
     unwrapRead(
       await supabase
         .from("sw_piece_format_versions")
-        .select("id, version, format_id")
+        .select("id, version, format_id, spec")
         .in("id", ids),
       "the formats these pieces were drafted from",
     ) ?? [];
@@ -242,6 +250,7 @@ export async function describeFormatVersions(
       name: nameById.get(version.format_id) ?? "A format",
       version: version.version,
       formatId: version.format_id,
+      spec: readFormatSpec(version.spec),
     });
   }
   return result;

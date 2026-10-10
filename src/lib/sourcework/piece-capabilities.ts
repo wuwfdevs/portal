@@ -37,7 +37,8 @@ import { textForRange } from "./piece-text";
 import { loadPieceExcerpts, loadSegmentsAround, type PieceExcerpt } from "./piece-queries";
 import { savePieceBlocks } from "./piece-writes";
 import { DIRECTION_MAX } from "./piece-draft-prompt";
-import { describeFormat } from "./piece-formats";
+import { describeFormat, renderFormatGuide } from "./piece-formats";
+import { checkPiece } from "./piece-checks";
 import { listLiveFormats, describeFormatVersions } from "./piece-format-queries";
 import { draftPiece } from "./piece-draft-run";
 
@@ -144,6 +145,14 @@ async function describePiece(supabase: Client, piece: LoadedPiece) {
     }),
   );
 
+  const spec = format?.spec ?? null;
+  const checks = checkPiece(piece.blocks, [...piece.excerpts.values()], {
+    targetSeconds: piece.targetSeconds,
+    toleranceSeconds: spec?.toleranceSeconds,
+    minActualities: spec?.minActualities,
+    maxActualities: spec?.maxActualities,
+  });
+
   return {
     pieceId: piece.id,
     title: piece.title,
@@ -156,6 +165,10 @@ async function describePiece(supabase: Client, piece: LoadedPiece) {
     target: piece.targetSeconds === null ? null : formatClock(piece.targetSeconds),
     againstTarget: describeAgainstTarget(length.totalSeconds, piece.targetSeconds),
     format: format ? `${format.name} v${format.version}` : null,
+    /** The editors' guidance for this kind of piece, as Draft with AI reads it. */
+    formatGuide: format && spec ? renderFormatGuide(format.name, spec) : null,
+    /** Advice from code, not the model: what looks wrong right now. Empty means nothing does. */
+    checks,
     blocks,
   };
 }
@@ -213,7 +226,7 @@ export const readPiece = defineCapability({
   id: "sourcework.piece.read",
   label: "read piece",
   summary:
-    "Read a Sourcework piece: its title, target, length, format, and every block in order with its id, length and words. Read it before editing.",
+    "Read a Sourcework piece: its title, target, length, the format's guidance, every block in order with its id, length and words, and checks (things that look wrong right now). Read it before editing. Every edit returns the same, so read the checks after each one.",
   input: z.object({ pieceId: uuid }),
   requires: { tool: TOOL },
   confirmation: "none",
@@ -375,7 +388,8 @@ export const replaceNarration = defineCapability({
   id: "sourcework.piece.replaceNarration",
   label: "replace narration",
   writes: true,
-  summary: "Replace the text of one narration block in a piece.",
+  summary:
+    "Replace the text of one narration block in a piece. Add no fact, name, number or claim the piece's narration and clips don't already support; use a [CHECK: …] placeholder instead.",
   input: z.object({ pieceId: uuid, blockId: uuid, text: narrationText }),
   requires: { tool: TOOL },
   confirmation: "none",
@@ -452,7 +466,8 @@ export const removePieceBlock = defineCapability({
   id: "sourcework.piece.removeBlock",
   label: "remove block",
   writes: true,
-  summary: "Remove one block from a piece. An actuality's excerpt stays in the project.",
+  summary:
+    "Remove one block from a piece. An actuality's excerpt stays in the project. Removing a clip does not remove its lead-in (the narration naming its speaker); remove or rewrite that too.",
   input: z.object({ pieceId: uuid, blockId: uuid }),
   requires: { tool: TOOL },
   confirmation: "none",
@@ -469,7 +484,7 @@ export const movePieceBlock = defineCapability({
   label: "reorder",
   writes: true,
   summary:
-    "Move one block in a piece so it sits right after another block, or first when afterBlockId is left out.",
+    "Move one block in a piece so it sits right after another block, or first when afterBlockId is left out. Moves that block only: a clip's lead-in (the narration naming its speaker) is a separate block, so move it too, right before the clip.",
   input: z.object({ pieceId: uuid, blockId: uuid, afterBlockId: uuid.nullable().optional() }),
   requires: { tool: TOOL },
   confirmation: "none",
