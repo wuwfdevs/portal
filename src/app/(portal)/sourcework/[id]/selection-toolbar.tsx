@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
 import { suggestExcerptTitle } from "@/lib/transcription/excerpt-title";
 import type { SelectionRange } from "@/lib/transcription/selection";
-import { createClip } from "./clip-actions";
+import { createClip, proposeClipTitle } from "./clip-actions";
 
 /**
  * The bar that turns a transcript selection into an excerpt, sitting just below
@@ -16,9 +16,11 @@ import { createClip } from "./clip-actions";
  * rises from just above the docked player (see PlayerBar's `--player-dock-h`),
  * with the title on its own full-width row and the buttons below it, so the
  * keyboard and a thumb both have room. The title is filled in from the
- * first words of the selection, so saving is one keypress (Enter) and
- * renaming can wait. Mount it with a `key` per selection so the suggestion
- * follows a new selection.
+ * first words of the selection at once, then replaced by a short descriptive
+ * title from the model when it arrives (unless the reporter has already
+ * typed), so saving is one keypress (Enter) and renaming can wait. The title
+ * becomes the quote id in the exported file name. Mount it with a `key` per
+ * selection so the suggestion follows a new selection.
  */
 export function SelectionToolbar({
   sourceId,
@@ -39,9 +41,34 @@ export function SelectionToolbar({
   const [title, setTitle] = useState(suggestion);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  // Set once the reporter types: the model's title never overwrites their words.
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  const edited = useRef(false);
+  const proposal = useRef<Promise<void> | null>(null);
+
+  // Asked after a short pause, so dragging a selection around doesn't ask for every stretch.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      proposal.current = proposeClipTitle(selection.excerpt)
+        .then(({ title: proposed }) => {
+          if (!cancelled && !edited.current && proposed) setTitle(proposed);
+        })
+        .catch(() => {});
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selection.excerpt]);
 
   async function handleCreate() {
-    const finalTitle = title.trim() || suggestion;
+    // Saving straight away on the first words would keep the weaker title; wait for the proposal.
+    if (!edited.current && proposal.current) await proposal.current;
+    const finalTitle = titleRef.current.trim() || suggestion;
     if (!finalTitle) {
       setError("Give the excerpt a title.");
       return;
@@ -84,7 +111,10 @@ export function SelectionToolbar({
         <Input
           id="clip-title"
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => {
+            edited.current = true;
+            setTitle(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") void handleCreate();
             if (event.key === "Escape") onCancel();

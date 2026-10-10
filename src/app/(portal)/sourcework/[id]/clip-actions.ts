@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
+import { speakerLabels } from "@/lib/sourcework/piece-queries";
+import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
+import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
@@ -13,7 +16,7 @@ import {
 import {
   MAX_CLIP_DURATION_MS,
   TRANSCRIPTION_MEDIA_BUCKET,
-  buildClipExportFilename,
+  buildExcerptExportFilename,
   excerptExportObjectPath,
 } from "@/lib/transcription/media";
 
@@ -83,6 +86,13 @@ export async function createClip(input: {
     console.error("Could not create the excerpt:", error);
     return { error: "Could not create the excerpt. Please try again." };
   }
+
+  // Named in full (Story_Speaker_Quote) before it is embedded, so the title the search reads is final.
+  await storeFullExcerptName(supabase, {
+    excerptId: data.id,
+    projectId: await getPrimaryProjectIdForSource(supabase, input.sourceId),
+    quote: title,
+  });
 
   // Embeds as soon as the clip is created, so it is semantically searchable
   // immediately rather than at the next reindex — a clip's title is exactly
@@ -251,27 +261,19 @@ export async function getClipDownloadUrl(
   }
 
   const projectId = await getPrimaryProjectIdForSource(supabase, clip.source_id);
-  const [{ data: project, error: projectError }, { data: source, error: sourceError }] =
-    await Promise.all([
-      projectId
-        ? supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      supabase
-        .from("sw_sources")
-        .select("interview_date, created_at")
-        .eq("id", clip.source_id)
-        .maybeSingle(),
-    ]);
-  if (projectError || sourceError) {
-    console.error("Could not read the download filename's inputs:", projectError ?? sourceError);
+  const { data: project, error: projectError } = projectId
+    ? await supabase.from("tw_projects").select("title").eq("id", projectId).maybeSingle()
+    : { data: null, error: null };
+  if (projectError) {
+    console.error("Could not read the download filename's inputs:", projectError);
     return { error: "Could not create a download link. Please try again." };
   }
 
   const downloadUrl = await getSignedMediaUrl(
     clip.export_storage_path,
-    buildClipExportFilename(
-      source?.interview_date ?? source?.created_at ?? new Date().toISOString(),
+    buildExcerptExportFilename(
       project?.title ?? "interview",
+      (await speakerLabels(supabase, [clipId])).get(clipId) ?? null,
       clip.title,
     ),
   );
@@ -302,7 +304,7 @@ export async function exportClip(
 
   const { data: source, error: sourceError } = await supabase
     .from("sw_sources")
-    .select("original_storage_path, interview_date, created_at")
+    .select("original_storage_path")
     .eq("id", clip.source_id)
     .maybeSingle();
   if (sourceError) {
@@ -347,9 +349,9 @@ export async function exportClip(
   if (projectError)
     console.error("Could not read the project title for the filename:", projectError);
 
-  const downloadFilename = buildClipExportFilename(
-    source.interview_date ?? source.created_at,
+  const downloadFilename = buildExcerptExportFilename(
     project?.title ?? "interview",
+    (await speakerLabels(supabase, [clipId])).get(clipId) ?? null,
     clip.title,
   );
   const downloadUrl = await getSignedMediaUrl(exportPath, downloadFilename);
@@ -358,4 +360,14 @@ export async function exportClip(
 
   await revalidateSource(supabase, clip.source_id);
   return { downloadUrl };
+}
+
+/**
+ * A short descriptive title for words the reporter has just selected, to prefill the excerpt's
+ * title (it becomes the quote id in the exported file name). Never an error: without the model
+ * key, or if the call fails, it is the first words of the selection.
+ */
+export async function proposeClipTitle(excerpt: string): Promise<{ title: string }> {
+  await assertToolAccess("transcription");
+  return { title: await proposeExcerptTitle(typeof excerpt === "string" ? excerpt : "") };
 }

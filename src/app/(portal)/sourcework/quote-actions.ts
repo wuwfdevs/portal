@@ -6,7 +6,8 @@ import { assertSourceworkContext } from "@/lib/sourcework/access";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-response";
 import { uuidParam } from "@/lib/sourcework/route-input";
 import { checkQuoteRange, wordsInRange } from "@/lib/sourcework/quotes";
-import { suggestExcerptTitle } from "@/lib/transcription/excerpt-title";
+import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
+import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { buildTimedTokens } from "@/lib/transcription/selection";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { getTranscriptForRepresentation } from "@/lib/transcription/projects";
@@ -95,7 +96,7 @@ export async function acceptQuote(input: {
     p_suggestion_id: id,
     p_start_ms: startMs,
     p_end_ms: endMs,
-    p_title: suggestExcerptTitle(text) || "Suggested quote",
+    p_title: "Suggested quote",
     p_text: text,
   });
   if (accepted.error) {
@@ -103,6 +104,12 @@ export async function acceptQuote(input: {
     return actionError("Couldn't accept that quote. Try again.");
   }
   if (!accepted.data) return actionError("Someone has already decided on this quote.");
+
+  await storeFullExcerptName(supabase, {
+    excerptId: accepted.data,
+    projectId: suggestion.project_id,
+    quote: (await proposeExcerptTitle(text)) || "Suggested quote",
+  });
 
   // As for a clip cut by hand: embedded at once so it is searchable immediately. Best effort.
   if (suggestion.representation_id) {
