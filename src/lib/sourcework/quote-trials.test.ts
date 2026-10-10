@@ -6,6 +6,7 @@ import {
   matchTrialQuotes,
   parseQuoteTrialResults,
   pickDefaultQuoteSample,
+  playableEvidenceCounts,
   quoteRowCounts,
   type TrialQuote,
 } from "./quote-trials";
@@ -123,5 +124,46 @@ describe("samples", () => {
       themeId: "t1",
     });
     expect(pickDefaultQuoteSample([], null)).toBeNull();
+  });
+});
+
+describe("playableEvidenceCounts", () => {
+  const base = {
+    memberships: [
+      { themeId: "t1", dataPointId: "d1", stance: "supports" as const },
+      { themeId: "t1", dataPointId: "d2", stance: "complicates" as const },
+      { themeId: "t2", dataPointId: "d3", stance: "supports" as const },
+      { themeId: "t3", dataPointId: "d4", stance: "supports" as const },
+      { themeId: "t4", dataPointId: "d5", stance: "supports" as const },
+      { themeId: "t5", dataPointId: "d6", stance: "supports" as const },
+    ],
+    points: [
+      { id: "d1", projectId: "p", sourceId: "s1", accepted: true },
+      { id: "d2", projectId: "p", sourceId: "s1", accepted: true },
+      { id: "d3", projectId: "p", sourceId: "doc", accepted: true },
+      { id: "d4", projectId: "p", sourceId: "s2", accepted: true },
+      { id: "d5", projectId: "p", sourceId: "gone", accepted: true },
+      { id: "d6", projectId: "p", sourceId: "s1", accepted: false },
+    ],
+    temporalPointIds: new Set(["d1", "d2", "d4", "d5", "d6"]),
+    projectSourceKeys: new Set(["p:s1", "p:s2", "p:doc"]),
+    readySourceIds: new Set(["s1", "doc", "gone"]),
+  };
+  const counts = playableEvidenceCounts(base);
+
+  it("counts evidence a run could read, by stance", () => {
+    expect(counts.get("t1")).toEqual({ supporting: 1, complicating: 1 });
+  });
+  it("leaves out a theme backed only by documents", () => {
+    expect(counts.has("t2")).toBe(false);
+  });
+  it("leaves out evidence in a recording whose transcript isn't ready", () => {
+    expect(counts.has("t3")).toBe(false);
+  });
+  it("leaves out a source the project no longer has", () => {
+    expect(counts.has("t4")).toBe(false);
+  });
+  it("leaves out a data point that isn't accepted", () => {
+    expect(counts.has("t5")).toBe(false);
   });
 });

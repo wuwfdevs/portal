@@ -254,17 +254,6 @@ export async function suggestQuotes(args: {
   if (!loaded.ok) return loaded;
   const { context } = loaded;
 
-  // What a person already decided for this theme: never proposed again.
-  const decidedRows =
-    unwrapRead(
-      await supabase
-        .from("sw_quote_suggestions")
-        .select("source_id, start_ms, end_ms")
-        .eq("theme_id", themeId)
-        .in("status", ["accepted", "rejected"]),
-      "this theme's decided quotes",
-    ) ?? [];
-
   const live = await getLivePrompt("quote_quality");
   const started = await startRun(supabase, {
     kind: "quote_suggest",
@@ -285,6 +274,18 @@ export async function suggestQuotes(args: {
       await finishRun(supabase, runId, { status: "failed", error: proposed.error });
       return proposed;
     }
+    // What a person already decided for this theme: never proposed again. Read now, after the model
+    // call (a minute or two), not before it: a card accepted or rejected while it ran must count.
+    const decidedRows =
+      unwrapRead(
+        await supabase
+          .from("sw_quote_suggestions")
+          .select("source_id, start_ms, end_ms")
+          .eq("theme_id", themeId)
+          .in("status", ["accepted", "rejected"]),
+        "this theme's decided quotes",
+      ) ?? [];
+
     const droppedTotal = Object.values(proposed.dropped).reduce((sum, count) => sum + count, 0);
 
     const fresh = proposed.quotes.filter(

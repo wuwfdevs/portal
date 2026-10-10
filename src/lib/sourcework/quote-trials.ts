@@ -139,6 +139,44 @@ export interface QuoteSampleProject {
 }
 
 /**
+ * How much of each theme's evidence a quote run could actually read: accepted data points in the
+ * theme (not removed), from a source the project still has, that point into a recording with a ready
+ * transcript. A theme backed only by documents, by detached sources or by a recording still being
+ * transcribed counts zero, so it is not offered as a sample it could never run on. Mirrors what
+ * `loadQuoteContext` reads.
+ */
+export function playableEvidenceCounts(args: {
+  memberships: readonly { themeId: string; dataPointId: string; stance: QuoteStance }[];
+  points: readonly { id: string; projectId: string; sourceId: string; accepted: boolean }[];
+  /** Data points with at least one time span. */
+  temporalPointIds: ReadonlySet<string>;
+  /** `projectId:sourceId` for every source a project still has. */
+  projectSourceKeys: ReadonlySet<string>;
+  /** Sources that are ready and whose transcript is ready. */
+  readySourceIds: ReadonlySet<string>;
+}): Map<string, { supporting: number; complicating: number }> {
+  const pointById = new Map(args.points.map((point) => [point.id, point]));
+  const counts = new Map<string, { supporting: number; complicating: number }>();
+  for (const membership of args.memberships) {
+    const point = pointById.get(membership.dataPointId);
+    if (
+      !point ||
+      !point.accepted ||
+      !args.temporalPointIds.has(point.id) ||
+      !args.projectSourceKeys.has(`${point.projectId}:${point.sourceId}`) ||
+      !args.readySourceIds.has(point.sourceId)
+    ) {
+      continue;
+    }
+    const entry = counts.get(membership.themeId) ?? { supporting: 0, complicating: 0 };
+    if (membership.stance === "supports") entry.supporting += 1;
+    else entry.complicating += 1;
+    counts.set(membership.themeId, entry);
+  }
+  return counts;
+}
+
+/**
  * Projects with at least one accepted theme that has evidence, each with those themes. The sample
  * is a theme because that is what the step runs on; the project only supplies the title.
  */

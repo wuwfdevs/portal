@@ -5,6 +5,7 @@ import { chunked } from "./research-queries";
 import {
   groupQuoteSamples,
   parseQuoteTrialResults,
+  playableEvidenceCounts,
   type QuoteSampleProject,
   type QuoteTrialResults,
 } from "./quote-trials";
@@ -28,18 +29,97 @@ export async function listQuoteTrialSamples(): Promise<QuoteSampleProject[]> {
     ) ?? [];
   if (themes.length === 0) return [];
 
-  const breadth = new Map<string, { supporting: number; complicating: number }>();
-  for (const ids of chunked(themes.map((theme) => theme.id))) {
+  // Only evidence a quote run could read counts: accepted, in a recording with a ready transcript, from
+  // a source the project still has. Otherwise a theme backed only by documents would be offered and
+  // always fail with "no accepted data points from a recording".
+  const themeIds = themes.map((theme) => theme.id);
+  const memberships: {
+    themeId: string;
+    dataPointId: string;
+    stance: "supports" | "complicates";
+  }[] = [];
+  for (const ids of chunked(themeIds)) {
     for (const row of unwrapRead(
       await supabase
-        .from("sw_theme_breadth")
-        .select("theme_id, supporting, complicating")
-        .in("theme_id", ids),
-      "the themes' evidence",
+        .from("sw_data_point_themes")
+        .select("theme_id, data_point_id, stance")
+        .in("theme_id", ids)
+        .is("removed_at", null),
+      "the themes' data points",
     ) ?? []) {
-      breadth.set(row.theme_id, { supporting: row.supporting, complicating: row.complicating });
+      memberships.push({
+        themeId: row.theme_id,
+        dataPointId: row.data_point_id,
+        stance: row.stance,
+      });
     }
   }
+
+  const pointIds = [...new Set(memberships.map((membership) => membership.dataPointId))];
+  const points: { id: string; projectId: string; sourceId: string; accepted: boolean }[] = [];
+  const temporalPointIds = new Set<string>();
+  for (const ids of chunked(pointIds)) {
+    const [pointRows, spanRows] = await Promise.all([
+      supabase.from("sw_data_points").select("id, project_id, source_id, status").in("id", ids),
+      supabase
+        .from("sw_data_point_spans")
+        .select("data_point_id")
+        .in("data_point_id", ids)
+        .eq("locator_kind", "temporal"),
+    ]);
+    for (const row of unwrapRead(pointRows, "the themes' data points") ?? []) {
+      points.push({
+        id: row.id,
+        projectId: row.project_id,
+        sourceId: row.source_id,
+        accepted: row.status === "accepted",
+      });
+    }
+    for (const row of unwrapRead(spanRows, "the data points' passages") ?? []) {
+      temporalPointIds.add(row.data_point_id);
+    }
+  }
+
+  const projectSourceKeys = new Set<string>();
+  for (const ids of chunked([...new Set(themes.map((theme) => theme.project_id))])) {
+    for (const row of unwrapRead(
+      await supabase
+        .from("sw_project_sources")
+        .select("project_id, source_id")
+        .in("project_id", ids),
+      "the projects' sources",
+    ) ?? []) {
+      projectSourceKeys.add(`${row.project_id}:${row.source_id}`);
+    }
+  }
+
+  const readySourceIds = new Set<string>();
+  const sourceIds = [...new Set(points.map((point) => point.sourceId))];
+  for (const ids of chunked(sourceIds)) {
+    const [sources, transcripts] = await Promise.all([
+      supabase.from("sw_sources").select("id").in("id", ids).eq("status", "ready"),
+      supabase
+        .from("sw_representations")
+        .select("source_id")
+        .in("source_id", ids)
+        .eq("kind", "transcript")
+        .eq("status", "ready"),
+    ]);
+    const withTranscript = new Set(
+      (unwrapRead(transcripts, "the sources' transcripts") ?? []).map((row) => row.source_id),
+    );
+    for (const row of unwrapRead(sources, "the sources") ?? []) {
+      if (withTranscript.has(row.id)) readySourceIds.add(row.id);
+    }
+  }
+
+  const breadth = playableEvidenceCounts({
+    memberships,
+    points,
+    temporalPointIds,
+    projectSourceKeys,
+    readySourceIds,
+  });
 
   const projects: { id: string; title: string }[] = [];
   for (const ids of chunked([...new Set(themes.map((theme) => theme.project_id))])) {
