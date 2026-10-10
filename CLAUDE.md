@@ -464,7 +464,8 @@ readers of the excerpts table needs a filter; do not move suggestions onto that 
 model returns sentence numbers, never text or times** (`quote-prompt.ts`), and an accepted excerpt's words are re-derived
 from the transcript for the range actually accepted (after any trim). (3) a run replaces only still-waiting suggestions
 and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot is editor-owned like the others, with
-an accept rate per version; its **Try this draft is not built**. Migrations `20261014120000` (schema) and
+an accept rate per version and its own **Try this draft** (sampled on a theme, compared as two playable clip lists;
+`quote-trial-run.ts`, `sw_prompt_trials.theme_id`). Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
 `20261014130000` (Resources content) are **not yet applied** to either project: apply them (preview first, then
 production), record both dates in `APPLIED.md`, then `npm run db:check`.
 

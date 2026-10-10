@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { formatClipRange } from "@/lib/sourcework/quotes";
+import { formatClipRange, type QuoteAvailability } from "@/lib/sourcework/quotes";
 import { pluralize } from "@/lib/format";
 import { sourcePath } from "@/lib/transcription/links";
 import { SuggestQuotesButton, SuggestQuotesStatus, useSharedSuggestQuotes } from "./suggest-quotes";
@@ -26,21 +26,22 @@ export function ThemeExcerptsPanel({
   projectId,
   excerpts,
   waiting,
-  canSuggest,
+  availability,
   quotesHref,
   variant,
 }: {
   projectId: string;
   excerpts: ThemeExcerptCard[];
   waiting: number;
-  /** Whether the theme can have quotes suggested: accepted, with supporting evidence from a recording. */
-  canSuggest: boolean;
+  /** Whether quotes can be suggested for this theme and, if not, why. */
+  availability: QuoteAvailability;
   quotesHref: string;
   /** Which of the page's two places this is; the other is hidden by the breakpoint. */
   variant: "phone" | "desktop";
 }) {
   const state = useSharedSuggestQuotes();
-  if (!canSuggest && excerpts.length === 0) return null;
+  const { canSuggest, reason } = availability;
+  if (!canSuggest && excerpts.length === 0 && !reason) return null;
 
   return (
     <section
@@ -68,6 +69,8 @@ export function ThemeExcerptsPanel({
             />
           ))}
       </div>
+
+      {!canSuggest && reason && <p className="text-[13px] text-ink-500">{reason}</p>}
 
       <SuggestQuotesStatus state={state} />
 
@@ -99,7 +102,9 @@ export function ThemeExcerptsPanel({
           No excerpts yet.{" "}
           {waiting > 0
             ? `${pluralize(waiting, "suggested clip")} ${waiting === 1 ? "is" : "are"} waiting for you.`
-            : "Suggest quotes to have the model find clips in this theme’s evidence."}
+            : canSuggest
+              ? "Suggest quotes to have the model find clips in this theme’s evidence."
+              : ""}
         </p>
       )}
     </section>

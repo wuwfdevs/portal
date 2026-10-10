@@ -15,6 +15,7 @@ import { getProjectById } from "@/lib/transcription/projects";
 import { projectPath, sourcePath, themePath, themeQuotesPath } from "@/lib/transcription/links";
 import { listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { getThemeDetail, listPointsNotInTheme } from "@/lib/sourcework/theme-queries";
+import { quoteAvailability } from "@/lib/sourcework/quotes";
 import { countWaitingQuotes, listThemeExcerpts } from "@/lib/sourcework/quote-queries";
 import {
   STANCE_LABEL,
@@ -92,19 +93,19 @@ export default async function ThemePage({
   const editing = edit === "1";
   const suggested = theme.status === "suggested";
   const single = isSingleSource(breadth, project.sources.length);
-  // Quotes are chosen from supporting evidence that points into a recording, for an accepted theme.
-  const canSuggestQuotes =
-    theme.status === "accepted" &&
-    detail.evidence.some(
-      (entry) =>
-        entry.item.stance === "supports" && entry.spans.some((span) => span.kind === "temporal"),
-    );
+  // Quotes are clips, so the theme needs accepted evidence that points into a recording.
+  const availability = quoteAvailability({
+    themeStatus: theme.status,
+    evidence: detail.evidence.map((entry) => ({
+      hasRecordingSpan: entry.spans.some((span) => span.kind === "temporal"),
+    })),
+  });
   const excerptsPanel = (variant: "phone" | "desktop") => (
     <ThemeExcerptsPanel
       projectId={id}
       excerpts={excerpts}
       waiting={waitingQuotes}
-      canSuggest={canSuggestQuotes}
+      availability={availability}
       quotesHref={themeQuotesPath(id, themeId)}
       variant={variant}
     />

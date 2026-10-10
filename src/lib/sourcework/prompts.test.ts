@@ -13,8 +13,11 @@ describe("prompt slots", () => {
       expect(validatePromptBody(definition.slot, definition.builtIn).ok).toBe(true);
     }
   });
-  it("only the extraction guide can be tried yet", () => {
-    expect(PROMPT_SLOTS.filter((d) => d.tryable).map((d) => d.slot)).toEqual(["extraction"]);
+  it("only the extraction and quote guides can be tried yet", () => {
+    expect(PROMPT_SLOTS.filter((d) => d.tryable).map((d) => d.slot)).toEqual([
+      "extraction",
+      "quote_quality",
+    ]);
   });
   it("looks a slot up by name", () => {
     expect(promptSlotDefinition("extraction")?.label).toBe("Extraction guide");

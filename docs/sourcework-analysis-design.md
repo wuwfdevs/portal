@@ -801,8 +801,12 @@ Where the build departed from, or settled, the design above:
   beside it. A data point's card in the source workspace gained the "Excerpt:" line that §14 deferred.
 - **The quote quality guide** is the fifth prompt slot (`quote_quality`). Editors edit and publish it on the Editors
   page and its accept rate per version is measured (`sw_quote_accept_rates()`).
-- **Not built in C:** Try this draft for the quote quality guide (§8.1 wanted it here: its sample is a theme and its
-  comparison is two ranked, playable clip lists, which the extraction trial's project-and-source sample and data-point
-  matcher do not fit, so it is a piece of work of its own); ASR confidence and audio-quality flags as inputs to
+- **Try this draft for the quote guide** (§8.1) is built. Its sample is an accepted theme with evidence; the live guide
+  and the draft each run the same read-and-ask step (`loadQuoteContext`/`proposeQuotes`, which write nothing) in
+  parallel, and `sw_prompt_trials` gained `theme_id` (with `source_id` nullable and a check that a quote trial names a
+  theme and every other trial a source). The compare screen lines the two ranked lists up by the stretch of recording
+  each clip covers (`quote-trials.ts`), grouped In both / Only in draft / Only in live, every clip playable. On a phone
+  the Live and Draft cells stack inside each row (open question 9: Live above Draft, no toggle).
+- **Not built in C:** ASR confidence and audio-quality flags as inputs to
   selection (open question 8: the transcription provider's word confidences are not kept on `tw_segments.words`, so the
   guide asks the model to say what it can hear in the words and nothing more).

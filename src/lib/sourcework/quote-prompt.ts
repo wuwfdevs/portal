@@ -28,6 +28,7 @@ import {
   QUOTE_TIERS,
   parseQuoteTier,
   sameStretch,
+  type QuoteStance,
   type QuoteTier,
 } from "./quotes";
 
@@ -40,16 +41,16 @@ export const MAX_UNITS_PER_SOURCE = 360;
 export const MAX_POINTS_PER_RUN = 60;
 export const REASON_MAX = 600;
 
-export const QUOTE_FRAMING = `You choose quotes for a radio reporter. A theme is a claim the project's sources bear out. You are given the theme, the accepted data points that support it (short paraphrases, numbered), and for each source the transcript around those data points, as numbered sentences under a header naming the speaker and the time.
+export const QUOTE_FRAMING = `You choose quotes for a radio reporter. A theme is a claim the project's sources bear out or push against. You are given the theme, the accepted data points that bear on it (short paraphrases, numbered, each marked "supports" or "complicates"), and for each source the transcript around those data points, as numbered sentences under a header naming the speaker and the time.
 
-Choose the clips that would work best on air as actualities, the speaker's own words played in a story. You are not choosing the passages that merely say the most about the theme: a data point is a paraphrase of what someone said, and a clip is a literal cut. A passage can be a good data point and a poor clip, and the best clip may sit just beside a data point's passage, or cover only part of it.
+Choose the clips that would work best on air as actualities, the speaker's own words played in a story. You are not choosing the passages that merely say the most about the theme: a data point is a paraphrase of what someone said, and a clip is a literal cut. Complicating evidence is as useful as supporting evidence: a reporter needs the counterweight, so choose a strong clip from a speaker who complicates the theme over a weaker one that supports it, and do not skip a source because it disagrees. A passage can be a good data point and a poor clip, and the best clip may sit just beside a data point's passage, or cover only part of it.
 
 For each clip, give:
 - source_number: which source it is in (the number in its "=== Source N ===" heading).
 - first_sentence and last_sentence: the numbers of the first and last sentence in the clip. The clip runs from the start of the first to the end of the last. Every sentence in between must be one you were shown, and all of them must be one speaker's.
 - tier: "strong" for a clip you would build a story around, "good" for one you would happily use, "usable" for one that works but is not special.
 - why: one or two plain sentences on why it works on air, naming what in the speaker's words does the work and, if relevant, what to watch for (a false start to trim, noise under the opening). Say nothing you cannot see in the words.
-- point_numbers: the numbers of the supporting data points the clip exemplifies. Leave it empty if it exemplifies none of them.
+- point_numbers: the numbers of the data points the clip exemplifies. Leave it empty if it exemplifies none of them.
 
 Return at most ${MAX_QUOTES_PER_RUN} clips, best first, and fewer if fewer work. Return none if nothing works: a short list of good clips is better than a long one. Do not return two clips that overlap. Never retype or paraphrase the transcript; refer to sentences only by number. The newsroom's editors give their guidance on what makes a clip work below.`;
 
@@ -57,6 +58,7 @@ export interface QuotePointInput {
   /** 1-based across the whole input. */
   number: number;
   claim: string;
+  stance: QuoteStance;
   speaker: string | null;
   spans: readonly DataPointSpan[];
 }
@@ -116,9 +118,11 @@ export function buildQuoteInput(input: {
   ];
   for (const source of input.sources) {
     const lines = [`=== Source ${source.number}: ${source.title} ===`];
-    lines.push("Supporting data points:");
+    lines.push("Data points:");
     for (const point of source.points) {
-      lines.push(`${point.number}. ${point.speaker ? `[${point.speaker}] ` : ""}${point.claim}`);
+      lines.push(
+        `${point.number}. [${point.stance}] ${point.speaker ? `[${point.speaker}] ` : ""}${point.claim}`,
+      );
     }
     lines.push("", "Transcript around them:", renderUnits(source.shown, source.groups));
     parts.push(lines.join("\n"));

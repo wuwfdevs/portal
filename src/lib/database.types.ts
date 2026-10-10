@@ -1171,7 +1171,9 @@ export interface Database {
           draft_body: string;
           live_version_id: string | null;
           project_id: string;
-          source_id: string;
+          /** Null for a quote-guide trial, whose sample is a theme (20261014120000). */
+          source_id: string | null;
+          theme_id: string | null;
           status: "running" | "succeeded" | "failed";
           error: string | null;
           results: unknown;
@@ -1184,7 +1186,6 @@ export interface Database {
           slot: string;
           draft_body: string;
           project_id: string;
-          source_id: string;
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["sw_prompt_trials"]["Row"]>;

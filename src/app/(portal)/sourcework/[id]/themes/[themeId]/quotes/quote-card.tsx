@@ -77,6 +77,14 @@ export function QuoteCard({
         >
           {QUOTE_TIER_LABEL[quote.tier]}
         </span>
+        {quote.stance === "complicates" && (
+          <span
+            title="Every data point behind this clip pushes against the theme"
+            className="rounded-full bg-warning-bg px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider text-warning-fg"
+          >
+            Complicates
+          </span>
+        )}
         <span className="text-xs text-ink-500">
           {quote.speakerName ?? quote.sourceTitle}
           <span className="lg:hidden"> · {formatClipSeconds(range.startMs, range.endMs)}</span>

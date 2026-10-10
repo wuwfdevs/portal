@@ -146,7 +146,7 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
     label: "Quote quality guide",
     description:
       "Tells the model what makes a clip work on air. Used when someone chooses Suggest quotes on a theme.",
-    tryable: false,
+    tryable: true,
     gives: [
       "The theme's title and one-sentence definition.",
       "The accepted data points that support it, by source and speaker.",

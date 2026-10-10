@@ -34,6 +34,17 @@ create unique index sw_analysis_runs_one_running_quote_step
   on public.sw_analysis_runs (theme_id)
   where status = 'running' and kind = 'quote_suggest' and not trial;
 
+-- Trials of the quote quality guide ------------------------------------------------------------
+-- "Try this draft" for the quote guide (§8.1) is sampled on a theme, not a source: the live text and
+-- the editor's draft each choose clips from the same theme's evidence and the two lists are compared.
+-- Extraction trials still name a source; a quote trial names a theme.
+alter table public.sw_prompt_trials alter column source_id drop not null;
+alter table public.sw_prompt_trials
+  add column theme_id uuid references public.sw_themes (id) on delete cascade;
+alter table public.sw_prompt_trials add constraint sw_prompt_trials_sample_check check (
+  case when slot = 'quote_quality' then theme_id is not null else source_id is not null end
+);
+
 -- Excerpts: where an accepted one came from -----------------------------------------------
 -- Nothing reads these to decide what to show; they say how the excerpt came to be.
 alter table public.sw_source_excerpts

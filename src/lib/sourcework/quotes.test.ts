@@ -10,6 +10,8 @@ import {
   formatClipTime,
   guideBlocks,
   nudgeEdge,
+  quoteAvailability,
+  quoteStance,
   quoteCounts,
   sameStretch,
   wordsInRange,
@@ -167,5 +169,34 @@ describe("guideBlocks", () => {
   });
   it("returns nothing for blank text", () => {
     expect(guideBlocks("  \n\n ")).toEqual([]);
+  });
+});
+
+describe("quoteStance", () => {
+  it("complicates only when every data point behind it does", () => {
+    expect(quoteStance(["complicates"])).toBe("complicates");
+    expect(quoteStance(["complicates", "complicates"])).toBe("complicates");
+    expect(quoteStance(["complicates", "supports"])).toBe("supports");
+    expect(quoteStance([])).toBe("supports");
+  });
+});
+
+describe("quoteAvailability", () => {
+  it("offers quotes for an accepted theme with evidence from a recording", () => {
+    expect(
+      quoteAvailability({ themeStatus: "accepted", evidence: [{ hasRecordingSpan: true }] }),
+    ).toEqual({ canSuggest: true, reason: null });
+  });
+  it("says why when it can't", () => {
+    expect(quoteAvailability({ themeStatus: "suggested", evidence: [] }).reason).toContain(
+      "Accept",
+    );
+    expect(quoteAvailability({ themeStatus: "accepted", evidence: [] }).reason).toContain(
+      "no accepted data points",
+    );
+    expect(
+      quoteAvailability({ themeStatus: "accepted", evidence: [{ hasRecordingSpan: false }] })
+        .reason,
+    ).toContain("documents");
   });
 });

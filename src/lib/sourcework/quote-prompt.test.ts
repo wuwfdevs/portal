@@ -66,13 +66,21 @@ describe("buildQuoteInput", () => {
           units,
           groups: [{ index: 0, label: "0:00 · Tom" }],
           speakerByUnit: speakers,
-          points: [{ number: 1, claim: "He followed a tunnel.", speaker: null, spans: [] }],
+          points: [
+            {
+              number: 1,
+              claim: "He followed a tunnel.",
+              stance: "supports",
+              speaker: null,
+              spans: [],
+            },
+          ],
           shown: units.slice(0, 2),
         },
       ],
     });
     expect(text).toContain("=== Source 1: Tom Reyes, interview ===");
-    expect(text).toContain("1. He followed a tunnel.");
+    expect(text).toContain("1. [supports] He followed a tunnel.");
     expect(text).toContain("## 0:00 · Tom");
     expect(text).toContain("[1] Sentence 1.");
     expect(text).not.toContain("[3]");

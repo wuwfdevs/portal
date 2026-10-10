@@ -35,8 +35,19 @@ export function parseQuoteTier(value: unknown): QuoteTier | null {
   return QUOTE_TIERS.find((tier) => tier === value) ?? null;
 }
 
+/** Whether a clip backs the theme or pushes against it (from the data points it rests on). */
+export type QuoteStance = "supports" | "complicates";
+
+/** A clip complicates the theme only when every data point it rests on does; one that backs it in any way supports. */
+export function quoteStance(pointStances: readonly QuoteStance[]): QuoteStance {
+  return pointStances.length > 0 && pointStances.every((stance) => stance === "complicates")
+    ? "complicates"
+    : "supports";
+}
+
 export interface QuoteSuggestion {
   id: string;
+  stance: QuoteStance;
   themeId: string;
   sourceId: string;
   sourceTitle: string;
@@ -238,4 +249,38 @@ export function guideBlocks(body: string): GuideBlock[] {
     flushList();
   }
   return blocks;
+}
+
+export interface QuoteAvailability {
+  canSuggest: boolean;
+  /** Why not, in a sentence, when it can't. */
+  reason: string | null;
+}
+
+/**
+ * Whether Suggest quotes is offered for a theme, and if not, why. A quote is a clip, so the theme
+ * needs accepted evidence that points into a recording; a document's passage can't be played.
+ */
+export function quoteAvailability(input: {
+  themeStatus: "suggested" | "accepted" | "rejected";
+  evidence: readonly { hasRecordingSpan: boolean }[];
+}): QuoteAvailability {
+  if (input.themeStatus !== "accepted") {
+    return { canSuggest: false, reason: "Accept this theme to get suggested quotes for it." };
+  }
+  if (input.evidence.length === 0) {
+    return {
+      canSuggest: false,
+      reason:
+        "Quotes are chosen from a theme’s evidence, and this theme has no accepted data points yet. Add some below.",
+    };
+  }
+  if (!input.evidence.some((entry) => entry.hasRecordingSpan)) {
+    return {
+      canSuggest: false,
+      reason:
+        "Quotes are clips of a recording. This theme’s evidence is all from documents, so there is nothing to play.",
+    };
+  }
+  return { canSuggest: true, reason: null };
 }

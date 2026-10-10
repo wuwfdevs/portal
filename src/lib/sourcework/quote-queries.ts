@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 import { chunked } from "./research-queries";
-import { compareQuotes, type QuoteSuggestion } from "./quotes";
+import { compareQuotes, quoteStance, type QuoteStance, type QuoteSuggestion } from "./quotes";
 
 // Reads behind the suggested-quotes screen and the theme page's Excerpts panel
 // (docs/sourcework-analysis-design.md §5.5). Everything goes through the caller's session,
@@ -53,9 +53,40 @@ export async function listQuoteSuggestions(
     }
   }
 
+  // Whether each clip backs the theme or pushes against it, from the data points it rests on.
+  const stanceByPoint = new Map<string, QuoteStance>();
+  for (const row of unwrapRead(
+    await supabase
+      .from("sw_data_point_themes")
+      .select("data_point_id, stance")
+      .eq("theme_id", themeId)
+      .is("removed_at", null),
+    "this theme's data points",
+  ) ?? []) {
+    stanceByPoint.set(row.data_point_id, row.stance);
+  }
+  const pointsBySuggestion = new Map<string, QuoteStance[]>();
+  for (const ids of chunked(current.map((row) => row.id))) {
+    for (const link of unwrapRead(
+      await supabase
+        .from("sw_quote_suggestion_points")
+        .select("suggestion_id, data_point_id")
+        .in("suggestion_id", ids),
+      "what these quotes rest on",
+    ) ?? []) {
+      const stance = stanceByPoint.get(link.data_point_id);
+      if (!stance) continue;
+      pointsBySuggestion.set(link.suggestion_id, [
+        ...(pointsBySuggestion.get(link.suggestion_id) ?? []),
+        stance,
+      ]);
+    }
+  }
+
   return current
     .map<QuoteSuggestion>((row) => ({
       id: row.id,
+      stance: quoteStance(pointsBySuggestion.get(row.id) ?? []),
       themeId: row.theme_id,
       sourceId: row.source_id,
       sourceTitle: sourceTitles.get(row.source_id) ?? "Source",

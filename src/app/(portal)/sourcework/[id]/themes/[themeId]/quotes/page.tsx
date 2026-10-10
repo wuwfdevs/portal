@@ -65,8 +65,9 @@ export default async function ThemeQuotesPage({
               : "No clips waiting for you"}
           </h1>
           <p className="max-w-[640px] text-sm text-ink-500">
-            Chosen from this theme’s supporting data points, with the transcript around them. Each
-            plays as it will cut. Accepting one saves it as an excerpt on its source.
+            Chosen from this theme’s data points, supporting and complicating, with the transcript
+            around them. Each plays as it will cut. Accepting one saves it as an excerpt on its
+            source.
           </p>
         </div>
       </div>
@@ -132,9 +133,9 @@ export default async function ThemeQuotesPage({
 
             <p className="text-[13px] text-ink-500">
               <strong className="text-ink-900">How these were chosen.</strong> The model read each
-              supporting data point with the transcript around it, not only the paraphrase, and cut
-              each clip where the sentence works best. Playing a clip plays the original audio, so
-              check the words as you accept.
+              data point with the transcript around it, not only the paraphrase, and cut each clip
+              where the sentence works best. Playing a clip plays the original audio, so check the
+              words as you accept.
             </p>
             <p className="border-t border-line pt-3 text-[13px] text-ink-500">
               Accepted for this theme so far:{" "}
