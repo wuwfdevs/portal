@@ -207,7 +207,7 @@ export async function* streamAgentTurn(
       // Runtime shape is unaffected; only the type needs help.
       const output = response.output as unknown as OpenAI.Responses.ResponseOutputItem[];
 
-      history = [...history, ...(output as unknown as OpenAI.Responses.ResponseInputItem[])];
+      history = [...history, ...stripParsedFields(output)];
 
       const functionCall = output.find(
         (item): item is OpenAI.Responses.ResponseFunctionToolCall => item.type === "function_call",
@@ -295,6 +295,28 @@ async function resolveConfirmation(
   const result = await callMcpTool(mcp, mcpName, { ...input, confirmed: true });
   record(mcpName);
   return appendFunctionCallOutput(history, functionCall.call_id, result.text);
+}
+
+// ResponseStream's finalResponse() decorates output items with SDK-only
+// fields (`parsed_arguments` on a function_call, `parsed` on output_text
+// content). They are not part of the API's input schema, so replaying the
+// output as history failed the next round with "400 Unknown parameter:
+// 'input[2].parsed_arguments'".
+function stripParsedFields(
+  output: OpenAI.Responses.ResponseOutputItem[],
+): OpenAI.Responses.ResponseInputItem[] {
+  return output.map((item) => {
+    const { parsed_arguments: _parsedArguments, ...rest } = item as typeof item & {
+      parsed_arguments?: unknown;
+    };
+    if (rest.type === "message" && Array.isArray(rest.content)) {
+      rest.content = rest.content.map((part) => {
+        const { parsed: _parsed, ...partRest } = part as typeof part & { parsed?: unknown };
+        return partRest as typeof part;
+      });
+    }
+    return rest as unknown as OpenAI.Responses.ResponseInputItem;
+  });
 }
 
 function findFunctionCall(
