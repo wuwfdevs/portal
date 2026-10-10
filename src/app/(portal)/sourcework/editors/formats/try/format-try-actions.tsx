@@ -4,14 +4,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { validatePromptBody, type PromptSlot } from "@/lib/sourcework/prompts";
-import { publishPrompt } from "../actions";
-import { PublishPanel } from "../publish-panel";
+import { validateFormatSpec, type FormatSpec } from "@/lib/sourcework/piece-formats";
+import { publishFormat } from "../actions";
+import { PublishPanel } from "../../publish-panel";
 
-/** Publish… (the saved draft) and Back to editing, under a trial's result. */
-export function TryActions({ slot, draftBody }: { slot: PromptSlot; draftBody: string }) {
+/** Publish… (the saved draft) and Back to editing, under a format trial's result. */
+export function FormatTryActions({
+  formatId,
+  draftSpec,
+}: {
+  formatId: string;
+  draftSpec: FormatSpec;
+}) {
   const router = useRouter();
   const [publishing, setPublishing] = useState(false);
+  const editorHref = `/sourcework/editors/formats?format=${formatId}`;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -24,7 +31,7 @@ export function TryActions({ slot, draftBody }: { slot: PromptSlot; draftBody: s
           Publish…
         </Button>
         <Link
-          href={`/sourcework/editors?slot=${slot}`}
+          href={editorHref}
           className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-sm:min-h-12"
         >
           Back to editing
@@ -35,15 +42,16 @@ export function TryActions({ slot, draftBody }: { slot: PromptSlot; draftBody: s
       </div>
       {publishing && (
         <PublishPanel
-          id={slot}
+          id={`format-try-${formatId}`}
+          consequence="Publishing changes what every reporter's next draft follows; the previous version stays available to make live again."
           publish={async (note) => {
-            const checked = validatePromptBody(slot, draftBody);
+            const checked = validateFormatSpec(draftSpec);
             if (!checked.ok) return checked;
-            return publishPrompt({ slot, body: checked.body, note });
+            return publishFormat({ formatId, spec: checked.spec, note });
           }}
           onClose={() => setPublishing(false)}
           onPublished={() => {
-            router.push(`/sourcework/editors?slot=${slot}`);
+            router.push(editorHref);
             router.refresh();
           }}
         />

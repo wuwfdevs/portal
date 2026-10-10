@@ -420,7 +420,7 @@ excerpt by id only**, with no foreign key, so a deleted excerpt renders as a pla
 is the block's own `in_ms`/`out_ms` unless "Update the excerpt everywhere" is chosen, which goes
 through the existing `updateClipTrim`. (4) Only temporal excerpts can be actualities. Migrations
 `20261011120000` (schema) and `20261011130000` (Resources content) are applied to both projects. Phase E (formats, Draft with AI, the
-assistant) and the `format_version_id` column are not built.
+assistant) has since landed; see below.
 
 **Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
 `docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
@@ -468,6 +468,21 @@ an accept rate per version and its own **Try this draft** (sampled on a theme, c
 `quote-trial-run.ts`, `sw_prompt_trials.theme_id`). Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
 `20261014130000` (Resources content) are applied to both projects (2026-10-10, through `execute_sql` in one transaction, not `apply_migration`, so the Supabase
 migration history has no entry for them).
+
+**Sourcework analysis, Phase E (formats, Draft with AI, the assistant in a piece) has landed (2026-10-15).** Read
+`docs/sourcework-analysis-design.md` §17 first; this is a pointer. Editors maintain **piece formats** at
+`/sourcework/editors/formats` (`sw_piece_formats` + insert-only `sw_piece_format_versions`, a live pointer, drafts,
+private trials; `lib/sourcework/piece-formats.ts`). An empty piece offers **Draft with AI**
+(`/api/sourcework/pieces/draft`, `piece-draft-run.ts`). The **assistant** works in a piece through
+`lib/sourcework/piece-capabilities.ts` and page context (`RightPanelProvider.assistantContext`). Four things are
+load-bearing: (1) **the model places actualities by excerpt number, code maps them to ids** — never let it return
+excerpt text or ids; (2) **every content write goes through `piece-writes.ts`'s `savePieceBlocks`** (editor, restore,
+draft, assistant) so length and the project check are one implementation; (3) **assistant markers are derived** from
+versions (`diffAssistantChanges` against the last non-assistant version), not stored; (4) the piece editor is
+**keyed by version** — a `router.refresh()` that brings a new version remounts it, so don't refresh from inside the
+editor while a person may have unsaved edits (title rename no longer does). Capabilities may set `writes: true` so the
+widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
+(Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names

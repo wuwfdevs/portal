@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import * as editorialCapabilities from "@/lib/editorial/capabilities";
 import * as transcriptionCapabilities from "@/lib/transcription/capabilities";
+import * as pieceCapabilities from "@/lib/sourcework/piece-capabilities";
 import * as remoteInterviewCapabilities from "@/lib/remote-interview/capabilities";
 import * as audienceListeningCapabilities from "@/lib/audience-listening/capabilities";
 import * as roadmapCapabilities from "@/lib/roadmap/capabilities";
@@ -27,6 +28,7 @@ export type AnyCapability = CapabilityDefinition<any, any>;
 const CAPABILITY_MODULES = [
   editorialCapabilities,
   transcriptionCapabilities,
+  pieceCapabilities,
   remoteInterviewCapabilities,
   audienceListeningCapabilities,
   roadmapCapabilities,

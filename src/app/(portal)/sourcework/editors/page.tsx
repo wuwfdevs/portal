@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { PageHeader } from "@/components/ui/page-header";
+import { EditorsSubNav } from "./editors-sub-nav";
 import { getDisplayNames } from "@/lib/profile-names";
 import { requireSourceworkEditor } from "@/lib/sourcework/access";
 import {
@@ -20,7 +21,7 @@ import { initialPromptText } from "@/lib/sourcework/trial-sample";
 import { PromptEditor } from "./prompt-editor";
 import { SlotSelect } from "./slot-select";
 
-export const metadata = { title: "Research prompts" };
+export const metadata = { title: "Research prompts and piece formats" };
 
 export default async function EditorsPage({
   searchParams,
@@ -62,10 +63,11 @@ export default async function EditorsPage({
       <PageHeader
         size="page"
         back={{ href: "/sourcework", label: "Back to projects" }}
-        title="Research prompts"
+        title="Research prompts and piece formats"
         description="The wording the model works from. Everyone's next run uses the live version."
-        className="mb-6"
+        className="mb-4"
       />
+      <EditorsSubNav active="prompts" className="mb-6" />
 
       <div className="mb-4 lg:hidden">
         <SlotSelect slots={slots} value={slot} />

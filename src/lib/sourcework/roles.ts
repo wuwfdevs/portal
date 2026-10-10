@@ -27,6 +27,6 @@ export const ROLE_OPTIONS: { value: SourceworkRole; label: string; description: 
     value: "editor",
     label: "Editor",
     description:
-      "Additionally maintains the research prompts every project's runs use: edits the wording, tries a draft, publishes and rolls back",
+      "Additionally maintains the research prompts and piece formats every project uses: edits the wording, tries a draft, publishes and rolls back",
   },
 ];

@@ -181,6 +181,7 @@ export function ActualityRow({
   onPlay,
   menuItems,
   below,
+  assistantNote,
   ...dragProps
 }: {
   block: ActualityBlock;
@@ -193,6 +194,7 @@ export function ActualityRow({
   onPlay: () => void;
   menuItems: ActionMenuItem[];
   below?: ReactNode;
+  assistantNote?: ReactNode;
   onDragStart: (id: string) => void;
   onDropOn: (id: string) => void;
 }) {
@@ -239,13 +241,17 @@ export function ActualityRow({
                     .join(" · ")}
                   <span className="max-lg:hidden"> · wording comes from the transcript</span>
                 </p>
+                {assistantNote}
               </div>
             </>
           ) : (
-            <p className="text-sm text-ink-500">
-              This excerpt was deleted, so there is nothing to play here. Swap it for another or
-              remove the block.
-            </p>
+            <div>
+              <p className="text-sm text-ink-500">
+                This excerpt was deleted, so there is nothing to play here. Swap it for another or
+                remove the block.
+              </p>
+              {assistantNote}
+            </div>
           )}
         </div>
       </BlockRow>

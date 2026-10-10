@@ -3,7 +3,8 @@ import { z } from "zod";
 import type OpenAI from "openai";
 import { assertActiveProfile } from "@/lib/auth/authz";
 import { guardRoute } from "@/lib/auth/route-guard";
-import { streamAgentTurn, type AgentStreamEvent } from "@/lib/agent/chat";
+import { streamAgentTurn, type AgentPageContext, type AgentStreamEvent } from "@/lib/agent/chat";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Phase D's chat endpoint (docs/agent-capabilities-design.md §7): the portal
@@ -27,7 +28,9 @@ import { streamAgentTurn, type AgentStreamEvent } from "@/lib/agent/chat";
  */
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// A turn may draft a whole piece from a format (sourcework.piece.draftFromFormat), a model
+// call of a minute or two inside the turn's own.
+export const maxDuration = 300;
 
 // OpenAI's Responses API history is a flat mix of item shapes — plain
 // message items (`{role, content}`), `function_call` items, and
@@ -43,7 +46,25 @@ const bodySchema = z.object({
   history: z.array(historyItemSchema).max(400),
   input: z.string().trim().min(1).max(4000).optional(),
   confirmation: z.object({ toolUseId: z.string().min(1), approved: z.boolean() }).optional(),
+  // What the person has open (docs/sourcework-analysis-design.md §6.4). Only an id is
+  // accepted; the title and project are read here through their own session.
+  context: z.object({ pieceId: z.string().uuid() }).optional(),
 });
+
+async function resolvePageContext(
+  context: { pieceId: string } | undefined,
+): Promise<AgentPageContext | null> {
+  if (!context) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sw_pieces")
+    .select("id, project_id, title")
+    .eq("id", context.pieceId)
+    .maybeSingle();
+  // No access, or gone: the turn runs without page context rather than failing.
+  if (error || !data) return null;
+  return { kind: "piece", pieceId: data.id, projectId: data.project_id, title: data.title };
+}
 
 export async function POST(request: Request) {
   const guard = await guardRoute(assertActiveProfile);
@@ -56,11 +77,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const { history, input, confirmation } = parsed.data;
+  const { history, input, confirmation, context } = parsed.data;
   if (!input && !confirmation) {
     return NextResponse.json({ error: "Provide a message or a confirmation." }, { status: 400 });
   }
 
+  const pageContext = await resolvePageContext(context);
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -72,6 +94,7 @@ export async function POST(request: Request) {
           history: history as unknown as OpenAI.Responses.ResponseInputItem[],
           input,
           confirmation,
+          pageContext,
         })) {
           send(event);
         }

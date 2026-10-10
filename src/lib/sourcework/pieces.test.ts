@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   clampTrim,
+  diffAssistantChanges,
+  undoAssistantChange,
   computePieceLength,
   describeAgainstTarget,
   insertBlockAt,
@@ -197,5 +199,33 @@ describe("pieceAsText", () => {
     expect(text).toContain("Setup line.");
     expect(text).toContain("[ACTUALITY 0:09 · Tom] “It was dark.”");
     expect(text).toContain("TRT 0:10");
+  });
+});
+
+describe("assistant changes", () => {
+  const n1 = "aaaaaaaa-0000-4000-8000-000000000001";
+  const n2 = "aaaaaaaa-0000-4000-8000-000000000002";
+  const a1 = "aaaaaaaa-0000-4000-8000-000000000003";
+  const ex = "bbbbbbbb-0000-4000-8000-000000000001";
+
+  it("marks blocks the assistant changed or added, not ones it only moved", () => {
+    const base = [newNarration(n1, "Old setup."), newActuality(a1, ex)];
+    const current = [
+      newActuality(a1, ex),
+      newNarration(n1, "New setup."),
+      newNarration(n2, "Added."),
+    ];
+    expect(diffAssistantChanges(base, current)).toEqual({
+      [n1]: base[0],
+      [n2]: null,
+    });
+  });
+
+  it("undo puts a block back, or takes out one the assistant added", () => {
+    const current = [newNarration(n1, "New setup."), newNarration(n2, "Added.")];
+    expect(undoAssistantChange(current, n1, newNarration(n1, "Old setup."))[0]).toMatchObject({
+      text: "Old setup.",
+    });
+    expect(undoAssistantChange(current, n2, null)).toHaveLength(1);
   });
 });

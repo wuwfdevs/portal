@@ -10,12 +10,8 @@ import { field } from "@/lib/form-fields";
 import { getDisplayNames } from "@/lib/profile-names";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { piecePath, projectPath } from "@/lib/transcription/links";
-import {
-  computePieceLength,
-  excerptIdsIn,
-  parsePieceBody,
-  type PieceBlock,
-} from "@/lib/sourcework/pieces";
+import { parsePieceBody, type PieceBlock } from "@/lib/sourcework/pieces";
+import { savePieceBlocks, type SavedVia } from "@/lib/sourcework/piece-writes";
 import { loadPieceExcerpts, loadSegmentsAround } from "@/lib/sourcework/piece-queries";
 import type { TextSegment } from "@/lib/sourcework/piece-text";
 
@@ -144,58 +140,14 @@ async function persistBody(
   pieceId: string,
   baseVersion: number,
   blocks: PieceBlock[],
-  savedVia: "person" | "assistant" | "generation",
+  savedVia: SavedVia,
 ): Promise<
   ActionResult<{ version: number; lengthSeconds: number }> | { ok: false; conflict: true }
 > {
-  const { data: piece, error: pieceError } = await supabase
-    .from("sw_pieces")
-    .select("project_id")
-    .eq("id", pieceId)
-    .maybeSingle();
-  if (pieceError) {
-    console.error("Could not read the piece to save:", pieceError);
-    return actionError("Could not save the piece. Please try again.");
-  }
-  if (!piece) return actionError("That piece no longer exists.");
-
-  // An actuality must be an excerpt of one of this project's sources.
-  const ids = excerptIdsIn(blocks);
-  const excerpts = await loadPieceExcerpts(supabase, ids);
-  const { data: links, error: linkError } = await supabase
-    .from("sw_project_sources")
-    .select("source_id")
-    .eq("project_id", piece.project_id);
-  if (linkError) {
-    console.error("Could not read the project's sources to save:", linkError);
-    return actionError("Could not save the piece. Please try again.");
-  }
-  const projectSources = new Set((links ?? []).map((link) => link.source_id));
-  const knownIds = new Set(excerpts.map((excerpt) => excerpt.id));
-  for (const excerpt of excerpts) {
-    if (!projectSources.has(excerpt.sourceId)) {
-      return actionError("One of the excerpts isn't from this project's sources.");
-    }
-  }
-  // An excerpt deleted since the editor loaded stays as a placeholder block
-  // (length 0); it is not an error to keep saving around it.
-  const length = computePieceLength(blocks, excerpts);
-
-  const { data: version, error } = await supabase.rpc("sw_save_piece_version", {
-    p_piece_id: pieceId,
-    p_base_version: baseVersion,
-    p_body: blocks,
-    p_saved_via: savedVia,
-    p_length_seconds: length.totalSeconds,
-    p_excerpt_ids: ids.filter((id) => knownIds.has(id)),
-  });
-  if (error) {
-    console.error("Could not save the piece:", error);
-    return actionError("Could not save the piece. Please try again.");
-  }
-  if (version === -1) return { ok: false, conflict: true };
-  revalidatePieces(piece.project_id, pieceId);
-  return actionOk({ version, lengthSeconds: length.totalSeconds });
+  const saved = await savePieceBlocks(supabase, pieceId, baseVersion, blocks, savedVia);
+  if (!saved.ok) return "conflict" in saved ? saved : actionError(saved.error);
+  revalidatePieces(saved.projectId, pieceId);
+  return actionOk({ version: saved.version, lengthSeconds: saved.lengthSeconds });
 }
 
 export interface PieceVersionRow {
@@ -250,6 +202,13 @@ export async function restorePieceVersion(input: {
 > {
   await assertToolAccess("transcription");
   const supabase = await createClient();
+  // Version 0 is the blank piece before its first save: undoing a draft written onto an
+  // empty piece restores it.
+  if (input.version === 0) {
+    const saved = await persistBody(supabase, input.pieceId, input.baseVersion, [], "person");
+    if (!saved.ok) return saved;
+    return actionOk({ version: saved.version, blocks: [] });
+  }
   const { data, error } = await supabase
     .from("sw_piece_versions")
     .select("body")

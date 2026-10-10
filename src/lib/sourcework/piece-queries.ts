@@ -4,12 +4,21 @@ import { unwrapRead } from "@/lib/read-result";
 import { likeTerm } from "@/lib/list-search";
 import { parseWords } from "@/lib/transcription/transcript";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
-import { excerptIdsIn, parsePieceBody, type PieceBlock } from "./pieces";
+import {
+  diffAssistantChanges,
+  excerptIdsIn,
+  parsePieceBody,
+  type AssistantChanges,
+  type PieceBlock,
+} from "./pieces";
+import { describeFormatVersions } from "./piece-format-queries";
 import type { TextSegment } from "./piece-text";
 
 /** Words of context fetched either side of a trimmed clip, in ms. */
 export const TRIM_CONTEXT_MS = 25_000;
 const PICKER_LIMIT = 500;
+/** Versions read back to find where the assistant's run of edits began. */
+const ASSISTANT_LOOKBACK = 40;
 
 /** An excerpt as the piece editor needs it: timing, where it came from, who says it. */
 export interface PieceExcerpt {
@@ -32,6 +41,16 @@ export interface PieceListRow {
   lengthSeconds: number;
   targetSeconds: number | null;
   updatedAt: string;
+  /** The format that drafted it, and whether anyone saved after the draft; null = written by hand. */
+  madeWith: { formatName: string; edited: boolean } | null;
+}
+
+/** Where a piece's content came from, for its header and the note under it. */
+export interface PieceOrigin {
+  /** The format version that last drafted it. */
+  format: { name: string; version: number } | null;
+  /** Set when the latest version is that draft: "Drafted from Radio wrap v3 · Undo". */
+  justDrafted: boolean;
 }
 
 export interface PieceDetail {
@@ -47,6 +66,9 @@ export interface PieceDetail {
   excerpts: PieceExcerpt[];
   /** Transcript around each trimmed actuality, keyed by excerpt id. */
   segmentsByExcerpt: Record<string, TextSegment[]>;
+  origin: PieceOrigin;
+  /** Blocks the assistant changed since a person or a draft last saved (§6.4). */
+  assistantChanges: AssistantChanges;
 }
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -59,20 +81,34 @@ export async function listPiecesForProject(
   const supabase = await createClient();
   let query = supabase
     .from("sw_pieces")
-    .select("id, title, length_seconds, target_seconds, updated_at")
+    .select(
+      "id, title, length_seconds, target_seconds, updated_at, current_version, format_version_id, drafted_version",
+    )
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false })
     .order("id");
   const term = likeTerm(search);
   if (term) query = query.ilike("title", `%${term}%`);
   const rows = unwrapRead(await query, "this project's pieces") ?? [];
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    lengthSeconds: row.length_seconds,
-    targetSeconds: row.target_seconds,
-    updatedAt: row.updated_at,
-  }));
+  const formats = await describeFormatVersions(
+    rows.flatMap((row) => (row.format_version_id ? [row.format_version_id] : [])),
+  );
+  return rows.map((row) => {
+    const format = row.format_version_id ? formats.get(row.format_version_id) : undefined;
+    return {
+      id: row.id,
+      title: row.title,
+      lengthSeconds: row.length_seconds,
+      targetSeconds: row.target_seconds,
+      updatedAt: row.updated_at,
+      madeWith: format
+        ? {
+            formatName: format.name,
+            edited: row.drafted_version !== null && row.current_version > row.drafted_version,
+          }
+        : null,
+    };
+  });
 }
 
 export async function countPieces(projectId: string): Promise<number> {
@@ -202,26 +238,39 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
   const piece = unwrapRead(
     await supabase
       .from("sw_pieces")
-      .select("id, project_id, title, target_seconds, current_version, updated_at")
+      .select(
+        "id, project_id, title, target_seconds, current_version, updated_at, format_version_id, drafted_version",
+      )
       .eq("id", pieceId)
       .maybeSingle(),
     "this piece",
   );
   if (!piece) return null;
 
-  const [project, version] = await Promise.all([
+  const [project, version, recent, formats] = await Promise.all([
     supabase.from("tw_projects").select("title").eq("id", piece.project_id).maybeSingle(),
     piece.current_version === 0
       ? Promise.resolve({ data: null, error: null })
       : supabase
           .from("sw_piece_versions")
-          .select("body")
+          .select("body, saved_via")
           .eq("piece_id", pieceId)
           .eq("version", piece.current_version)
           .maybeSingle(),
+    // Enough history to find the last version a person or a draft saved.
+    piece.current_version === 0
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from("sw_piece_versions")
+          .select("version, saved_via")
+          .eq("piece_id", pieceId)
+          .order("version", { ascending: false })
+          .limit(ASSISTANT_LOOKBACK),
+    describeFormatVersions(piece.format_version_id ? [piece.format_version_id] : []),
   ]);
   const projectRow = unwrapRead(project, "this piece's project");
   const versionRow = unwrapRead(version, "this piece's content");
+  const recentRows = unwrapRead(recent, "this piece's history") ?? [];
 
   let blocks: PieceBlock[] = [];
   if (piece.current_version > 0) {
@@ -229,6 +278,31 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
     if (!parsed) throw new Error("This piece's saved content could not be read.");
     blocks = parsed;
   }
+
+  // The assistant's changes since the last version a person or a draft saved.
+  let assistantChanges: AssistantChanges = {};
+  if (versionRow?.saved_via === "assistant") {
+    const base = recentRows.find((row) => row.saved_via !== "assistant");
+    const oldest = recentRows[recentRows.length - 1];
+    let baseBlocks: PieceBlock[] | null = null;
+    if (base) {
+      const baseRow = unwrapRead(
+        await supabase
+          .from("sw_piece_versions")
+          .select("body")
+          .eq("piece_id", pieceId)
+          .eq("version", base.version)
+          .maybeSingle(),
+        "this piece's history",
+      );
+      baseBlocks = parsePieceBody(baseRow?.body);
+    } else if (oldest?.version === 1) {
+      // Every version so far is the assistant's: it started from a blank piece.
+      baseBlocks = [];
+    }
+    if (baseBlocks) assistantChanges = diffAssistantChanges(baseBlocks, blocks);
+  }
+  const format = piece.format_version_id ? formats.get(piece.format_version_id) : undefined;
 
   const excerpts = await loadPieceExcerpts(supabase, excerptIdsIn(blocks));
   const excerptById = new Map(excerpts.map((excerpt) => [excerpt.id, excerpt]));
@@ -261,5 +335,11 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
     blocks,
     excerpts,
     segmentsByExcerpt,
+    origin: {
+      format: format ? { name: format.name, version: format.version } : null,
+      justDrafted:
+        versionRow?.saved_via === "generation" && piece.drafted_version === piece.current_version,
+    },
+    assistantChanges,
   };
 }

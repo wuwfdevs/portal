@@ -19,12 +19,15 @@ export function PieceInsertionPoint({
   excerpts,
   onAddNarration,
   onAddExcerpt,
+  onAskAssistant,
   afterLabel,
 }: {
   id: string;
   excerpts: PieceExcerpt[];
   onAddNarration: () => void;
   onAddExcerpt: (excerpt: PieceExcerpt) => void;
+  /** "Ask the assistant to write it": opens the assistant with a request to finish (§6.4). */
+  onAskAssistant?: () => void;
   /** What the sheet says it is adding after, on a phone. */
   afterLabel?: string;
 }) {
@@ -89,6 +92,18 @@ export function PieceInsertionPoint({
               >
                 Excerpt from this project…
               </button>
+              {onAskAssistant && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAskAssistant();
+                    close();
+                  }}
+                  className="flex h-[52px] w-full items-center border-t border-line text-left text-base text-brand-link"
+                >
+                  Ask the assistant to write it
+                </button>
+              )}
               <Button
                 type="button"
                 variant="secondary"
@@ -154,16 +169,30 @@ export function PieceInsertionPoint({
         </button>
       </div>
       {mode === "narration" ? (
-        <Button
-          type="button"
-          autoFocus
-          onClick={() => {
-            onAddNarration();
-            close();
-          }}
-        >
-          + Add a narration block
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            autoFocus
+            onClick={() => {
+              onAddNarration();
+              close();
+            }}
+          >
+            + Add a narration block
+          </Button>
+          {onAskAssistant && (
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => {
+                onAskAssistant();
+                close();
+              }}
+            >
+              Ask the assistant to write it
+            </Button>
+          )}
+        </div>
       ) : (
         <ExcerptPicker
           listId={`piece-picker-${id}`}

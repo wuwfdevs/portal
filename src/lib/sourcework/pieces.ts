@@ -294,3 +294,39 @@ export function pieceAsText(
   lines.push(`TRT ${formatClock(length.totalSeconds)}`);
   return `${lines.join("\n")}\n`;
 }
+
+// The assistant's changes ---------------------------------------------------------
+// Blocks the assistant changed carry "Edited by the assistant · Undo" until the next
+// person edit (§6.4). Which ones is derived, not stored: the current blocks against the
+// last version a person or a draft saved.
+
+/** A block's state before the assistant's edits: the old block, or null when the assistant added it. */
+export type AssistantChanges = Record<string, PieceBlock | null>;
+
+function sameBlock(a: PieceBlock, b: PieceBlock): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function diffAssistantChanges(
+  base: readonly PieceBlock[],
+  current: readonly PieceBlock[],
+): AssistantChanges {
+  const before = new Map(base.map((block) => [block.id, block]));
+  const changes: AssistantChanges = {};
+  for (const block of current) {
+    const old = before.get(block.id);
+    if (!old) changes[block.id] = null;
+    else if (!sameBlock(old, block)) changes[block.id] = old;
+  }
+  return changes;
+}
+
+/** Undo on one marked block: put it back as it was, or take it out if the assistant added it. */
+export function undoAssistantChange(
+  blocks: readonly PieceBlock[],
+  id: string,
+  previous: PieceBlock | null,
+): PieceBlock[] {
+  if (previous === null) return removeBlock(blocks, id);
+  return blocks.map((block) => (block.id === id ? previous : block));
+}

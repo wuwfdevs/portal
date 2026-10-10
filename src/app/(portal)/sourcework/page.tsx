@@ -101,7 +101,7 @@ export default async function TranscriptionListPage({
         className="mb-8"
         actions={
           isEditor ? (
-            <SecondaryLink href="/sourcework/editors">Research prompts</SecondaryLink>
+            <SecondaryLink href="/sourcework/editors">Prompts and formats</SecondaryLink>
           ) : undefined
         }
       />

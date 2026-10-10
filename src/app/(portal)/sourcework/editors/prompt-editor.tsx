@@ -9,9 +9,9 @@ import { ConfirmAction } from "@/components/ui/confirm-action";
 import { Textarea } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/cn";
-import { acceptRateLabel, type PromptSlot } from "@/lib/sourcework/prompts";
+import { acceptRateLabel, validatePromptBody, type PromptSlot } from "@/lib/sourcework/prompts";
 import { draftDiffersFromLive } from "@/lib/sourcework/trial-sample";
-import { discardPromptDraft, makeVersionLive, savePromptDraft } from "./actions";
+import { discardPromptDraft, makeVersionLive, publishPrompt, savePromptDraft } from "./actions";
 import { LocalTime } from "./local-time";
 import { PublishPanel } from "./publish-panel";
 
@@ -268,10 +268,13 @@ export function PromptEditor({
       {publishing && (
         <div ref={publishRef}>
           <PublishPanel
-            slot={slot}
-            getBody={async () => {
+            id={slot}
+            publish={async (note) => {
               await flush();
-              return textRef.current;
+              // Checked here too, so the error sits by the text rather than after a round trip.
+              const checked = validatePromptBody(slot, textRef.current);
+              if (!checked.ok) return checked;
+              return publishPrompt({ slot, body: checked.body, note });
             }}
             onClose={() => setPublishing(false)}
             onPublished={(version) => {

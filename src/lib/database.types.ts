@@ -834,6 +834,10 @@ export interface Database {
           current_version: number;
           length_seconds: number;
           excerpt_ids: string[];
+          /** The format version that last drafted the piece; null = written by hand (20261015120000). */
+          format_version_id: string | null;
+          /** The piece version that draft became, so a later version reads "then edited". */
+          drafted_version: number | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -843,6 +847,83 @@ export interface Database {
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["sw_pieces"]["Row"]>;
+        Relationships: [];
+      };
+      sw_piece_formats: {
+        Row: {
+          id: string;
+          name: string;
+          position: number;
+          live_version_id: string | null;
+          live_moved_by: string | null;
+          live_moved_at: string | null;
+          /** Null for a seeded format (20261015120000). */
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_piece_formats"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_piece_formats"]["Row"]>;
+        Relationships: [];
+      };
+      sw_piece_format_versions: {
+        Row: {
+          id: string;
+          format_id: string;
+          version: number;
+          spec: unknown;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_piece_format_versions"]["Row"]> & {
+          format_id: string;
+          version: number;
+          spec: unknown;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      sw_piece_format_drafts: {
+        Row: {
+          format_id: string;
+          user_id: string;
+          spec: unknown;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_piece_format_drafts"]["Row"]> & {
+          format_id: string;
+          user_id: string;
+          spec: unknown;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_piece_format_drafts"]["Row"]>;
+        Relationships: [];
+      };
+      sw_piece_format_trials: {
+        Row: {
+          id: string;
+          format_id: string;
+          draft_spec: unknown;
+          live_version_id: string | null;
+          project_id: string;
+          direction: string;
+          status: "running" | "succeeded" | "failed";
+          error: string | null;
+          results: unknown;
+          created_by: string;
+          created_at: string;
+          finished_at: string | null;
+          expires_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sw_piece_format_trials"]["Row"]> & {
+          format_id: string;
+          draft_spec: unknown;
+          project_id: string;
+          created_by: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sw_piece_format_trials"]["Row"]>;
         Relationships: [];
       };
       sw_piece_versions: {
@@ -908,11 +989,21 @@ export interface Database {
       sw_analysis_runs: {
         Row: {
           id: string;
-          kind: "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
+          kind: 
+            | "context"
+            | "extraction"
+            | "theme_assign"
+            | "theme_review"
+            | "quote_suggest"
+            | "piece_draft";
           project_id: string;
           source_id: string | null;
           /** The theme a quote_suggest run is about (20261014120000); null for every other kind. */
           theme_id: string | null;
+          /** The piece a piece_draft run wrote (20261015120000); null for a trial and every other kind. */
+          piece_id: string | null;
+          /** The format version a piece_draft run followed. */
+          format_version_id: string | null;
           prompt_version_id: string | null;
           trial: boolean;
           model: string;
@@ -925,7 +1016,13 @@ export interface Database {
           finished_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]> & {
-          kind: "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest";
+          kind: 
+            | "context"
+            | "extraction"
+            | "theme_assign"
+            | "theme_review"
+            | "quote_suggest"
+            | "piece_draft";
           project_id: string;
           model: string;
           created_by: string;
@@ -4280,6 +4377,11 @@ export interface Database {
       /** Security invoker (20261012120000). Saves the next version of a prompt slot and makes it live; returns the version number. */
       sw_publish_prompt: {
         Args: { p_slot: string; p_body: string; p_note: string | null };
+        Returns: number;
+      };
+      /** Security invoker (20261015120000). Saves a format's next version and makes it live; returns its number. */
+      sw_publish_piece_format: {
+        Args: { p_format_id: string; p_spec: unknown; p_note: string | null };
         Returns: number;
       };
       /** Security invoker (20261011120000). Saves a piece's blocks as its next version; returns the new version, or -1 when the piece moved on since p_base_version. */
