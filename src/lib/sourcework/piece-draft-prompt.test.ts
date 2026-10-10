@@ -139,3 +139,36 @@ describe("parseDraftOutput", () => {
     ).toBe(false);
   });
 });
+
+describe("anchor intro in a draft", () => {
+  const excerpts = [{ number: 1, id: "e1" }];
+  let n = 0;
+  const newId = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
+
+  it("keeps a first anchor intro as an anchor block", () => {
+    const text = JSON.stringify({
+      blocks: [
+        { kind: "anchor_intro", text: "A host reads this.", excerpt_number: 0 },
+        { kind: "narration", text: "The reporter reads this.", excerpt_number: 0 },
+      ],
+    });
+    const parsed = parseDraftOutput(text, excerpts, newId);
+    expect(parsed.ok && parsed.blocks[0]).toMatchObject({ type: "narration", role: "anchor" });
+  });
+
+  it("demotes a later one to narration with a warning, and needs real narration", () => {
+    const later = JSON.stringify({
+      blocks: [
+        { kind: "narration", text: "Reporter.", excerpt_number: 0 },
+        { kind: "anchor_intro", text: "Late intro.", excerpt_number: 0 },
+      ],
+    });
+    const parsed = parseDraftOutput(later, excerpts, newId);
+    expect(parsed.ok && parsed.blocks[1]).not.toHaveProperty("role");
+    expect(parsed.ok && parsed.warnings).toHaveLength(1);
+    const only = JSON.stringify({
+      blocks: [{ kind: "anchor_intro", text: "Only.", excerpt_number: 0 }],
+    });
+    expect(parseDraftOutput(only, excerpts, newId).ok).toBe(false);
+  });
+});

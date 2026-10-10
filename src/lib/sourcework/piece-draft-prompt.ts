@@ -29,18 +29,27 @@ export const DIRECTION_MAX = 1000;
 
 export const DRAFT_FRAMING = `You draft a radio piece for a public radio newsroom, from material a reporter has already accepted. You are given the newsroom's format for this kind of piece, the reporter's direction (if any), the project's accepted themes with the accepted data points behind them (short paraphrases of what sources said, each marked "supports" or "complicates"), and the excerpts you may use, numbered, each with its speaker, its length and its words.
 
-Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
+Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An anchor_intro block is what the anchor reads to introduce a reporter's recorded piece: use one only when the format has an anchor intro section, and only as the first block. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
 
-Rules:
+Accuracy and attribution:
 - Use only what the material says. Never invent a name, a number, a date, a place or anything a person said. When a sentence needs a fact the material does not give, write a short bracketed placeholder such as [CHECK: year the gap was closed] instead of guessing.
 - Attribute what sources said ("he says", "she remembers"). Data points are paraphrases, so do not present them as quotations.
 - Name the speaker in the narration before each actuality: a listener cannot see who is talking.
-- Follow the format's sections in order, as closely as the material allows. If the material cannot fill an actuality section, leave that section out rather than using an excerpt that does not fit.
-- Place each excerpt at most once. Use a number from the list only.
-- Aim for the format's length. Narration is read at about ${READ_WORDS_PER_MINUTE} words a minute; add the lengths of the excerpts you place, and size the narration to make up the rest.
-- Complicating evidence is part of the story; do not leave it out to make the piece neater.
+- Complicating evidence is part of the story; do not leave it out to make the piece neater. Give the context a listener needs to judge a claim.
 
-Return the blocks in order: for a narration block, kind "narration", its text, and excerpt_number 0; for an actuality block, kind "actuality", an empty text, and the excerpt's number. The newsroom's format follows.`;
+Choosing actualities:
+- Use a clip for what narration can't do: an experience, a feeling, an opinion, an explanation in the speaker's own voice. Facts, figures and dates belong in the narration.
+- A clip must make sense on its own and say something the narration doesn't repeat. Do not set up a clip by saying what it says.
+- The format's actuality count is a usual range, not a quota. Use fewer when fewer clips earn their place; a strong short piece may use one, a voicer none. Do not pad with a weaker clip to reach a number, and do not require a different speaker for each clip. If the material cannot fill an actuality section, leave that section out.
+- Place each excerpt at most once. Use a number from the list only.
+
+Writing for the ear:
+- Short sentences, one idea each, in plain spoken language that can be read aloud in one breath. Put the attribution first ("the mayor says the plan will cost...").
+- Lead with the newest or most important fact. Do not restate the first line of the story in the anchor intro: the intro sets up the story and the reporter's piece takes it on.
+- The format's sections are an outline of what the piece has to do, not a pattern to fill. Do not alternate narration and actualities mechanically; two narration blocks in a row are fine when the story needs it. Sections marked optional can be left out. Follow the order as closely as the material allows.
+- Aim for the format's length. Narration is read at about ${READ_WORDS_PER_MINUTE} words a minute; add the lengths of the excerpts you place, and size the narration to make up the rest. An anchor intro is not counted in the length.
+
+Return the blocks in order: for a narration or anchor_intro block, its kind, its text, and excerpt_number 0; for an actuality block, kind "actuality", an empty text, and the excerpt's number. The newsroom's format follows.`;
 
 export interface DraftPointInput {
   claim: string;
@@ -139,7 +148,7 @@ export function buildDraftOutputSchema(): Record<string, unknown> {
           additionalProperties: false,
           required: ["kind", "text", "excerpt_number"],
           properties: {
-            kind: { type: "string", enum: ["narration", "actuality"] },
+            kind: { type: "string", enum: ["narration", "anchor_intro", "actuality"] },
             text: { type: "string" },
             excerpt_number: { type: "integer" },
           },
@@ -185,11 +194,22 @@ export function parseDraftOutput(
     }
     if (typeof item !== "object" || item === null) continue;
     const block = item as { kind?: unknown; text?: unknown; excerpt_number?: unknown };
-    if (block.kind === "narration") {
+    if (block.kind === "narration" || block.kind === "anchor_intro") {
       const narration =
         typeof block.text === "string" ? block.text.replace(/\s+/g, " ").trim() : "";
       if (!narration) continue;
-      blocks.push(newNarration(newId(), narration.slice(0, MAX_NARRATION_CHARS)));
+      // An anchor intro only makes sense as the first block, and only once.
+      const anchor = block.kind === "anchor_intro" && blocks.length === 0;
+      if (block.kind === "anchor_intro" && !anchor) {
+        warnings.push("The draft put an anchor intro after the start; it was kept as narration.");
+      }
+      blocks.push(
+        newNarration(
+          newId(),
+          narration.slice(0, MAX_NARRATION_CHARS),
+          anchor ? "anchor" : undefined,
+        ),
+      );
     } else if (block.kind === "actuality") {
       const number = block.excerpt_number;
       const excerptId = typeof number === "number" ? byNumber.get(number) : undefined;
@@ -208,7 +228,7 @@ export function parseDraftOutput(
     }
   }
 
-  if (!blocks.some((block) => block.type === "narration")) {
+  if (!blocks.some((block) => block.type === "narration" && block.role !== "anchor")) {
     return { ok: false, error: "The draft came back with no narration. Try again." };
   }
   return { ok: true, blocks, warnings };

@@ -48,7 +48,7 @@ export interface PieceListRow {
 /** Where a piece's content came from, for its header and the note under it. */
 export interface PieceOrigin {
   /** The format version that last drafted it. */
-  format: { name: string; version: number } | null;
+  format: { id: string; name: string; version: number } | null;
   /** Set when the latest version is that draft: "Drafted from Radio wrap v3 · Undo". */
   justDrafted: boolean;
 }
@@ -336,7 +336,7 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
     excerpts,
     segmentsByExcerpt,
     origin: {
-      format: format ? { name: format.name, version: format.version } : null,
+      format: format ? { id: format.formatId, name: format.name, version: format.version } : null,
       justDrafted:
         versionRow?.saved_via === "generation" && piece.drafted_version === piece.current_version,
     },

@@ -484,6 +484,15 @@ editor while a person may have unsaved edits (title rename no longer does). Capa
 widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
 (Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
 
+**Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
+pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
+(`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format section may be `optional` or
+`anchor` (the anchor's lead-in, first only), and the actuality range is a usual range, never a quota; (2) a narration
+block may carry `role: "anchor"`, which `computePieceLength` keeps out of `totalSeconds`; (3) a piece can be written to a
+format by hand (`setPieceFormat`, New piece's format select) — that sets the target and shows a guide but never touches
+content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
+each format's style.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

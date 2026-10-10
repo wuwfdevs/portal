@@ -860,3 +860,34 @@ Where the build departed from, or settled, the design above:
   a Prompts | Piece formats `SubNav`; formats live at `/sourcework/editors/formats`.
 - **Not run against a live model.** Draft with AI, format trials and the assistant's capabilities are type-checked and
   their pure parts tested; none has been run end to end from this sandbox.
+
+## 18. Piece format catalog revised (2026-10-10)
+
+Reviewed against NPR training and station conventions (a **voicer** is a reporter's spot with no tape, a **wrap** has at
+least one cut wrapped inside it, spots run about 0:40, a **cut and copy** is an anchor read around one actuality, and the
+anchor's intro is written separately from the reporter's track). Production held only the four seeded formats at v1, with
+no edits and no pieces, so they were revised in place (`20261017120000`), never deleted.
+
+- **The catalog is five formats**: Reader / Voicer (0:38 ±0:08, no actualities), Cut and Copy (0:45 ±0:05, one), Wrap
+  (0:53 ±0:08, one to two), Super Spot (2:00 ±0:10, one to three) and Feature (4:00 ±0:30, two to six). "Radio wrap"
+  became Wrap, "Voicer" Reader / Voicer, "Script" Feature; Super Spot is new. Reader and voicer are one format (same
+  scripting); "spot" is a category and "package" the same as a feature. Two-ways, interviews, commentary, vox pops and
+  long-form podcast scripting are deliberately not formats. A format an editor had already changed is left alone.
+- **The ranges are expressed as a target ± tolerance**, so 0:30–0:45 is 0:38 ±0:08 (0:30–0:46) and 0:45–1:00 is 0:53
+  ±0:08. The model has no separate min/max length; an editor can change either number.
+- **The actuality range is a usual range, not a quota.** The prompt says to use fewer when fewer clips earn their place and
+  never to add a weaker clip to reach the number; a trial flags only going over the most.
+- **Spec additions** (`piece-formats.ts`, backwards compatible): a section may be `optional` (a tag, a second voice) and may
+  be of type `anchor`, the first section only. Sections are described to the model as an outline, not a template, so it
+  need not alternate narration and actualities or use a set number of speakers.
+- **Anchor intro vs. the reporter's piece.** A narration block may carry `role: "anchor"`: shown as its own block, kept out
+  of `totalSeconds` (and so out of the target comparison) and reported separately as `anchorSeconds`. A reader or cut and
+  copy has no anchor intro of its own because the anchor reads, and the format times, the whole thing. The draft schema
+  gains `anchor_intro` (first block only; a later one becomes narration with a warning).
+- **Formats serve hand-written pieces.** New piece takes an optional format; a piece can pick or clear one from the editor
+  (`setPieceFormat`), which sets the target and shows a collapsible guide of sections, length range and style. It never
+  touches content. A piece keeps `format_version_id`; `drafted_version` is set only by Draft with AI, so "then edited"
+  stays accurate.
+- **Standards** moved into the fixed drafting framing, not each format's style: attribution and accuracy, context,
+  complicating evidence, actuality selection (tape for experience and feeling, narration for facts), and writing for the ear.
+- Not run against a live model; the pure parts are tested.

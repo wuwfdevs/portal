@@ -90,7 +90,7 @@ describe("validateFormatName", () => {
 
 describe("describing a format", () => {
   it("says the length and the actuality range", () => {
-    expect(describeFormat(wrap)).toBe("1:00 · 2 to 3 actualities");
+    expect(describeFormat(wrap)).toBe("0:55–1:05 · 2 to 3 actualities");
     expect(actualityRangeLabel({ minActualities: 1, maxActualities: 1 })).toBe("1 actuality");
     expect(actualityRangeLabel({ minActualities: 0, maxActualities: 0 })).toBe("no actualities");
   });
@@ -98,7 +98,8 @@ describe("describing a format", () => {
   it("renders the guide the model reads, sections numbered in order", () => {
     const guide = renderFormatGuide("Radio wrap", wrap);
     expect(guide).toContain("Format: Radio wrap.");
-    expect(guide).toContain("Length: 1:00, within 5 seconds either way.");
+    expect(guide).toContain("Length: aim for 1:00; 0:55–1:05 is on target.");
+    expect(guide).toContain("a guide, not a quota");
     expect(guide).toContain("2. Actuality: Voice: the strongest first-person moment.");
     expect(guide).toContain("Style:\nPlain and factual.");
   });
@@ -106,6 +107,39 @@ describe("describing a format", () => {
   it("measures a draft against the format", () => {
     expect(lengthAgainstFormat(57, wrap)).toBe("0:57 of 1:00");
     expect(lengthAgainstFormat(48, wrap)).toBe("0:48 of 1:00, 12s under");
+  });
+});
+
+describe("anchor and optional sections", () => {
+  const withAnchor: FormatSpec = {
+    ...wrap,
+    sections: [
+      { type: "anchor", optional: true, guidance: "Anchor intro: the newest fact." },
+      ...wrap.sections.slice(0, 2),
+      { type: "narration", optional: true, guidance: "Tag." },
+    ],
+  };
+
+  it("keeps the anchor type and the optional flag through a read", () => {
+    expect(readFormatSpec(JSON.parse(JSON.stringify(withAnchor)))).toEqual(withAnchor);
+  });
+
+  it("tells the model the anchor intro isn't timed and which sections can go", () => {
+    const guide = renderFormatGuide("Wrap", withAnchor);
+    expect(guide).toContain("The anchor intro is not counted.");
+    expect(guide).toContain("1. Anchor intro (optional): Anchor intro: the newest fact.");
+    expect(guide).toContain("4. Narration (optional): Tag.");
+  });
+
+  it("allows one anchor intro, first only", () => {
+    expect(validateFormatSpec(withAnchor).ok).toBe(true);
+    const second = {
+      ...withAnchor,
+      sections: [...withAnchor.sections.slice(1), withAnchor.sections[0]!],
+    };
+    expect(validateFormatSpec(second).ok).toBe(false);
+    const twice = { ...withAnchor, sections: [withAnchor.sections[0]!, ...withAnchor.sections] };
+    expect(validateFormatSpec(twice).ok).toBe(false);
   });
 });
 

@@ -25,10 +25,11 @@ export default async function PiecePage({
   const piece = await getPieceDetail(pieceId);
   if (!piece || piece.projectId !== id) notFound();
   const blank = piece.blocks.length === 0;
-  // Draft with AI is offered only on an empty piece (§6.1), so only an empty one reads what it offers.
+  // Formats are listed always (a piece can be written to one by hand); the draft material only
+  // when Draft with AI is offered, which is on an empty piece (§6.1).
   const [pickerExcerpts, formats, material] = await Promise.all([
     listPickerExcerpts(piece.projectId),
-    blank ? listLiveFormats() : Promise.resolve([]),
+    listLiveFormats(),
     blank ? loadMaterialSummary(piece.projectId) : Promise.resolve(null),
   ]);
 
@@ -45,7 +46,8 @@ export default async function PiecePage({
         key={piece.version}
         piece={piece}
         pickerExcerpts={pickerExcerpts}
-        draftFormats={formats.map((format) => ({
+        formats={formats.map((format) => ({ id: format.id, name: format.name, spec: format.spec }))}
+        draftFormats={(blank ? formats : []).map((format) => ({
           id: format.id,
           name: format.name,
           description: describeFormat(format.spec),

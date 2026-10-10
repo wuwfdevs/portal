@@ -4,6 +4,7 @@ import {
   diffAssistantChanges,
   undoAssistantChange,
   computePieceLength,
+  setNarrationRole,
   describeAgainstTarget,
   insertBlockAt,
   moveBlock,
@@ -227,5 +228,38 @@ describe("assistant changes", () => {
       text: "Old setup.",
     });
     expect(undoAssistantChange(current, n2, null)).toHaveLength(1);
+  });
+});
+
+describe("anchor intro", () => {
+  const ID = ["a", "b", "c"].map((x) => x.repeat(8) + "-aaaa-aaaa-aaaa-" + x.repeat(12));
+
+  it("reads a role and refuses an unknown one", () => {
+    const ok = parsePieceBody([{ id: ID[0], type: "narration", text: "Hi.", role: "anchor" }]);
+    expect(ok?.[0]).toMatchObject({ role: "anchor" });
+    expect(
+      parsePieceBody([{ id: ID[0], type: "narration", text: "Hi.", role: "host" }]),
+    ).toBeNull();
+  });
+
+  it("keeps it out of the timed length", () => {
+    const blocks = [
+      {
+        ...newNarration(ID[0]!, "One two three four five six seven eight."),
+        role: "anchor" as const,
+      },
+      newNarration(ID[1]!, "One two three four five six seven eight."),
+    ];
+    const length = computePieceLength(blocks, []);
+    expect(length.anchorSeconds).toBeGreaterThan(0);
+    expect(length.totalSeconds).toBe(length.narrationSeconds);
+    expect(length.anchorSeconds).toBe(length.narrationSeconds);
+  });
+
+  it("toggles on and off", () => {
+    const blocks = [newNarration(ID[0]!, "Hi.")];
+    const on = setNarrationRole(blocks, ID[0]!, "anchor");
+    expect(on[0]).toMatchObject({ role: "anchor" });
+    expect(setNarrationRole(on, ID[0]!, undefined)[0]).not.toHaveProperty("role");
   });
 });

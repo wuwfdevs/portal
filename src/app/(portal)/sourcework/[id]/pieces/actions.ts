@@ -12,6 +12,7 @@ import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { piecePath, projectPath } from "@/lib/transcription/links";
 import { parsePieceBody, type PieceBlock } from "@/lib/sourcework/pieces";
 import { savePieceBlocks, type SavedVia } from "@/lib/sourcework/piece-writes";
+import { readFormatSpec } from "@/lib/sourcework/piece-formats";
 import { loadPieceExcerpts, loadSegmentsAround } from "@/lib/sourcework/piece-queries";
 import type { TextSegment } from "@/lib/sourcework/piece-text";
 
@@ -32,9 +33,20 @@ export async function createPiece(formData: FormData) {
   const projectId = field(formData, "project_id");
   const supabase = await createClient();
 
+  // An optional starting format: its length becomes the piece's target, and the piece keeps
+  // the version so the editor can show its guide while the reporter writes by hand.
+  const formatId = field(formData, "format_id");
+  const chosen = formatId ? await liveFormatVersion(supabase, formatId) : null;
+
   const { data, error } = await supabase
     .from("sw_pieces")
-    .insert({ project_id: projectId, created_by: profile.id })
+    .insert({
+      project_id: projectId,
+      created_by: profile.id,
+      ...(chosen
+        ? { format_version_id: chosen.versionId, target_seconds: chosen.targetSeconds }
+        : {}),
+    })
     .select("id")
     .single();
   if (error || !data) {
@@ -43,6 +55,62 @@ export async function createPiece(formData: FormData) {
   }
   revalidatePieces(projectId);
   redirect(piecePath(projectId, data.id));
+}
+
+async function liveFormatVersion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formatId: string,
+): Promise<{ versionId: string; targetSeconds: number } | null> {
+  const { data: format, error: formatError } = await supabase
+    .from("sw_piece_formats")
+    .select("live_version_id")
+    .eq("id", formatId)
+    .maybeSingle();
+  if (formatError || !format?.live_version_id) return null;
+  const { data: version, error: versionError } = await supabase
+    .from("sw_piece_format_versions")
+    .select("id, spec")
+    .eq("id", format.live_version_id)
+    .maybeSingle();
+  if (versionError) return null;
+  const spec = version ? readFormatSpec(version.spec) : null;
+  return version && spec ? { versionId: version.id, targetSeconds: spec.targetSeconds } : null;
+}
+
+/**
+ * Chooses (or clears) the format a piece is written to, for a piece written by hand as much as
+ * a drafted one. Choosing sets the piece's target to the format's; clearing leaves the target.
+ * It never touches the piece's content.
+ */
+export async function setPieceFormat(input: {
+  pieceId: string;
+  formatId: string | null;
+}): Promise<ActionResult<{ targetSeconds: number | null }>> {
+  await assertToolAccess("transcription");
+  const supabase = await createClient();
+  const chosen = input.formatId ? await liveFormatVersion(supabase, input.formatId) : null;
+  if (input.formatId && !chosen) return actionError("That format isn't published.");
+  const { data, error } = await supabase
+    .from("sw_pieces")
+    .update(
+      chosen
+        ? {
+            format_version_id: chosen.versionId,
+            drafted_version: null,
+            target_seconds: chosen.targetSeconds,
+          }
+        : { format_version_id: null, drafted_version: null },
+    )
+    .eq("id", input.pieceId)
+    .select("project_id")
+    .maybeSingle();
+  if (error) {
+    console.error("Could not set the piece's format:", error);
+    return actionError("Could not save the format.");
+  }
+  if (!data) return actionError("That piece no longer exists.");
+  revalidatePieces(data.project_id, input.pieceId);
+  return actionOk({ targetSeconds: chosen?.targetSeconds ?? null });
 }
 
 export async function renamePiece(input: {
