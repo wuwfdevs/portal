@@ -820,7 +820,7 @@ export function TranscriptWorkspace({
             ]}
             value={layer}
             onChange={setLayer}
-            className="self-start max-lg:[&_span]:h-11"
+            className="shrink-0 self-start max-lg:[&_span]:h-11"
           />
         )}
         {evidence && research && projectId ? (

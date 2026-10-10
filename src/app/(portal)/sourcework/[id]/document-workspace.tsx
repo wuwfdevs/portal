@@ -506,7 +506,7 @@ export function DocumentWorkspace({
               ]}
               value={layer}
               onChange={setLayer}
-              className="mb-3 max-lg:[&_span]:h-11"
+              className="mb-3 shrink-0 max-lg:[&_span]:h-11"
             />
           )}
           {evidence && research && projectId ? (
