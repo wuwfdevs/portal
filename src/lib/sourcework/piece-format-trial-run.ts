@@ -6,6 +6,7 @@ import { computePieceLength } from "./pieces";
 import { readFormatSpec, type FormatSpec } from "./piece-formats";
 import { generateDraft, loadDraftMaterial, type DraftMaterial } from "./piece-draft-run";
 import { trialSide, type FormatTrialResults, type FormatTrialSide } from "./piece-format-trials";
+import { getLivePrompt } from "./research-queries";
 import { finishRun, startRun } from "./research-runs";
 
 // "Try this draft" for a piece format (docs/sourcework-analysis-design.md §6.3, §8.1): the live
@@ -88,6 +89,8 @@ export async function runFormatTrial(args: {
     ...(liveRow && liveSpec ? [{ versionId: liveRow.id, spec: liveSpec }] : []),
     { versionId: null, spec: args.draftSpec },
   ];
+  // A format trial compares formats, so both sides draft under the same live piece_draft wording.
+  const livePrompt = await getLivePrompt("piece_draft");
   const runs = await Promise.all(
     sides.map((side) =>
       startRun(supabase, {
@@ -95,7 +98,7 @@ export async function runFormatTrial(args: {
         projectId: args.projectId,
         sourceId: null,
         formatVersionId: side.versionId,
-        promptVersionId: null,
+        promptVersionId: livePrompt.versionId,
         trial: true,
         model: RESEARCH_MODEL,
         userId: args.userId,
@@ -120,6 +123,7 @@ export async function runFormatTrial(args: {
     const drafts = await Promise.all(
       sides.map((side) =>
         generateDraft({
+          promptBody: livePrompt.body,
           material,
           formatName: format.name,
           spec: side.spec,

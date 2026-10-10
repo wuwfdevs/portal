@@ -7,6 +7,8 @@ import { buildAgentToolBridge, type AgentToolBridge } from "./tool-bridge";
 import type { Profile } from "@/lib/auth/session";
 import { getCapability } from "@/lib/capabilities/registry";
 import { pieceAssistantInstructions } from "@/lib/sourcework/piece-assistant-prompt";
+import { PIECE_ASSISTANT_BUILT_IN } from "@/lib/sourcework/prompts";
+import { getLivePrompt } from "@/lib/sourcework/research-queries";
 
 // The in-portal agent's turn loop (Phase D, docs/agent-capabilities-design.md
 // §7), driven by OpenAI's Responses API (reusing OPENAI_API_KEY — see
@@ -97,14 +99,18 @@ export interface AgentTurnInput {
   pageContext?: AgentPageContext | null;
 }
 
-/** The instructions for one turn: the standing ones, plus what the person has open. */
-export function instructionsFor(pageContext: AgentPageContext | null | undefined): string {
+/**
+ * The instructions for one turn: the standing ones, plus what the person has open. `pieceGuide`
+ * is the editors' "piece_assistant" wording (lib/sourcework/prompts.ts), read live by the caller.
+ */
+export function instructionsFor(
+  pageContext: AgentPageContext | null | undefined,
+  pieceGuide: string = PIECE_ASSISTANT_BUILT_IN,
+): string {
   if (!pageContext) return INSTRUCTIONS;
   return `${INSTRUCTIONS}
 
-${pieceAssistantInstructions(pageContext)}
-
-An actuality is a speaker's own recorded words. Place or swap one only by excerpt id (find ids with sourcework.piece.searchExcerpts); never write a speaker's words into narration as a quote.`;
+${pieceAssistantInstructions(pageContext, pieceGuide)}`;
 }
 
 export type AgentStreamEvent =
@@ -131,6 +137,15 @@ export async function* streamAgentTurn(
   turn: AgentTurnInput,
 ): AsyncGenerator<AgentStreamEvent> {
   const openai = getOpenAIClient();
+  // The editors' wording for working in a piece. Failing to read it must not fail the chat.
+  let pieceGuide = PIECE_ASSISTANT_BUILT_IN;
+  if (turn.pageContext) {
+    try {
+      pieceGuide = (await getLivePrompt("piece_assistant")).body;
+    } catch (error) {
+      console.error("Could not read the piece assistant prompt; using the built-in text:", error);
+    }
+  }
   const { client: mcp, close } = await connectAgentMcpClient(actor);
 
   try {
@@ -160,7 +175,7 @@ export async function* streamAgentTurn(
       try {
         const stream = openai.responses.stream({
           model: MODEL,
-          instructions: instructionsFor(turn.pageContext),
+          instructions: instructionsFor(turn.pageContext, pieceGuide),
           input: history,
           tools: bridge.agentTools,
           tool_choice: "auto",

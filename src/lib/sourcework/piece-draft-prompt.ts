@@ -8,9 +8,10 @@
 // accepted — accepted themes and their accepted data points, and the project's excerpts —
 // never the transcript, and never its own memory of one.
 //
-// What a piece should look like (the format) is separate language editors own
-// (lib/sourcework/piece-formats.ts's renderFormatGuide); it is appended to this framing
-// and cannot change the shape of the answer.
+// How to write a piece is language editors own, in two places: the "piece_draft" prompt slot
+// (lib/sourcework/prompts.ts, the same for every format) and the format's own guidance
+// (piece-formats.ts's renderFormatGuide). Both are appended to this framing and cannot change
+// the shape of the answer. This framing holds only what code has to guarantee.
 
 import { formatClock } from "@/lib/format";
 import { READ_WORDS_PER_MINUTE } from "@/lib/log/read-time";
@@ -21,28 +22,19 @@ import {
   newNarration,
   type PieceBlock,
 } from "./pieces";
-import { PIECE_ACCURACY_RULES, PIECE_CLIP_RULES, PIECE_EAR_RULES } from "./piece-editorial-rules";
 
 export const MAX_DRAFT_EXCERPTS = 80;
 export const MAX_DRAFT_THEMES = 20;
 export const MAX_POINTS_PER_THEME = 30;
 export const DIRECTION_MAX = 1000;
 
-export const DRAFT_FRAMING = `You draft a radio piece for a public radio newsroom, from material a reporter has already accepted. You are given the newsroom's format for this kind of piece, the reporter's direction (if any), the project's accepted themes with the accepted data points behind them (short paraphrases of what sources said, each marked "supports" or "complicates"), and the excerpts you may use, numbered, each with its speaker, its length and its words.
+export const DRAFT_FRAMING = `You draft a radio piece for a public radio newsroom, from material a reporter has already accepted. You are given the newsroom's guidance on how to write, its format for this kind of piece, the reporter's direction (if any), the project's accepted themes with the accepted data points behind them (short paraphrases of what sources said, each marked "supports" or "complicates"), and the excerpts you may use, numbered, each with its speaker, its length and its words.
 
-Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An anchor_intro block is what the anchor reads to introduce a reporter's recorded piece: use one only when the format allows an anchor intro and the anchor would be introducing a reporter's recorded piece, and only as the first block. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
+Write the piece as an ordered list of blocks. A narration block is what the reporter reads. An anchor_intro block is what the anchor reads to introduce a reporter's recorded piece: use one only when the format allows an anchor intro and the anchor would be introducing a reporter's recorded piece, and only as the first block. An actuality block plays an excerpt, the speaker's own voice: you place one only by its excerpt number, at most once, and only a number from the list. Never retype, quote or paraphrase an excerpt's words inside narration, and never write an actuality's words yourself; the clip carries them.
 
-${PIECE_ACCURACY_RULES}
+Aim for the format's length. Narration is read at about ${READ_WORDS_PER_MINUTE} words a minute; add the lengths of the excerpts you place, and size the narration to make up the rest. An anchor intro is not counted in the length.
 
-${PIECE_CLIP_RULES}
-- Place each excerpt at most once. Use a number from the list only.
-
-${PIECE_EAR_RULES}
-- Do not restate the first line of the story in the anchor intro: the intro sets up the story and the reporter's piece takes it on.
-- You assemble the piece. The format's description says what kind of piece this is; it is not an outline to fill. Decide how many narration blocks the story needs, which actualities earn a place, and in what order, from the material you are given. Every story is different. Do not alternate narration and actualities mechanically; two narration blocks in a row, or two actualities close together, are fine when the story needs it. What the format fixes is the length, the usual actuality range and the style.
-- Aim for the format's length. Narration is read at about ${READ_WORDS_PER_MINUTE} words a minute; add the lengths of the excerpts you place, and size the narration to make up the rest. An anchor intro is not counted in the length.
-
-Return the blocks in order: for a narration or anchor_intro block, its kind, its text, and excerpt_number 0; for an actuality block, kind "actuality", an empty text, and the excerpt's number. The newsroom's format follows.`;
+Return the blocks in order: for a narration or anchor_intro block, its kind, its text, and excerpt_number 0; for an actuality block, kind "actuality", an empty text, and the excerpt's number. The newsroom's guidance and format follow.`;
 
 export interface DraftPointInput {
   claim: string;

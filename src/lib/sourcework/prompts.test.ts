@@ -19,6 +19,10 @@ describe("prompt slots", () => {
       "quote_quality",
     ]);
   });
+  it("lists the piece drafting and assistant guides, so editors can tune them", () => {
+    expect(promptSlotDefinition("piece_draft")?.label).toBe("Piece drafting guide");
+    expect(promptSlotDefinition("piece_assistant")?.label).toBe("Piece assistant guide");
+  });
   it("looks a slot up by name", () => {
     expect(promptSlotDefinition("extraction")?.label).toBe("Extraction guide");
     expect(promptSlotDefinition("nope")).toBeNull();

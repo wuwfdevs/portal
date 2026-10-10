@@ -22,7 +22,7 @@ import { computePieceLength, type PieceBlock } from "./pieces";
 import { loadPieceExcerpts, type PieceExcerpt } from "./piece-queries";
 import { savePieceBlocks, type SavedVia } from "./piece-writes";
 import { finishRun, startRun } from "./research-runs";
-import { chunked } from "./research-queries";
+import { chunked, getLivePrompt } from "./research-queries";
 
 // Draft with AI (docs/sourcework-analysis-design.md §6.3): read the reporter's accepted
 // material, ask the model for blocks, and — for a real draft — save them as the piece's next
@@ -334,8 +334,12 @@ export type GeneratedDraft =
   | { ok: true; blocks: PieceBlock[]; warnings: string[]; lengthSeconds: number }
   | { ok: false; error: string };
 
-/** One draft from one format. Writes nothing. */
+/**
+ * One draft from one format. Writes nothing. `promptBody` is the editors' piece_draft wording
+ * (getLivePrompt("piece_draft")); the format's own guidance follows it.
+ */
 export async function generateDraft(args: {
+  promptBody: string;
   material: DraftMaterial;
   formatName: string;
   spec: FormatSpec;
@@ -346,7 +350,7 @@ export async function generateDraft(args: {
     schemaName: "piece_draft",
     schema: buildDraftOutputSchema(),
     framing: DRAFT_FRAMING,
-    guide: renderFormatGuide(args.formatName, args.spec),
+    guide: `${args.promptBody}\n\n${renderFormatGuide(args.formatName, args.spec)}`,
     input: buildDraftInput({
       projectTitle: args.material.projectTitle,
       direction: args.direction.slice(0, DIRECTION_MAX),
@@ -418,13 +422,14 @@ export async function draftPiece(args: {
   if (!format)
     return { ok: false, error: "That format isn't published, so it can't draft a piece." };
 
+  const live = await getLivePrompt("piece_draft");
   const run = await startRun(supabase, {
     kind: "piece_draft",
     projectId: piece.project_id,
     sourceId: null,
     pieceId: piece.id,
     formatVersionId: format.versionId,
-    promptVersionId: null,
+    promptVersionId: live.versionId,
     trial: false,
     model: RESEARCH_MODEL,
     userId: args.userId,
@@ -434,6 +439,7 @@ export async function draftPiece(args: {
   try {
     const material = await loadDraftMaterial(piece.project_id, args.themeIds);
     const draft = await generateDraft({
+      promptBody: live.body,
       material,
       formatName: format.name,
       spec: format.spec,

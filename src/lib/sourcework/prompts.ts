@@ -9,7 +9,13 @@
 // version it used (null = built-in).
 
 export type PromptSlot =
-  "context" | "extraction" | "theme_assign" | "theme_review" | "quote_quality";
+  | "context"
+  | "extraction"
+  | "theme_assign"
+  | "theme_review"
+  | "quote_quality"
+  | "piece_draft"
+  | "piece_assistant";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -73,6 +79,24 @@ export const QUOTE_QUALITY_BUILT_IN = `A good clip is one a host can play straig
 - It sounds clean. Say if you can tell that something under it is wrong, such as noise, crosstalk or the interviewer talking over the speaker.
 
 Prefer a clip that shows over one that explains. Prefer a different speaker or source over a second clip of the same point. When nothing in the evidence works on air, say so by returning no clips.`;
+
+export const PIECE_DRAFT_BUILT_IN = `Write the way a public radio reporter writes for the ear: short sentences in plain spoken language, attribution first, the present tense for what is true now.
+
+Use only what the material says. Attribute each claim to the person who made it, and where sources differ, let the difference show rather than smoothing it over. Complicating evidence is part of the story. When a sentence needs a fact the material doesn't give, write a bracketed placeholder such as [CHECK: year the gap was closed] instead of guessing.
+
+The narration carries the facts and leads with the strongest one. A clip carries what narration can't: an experience, a feeling, an opinion in the speaker's own voice. Before a clip, the narration says who is speaking and why they matter; it doesn't tell the listener what the clip is about to say. An anchor intro sets up the story without repeating the reporter's first line.
+
+The format says what kind of piece this is; it isn't an outline. Decide how many narration blocks the story needs and where the clips go. The actuality count is a usual range, not a quota: use fewer clips when fewer earn their place, and keep them short.`;
+
+export const PIECE_ASSISTANT_BUILT_IN = `You are editing a radio piece with its reporter. Read the piece before you change it, and read what comes back after each change: its checks list anything that looks wrong.
+
+Make the change that was asked for, and fix what it breaks. The narration that introduces a clip belongs to that clip, so when you move, swap or remove one, handle the other. If you change what the opening claims, make sure the rest of the piece still agrees with it.
+
+Stay inside the material. You can reword, tighten, reorder and trim, but don't add a fact, name, number or claim that the piece and its clips don't already support, and don't take a claim further than its source did. If you need one, write a [CHECK: …] placeholder or ask.
+
+Write for the ear: short sentences, attribution first, the present tense for what is true now. Follow the format's guidance. If you aren't sure what's wrong, say what you think it is and make one change rather than several.
+
+When you finish, say briefly what you changed and what you left alone.`;
 
 export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
   {
@@ -157,6 +181,39 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "The model returns sentence numbers, never text or times: the code derives the start, the end and the words. Your wording decides what counts as a clip that works on air; the tiers and the shape are fixed.",
     ],
     builtIn: QUOTE_QUALITY_BUILT_IN,
+  },
+  {
+    slot: "piece_draft",
+    label: "Piece drafting guide",
+    description:
+      "Tells the model how to write a piece, whatever the format. Used when Draft with AI writes a piece; each format adds its own length, style and actuality range after it.",
+    tryable: false,
+    gives: [
+      "The format's guidance, after your wording: its length, its usual actuality range and its style.",
+      "The reporter's direction, if any, and the project's accepted themes with their accepted data points.",
+      "The project's excerpts, numbered, each with its speaker, its length and its words.",
+    ],
+    returns: [
+      "An ordered list of blocks: narration, an optional anchor intro first, and actualities placed by excerpt number.",
+      "The model never types a quote: the code plays the excerpt itself. The block kinds, the numbering and the length arithmetic are fixed; your wording decides how the piece is written.",
+    ],
+    builtIn: PIECE_DRAFT_BUILT_IN,
+  },
+  {
+    slot: "piece_assistant",
+    label: "Piece assistant guide",
+    description:
+      "Tells the assistant how to work when someone has a piece open. Used on every assistant turn in a piece.",
+    tryable: false,
+    gives: [
+      "Which piece is open, and the portal assistant's standing instructions.",
+      "Tools to read the piece, search its excerpts, and edit, move, trim, swap or remove its blocks. Reading a piece returns the format's guidance and a list of checks.",
+    ],
+    returns: [
+      "Edits, each saved as a version the reporter can undo and marked in the piece, and a short reply.",
+      "Clips are placed by excerpt id only, so the assistant can't change what a speaker said. Your wording decides how it edits.",
+    ],
+    builtIn: PIECE_ASSISTANT_BUILT_IN,
   },
 ];
 

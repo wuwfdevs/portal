@@ -481,7 +481,10 @@ draft, assistant) so length and the project check are one implementation; (3) **
 versions (`diffAssistantChanges` against the last non-assistant version), not stored; (4) the piece editor is
 **keyed by version** — a `router.refresh()` that brings a new version remounts it, so don't refresh from inside the
 editor while a person may have unsaved edits (title rename no longer does). Capabilities may set `writes: true` so the
-widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
+widget refreshes after a turn. How to write a piece, and how the assistant works in one, is
+editor-owned wording: the `piece_draft` and `piece_assistant` prompt slots (`lib/sourcework/prompts.ts`, built-in text until an
+editor publishes). Code holds only mechanics (`DRAFT_FRAMING`, `pieceAssistantInstructions`); `read piece` also returns code-computed
+`checks` (`piece-checks.ts`, advisory). Keep the wording short: more rules made the model over-comply, not edit better. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
 (Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
