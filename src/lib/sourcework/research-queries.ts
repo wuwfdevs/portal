@@ -116,21 +116,21 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-/** The project's non-trial runs, newest first (capped — only the latest per source/kind is ever used). */
-export async function listProjectRuns(projectId: string): Promise<RunSummary[]> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase
-        .from("sw_analysis_runs")
-        .select("id, kind, source_id, status, started_at, finished_at, error, counts")
-        .eq("project_id", projectId)
-        .eq("trial", false)
-        .order("started_at", { ascending: false })
-        .limit(500),
-      "this project's research runs",
-    ) ?? [];
-  return rows.map((row) => ({
+type RunRow = {
+  id: string;
+  kind: "context" | "extraction";
+  source_id: string | null;
+  status: RunStatus;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  counts: unknown;
+};
+
+const RUN_COLUMNS = "id, kind, source_id, status, started_at, finished_at, error, counts";
+
+function toRunSummary(row: RunRow): RunSummary {
+  return {
     id: row.id,
     kind: row.kind,
     sourceId: row.source_id,
@@ -139,7 +139,58 @@ export async function listProjectRuns(projectId: string): Promise<RunSummary[]> 
     finishedAt: row.finished_at,
     error: row.error,
     counts: asRecord(row.counts),
-  }));
+  };
+}
+
+/** The project's most recent non-trial background run, however many runs have happened since. */
+export async function getLatestContextRun(projectId: string): Promise<RunSummary | null> {
+  const supabase = await createClient();
+  const rows =
+    unwrapRead(
+      await supabase
+        .from("sw_analysis_runs")
+        .select(RUN_COLUMNS)
+        .eq("project_id", projectId)
+        .eq("kind", "context")
+        .eq("trial", false)
+        .order("started_at", { ascending: false })
+        .limit(1),
+      "this project's latest background run",
+    ) ?? [];
+  return rows[0] ? toRunSummary(rows[0]) : null;
+}
+
+/**
+ * The latest non-trial extraction run of each given source. One query per
+ * source rather than one truncated history, so a project with many runs never
+ * loses an older source's latest.
+ */
+export async function getLatestExtractionRuns(
+  projectId: string,
+  sourceIds: readonly string[],
+): Promise<Map<string, RunSummary>> {
+  const supabase = await createClient();
+  const found = await Promise.all(
+    [...new Set(sourceIds)].map(async (sourceId) => {
+      const rows =
+        unwrapRead(
+          await supabase
+            .from("sw_analysis_runs")
+            .select(RUN_COLUMNS)
+            .eq("project_id", projectId)
+            .eq("source_id", sourceId)
+            .eq("kind", "extraction")
+            .eq("trial", false)
+            .order("started_at", { ascending: false })
+            .limit(1),
+          "a source's latest extraction run",
+        ) ?? [];
+      return rows[0] ? toRunSummary(rows[0]) : null;
+    }),
+  );
+  const result = new Map<string, RunSummary>();
+  for (const run of found) if (run?.sourceId) result.set(run.sourceId, run);
+  return result;
 }
 
 export interface SourceResearch {
@@ -160,8 +211,11 @@ export async function getSourceResearch(
   }[],
 ): Promise<Map<string, SourceResearch>> {
   const supabase = await createClient();
-  const [runs, countRows] = await Promise.all([
-    listProjectRuns(projectId),
+  const [latestBySource, countRows] = await Promise.all([
+    getLatestExtractionRuns(
+      projectId,
+      sources.map((source) => source.sourceId),
+    ),
     supabase
       .from("sw_data_point_counts")
       .select("source_id, total, to_review, accepted, rejected")
@@ -170,12 +224,6 @@ export async function getSourceResearch(
   ]);
 
   const countsBySource = indexBy(countRows, (row) => row.source_id);
-  const latestBySource = new Map<string, RunSummary>();
-  for (const run of runs) {
-    if (run.kind === "extraction" && run.sourceId && !latestBySource.has(run.sourceId)) {
-      latestBySource.set(run.sourceId, run);
-    }
-  }
 
   const result = new Map<string, SourceResearch>();
   for (const source of sources) {
