@@ -265,7 +265,7 @@ repo and a project's history, not the version number.
 | `20261016120000_tw_search_remove_data_point_branch.sql`                 | 2026-10-10 | 2026-10-10 |
 | `20261017120000_sourcework_piece_format_catalog.sql`                    | 2026-10-10 | 2026-10-10 |
 | `20261017130000_resources_sourcework_piece_formats.sql`                 | 2026-10-10 | 2026-10-10 |
-| `20261018100000_sourcework_piece_delete_after_draft.sql`                | not yet    | not yet    |
+| `20261018100000_sourcework_piece_delete_after_draft.sql`                | 2026-10-10 | 2026-10-10 |
 | `20261018110000_sourcework_piece_formats_as_guardrails.sql`             | not yet    | not yet    |
 | `20261018120000_resources_sourcework_format_guardrails.sql`              | not yet    | not yet    |
 
