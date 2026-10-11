@@ -15,6 +15,7 @@ import {
 } from "@/lib/sourcework/research";
 import { hiddenSummary } from "@/lib/sourcework/data-point-view";
 import { canExtract, type ExtractionState } from "@/lib/sourcework/run-state";
+import { AcceptAllDataPoints } from "./bulk-accept-button";
 import { DataPointCard, type PointSelectionOrigin } from "./data-point-card";
 import { ProcessingPoller } from "./processing-poller";
 
@@ -141,6 +142,9 @@ export function DataPointRail({
           </button>
         ))}
       </div>
+      {filter === "to_review" && counts.toReview > 1 && (
+        <AcceptAllDataPoints projectId={projectId} sourceId={sourceId} count={counts.toReview} />
+      )}
       <p className="text-xs text-ink-500">
         Dashed underline and dashed card are suggestions not yet reviewed.
       </p>
