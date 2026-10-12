@@ -14,6 +14,8 @@ const clip = (id: string, startMs: number, title = id, excerpt = ""): ProjectCli
   gainMode: "auto",
   gainLimit: null,
   gainNoisy: false,
+  levelled: true,
+  liveChannel: null,
   loudnessLufs: null,
   loudnessState: "pending",
 });

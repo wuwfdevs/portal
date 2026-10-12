@@ -515,9 +515,11 @@ loudness of peaky tape, so the render is measured with ebur128 and, if it is mor
 the gain intended (stored loudness + gain), rendered **once more** with the gain adjusted by the difference.
 Playback (`pieces/[pieceId]/use-piece-player.ts`) applies the same gain through a Web Audio `GainNode` into a
 `DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an *approximation* of
-the limiter, not the same algorithm, so levels match the export closely, not exactly. It needs the audio
-element's `crossOrigin="anonymous"`; the piece editor's player is the only audition that applies the gain — the
-workspace's own excerpt preview and the quote-suggestion players do **not** yet. An export made before a level
+the limiter, not the same algorithm, so levels match the export closely, not exactly. The shared graph is `lib/sourcework/excerpt-playback.ts`; it needs the audio
+element's `crossOrigin="anonymous"`. It is applied by the piece editor's player and by the source workspace's
+preview of a *saved* excerpt (the transcript element is routed through it only once one is previewed, and put back
+to neutral when playback stops); a selection not yet saved, a data point's preview, and the quote-suggestion
+players (suggestions have no measurement) still play as recorded. An export made before a level
 change keeps its old level until re-exported (the 2026-10-20 migration un-caches the existing ones).
 (4) **One-sided stereo:** some field clips arrive as stereo with the voice in one channel and a silent other.
 That measures about 3 dB low and drops about 6 dB summed to mono, so the measurement first reads per-channel RMS

@@ -114,7 +114,8 @@ export function computeAutoGain(input: {
 
 /** The gain actually applied to an excerpt: none when it is set to its original level. */
 export function effectiveGain(input: ExcerptGainInput): ExcerptGain {
-  if (input.gainMode === "off") return { gainDb: 0, limitedBy: null, noisyBoost: false, measured: false };
+  if (input.gainMode === "off")
+    return { gainDb: 0, limitedBy: null, noisyBoost: false, measured: false };
   return computeAutoGain(input);
 }
 
@@ -185,7 +186,9 @@ export function liveChannelFromRms(rmsDb: number[]): LiveChannel | null {
  * and plays as the centered voice it is; null when the clip is ordinary. A one-sided clip otherwise
  * measures about 3 dB low and drops about 6 dB when summed to mono.
  */
-export function ffmpegLiveChannelFilter(liveChannel: LiveChannel | null | undefined): string | null {
+export function ffmpegLiveChannelFilter(
+  liveChannel: LiveChannel | null | undefined,
+): string | null {
   if (liveChannel == null) return null;
   return `pan=stereo|c0=c${liveChannel}|c1=c${liveChannel}`;
 }
@@ -194,7 +197,10 @@ export function ffmpegLiveChannelFilter(liveChannel: LiveChannel | null | undefi
 export const FFMPEG_LIMITER_FILTER = `alimiter=limit=${(10 ** (LIMITER_CEILING_DBFS / 20)).toFixed(4)}:attack=5:release=50:level=false`;
 
 /** The whole export chain: live channel, then gain, then the limiter. */
-export function ffmpegExportFilter(gainDb: number, liveChannel: LiveChannel | null | undefined): string {
+export function ffmpegExportFilter(
+  gainDb: number,
+  liveChannel: LiveChannel | null | undefined,
+): string {
   return [ffmpegLiveChannelFilter(liveChannel), ffmpegGainFilter(gainDb), FFMPEG_LIMITER_FILTER]
     .filter((part): part is string => part != null)
     .join(",");
