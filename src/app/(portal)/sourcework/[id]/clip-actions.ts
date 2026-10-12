@@ -288,6 +288,35 @@ export async function setClipGainMode(input: {
   return {};
 }
 
+/** How many excerpts one status check looks at — a screen only ever polls the few it is waiting on. */
+const LOUDNESS_STATUS_LIMIT = 50;
+
+/**
+ * Which of these excerpts have had a measurement attempted since the page was rendered. The excerpt
+ * rail polls this while it waits on background measuring, and refreshes the page only once
+ * something has changed — a read like this never queues more measuring itself.
+ */
+export async function getExcerptLoudnessStatus(
+  clipIds: string[],
+): Promise<{ done: string[] } | { error: string }> {
+  await assertToolAccess("transcription");
+  const ids = clipIds.filter((id) => typeof id === "string").slice(0, LOUDNESS_STATUS_LIMIT);
+  if (ids.length === 0) return { done: [] };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sw_source_excerpts")
+    .select("id, loudness_measured_at")
+    .in("id", ids);
+  if (error) {
+    console.error("Could not read the excerpts' measuring status:", error);
+    return { error: "Could not check the excerpts' levels." };
+  }
+  return {
+    done: (data ?? []).filter((row) => row.loudness_measured_at != null).map((row) => row.id),
+  };
+}
+
 /**
  * A fresh signed URL for an already-exported clip. Signing at page-render
  * time means a workspace left open outlives its own download links, so the

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSyncedState } from "@/lib/use-synced-state";
+import { usePoller } from "@/lib/use-poller";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -20,17 +21,22 @@ import {
   deleteClip,
   exportClip,
   getClipDownloadUrl,
+  getExcerptLoudnessStatus,
   renameClip,
   setClipGainMode,
   updateClipTrim,
 } from "./clip-actions";
-import { PlayIcon } from "./transport-icons";
+import { PauseIcon, PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
 import { formatGainDb, type GainMode } from "@/lib/sourcework/loudness";
 
 // Nudge steps, in the order radio editors reach for them: coarse out, fine
 // out, fine in, coarse in (see docs/transcription-workspace-design.md §3D).
 const NUDGE_STEPS_MS = [-250, -50, 50, 250];
+
+/** How often the rail checks whether background measuring has landed, and how many checks before it gives up. */
+const LOUDNESS_POLL_MS = 3000;
+const LOUDNESS_POLL_LIMIT = 40;
 
 /** Said beside the Level when it stopped short of the broadcast target. */
 const GAIN_LIMIT_NOTE: Record<string, string> = {
@@ -59,6 +65,8 @@ export function ClipRail({
   onHover,
   onTrimPreview,
   onPreview,
+  playingRange = null,
+  onPause,
   onShowInTranscript,
 }: {
   clips: ProjectClip[];
@@ -71,12 +79,39 @@ export function ClipRail({
   /** An in-progress trim, so the transcript's mark tracks the nudge instead of the write. */
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
+  /** The range the player is previewing right now, if any — its card shows Pause instead of Play. */
+  playingRange?: { startMs: number; endMs: number } | null;
+  onPause?: () => void;
   /** Below lg the transcript is another tab, so a card offers a way back to its words. */
   onShowInTranscript?: () => void;
 }) {
   const [order, setOrder] = useState<ClipOrder>("in_order");
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(CLIP_PAGE_SIZE);
+
+  // Excerpts made before loudness existed are measured in the background after this page is sent,
+  // so the first view shows "measuring…". Check on them, and refresh once a measurement lands.
+  const pendingIds = useMemo(
+    () =>
+      clips
+        .filter((clip) => clip.loudnessState === "pending" && clip.gainMode === "auto")
+        .map((clip) => clip.id),
+    [clips],
+  );
+  const loudnessPolls = useRef(0);
+  usePoller({
+    intervalMs: LOUDNESS_POLL_MS,
+    enabled: pendingIds.length > 0,
+    task: async () => {
+      if (loudnessPolls.current >= LOUDNESS_POLL_LIMIT) return false;
+      loudnessPolls.current += 1;
+      const result = await getExcerptLoudnessStatus(pendingIds);
+      if (!("done" in result) || result.done.length === 0) return false;
+      // Progress: the next batch of unmeasured excerpts gets a fresh allowance.
+      loudnessPolls.current = 0;
+      return true;
+    },
+  });
 
   const visible = useMemo(
     () => filterClips(orderClips(clips, order), query),
@@ -136,6 +171,8 @@ export function ClipRail({
               onHover={onHover}
               onTrimPreview={onTrimPreview}
               onPreview={onPreview}
+              playingRange={playingRange}
+              onPause={onPause}
               onShowInTranscript={onShowInTranscript}
             />
           ))}
@@ -164,6 +201,8 @@ function ClipCard({
   onHover,
   onTrimPreview,
   onPreview,
+  playingRange,
+  onPause,
   onShowInTranscript,
 }: {
   clip: ProjectClip;
@@ -173,6 +212,8 @@ function ClipCard({
   onHover: (clipId: string | null) => void;
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
   onPreview: (startMs: number, endMs: number) => void;
+  playingRange?: { startMs: number; endMs: number } | null;
+  onPause?: () => void;
   onShowInTranscript?: () => void;
 }) {
   const router = useRouter();
@@ -182,6 +223,9 @@ function ClipCard({
   // points — same stale-state hazard as SegmentRow.
   const [startMs, setStartMs] = useSyncedState(clip.startMs);
   const [endMs, setEndMs] = useSyncedState(clip.endMs);
+  // This card's range is the one being previewed: the button pauses it instead of restarting it.
+  const isPlaying =
+    Boolean(onPause) && playingRange?.startMs === startMs && playingRange?.endMs === endMs;
   const [hasExport, setHasExport] = useSyncedState(clip.hasExport);
   const [gainMode, setGainMode] = useSyncedState<GainMode>(clip.gainMode);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -369,9 +413,11 @@ function ClipCard({
         <span>
           {gainMode === "off"
             ? "Level: original"
-            : clip.loudnessLufs == null
-              ? "Level: not measured yet"
-              : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}`}
+            : clip.loudnessState === "pending"
+              ? "Level: measuring…"
+              : clip.loudnessState === "unavailable"
+                ? "Level: couldn\u2019t be measured, plays as recorded"
+                : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}`}
         </span>
         <Button
           type="button"
@@ -395,12 +441,16 @@ function ClipCard({
             card doesn't have to spend a whole labelled button saying so. */}
         <button
           type="button"
-          onClick={() => onPreview(startMs, endMs)}
-          aria-label="Preview this excerpt"
-          title="Preview this excerpt"
+          onClick={() => (isPlaying ? onPause?.() : onPreview(startMs, endMs))}
+          aria-label={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
+          title={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"
         >
-          <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+          {isPlaying ? (
+            <PauseIcon className="h-2.5 w-2.5" />
+          ) : (
+            <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+          )}
         </button>
         <Button
           type="button"

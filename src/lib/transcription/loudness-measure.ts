@@ -17,6 +17,11 @@ import {
 
 const MEASURE_TIMEOUT_MS = 60_000;
 
+// Excerpts being measured in this server instance. A screen that polls while measuring is under
+// way re-reads its excerpts, and each read queues the still-unmeasured ones again; without this the
+// same excerpt would be measured several times at once.
+const inFlight = new Set<string>();
+
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
@@ -82,6 +87,8 @@ export async function measureAndStoreExcerptLoudness(
   supabase: SupabaseClient,
   excerptId: string,
 ): Promise<void> {
+  if (inFlight.has(excerptId)) return;
+  inFlight.add(excerptId);
   try {
     const { data: excerpt, error } = await supabase
       .from("sw_source_excerpts")
@@ -117,6 +124,8 @@ export async function measureAndStoreExcerptLoudness(
     if (writeError) console.error("Could not store the excerpt's loudness:", writeError);
   } catch (error) {
     console.error("Could not measure the excerpt's loudness:", error);
+  } finally {
+    inFlight.delete(excerptId);
   }
 }
 

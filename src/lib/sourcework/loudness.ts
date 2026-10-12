@@ -113,6 +113,21 @@ export function effectiveGain(input: ExcerptGainInput): ExcerptGain {
   return computeAutoGain(input);
 }
 
+/**
+ * Where an excerpt is in measuring, for the card: nothing attempted yet (`pending`), attempted
+ * with a result (`measured`), or attempted with nothing to show — unreadable or silent audio
+ * (`unavailable`). `loudness_measured_at` records an attempt, successful or not.
+ */
+export type LoudnessState = "pending" | "measured" | "unavailable";
+
+export function loudnessState(input: {
+  measuredAt: string | null;
+  loudnessLufs: number | null;
+}): LoudnessState {
+  if (input.loudnessLufs != null) return "measured";
+  return input.measuredAt == null ? "pending" : "unavailable";
+}
+
 /** dB to the linear multiplier a Web Audio GainNode takes. */
 export function dbToLinear(db: number): number {
   return 10 ** (db / 20);
