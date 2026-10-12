@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPieceAudioUrl } from "../actions";
-import { dbToLinear } from "@/lib/sourcework/loudness";
+import {
+  applyPlaybackLevel,
+  createPlaybackGraph,
+  NEUTRAL_LEVEL,
+  type PlayLevel,
+  type PlaybackGraph,
+} from "@/lib/sourcework/excerpt-playback";
 
 /** Signed URLs last 30 minutes; ask again well before that. */
 const URL_MAX_AGE_MS = 20 * 60 * 1000;
@@ -13,11 +19,8 @@ const STOP_CHECK_MS = 40;
  * recordings, one at a time. The URL is signed at the moment of play (a page
  * left open outlives a URL baked in at render) and cached per source.
  *
- * Each range plays at its excerpt's fixed gain (lib/sourcework/loudness.ts), so actualities
- * sit at one level back to back. The gain runs through a Web Audio GainNode, which is what lets
- * it lift quiet tape as well as cut hot tape; the element therefore needs crossOrigin
- * ("anonymous") so the signed Storage URL stays readable by the graph. Without Web Audio it falls
- * back to the element's volume, which can only cut.
+ * Each range plays the way it exports (lib/sourcework/excerpt-playback.ts); the element needs
+ * crossOrigin ("anonymous") for that.
  */
 export function usePiecePlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -26,27 +29,11 @@ export function usePiecePlayer() {
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Built once per element (an element can feed only one MediaElementSource) and kept for the page's life.
-  const graph = useRef<{ ctx: AudioContext; gain: GainNode } | null>(null);
+  const graph = useRef<PlaybackGraph | null>(null);
 
-  /** Must run inside the click that starts playback, or the browser keeps the context suspended. */
-  const applyGain = useCallback((audio: HTMLAudioElement, gainDb: number) => {
-    if (!graph.current) {
-      try {
-        const ctx = new AudioContext();
-        const gain = ctx.createGain();
-        ctx.createMediaElementSource(audio).connect(gain).connect(ctx.destination);
-        graph.current = { ctx, gain };
-      } catch {
-        graph.current = null;
-      }
-    }
-    if (graph.current) {
-      void graph.current.ctx.resume();
-      graph.current.gain.gain.value = dbToLinear(gainDb);
-      audio.volume = 1;
-    } else {
-      audio.volume = Math.min(1, dbToLinear(gainDb));
-    }
+  const applyLevel = useCallback((audio: HTMLAudioElement, level: PlayLevel) => {
+    graph.current ??= createPlaybackGraph(audio);
+    applyPlaybackLevel(audio, graph.current, level);
   }, []);
 
   const stop = useCallback(() => {
@@ -58,9 +45,15 @@ export function usePiecePlayer() {
 
   useEffect(() => stop, [stop]);
 
-  /** Plays [startMs, endMs) of a source at `gainDb`. Playing the same key again stops it. */
+  /** Plays [startMs, endMs) of a source at `level`. Playing the same key again stops it. */
   const play = useCallback(
-    async (key: string, sourceId: string, startMs: number, endMs: number, gainDb = 0) => {
+    async (
+      key: string,
+      sourceId: string,
+      startMs: number,
+      endMs: number,
+      level: PlayLevel = NEUTRAL_LEVEL,
+    ) => {
       const audio = audioRef.current;
       if (!audio) return;
       if (playingKey === key) {
@@ -69,7 +62,7 @@ export function usePiecePlayer() {
       }
       stop();
       setError(null);
-      applyGain(audio, gainDb);
+      applyLevel(audio, level);
 
       let cached = urls.current.get(sourceId);
       if (!cached || Date.now() - cached.at > URL_MAX_AGE_MS) {
@@ -101,7 +94,7 @@ export function usePiecePlayer() {
         if (audio.currentTime * 1000 >= endMs || audio.ended) stop();
       }, STOP_CHECK_MS);
     },
-    [playingKey, stop, applyGain],
+    [playingKey, stop, applyLevel],
   );
 
   return { audioRef, play, stop, playingKey, error };

@@ -1356,6 +1356,8 @@ export interface Database {
           /** True peak (dBTP), set with loudness_lufs. */
           true_peak_dbtp: number | null;
           loudness_measured_at: string | null;
+          /** The live side of a one-sided stereo clip (0 left, 1 right); null = ordinary or unmeasured (20261020120000). */
+          live_channel: number | null;
           /** 'auto' = levelled toward the broadcast target; 'off' = as recorded. */
           gain_mode: "auto" | "off";
           created_by: string;

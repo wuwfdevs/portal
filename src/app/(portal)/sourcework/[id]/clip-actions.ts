@@ -10,7 +10,7 @@ import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
 import {
-  gainDbForExport,
+  exportLevelFor,
   measureAndStoreExcerptLoudness,
 } from "@/lib/transcription/loudness-measure";
 import type { GainMode } from "@/lib/sourcework/loudness";
@@ -372,7 +372,7 @@ export async function exportClip(
   const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
     .select(
-      "id, source_id, title, start_ms, end_ms, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+      "id, source_id, title, start_ms, end_ms, loudness_lufs, live_channel, loudness_measured_at, gain_mode",
     )
     .eq("id", clipId)
     .maybeSingle();
@@ -401,11 +401,11 @@ export async function exportClip(
 
   let wav: Buffer;
   try {
-    const gainDb = await gainDbForExport(
+    const level = await exportLevelFor(
       { ...clip, start_ms: clip.start_ms, end_ms: clip.end_ms },
       sourceUrl,
     );
-    wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, gainDb);
+    wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, level);
   } catch {
     return { error: "Could not export this excerpt. Please try again." };
   }

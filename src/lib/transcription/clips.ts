@@ -8,6 +8,7 @@ import {
   loudnessState,
   type GainLimit,
   type GainMode,
+  type LiveChannel,
   type LoudnessState,
 } from "@/lib/sourcework/loudness";
 import type { SwSourceKind } from "@/lib/database.types";
@@ -26,6 +27,12 @@ export interface ProjectClip {
   gainMode: GainMode;
   /** Why the gain stopped short of the broadcast target, when it did. */
   gainLimit: GainLimit;
+  /** The boost is large enough to raise the tape's noise floor. */
+  gainNoisy: boolean;
+  /** Whether it is levelled at all (gain, then the limiter): false at its original level or unmeasured. */
+  levelled: boolean;
+  /** The live side of a one-sided stereo clip, fed to both sides on playback. */
+  liveChannel: LiveChannel | null;
   /** Measured loudness (LUFS); null until measured. */
   loudnessLufs: number | null;
   /** Not measured yet, measured, or measured with nothing to show — what the card says about its level. */
@@ -52,7 +59,7 @@ async function fetchExcerptsForSource(
     await supabase
       .from("sw_source_excerpts")
       .select(
-        "id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+        "id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at, loudness_lufs, live_channel, loudness_measured_at, gain_mode",
       )
       .eq("source_id", sourceId)
       .eq("locator_kind", "temporal")
@@ -69,7 +76,6 @@ async function fetchExcerptsForSource(
     const gain = effectiveGain({
       gainMode: clip.gain_mode,
       loudnessLufs: clip.loudness_lufs,
-      truePeakDbtp: clip.true_peak_dbtp,
       durationMs: clip.end_ms! - clip.start_ms!,
     });
     return {
@@ -83,6 +89,12 @@ async function fetchExcerptsForSource(
       gainDb: gain.gainDb,
       gainMode: clip.gain_mode,
       gainLimit: gain.limitedBy,
+      gainNoisy: gain.noisyBoost,
+      levelled: gain.measured,
+      liveChannel:
+        gain.measured && (clip.live_channel === 0 || clip.live_channel === 1)
+          ? clip.live_channel
+          : null,
       loudnessLufs: clip.loudness_lufs,
       loudnessState: loudnessState({
         measuredAt: clip.loudness_measured_at,

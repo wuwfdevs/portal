@@ -247,7 +247,7 @@ export function PieceEditor({
     const excerpt = excerpts.get(block.excerpt_id);
     const range = excerpt && actualityRange(block, excerpt);
     if (!excerpt || !range) return;
-    void play(block.id, excerpt.sourceId, range.startMs, range.endMs, excerpt.gainDb);
+    void play(block.id, excerpt.sourceId, range.startMs, range.endMs, excerpt);
   }
 
   /** "Edited by the assistant · Undo" on a block the assistant changed (§6.4). */
@@ -885,7 +885,7 @@ export function PieceEditor({
                               trimmingExcerpt.sourceId,
                               startMs,
                               endMs,
-                              trimmingExcerpt.gainDb,
+                              trimmingExcerpt,
                             )
                           }
                           playing={playingKey === `trim-${block.id}`}

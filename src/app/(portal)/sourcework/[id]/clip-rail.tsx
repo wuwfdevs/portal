@@ -40,7 +40,6 @@ const LOUDNESS_POLL_LIMIT = 40;
 
 /** Said beside the Level when it stopped short of the broadcast target. */
 const GAIN_LIMIT_NOTE: Record<string, string> = {
-  peak: " (held back to keep peaks in range)",
   boost: " (very quiet tape)",
   cut: " (very loud tape)",
   short: " (short clip)",
@@ -416,7 +415,7 @@ function ClipCard({
               ? "Level: measuring…"
               : clip.loudnessState === "unavailable"
                 ? "Level: couldn\u2019t be measured, plays as recorded"
-                : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}`}
+                : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}${clip.gainNoisy ? " (a big boost raises the background noise)" : ""}`}
         </span>
         <Button
           type="button"

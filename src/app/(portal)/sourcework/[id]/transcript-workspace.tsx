@@ -18,6 +18,13 @@ import {
 } from "@/lib/transcription/selection";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
 import type { ProjectClip } from "@/lib/transcription/clips";
+import {
+  applyPlaybackLevel,
+  createPlaybackGraph,
+  NEUTRAL_LEVEL,
+  type PlaybackGraph,
+  type PlayLevel,
+} from "@/lib/sourcework/excerpt-playback";
 import { SpeakersMenu, SpeakersPane } from "./speakers-menu";
 import { SegmentRow } from "./segment-row";
 import { ClipRail, type ClipSelectionOrigin } from "./clip-rail";
@@ -236,23 +243,45 @@ export function TranscriptWorkspace({
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
+  // A saved excerpt previews the way it exports (gain, limiter, a one-sided clip's live channel on
+  // both sides). The graph is built the first time one is previewed, so ordinary playback is only
+  // routed through Web Audio after that; every other play puts it back to neutral.
+  const playbackGraph = useRef<PlaybackGraph | null>(null);
+  const clipsRef = useRef(clips);
+  useEffect(() => {
+    clipsRef.current = clips;
+  }, [clips]);
+  const setPlaybackLevel = useCallback((el: HTMLMediaElement, level: PlayLevel) => {
+    if (level === NEUTRAL_LEVEL && !playbackGraph.current) return;
+    playbackGraph.current ??= createPlaybackGraph(el);
+    applyPlaybackLevel(el, playbackGraph.current, level);
+  }, []);
+
   const seekTo = useCallback((startMs: number) => {
     const el = mediaRef.current;
     if (!el) return;
     stopAtMsRef.current = null;
     setPreviewingClipId(null);
+    setPlaybackLevel(el, NEUTRAL_LEVEL);
     el.currentTime = startMs / 1000;
     void el.play();
-  }, []);
+  }, [setPlaybackLevel]);
 
-  const previewRange = useCallback((startMs: number, endMs: number, clipId?: string) => {
-    const el = mediaRef.current;
-    if (!el) return;
-    stopAtMsRef.current = endMs;
-    setPreviewingClipId(clipId ?? null);
-    el.currentTime = startMs / 1000;
-    void el.play();
-  }, []);
+  const previewRange = useCallback(
+    (startMs: number, endMs: number, clipId?: string) => {
+      const el = mediaRef.current;
+      if (!el) return;
+      stopAtMsRef.current = endMs;
+      setPreviewingClipId(clipId ?? null);
+      const clip = clipId
+        ? clipsRef.current.find((candidate) => candidate.id === clipId)
+        : undefined;
+      setPlaybackLevel(el, clip ?? NEUTRAL_LEVEL);
+      el.currentTime = startMs / 1000;
+      void el.play();
+    },
+    [setPlaybackLevel],
+  );
 
   /** Pauses a range preview from the excerpt card it started on. */
   const pausePreview = useCallback(() => {
@@ -263,6 +292,8 @@ export function TranscriptWorkspace({
   function handlePlayerStopped() {
     setIsPlaying(false);
     setPreviewingClipId(null);
+    // Whatever plays next from the transport bar is the recording, not an excerpt.
+    if (mediaRef.current) setPlaybackLevel(mediaRef.current, NEUTRAL_LEVEL);
   }
 
   function handleTimeUpdate() {
@@ -629,6 +660,7 @@ export function TranscriptWorkspace({
               mediaRef.current = el;
             }}
             src={mediaUrl}
+            crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setIsPlaying(true)}
             onPause={handlePlayerStopped}
@@ -643,6 +675,7 @@ export function TranscriptWorkspace({
               mediaRef.current = el;
             }}
             src={mediaUrl}
+            crossOrigin="anonymous"
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => setIsPlaying(true)}
             onPause={handlePlayerStopped}

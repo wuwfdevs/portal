@@ -7,14 +7,22 @@ import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { createCoalescedRunner } from "@/lib/run-coalesced";
 import {
   effectiveGain,
+  ffmpegLiveChannelFilter,
+  liveChannelFromRms,
+  parseAstatsChannelRms,
   parseEbur128Summary,
   type GainMode,
+  type LiveChannel,
   type LoudnessMeasurement,
 } from "@/lib/sourcework/loudness";
 
 // Measures an excerpt's gated integrated loudness and true peak (ITU-R BS.1770 via ffmpeg's
 // ebur128 filter) and keeps the numbers on the excerpt. Measuring never changes audio; the gain
 // derived from it (lib/sourcework/loudness.ts) is applied at playback and at export.
+//
+// A stereo clip with the voice in one channel and silence in the other is detected first (astats,
+// per-channel RMS) and measured through a pan that feeds both sides from the live channel, so it
+// reads at the level it plays and exports at rather than about 3 dB low.
 
 const MEASURE_TIMEOUT_MS = 60_000;
 
@@ -26,21 +34,24 @@ const runMeasuring = createCoalescedRunner();
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-/**
- * Reads [startMs, endMs) of a source URL through ebur128. Input-seeking and a duration limit, so
- * ffmpeg range-requests only the excerpt rather than the whole recording. Null when the audio is
- * silent, ffmpeg is unavailable, or it fails or takes too long — callers treat that as "no
- * measurement yet", never as an error to show.
- */
-export async function measureRangeLoudness(
+export interface RangeMeasurement extends LoudnessMeasurement {
+  /** The live channel of a one-sided stereo clip; null for an ordinary one. */
+  liveChannel: LiveChannel | null;
+}
+
+/** Runs ffmpeg over [startMs, endMs) of a source URL with an audio filter and returns its stderr; null on any failure. */
+function runFfmpegFilter(
   sourceUrl: string,
   startMs: number,
   endMs: number,
-): Promise<LoudnessMeasurement | null> {
-  if (!ffmpegPath) return null;
+  filter: string,
+): Promise<string | null> {
+  if (!ffmpegPath) return Promise.resolve(null);
   const ffmpegBinary: string = ffmpegPath;
 
   return new Promise((resolve) => {
+    // Input-seeking and a duration limit, so ffmpeg range-requests only the excerpt rather than the
+    // whole recording.
     const ffmpeg = spawn(ffmpegBinary, [
       "-hide_banner",
       "-nostats",
@@ -54,7 +65,7 @@ export async function measureRangeLoudness(
       ((endMs - startMs) / 1000).toFixed(3),
       "-vn",
       "-af",
-      "ebur128=peak=true:framelog=quiet",
+      filter,
       "-f",
       "null",
       "-",
@@ -69,11 +80,36 @@ export async function measureRangeLoudness(
     });
     ffmpeg.on("close", (code: number | null) => {
       clearTimeout(timer);
-      resolve(
-        code === 0 ? parseEbur128Summary(Buffer.concat(stderrChunks).toString("utf-8")) : null,
-      );
+      resolve(code === 0 ? Buffer.concat(stderrChunks).toString("utf-8") : null);
     });
   });
+}
+
+/**
+ * Reads [startMs, endMs) of a source URL: first which channel is live (when one side is silent),
+ * then its loudness through ebur128 with that channel fed to both sides. Null when the audio is
+ * silent, ffmpeg is unavailable, or it fails or takes too long — callers treat that as "no
+ * measurement yet", never as an error to show. A failed channel check alone just means the clip is
+ * measured as it comes.
+ */
+export async function measureRangeLoudness(
+  sourceUrl: string,
+  startMs: number,
+  endMs: number,
+): Promise<RangeMeasurement | null> {
+  const astats = await runFfmpegFilter(sourceUrl, startMs, endMs, "astats");
+  const liveChannel = astats ? liveChannelFromRms(parseAstatsChannelRms(astats)) : null;
+
+  const pan = ffmpegLiveChannelFilter(liveChannel);
+  const ebur128 = "ebur128=peak=true:framelog=quiet";
+  const stderr = await runFfmpegFilter(
+    sourceUrl,
+    startMs,
+    endMs,
+    pan ? `${pan},${ebur128}` : ebur128,
+  );
+  const measurement = stderr ? parseEbur128Summary(stderr) : null;
+  return measurement ? { ...measurement, liveChannel } : null;
 }
 
 /**
@@ -122,6 +158,7 @@ async function measureExcerptOnce(supabase: SupabaseClient, excerptId: string): 
       .update({
         loudness_lufs: measurement?.integratedLufs ?? null,
         true_peak_dbtp: measurement?.truePeakDbtp ?? null,
+        live_channel: measurement?.liveChannel ?? null,
         loudness_measured_at: new Date().toISOString(),
       })
       .eq("id", excerptId)
@@ -141,34 +178,47 @@ async function measureExcerptOnce(supabase: SupabaseClient, excerptId: string): 
   }
 }
 
+/** What an export is rendered with, and the loudness it should land on once limiting has had its say. */
+export interface ExportLevel {
+  gainDb: number;
+  liveChannel: LiveChannel | null;
+  /** Integrated loudness the render should measure, or null when it is not being levelled (original level, unmeasured). */
+  intendedLufs: number | null;
+}
+
 /**
- * The gain to render an excerpt's export with. An excerpt that was never measured (made before
+ * The level to render an excerpt's export at. An excerpt that was never measured (made before
  * loudness existed, or exported before the background measure finished) is measured here, from the
  * same signed URL the render uses, so the file that gets cached isn't left at its original level.
  */
-export async function gainDbForExport(
+export async function exportLevelFor(
   excerpt: {
     start_ms: number;
     end_ms: number;
     gain_mode: GainMode;
     loudness_lufs: number | null;
-    true_peak_dbtp: number | null;
+    live_channel: number | null;
     loudness_measured_at: string | null;
   },
   sourceUrl: string,
-): Promise<number> {
-  let { loudness_lufs: loudnessLufs, true_peak_dbtp: truePeakDbtp } = excerpt;
+): Promise<ExportLevel> {
+  let { loudness_lufs: loudnessLufs, live_channel: liveChannel } = excerpt;
   if (excerpt.gain_mode === "auto" && excerpt.loudness_measured_at == null) {
     const measurement = await measureRangeLoudness(sourceUrl, excerpt.start_ms, excerpt.end_ms);
     loudnessLufs = measurement?.integratedLufs ?? null;
-    truePeakDbtp = measurement?.truePeakDbtp ?? null;
+    liveChannel = measurement?.liveChannel ?? null;
   }
-  return effectiveGain({
+  const gain = effectiveGain({
     gainMode: excerpt.gain_mode,
     loudnessLufs,
-    truePeakDbtp,
     durationMs: excerpt.end_ms - excerpt.start_ms,
-  }).gainDb;
+  });
+  return {
+    gainDb: gain.gainDb,
+    // The channel fix is part of the measurement, so it applies whenever the excerpt is levelled.
+    liveChannel: gain.measured && (liveChannel === 0 || liveChannel === 1) ? liveChannel : null,
+    intendedLufs: gain.measured && loudnessLufs != null ? loudnessLufs + gain.gainDb : null,
+  };
 }
 
 /** Most unmeasured excerpts one read queues for measuring; the rest follow on later reads. */
