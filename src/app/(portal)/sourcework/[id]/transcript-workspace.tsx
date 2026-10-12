@@ -702,6 +702,7 @@ export function TranscriptWorkspace({
           <div className="flex flex-wrap items-center gap-2">
             <SpeakersMenu
               projectId={projectId}
+              representationId={representationId}
               speakers={speakers}
               segments={segments}
               onSeek={seekTo}
@@ -804,6 +805,7 @@ export function TranscriptWorkspace({
                     <SegmentRow
                       key={segment.id}
                       projectId={projectId}
+                      representationId={representationId}
                       segment={segment}
                       tokens={tokensBySegment[index] ?? []}
                       clipSpans={activeCoverage[index] ?? []}
@@ -855,6 +857,7 @@ export function TranscriptWorkspace({
       <div className={cn(pane === "speakers" ? "lg:hidden" : "hidden")}>
         <SpeakersPane
           projectId={projectId}
+          representationId={representationId}
           speakers={speakers}
           segments={segments}
           onSeek={seekTo}

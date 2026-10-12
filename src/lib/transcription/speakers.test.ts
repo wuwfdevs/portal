@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterSpeakerRows, speakerRows, speakerSummary } from "./speakers";
+import { filterSpeakerRows, nextManualSpeakerLabel, speakerRows, speakerSummary } from "./speakers";
 
 const speakers = [
   { id: "a", diarizationLabel: "A", displayName: "Mayor Reeves" },
@@ -63,5 +63,14 @@ describe("speakerSummary", () => {
     expect(speakerSummary(speakerRows(segments, named)).text).toBe("a, c, +2 more");
     const none = speakers.map((s) => ({ ...s, displayName: null }));
     expect(speakerSummary(speakerRows(segments, none)).text).toBe("4 unnamed");
+  });
+});
+
+describe("nextManualSpeakerLabel", () => {
+  it("starts at M1 and ignores the diarizer's letters", () => {
+    expect(nextManualSpeakerLabel(["A", "B"])).toBe("M1");
+  });
+  it("continues after the highest manual label", () => {
+    expect(nextManualSpeakerLabel(["A", "M1", "M3"])).toBe("M4");
   });
 });

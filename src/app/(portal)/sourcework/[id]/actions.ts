@@ -9,6 +9,7 @@ import {
   splitTiming,
   splitTimingFromWords,
 } from "@/lib/transcription/transcript";
+import { nextManualSpeakerLabel } from "@/lib/transcription/speakers";
 
 // Transcript-correction actions for a single project: speaker naming,
 // per-segment reassignment, inline text edits, and split/merge (see
@@ -106,6 +107,63 @@ export async function mergeSpeakers(input: {
 
   revalidateProject(input.projectId);
   return {};
+}
+
+/**
+ * Adds a speaker the diarizer missed (a third voice it folded into the other
+ * two). Optionally gives them a first line in the same step, which is how it
+ * is used from a line's speaker picker.
+ */
+export async function createSpeaker(input: {
+  projectId: string | null;
+  representationId: string;
+  displayName: string;
+  assignSegmentId?: string;
+}): Promise<{ error?: string; speakerId?: string }> {
+  const supabase = await assertTranscriptionAccess();
+  const displayName = input.displayName.trim();
+  if (!displayName) return { error: "Give the speaker a name." };
+
+  const { data: existing, error: readError } = await supabase
+    .from("tw_speakers")
+    .select("diarization_label")
+    .eq("representation_id", input.representationId);
+  if (readError) {
+    console.error("Could not read the speakers:", readError);
+    return { error: "Could not add the speaker." };
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from("tw_speakers")
+    .insert({
+      representation_id: input.representationId,
+      diarization_label: nextManualSpeakerLabel(
+        (existing ?? []).map((row) => row.diarization_label),
+      ),
+      display_name: displayName,
+    })
+    .select("id")
+    .single();
+  if (insertError || !created) {
+    console.error("Could not add the speaker:", insertError);
+    return { error: "Could not add the speaker." };
+  }
+
+  if (input.assignSegmentId) {
+    const { error: assignError } = await supabase
+      .from("tw_segments")
+      .update({ speaker_id: created.id })
+      .eq("id", input.assignSegmentId)
+      .eq("representation_id", input.representationId);
+    if (assignError) {
+      console.error("Added the speaker, but could not assign the line:", assignError);
+      revalidateProject(input.projectId);
+      return { error: "Added the speaker, but could not assign that line to them." };
+    }
+  }
+
+  revalidateProject(input.projectId);
+  return { speakerId: created.id };
 }
 
 export async function reassignSegmentSpeaker(input: {

@@ -99,3 +99,17 @@ export function speakerSummary(
   ];
   return { count: rows.length, unnamed, text: parts.join(", ") };
 }
+
+/**
+ * The diarization label for a speaker a person adds by hand. The ASR labels are
+ * single letters (A, B, C…), and a transcript's labels are unique, so a manual
+ * speaker gets "M1", "M2"… — never a letter the diarizer could produce.
+ */
+export function nextManualSpeakerLabel(existingLabels: readonly string[]): string {
+  let highest = 0;
+  for (const label of existingLabels) {
+    const match = /^M(\d+)$/.exec(label);
+    if (match) highest = Math.max(highest, Number(match[1]));
+  }
+  return `M${highest + 1}`;
+}
