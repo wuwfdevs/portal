@@ -922,6 +922,7 @@ export function TranscriptWorkspace({
             playingClipId={isPlaying ? previewingClipId : null}
             onPause={pausePreview}
             onShowInTranscript={() => setPane("transcript")}
+            segments={segments}
           />
         )}
       </div>

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { ExcerptTrimEditor } from "@/components/transcription/excerpt-trim-editor";
+import { useDelayedCommit } from "@/lib/use-delayed-commit";
+import type { TextSegment } from "@/lib/sourcework/piece-text";
 import { Segmented } from "@/components/ui/segmented";
 import { formatDuration } from "@/lib/transcription/media";
 import {
@@ -30,10 +33,6 @@ import { PauseIcon, PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
 import { formatGainDb, type GainMode } from "@/lib/sourcework/loudness";
 
-// Nudge steps, in the order radio editors reach for them: coarse out, fine
-// out, fine in, coarse in (see docs/transcription-workspace-design.md §3D).
-const NUDGE_STEPS_MS = [-250, -50, 50, 250];
-
 /** How often the rail checks whether background measuring has landed, and how many checks before it gives up. */
 const LOUDNESS_POLL_MS = 3000;
 const LOUDNESS_POLL_LIMIT = 40;
@@ -45,7 +44,7 @@ const GAIN_LIMIT_NOTE: Record<string, string> = {
   short: " (short clip)",
 };
 
-/** How long the trim can sit still before it's written — see nudge(). */
+/** How long the trim can sit still before it's written — see changeTrim(). */
 const TRIM_COMMIT_DELAY_MS = 400;
 
 /**
@@ -67,6 +66,7 @@ export function ClipRail({
   playingClipId = null,
   onPause,
   onShowInTranscript,
+  segments,
 }: {
   clips: ProjectClip[];
   /** The clip marked in the transcript too — from ?clip=, a click here, or a click on the text. */
@@ -84,6 +84,8 @@ export function ClipRail({
   onPause?: () => void;
   /** Below lg the transcript is another tab, so a card offers a way back to its words. */
   onShowInTranscript?: () => void;
+  /** The source's transcript, so Trim can show the clip's words and move an end by tapping one. */
+  segments?: TextSegment[];
 }) {
   const [order, setOrder] = useState<ClipOrder>("in_order");
   const [query, setQuery] = useState("");
@@ -174,6 +176,7 @@ export function ClipRail({
               isPlaying={Boolean(onPause) && playingClipId === clip.id}
               onPause={onPause}
               onShowInTranscript={onShowInTranscript}
+              segments={segments}
             />
           ))}
           {visible.length > page.length && (
@@ -204,6 +207,7 @@ function ClipCard({
   isPlaying = false,
   onPause,
   onShowInTranscript,
+  segments,
 }: {
   clip: ProjectClip;
   isSelected?: boolean;
@@ -216,6 +220,7 @@ function ClipCard({
   isPlaying?: boolean;
   onPause?: () => void;
   onShowInTranscript?: () => void;
+  segments?: TextSegment[];
 }) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -233,8 +238,7 @@ function ClipCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showTrim, setShowTrim] = useState(false);
 
-  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => clearTimeout(commitTimer.current ?? undefined), []);
+  const { schedule: scheduleCommit } = useDelayedCommit(TRIM_COMMIT_DELAY_MS);
 
   /**
    * Trimming is a hold-the-button-down interaction, so the local value moves
@@ -242,12 +246,7 @@ function ClipCard({
    * — otherwise every one of eight buttons is its own round-trip. The clip is
    * auditioned on the same beat, which is the whole point of nudging.
    */
-  function nudge(field: "start" | "end", deltaMs: number) {
-    const next =
-      field === "start"
-        ? { startMs: Math.max(0, startMs + deltaMs), endMs }
-        : { startMs, endMs: Math.max(startMs + 1, endMs + deltaMs) };
-
+  function changeTrim(next: { startMs: number; endMs: number }) {
     setStartMs(next.startMs);
     setEndMs(next.endMs);
     setErrorMessage(null);
@@ -255,8 +254,7 @@ function ClipCard({
     // a word join or leave the clip, and it's no use arriving a round-trip late.
     onTrimPreview(clip.id, next);
 
-    clearTimeout(commitTimer.current ?? undefined);
-    commitTimer.current = setTimeout(async () => {
+    scheduleCommit(async () => {
       const result = await updateClipTrim({ clipId: clip.id, ...next });
       if ("error" in result) {
         setErrorMessage(result.error);
@@ -270,7 +268,7 @@ function ClipCard({
       setHasExport(false);
       onPreview(result.startMs, result.endMs, clip.id);
       router.refresh();
-    }, TRIM_COMMIT_DELAY_MS);
+    });
   }
 
   async function handleGainMode(mode: GainMode) {
@@ -427,9 +425,17 @@ function ClipCard({
         </Button>
       </p>
       {showTrim && (
-        <div className="mt-2.5 flex flex-col gap-1.5 text-xs text-ink-500">
-          <TrimRow label="In" valueMs={startMs} onNudge={(delta) => nudge("start", delta)} />
-          <TrimRow label="Out" valueMs={endMs} onNudge={(delta) => nudge("end", delta)} />
+        <div className="mt-2.5">
+          <ExcerptTrimEditor
+            range={{ startMs, endMs }}
+            segments={segments}
+            sourceDurationMs={null}
+            onChange={changeTrim}
+            onPlay={(range) =>
+              isPlaying ? onPause?.() : onPreview(range.startMs, range.endMs, clip.id)
+            }
+            playing={isPlaying}
+          />
         </div>
       )}
 
@@ -534,34 +540,4 @@ function ClipCard({
 /** Signed URLs carry their own download filename, so a plain navigation is enough. */
 function openDownload(url: string) {
   window.location.href = url;
-}
-
-function TrimRow({
-  label,
-  valueMs,
-  onNudge,
-}: {
-  label: string;
-  valueMs: number;
-  onNudge: (deltaMs: number) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="w-7 font-semibold text-ink-700">{label}</span>
-      <span className="w-14 font-mono">{formatDuration(valueMs)}</span>
-      <div className="flex gap-1">
-        {NUDGE_STEPS_MS.map((step) => (
-          <button
-            key={step}
-            type="button"
-            onClick={() => onNudge(step)}
-            aria-label={`Move ${label.toLowerCase()} point ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
-            className="rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-12 max-lg:text-xs"
-          >
-            {step > 0 ? `+${step}` : step}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
