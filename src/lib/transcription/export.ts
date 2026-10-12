@@ -76,6 +76,12 @@ function runRender(
       "-t",
       durationSeconds,
       "-vn",
+      // Drop the source's tags: they describe the whole recording, not this
+      // excerpt, and the piped WAV's metadata chunk made Audition warn that it
+      // was corrupt.
+      "-map_metadata",
+      "-1",
+      "-bitexact",
       ...(audioFilter ? ["-af", audioFilter] : []),
       "-ar",
       "48000",
