@@ -61,13 +61,7 @@ const DEFAULT_TITLE = "Untitled piece";
 
 type SaveState = "saved" | "dirty" | "saving" | "error" | "conflict";
 
-export function PieceEditor({
-  piece,
-  pickerExcerpts,
-  formats,
-  draftFormats,
-  draftMaterial,
-}: {
+type PieceEditorProps = {
   piece: PieceDetail;
   pickerExcerpts: PieceExcerpt[];
   /** Every published format, for writing to one by hand. */
@@ -76,7 +70,38 @@ export function PieceEditor({
   draftFormats: DraftFormatOption[];
   /** The themes and excerpts Draft with AI would use; null unless the piece is blank. */
   draftMaterial: MaterialSummary | null;
-}) {
+};
+
+/**
+ * Starts the editor again when the server hands over a version this editor did not write
+ * (the assistant, a draft, someone else). Any Server Action that revalidates re-renders this
+ * page with the version the person's own autosave just made, and remounting for that would
+ * close the open trim or swap panel, so versions the editor reports saving are ignored.
+ */
+export function PieceEditorHost(props: PieceEditorProps) {
+  const ownVersion = useRef(props.piece.version);
+  const [generation, setGeneration] = useState({ version: props.piece.version, key: 0 });
+  if (props.piece.version !== generation.version) {
+    const ours = props.piece.version <= ownVersion.current;
+    setGeneration({
+      version: props.piece.version,
+      key: ours ? generation.key : generation.key + 1,
+    });
+  }
+  const onOwnVersion = useCallback((version: number) => {
+    ownVersion.current = Math.max(ownVersion.current, version);
+  }, []);
+  return <PieceEditor key={generation.key} {...props} onOwnVersion={onOwnVersion} />;
+}
+
+function PieceEditor({
+  piece,
+  pickerExcerpts,
+  formats,
+  draftFormats,
+  draftMaterial,
+  onOwnVersion,
+}: PieceEditorProps & { onOwnVersion: (version: number) => void }) {
   const router = useRouter();
   const rightPanel = useRightPanel();
   const narrow = useMediaQuery("(max-width: 1023px)");
@@ -133,6 +158,7 @@ export function PieceEditor({
         });
         if (result.ok) {
           versionRef.current = result.version;
+          onOwnVersion(result.version);
           setSavedAt(new Date());
           continue;
         }
@@ -150,7 +176,7 @@ export function PieceEditor({
     } finally {
       savingRef.current = false;
     }
-  }, [piece.id]);
+  }, [piece.id, onOwnVersion]);
 
   const schedule = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -429,6 +455,7 @@ export function PieceEditor({
       return;
     }
     versionRef.current = result.version;
+    onOwnVersion(result.version);
     blocksRef.current = result.blocks;
     setBlocks(result.blocks);
     setAssistantChanges({});

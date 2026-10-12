@@ -6,7 +6,7 @@ import { getPieceDetail, listPickerExcerpts } from "@/lib/sourcework/piece-queri
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
 import { loadMaterialSummary } from "@/lib/sourcework/piece-draft-run";
 import { describeFormat } from "@/lib/sourcework/piece-formats";
-import { PieceEditor } from "./piece-editor";
+import { PieceEditorHost } from "./piece-editor";
 
 /**
  * One piece: a block editor over narration and the project's excerpts
@@ -41,9 +41,8 @@ export default async function PiecePage({
         </TextLink>
       </div>
       <h1 className="sr-only">{piece.title}</h1>
-      {/* Keyed by version: when the assistant or a draft saves, the editor starts again from what was saved. */}
-      <PieceEditor
-        key={piece.version}
+      {/* The host starts the editor again when the assistant or a draft saves, not for the person's own autosaves. */}
+      <PieceEditorHost
         piece={piece}
         pickerExcerpts={pickerExcerpts}
         formats={formats.map((format) => ({ id: format.id, name: format.name, spec: format.spec }))}
