@@ -118,14 +118,14 @@ async function describePiece(supabase: Client, piece: LoadedPiece) {
       }
       const range = actualityRange(block, excerpt)!;
       let words = excerpt.text;
-      if (block.in_ms !== undefined && excerpt.representationId) {
+      if ((block.in_ms !== undefined || block.cuts) && excerpt.representationId) {
         const segments = await loadSegmentsAround(
           supabase,
           excerpt.representationId,
           range.startMs,
           range.endMs,
         );
-        words = textForRange(segments, range.startMs, range.endMs) || words;
+        words = textForRange(segments, range.startMs, range.endMs, block.cuts) || words;
       }
       return {
         id: block.id,

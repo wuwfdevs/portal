@@ -24,6 +24,17 @@ export interface ActualityBlock {
   /** This piece's own trim of the excerpt; absent means the excerpt's own point. */
   in_ms?: number;
   out_ms?: number;
+  /**
+   * Stretches of the (trimmed) range this piece leaves out, e.g. long pauses. Source time,
+   * ascending, not overlapping. Absent means the clip plays straight through.
+   */
+  cuts?: Cut[];
+}
+
+/** A stretch of a source recording, in ms. */
+export interface Cut {
+  start_ms: number;
+  end_ms: number;
 }
 
 export type PieceBlock = NarrationBlock | ActualityBlock;
@@ -38,6 +49,9 @@ export interface ExcerptTiming {
 export const MAX_NARRATION_CHARS = 5000;
 export const MAX_BLOCKS = 200;
 export const MIN_ACTUALITY_MS = 500;
+export const MAX_CUTS = 200;
+/** A cut shorter than this is not worth a seek in playback. */
+export const MIN_CUT_MS = 100;
 export const NUDGE_STEPS_MS = [-250, -50, 50, 250];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -78,12 +92,74 @@ export function parsePieceBody(value: unknown): PieceBlock[] | null {
         block.in_ms = raw.in_ms;
         block.out_ms = raw.out_ms;
       }
+      if (raw.cuts !== undefined) {
+        const cuts = parseCuts(raw.cuts);
+        if (!cuts) return null;
+        if (cuts.length > 0) block.cuts = cuts;
+      }
       blocks.push(block);
     } else {
       return null;
     }
   }
   return blocks;
+}
+
+function parseCuts(value: unknown): Cut[] | null {
+  if (!Array.isArray(value) || value.length > MAX_CUTS) return null;
+  const cuts: Cut[] = [];
+  let previousEnd = 0;
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) return null;
+    const raw = item as Record<string, unknown>;
+    if (!isNonNegativeInt(raw.start_ms) || !isNonNegativeInt(raw.end_ms)) return null;
+    // Ascending and apart: playback and length walk the list once.
+    if (raw.end_ms <= raw.start_ms || raw.start_ms < previousEnd) return null;
+    cuts.push({ start_ms: raw.start_ms, end_ms: raw.end_ms });
+    previousEnd = raw.end_ms;
+  }
+  return cuts;
+}
+
+/**
+ * The cuts that still apply to `range`: clipped to it, and dropped when what is left is too short
+ * to matter. A trim that moves inside a cut shortens it rather than leaving it hanging outside.
+ */
+export function cutsWithin(
+  cuts: readonly Cut[] | undefined,
+  range: { startMs: number; endMs: number },
+): Cut[] {
+  if (!cuts) return [];
+  const kept: Cut[] = [];
+  for (const cut of cuts) {
+    const start = Math.max(cut.start_ms, range.startMs);
+    const end = Math.min(cut.end_ms, range.endMs);
+    if (end - start >= MIN_CUT_MS) kept.push({ start_ms: start, end_ms: end });
+  }
+  return kept;
+}
+
+/** The ranges an actuality actually plays, with its cuts taken out of its range. */
+export function playedSpans(
+  range: { startMs: number; endMs: number },
+  cuts: readonly Cut[] | undefined,
+): { startMs: number; endMs: number }[] {
+  const spans: { startMs: number; endMs: number }[] = [];
+  let cursor = range.startMs;
+  for (const cut of cutsWithin(cuts, range)) {
+    if (cut.start_ms > cursor) spans.push({ startMs: cursor, endMs: cut.start_ms });
+    cursor = cut.end_ms;
+  }
+  if (cursor < range.endMs) spans.push({ startMs: cursor, endMs: range.endMs });
+  return spans;
+}
+
+/** Milliseconds an actuality plays: its range less its cuts. */
+export function playedMs(
+  range: { startMs: number; endMs: number },
+  cuts: readonly Cut[] | undefined,
+): number {
+  return playedSpans(range, cuts).reduce((total, span) => total + span.endMs - span.startMs, 0);
 }
 
 export function newNarration(id: string, text = "", role?: "anchor"): NarrationBlock {
@@ -126,7 +202,7 @@ export function blockSeconds(
 ): number {
   if (block.type === "narration") return estimateReadSeconds(block.text) ?? 0;
   const range = actualityRange(block, excerptsById.get(block.excerpt_id));
-  return range ? Math.max(0, Math.round((range.endMs - range.startMs) / 1000)) : 0;
+  return range ? Math.max(0, Math.round(playedMs(range, block.cuts) / 1000)) : 0;
 }
 
 export interface PieceLength {
@@ -272,12 +348,41 @@ export function setActualityTrim(
 ): PieceBlock[] {
   return blocks.map((block) => {
     if (block.id !== id || block.type !== "actuality") return block;
-    if (!trim) return { id: block.id, type: "actuality", excerpt_id: block.excerpt_id };
+    const bare = (range: { startMs: number; endMs: number }): ActualityBlock => {
+      const cuts = cutsWithin(block.cuts, range);
+      return {
+        id: block.id,
+        type: "actuality",
+        excerpt_id: block.excerpt_id,
+        ...(cuts.length > 0 ? { cuts } : {}),
+      };
+    };
+    const own = { startMs: excerpt.startMs, endMs: excerpt.endMs };
+    if (!trim) return bare(own);
     const clamped = clampTrim(trim.inMs, trim.outMs, sourceDurationMs);
-    if (clamped.inMs === excerpt.startMs && clamped.outMs === excerpt.endMs) {
-      return { id: block.id, type: "actuality", excerpt_id: block.excerpt_id };
-    }
-    return { ...block, in_ms: clamped.inMs, out_ms: clamped.outMs };
+    const range = { startMs: clamped.inMs, endMs: clamped.outMs };
+    if (clamped.inMs === excerpt.startMs && clamped.outMs === excerpt.endMs) return bare(own);
+    return { ...bare(range), in_ms: clamped.inMs, out_ms: clamped.outMs };
+  });
+}
+
+/**
+ * Sets (or with an empty list clears) the stretches an actuality leaves out. Cuts are clipped to
+ * the block's current range, so a stale list can't reach outside it.
+ */
+export function setActualityCuts(
+  blocks: readonly PieceBlock[],
+  id: string,
+  excerpt: ExcerptTiming,
+  cuts: readonly Cut[],
+): PieceBlock[] {
+  return blocks.map((block) => {
+    if (block.id !== id || block.type !== "actuality") return block;
+    const { cuts: _previous, ...rest } = block;
+    void _previous;
+    const range = actualityRange(block, excerpt);
+    const next = range ? cutsWithin(cuts, range) : [];
+    return next.length > 0 ? { ...rest, cuts: next } : rest;
   });
 }
 
