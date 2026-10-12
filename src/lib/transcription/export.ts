@@ -1,7 +1,12 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
-import { ffmpegGainFilter } from "@/lib/sourcework/loudness";
+import {
+  exportCorrectionDb,
+  ffmpegExportFilter,
+  parseEbur128Summary,
+} from "@/lib/sourcework/loudness";
+import type { ExportLevel } from "@/lib/transcription/loudness-measure";
 
 /**
  * Renders one clip's [startMs, endMs) range from a source media URL to a
@@ -14,10 +19,12 @@ import { ffmpegGainFilter } from "@/lib/sourcework/loudness";
  * clip boundaries are always nudge-and-audition rather than promised to be
  * sample-exact.
  *
- * `gainDb` is the excerpt's fixed level change (lib/sourcework/loudness.ts) — a plain volume
- * adjustment, deliberately not loudnorm or a compressor, so the dynamics inside the clip are
- * exactly what was recorded. The 16-bit conversion clips if a caller ever asks for more than the
- * peak allows, which the gain computation prevents by capping at the true-peak ceiling.
+ * `level` is the excerpt's leveling (lib/sourcework/loudness.ts): its live channel fed to both
+ * sides when the other is silent, one fixed gain, then a hard limiter at -6 dBFS (Audition's Hard
+ * Limiter defaults). Limiting lowers the loudness of peaky tape, so the render is measured and, if
+ * it landed more than 0.3 LU from where the gain intended, rendered once more with the gain
+ * adjusted by the difference. With no `level.intendedLufs` (original level, or nothing measured)
+ * the clip is rendered as recorded: no gain, no limiter.
  *
  * Arguments are passed as an array to spawn(), never interpolated into a
  * shell string, so there is no command-injection surface here regardless of
@@ -27,7 +34,27 @@ export async function renderClipWav(
   sourceUrl: string,
   startMs: number,
   endMs: number,
-  gainDb = 0,
+  level?: ExportLevel,
+): Promise<Buffer> {
+  if (!level || level.intendedLufs == null) {
+    return runRender(sourceUrl, startMs, endMs, null);
+  }
+
+  const render = (gainDb: number) =>
+    runRender(sourceUrl, startMs, endMs, ffmpegExportFilter(gainDb, level.liveChannel));
+  const first = await render(level.gainDb);
+
+  const rendered = await measureWavLoudness(first);
+  if (rendered == null) return first;
+  const correction = exportCorrectionDb(level.intendedLufs, rendered);
+  return correction == null ? first : render(level.gainDb + correction);
+}
+
+function runRender(
+  sourceUrl: string,
+  startMs: number,
+  endMs: number,
+  audioFilter: string | null,
 ): Promise<Buffer> {
   if (!ffmpegPath) {
     throw new Error("ffmpeg binary is not available in this environment");
@@ -36,7 +63,6 @@ export async function renderClipWav(
 
   const startSeconds = (startMs / 1000).toFixed(3);
   const durationSeconds = ((endMs - startMs) / 1000).toFixed(3);
-  const gainFilter = ffmpegGainFilter(gainDb);
 
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn(ffmpegBinary, [
@@ -50,7 +76,7 @@ export async function renderClipWav(
       "-t",
       durationSeconds,
       "-vn",
-      ...(gainFilter ? ["-af", gainFilter] : []),
+      ...(audioFilter ? ["-af", audioFilter] : []),
       "-ar",
       "48000",
       "-c:a",
@@ -74,5 +100,43 @@ export async function renderClipWav(
         reject(new Error(`ffmpeg exited with code ${code}${message ? `: ${message}` : ""}`));
       }
     });
+  });
+}
+
+/**
+ * Integrated loudness (LUFS) of a rendered WAV, read back through ebur128 from stdin. Null when it
+ * can't be measured — the caller then keeps the render it has rather than failing the export.
+ */
+async function measureWavLoudness(wav: Buffer): Promise<number | null> {
+  if (!ffmpegPath) return null;
+  const ffmpegBinary: string = ffmpegPath;
+
+  return new Promise((resolve) => {
+    const ffmpeg = spawn(ffmpegBinary, [
+      "-hide_banner",
+      "-nostats",
+      "-loglevel",
+      "info",
+      "-i",
+      "pipe:0",
+      "-af",
+      "ebur128=peak=true:framelog=quiet",
+      "-f",
+      "null",
+      "-",
+    ]);
+    const stderrChunks: Buffer[] = [];
+    ffmpeg.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    ffmpeg.stdin.on("error", () => {});
+    ffmpeg.on("error", () => resolve(null));
+    ffmpeg.on("close", (code: number | null) => {
+      resolve(
+        code === 0
+          ? (parseEbur128Summary(Buffer.concat(stderrChunks).toString("utf-8"))?.integratedLufs ??
+              null)
+          : null,
+      );
+    });
+    ffmpeg.stdin.end(wav);
   });
 }

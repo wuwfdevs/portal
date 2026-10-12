@@ -494,29 +494,47 @@ format by hand (`setPieceFormat`, New piece's format select) — that sets the t
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
-**Sourcework: excerpt loudness (2026-10-12).** Actualities from different tape come in at very different
-levels, so every temporal excerpt is measured (BS.1770 integrated loudness and true peak, via ffmpeg's
+**Sourcework: excerpt loudness (2026-10-12; standard changed 2026-10-12).** Actualities from different tape come
+in at very different levels, so every temporal excerpt is measured (BS.1770 integrated loudness, via ffmpeg's
 `ebur128`, `lib/transcription/loudness-measure.ts`) when it is created or trimmed, and played and exported at
-one **fixed gain** toward -24 LUFS with peaks held under -3 dBTP (`lib/sourcework/loudness.ts`, pure, tested).
-Four things are load-bearing: (1) **the gain is a single volume change for the whole excerpt, never loudnorm,
-a compressor or a limiter** — that is what keeps a speaker's whisper as far below their normal voice as it was
-on tape; a boost the peak ceiling can't take is held back (the card says so), not squashed. (2) The target is
-NPR/PRSS's 2014-15 spec (-24 LUFS ±2 LU, -3 dBTP) from press reports, not a current NPR document — confirm it
-with NPR before treating it as final; it lives in `TARGET_LUFS`/`TRUE_PEAK_CEILING_DBTP` only. (3) Auto gain is
-derived from the stored measurement, never stored, so changing the target needs no backfill; `gain_mode = 'off'`
-is the producer's "Original level". Measuring runs in `after()` and is best-effort; unmeasured excerpts are
-queued a few at a time as they are read (`queueLoudnessBackfill`) and measured inline at export
-(`gainDbForExport`). Because that measuring happens after the page is sent, the excerpt rail polls
-`getExcerptLoudnessStatus` and refreshes once a measurement lands (a refresh re-queues the
-still-unmeasured, and a trim can land mid-measure, so `measureAndStoreExcerptLoudness` runs through
-`lib/run-coalesced.ts` — one run per excerpt per instance, and a request arriving mid-run makes it go
-round again rather than being dropped; every pending excerpt is polled, whatever its level setting);
-the card reads `loudnessState` — measuring, measured, or couldn't be measured. (4) **Playback applies the gain through a Web Audio `GainNode`, which needs the audio
-element's `crossOrigin="anonymous"`** (the signed Storage URL must send CORS headers) — the piece editor does
-this; the workspace's own excerpt preview and the quote-suggestion players do **not** apply the gain yet. An
-export made before a level change keeps its old level until re-exported. Migrations `20261019120000` (schema)
-and `20261019130000` (Resources content) are additive; apply them before the code ships, since the excerpt
-reads select the new columns.
+one **fixed gain** to **-18 LUFS**, followed by a **hard limiter with a -6 dBFS ceiling**
+(`lib/sourcework/loudness.ts`, pure, tested). Five things are load-bearing: (1) **why this standard:** it is
+the WUWF team's own Audition practice (normalize to 100%, then hard-limit at -6 dB, which measures about -14 to
+-21 LUFS). The first version targeted NPR/PRSS's -24 LUFS / -3 dBTP with no limiter, and that is a
+*distribution* spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
+don't reintroduce a peak-headroom hold-back on the gain — peaks are the limiter's job, so the gain is only ever
+reduced by the boost/cut caps (`MAX_AUTO_BOOST_DB` 45 — field tape commonly needs 35-42 dB —
+`MAX_AUTO_CUT_DB`) and the short-clip rule. A boost past `NOISY_BOOST_DB` (20) is allowed but the card says it
+raises the noise floor. The gain itself is still a single volume change; the limiter only touches peaks, so a
+speaker's whisper stays as far below their normal voice as it was on tape. (2) **Gain is derived from the stored
+measurement, never stored,** so changing the target needs no backfill. `gain_mode = 'off'` is the producer's
+"Original level": no gain, no limiter, no channel fix. (3) **Export** (`lib/transcription/export.ts`) renders
+`pan` (if one-sided) → `volume` → `alimiter=limit=0.5012:attack=5:release=50:level=false` (Audition's Hard
+Limiter defaults; `level=false` is required or alimiter adds its own makeup gain). Limiting lowers the
+loudness of peaky tape, so the render is measured with ebur128 and, if it is more than 0.3 LU from the loudness
+the gain intended (stored loudness + gain), rendered **once more** with the gain adjusted by the difference.
+Playback (`pieces/[pieceId]/use-piece-player.ts`) applies the same gain through a Web Audio `GainNode` into a
+`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an *approximation* of
+the limiter, not the same algorithm, so levels match the export closely, not exactly. It needs the audio
+element's `crossOrigin="anonymous"`; the piece editor's player is the only audition that applies the gain — the
+workspace's own excerpt preview and the quote-suggestion players do **not** yet. An export made before a level
+change keeps its old level until re-exported (the 2026-10-20 migration un-caches the existing ones).
+(4) **One-sided stereo:** some field clips arrive as stereo with the voice in one channel and a silent other.
+That measures about 3 dB low and drops about 6 dB summed to mono, so the measurement first reads per-channel RMS
+(`astats`); a channel more than 40 dB below the other sets `sw_source_excerpts.live_channel` (0 left, 1 right),
+and measuring, export and playback all go through `pan=stereo|c0=cX|c1=cX` with the live channel. **Existing
+excerpts need re-measuring for this column:** `20261020120000` clears `loudness_measured_at`, so the normal
+re-measure-on-read path (`queueLoudnessBackfill`, a few at a time in `after()`) and the inline measure at
+export pick them up; until then an excerpt keeps its stored loudness. (5) Measuring runs in `after()` and is
+best-effort; unmeasured excerpts are queued a few at a time as they are read and measured inline at export
+(`exportLevelFor`). Because that happens after the page is sent, the excerpt rail polls
+`getExcerptLoudnessStatus` and refreshes once a measurement lands (a refresh re-queues the still-unmeasured, and
+a trim can land mid-measure, so `measureAndStoreExcerptLoudness` runs through `lib/run-coalesced.ts` — one run
+per excerpt per instance, and a request arriving mid-run makes it go round again rather than being dropped);
+the card reads `loudnessState` — measuring, measured, or couldn't be measured. Loudness below `SILENCE_LUFS`
+(-60) counts as silence, so the largest boost reachable is 42 dB. Migrations `20261019120000` (schema),
+`20261019130000` (Resources), `20261020120000` (live_channel, re-measure, un-cache exports) and
+`20261020130000` (Resources) — apply them before the code ships, since the excerpt reads select the new columns.
 
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names

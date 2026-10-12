@@ -12,7 +12,7 @@ import {
   type PieceBlock,
 } from "./pieces";
 import { describeFormatVersions } from "./piece-format-queries";
-import { effectiveGain } from "./loudness";
+import { effectiveGain, type LiveChannel } from "./loudness";
 import { queueLoudnessBackfill } from "@/lib/transcription/loudness-measure";
 import type { TextSegment } from "./piece-text";
 
@@ -37,6 +37,33 @@ export interface PieceExcerpt {
   speaker: string | null;
   /** Fixed level change applied when this excerpt plays (dB), so actualities sit at one level. */
   gainDb: number;
+  /** Whether it is levelled at all: gain, then the limiter. False at its original level or unmeasured. */
+  levelled: boolean;
+  /** The live side of a one-sided stereo clip, fed to both sides on playback. */
+  liveChannel: LiveChannel | null;
+}
+
+/** How an excerpt plays: the same gain, limiter and channel fix its export is rendered with. */
+function playbackLevel(excerpt: {
+  gain_mode: "auto" | "off";
+  loudness_lufs: number | null;
+  live_channel: number | null;
+  start_ms: number | null;
+  end_ms: number | null;
+}): Pick<PieceExcerpt, "gainDb" | "levelled" | "liveChannel"> {
+  const gain = effectiveGain({
+    gainMode: excerpt.gain_mode,
+    loudnessLufs: excerpt.loudness_lufs,
+    durationMs: excerpt.end_ms! - excerpt.start_ms!,
+  });
+  return {
+    gainDb: gain.gainDb,
+    levelled: gain.measured,
+    liveChannel:
+      gain.measured && (excerpt.live_channel === 0 || excerpt.live_channel === 1)
+        ? excerpt.live_channel
+        : null,
+  };
 }
 
 export interface PieceListRow {
@@ -155,7 +182,7 @@ export async function loadPieceExcerpts(
       await supabase
         .from("sw_source_excerpts")
         .select(
-          "id, source_id, representation_id, title, start_ms, end_ms, excerpt_text, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+          "id, source_id, representation_id, title, start_ms, end_ms, excerpt_text, loudness_lufs, live_channel, loudness_measured_at, gain_mode",
         )
         .in("id", excerptIds)
         .eq("locator_kind", "temporal"),
@@ -187,12 +214,7 @@ export async function loadPieceExcerpts(
     sourceDurationMs: sourceById.get(excerpt.source_id)?.original_duration_ms ?? null,
     representationId: excerpt.representation_id,
     speaker: speakers.get(excerpt.id) ?? null,
-    gainDb: effectiveGain({
-      gainMode: excerpt.gain_mode,
-      loudnessLufs: excerpt.loudness_lufs,
-      truePeakDbtp: excerpt.true_peak_dbtp,
-      durationMs: excerpt.end_ms! - excerpt.start_ms!,
-    }).gainDb,
+    ...playbackLevel(excerpt),
   }));
 }
 

@@ -5,7 +5,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { guardRoute } from "@/lib/auth/route-guard";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
-import { gainDbForExport } from "@/lib/transcription/loudness-measure";
+import { exportLevelFor } from "@/lib/transcription/loudness-measure";
 import type { GainMode } from "@/lib/sourcework/loudness";
 import { createZipStream, uniqueEntryName, type ZipEntry } from "@/lib/transcription/zip";
 import { getPrimarySourceForProject } from "@/lib/transcription/projects";
@@ -92,7 +92,7 @@ export async function GET(
   const { data: rawClips, error: clipsError } = await supabase
     .from("sw_source_excerpts")
     .select(
-      "id, title, start_ms, end_ms, export_storage_path, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+      "id, title, start_ms, end_ms, export_storage_path, loudness_lufs, live_channel, loudness_measured_at, gain_mode",
     )
     .eq("source_id", source.id)
     .eq("locator_kind", "temporal")
@@ -187,7 +187,7 @@ async function clipAudio(
     end_ms: number;
     export_storage_path: string | null;
     loudness_lufs: number | null;
-    true_peak_dbtp: number | null;
+    live_channel: number | null;
     loudness_measured_at: string | null;
     gain_mode: GainMode;
   },
@@ -208,8 +208,8 @@ async function clipAudio(
     throw new Error(`No source media to render clip ${clip.id} from`);
   }
 
-  const gainDb = await gainDbForExport(clip, sourceUrl);
-  const wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, gainDb);
+  const level = await exportLevelFor(clip, sourceUrl);
+  const wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, level);
   await storeRenderedClip(supabase, sourceId, clip.id, wav);
   return wav;
 }
