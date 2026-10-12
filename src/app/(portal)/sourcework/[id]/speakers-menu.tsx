@@ -10,7 +10,7 @@ import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { filterSpeakerRows, speakerRows, speakerSummary } from "@/lib/transcription/speakers";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
-import { mergeSpeakers, renameSpeaker } from "./actions";
+import { createSpeaker, mergeSpeakers, renameSpeaker } from "./actions";
 import { useDismissable } from "@/lib/use-dismissable";
 
 /** Past this many speakers the panel offers a filter; below it a filter is clutter. */
@@ -27,12 +27,14 @@ const FILTER_THRESHOLD = 6;
  */
 export function SpeakersMenu({
   projectId,
+  representationId,
   speakers,
   segments,
   onSeek,
   onRenamed,
 }: {
   projectId: string | null;
+  representationId: string | null;
   speakers: TranscriptSpeaker[];
   segments: TranscriptSegment[];
   onSeek: (startMs: number) => void;
@@ -92,6 +94,7 @@ export function SpeakersMenu({
       >
         <SpeakersPanelBody
           projectId={projectId}
+          representationId={representationId}
           rows={rows}
           summary={summary}
           visible={visible}
@@ -114,12 +117,14 @@ export function SpeakersMenu({
  */
 export function SpeakersPane({
   projectId,
+  representationId,
   speakers,
   segments,
   onSeek,
   onRenamed,
 }: {
   projectId: string | null;
+  representationId: string | null;
   speakers: TranscriptSpeaker[];
   segments: TranscriptSegment[];
   onSeek: (startMs: number) => void;
@@ -142,6 +147,7 @@ export function SpeakersPane({
     <div className="rounded border border-line bg-white">
       <SpeakersPanelBody
         projectId={projectId}
+        representationId={representationId}
         rows={rows}
         summary={summary}
         visible={visible}
@@ -159,6 +165,7 @@ export function SpeakersPane({
 
 function SpeakersPanelBody({
   projectId,
+  representationId,
   rows,
   summary,
   visible,
@@ -171,6 +178,7 @@ function SpeakersPanelBody({
   scrollable = true,
 }: {
   projectId: string | null;
+  representationId: string | null;
   rows: ReturnType<typeof speakerRows>;
   summary: ReturnType<typeof speakerSummary>;
   visible: ReturnType<typeof speakerRows>;
@@ -226,7 +234,84 @@ function SpeakersPanelBody({
           ))
         )}
       </ul>
+      {representationId && (
+        <AddSpeakerForm projectId={projectId} representationId={representationId} />
+      )}
     </>
+  );
+}
+
+/**
+ * For a voice the diarizer missed. The new speaker starts with no lines; give
+ * them some from a line's "Change speaker…" menu.
+ */
+function AddSpeakerForm({
+  projectId,
+  representationId,
+}: {
+  projectId: string | null;
+  representationId: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setPending(true);
+    setError(null);
+    const result = await createSpeaker({ projectId, representationId, displayName: name });
+    setPending(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setName("");
+    setOpen(false);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2">
+      {open ? (
+        <>
+          <Input
+            autoFocus
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && name.trim()) void handleAdd();
+              if (event.key === "Escape") setOpen(false);
+            }}
+            placeholder="Speaker’s name"
+            aria-label="Name of the new speaker"
+            className="w-full px-2.5 py-1.5 sm:w-44"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={!name.trim() || pending}
+            onClick={() => void handleAdd()}
+          >
+            {pending ? "Adding…" : "Add"}
+          </Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          {error && <span className="text-xs text-danger">{error}</span>}
+        </>
+      ) : (
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => setOpen(true)}
+          className="text-brand-link max-lg:min-h-11"
+        >
+          + Add a speaker
+        </Button>
+      )}
+    </div>
   );
 }
 

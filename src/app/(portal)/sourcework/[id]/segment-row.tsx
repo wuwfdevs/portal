@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
-import { Select, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 import { clipAtToken, type ClipSpan, type TimedToken } from "@/lib/transcription/selection";
 import {
+  createSpeaker,
   mergeSegmentWithNext,
   reassignSegmentSpeaker,
   splitSegment,
@@ -35,6 +36,7 @@ import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/p
  */
 export function SegmentRow({
   projectId,
+  representationId,
   segment,
   tokens,
   clipSpans,
@@ -56,6 +58,8 @@ export function SegmentRow({
   onMakeExcerpt,
 }: {
   projectId: string | null;
+  /** The transcript this line belongs to; a speaker added from here is added to it. */
+  representationId: string | null;
   segment: TranscriptSegment;
   tokens: TimedToken[];
   /** Which runs of this line's words belong to clips — precomputed once by the workspace. */
@@ -95,6 +99,7 @@ export function SegmentRow({
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [actionError, setActionError] = useState<string | null>(null);
   const [changingSpeaker, setChangingSpeaker] = useState(false);
+  const [newSpeakerName, setNewSpeakerName] = useState<string | null>(null);
 
   const speaker = speakers.find((candidate) => candidate.id === segment.speakerId);
   const speakerLabel = speaker
@@ -201,6 +206,23 @@ export function SegmentRow({
       setSpeakerId(segment.speakerId ?? "");
       return;
     }
+    router.refresh();
+  }
+
+  async function handleAddSpeaker() {
+    if (!representationId || newSpeakerName === null) return;
+    const result = await createSpeaker({
+      projectId,
+      representationId,
+      displayName: newSpeakerName,
+      assignSegmentId: segment.id,
+    });
+    if (result.error) {
+      setActionError(result.error);
+      return;
+    }
+    setNewSpeakerName(null);
+    setChangingSpeaker(false);
     router.refresh();
   }
 
@@ -425,10 +447,16 @@ export function SegmentRow({
             autoFocus
             value={speakerId}
             onChange={async (event) => {
+              if (event.target.value === NEW_SPEAKER) {
+                setNewSpeakerName("");
+                return;
+              }
               await handleSpeakerChange(event);
               setChangingSpeaker(false);
             }}
-            onBlur={() => setChangingSpeaker(false)}
+            onBlur={() => {
+              if (newSpeakerName === null) setChangingSpeaker(false);
+            }}
             aria-label="Who is speaking on this line"
             className="max-w-[16rem]"
           >
@@ -438,7 +466,32 @@ export function SegmentRow({
                 {speakerDisplayLabel(option.diarizationLabel, option.displayName)}
               </option>
             ))}
+            {representationId && <option value={NEW_SPEAKER}>＋ New speaker…</option>}
           </Select>
+          {newSpeakerName !== null && (
+            <>
+              <Input
+                autoFocus
+                value={newSpeakerName}
+                onChange={(event) => setNewSpeakerName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void handleAddSpeaker();
+                  if (event.key === "Escape") setNewSpeakerName(null);
+                }}
+                placeholder="Speaker’s name"
+                aria-label="Name of the new speaker"
+                className="w-44 px-2.5 py-1.5"
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={!newSpeakerName.trim()}
+                onClick={() => void handleAddSpeaker()}
+              >
+                Add
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -446,6 +499,8 @@ export function SegmentRow({
     </div>
   );
 }
+
+const NEW_SPEAKER = "__new__";
 
 /** Weakest to strongest, which is also the order the states override each other. */
 const MARK_ORDER = ["none", "clipped", "hovered", "selected"] as const;
