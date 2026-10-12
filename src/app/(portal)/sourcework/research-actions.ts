@@ -14,7 +14,7 @@ import {
   moveAmongActive,
 } from "@/lib/sourcework/research";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { assignDataPoints, assignQuietly } from "@/lib/sourcework/theme-run";
+import { assignDataPoints, assignPool, assignQuietly } from "@/lib/sourcework/theme-run";
 
 // Writes behind the research screens (docs/sourcework-analysis-design.md):
 // questions, background notes, and the review of data points. Called straight
@@ -297,4 +297,41 @@ export async function editDataPoint(input: { id: string; claim: string }): Promi
   fileIntoThemes(row.project_id, profile.id, id);
   revalidateSource(row.project_id, row.source_id);
   return actionOk();
+}
+
+/**
+ * Accepts every data point still waiting for review in a project, or in one source of it. Only
+ * `suggested` rows change, so anything decided meanwhile (by someone else, or since the screen
+ * loaded) is left as it is. Filing into themes is the same best-effort step as for one point.
+ */
+export async function acceptSuggestedDataPoints(input: {
+  projectId: string;
+  sourceId?: string;
+}): Promise<ActionResult<{ count: number }>> {
+  const { profile } = await assertSourceworkContext();
+  const projectId = uuidParam(input.projectId);
+  const sourceId = input.sourceId === undefined ? null : uuidParam(input.sourceId);
+  if (!projectId || (input.sourceId !== undefined && !sourceId)) {
+    return actionError("That project doesn't exist.");
+  }
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("sw_data_points")
+    .update({ status: "accepted" })
+    .eq("project_id", projectId)
+    .eq("status", "suggested");
+  if (sourceId) query = query.eq("source_id", sourceId);
+  const updated = await query.select("id");
+  if (updated.error) {
+    console.error("Could not accept the waiting data points:", updated.error);
+    return actionError("Couldn't accept the data points. Try again.");
+  }
+  if (updated.data.length === 0) return actionOk({ count: 0 });
+
+  // One pass over the project's unfiled points rather than a model call per accepted point.
+  after(() => assignQuietly(() => assignPool({ projectId, userId: profile.id })));
+  revalidateProject(projectId);
+  if (sourceId) revalidatePath(`/sourcework/sources/${sourceId}`);
+  return actionOk({ count: updated.data.length });
 }

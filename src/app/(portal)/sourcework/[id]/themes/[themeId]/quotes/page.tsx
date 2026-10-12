@@ -11,6 +11,7 @@ import { getLivePrompt } from "@/lib/sourcework/research-queries";
 import { getThemeDetail } from "@/lib/sourcework/theme-queries";
 import { hasQuoteRun, listQuoteSuggestions } from "@/lib/sourcework/quote-queries";
 import { emptyQuotesMessage, guideBlocks, quoteCounts } from "@/lib/sourcework/quotes";
+import { AcceptAllQuotes } from "../../../bulk-accept-button";
 import { QuoteList } from "./quote-list";
 import { QuotesRunControls } from "./run-controls";
 
@@ -90,6 +91,7 @@ export default async function ThemeQuotesPage({
               themeId={themeId}
               label={counts.waiting > 0 || ran ? "Suggest quotes again" : "Suggest quotes"}
             />
+            {waiting.length > 1 && <AcceptAllQuotes themeId={themeId} count={waiting.length} />}
             {waiting.length > 0 ? (
               <QuoteList quotes={waiting} />
             ) : (

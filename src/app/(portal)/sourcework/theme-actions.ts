@@ -74,6 +74,40 @@ export async function reviewTheme(input: {
 }
 
 /**
+ * Accepts every theme still waiting for a decision in a project (merge suggestions are a
+ * different decision and are left for their own buttons). Only `suggested` rows change.
+ */
+export async function acceptSuggestedThemes(input: {
+  projectId: string;
+}): Promise<ActionResult<{ count: number }>> {
+  const { profile } = await assertSourceworkContext();
+  const projectId = uuidParam(input.projectId);
+  if (!projectId) return actionError("That project doesn't exist.");
+
+  const supabase = await createClient();
+  const updated = await supabase
+    .from("sw_themes")
+    .update({
+      status: "accepted",
+      accepted_by: profile.id,
+      accepted_at: new Date().toISOString(),
+    })
+    .eq("project_id", projectId)
+    .eq("status", "suggested")
+    .is("merged_into_id", null)
+    .select("id");
+  if (updated.error) {
+    console.error("Could not accept the suggested themes:", updated.error);
+    return actionError("Couldn't accept the themes. Try again.");
+  }
+  if (updated.data.length === 0) return actionOk({ count: 0 });
+
+  after(() => assignQuietly(() => assignPool({ projectId, userId: profile.id })));
+  revalidateTheme(projectId);
+  return actionOk({ count: updated.data.length });
+}
+
+/**
  * Rewords a theme. Saving an edit of a suggestion is a decision, as it is for a
  * data point: the theme is accepted. Editing an accepted or rejected one only
  * rewords it.

@@ -35,6 +35,7 @@ import {
   ReviewThemesProvider,
   ReviewThemesStatus,
 } from "./review-themes";
+import { AcceptAllDataPoints, AcceptAllThemes } from "./bulk-accept-button";
 import { MergeDecisionButtons, ThemeDecisionButtons } from "./theme-decision-buttons";
 
 function themesHref(
@@ -150,6 +151,9 @@ export async function ThemesTab({
                 </span>
               )}
             </p>
+          )}
+          {summary.toReview && summary.toReview.total > 1 && (
+            <AcceptAllDataPoints projectId={projectId} count={summary.toReview.total} />
           )}
           {summary.unthemed > 0 && (
             <p>
@@ -309,6 +313,9 @@ export async function ThemesTab({
               + New theme
             </SecondaryLink>
             <ReviewThemesButton className="max-sm:min-h-11" />
+            {counts.suggested > 1 && (
+              <AcceptAllThemes projectId={projectId} count={counts.suggested} />
+            )}
           </ListToolbar>
 
           {shown.length === 0 && !(showMerges && merges.length > 0) ? (
