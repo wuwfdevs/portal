@@ -37,6 +37,7 @@ export function TrimPanel({
   onExcerptChanged,
   onPlay,
   playing,
+  saveState,
   onClose,
 }: {
   pieceId: string;
@@ -50,6 +51,8 @@ export function TrimPanel({
   onExcerptChanged: (startMs: number, endMs: number) => void;
   onPlay: (startMs: number, endMs: number) => void;
   playing: boolean;
+  /** The editor's autosave state, so the panel can say whether the trim has landed. */
+  saveState: "saved" | "dirty" | "saving" | "error" | "conflict";
   onClose: () => void;
 }) {
   const initial = actualityRange(block, excerpt)!;
@@ -57,6 +60,7 @@ export function TrimPanel({
   const [scope, setScope] = useState<Scope>("piece");
   const [otherPieces, setOtherPieces] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [excerptPending, setExcerptPending] = useState(false);
   const [loadingContext, setLoadingContext] = useState(segments === undefined);
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -99,6 +103,7 @@ export function TrimPanel({
     // Changing the excerpt is a write per pause, not per tap — same
     // hold-the-button pattern as the excerpt rail's own trim.
     onTrimPiece(null);
+    setExcerptPending(true);
     clearTimeout(commitTimer.current ?? undefined);
     commitTimer.current = setTimeout(async () => {
       const result = await updateClipTrim({
@@ -106,6 +111,7 @@ export function TrimPanel({
         startMs: value.startMs,
         endMs: value.endMs,
       });
+      setExcerptPending(false);
       if ("error" in result) {
         setError(result.error);
         return;
@@ -122,6 +128,13 @@ export function TrimPanel({
         : { startMs: range.startMs, endMs: range.endMs + delta },
     );
   }
+
+  const failed = saveState === "error" || saveState === "conflict";
+  const saveStatus = failed
+    ? "Not saved yet. Play as cut still uses the points shown above."
+    : excerptPending || saveState === "dirty" || saveState === "saving"
+      ? "Saving…"
+      : "Saved";
 
   return (
     <div className="rounded border border-brand-primary bg-white p-4 shadow-[0_0_0_2px_#D5EAF6]">
@@ -208,6 +221,9 @@ export function TrimPanel({
               : `The excerpt is also used in ${otherPieces} other ${otherPieces === 1 ? "piece" : "pieces"}. The length above updates as you trim.`}
         </span>
       </div>
+      <p role="status" className="mt-2 text-xs text-ink-500">
+        {saveStatus}
+      </p>
       {error && (
         <p role="alert" className="mt-2 text-xs text-danger">
           {error}

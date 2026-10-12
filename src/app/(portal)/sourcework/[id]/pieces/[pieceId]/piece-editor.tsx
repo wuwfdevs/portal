@@ -889,6 +889,7 @@ export function PieceEditor({
                             )
                           }
                           playing={playingKey === `trim-${block.id}`}
+                          saveState={saveState}
                           onClose={() => {
                             stop();
                             setTrimmingId(null);

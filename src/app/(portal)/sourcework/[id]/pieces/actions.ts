@@ -214,7 +214,12 @@ async function persistBody(
 > {
   const saved = await savePieceBlocks(supabase, pieceId, baseVersion, blocks, savedVia);
   if (!saved.ok) return "conflict" in saved ? saved : actionError(saved.error);
-  revalidatePieces(saved.projectId, pieceId);
+  // The piece page keys its editor by version, so re-rendering it after the person's own
+  // autosave would remount the editor and close whatever panel (trim, swap) they have open.
+  // Only the project's list needs to hear about their save; other writers (assistant, draft,
+  // restore) do want the editor to start again from what was saved.
+  if (savedVia === "person") revalidatePath(projectPath(saved.projectId));
+  else revalidatePieces(saved.projectId, pieceId);
   return actionOk({ version: saved.version, lengthSeconds: saved.lengthSeconds });
 }
 
