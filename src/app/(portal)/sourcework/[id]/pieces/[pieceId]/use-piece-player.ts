@@ -9,10 +9,13 @@ import {
   type PlayLevel,
   type PlaybackGraph,
 } from "@/lib/sourcework/excerpt-playback";
+import type { Cut } from "@/lib/sourcework/pieces";
 
 /** Signed URLs last 30 minutes; ask again well before that. */
 const URL_MAX_AGE_MS = 20 * 60 * 1000;
 const STOP_CHECK_MS = 40;
+/** Checked more often when there are cuts to jump, so the seek lands near the start of the pause. */
+const CUT_CHECK_MS = 15;
 
 /**
  * One shared audio element for a piece: play any range of any of the project's
@@ -45,7 +48,11 @@ export function usePiecePlayer() {
 
   useEffect(() => stop, [stop]);
 
-  /** Plays [startMs, endMs) of a source at `level`. Playing the same key again stops it. */
+  /**
+   * Plays [startMs, endMs) of a source at `level`, jumping over `cuts` (source time). Playing the
+   * same key again stops it. A jump is a plain seek: cuts sit in the quiet between words, so there
+   * is nothing audible to click against.
+   */
   const play = useCallback(
     async (
       key: string,
@@ -53,6 +60,7 @@ export function usePiecePlayer() {
       startMs: number,
       endMs: number,
       level: PlayLevel = NEUTRAL_LEVEL,
+      cuts: readonly Cut[] = [],
     ) => {
       const audio = audioRef.current;
       if (!audio) return;
@@ -82,7 +90,8 @@ export function usePiecePlayer() {
           audio.addEventListener("error", () => resolve(), { once: true });
         });
       }
-      audio.currentTime = startMs / 1000;
+      const firstCut = cuts.find((cut) => cut.start_ms <= startMs && startMs < cut.end_ms);
+      audio.currentTime = (firstCut ? firstCut.end_ms : startMs) / 1000;
       try {
         await audio.play();
       } catch {
@@ -90,9 +99,18 @@ export function usePiecePlayer() {
         return;
       }
       setPlayingKey(key);
-      timer.current = setInterval(() => {
-        if (audio.currentTime * 1000 >= endMs || audio.ended) stop();
-      }, STOP_CHECK_MS);
+      timer.current = setInterval(
+        () => {
+          const nowMs = audio.currentTime * 1000;
+          if (nowMs >= endMs || audio.ended) {
+            stop();
+            return;
+          }
+          const inCut = cuts.find((cut) => nowMs >= cut.start_ms && nowMs < cut.end_ms);
+          if (inCut) audio.currentTime = inCut.end_ms / 1000;
+        },
+        cuts.length > 0 ? CUT_CHECK_MS : STOP_CHECK_MS,
+      );
     },
     [playingKey, stop, applyLevel],
   );

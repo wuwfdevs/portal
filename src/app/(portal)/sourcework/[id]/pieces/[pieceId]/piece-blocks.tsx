@@ -178,6 +178,7 @@ export function ActualityRow({
   text,
   seconds,
   trimmed,
+  pausesRemoved = 0,
   playing,
   onPlay,
   menuItems,
@@ -191,6 +192,8 @@ export function ActualityRow({
   text: string;
   seconds: number;
   trimmed: boolean;
+  /** How many pauses this piece leaves out of the clip. */
+  pausesRemoved?: number;
   playing: boolean;
   onPlay: () => void;
   menuItems: ActionMenuItem[];
@@ -237,7 +240,14 @@ export function ActualityRow({
                   {text ? `“${text}”` : <span className="text-ink-400">(no words found)</span>}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  {[excerpt.speaker, formatClock(seconds), trimmed ? "trimmed in this piece" : null]
+                  {[
+                    excerpt.speaker,
+                    formatClock(seconds),
+                    trimmed ? "trimmed in this piece" : null,
+                    pausesRemoved > 0
+                      ? `${pausesRemoved} ${pausesRemoved === 1 ? "pause" : "pauses"} shortened`
+                      : null,
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                   <span className="max-lg:hidden"> · wording comes from the transcript</span>

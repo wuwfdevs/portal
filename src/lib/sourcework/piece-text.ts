@@ -3,6 +3,7 @@
 
 import { buildTimedTokens, type TimedToken } from "@/lib/transcription/selection";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
+import type { Cut } from "./pieces";
 
 export interface TextSegment {
   startMs: number;
@@ -26,14 +27,19 @@ function inside(token: TimedToken, startMs: number, endMs: number): boolean {
   return mid >= startMs && mid < endMs;
 }
 
-/** The transcript's words for [startMs, endMs). Empty when no segment covers it. */
+/**
+ * The transcript's words for [startMs, endMs), less any in a cut. Empty when no segment covers it.
+ * A cut is normally a pause with no words in it; one a person drew over speech drops that speech.
+ */
 export function textForRange(
   segments: readonly TextSegment[],
   startMs: number,
   endMs: number,
+  cuts?: readonly Cut[],
 ): string {
   return allTokens(segments)
     .filter((token) => inside(token, startMs, endMs))
+    .filter((token) => !cuts?.some((cut) => inside(token, cut.start_ms, cut.end_ms)))
     .map((token) => token.text)
     .join(" ");
 }

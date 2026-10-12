@@ -14,6 +14,7 @@ import { useRightPanel } from "@/components/right-panel";
 import { projectPath } from "@/lib/transcription/links";
 import {
   actualityRange,
+  cutsWithin,
   computePieceLength,
   describeAgainstTarget,
   insertBlockAt,
@@ -24,6 +25,7 @@ import {
   parseTargetInput,
   pieceAsText,
   removeBlock,
+  setActualityCuts,
   setActualityTrim,
   setNarrationRole,
   setNarrationText,
@@ -210,8 +212,10 @@ export function PieceEditor({
     if (!excerpt) return "";
     const range = actualityRange(block, excerpt)!;
     const loaded = segments[excerpt.id];
-    const derived = loaded?.length ? textForRange(loaded, range.startMs, range.endMs) : "";
-    return derived || (block.in_ms === undefined ? excerpt.text : "");
+    const derived = loaded?.length
+      ? textForRange(loaded, range.startMs, range.endMs, block.cuts)
+      : "";
+    return derived || (block.in_ms === undefined && !block.cuts ? excerpt.text : "");
   }
 
   // Edits ---------------------------------------------------------------------
@@ -247,7 +251,14 @@ export function PieceEditor({
     const excerpt = excerpts.get(block.excerpt_id);
     const range = excerpt && actualityRange(block, excerpt);
     if (!excerpt || !range) return;
-    void play(block.id, excerpt.sourceId, range.startMs, range.endMs, excerpt);
+    void play(
+      block.id,
+      excerpt.sourceId,
+      range.startMs,
+      range.endMs,
+      excerpt,
+      cutsWithin(block.cuts, range),
+    );
   }
 
   /** "Edited by the assistant · Undo" on a block the assistant changed (§6.4). */
@@ -325,7 +336,9 @@ export function PieceEditor({
       {
         label: "Trim…",
         disabled: missing,
-        hint: missing ? "This excerpt was deleted." : undefined,
+        hint: missing
+          ? "This excerpt was deleted."
+          : "Set its start and end, or shorten long pauses.",
         onClick: () => setTrimmingId(block.id),
       },
       {
@@ -842,6 +855,15 @@ export function PieceEditor({
                       text={wordsFor(block)}
                       seconds={seconds}
                       trimmed={block.in_ms !== undefined}
+                      pausesRemoved={
+                        cutsWithin(
+                          block.cuts,
+                          actualityRange(block, excerpts.get(block.excerpt_id)) ?? {
+                            startMs: 0,
+                            endMs: 0,
+                          },
+                        ).length
+                      }
                       playing={playingKey === block.id}
                       onPlay={() => playBlock(block)}
                       assistantNote={assistantNoteFor(block)}
@@ -879,13 +901,19 @@ export function PieceEditor({
                               }),
                             )
                           }
-                          onPlay={(startMs, endMs) =>
+                          onCuts={(cuts) =>
+                            commit(
+                              setActualityCuts(blocksRef.current, block.id, trimmingExcerpt, cuts),
+                            )
+                          }
+                          onPlay={(startMs, endMs, cuts) =>
                             void play(
                               `trim-${block.id}`,
                               trimmingExcerpt.sourceId,
                               startMs,
                               endMs,
                               trimmingExcerpt,
+                              cuts,
                             )
                           }
                           playing={playingKey === `trim-${block.id}`}

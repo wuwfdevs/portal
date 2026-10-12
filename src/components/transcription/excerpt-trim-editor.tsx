@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/transcription/media";
-import { NUDGE_STEPS_MS, clampTrim } from "@/lib/sourcework/pieces";
+import { NUDGE_STEPS_MS, clampTrim, type Cut } from "@/lib/sourcework/pieces";
 import { contextForRange, retrimByToken, type TextSegment } from "@/lib/sourcework/piece-text";
 import { PlayIcon } from "@/app/(portal)/sourcework/[id]/transport-icons";
 
@@ -29,6 +29,8 @@ export function ExcerptTrimEditor({
   onChange,
   onPlay,
   playing = false,
+  cuts,
+  proposedCuts,
   children,
 }: {
   range: TrimRange;
@@ -41,6 +43,10 @@ export function ExcerptTrimEditor({
   onChange: (next: TrimRange) => void;
   onPlay?: (range: TrimRange) => void;
   playing?: boolean;
+  /** Pauses this clip already leaves out; shown in the words as a struck-through gap. */
+  cuts?: readonly Cut[];
+  /** Pauses that would be left out if the person accepts; shown as a dashed gap. */
+  proposedCuts?: readonly Cut[];
   /** Owner-specific controls below the nudges (the piece panel's scope switch and save status). */
   children?: ReactNode;
 }) {
@@ -86,6 +92,12 @@ export function ExcerptTrimEditor({
               >
                 {token.text}
               </button>{" "}
+              <PauseMarker
+                from={token.endMs}
+                to={tokens[index + 1]?.startMs}
+                cuts={cuts}
+                proposedCuts={proposedCuts}
+              />
             </span>
           ))}
         </p>
@@ -119,6 +131,41 @@ export function ExcerptTrimEditor({
 
       {children}
     </div>
+  );
+}
+
+/** A mark between two words where a pause is (or would be) taken out, with how much. */
+function PauseMarker({
+  from,
+  to,
+  cuts,
+  proposedCuts,
+}: {
+  from: number;
+  to: number | undefined;
+  cuts?: readonly Cut[];
+  proposedCuts?: readonly Cut[];
+}) {
+  if (to === undefined) return null;
+  const within = (cut: Cut) => cut.start_ms >= from - 1 && cut.end_ms <= to + 1;
+  const applied = cuts?.find(within);
+  const proposed = applied ? undefined : proposedCuts?.find(within);
+  const cut = applied ?? proposed;
+  if (!cut) return null;
+  const seconds = ((cut.end_ms - cut.start_ms) / 1000).toFixed(1);
+  return (
+    <>
+      <span
+        title={applied ? `${seconds}s pause removed` : `${seconds}s pause would be removed`}
+        className={
+          applied
+            ? "rounded bg-panel-100 px-1 font-sans text-[11px] font-semibold text-ink-500 line-through"
+            : "rounded border border-dashed border-brand-link px-1 font-sans text-[11px] font-semibold text-brand-link"
+        }
+      >
+        {applied ? `−${seconds}s` : `⏸ ${seconds}s`}
+      </span>{" "}
+    </>
   );
 }
 
