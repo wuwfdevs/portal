@@ -508,7 +508,9 @@ is the producer's "Original level". Measuring runs in `after()` and is best-effo
 queued a few at a time as they are read (`queueLoudnessBackfill`) and measured inline at export
 (`gainDbForExport`). Because that measuring happens after the page is sent, the excerpt rail polls
 `getExcerptLoudnessStatus` and refreshes once a measurement lands (a refresh re-queues the
-still-unmeasured, so `measureAndStoreExcerptLoudness` skips an id already in flight in this instance);
+still-unmeasured, and a trim can land mid-measure, so `measureAndStoreExcerptLoudness` runs through
+`lib/run-coalesced.ts` — one run per excerpt per instance, and a request arriving mid-run makes it go
+round again rather than being dropped; every pending excerpt is polled, whatever its level setting);
 the card reads `loudnessState` — measuring, measured, or couldn't be measured. (4) **Playback applies the gain through a Web Audio `GainNode`, which needs the audio
 element's `crossOrigin="anonymous"`** (the signed Storage URL must send CORS headers) — the piece editor does
 this; the workspace's own excerpt preview and the quote-suggestion players do **not** apply the gain yet. An

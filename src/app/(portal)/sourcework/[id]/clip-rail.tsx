@@ -65,7 +65,7 @@ export function ClipRail({
   onHover,
   onTrimPreview,
   onPreview,
-  playingRange = null,
+  playingClipId = null,
   onPause,
   onShowInTranscript,
 }: {
@@ -78,9 +78,10 @@ export function ClipRail({
   onHover: (clipId: string | null) => void;
   /** An in-progress trim, so the transcript's mark tracks the nudge instead of the write. */
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
-  onPreview: (startMs: number, endMs: number) => void;
-  /** The range the player is previewing right now, if any — its card shows Pause instead of Play. */
-  playingRange?: { startMs: number; endMs: number } | null;
+  /** `clipId` says which card asked, so the workspace can tell the cards apart even when two excerpts share a range. */
+  onPreview: (startMs: number, endMs: number, clipId?: string) => void;
+  /** The excerpt the player is previewing right now, if any — its card shows Pause instead of Play. */
+  playingClipId?: string | null;
   onPause?: () => void;
   /** Below lg the transcript is another tab, so a card offers a way back to its words. */
   onShowInTranscript?: () => void;
@@ -91,11 +92,11 @@ export function ClipRail({
 
   // Excerpts made before loudness existed are measured in the background after this page is sent,
   // so the first view shows "measuring…". Check on them, and refresh once a measurement lands.
+  // Every pending excerpt counts, including ones set to their original level: the background batch
+  // is the first few unmeasured excerpts whatever their setting, so watching only the "auto" ones
+  // could miss the batch entirely and never refresh to start the next one.
   const pendingIds = useMemo(
-    () =>
-      clips
-        .filter((clip) => clip.loudnessState === "pending" && clip.gainMode === "auto")
-        .map((clip) => clip.id),
+    () => clips.filter((clip) => clip.loudnessState === "pending").map((clip) => clip.id),
     [clips],
   );
   const loudnessPolls = useRef(0);
@@ -171,7 +172,7 @@ export function ClipRail({
               onHover={onHover}
               onTrimPreview={onTrimPreview}
               onPreview={onPreview}
-              playingRange={playingRange}
+              isPlaying={Boolean(onPause) && playingClipId === clip.id}
               onPause={onPause}
               onShowInTranscript={onShowInTranscript}
             />
@@ -201,7 +202,7 @@ function ClipCard({
   onHover,
   onTrimPreview,
   onPreview,
-  playingRange,
+  isPlaying = false,
   onPause,
   onShowInTranscript,
 }: {
@@ -211,8 +212,9 @@ function ClipCard({
   onSelect: () => void;
   onHover: (clipId: string | null) => void;
   onTrimPreview: (clipId: string, range: { startMs: number; endMs: number }) => void;
-  onPreview: (startMs: number, endMs: number) => void;
-  playingRange?: { startMs: number; endMs: number } | null;
+  onPreview: (startMs: number, endMs: number, clipId?: string) => void;
+  /** This card's own excerpt is the one being previewed: the button pauses it instead of restarting it. */
+  isPlaying?: boolean;
   onPause?: () => void;
   onShowInTranscript?: () => void;
 }) {
@@ -223,9 +225,6 @@ function ClipCard({
   // points — same stale-state hazard as SegmentRow.
   const [startMs, setStartMs] = useSyncedState(clip.startMs);
   const [endMs, setEndMs] = useSyncedState(clip.endMs);
-  // This card's range is the one being previewed: the button pauses it instead of restarting it.
-  const isPlaying =
-    Boolean(onPause) && playingRange?.startMs === startMs && playingRange?.endMs === endMs;
   const [hasExport, setHasExport] = useSyncedState(clip.hasExport);
   const [gainMode, setGainMode] = useSyncedState<GainMode>(clip.gainMode);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -270,7 +269,7 @@ function ClipCard({
       onTrimPreview(clip.id, { startMs: result.startMs, endMs: result.endMs });
       // Trimming invalidates any previous export — re-exporting is explicit.
       setHasExport(false);
-      onPreview(result.startMs, result.endMs);
+      onPreview(result.startMs, result.endMs, clip.id);
       router.refresh();
     }, TRIM_COMMIT_DELAY_MS);
   }
@@ -441,7 +440,7 @@ function ClipCard({
             card doesn't have to spend a whole labelled button saying so. */}
         <button
           type="button"
-          onClick={() => (isPlaying ? onPause?.() : onPreview(startMs, endMs))}
+          onClick={() => (isPlaying ? onPause?.() : onPreview(startMs, endMs, clip.id))}
           aria-label={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
           title={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"

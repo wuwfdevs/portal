@@ -106,11 +106,10 @@ export function TranscriptWorkspace({
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const stopAtMsRef = useRef<number | null>(null);
-  // The excerpt range being previewed, and whether the player is running: together they tell an
-  // excerpt card to offer Pause instead of Play. Anything that stops the player clears the range.
-  const [previewingRange, setPreviewingRange] = useState<{ startMs: number; endMs: number } | null>(
-    null,
-  );
+  // The excerpt being previewed, and whether the player is running: together they tell that
+  // excerpt's card to offer Pause instead of Play. Identified by id, not range, since two excerpts
+  // can share one. Anything that stops the player, or starts a normal play, clears it.
+  const [previewingClipId, setPreviewingClipId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [speakers, setSpeakers] = useState(initialSpeakers);
@@ -241,16 +240,16 @@ export function TranscriptWorkspace({
     const el = mediaRef.current;
     if (!el) return;
     stopAtMsRef.current = null;
-    setPreviewingRange(null);
+    setPreviewingClipId(null);
     el.currentTime = startMs / 1000;
     void el.play();
   }, []);
 
-  const previewRange = useCallback((startMs: number, endMs: number) => {
+  const previewRange = useCallback((startMs: number, endMs: number, clipId?: string) => {
     const el = mediaRef.current;
     if (!el) return;
     stopAtMsRef.current = endMs;
-    setPreviewingRange({ startMs, endMs });
+    setPreviewingClipId(clipId ?? null);
     el.currentTime = startMs / 1000;
     void el.play();
   }, []);
@@ -263,7 +262,7 @@ export function TranscriptWorkspace({
 
   function handlePlayerStopped() {
     setIsPlaying(false);
-    setPreviewingRange(null);
+    setPreviewingClipId(null);
   }
 
   function handleTimeUpdate() {
@@ -884,7 +883,7 @@ export function TranscriptWorkspace({
               setPendingTrims((current) => ({ ...current, [clipId]: range }))
             }
             onPreview={previewRange}
-            playingRange={isPlaying ? previewingRange : null}
+            playingClipId={isPlaying ? previewingClipId : null}
             onPause={pausePreview}
             onShowInTranscript={() => setPane("transcript")}
           />
