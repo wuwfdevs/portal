@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertToolAccess } from "@/lib/auth/authz";
 import { speakerLabels } from "@/lib/sourcework/piece-queries";
@@ -8,6 +9,11 @@ import { proposeExcerptTitle } from "@/lib/sourcework/excerpt-title-ai";
 import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
+import {
+  gainDbForExport,
+  measureAndStoreExcerptLoudness,
+} from "@/lib/transcription/loudness-measure";
+import type { GainMode } from "@/lib/sourcework/loudness";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import {
   getPrimaryProjectIdForSource,
@@ -44,6 +50,21 @@ async function revalidateSource(
   revalidatePath("/sourcework");
   const projectIds = await listProjectIdsForSource(supabase, sourceId);
   for (const projectId of projectIds) revalidatePath(`/sourcework/${projectId}`);
+}
+
+/**
+ * Measures an excerpt's loudness after the response has gone, then refreshes the screens that show
+ * its level. `supabase` is passed in because request cookies aren't readable inside after().
+ */
+function measureLoudnessAfterResponse(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  excerptId: string,
+  sourceId: string,
+) {
+  after(async () => {
+    await measureAndStoreExcerptLoudness(supabase, excerptId);
+    await revalidateSource(supabase, sourceId);
+  });
 }
 
 export async function createClip(input: {
@@ -102,6 +123,7 @@ export async function createClip(input: {
   if (input.representationId) {
     await embedPendingForRepresentation(supabase, input.representationId);
   }
+  measureLoudnessAfterResponse(supabase, data.id, input.sourceId);
   await revalidateSource(supabase, input.sourceId);
   return { id: data.id };
 }
@@ -154,6 +176,8 @@ export async function updateClipTrim(input: {
     console.error("Could not save the trim:", error);
     return { error: "Could not save the trim. Please try again." };
   }
+  // The range changed, so what it measures did too.
+  measureLoudnessAfterResponse(supabase, input.clipId, clip.source_id);
   await revalidateSource(supabase, clip.source_id);
   return { startMs, endMs };
 }
@@ -237,6 +261,34 @@ export async function deleteClip(clipId: string): Promise<{ error?: string }> {
 }
 
 /**
+ * Plays and exports an excerpt as recorded ("off"), or levels it toward the broadcast target
+ * ("auto", the default). A whisper-only excerpt, say, may be better left as it was on tape.
+ */
+export async function setClipGainMode(input: {
+  clipId: string;
+  mode: GainMode;
+}): Promise<{ error?: string }> {
+  await assertToolAccess("transcription");
+  if (input.mode !== "auto" && input.mode !== "off") return { error: "Choose a level setting." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sw_source_excerpts")
+    .update({ gain_mode: input.mode })
+    .eq("id", input.clipId)
+    .select("source_id")
+    .maybeSingle();
+  if (error) {
+    console.error("Could not save the excerpt's level setting:", error);
+    return { error: "Could not save the level setting. Please try again." };
+  }
+  if (!data) return { error: "That excerpt no longer exists." };
+
+  await revalidateSource(supabase, data.source_id);
+  return {};
+}
+
+/**
  * A fresh signed URL for an already-exported clip. Signing at page-render
  * time means a workspace left open outlives its own download links, so the
  * rail asks for one at the moment Download is clicked instead.
@@ -290,7 +342,9 @@ export async function exportClip(
 
   const { data: clip, error: clipError } = await supabase
     .from("sw_source_excerpts")
-    .select("id, source_id, title, start_ms, end_ms")
+    .select(
+      "id, source_id, title, start_ms, end_ms, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+    )
     .eq("id", clipId)
     .maybeSingle();
   if (clipError) {
@@ -318,7 +372,11 @@ export async function exportClip(
 
   let wav: Buffer;
   try {
-    wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms);
+    const gainDb = await gainDbForExport(
+      { ...clip, start_ms: clip.start_ms, end_ms: clip.end_ms },
+      sourceUrl,
+    );
+    wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, gainDb);
   } catch {
     return { error: "Could not export this excerpt. Please try again." };
   }

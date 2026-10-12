@@ -1351,6 +1351,13 @@ export interface Database {
           suggestion_reason: string | null;
           /** 3 strong, 2 good, 1 usable; null for an excerpt made by hand. */
           quality_tier: number | null;
+          /** Gated integrated loudness (BS.1770, LUFS) of the excerpt's range; null until measured (20261019120000). */
+          loudness_lufs: number | null;
+          /** True peak (dBTP), set with loudness_lufs. */
+          true_peak_dbtp: number | null;
+          loudness_measured_at: string | null;
+          /** 'auto' = levelled toward the broadcast target; 'off' = as recorded. */
+          gain_mode: "auto" | "off";
           created_by: string;
           created_at: string;
           updated_at: string;

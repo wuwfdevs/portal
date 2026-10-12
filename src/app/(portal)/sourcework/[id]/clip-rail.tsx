@@ -21,14 +21,24 @@ import {
   exportClip,
   getClipDownloadUrl,
   renameClip,
+  setClipGainMode,
   updateClipTrim,
 } from "./clip-actions";
 import { PlayIcon } from "./transport-icons";
 import type { ProjectClip } from "@/lib/transcription/clips";
+import { formatGainDb, type GainMode } from "@/lib/sourcework/loudness";
 
 // Nudge steps, in the order radio editors reach for them: coarse out, fine
 // out, fine in, coarse in (see docs/transcription-workspace-design.md §3D).
 const NUDGE_STEPS_MS = [-250, -50, 50, 250];
+
+/** Said beside the Level when it stopped short of the broadcast target. */
+const GAIN_LIMIT_NOTE: Record<string, string> = {
+  peak: " (held back to keep peaks in range)",
+  boost: " (very quiet tape)",
+  cut: " (very loud tape)",
+  short: " (short clip)",
+};
 
 /** How long the trim can sit still before it's written — see nudge(). */
 const TRIM_COMMIT_DELAY_MS = 400;
@@ -173,6 +183,7 @@ function ClipCard({
   const [startMs, setStartMs] = useSyncedState(clip.startMs);
   const [endMs, setEndMs] = useSyncedState(clip.endMs);
   const [hasExport, setHasExport] = useSyncedState(clip.hasExport);
+  const [gainMode, setGainMode] = useSyncedState<GainMode>(clip.gainMode);
   const [isRenaming, setIsRenaming] = useState(false);
   const [title, setTitle] = useSyncedState(clip.title);
   const [status, setStatus] = useState<"idle" | "exporting" | "downloading" | "deleting">("idle");
@@ -218,6 +229,21 @@ function ClipCard({
       onPreview(result.startMs, result.endMs);
       router.refresh();
     }, TRIM_COMMIT_DELAY_MS);
+  }
+
+  async function handleGainMode(mode: GainMode) {
+    const previous = gainMode;
+    setGainMode(mode);
+    setErrorMessage(null);
+    const result = await setClipGainMode({ clipId: clip.id, mode });
+    if (result.error) {
+      setGainMode(previous);
+      setErrorMessage(result.error);
+      return;
+    }
+    // An export made at the old level is stale, the same as after a trim.
+    setHasExport(false);
+    router.refresh();
   }
 
   async function handleRename() {
@@ -338,6 +364,23 @@ function ClipCard({
 
       <p className="mt-1 font-mono text-[11px] text-ink-400">
         {formatDuration(startMs)}–{formatDuration(endMs)} · {formatDuration(endMs - startMs)} long
+      </p>
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-500">
+        <span>
+          {gainMode === "off"
+            ? "Level: original"
+            : clip.loudnessLufs == null
+              ? "Level: not measured yet"
+              : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}`}
+        </span>
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => handleGainMode(gainMode === "off" ? "auto" : "off")}
+          className="text-brand-link max-lg:min-h-11"
+        >
+          {gainMode === "off" ? "Even out" : "Original level"}
+        </Button>
       </p>
       {showTrim && (
         <div className="mt-2.5 flex flex-col gap-1.5 text-xs text-ink-500">
