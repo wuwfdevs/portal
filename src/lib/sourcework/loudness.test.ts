@@ -5,6 +5,7 @@ import {
   effectiveGain,
   ffmpegGainFilter,
   formatGainDb,
+  loudnessState,
   parseEbur128Summary,
 } from "./loudness";
 
@@ -122,5 +123,23 @@ describe("helpers", () => {
     expect(ffmpegGainFilter(0)).toBeNull();
     expect(ffmpegGainFilter(-6.25)).toBe("volume=-6.3dB");
     expect(ffmpegGainFilter(3)).toBe("volume=3.0dB");
+  });
+});
+
+describe("loudnessState", () => {
+  it("is pending until a measurement has been attempted", () => {
+    expect(loudnessState({ measuredAt: null, loudnessLufs: null })).toBe("pending");
+  });
+
+  it("is measured once there is a loudness, even while a remeasure is under way", () => {
+    expect(loudnessState({ measuredAt: "2026-10-12T16:20:27Z", loudnessLufs: -26.5 })).toBe(
+      "measured",
+    );
+  });
+
+  it("is unavailable when an attempt left nothing — silent or unreadable audio", () => {
+    expect(loudnessState({ measuredAt: "2026-10-12T16:20:27Z", loudnessLufs: null })).toBe(
+      "unavailable",
+    );
   });
 });

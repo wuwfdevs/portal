@@ -106,6 +106,11 @@ export function TranscriptWorkspace({
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const stopAtMsRef = useRef<number | null>(null);
+  // The excerpt being previewed, and whether the player is running: together they tell that
+  // excerpt's card to offer Pause instead of Play. Identified by id, not range, since two excerpts
+  // can share one. Anything that stops the player, or starts a normal play, clears it.
+  const [previewingClipId, setPreviewingClipId] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [speakers, setSpeakers] = useState(initialSpeakers);
   const [selection, setSelection] = useState<SelectionRange | null>(null);
@@ -235,17 +240,30 @@ export function TranscriptWorkspace({
     const el = mediaRef.current;
     if (!el) return;
     stopAtMsRef.current = null;
+    setPreviewingClipId(null);
     el.currentTime = startMs / 1000;
     void el.play();
   }, []);
 
-  const previewRange = useCallback((startMs: number, endMs: number) => {
+  const previewRange = useCallback((startMs: number, endMs: number, clipId?: string) => {
     const el = mediaRef.current;
     if (!el) return;
     stopAtMsRef.current = endMs;
+    setPreviewingClipId(clipId ?? null);
     el.currentTime = startMs / 1000;
     void el.play();
   }, []);
+
+  /** Pauses a range preview from the excerpt card it started on. */
+  const pausePreview = useCallback(() => {
+    stopAtMsRef.current = null;
+    mediaRef.current?.pause();
+  }, []);
+
+  function handlePlayerStopped() {
+    setIsPlaying(false);
+    setPreviewingClipId(null);
+  }
 
   function handleTimeUpdate() {
     const el = mediaRef.current;
@@ -612,6 +630,9 @@ export function TranscriptWorkspace({
             }}
             src={mediaUrl}
             onTimeUpdate={handleTimeUpdate}
+            onPlay={() => setIsPlaying(true)}
+            onPause={handlePlayerStopped}
+            onEnded={handlePlayerStopped}
             className="w-full rounded bg-panel-100"
           />
         ) : (
@@ -623,6 +644,9 @@ export function TranscriptWorkspace({
             }}
             src={mediaUrl}
             onTimeUpdate={handleTimeUpdate}
+            onPlay={() => setIsPlaying(true)}
+            onPause={handlePlayerStopped}
+            onEnded={handlePlayerStopped}
             className="hidden"
           />
         )}
@@ -859,6 +883,8 @@ export function TranscriptWorkspace({
               setPendingTrims((current) => ({ ...current, [clipId]: range }))
             }
             onPreview={previewRange}
+            playingClipId={isPlaying ? previewingClipId : null}
+            onPause={pausePreview}
             onShowInTranscript={() => setPane("transcript")}
           />
         )}

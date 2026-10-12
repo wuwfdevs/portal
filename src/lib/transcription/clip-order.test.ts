@@ -14,6 +14,7 @@ const clip = (id: string, startMs: number, title = id, excerpt = ""): ProjectCli
   gainMode: "auto",
   gainLimit: null,
   loudnessLufs: null,
+  loudnessState: "pending",
 });
 // Made in this order: c at 30s, a at 10s, b at 20s.
 const made = [clip("c", 30_000), clip("a", 10_000), clip("b", 20_000)];

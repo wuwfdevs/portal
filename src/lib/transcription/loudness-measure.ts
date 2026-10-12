@@ -4,6 +4,7 @@ import { after } from "next/server";
 import ffmpegPath from "ffmpeg-static";
 import { createClient } from "@/lib/supabase/server";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
+import { createCoalescedRunner } from "@/lib/run-coalesced";
 import {
   effectiveGain,
   parseEbur128Summary,
@@ -16,6 +17,12 @@ import {
 // derived from it (lib/sourcework/loudness.ts) is applied at playback and at export.
 
 const MEASURE_TIMEOUT_MS = 60_000;
+
+// One measuring run per excerpt in this server instance. A screen that polls while measuring is
+// under way re-reads its excerpts, and each read queues the still-unmeasured ones again; and a trim
+// can land while an earlier trim is still being measured. A request that arrives mid-run is not
+// dropped: it makes the active run go round once more, so the newest range is always measured last.
+const runMeasuring = createCoalescedRunner();
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -74,28 +81,34 @@ export async function measureRangeLoudness(
  * measurement was *attempted*, so an excerpt whose audio can't be read isn't retried on every
  * page view; its numbers stay null and it plays and exports at its original level.
  *
- * Best-effort by design: it runs after the write that triggered it. The write is conditioned on
- * the range still being the one measured, so a stale result from a trim that has since moved on
- * is dropped instead of overwriting the newer one.
+ * Best-effort by design: it runs after the write that triggered it. Each pass's write is
+ * conditioned on the range still being the one it measured, so a stale result from a trim that has
+ * since moved on is never stored over a newer one — and a pass that finds it was stale (or a
+ * request that arrived while it ran) is followed by another pass on the current range.
  */
 export async function measureAndStoreExcerptLoudness(
   supabase: SupabaseClient,
   excerptId: string,
 ): Promise<void> {
+  await runMeasuring(excerptId, () => measureExcerptOnce(supabase, excerptId));
+}
+
+/** One measure-and-store pass. True when the range changed underneath it and nothing was stored. */
+async function measureExcerptOnce(supabase: SupabaseClient, excerptId: string): Promise<boolean> {
   try {
     const { data: excerpt, error } = await supabase
       .from("sw_source_excerpts")
       .select("source_id, start_ms, end_ms")
       .eq("id", excerptId)
       .maybeSingle();
-    if (error || !excerpt || excerpt.start_ms == null || excerpt.end_ms == null) return;
+    if (error || !excerpt || excerpt.start_ms == null || excerpt.end_ms == null) return false;
 
     const { data: source, error: sourceError } = await supabase
       .from("sw_sources")
       .select("original_storage_path")
       .eq("id", excerpt.source_id)
       .maybeSingle();
-    if (sourceError) return;
+    if (sourceError) return false;
     const sourceUrl = source?.original_storage_path
       ? await getSignedMediaUrl(source.original_storage_path)
       : null;
@@ -104,7 +117,7 @@ export async function measureAndStoreExcerptLoudness(
       ? await measureRangeLoudness(sourceUrl, excerpt.start_ms, excerpt.end_ms)
       : null;
 
-    const { error: writeError } = await supabase
+    const { data: written, error: writeError } = await supabase
       .from("sw_source_excerpts")
       .update({
         loudness_lufs: measurement?.integratedLufs ?? null,
@@ -113,10 +126,18 @@ export async function measureAndStoreExcerptLoudness(
       })
       .eq("id", excerptId)
       .eq("start_ms", excerpt.start_ms)
-      .eq("end_ms", excerpt.end_ms);
-    if (writeError) console.error("Could not store the excerpt's loudness:", writeError);
+      .eq("end_ms", excerpt.end_ms)
+      .select("id");
+    if (writeError) {
+      console.error("Could not store the excerpt's loudness:", writeError);
+      return false;
+    }
+    // No row matched: the excerpt was trimmed (or deleted) while this pass ran. The coalescer goes
+    // round again, and a deleted excerpt then simply ends the run at the read above.
+    return (written ?? []).length === 0;
   } catch (error) {
     console.error("Could not measure the excerpt's loudness:", error);
+    return false;
   }
 }
 

@@ -3,7 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import { queueLoudnessBackfill } from "@/lib/transcription/loudness-measure";
-import { effectiveGain, type GainLimit, type GainMode } from "@/lib/sourcework/loudness";
+import {
+  effectiveGain,
+  loudnessState,
+  type GainLimit,
+  type GainMode,
+  type LoudnessState,
+} from "@/lib/sourcework/loudness";
 import type { SwSourceKind } from "@/lib/database.types";
 
 export interface ProjectClip {
@@ -22,6 +28,8 @@ export interface ProjectClip {
   gainLimit: GainLimit;
   /** Measured loudness (LUFS); null until measured. */
   loudnessLufs: number | null;
+  /** Not measured yet, measured, or measured with nothing to show — what the card says about its level. */
+  loudnessState: LoudnessState;
 }
 
 /**
@@ -76,6 +84,10 @@ async function fetchExcerptsForSource(
       gainMode: clip.gain_mode,
       gainLimit: gain.limitedBy,
       loudnessLufs: clip.loudness_lufs,
+      loudnessState: loudnessState({
+        measuredAt: clip.loudness_measured_at,
+        loudnessLufs: clip.loudness_lufs,
+      }),
     };
   });
 }
