@@ -494,6 +494,25 @@ format by hand (`setPieceFormat`, New piece's format select) — that sets the t
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
+**Sourcework: excerpt loudness (2026-10-12).** Actualities from different tape come in at very different
+levels, so every temporal excerpt is measured (BS.1770 integrated loudness and true peak, via ffmpeg's
+`ebur128`, `lib/transcription/loudness-measure.ts`) when it is created or trimmed, and played and exported at
+one **fixed gain** toward -24 LUFS with peaks held under -3 dBTP (`lib/sourcework/loudness.ts`, pure, tested).
+Four things are load-bearing: (1) **the gain is a single volume change for the whole excerpt, never loudnorm,
+a compressor or a limiter** — that is what keeps a speaker's whisper as far below their normal voice as it was
+on tape; a boost the peak ceiling can't take is held back (the card says so), not squashed. (2) The target is
+NPR/PRSS's 2014-15 spec (-24 LUFS ±2 LU, -3 dBTP) from press reports, not a current NPR document — confirm it
+with NPR before treating it as final; it lives in `TARGET_LUFS`/`TRUE_PEAK_CEILING_DBTP` only. (3) Auto gain is
+derived from the stored measurement, never stored, so changing the target needs no backfill; `gain_mode = 'off'`
+is the producer's "Original level". Measuring runs in `after()` and is best-effort; unmeasured excerpts are
+queued a few at a time as they are read (`queueLoudnessBackfill`) and measured inline at export
+(`gainDbForExport`). (4) **Playback applies the gain through a Web Audio `GainNode`, which needs the audio
+element's `crossOrigin="anonymous"`** (the signed Storage URL must send CORS headers) — the piece editor does
+this; the workspace's own excerpt preview and the quote-suggestion players do **not** apply the gain yet. An
+export made before a level change keeps its old level until re-exported. Migrations `20261019120000` (schema)
+and `20261019130000` (Resources content) are additive; apply them before the code ships, since the excerpt
+reads select the new columns.
+
 **AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
 elsewhere):** the API changes over time — do not rely on memorized parameter names
 or model identifiers. Before writing or changing AssemblyAI-related code, check current

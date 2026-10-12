@@ -1,6 +1,7 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
+import { ffmpegGainFilter } from "@/lib/sourcework/loudness";
 
 /**
  * Renders one clip's [startMs, endMs) range from a source media URL to a
@@ -13,6 +14,11 @@ import ffmpegPath from "ffmpeg-static";
  * clip boundaries are always nudge-and-audition rather than promised to be
  * sample-exact.
  *
+ * `gainDb` is the excerpt's fixed level change (lib/sourcework/loudness.ts) — a plain volume
+ * adjustment, deliberately not loudnorm or a compressor, so the dynamics inside the clip are
+ * exactly what was recorded. The 16-bit conversion clips if a caller ever asks for more than the
+ * peak allows, which the gain computation prevents by capping at the true-peak ceiling.
+ *
  * Arguments are passed as an array to spawn(), never interpolated into a
  * shell string, so there is no command-injection surface here regardless of
  * what the signed URL or timing values contain.
@@ -21,6 +27,7 @@ export async function renderClipWav(
   sourceUrl: string,
   startMs: number,
   endMs: number,
+  gainDb = 0,
 ): Promise<Buffer> {
   if (!ffmpegPath) {
     throw new Error("ffmpeg binary is not available in this environment");
@@ -29,6 +36,7 @@ export async function renderClipWav(
 
   const startSeconds = (startMs / 1000).toFixed(3);
   const durationSeconds = ((endMs - startMs) / 1000).toFixed(3);
+  const gainFilter = ffmpegGainFilter(gainDb);
 
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn(ffmpegBinary, [
@@ -42,6 +50,7 @@ export async function renderClipWav(
       "-t",
       durationSeconds,
       "-vn",
+      ...(gainFilter ? ["-af", gainFilter] : []),
       "-ar",
       "48000",
       "-c:a",

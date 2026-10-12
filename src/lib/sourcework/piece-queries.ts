@@ -12,6 +12,8 @@ import {
   type PieceBlock,
 } from "./pieces";
 import { describeFormatVersions } from "./piece-format-queries";
+import { effectiveGain } from "./loudness";
+import { queueLoudnessBackfill } from "@/lib/transcription/loudness-measure";
 import type { TextSegment } from "./piece-text";
 
 /** Words of context fetched either side of a trimmed clip, in ms. */
@@ -33,6 +35,8 @@ export interface PieceExcerpt {
   sourceDurationMs: number | null;
   representationId: string | null;
   speaker: string | null;
+  /** Fixed level change applied when this excerpt plays (dB), so actualities sit at one level. */
+  gainDb: number;
 }
 
 export interface PieceListRow {
@@ -150,12 +154,15 @@ export async function loadPieceExcerpts(
     unwrapRead(
       await supabase
         .from("sw_source_excerpts")
-        .select("id, source_id, representation_id, title, start_ms, end_ms, excerpt_text")
+        .select(
+          "id, source_id, representation_id, title, start_ms, end_ms, excerpt_text, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+        )
         .in("id", excerptIds)
         .eq("locator_kind", "temporal"),
       "these excerpts",
     ) ?? [];
   if (excerpts.length === 0) return [];
+  queueLoudnessBackfill(supabase, excerpts);
 
   const sourceIds = [...new Set(excerpts.map((excerpt) => excerpt.source_id))];
   const [sources, speakers] = await Promise.all([
@@ -180,6 +187,12 @@ export async function loadPieceExcerpts(
     sourceDurationMs: sourceById.get(excerpt.source_id)?.original_duration_ms ?? null,
     representationId: excerpt.representation_id,
     speaker: speakers.get(excerpt.id) ?? null,
+    gainDb: effectiveGain({
+      gainMode: excerpt.gain_mode,
+      loudnessLufs: excerpt.loudness_lufs,
+      truePeakDbtp: excerpt.true_peak_dbtp,
+      durationMs: excerpt.end_ms! - excerpt.start_ms!,
+    }).gainDb,
   }));
 }
 

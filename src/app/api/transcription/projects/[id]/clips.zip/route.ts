@@ -5,6 +5,8 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { guardRoute } from "@/lib/auth/route-guard";
 import { getSignedMediaUrl } from "@/lib/transcription/storage";
 import { renderClipWav } from "@/lib/transcription/export";
+import { gainDbForExport } from "@/lib/transcription/loudness-measure";
+import type { GainMode } from "@/lib/sourcework/loudness";
 import { createZipStream, uniqueEntryName, type ZipEntry } from "@/lib/transcription/zip";
 import { getPrimarySourceForProject } from "@/lib/transcription/projects";
 import {
@@ -89,7 +91,9 @@ export async function GET(
   // filter (not just the caller's own UI) is what actually guarantees it.
   const { data: rawClips, error: clipsError } = await supabase
     .from("sw_source_excerpts")
-    .select("id, title, start_ms, end_ms, export_storage_path")
+    .select(
+      "id, title, start_ms, end_ms, export_storage_path, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+    )
     .eq("source_id", source.id)
     .eq("locator_kind", "temporal")
     .order("created_at");
@@ -177,7 +181,16 @@ export async function GET(
 async function clipAudio(
   supabase: SupabaseClient,
   sourceId: string,
-  clip: { id: string; start_ms: number; end_ms: number; export_storage_path: string | null },
+  clip: {
+    id: string;
+    start_ms: number;
+    end_ms: number;
+    export_storage_path: string | null;
+    loudness_lufs: number | null;
+    true_peak_dbtp: number | null;
+    loudness_measured_at: string | null;
+    gain_mode: GainMode;
+  },
   sourceUrl: string | null,
 ): Promise<Uint8Array> {
   if (clip.export_storage_path) {
@@ -195,7 +208,8 @@ async function clipAudio(
     throw new Error(`No source media to render clip ${clip.id} from`);
   }
 
-  const wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms);
+  const gainDb = await gainDbForExport(clip, sourceUrl);
+  const wav = await renderClipWav(sourceUrl, clip.start_ms, clip.end_ms, gainDb);
   await storeRenderedClip(supabase, sourceId, clip.id, wav);
   return wav;
 }

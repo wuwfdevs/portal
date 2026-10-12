@@ -2,6 +2,8 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { getPrimarySourceForProject } from "@/lib/transcription/projects";
+import { queueLoudnessBackfill } from "@/lib/transcription/loudness-measure";
+import { effectiveGain, type GainLimit, type GainMode } from "@/lib/sourcework/loudness";
 import type { SwSourceKind } from "@/lib/database.types";
 
 export interface ProjectClip {
@@ -13,6 +15,13 @@ export interface ProjectClip {
   exportedAt: string | null;
   /** Whether a rendered WAV already exists — the download URL is signed on demand. */
   hasExport: boolean;
+  /** Fixed level change applied when this excerpt plays or exports (dB); 0 at its original level or unmeasured. */
+  gainDb: number;
+  gainMode: GainMode;
+  /** Why the gain stopped short of the broadcast target, when it did. */
+  gainLimit: GainLimit;
+  /** Measured loudness (LUFS); null until measured. */
+  loudnessLufs: number | null;
 }
 
 /**
@@ -34,24 +43,41 @@ async function fetchExcerptsForSource(
   const clips = unwrapRead(
     await supabase
       .from("sw_source_excerpts")
-      .select("id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at")
+      .select(
+        "id, title, start_ms, end_ms, excerpt_text, export_storage_path, exported_at, loudness_lufs, true_peak_dbtp, loudness_measured_at, gain_mode",
+      )
       .eq("source_id", sourceId)
       .eq("locator_kind", "temporal")
       .order("created_at"),
     "this source's excerpts",
   );
 
+  // Excerpts made before loudness existed are measured in the background as they are viewed.
+  queueLoudnessBackfill(supabase, clips ?? []);
+
   // Guaranteed non-null by the locator_kind = 'temporal' filter above and
   // the sw_source_excerpts_locator_check constraint that enforces it.
-  return (clips ?? []).map((clip) => ({
-    id: clip.id,
-    title: clip.title,
-    startMs: clip.start_ms!,
-    endMs: clip.end_ms!,
-    excerpt: clip.excerpt_text,
-    exportedAt: clip.exported_at,
-    hasExport: Boolean(clip.export_storage_path),
-  }));
+  return (clips ?? []).map((clip) => {
+    const gain = effectiveGain({
+      gainMode: clip.gain_mode,
+      loudnessLufs: clip.loudness_lufs,
+      truePeakDbtp: clip.true_peak_dbtp,
+      durationMs: clip.end_ms! - clip.start_ms!,
+    });
+    return {
+      id: clip.id,
+      title: clip.title,
+      startMs: clip.start_ms!,
+      endMs: clip.end_ms!,
+      excerpt: clip.excerpt_text,
+      exportedAt: clip.exported_at,
+      hasExport: Boolean(clip.export_storage_path),
+      gainDb: gain.gainDb,
+      gainMode: clip.gain_mode,
+      gainLimit: gain.limitedBy,
+      loudnessLufs: clip.loudness_lufs,
+    };
+  });
 }
 
 /**

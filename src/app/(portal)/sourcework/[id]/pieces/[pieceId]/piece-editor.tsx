@@ -247,7 +247,7 @@ export function PieceEditor({
     const excerpt = excerpts.get(block.excerpt_id);
     const range = excerpt && actualityRange(block, excerpt);
     if (!excerpt || !range) return;
-    void play(block.id, excerpt.sourceId, range.startMs, range.endMs);
+    void play(block.id, excerpt.sourceId, range.startMs, range.endMs, excerpt.gainDb);
   }
 
   /** "Edited by the assistant · Undo" on a block the assistant changed (§6.4). */
@@ -486,7 +486,7 @@ export function PieceEditor({
 
   return (
     <div className="max-lg:pb-20">
-      <audio ref={audioRef} preload="none" className="hidden" />
+      <audio ref={audioRef} preload="none" crossOrigin="anonymous" className="hidden" />
 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -880,7 +880,13 @@ export function PieceEditor({
                             )
                           }
                           onPlay={(startMs, endMs) =>
-                            void play(`trim-${block.id}`, trimmingExcerpt.sourceId, startMs, endMs)
+                            void play(
+                              `trim-${block.id}`,
+                              trimmingExcerpt.sourceId,
+                              startMs,
+                              endMs,
+                              trimmingExcerpt.gainDb,
+                            )
                           }
                           playing={playingKey === `trim-${block.id}`}
                           onClose={() => {
