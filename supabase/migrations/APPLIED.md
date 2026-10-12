@@ -271,6 +271,7 @@ repo and a project's history, not the version number.
 | `20261018130000_resources_sourcework_excerpt_filenames.sql`             | 2026-10-10 | 2026-10-10 |
 | `20261018140000_resources_sourcework_excerpt_titles.sql`                | 2026-10-10 | 2026-10-10 |
 | `20261018150000_resources_sourcework_excerpt_full_names.sql`            | 2026-10-10 | 2026-10-10 |
+| `20261018160000_resources_sourcework_bulk_accept.sql`                   | 2026-10-11 | 2026-10-11 |
 | `20261019120000_sourcework_excerpt_loudness.sql`                        | 2026-10-12 | 2026-10-12 |
 | `20261019130000_resources_sourcework_excerpt_loudness.sql`              | 2026-10-12 | 2026-10-12 |
 
