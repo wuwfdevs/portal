@@ -142,7 +142,21 @@ describe("findSilenceCuts", () => {
     ]);
   });
 
-  it("finds nothing on an edited line whose timings were interpolated", () => {
+  it("finds pauses on a line whose text was edited to a different word count", () => {
+    // The ASR heard "so um well"; the reporter deleted "um". The display has two words, the
+    // timings three, and the pause after "so" is still a pause.
+    const seg: TextSegment = {
+      startMs: 0,
+      endMs: 3000,
+      text: "so well",
+      words: [word("so", 0, 400), word("um", 2000, 2200), word("well", 2300, 2800)],
+    };
+    expect(findSilenceCuts([seg], { startMs: 0, endMs: 2800 }, setting)).toEqual([
+      { start_ms: 550, end_ms: 1850 },
+    ]);
+  });
+
+  it("finds nothing on a line with no stored timings", () => {
     const seg: TextSegment = { startMs: 0, endMs: 4000, text: "a b c d", words: [] };
     expect(findSilenceCuts([seg], { startMs: 0, endMs: 4000 }, setting)).toEqual([]);
   });

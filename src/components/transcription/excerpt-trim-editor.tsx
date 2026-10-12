@@ -4,7 +4,12 @@ import { useMemo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/transcription/media";
 import { NUDGE_STEPS_MS, clampTrim, type Cut } from "@/lib/sourcework/pieces";
-import { contextForRange, retrimByToken, type TextSegment } from "@/lib/sourcework/piece-text";
+import {
+  contextForRange,
+  retrimByToken,
+  type ContextToken,
+  type TextSegment,
+} from "@/lib/sourcework/piece-text";
 import { PlayIcon } from "@/app/(portal)/sourcework/[id]/transport-icons";
 
 export interface TrimRange {
@@ -93,8 +98,8 @@ export function ExcerptTrimEditor({
                 {token.text}
               </button>{" "}
               <PauseMarker
-                from={token.endMs}
-                to={tokens[index + 1]?.startMs}
+                token={token}
+                next={tokens[index + 1]}
                 cuts={cuts}
                 proposedCuts={proposedCuts}
               />
@@ -134,20 +139,29 @@ export function ExcerptTrimEditor({
   );
 }
 
-/** A mark between two words where a pause is (or would be) taken out, with how much. */
+/**
+ * A mark between two words where a pause is (or would be) taken out, with how much. A cut belongs
+ * to the gap whose neighbouring words' midpoints bracket it, which holds on an edited line too,
+ * where the displayed words are spread evenly and no cut sits wholly inside a gap.
+ */
 function PauseMarker({
-  from,
-  to,
+  token,
+  next,
   cuts,
   proposedCuts,
 }: {
-  from: number;
-  to: number | undefined;
+  token: ContextToken;
+  next: ContextToken | undefined;
   cuts?: readonly Cut[];
   proposedCuts?: readonly Cut[];
 }) {
-  if (to === undefined) return null;
-  const within = (cut: Cut) => cut.start_ms >= from - 1 && cut.end_ms <= to + 1;
+  if (!next) return null;
+  const from = (token.startMs + token.endMs) / 2;
+  const to = (next.startMs + next.endMs) / 2;
+  const within = (cut: Cut) => {
+    const mid = (cut.start_ms + cut.end_ms) / 2;
+    return mid >= from && mid < to;
+  };
   const applied = cuts?.find(within);
   const proposed = applied ? undefined : proposedCuts?.find(within);
   const cut = applied ?? proposed;

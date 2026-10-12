@@ -30,15 +30,23 @@ export const DEFAULT_SILENCE_SETTING = SILENCE_SETTINGS[1]!;
 /**
  * The cuts that shorten every pause in [startMs, endMs) to `keepMs`. A pause at the very start or
  * end of the range is trimmed down to half of `keepMs`, since only one side of it is speech.
- * Interpolated word timings (an edited line) have no real gaps, so such a line yields no cuts.
+ * A line whose stored timings were lost (it has no word list) is spread evenly and yields no cuts.
  */
 export function findSilenceCuts(
   segments: readonly TextSegment[],
   range: { startMs: number; endMs: number },
   setting: Pick<SilenceSetting, "minGapMs" | "keepMs"> = DEFAULT_SILENCE_SETTING,
 ): Cut[] {
+  // Timings come from the ASR's own word list, not the displayed text: a reporter's edit that
+  // adds or drops a word would otherwise make the line's timings unusable (see buildTimedTokens),
+  // and a pause is silence whatever the line now says. Only a line with no stored timings falls
+  // back to its displayed words.
   const tokens: TimedToken[] = segments
-    .flatMap((segment) => buildTimedTokens(segment))
+    .flatMap((segment) =>
+      segment.words.length > 0
+        ? segment.words.map((word) => ({ text: word.w, startMs: word.s, endMs: word.e }))
+        : buildTimedTokens(segment),
+    )
     .filter((token) => {
       const mid = (token.startMs + token.endMs) / 2;
       return mid >= range.startMs && mid < range.endMs;
