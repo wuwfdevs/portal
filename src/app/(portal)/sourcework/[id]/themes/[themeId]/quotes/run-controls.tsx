@@ -16,7 +16,7 @@ export function QuotesRunControls({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <SuggestQuotesButton state={state} label={label} className="max-lg:min-h-11" />
+        <SuggestQuotesButton state={state} label={label} />
       </div>
       <SuggestQuotesStatus state={state} />
     </div>

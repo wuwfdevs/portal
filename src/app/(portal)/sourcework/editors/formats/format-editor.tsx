@@ -287,7 +287,7 @@ export function FormatEditor({
       <PublishButton
         control={publish}
         disabled={!check.ok}
-        className="max-lg:min-h-11 max-lg:flex-1"
+        className="max-lg:flex-1"
       />
       <Link
         href={`/sourcework/editors/formats/try?format=${formatId}`}
