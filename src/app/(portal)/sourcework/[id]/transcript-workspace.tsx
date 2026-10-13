@@ -461,6 +461,7 @@ export function TranscriptWorkspace({
     if (resolved) {
       setSelectedClip(null);
       setSelectedPoint(null);
+      setSheetClipIds([]);
     }
   }, [tokensBySegment]);
 
@@ -516,6 +517,7 @@ export function TranscriptWorkspace({
     selectionFromDomRef.current = false;
     lineSelectionRef.current = segmentIndex;
     setSelectedClip(null);
+    setSheetClipIds([]);
     setSelection(resolved);
   }
 

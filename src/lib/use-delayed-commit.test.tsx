@@ -7,18 +7,25 @@ import { useDelayedCommit } from "./use-delayed-commit";
 
 type Schedule = ReturnType<typeof useDelayedCommit>["schedule"];
 
-function Probe({ onReady }: { onReady: (schedule: Schedule) => void }) {
-  const { schedule } = useDelayedCommit(400);
+function Probe({
+  onReady,
+  flushOnUnmount = false,
+}: {
+  onReady: (schedule: Schedule) => void;
+  flushOnUnmount?: boolean;
+}) {
+  const { schedule } = useDelayedCommit(400, { flushOnUnmount });
   useEffect(() => onReady(schedule), [onReady, schedule]);
   return null;
 }
 
-function mount() {
+function mount(flushOnUnmount = false) {
   let schedule!: Schedule;
   const root = createRoot(document.createElement("div"));
   act(() =>
     root.render(
       <Probe
+        flushOnUnmount={flushOnUnmount}
         onReady={(value) => {
           schedule = value;
         }}
@@ -54,5 +61,24 @@ describe("useDelayedCommit", () => {
     unmount();
     vi.advanceTimersByTime(1000);
     expect(task).not.toHaveBeenCalled();
+  });
+
+  it("runs a pending task once on unmount when asked to flush", () => {
+    const { schedule, unmount } = mount(true);
+    const task = vi.fn();
+    schedule(task);
+    unmount();
+    expect(task).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1000);
+    expect(task).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not flush a task that already ran", () => {
+    const { schedule, unmount } = mount(true);
+    const task = vi.fn();
+    schedule(task);
+    vi.advanceTimersByTime(400);
+    unmount();
+    expect(task).toHaveBeenCalledTimes(1);
   });
 });
