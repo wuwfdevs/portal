@@ -30,6 +30,11 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
   sm: "px-3 py-1.5 text-xs",
 };
 
+// A box button is at least 44px tall below `lg`, so every one is a touch target
+// without a call site remembering to say so. Text-style variants stay inline.
+const BOXED_VARIANTS = new Set<ButtonVariant>(["primary", "secondary", "danger"]);
+const TOUCH_TARGET = "max-lg:min-h-11";
+
 /**
  * Nearly every mutation in this codebase is a plain <form action={serverAction}>
  * with a <Button type="submit"> inside it — the dominant action pattern across
@@ -61,6 +66,7 @@ export function Button({
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded font-bold transition-colors disabled:cursor-not-allowed",
         variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
+        BOXED_VARIANTS.has(variant) && TOUCH_TARGET,
         VARIANT_CLASSES[variant],
         className,
       )}

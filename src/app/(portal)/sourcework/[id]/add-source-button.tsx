@@ -24,7 +24,7 @@ export function AddSourceButton({
         variant={primary ? "primary" : "secondary"}
         size={primary ? "md" : "sm"}
         onClick={() => setOpen(true)}
-        className={primary ? "shrink-0" : "shrink-0 max-lg:min-h-11"}
+        className="shrink-0"
       >
         {primary ? "Add the first source" : "+ Add source"}
       </Button>
