@@ -273,5 +273,5 @@ export function ActualityRow({
 
 /** A secondary button that behaves as a link-style toolbar action. */
 export function FooterButton(props: React.ComponentProps<typeof Button>) {
-  return <Button variant="secondary" size="sm" {...props} className="max-lg:min-h-11" />;
+  return <Button variant="secondary" size="sm" {...props} />;
 }

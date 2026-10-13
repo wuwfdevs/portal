@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { actionFailureMessage } from "@/lib/use-action";
@@ -29,8 +30,6 @@ import {
   setResearchQuestionArchived,
   updateResearchQuestion,
 } from "../research-actions";
-
-const TAP = "max-lg:min-h-11";
 
 /**
  * The Setup tab's two editable sections, in one component because they share
@@ -223,18 +222,12 @@ function QuestionsSection({
             <div className="flex gap-2">
               <Button
                 type="button"
-                className={TAP}
                 disabled={busy || newText.trim() === ""}
                 onClick={() => void submitNew()}
               >
                 Add
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className={TAP}
-                onClick={() => setAdding(false)}
-              >
+              <Button type="button" variant="secondary" onClick={() => setAdding(false)}>
                 Cancel
               </Button>
             </div>
@@ -249,7 +242,7 @@ function QuestionsSection({
               type="button"
               variant="secondary"
               size="sm"
-              className={`${TAP} self-start`}
+              className="self-start"
               onClick={() => setAdding(true)}
             >
               + Add question
@@ -269,7 +262,7 @@ function QuestionsSection({
 
         {archived.length > 0 && (
           <details className="text-sm">
-            <summary className={`${TAP} flex cursor-pointer items-center text-ink-500`}>
+            <summary className={`${TAP_TARGET} flex cursor-pointer items-center text-ink-500`}>
               Archived ({archived.length})
             </summary>
             <ul className="mt-1 flex flex-col divide-y divide-line">
@@ -283,7 +276,6 @@ function QuestionsSection({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className={TAP}
                     disabled={busy || atLimit}
                     title={atLimit ? "Archive another question first" : undefined}
                     onClick={() =>
@@ -435,7 +427,6 @@ function BackgroundSection({
             type="button"
             variant="secondary"
             size="sm"
-            className={TAP}
             disabled={gathering || !hasQuestions}
             aria-busy={gathering || undefined}
             onClick={onRefresh}
@@ -494,7 +485,6 @@ function BackgroundSection({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className={TAP}
                   disabled={busyId === note.id}
                   onClick={() => void setDismissed(note.id, true)}
                 >
@@ -508,7 +498,7 @@ function BackgroundSection({
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className={`${TAP} self-start text-sm font-semibold text-brand-link`}
+            className={`${TAP_TARGET} self-start text-sm font-semibold text-brand-link`}
           >
             {expanded ? "Show fewer" : `Show ${active.length - NOTES_SHOWN} more`}
           </button>
@@ -516,7 +506,7 @@ function BackgroundSection({
 
         {dismissed.length > 0 && (
           <details className="text-sm">
-            <summary className={`${TAP} flex cursor-pointer items-center text-ink-500`}>
+            <summary className={`${TAP_TARGET} flex cursor-pointer items-center text-ink-500`}>
               Dismissed ({dismissed.length})
             </summary>
             <ul className="mt-1 flex flex-col divide-y divide-line">
@@ -527,7 +517,6 @@ function BackgroundSection({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className={TAP}
                     disabled={busyId === note.id}
                     onClick={() => void setDismissed(note.id, false)}
                   >

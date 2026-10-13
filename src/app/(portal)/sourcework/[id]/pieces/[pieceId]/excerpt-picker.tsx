@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 import { Input } from "@/components/ui/input";
 import { formatClock } from "@/lib/format";
 import type { PieceExcerpt } from "@/lib/sourcework/piece-queries";
@@ -87,7 +88,8 @@ export function ExcerptPicker({
               onClick={() => onPick(excerpt)}
               onMouseEnter={() => setHighlighted(index)}
               className={cn(
-                "flex w-full items-start gap-3 rounded px-2 py-2 text-left max-lg:min-h-11",
+                "flex w-full items-start gap-3 rounded px-2 py-2 text-left",
+                TAP_TARGET,
                 highlighted === index ? "bg-white" : "hover:bg-white",
               )}
             >

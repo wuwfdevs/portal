@@ -303,10 +303,11 @@ function AddSpeakerForm({
         </>
       ) : (
         <Button
+          touch
           type="button"
           variant="link"
           onClick={() => setOpen(true)}
-          className="text-brand-link max-lg:min-h-11"
+          className="text-brand-link"
         >
           + Add a speaker
         </Button>
@@ -393,20 +394,22 @@ function SpeakerEditRow({
         </span>
         {row.firstStartMs !== null && (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={() => onSeek(row.firstStartMs!)}
-            className="text-brand-link max-lg:min-h-11"
+            className="text-brand-link"
           >
             Hear an example
           </Button>
         )}
         {others.length > 0 && (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={() => setMerging((current) => !current)}
-            className="text-brand-link max-lg:min-h-11"
+            className="text-brand-link"
           >
             Merge…
           </Button>

@@ -7,6 +7,8 @@ import {
   lengthRangeLabel,
   type FormatSpec,
 } from "@/lib/sourcework/piece-formats";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 export interface GuideFormat {
   id: string;
@@ -48,7 +50,7 @@ export function FormatGuide({
           value={formatId ?? ""}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value || null)}
-          className="w-auto max-w-full py-1.5 max-lg:min-h-11"
+          className="w-auto max-w-full py-1.5"
         >
           <option value="">No format</option>
           {formats.map((format) => (
@@ -62,7 +64,7 @@ export function FormatGuide({
             type="button"
             onClick={() => setOpen(!open)}
             aria-expanded={open}
-            className="text-[13px] font-bold text-brand-link max-lg:min-h-11"
+            className={cn(TAP_TARGET, "text-[13px] font-bold text-brand-link")}
           >
             {open ? "Hide guide" : "Show guide"}
           </button>

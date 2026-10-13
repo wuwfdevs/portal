@@ -97,7 +97,7 @@ export function ExtractionControls({
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="shrink-0 max-lg:min-h-11"
+                className="shrink-0"
                 disabled={!canStart}
                 onClick={start}
               >
@@ -133,7 +133,7 @@ export function ExtractionControls({
               type="button"
               variant="secondary"
               size="sm"
-              className="self-start max-lg:min-h-11"
+              className="self-start"
               onClick={queue.reset}
             >
               Clear

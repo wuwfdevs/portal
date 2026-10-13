@@ -224,7 +224,7 @@ export function DraftWithAi({
       type="button"
       onClick={() => void generate()}
       disabled={running || noFormats}
-      className="max-lg:min-h-11 max-lg:flex-[2]"
+      className="max-lg:flex-[2]"
     >
       {running ? "Writing…" : "Generate draft"}
     </Button>

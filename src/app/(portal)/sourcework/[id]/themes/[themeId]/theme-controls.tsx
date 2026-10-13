@@ -22,6 +22,8 @@ import {
   saveThemeMemo,
   setDataPointStance,
 } from "../../../theme-actions";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 /** The ⋮ beside the theme's title. Rejecting asks first and says what it does. */
 export function ThemeMenu({
@@ -134,7 +136,7 @@ export function ThemeEditForm({
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy} className="max-lg:min-h-11">
+        <Button type="submit" disabled={busy}>
           {status === "suggested" ? "Save and accept" : "Save"}
         </Button>
         <Button
@@ -142,7 +144,6 @@ export function ThemeEditForm({
           variant="secondary"
           disabled={busy}
           onClick={() => router.replace(doneHref)}
-          className="max-lg:min-h-11"
         >
           Cancel
         </Button>
@@ -183,7 +184,7 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
               setDraft(memo);
               setEditing(true);
             }}
-            className="px-1 font-bold text-brand-link hover:underline max-lg:min-h-11"
+            className={cn(TAP_TARGET, "px-1 font-bold text-brand-link hover:underline")}
           >
             Edit
           </button>
@@ -201,13 +202,7 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
           />
           {error && <Alert>{error}</Alert>}
           <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void save()}
-              disabled={busy}
-              className="max-lg:min-h-11"
-            >
+            <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>
               Save
             </Button>
             <Button
@@ -216,7 +211,6 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
               variant="secondary"
               onClick={() => setEditing(false)}
               disabled={busy}
-              className="max-lg:min-h-11"
             >
               Cancel
             </Button>
@@ -324,7 +318,12 @@ export function AddPointsPanel({
 
   return (
     <details className="group rounded border border-line bg-white">
-      <summary className="cursor-pointer list-none px-5 py-3 text-sm font-bold text-brand-link max-lg:min-h-11 max-lg:py-3.5">
+      <summary
+        className={cn(
+          TAP_TARGET,
+          "cursor-pointer list-none px-5 py-3 text-sm font-bold text-brand-link max-lg:py-3.5",
+        )}
+      >
         Add data points
         <span className="ml-2 font-normal text-ink-500">
           {candidates.length} accepted {candidates.length === 1 ? "point" : "points"} not in this
@@ -363,7 +362,6 @@ export function AddPointsPanel({
                     variant="secondary"
                     disabled={busyId === point.id}
                     onClick={() => void add(point.id, "supports")}
-                    className="max-lg:min-h-11"
                   >
                     Supports
                   </Button>
@@ -373,7 +371,6 @@ export function AddPointsPanel({
                     variant="secondary"
                     disabled={busyId === point.id}
                     onClick={() => void add(point.id, "complicates")}
-                    className="max-lg:min-h-11"
                   >
                     Complicates
                   </Button>

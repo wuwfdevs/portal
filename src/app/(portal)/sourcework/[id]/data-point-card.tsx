@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/input";
 import { CLAIM_MAX, formatSpans, type DataPoint } from "@/lib/sourcework/research";
 import { editDataPoint, reviewDataPoint } from "../research-actions";
 import { PlayIcon } from "./transport-icons";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 
 /** Same meaning as ClipSelectionOrigin: which side the selection came from decides what scrolls. */
 export type PointSelectionOrigin = "transcript" | "rail";
@@ -111,13 +112,7 @@ export function DataPointCard({
             aria-label="Data point"
           />
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={save}
-              disabled={busy || draft.trim() === ""}
-              className="max-lg:min-h-11"
-            >
+            <Button type="button" size="sm" onClick={save} disabled={busy || draft.trim() === ""}>
               Save
             </Button>
             <Button
@@ -129,7 +124,6 @@ export function DataPointCard({
                 setDraft(point.claim);
                 setError(null);
               }}
-              className="max-lg:min-h-11"
             >
               Cancel
             </Button>
@@ -148,7 +142,10 @@ export function DataPointCard({
               onOpen();
             }}
             aria-label={openLabel ?? `Open ${time}`}
-            className="mt-1 block font-mono text-[11px] text-ink-500 hover:text-brand-link hover:underline max-lg:min-h-11 max-lg:text-xs"
+            className={cn(
+              TAP_TARGET,
+              "mt-1 block font-mono text-[11px] text-ink-500 hover:text-brand-link hover:underline max-lg:text-xs",
+            )}
           >
             {time}
           </button>
@@ -173,12 +170,7 @@ export function DataPointCard({
             </button>
           )}
           {!onPlay && onOpen && (
-            <Button
-              type="button"
-              variant="link"
-              onClick={onOpen}
-              className="text-brand-link max-lg:min-h-11"
-            >
+            <Button touch type="button" variant="link" onClick={onOpen} className="text-brand-link">
               Go to page
             </Button>
           )}
@@ -189,7 +181,7 @@ export function DataPointCard({
                 size="sm"
                 onClick={() => void decide("accept")}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Accept
               </Button>
@@ -202,7 +194,7 @@ export function DataPointCard({
                   setEditing(true);
                 }}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Edit
               </Button>
@@ -212,7 +204,7 @@ export function DataPointCard({
                 variant="secondary"
                 onClick={() => void decide("reject")}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Reject
               </Button>
@@ -221,22 +213,24 @@ export function DataPointCard({
           {point.status === "accepted" && (
             <>
               <Button
+                touch
                 type="button"
                 variant="link"
                 onClick={() => {
                   setDraft(point.claim);
                   setEditing(true);
                 }}
-                className="text-brand-link max-lg:min-h-11"
+                className="text-brand-link"
               >
                 Edit
               </Button>
               <Button
+                touch
                 type="button"
                 variant="link"
                 onClick={() => void decide("undo")}
                 disabled={busy}
-                className="font-normal text-ink-500 max-lg:min-h-11"
+                className="font-normal text-ink-500"
               >
                 Undo
               </Button>
@@ -244,11 +238,12 @@ export function DataPointCard({
           )}
           {rejected && (
             <Button
+              touch
               type="button"
               variant="link"
               onClick={() => void decide("undo")}
               disabled={busy}
-              className="text-brand-link max-lg:min-h-11"
+              className="text-brand-link"
             >
               Put back for review
             </Button>

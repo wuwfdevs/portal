@@ -420,3 +420,15 @@ not a chip per person), the excerpt rail (order, filter past eight, twenty at a 
 become a density strip past thirty), the delete confirmation (five names and "and N more"). Problems
 float to the top. Logic that decides these things is pure and tested (`speakers.ts`, `scrubber-marks.ts`,
 `clip-order.ts`, `task-queue.ts`, `project-deletion.ts`).
+
+## Touch targets (2026-10-13)
+
+Anything tappable is at least 44px tall below `lg`, and the rule lives in one place
+(`components/ui/tap-target.ts`'s `TAP_TARGET`), never typed at a call site.
+
+- `Button` primary, secondary and danger, and `controlClasses` (so `Input`, `Select`,
+  `Textarea`) include it already — don't add `max-lg:min-h-11` to them.
+- A text-style `Button` (ghost, link, danger-link) stays inline by default so a dense row
+  isn't padded; pass `touch` where it must be a target.
+- A raw `<button>`, `<a>`/`Link` or `<summary>` takes `TAP_TARGET` in its `className`.
+- The always-on and `max-sm`/`max-md` variants are separate calls, not this rule.

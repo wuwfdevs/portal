@@ -69,7 +69,7 @@ export function ExtractSourceButton({
         onClick={start}
         disabled={busy}
         aria-busy={busy || undefined}
-        className={className ?? "max-lg:min-h-11"}
+        className={className}
       >
         {busy ? (detail ?? runningLabel) : children}
       </Button>

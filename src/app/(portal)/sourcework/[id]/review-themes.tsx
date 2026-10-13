@@ -6,6 +6,8 @@ import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { pluralize } from "@/lib/format";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 // "Review themes" (docs/sourcework-analysis-design.md §5.4): one click, one long
 // request. The button lives in the toolbar and a link to it lives in the
@@ -98,7 +100,7 @@ export function ReviewThemesLink() {
       type="button"
       onClick={start}
       disabled={busy}
-      className="font-bold text-brand-link hover:underline disabled:text-ink-400 max-lg:min-h-11"
+      className={cn(TAP_TARGET, "font-bold text-brand-link hover:underline disabled:text-ink-400")}
     >
       Review themes
     </button>
