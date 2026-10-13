@@ -6,6 +6,7 @@ import { formatClipRange, type QuoteAvailability } from "@/lib/sourcework/quotes
 import { pluralize } from "@/lib/format";
 import { sourcePath } from "@/lib/transcription/links";
 import { SuggestQuotesButton, SuggestQuotesStatus, useSharedSuggestQuotes } from "./suggest-quotes";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 
 export interface ThemeExcerptCard {
   id: string;
@@ -58,15 +59,15 @@ export function ThemeExcerptsPanel({
           (waiting > 0 && !state.busy ? (
             <Link
               href={quotesHref}
-              className="rounded border border-brand-link px-2.5 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface max-lg:flex max-lg:min-h-11 max-lg:items-center max-lg:px-4 max-lg:text-[13px]"
+              className={cn(
+                TAP_TARGET,
+                "rounded border border-brand-link px-2.5 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface max-lg:flex max-lg:items-center max-lg:px-4 max-lg:text-[13px]",
+              )}
             >
               Review {waiting} suggested
             </Link>
           ) : (
-            <SuggestQuotesButton
-              state={state}
-              className="max-lg:px-4 max-lg:text-[13px]"
-            />
+            <SuggestQuotesButton state={state} className="max-lg:px-4 max-lg:text-[13px]" />
           ))}
       </div>
 

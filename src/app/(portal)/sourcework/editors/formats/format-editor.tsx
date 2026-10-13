@@ -28,6 +28,7 @@ import {
   renameFormat,
   saveFormatDraft,
 } from "./actions";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 
 const AUTOSAVE_MS = 1200;
 
@@ -284,15 +285,14 @@ export function FormatEditor({
 
   const actions = (
     <>
-      <PublishButton
-        control={publish}
-        disabled={!check.ok}
-        className="max-lg:flex-1"
-      />
+      <PublishButton control={publish} disabled={!check.ok} className="max-lg:flex-1" />
       <Link
         href={`/sourcework/editors/formats/try?format=${formatId}`}
         onClick={goTry}
-        className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-lg:min-h-11 max-lg:flex-1"
+        className={cn(
+          TAP_TARGET,
+          "inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-lg:flex-1",
+        )}
       >
         Try this draft
       </Link>
@@ -322,6 +322,7 @@ export function FormatEditor({
               Save
             </Button>
             <Button
+              touch
               type="button"
               variant="link"
               onClick={() => {
@@ -329,7 +330,6 @@ export function FormatEditor({
                 setRenaming(false);
                 setNameError(null);
               }}
-              className="max-lg:min-h-11"
             >
               Cancel
             </Button>
@@ -362,7 +362,6 @@ export function FormatEditor({
             onChange={(event) => setLengthText(event.target.value)}
             onBlur={commitLength}
             inputMode="numeric"
-            className="max-lg:min-h-11"
           />
         </div>
         <div>
@@ -376,7 +375,6 @@ export function FormatEditor({
             onChange={(event) => setToleranceText(event.target.value)}
             onBlur={commitTolerance}
             inputMode="numeric"
-            className="max-lg:min-h-11"
           />
         </div>
         <fieldset>
@@ -391,7 +389,7 @@ export function FormatEditor({
               max={MAX_ACTUALITIES}
               value={spec.minActualities}
               onChange={(event) => setRange("minActualities", event.target.value)}
-              className="w-full min-w-0 px-2 max-lg:min-h-11"
+              className="w-full min-w-0 px-2"
             />
             <span className="text-sm text-ink-500">to</span>
             <Input
@@ -401,7 +399,7 @@ export function FormatEditor({
               max={MAX_ACTUALITIES}
               value={spec.maxActualities}
               onChange={(event) => setRange("maxActualities", event.target.value)}
-              className="w-full min-w-0 px-2 max-lg:min-h-11"
+              className="w-full min-w-0 px-2"
             />
           </div>
         </fieldset>

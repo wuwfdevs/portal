@@ -147,11 +147,12 @@ export function SelectionToolbar({
             Preview
           </Button>
           <Button
+            touch
             type="button"
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            className="max-lg:order-2 max-lg:min-h-11 max-lg:px-4"
+            className="max-lg:order-2 max-lg:px-4"
           >
             Cancel
           </Button>

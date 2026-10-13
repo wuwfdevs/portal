@@ -11,6 +11,8 @@ import {
   type TextSegment,
 } from "@/lib/sourcework/piece-text";
 import { PlayIcon } from "@/app/(portal)/sourcework/[id]/transport-icons";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 export interface TrimRange {
   startMs: number;
@@ -203,7 +205,10 @@ function TrimRow({
             type="button"
             onClick={() => onNudge(step)}
             aria-label={`Move ${label.toLowerCase()} point ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
-            className="rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:flex-1 max-lg:text-xs"
+            className={cn(
+              TAP_TARGET,
+              "rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:flex-1 max-lg:text-xs",
+            )}
           >
             {step > 0 ? `+${step}` : step}
           </button>

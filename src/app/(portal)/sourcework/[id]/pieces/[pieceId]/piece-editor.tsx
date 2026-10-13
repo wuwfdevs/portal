@@ -55,6 +55,8 @@ import { ActualityRow, FooterButton, NarrationRow } from "./piece-blocks";
 import { PieceInsertionPoint } from "./piece-insertion-point";
 import { TrimPanel } from "./trim-panel";
 import { usePiecePlayer } from "./use-piece-player";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 const AUTOSAVE_DELAY_MS = 1500;
 const DEFAULT_TITLE = "Untitled piece";
@@ -304,7 +306,7 @@ function PieceEditor({
               keepMarkers: true,
             });
           }}
-          className="font-bold text-brand-link max-lg:min-h-11"
+          className={cn(TAP_TARGET, "font-bold text-brand-link")}
         >
           Undo
         </button>
@@ -618,24 +620,20 @@ function PieceEditor({
             <Button type="submit" size="sm">
               Save
             </Button>
-            <Button
-              type="button"
-              variant="link"
-              onClick={() => setEditingTarget(false)}
-              className="max-lg:min-h-11"
-            >
+            <Button touch type="button" variant="link" onClick={() => setEditingTarget(false)}>
               Cancel
             </Button>
           </form>
         ) : (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={() => {
               setTargetInput(targetSeconds === null ? "" : formatClock(targetSeconds));
               setEditingTarget(true);
             }}
-            className="text-brand-link max-lg:min-h-11"
+            className="text-brand-link"
           >
             {targetSeconds === null ? "Set a target" : "Change target"}
           </Button>
@@ -688,7 +686,7 @@ function PieceEditor({
           <button
             type="button"
             onClick={() => void restore(piece.version - 1)}
-            className="font-bold text-brand-link max-lg:min-h-11"
+            className={cn(TAP_TARGET, "font-bold text-brand-link")}
           >
             Undo
           </button>
@@ -960,7 +958,10 @@ function PieceEditor({
                               type="button"
                               onClick={() => setSwappingId(null)}
                               aria-label="Cancel"
-                              className="rounded px-1.5 text-xs font-bold text-ink-500 hover:bg-white max-lg:min-h-11"
+                              className={cn(
+                                TAP_TARGET,
+                                "rounded px-1.5 text-xs font-bold text-ink-500 hover:bg-white",
+                              )}
                             >
                               ×
                             </button>

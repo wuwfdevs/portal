@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
+import { TAP_TARGET } from "./tap-target";
 import type { ComponentProps } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link" | "danger-link";
@@ -10,6 +11,8 @@ type ButtonSize = "md" | "sm";
 interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** 44px tall below `lg` for a ghost/link button; boxed variants always are. */
+  touch?: boolean;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -31,9 +34,9 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 // A box button is at least 44px tall below `lg`, so every one is a touch target
-// without a call site remembering to say so. Text-style variants stay inline.
+// without a call site remembering to say so. Text-style variants stay inline
+// (dense rows) unless the caller passes `touch`.
 const BOXED_VARIANTS = new Set<ButtonVariant>(["primary", "secondary", "danger"]);
-const TOUCH_TARGET = "max-lg:min-h-11";
 
 /**
  * Nearly every mutation in this codebase is a plain <form action={serverAction}>
@@ -53,6 +56,7 @@ const TOUCH_TARGET = "max-lg:min-h-11";
 export function Button({
   variant = "primary",
   size = "md",
+  touch = false,
   className,
   children,
   ...props
@@ -66,7 +70,7 @@ export function Button({
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded font-bold transition-colors disabled:cursor-not-allowed",
         variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
-        BOXED_VARIANTS.has(variant) && TOUCH_TARGET,
+        (touch || BOXED_VARIANTS.has(variant)) && TAP_TARGET,
         VARIANT_CLASSES[variant],
         className,
       )}

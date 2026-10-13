@@ -144,12 +144,7 @@ export function TrimPanel({
         <span className="flex-1 text-[13px] font-bold">
           Trim this clip <span className="font-normal text-ink-400">· from ⋮ › Trim…</span>
         </span>
-        <Button
-          type="button"
-          variant="link"
-          onClick={onClose}
-          className="text-brand-link max-lg:min-h-11"
-        >
+        <Button touch type="button" variant="link" onClick={onClose} className="text-brand-link">
           Done
         </Button>
       </div>
@@ -199,20 +194,17 @@ export function TrimPanel({
                     saving {(totalCutMs(proposal) / 1000).toFixed(1)}s. Marked in the words above;
                     use Play as cut to hear it first.
                   </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={acceptProposal}
-                  >
+                  <Button type="button" size="sm" onClick={acceptProposal}>
                     Remove these pauses
                   </Button>
                 </>
               )}
               <Button
+                touch
                 type="button"
                 variant="link"
                 onClick={() => setProposal(null)}
-                className="text-brand-link max-lg:min-h-11"
+                className="text-brand-link"
               >
                 {proposal.length === 0 ? "Close" : "Cancel"}
               </Button>
@@ -223,10 +215,11 @@ export function TrimPanel({
               {applied.length} {applied.length === 1 ? "pause" : "pauses"} shortened in this piece,
               saving {(totalCutMs(applied) / 1000).toFixed(1)}s.
               <Button
+                touch
                 type="button"
                 variant="link"
                 onClick={() => onCuts([])}
-                className="text-brand-link max-lg:min-h-11"
+                className="text-brand-link"
               >
                 Put the pauses back
               </Button>

@@ -22,6 +22,8 @@ import {
   saveThemeMemo,
   setDataPointStance,
 } from "../../../theme-actions";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 /** The ⋮ beside the theme's title. Rejecting asks first and says what it does. */
 export function ThemeMenu({
@@ -182,7 +184,7 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
               setDraft(memo);
               setEditing(true);
             }}
-            className="px-1 font-bold text-brand-link hover:underline max-lg:min-h-11"
+            className={cn(TAP_TARGET, "px-1 font-bold text-brand-link hover:underline")}
           >
             Edit
           </button>
@@ -200,12 +202,7 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
           />
           {error && <Alert>{error}</Alert>}
           <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void save()}
-              disabled={busy}
-            >
+            <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>
               Save
             </Button>
             <Button
@@ -321,7 +318,12 @@ export function AddPointsPanel({
 
   return (
     <details className="group rounded border border-line bg-white">
-      <summary className="cursor-pointer list-none px-5 py-3 text-sm font-bold text-brand-link max-lg:min-h-11 max-lg:py-3.5">
+      <summary
+        className={cn(
+          TAP_TARGET,
+          "cursor-pointer list-none px-5 py-3 text-sm font-bold text-brand-link max-lg:py-3.5",
+        )}
+      >
         Add data points
         <span className="ml-2 font-normal text-ink-500">
           {candidates.length} accepted {candidates.length === 1 ? "point" : "points"} not in this

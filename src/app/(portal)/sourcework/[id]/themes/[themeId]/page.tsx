@@ -42,6 +42,7 @@ import {
   ThemeMemo,
   ThemeMenu,
 } from "./theme-controls";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 
 /** Evidence shown per source before "Show N more". */
 const SHOWN_PER_SOURCE = 3;
@@ -299,7 +300,12 @@ export default async function ThemePage({
                     <ul>{head.map(row)}</ul>
                     {rest.length > 0 && (
                       <details className="group">
-                        <summary className="cursor-pointer list-none border-t border-line px-5 py-2.5 text-[13px] font-bold text-brand-link group-open:hidden max-lg:min-h-11 max-lg:py-3.5">
+                        <summary
+                          className={cn(
+                            TAP_TARGET,
+                            "cursor-pointer list-none border-t border-line px-5 py-2.5 text-[13px] font-bold text-brand-link group-open:hidden max-lg:py-3.5",
+                          )}
+                        >
                           Show {rest.length} more
                         </summary>
                         <ul>{rest.map(row)}</ul>

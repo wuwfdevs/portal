@@ -9,7 +9,12 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
-import { clipAtToken, clipsAtToken, type ClipSpan, type TimedToken } from "@/lib/transcription/selection";
+import {
+  clipAtToken,
+  clipsAtToken,
+  type ClipSpan,
+  type TimedToken,
+} from "@/lib/transcription/selection";
 import {
   createSpeaker,
   mergeSegmentWithNext,
@@ -348,6 +353,7 @@ export function SegmentRow({
                   Cancel
                 </Button>
                 <Button
+                  touch
                   type="button"
                   variant="link"
                   onMouseDown={(e) => e.preventDefault()}
@@ -358,7 +364,7 @@ export function SegmentRow({
                       ? "Split this line at the cursor"
                       : "Put the cursor inside the text to split there"
                   }
-                  className="text-brand-link max-lg:min-h-11"
+                  className="text-brand-link"
                 >
                   Split here
                 </Button>

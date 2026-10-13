@@ -15,6 +15,7 @@ import {
 } from "@/lib/sourcework/quotes";
 import { acceptQuote, rejectQuote } from "../../../../quote-actions";
 import { PlayIcon } from "../../../transport-icons";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 
 const TIER_BADGE = {
   strong: "bg-[#0F2235] text-white",
@@ -137,7 +138,10 @@ export function QuoteCard({
           type="button"
           onClick={() => setTrimming((open) => !open)}
           aria-expanded={trimming}
-          className="px-1 text-xs font-semibold text-brand-link hover:underline max-lg:min-h-11 max-lg:px-2.5 max-lg:text-sm"
+          className={cn(
+            TAP_TARGET,
+            "px-1 text-xs font-semibold text-brand-link hover:underline max-lg:px-2.5 max-lg:text-sm",
+          )}
         >
           Trim
         </button>
@@ -145,7 +149,10 @@ export function QuoteCard({
           type="button"
           onClick={reject}
           disabled={busy}
-          className="ml-auto px-1 text-xs font-semibold text-ink-400 hover:text-ink-700 hover:underline disabled:opacity-60 max-lg:min-h-11 max-lg:text-sm"
+          className={cn(
+            TAP_TARGET,
+            "ml-auto px-1 text-xs font-semibold text-ink-400 hover:text-ink-700 hover:underline disabled:opacity-60 max-lg:text-sm",
+          )}
         >
           Reject
         </button>
@@ -165,7 +172,10 @@ export function QuoteCard({
                   type="button"
                   onClick={() => setRange((current) => nudgeEdge(current, edge, step, null))}
                   aria-label={`Move ${edge === "in" ? "the start" : "the end"} ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
-                  className="rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-11 max-lg:text-sm"
+                  className={cn(
+                    TAP_TARGET,
+                    "rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-w-11 max-lg:text-sm",
+                  )}
                 >
                   {step > 0 ? `+${step}` : `−${Math.abs(step)}`}
                 </button>
@@ -176,7 +186,7 @@ export function QuoteCard({
             <button
               type="button"
               onClick={() => setRange({ startMs: quote.startMs, endMs: quote.endMs })}
-              className="w-fit font-semibold text-brand-link hover:underline max-lg:min-h-11"
+              className={cn(TAP_TARGET, "w-fit font-semibold text-brand-link hover:underline")}
             >
               Back to the suggested cut
             </button>

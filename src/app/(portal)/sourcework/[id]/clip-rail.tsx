@@ -431,10 +431,11 @@ export function ClipCard({
                 : `Level ${formatGainDb(clip.gainDb)}${GAIN_LIMIT_NOTE[clip.gainLimit ?? ""] ?? ""}${clip.gainNoisy ? " (a big boost raises the background noise)" : ""}`}
         </span>
         <Button
+          touch
           type="button"
           variant="link"
           onClick={() => handleGainMode(gainMode === "off" ? "auto" : "off")}
-          className="text-brand-link max-lg:min-h-11"
+          className="text-brand-link"
         >
           {gainMode === "off" ? "Even out" : "Original level"}
         </Button>
@@ -483,31 +484,34 @@ export function ClipCard({
           {status === "exporting" ? "Exporting…" : hasExport ? "Re-export" : "Export WAV"}
         </Button>
         <Button
+          touch
           type="button"
           variant="link"
           aria-expanded={showTrim}
           onClick={() => setShowTrim((current) => !current)}
-          className="text-brand-link max-lg:min-h-11"
+          className="text-brand-link"
         >
           {showTrim ? "Done trimming" : "Trim"}
         </Button>
         {onShowInTranscript && (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={onShowInTranscript}
-            className="text-brand-link max-lg:min-h-11 lg:hidden"
+            className="text-brand-link lg:hidden"
           >
             Show in transcript
           </Button>
         )}
         {hasExport && (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={handleDownload}
             disabled={status !== "idle"}
-            className="text-brand-link max-lg:min-h-11"
+            className="text-brand-link"
           >
             {status === "downloading" ? "Preparing…" : "Download"}
           </Button>
@@ -519,29 +523,25 @@ export function ClipCard({
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="text-ink-700">Delete this excerpt?</span>
             <Button
+              touch
               type="button"
               variant="danger-link"
               onClick={handleDelete}
               disabled={status === "deleting"}
-              className="max-lg:min-h-11"
             >
               {status === "deleting" ? "Deleting…" : "Delete"}
             </Button>
-            <Button
-              type="button"
-              variant="link"
-              onClick={() => setConfirmDelete(false)}
-              className="max-lg:min-h-11"
-            >
+            <Button touch type="button" variant="link" onClick={() => setConfirmDelete(false)}>
               Keep
             </Button>
           </div>
         ) : (
           <Button
+            touch
             type="button"
             variant="link"
             onClick={() => setConfirmDelete(true)}
-            className="font-normal text-ink-400 hover:text-danger max-lg:min-h-11"
+            className="font-normal text-ink-400 hover:text-danger"
           >
             Delete
           </Button>

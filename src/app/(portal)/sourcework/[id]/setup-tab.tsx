@@ -19,6 +19,8 @@ import {
 } from "@/lib/sourcework/theme-queries";
 import { decisionsWaiting } from "@/lib/sourcework/themes";
 import { SetupResearch } from "./setup-research";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 
 /**
  * The Setup tab: where the project stands, its research questions, and the web
@@ -109,7 +111,7 @@ export async function SetupTab({
                         ? projectPath(projectId, "themes")
                         : projectPath(projectId, "setup")
                   }
-                  className="inline-flex max-lg:min-h-11 max-lg:items-center"
+                  className={cn(TAP_TARGET, "inline-flex max-lg:items-center")}
                 >
                   {standing.link.label}
                 </TextLink>
