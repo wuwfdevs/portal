@@ -149,6 +149,18 @@ export function clipAtToken(spans: ClipSpan[], tokenIndex: number): string | nul
   return best?.clipId ?? null;
 }
 
+/**
+ * Every clip covering one word, shortest first (the order clipAtToken() picks
+ * from). A phone has no rail to choose between overlapping excerpts, so the
+ * sheet it opens needs the whole set.
+ */
+export function clipsAtToken(spans: ClipSpan[], tokenIndex: number): string[] {
+  return spans
+    .filter((span) => tokenIndex >= span.fromTokenIndex && tokenIndex <= span.toTokenIndex)
+    .sort((a, b) => a.durationMs - b.durationMs)
+    .map((span) => span.clipId);
+}
+
 /** Where a clip starts in the transcript, for scrolling to it. Null if it covers no words. */
 export function findClipStart(
   coverage: ClipSpan[][],

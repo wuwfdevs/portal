@@ -196,7 +196,7 @@ export function ClipRail({
   );
 }
 
-function ClipCard({
+export function ClipCard({
   clip,
   isSelected = false,
   selectionOrigin,

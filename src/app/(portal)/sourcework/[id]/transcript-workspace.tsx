@@ -30,6 +30,7 @@ import { SegmentRow } from "./segment-row";
 import { ClipRail, type ClipSelectionOrigin } from "./clip-rail";
 import { TranscriptExport } from "./transcript-export";
 import { SelectionToolbar } from "./selection-toolbar";
+import { ExcerptSheet } from "./excerpt-sheet";
 import { PaneTabs, type PaneTab } from "./pane-tabs";
 import { PlayerBar } from "./player-bar";
 import { ShortcutsHelp } from "./shortcuts-help";
@@ -165,6 +166,9 @@ export function TranscriptWorkspace({
     origin: ClipSelectionOrigin;
   } | null>(highlightClipId ? { id: highlightClipId, origin: "deep-link" } : null);
   const selectedClipId = selectedClip?.id ?? null;
+  // Phone only (the sheet is hidden from lg up, where the rail does this): the
+  // excerpts over the word just tapped, shortest first.
+  const [sheetClipIds, setSheetClipIds] = useState<string[]>([]);
   const [hoveredClipId, setHoveredClipId] = useState<string | null>(null);
   /**
    * Clips whose trim the rail is moving, before the 400ms-deferred write
@@ -624,12 +628,20 @@ export function TranscriptWorkspace({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [activeIndex, segments, selection, seekTo]);
 
+  // A saved excerpt's sheet gives way to making a new one, and to the data-point layer.
+  const sheetClips = sheetClipIds
+    .map((id) => clips.find((clip) => clip.id === id))
+    .filter((clip): clip is ProjectClip => clip !== undefined);
+  const sheetOpen = !evidence && !selection && pane === "transcript" && sheetClips.length > 0;
+  const sheetActiveId =
+    sheetClips.find((clip) => clip.id === selectedClipId)?.id ?? sheetClips[0]?.id ?? "";
+
   return (
     <div
       className={cn(
         "grid grid-cols-1 gap-6 pb-[calc(var(--player-dock-h,7rem)+1rem)] lg:grid-cols-[minmax(0,1fr)_300px] lg:pb-0",
         // Room to scroll the selected words clear of the excerpt sheet.
-        selection && "max-lg:pb-[calc(var(--player-dock-h,7rem)+20rem)]",
+        (selection || sheetOpen) && "max-lg:pb-[calc(var(--player-dock-h,7rem)+20rem)]",
       )}
     >
       {/* Playback follows along by default; scrolling or touching the text turns
@@ -825,15 +837,42 @@ export function TranscriptWorkspace({
                       onStartEditing={() => setEditingSegmentId(segment.id)}
                       onStopEditing={() => setEditingSegmentId(null)}
                       onSeek={seekTo}
-                      onSelectClip={(clipId) =>
-                        evidence
-                          ? setSelectedPoint(clipId ? { id: clipId, origin: "transcript" } : null)
-                          : setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null)
-                      }
+                      onSelectClip={(clipId, coveringIds) => {
+                        if (evidence) {
+                          setSelectedPoint(clipId ? { id: clipId, origin: "transcript" } : null);
+                          return;
+                        }
+                        setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null);
+                        setSheetClipIds(coveringIds);
+                      }}
                       onMakeExcerpt={() => makeExcerptFromLine(index)}
                     />
                   ))}
                 </div>
+                {sheetOpen && (
+                  <ExcerptSheet
+                    clips={sheetClips}
+                    activeId={sheetActiveId}
+                    onActivate={(clipId) => setSelectedClip({ id: clipId, origin: "transcript" })}
+                    onClose={() => {
+                      setSheetClipIds([]);
+                      setSelectedClip(null);
+                    }}
+                    onShowInExcerptsTab={() => {
+                      setSelectedClip({ id: sheetActiveId, origin: "rail" });
+                      setSheetClipIds([]);
+                      setPane("excerpts");
+                    }}
+                    playingClipId={isPlaying ? previewingClipId : null}
+                    onPreview={previewRange}
+                    onPause={pausePreview}
+                    onHover={setHoveredClipId}
+                    onTrimPreview={(clipId, range) =>
+                      setPendingTrims((current) => ({ ...current, [clipId]: range }))
+                    }
+                    segments={segments}
+                  />
+                )}
                 {selection && (
                   <SelectionToolbar
                     key={`${selection.startMs}-${selection.endMs}`}

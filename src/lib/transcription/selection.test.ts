@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildTimedTokens,
   clipAtToken,
+  clipsAtToken,
   findClipStart,
   resolveClipCoverage,
   resolveSelection,
@@ -260,5 +261,30 @@ describe("findClipStart", () => {
 
   it("returns null for a clip that covers no words", () => {
     expect(findClipStart(coverage, "clip-2")).toBeNull();
+  });
+});
+
+describe("clipsAtToken", () => {
+  const spans = [
+    { clipId: "long", fromTokenIndex: 0, toTokenIndex: 5, durationMs: 8000 },
+    { clipId: "tight", fromTokenIndex: 2, toTokenIndex: 3, durationMs: 1200 },
+    { clipId: "twin", fromTokenIndex: 2, toTokenIndex: 3, durationMs: 1200 },
+  ];
+
+  it("lists every clip covering the word, shortest first, ties in creation order", () => {
+    expect(clipsAtToken(spans, 2)).toEqual(["tight", "twin", "long"]);
+  });
+
+  it("lists only the surrounding clip outside the tighter ones", () => {
+    expect(clipsAtToken(spans, 5)).toEqual(["long"]);
+  });
+
+  it("is empty for an unclipped word", () => {
+    expect(clipsAtToken(spans, 9)).toEqual([]);
+  });
+
+  it("does not reorder the spans it was given", () => {
+    clipsAtToken(spans, 2);
+    expect(spans.map((span) => span.clipId)).toEqual(["long", "tight", "twin"]);
   });
 });
