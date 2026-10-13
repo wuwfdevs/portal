@@ -495,8 +495,7 @@ never text, times or ids** — findings by number, passages only by a ref a tool
 (`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
 **`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
 tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
-`20261023130000` are written but **not applied** to either project; apply preview, then production, record both in
-`APPLIED.md`, and run `db:check` only when the owner authorizes it. Slices 3 (outline as `beat` blocks) and 4
+`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slices 3 (outline as `beat` blocks) and 4
 (retire the old runners) are not built.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a

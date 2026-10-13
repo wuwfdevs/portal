@@ -1018,6 +1018,7 @@ findings establish, how firmly, where they conflict, and what is open.
   schema). Not tryable yet.
 - **Not built**: editing or pinning a statement by hand, a section redone on its own, the outline and the draft
   expanding it (slices 3), the comparative clip pass, and the evaluation harness.
-- **Status**: the migration is written and **not yet applied** to either project; the Resources content migration
-  (`20261023130000`) likewise. Nothing here has run against a live OpenAI model (this environment has no key). The
-  parser, the carry-forward, the ledger, the tool loop (against a mocked client) and the view rules are unit-tested.
+- **Status**: both migrations are applied to preview and production (2026-10-13), each checked in a rolled-back
+  transaction (first save returns 1, a stale base -1, versions can't be updated, a non-member sees and saves nothing).
+  Nothing here has run against a live OpenAI model (this environment has no key). The parser, the carry-forward, the
+  ledger, the tool loop (against a mocked client) and the view rules are unit-tested.
