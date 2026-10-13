@@ -261,15 +261,18 @@ export function TranscriptWorkspace({
     applyPlaybackLevel(el, playbackGraph.current, level);
   }, []);
 
-  const seekTo = useCallback((startMs: number) => {
-    const el = mediaRef.current;
-    if (!el) return;
-    stopAtMsRef.current = null;
-    setPreviewingClipId(null);
-    setPlaybackLevel(el, NEUTRAL_LEVEL);
-    el.currentTime = startMs / 1000;
-    void el.play();
-  }, [setPlaybackLevel]);
+  const seekTo = useCallback(
+    (startMs: number) => {
+      const el = mediaRef.current;
+      if (!el) return;
+      stopAtMsRef.current = null;
+      setPreviewingClipId(null);
+      setPlaybackLevel(el, NEUTRAL_LEVEL);
+      el.currentTime = startMs / 1000;
+      void el.play();
+    },
+    [setPlaybackLevel],
+  );
 
   const previewRange = useCallback(
     (startMs: number, endMs: number, clipId?: string) => {
@@ -649,7 +652,7 @@ export function TranscriptWorkspace({
       {/* Playback follows along by default; scrolling or touching the text turns
           it off, and this is the way back. A phone has no room for a permanent
           button, so it only exists when it has something to do. */}
-      {!follow && activeIndex >= 0 && pane === "transcript" && !selection && (
+      {!follow && activeIndex >= 0 && pane === "transcript" && !selection && !sheetOpen && (
         <button
           type="button"
           onClick={toggleFollow}
@@ -705,6 +708,8 @@ export function TranscriptWorkspace({
           onSelectMark={(id) => handleSelectFromRail(evidence ? pointIdFromMarkId(id) : id)}
           follow={follow}
           onToggleFollow={toggleFollow}
+          // The excerpt sheet has its own Play, and the room is better spent on it.
+          hiddenOnPhone={sheetOpen}
         />
 
         <div
@@ -845,6 +850,9 @@ export function TranscriptWorkspace({
                           return;
                         }
                         setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null);
+                        // The sheet hides the player bar, the only control for whatever is playing,
+                        // so stop it as the sheet opens; the sheet's own Play starts the excerpt.
+                        if (coveringIds.length > 0) pausePreview();
                         setSheetClipIds(coveringIds);
                       }}
                       onMakeExcerpt={() => makeExcerptFromLine(index)}
