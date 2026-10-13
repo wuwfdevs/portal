@@ -969,5 +969,7 @@ records what slice 1 built.
   expanding them, the comparative actuality pass against an outline, an evaluation harness reading old and new runs
   side by side (`scripts/sourcework-eval/`), and removal of the old extraction runner, theme runs and unused prompt
   slots.
-- **Status**: the migrations are written and **not yet applied to either project**; nothing here has run against a
-  live OpenAI model (this environment has no key). The parser, the freshness rules and the labels are unit-tested.
+- **Status**: both migrations are applied to preview and production (2026-10-13). Production's new constraints were
+  exercised in a rolled-back transaction (a no-question finding, a theme-less unrated clip, one analyze run in flight
+  at a time). Nothing here has run against a live OpenAI model (this environment has no key). The parser, the
+  freshness rules and the labels are unit-tested.

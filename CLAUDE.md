@@ -494,7 +494,7 @@ format by hand (`setPieceFormat`, New piece's format select) — that sets the t
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
-**Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet applied or run live).** Read
+**Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet run against a live model).** Read
 `docs/sourcework-analysis-design.md` §20 first; this is a pointer. One run per source (`lib/sourcework/analyze-run.ts`,
 `/api/sourcework/analyze`) replaces Extract data points as the way in: the model reads the source with web search
 available and returns findings (each with a one-line `significance`), at most five candidate clips and the pages it
@@ -507,7 +507,7 @@ which is also why `loadAnalyzeContext` filters to the project's current `sw_proj
 has no theme and no tier** (`sw_quote_suggestions.theme_id` and `tier` are nullable): anything reading that table must
 cope with both. The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
 per-theme quote code is untouched until a later slice retires it. Migrations `20261022120000` (schema) and `20261022130000`
-(Resources) are written and not applied; `npm run db:check` fails until they are recorded in `APPLIED.md`.
+(Resources) are applied to both projects (2026-10-13, through `execute_sql`, not `apply_migration`, because they drop constraints).
 
 **Sourcework: excerpt loudness (2026-10-12; standard changed 2026-10-12).** Actualities from different tape come
 in at very different levels, so every temporal excerpt is measured (BS.1770 integrated loudness, via ffmpeg's
