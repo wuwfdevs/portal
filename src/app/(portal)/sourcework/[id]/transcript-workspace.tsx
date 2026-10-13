@@ -850,6 +850,9 @@ export function TranscriptWorkspace({
                           return;
                         }
                         setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null);
+                        // The sheet hides the player bar, the only control for whatever is playing,
+                        // so stop it as the sheet opens; the sheet's own Play starts the excerpt.
+                        if (coveringIds.length > 0) pausePreview();
                         setSheetClipIds(coveringIds);
                       }}
                       onMakeExcerpt={() => makeExcerptFromLine(index)}
