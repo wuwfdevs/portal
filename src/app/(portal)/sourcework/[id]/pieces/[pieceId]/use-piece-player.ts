@@ -39,7 +39,11 @@ export function usePiecePlayer() {
     applyPlaybackLevel(audio, graph.current, level);
   }, []);
 
+  // Bumped by every stop(), so a play() still waiting on the network can tell a newer click replaced it.
+  const generation = useRef(0);
+
   const stop = useCallback(() => {
+    generation.current += 1;
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
     audioRef.current?.pause();
@@ -69,14 +73,27 @@ export function usePiecePlayer() {
         return;
       }
       stop();
+      // Marked playing at once, before the URL, the load or the seek: a large file takes a while to
+      // start, and a button that does nothing gets clicked again. Each later click then stops this
+      // one (above) instead of restarting it, and stop() invalidates whatever is still waiting.
+      const mine = generation.current;
+      const superseded = () => generation.current !== mine;
       setError(null);
+      setPlayingKey(key);
       applyLevel(audio, level);
+
+      const fail = (message: string) => {
+        if (superseded()) return;
+        setError(message);
+        stop();
+      };
 
       let cached = urls.current.get(sourceId);
       if (!cached || Date.now() - cached.at > URL_MAX_AGE_MS) {
         const result = await getPieceAudioUrl(sourceId);
+        if (superseded()) return;
         if (!result.ok) {
-          setError(result.error);
+          fail(result.error);
           return;
         }
         cached = { url: result.url, at: Date.now() };
@@ -85,20 +102,27 @@ export function usePiecePlayer() {
 
       if (audio.src !== cached.url) {
         audio.src = cached.url;
+        // The element is preload="metadata", so this arrives without starting playback.
         await new Promise<void>((resolve) => {
           audio.addEventListener("loadedmetadata", () => resolve(), { once: true });
           audio.addEventListener("error", () => resolve(), { once: true });
         });
+        if (superseded()) return;
+        if (audio.error) {
+          fail("Could not load the audio.");
+          return;
+        }
       }
       const firstCut = cuts.find((cut) => cut.start_ms <= startMs && startMs < cut.end_ms);
       audio.currentTime = (firstCut ? firstCut.end_ms : startMs) / 1000;
       try {
         await audio.play();
       } catch {
-        setError("Could not play this clip.");
+        // A newer click pausing this one rejects play() with an AbortError; that is not a failure.
+        fail("Could not play this clip.");
         return;
       }
-      setPlayingKey(key);
+      if (superseded()) return;
       timer.current = setInterval(
         () => {
           const nowMs = audio.currentTime * 1000;
