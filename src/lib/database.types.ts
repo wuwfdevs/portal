@@ -1214,6 +1214,36 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      sw_project_syntheses: {
+        Row: { project_id: string; current_version: number; updated_at: string };
+        Insert: { project_id: string; current_version?: number; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["sw_project_syntheses"]["Row"]>;
+        Relationships: [];
+      };
+      sw_project_synthesis_versions: {
+        Row: {
+          project_id: string;
+          version: number;
+          body: unknown;
+          saved_by: string;
+          saved_via: "person" | "model";
+          run_id: string | null;
+          prompt_version_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          project_id: string;
+          version: number;
+          body: unknown;
+          saved_by: string;
+          saved_via: "person" | "model";
+          run_id?: string | null;
+          prompt_version_id?: string | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       sw_context_note_points: {
         Row: { note_id: string; data_point_id: string };
         Insert: { note_id: string; data_point_id: string };
@@ -4414,6 +4444,17 @@ export interface Database {
       sw_excerpt_speakers: {
         Args: { p_excerpt_ids: string[] };
         Returns: { excerpt_id: string; diarization_label: string; display_name: string | null }[];
+      };
+      sw_save_project_synthesis: {
+        Args: {
+          p_project_id: string;
+          p_base_version: number;
+          p_body: unknown;
+          p_saved_via: "person" | "model";
+          p_run_id: string | null;
+          p_prompt_version_id: string | null;
+        };
+        Returns: number;
       };
       sw_save_piece_version: {
         Args: {

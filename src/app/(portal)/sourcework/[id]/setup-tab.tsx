@@ -10,12 +10,7 @@ import {
 } from "@/lib/sourcework/research-queries";
 import { projectStanding } from "@/lib/sourcework/run-state";
 import { currentStepIndex } from "@/lib/sourcework/setup-view";
-import {
-  getThemeDecisionCounts,
-  getWaitingNumbers,
-  listThemeRows,
-} from "@/lib/sourcework/theme-queries";
-import { decisionsWaiting } from "@/lib/sourcework/themes";
+import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
 import { SetupResearch } from "./setup-research";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 import { cn } from "@/lib/cn";
@@ -32,7 +27,7 @@ export async function SetupTab({
   projectId: string;
   sources: ProjectSourceSummary[];
 }) {
-  const [questions, notes, research, themeRows, decisions, waiting] = await Promise.all([
+  const [questions, notes, research, synthesis] = await Promise.all([
     listResearchQuestions(projectId),
     listContextNotes(projectId),
     getSourceResearch(
@@ -43,9 +38,7 @@ export async function SetupTab({
         kind: entry.source.kind,
       })),
     ),
-    listThemeRows(projectId),
-    getThemeDecisionCounts(projectId),
-    getWaitingNumbers(projectId),
+    getSynthesisStanding(projectId),
   ]);
 
   const activeQuestions = questions.filter((question) => question.archivedAt === null);
@@ -57,11 +50,7 @@ export async function SetupTab({
       state: research.get(entry.sourceId)?.state ?? { kind: "idle" },
     })),
     toReviewTotal: [...research.values()].reduce((sum, item) => sum + item.counts.toReview, 0),
-    themes: {
-      accepted: themeRows.filter((row) => row.status === "accepted").length,
-      decisions: decisionsWaiting(decisions),
-      unthemed: waiting.unthemed,
-    },
+    synthesis,
   });
   const current = currentStepIndex(standing.steps);
 
@@ -93,8 +82,8 @@ export async function SetupTab({
                   href={
                     standing.link.to === "sources"
                       ? projectPath(projectId)
-                      : standing.link.to === "themes"
-                        ? projectPath(projectId, "themes")
+                      : standing.link.to === "synthesis"
+                        ? projectPath(projectId, "synthesis")
                         : projectPath(projectId, "setup")
                   }
                   className={cn(TAP_TARGET, "inline-flex max-lg:items-center")}

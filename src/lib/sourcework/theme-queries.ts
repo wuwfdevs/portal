@@ -180,31 +180,18 @@ export async function getThemeDecisionCounts(
 }
 
 /**
- * Whether the Themes tab shows (§12.6): once a project has a research question
- * or any data point. A project with neither looks as it always did.
+ * Whether the Themes tab shows (§21): only where the project already has themes. Synthesis replaced
+ * themes as the way to an answer, so a project that never made any does not grow the tab; one that
+ * did keeps reading them.
  */
-export async function hasResearchSignal(projectId: string): Promise<boolean> {
+export async function hasThemes(projectId: string): Promise<boolean> {
   const supabase = await createClient();
-  const [questions, points] = await Promise.all([
-    supabase
-      .from("sw_research_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", projectId)
-      .is("archived_at", null),
-    supabase
-      .from("sw_data_points")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", projectId),
-  ]);
-  const questionCount = unwrapRead(
-    { data: questions.count, error: questions.error },
-    "this project's research questions",
-  );
-  const pointCount = unwrapRead(
-    { data: points.count, error: points.error },
-    "this project's data points",
-  );
-  return (questionCount ?? 0) > 0 || (pointCount ?? 0) > 0;
+  const result = await supabase
+    .from("sw_themes")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId);
+  const count = unwrapRead({ data: result.count, error: result.error }, "this project's themes");
+  return (count ?? 0) > 0;
 }
 
 /** The numbers behind the "Waiting for you" strip, apart from the decisions (getThemeDecisionCounts). */

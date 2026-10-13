@@ -147,33 +147,37 @@ describe("projectStanding", () => {
     expect(stepStates(standing)).toEqual(["done", "done", "done", "current"]);
     expect(standing.message).toContain("4 data points are waiting for review");
   });
-  it("finishes with the themes: suggestions first, then unfiled points, then done", () => {
+  it("finishes with the synthesis: write it, refresh it when findings change, then done", () => {
     const sources = [{ title: "A", state: done }];
-    const standing = (themes: { accepted: number; decisions: number; unthemed: number }) =>
-      projectStanding({ questionCount: 1, sources, toReviewTotal: 0, themes });
+    const standing = (synthesis: {
+      acceptedFindings: number;
+      hasSynthesis: boolean;
+      changedSince: number;
+    }) => projectStanding({ questionCount: 1, sources, toReviewTotal: 0, synthesis });
 
-    const none = standing({ accepted: 0, decisions: 0, unthemed: 0 });
+    const none = standing({ acceptedFindings: 4, hasSynthesis: false, changedSince: 0 });
     expect(stepStates(none)).toEqual(["done", "done", "done", "current"]);
-    expect(none.message).toContain("Review themes looks for what they have in common");
-    expect(none.link).toEqual({ label: "Go to Themes", to: "themes" });
+    expect(none.message).toContain("Synthesize says what the 4 accepted findings establish");
+    expect(none.link).toEqual({ label: "Go to Synthesis", to: "synthesis" });
 
-    const waiting = standing({ accepted: 2, decisions: 2, unthemed: 5 });
-    expect(stepStates(waiting)[3]).toBe("current");
-    expect(waiting.message).toContain("2 theme suggestions are waiting for a decision");
+    const nothingAccepted = standing({ acceptedFindings: 0, hasSynthesis: false, changedSince: 0 });
+    expect(nothingAccepted.message).toContain("Accept the findings worth keeping");
+    expect(nothingAccepted.link).toBeNull();
 
-    const unfiled = standing({ accepted: 2, decisions: 0, unthemed: 1 });
-    expect(unfiled.message).toContain("1 accepted data point is not in a theme yet");
+    const stale = standing({ acceptedFindings: 4, hasSynthesis: true, changedSince: 2 });
+    expect(stepStates(stale)[3]).toBe("current");
+    expect(stale.message).toContain("2 findings have changed since the synthesis was written");
 
-    const finished = standing({ accepted: 2, decisions: 0, unthemed: 0 });
+    const finished = standing({ acceptedFindings: 4, hasSynthesis: true, changedSince: 0 });
     expect(stepStates(finished)).toEqual(["done", "done", "done", "done"]);
-    expect(finished.message).toContain("every accepted data point is in a theme");
+    expect(finished.message).toContain("the synthesis is up to date");
   });
-  it("keeps the theme step upcoming until the sources are extracted", () => {
+  it("keeps the synthesis step upcoming until the sources are extracted", () => {
     const standing = projectStanding({
       questionCount: 1,
       sources: [{ title: "A", state: { kind: "idle" } }],
       toReviewTotal: 0,
-      themes: { accepted: 3, decisions: 0, unthemed: 0 },
+      synthesis: { acceptedFindings: 3, hasSynthesis: true, changedSince: 0 },
     });
     expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
   });

@@ -925,7 +925,7 @@ paraphrased into a point per sentence (177 words became 7 points); the same fact
 (26 water points over 7 sources) because extraction judged one source at a time and never saw what the
 project already knew; 107 quote suggestions from per-theme neighbourhoods of data points; background notes
 that were a glossary no later step could cite; and a piece pair written by hand from sources that had never
-been extracted. The reasoning and the remaining plan are in the session plan for this refinement; this section
+been extracted. The reasoning and the remaining plan are in `docs/sourcework-refinement-plan.md`; this section
 records what slice 1 built.
 
 - **One run per source** (`analyze-run.ts`, `/api/sourcework/analyze`, run kind `analyze`) replaces Extract data
@@ -973,3 +973,51 @@ records what slice 1 built.
   exercised in a rolled-back transaction (a no-question finding, a theme-less unrated clip, one analyze run in flight
   at a time). Nothing here has run against a live OpenAI model (this environment has no key). The parser, the
   freshness rules and the labels are unit-tested.
+
+## 21. Project synthesis (2026-10-23)
+
+Slice 2 of `docs/sourcework-refinement-plan.md`. Themes were project-wide codes with no link to the research
+questions and no answer anywhere; a reporter reading Isaias's 15 themes still had to work out what the project had
+established. Synthesis is one run over **every accepted finding** that writes, per research question, what the
+findings establish, how firmly, where they conflict, and what is open.
+
+- **One project-wide run, a section per question** (`synthesis-run.ts`, `/api/sourcework/synthesize`, run kind
+  `synthesis`, at most one in flight per project). Not one run per question: the tensions a reporter most wants span
+  questions (an official's "no confirmed fatalities" against a county's confirmed death). Findings that answer no
+  question get a section of their own; a project with no question gets only that section.
+- **Output** (`synthesis-prompt.ts`): `sections` (per question: statements with a `certainty` of established,
+  contested or uncertain and the finding numbers they cite, and `gaps`), `tensions` (a statement and two or more
+  sides, each with its own cited findings) and `narrative` (moments worth hearing, cited by passage ref).
+- **Enforced in code** (`parseSynthesisOutput`): a statement citing no finding the model was shown is dropped; so is a
+  certainty outside the three, a tension with fewer than two sides or whose sides rest on fewer than two distinct
+  findings, and anything over the ceilings in `synthesis.ts`. **The model returns numbers, never text, times or
+  ids**: finding numbers map to ids, and a narrative note may cite a passage only by a ref the tools gave out.
+- **Tools inside the step** (`tool-loop.ts`, `synthesis-tools.ts`): `search_transcripts` and `read_around`, both
+  read-only through the caller's session, let the model check a thin finding against the tape. Every place a tool
+  shows goes into a `PassageLedger`; a narrative note's source, time and page come from the ledger, so the model
+  cannot invent a place. The loop has a round limit; the last round is forced to answer. A failed lookup is
+  reported to the model, not the run. `tool-loop.ts` is the generic "agentic inside a step, structured at its
+  boundary" call (`runToolLoop`); the outline run in slice 3 reuses it.
+- **Versions** (`20261023120000_sourcework_synthesis.sql`): `sw_project_syntheses` (one row per project, a version
+  pointer) and insert-only `sw_project_synthesis_versions`, written only by `sw_save_project_synthesis()`, which checks
+  the base version and returns -1 if someone saved first (the pieces pattern). A run writes the next version; earlier
+  ones stay. A statement cites findings by id with no foreign key, so a finding rejected later makes the statement
+  say it has no accepted finding behind it rather than breaking the row.
+- **A person's wording is never overwritten** (`carryPinned`): a statement, gap or tension with `origin = 'person'`
+  is carried into every new model version as it is, with its citations trimmed to findings still accepted. **No
+  screen creates or edits one yet**; the writer function and the carry-forward exist so adding that does not need a
+  schema change or change how runs behave.
+- **Breadth is computed, never stored** (`supportBreadth`): the findings, sources and speakers behind a statement
+  are counted from the cited findings each render, and a statement resting on one source says so.
+- **Staleness**: the tab counts accepted findings changed since the current version was written
+  (`findingsChangedSince`); the button reads Update synthesis. The Setup status ends with Synthesize instead of
+  Review themes.
+- **Themes are demoted, not removed**: the tab and theme pages show only on projects that already have themes
+  (`hasThemes`); assign-on-accept and Review themes still run for them until slice 4.
+- **Guide**: a `synthesis` prompt slot (`SYNTHESIS_GUIDE_BUILT_IN`; editors maintain the wording, code owns the
+  schema). Not tryable yet.
+- **Not built**: editing or pinning a statement by hand, a section redone on its own, the outline and the draft
+  expanding it (slices 3), the comparative clip pass, and the evaluation harness.
+- **Status**: the migration is written and **not yet applied** to either project; the Resources content migration
+  (`20261023130000`) likewise. Nothing here has run against a live OpenAI model (this environment has no key). The
+  parser, the carry-forward, the ledger, the tool loop (against a mocked client) and the view rules are unit-tested.

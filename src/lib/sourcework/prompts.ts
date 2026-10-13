@@ -9,7 +9,13 @@
 // version it used (null = built-in).
 
 export type PromptSlot =
-  "analyze" | "context" | "extraction" | "theme_assign" | "theme_review" | "quote_quality";
+  | "analyze"
+  | "synthesis"
+  | "context"
+  | "extraction"
+  | "theme_assign"
+  | "theme_review"
+  | "quote_quality";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -34,6 +40,16 @@ Before you answer, check each finding against the passages it points to and corr
 A clip earns its place by doing what narration cannot: a distinctive voice, an experience told by the person who lived it, a detail only they would know, an explanation in their words that is clearer than a paraphrase. It should make sense to someone hearing it once, start and end where the speaker does, and say something the narration will not already have said. A figure, a date or a list of facts is narration. A reassurance every official gives is not a clip. A few exceptional clips are better than many adequate ones, and none is often right.
 
 A moment of character, a telling detail or a scene that answers no question may be offered as a clip with no finding, but only when a listener would remember it.`;
+
+export const SYNTHESIS_GUIDE_BUILT_IN = `Write each statement so a reporter could attribute it and defend it. State no more than the findings behind it allow, and keep who said it and how they know whenever it changes how far a claim can be trusted.
+
+Established takes more than volume. Several findings from one source are one source's claim, and an official repeating reassurance is not corroboration of it. Call a claim established when independent sources or a firsthand account and a record agree, contested when credible sources disagree, and uncertain when only one source says it or the accounts do not settle it.
+
+A good tension changes how a claim should be understood: an official count against a local one, a memory against a record, a promise against what happened. Two sources merely emphasizing different things is not a tension. Name what each side rests on.
+
+A gap names something a reporter could go and get: a document, a person, a number, a date. "More research is needed" is not a gap.
+
+Offer a narrative note only for what a paraphrase would lose: a moment, a voice, a telling detail that would be remembered on the air. Most projects have few.`;
 
 export const EXTRACTION_GUIDE_BUILT_IN = `Read the transcript as a producer looking for material for a radio story, and as a researcher answering this project's questions.
 
@@ -98,6 +114,22 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "The model returns passage numbers, never text: the code derives times and words. The shape is fixed; your wording decides what is worth keeping and what makes a clip.",
     ],
     builtIn: ANALYZE_GUIDE_BUILT_IN,
+  },
+  {
+    slot: "synthesis",
+    label: "Synthesis guide",
+    description:
+      "Tells the model how to weigh the project's accepted findings against its research questions. Used when someone chooses Synthesize on a project.",
+    tryable: false,
+    gives: [
+      "The project's title and background text, its research questions, and every accepted finding with who said it, how they know it and where.",
+      "The current synthesis, when there is one, to revise rather than replace. Tools to search the transcripts and read a passage, so a claim can be checked against the tape.",
+    ],
+    returns: [
+      "A section per question with statements, each with a certainty and the findings it rests on, and the gaps that remain. Tensions between accounts, and a few narrative notes pointing at passages worth keeping.",
+      "The model returns finding and passage numbers, never text: the code supplies the words and times. The shape is fixed; your wording decides what counts as established and what is a tension.",
+    ],
+    builtIn: SYNTHESIS_GUIDE_BUILT_IN,
   },
   {
     slot: "context",

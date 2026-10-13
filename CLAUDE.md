@@ -484,6 +484,21 @@ editor while a person may have unsaved edits (title rename no longer does). Capa
 widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
 (Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
 
+**Sourcework analysis, slice 2 (project synthesis) has landed (2026-10-23).** Read
+`docs/sourcework-analysis-design.md` §21 and `docs/sourcework-refinement-plan.md` first; this is a pointer. A
+project's **Synthesis** tab (`?view=synthesis`, shown once it has an accepted finding) holds one project-wide run's
+answer per research question: statements marked established, contested or uncertain, tensions between accounts, gaps
+and a few narrative moments, each opening onto the findings behind it. It replaces themes as the way to an answer;
+the Themes tab now shows only where themes exist. Four things are load-bearing: (1) **the model returns numbers,
+never text, times or ids** — findings by number, passages only by a ref a tool gave out (`PassageLedger`), and
+`parseSynthesisOutput` drops what it can't verify; (2) **content is insert-only versions**
+(`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
+**`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
+tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
+`20261023130000` are written but **not applied** to either project; apply preview, then production, record both in
+`APPLIED.md`, and run `db:check` only when the owner authorizes it. Slices 3 (outline as `beat` blocks) and 4
+(retire the old runners) are not built.
+
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
 (`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline
@@ -516,7 +531,7 @@ one **fixed gain** to **-18 LUFS**, followed by a **hard limiter with a -6 dBFS 
 (`lib/sourcework/loudness.ts`, pure, tested). Five things are load-bearing: (1) **why this standard:** it is
 the WUWF team's own Audition practice (normalize to 100%, then hard-limit at -6 dB, which measures about -14 to
 -21 LUFS). The first version targeted NPR/PRSS's -24 LUFS / -3 dBTP with no limiter, and that is a
-*distribution* spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
+_distribution_ spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
 don't reintroduce a peak-headroom hold-back on the gain — peaks are the limiter's job, so the gain is only ever
 reduced by the boost/cut caps (`MAX_AUTO_BOOST_DB` 45 — field tape commonly needs 35-42 dB —
 `MAX_AUTO_CUT_DB`) and the short-clip rule. A boost past `NOISY_BOOST_DB` (20) is allowed but the card says it
@@ -529,10 +544,10 @@ Limiter defaults; `level=false` is required or alimiter adds its own makeup gain
 loudness of peaky tape, so the render is measured with ebur128 and, if it is more than 0.3 LU from the loudness
 the gain intended (stored loudness + gain), rendered **once more** with the gain adjusted by the difference.
 Playback (`pieces/[pieceId]/use-piece-player.ts`) applies the same gain through a Web Audio `GainNode` into a
-`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an *approximation* of
+`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an _approximation_ of
 the limiter, not the same algorithm, so levels match the export closely, not exactly. The shared graph is `lib/sourcework/excerpt-playback.ts`; it needs the audio
 element's `crossOrigin="anonymous"`. It is applied by the piece editor's player and by the source workspace's
-preview of a *saved* excerpt (the transcript element is routed through it only once one is previewed, and put back
+preview of a _saved_ excerpt (the transcript element is routed through it only once one is previewed, and put back
 to neutral when playback stops); a selection not yet saved, a data point's preview, and the quote-suggestion
 players (suggestions have no measurement) still play as recorded. An export made before a level
 change keeps its old level until re-exported (the 2026-10-20 migration un-caches the existing ones).
