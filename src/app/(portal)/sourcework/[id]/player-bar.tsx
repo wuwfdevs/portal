@@ -41,6 +41,7 @@ export function PlayerBar({
   marks = [],
   onSelectMark,
   tone = "excerpt",
+  hiddenOnPhone = false,
 }: {
   mediaRef: RefObject<HTMLMediaElement | null>;
   follow: boolean;
@@ -51,6 +52,11 @@ export function PlayerBar({
   onSelectMark?: (clipId: string) => void;
   /** "evidence" draws the marks as data points: lime, dashed while unreviewed. */
   tone?: "excerpt" | "evidence";
+  /**
+   * Below lg, takes the docked bar off the screen (the excerpt sheet is the player then). Its
+   * height reads 0 while hidden, so what is positioned above `--player-dock-h` drops to the edge.
+   */
+  hiddenOnPhone?: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [currentMs, setCurrentMs] = useState(0);
@@ -135,6 +141,7 @@ export function PlayerBar({
         "fixed inset-x-0 bottom-0 z-30 flex flex-nowrap items-center gap-1.5 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_14px_rgba(15,20,25,0.07)]",
         // lg and up: the sticky bar at the top of the transcript column.
         "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-10 lg:flex-wrap lg:gap-3 lg:rounded lg:border lg:bg-white/95 lg:py-2 lg:pb-2 lg:shadow-none lg:backdrop-blur",
+        hiddenOnPhone && "max-lg:hidden",
       )}
     >
       <button

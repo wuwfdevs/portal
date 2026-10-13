@@ -12,7 +12,8 @@ import { PauseIcon, PlayIcon } from "./transport-icons";
  * What tapping a saved excerpt's words does on a phone. On desktop the same tap
  * selects the excerpt's card in the rail beside the transcript; below lg the
  * rail is another tab, so nothing visible happened. This is a sheet that rises
- * from just above the docked player (the same place as SelectionToolbar's), in
+ * from just above the docked player (the same place as SelectionToolbar's) — or the screen
+ * edge, since the workspace hides the player while this is open (it has its own Play) — in
  * two layers: a peek with the one thing wanted most (Play) and the way on, and
  * the whole ClipCard — rename, trim, level, export, delete — when Edit is
  * chosen. It reuses ClipCard rather than copying its handlers, so there is one
@@ -72,7 +73,7 @@ export function ExcerptSheet({
     <div
       role="dialog"
       aria-label="Excerpt"
-      className="fixed inset-x-0 bottom-[var(--player-dock-h,7rem)] z-50 flex max-h-[calc(100dvh-var(--player-dock-h,7rem)-5rem)] flex-col rounded-t-xl border border-x-0 border-brand-primary bg-white shadow-lg lg:hidden"
+      className="fixed inset-x-0 bottom-[var(--player-dock-h,7rem)] z-50 flex max-h-[calc(100dvh-var(--player-dock-h,7rem)-5rem)] flex-col rounded-t-xl border border-x-0 border-brand-primary bg-white pb-[env(safe-area-inset-bottom)] shadow-lg lg:hidden"
     >
       <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3 pt-3 [&>*]:shrink-0">
         {clips.length > 1 && (
