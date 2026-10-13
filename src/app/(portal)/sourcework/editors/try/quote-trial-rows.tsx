@@ -83,7 +83,7 @@ export function QuoteTrialRows({ rows }: { rows: QuoteTrialRow[] }) {
   const { audioRef, play, playingKey, error } = usePiecePlayer();
   return (
     <>
-      <audio ref={audioRef} preload="none" className="hidden" />
+      <audio ref={audioRef} preload="metadata" crossOrigin="anonymous" className="hidden" />
       {error && (
         <div className="p-3">
           <Alert>{error}</Alert>

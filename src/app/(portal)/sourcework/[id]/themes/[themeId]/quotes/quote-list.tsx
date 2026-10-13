@@ -21,7 +21,7 @@ export function QuoteList({ quotes }: { quotes: QuoteSuggestion[] }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <audio ref={audioRef} preload="none" className="hidden" />
+      <audio ref={audioRef} preload="metadata" crossOrigin="anonymous" className="hidden" />
       {error && <Alert>{error}</Alert>}
       {visible.map((quote) => (
         <QuoteCard

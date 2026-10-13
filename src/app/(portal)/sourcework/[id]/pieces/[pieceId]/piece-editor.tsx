@@ -528,7 +528,7 @@ function PieceEditor({
 
   return (
     <div className="max-lg:pb-20">
-      <audio ref={audioRef} preload="none" crossOrigin="anonymous" className="hidden" />
+      <audio ref={audioRef} preload="metadata" crossOrigin="anonymous" className="hidden" />
 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
