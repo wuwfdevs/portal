@@ -9,7 +9,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
-import { clipAtToken, type ClipSpan, type TimedToken } from "@/lib/transcription/selection";
+import { clipAtToken, clipsAtToken, type ClipSpan, type TimedToken } from "@/lib/transcription/selection";
 import {
   createSpeaker,
   mergeSegmentWithNext,
@@ -82,8 +82,11 @@ export function SegmentRow({
   onStartEditing: () => void;
   onStopEditing: () => void;
   onSeek: (startMs: number) => void;
-  /** A plain click on a word: null where nothing is clipped, which clears the selection. */
-  onSelectClip: (clipId: string | null) => void;
+  /**
+   * A plain click on a word: null where nothing is clipped, which clears the selection.
+   * `coveringIds` is every clip over the word (the picked one first), for the phone's excerpt sheet.
+   */
+  onSelectClip: (clipId: string | null, coveringIds: string[]) => void;
   /** Turns the whole line into the pending excerpt — the way to make one on a phone without precise text selection. */
   onMakeExcerpt: () => void;
 }) {
@@ -152,7 +155,8 @@ export function SegmentRow({
     const tokenEl = (event.target as HTMLElement).closest("[data-token-index]");
     if (!(tokenEl instanceof HTMLElement)) return;
     if (window.getSelection()?.isCollapsed === false) return;
-    onSelectClip(clipAtToken(clipSpans, Number(tokenEl.dataset.tokenIndex)));
+    const tokenIndex = Number(tokenEl.dataset.tokenIndex);
+    onSelectClip(clipAtToken(clipSpans, tokenIndex), clipsAtToken(clipSpans, tokenIndex));
   }
 
   function beginEditing() {

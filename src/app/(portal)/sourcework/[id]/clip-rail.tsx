@@ -196,7 +196,7 @@ export function ClipRail({
   );
 }
 
-function ClipCard({
+export function ClipCard({
   clip,
   isSelected = false,
   selectionOrigin,
@@ -238,7 +238,18 @@ function ClipCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showTrim, setShowTrim] = useState(false);
 
-  const { schedule: scheduleCommit } = useDelayedCommit(TRIM_COMMIT_DELAY_MS);
+  // A trim the card has already shown is written even if the card goes away first (the phone sheet
+  // closes, or another excerpt is picked, within the delay).
+  const { schedule: scheduleCommit } = useDelayedCommit(TRIM_COMMIT_DELAY_MS, {
+    flushOnUnmount: true,
+  });
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   /**
    * Trimming is a hold-the-button-down interaction, so the local value moves
@@ -266,7 +277,8 @@ function ClipCard({
       onTrimPreview(clip.id, { startMs: result.startMs, endMs: result.endMs });
       // Trimming invalidates any previous export — re-exporting is explicit.
       setHasExport(false);
-      onPreview(result.startMs, result.endMs, clip.id);
+      // Not when the card is already gone: a flushed trim must not start audio.
+      if (mountedRef.current) onPreview(result.startMs, result.endMs, clip.id);
       router.refresh();
     });
   }

@@ -278,6 +278,7 @@ repo and a project's history, not the version number.
 | `20261020120000_sourcework_excerpt_live_channel.sql`                       | 2026-10-12 | 2026-10-12 |
 | `20261020130000_resources_sourcework_excerpt_level_18_lufs.sql`          | 2026-10-12 | 2026-10-12 |
 | `20261020140000_resources_sourcework_piece_pauses.sql`                   | 2026-10-12 | 2026-10-12 |
+| `20261021120000_resources_sourcework_excerpt_sheet.sql`                   | 2026-10-13 | 2026-10-13 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
