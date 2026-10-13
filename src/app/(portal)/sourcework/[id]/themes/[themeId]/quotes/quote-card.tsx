@@ -129,7 +129,7 @@ export function QuoteCard({
           variant={quote.tier === "usable" ? "secondary" : "primary"}
           onClick={accept}
           disabled={busy}
-          className="max-lg:min-h-11 max-lg:px-[18px] max-lg:text-sm"
+          className="max-lg:px-[18px] max-lg:text-sm"
         >
           Accept
         </Button>

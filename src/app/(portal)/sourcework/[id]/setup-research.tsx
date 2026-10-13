@@ -223,7 +223,6 @@ function QuestionsSection({
             <div className="flex gap-2">
               <Button
                 type="button"
-                className={TAP}
                 disabled={busy || newText.trim() === ""}
                 onClick={() => void submitNew()}
               >
@@ -232,7 +231,6 @@ function QuestionsSection({
               <Button
                 type="button"
                 variant="secondary"
-                className={TAP}
                 onClick={() => setAdding(false)}
               >
                 Cancel
@@ -249,7 +247,7 @@ function QuestionsSection({
               type="button"
               variant="secondary"
               size="sm"
-              className={`${TAP} self-start`}
+              className="self-start"
               onClick={() => setAdding(true)}
             >
               + Add question
@@ -283,7 +281,6 @@ function QuestionsSection({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className={TAP}
                     disabled={busy || atLimit}
                     title={atLimit ? "Archive another question first" : undefined}
                     onClick={() =>
@@ -435,7 +432,6 @@ function BackgroundSection({
             type="button"
             variant="secondary"
             size="sm"
-            className={TAP}
             disabled={gathering || !hasQuestions}
             aria-busy={gathering || undefined}
             onClick={onRefresh}
@@ -494,7 +490,6 @@ function BackgroundSection({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className={TAP}
                   disabled={busyId === note.id}
                   onClick={() => void setDismissed(note.id, true)}
                 >
@@ -527,7 +522,6 @@ function BackgroundSection({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className={TAP}
                     disabled={busyId === note.id}
                     onClick={() => void setDismissed(note.id, false)}
                   >

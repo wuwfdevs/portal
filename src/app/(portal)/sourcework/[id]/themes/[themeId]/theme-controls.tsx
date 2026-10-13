@@ -134,7 +134,7 @@ export function ThemeEditForm({
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={busy} className="max-lg:min-h-11">
+        <Button type="submit" disabled={busy}>
           {status === "suggested" ? "Save and accept" : "Save"}
         </Button>
         <Button
@@ -142,7 +142,6 @@ export function ThemeEditForm({
           variant="secondary"
           disabled={busy}
           onClick={() => router.replace(doneHref)}
-          className="max-lg:min-h-11"
         >
           Cancel
         </Button>
@@ -206,7 +205,6 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
               size="sm"
               onClick={() => void save()}
               disabled={busy}
-              className="max-lg:min-h-11"
             >
               Save
             </Button>
@@ -216,7 +214,6 @@ export function ThemeMemo({ themeId, memo }: { themeId: string; memo: string }) 
               variant="secondary"
               onClick={() => setEditing(false)}
               disabled={busy}
-              className="max-lg:min-h-11"
             >
               Cancel
             </Button>
@@ -363,7 +360,6 @@ export function AddPointsPanel({
                     variant="secondary"
                     disabled={busyId === point.id}
                     onClick={() => void add(point.id, "supports")}
-                    className="max-lg:min-h-11"
                   >
                     Supports
                   </Button>
@@ -373,7 +369,6 @@ export function AddPointsPanel({
                     variant="secondary"
                     disabled={busyId === point.id}
                     onClick={() => void add(point.id, "complicates")}
-                    className="max-lg:min-h-11"
                   >
                     Complicates
                   </Button>

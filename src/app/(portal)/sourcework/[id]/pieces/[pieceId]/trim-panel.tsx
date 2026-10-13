@@ -184,7 +184,6 @@ export function TrimPanel({
               size="sm"
               disabled={!segments?.length}
               onClick={findPauses}
-              className="max-lg:min-h-11"
             >
               Find pauses
             </Button>
@@ -204,7 +203,6 @@ export function TrimPanel({
                     type="button"
                     size="sm"
                     onClick={acceptProposal}
-                    className="max-lg:min-h-11"
                   >
                     Remove these pauses
                   </Button>

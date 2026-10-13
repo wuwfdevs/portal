@@ -116,7 +116,6 @@ export function DataPointCard({
               size="sm"
               onClick={save}
               disabled={busy || draft.trim() === ""}
-              className="max-lg:min-h-11"
             >
               Save
             </Button>
@@ -129,7 +128,6 @@ export function DataPointCard({
                 setDraft(point.claim);
                 setError(null);
               }}
-              className="max-lg:min-h-11"
             >
               Cancel
             </Button>
@@ -189,7 +187,7 @@ export function DataPointCard({
                 size="sm"
                 onClick={() => void decide("accept")}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Accept
               </Button>
@@ -202,7 +200,7 @@ export function DataPointCard({
                   setEditing(true);
                 }}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Edit
               </Button>
@@ -212,7 +210,7 @@ export function DataPointCard({
                 variant="secondary"
                 onClick={() => void decide("reject")}
                 disabled={busy}
-                className="max-lg:min-h-11 max-lg:px-4"
+                className="max-lg:px-4"
               >
                 Reject
               </Button>

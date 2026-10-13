@@ -126,7 +126,7 @@ export function ExcerptTrimEditor({
             variant="secondary"
             size="sm"
             onClick={() => onPlay(range)}
-            className="gap-2 max-lg:min-h-11 lg:ml-auto"
+            className="gap-2 lg:ml-auto"
           >
             <PlayIcon className="h-2.5 w-2.5" />
             {playing ? "Stop" : "Play as cut"}

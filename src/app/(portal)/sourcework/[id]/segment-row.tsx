@@ -333,7 +333,7 @@ export function SegmentRow({
                   size="sm"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={handleSave}
-                  className="max-lg:min-h-11 max-lg:px-4"
+                  className="max-lg:px-4"
                 >
                   Save
                 </Button>
@@ -343,7 +343,7 @@ export function SegmentRow({
                   variant="secondary"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={cancelEditing}
-                  className="max-lg:min-h-11 max-lg:px-4"
+                  className="max-lg:px-4"
                 >
                   Cancel
                 </Button>

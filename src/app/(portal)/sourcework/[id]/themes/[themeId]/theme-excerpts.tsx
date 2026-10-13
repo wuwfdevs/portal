@@ -65,7 +65,7 @@ export function ThemeExcerptsPanel({
           ) : (
             <SuggestQuotesButton
               state={state}
-              className="max-lg:min-h-11 max-lg:px-4 max-lg:text-[13px]"
+              className="max-lg:px-4 max-lg:text-[13px]"
             />
           ))}
       </div>

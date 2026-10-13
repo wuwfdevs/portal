@@ -479,7 +479,6 @@ export function ClipCard({
           size="sm"
           onClick={handleExport}
           disabled={status !== "idle"}
-          className="max-lg:min-h-11"
         >
           {status === "exporting" ? "Exporting…" : hasExport ? "Re-export" : "Export WAV"}
         </Button>

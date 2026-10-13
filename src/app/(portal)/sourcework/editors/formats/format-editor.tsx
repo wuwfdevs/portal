@@ -318,7 +318,7 @@ export function FormatEditor({
               onChange={(event) => setName(event.target.value)}
               className="max-w-sm font-serif font-bold"
             />
-            <Button type="submit" size="sm" className="max-lg:min-h-11">
+            <Button type="submit" size="sm">
               Save
             </Button>
             <Button

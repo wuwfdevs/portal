@@ -615,7 +615,7 @@ function PieceEditor({
               aria-label="Target length"
               className="w-24 px-2.5 py-1.5"
             />
-            <Button type="submit" size="sm" className="max-lg:min-h-11">
+            <Button type="submit" size="sm">
               Save
             </Button>
             <Button
@@ -760,7 +760,6 @@ function PieceEditor({
                       variant="secondary"
                       size="sm"
                       onClick={() => void restore(row.version)}
-                      className="max-lg:min-h-11"
                     >
                       Restore
                     </Button>
@@ -806,7 +805,7 @@ function PieceEditor({
             )}
           </p>
           <div className="mt-4 flex justify-center gap-2.5 max-lg:flex-col">
-            <Button type="button" onClick={() => addNarrationAt(0)} className="max-lg:min-h-11">
+            <Button type="button" onClick={() => addNarrationAt(0)}>
               + Narration
             </Button>
             <Button
@@ -814,7 +813,6 @@ function PieceEditor({
               variant="secondary"
               onClick={() => setEmptyPicker((open) => !open)}
               aria-expanded={emptyPicker}
-              className="max-lg:min-h-11"
             >
               + Excerpt
             </Button>
@@ -823,7 +821,7 @@ function PieceEditor({
                 type="button"
                 variant="secondary"
                 onClick={() => setDrafting(true)}
-                className="bg-brand-surface max-lg:min-h-11"
+                className="bg-brand-surface"
               >
                 Draft with AI
               </Button>
