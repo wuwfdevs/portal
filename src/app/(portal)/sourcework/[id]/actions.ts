@@ -58,6 +58,29 @@ export async function renameSpeaker(input: {
 }
 
 /**
+ * Marks a speaker as the interviewer (or clears it). Analyze skips an interviewer's lines: what
+ * they ask is not a finding and not a clip. Null means nobody has said.
+ */
+export async function setSpeakerRole(input: {
+  projectId: string | null;
+  speakerId: string;
+  role: "interviewer" | null;
+}): Promise<{ error?: string }> {
+  const supabase = await assertTranscriptionAccess();
+  const { error } = await supabase
+    .from("tw_speakers")
+    .update({ role: input.role })
+    .eq("id", input.speakerId);
+
+  if (error) {
+    console.error("Could not save the speaker's role:", error);
+    return { error: "Could not save that." };
+  }
+  revalidateProject(input.projectId);
+  return {};
+}
+
+/**
  * Folds one speaker into another: every line of `fromSpeakerId` moves to
  * `intoSpeakerId`, then the emptied speaker is removed. Diarization often
  * splits one person into two or three, and in a long public meeting into

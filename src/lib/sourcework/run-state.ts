@@ -170,7 +170,7 @@ export function projectStanding(input: {
   const labels = [
     ["Research questions", "Questions"],
     ["Add sources", "Add sources"],
-    ["Extract data points", "Extract"],
+    ["Analyze sources", "Analyze"],
     ["Review themes", "Review themes"],
   ] as const;
   const steps = labels.map(([label, shortLabel], index) => ({
@@ -183,7 +183,7 @@ export function projectStanding(input: {
     return {
       steps,
       message:
-        "Add the questions you are trying to answer. Data points that answer one are tagged with it; passages worth using that answer none are kept as story material.",
+        "Add the questions you are trying to answer, or analyze a source without one. Findings that answer a question are tagged with it.",
       link: null,
     };
   }

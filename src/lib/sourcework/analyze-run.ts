@@ -12,6 +12,7 @@ import {
   parseAnalysisOutput,
   type AnalyzeConsulted,
   type AnalyzeFinding,
+  type AnalyzeNote,
   type EstablishedFinding,
   type ParsedAnalysis,
 } from "./analyze-prompt";
@@ -19,7 +20,12 @@ import { dropDecidedClips, dropDecidedFindings, establishedLabel } from "./analy
 import { callAnalyzeModel } from "./analyze-ai";
 import { noteKey } from "./context-prompt";
 import { MAX_ESTABLISHED_FINDINGS } from "./analyze-prompt";
-import { getLivePrompt, listDataPointsForSource, listResearchQuestions } from "./research-queries";
+import {
+  getLivePrompt,
+  listContextNotes,
+  listDataPointsForSource,
+  listResearchQuestions,
+} from "./research-queries";
 import { finishRun, startRun } from "./research-runs";
 
 // Analyze one source, end to end (docs/sourcework-analysis-design.md §20): read it as numbered units,
@@ -34,6 +40,8 @@ export interface AnalyzeContext {
   questions: { id: string; number: number; question: string }[];
   /** Accepted findings from the project's current sources, so the model can add to them rather than repeat. */
   established: EstablishedFinding[];
+  /** Pages consulted on earlier runs that nobody dismissed. */
+  notes: AnalyzeNote[];
 }
 
 export async function loadAnalyzeContext(
@@ -86,6 +94,10 @@ export async function loadAnalyzeContext(
     }));
   }
 
+  const notes = (await listContextNotes(projectId))
+    .filter((note) => note.status === "active")
+    .map((note) => ({ title: note.title, summary: note.summary }));
+
   return {
     ok: true,
     context: {
@@ -93,6 +105,7 @@ export async function loadAnalyzeContext(
       projectDescription: project.description,
       questions,
       established,
+      notes,
     },
   };
 }
@@ -136,6 +149,7 @@ async function analyzeWindows(args: {
       projectDescription: context.projectDescription,
       questions: context.questions.map(({ number, question }) => ({ number, question })),
       established: context.established,
+      notes: context.notes,
       sourceTitle: source.sourceTitle,
       sourceKindLabel: source.sourceKindLabel,
       units: window,

@@ -374,7 +374,7 @@ describe("buildAnalyzeInput", () => {
   };
 
   it("says so when there is no question, instead of leaving the model to guess", () => {
-    const text = buildAnalyzeInput({ ...base, questions: [], established: [] });
+    const text = buildAnalyzeInput({ ...base, questions: [], established: [], notes: [] });
     expect(text).toMatch(/no research question yet/);
     expect(text).not.toMatch(/Research questions:/);
   });
@@ -390,11 +390,36 @@ describe("buildAnalyzeInput", () => {
           sourceTitle: "Teal",
         },
       ],
+      notes: [],
     });
     expect(text).toMatch(/Research questions:\n1\. Where were the tunnels\?/);
     expect(text).toMatch(
       /Already established[^\n]*\n- Q1: Teal ran through the Redoubt passage\. \[Teal\]/,
     );
+  });
+});
+
+describe("buildAnalyzeInput: background", () => {
+  it("shows earlier background as unverified reference, and omits the section when there is none", () => {
+    const base = {
+      projectTitle: "Tunnel Visions",
+      projectDescription: null,
+      questions: [],
+      established: [],
+      sourceTitle: "Teal",
+      sourceKindLabel: "Recording",
+      units: units(1),
+      groups: [{ index: 0, label: "0:00 · Teal" }],
+      windowLabel: null,
+    };
+    const withNotes = buildAnalyzeInput({
+      ...base,
+      notes: [{ title: "Fort Redoubt terminology", summary: "Usually the Advanced Redoubt." }],
+    });
+    expect(withNotes).toMatch(
+      /Unverified reference[^\n]*never evidence:\n- Fort Redoubt terminology: Usually/,
+    );
+    expect(buildAnalyzeInput({ ...base, notes: [] })).not.toMatch(/Background from the web/);
   });
 });
 

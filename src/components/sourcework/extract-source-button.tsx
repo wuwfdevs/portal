@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { progressDetail, requestExtraction } from "@/lib/sourcework/extract-stream";
-import { pluralize } from "@/lib/format";
+import { progressDetail, requestAnalysis } from "@/lib/sourcework/extract-stream";
+import { analysisSummary } from "@/lib/sourcework/setup-view";
 
 /**
- * Starts extraction for one source and stays with it: the label becomes the
- * part being read, then the screen refreshes so the new data points are there.
+ * Starts Analyze for one source and stays with it: the label becomes the
+ * part being read, then the screen refreshes so the new findings are there.
  * One request, one source — the Sources tab runs a batch of these through
- * `useTaskQueue` with `requestExtraction` directly (lib/sourcework/extract-stream.ts).
+ * `useTaskQueue` with `requestAnalysis` directly (lib/sourcework/extract-stream.ts).
  *
  * Closing the tab ends the request, so a run left unfinished is picked up as
  * stale by the next click (docs/sourcework-analysis-design.md §9: every step is
@@ -19,8 +19,8 @@ import { pluralize } from "@/lib/format";
 export function ExtractSourceButton({
   projectId,
   sourceId,
-  children = "Extract data points",
-  runningLabel = "Extracting data points…",
+  children = "Analyze",
+  runningLabel = "Analyzing…",
   variant = "primary",
   className,
 }: {
@@ -40,7 +40,7 @@ export function ExtractSourceButton({
     setBusy(true);
     setMessage(null);
     setDetail(null);
-    const result = await requestExtraction({
+    const result = await requestAnalysis({
       projectId,
       sourceId,
       onProgress: (done, total) => setDetail(progressDetail(done, total)),
@@ -50,10 +50,7 @@ export function ExtractSourceButton({
     if (result.ok) {
       setMessage({
         tone: "info",
-        text:
-          result.added === 0
-            ? "No new data points were found."
-            : `${pluralize(result.added, "data point")} added for review.`,
+        text: analysisSummary(result.added, result.clips ?? 0),
       });
     } else {
       setMessage({ tone: "error", text: result.error });

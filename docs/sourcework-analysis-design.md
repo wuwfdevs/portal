@@ -916,3 +916,58 @@ different, so the model should assemble narration and actualities freely from th
 - Separately fixed the same day: deleting a piece written by Draft with AI failed because `sw_analysis_runs`'s
   `piece_draft` check required a non-trial draft run to name its piece, while the foreign key sets it null on deletion
   (`20261018100000` drops the check).
+
+## 20. Analyze source (slice 1 of the 2026-10-13 refinement)
+
+Why. Production use of Phases A–E (Hurricane Isaias, Tunnel Visions) showed the pipeline working but not
+serving the editorial workflow: 186 of 186 data points accepted and none rejected; short briefings
+paraphrased into a point per sentence (177 words became 7 points); the same facts restated across sources
+(26 water points over 7 sources) because extraction judged one source at a time and never saw what the
+project already knew; 107 quote suggestions from per-theme neighbourhoods of data points; background notes
+that were a glossary no later step could cite; and a piece pair written by hand from sources that had never
+been extracted. The reasoning and the remaining plan are in the session plan for this refinement; this section
+records what slice 1 built.
+
+- **One run per source** (`analyze-run.ts`, `/api/sourcework/analyze`, run kind `analyze`) replaces Extract data
+  points, the per-theme Suggest quotes pass and the separate background pre-pass as the way in. The old
+  extraction runner, route, themes and quote runs are untouched and still work; they are retired in a later slice.
+- **Input** (`analyze-prompt.ts`): the source as numbered units; the research questions, or an explicit note that
+  there are none (**a question is not required**; the model is told to use the project description instead and to
+  give every finding `question_number: null`, stored as `relevance = 'general'`); the findings the project has
+  already accepted, so the model adds to, sharpens or contradicts them rather than repeating them; and the
+  not-dismissed background notes already on file. Interviewer lines are marked `(interviewer)`.
+- **Tools**: OpenAI's built-in `web_search`, `tool_choice: auto`, no list of subjects. The model decides when
+  context is worth a search. The searches made are recorded on the run; `counts.searches_naming_people` flags any
+  query that contains a name from the recording, since the privacy rule is a prompt instruction and this is how it
+  is checked.
+- **Output**: `findings` (claim, kind, question number or null, a one-line `significance` the model must write,
+  unit spans), `excerpts` (candidate clips: first and last unit, a reason, the finding served or null for
+  narrative colour) and `consulted` (title, summary, address, the findings it informed).
+- **Enforced in code, not in the prompt**: a finding with no passage, no words or no significance is dropped; a
+  finding or clip that rests only on an interviewer is dropped; a clip must be one speaker's consecutive units the
+  window showed, 1.5–60 s, with a reason; at most **5 clips per source** (a ceiling, never a target; the old pass
+  allowed 8 per theme); a consulted address the search tool never returned is dropped. Times and the clip's words
+  are derived from the units, never typed by the model.
+- **Re-runs** replace only what is still waiting. A finding on a passage a person already decided is not made
+  again; a clip over a stretch already decided or already cut as an excerpt is not proposed (`analyze-fresh.ts`).
+- **Schema** (`20261022120000_sourcework_analyze.sql`): `sw_data_points.significance` and `relevance = 'general'`;
+  `sw_quote_suggestions.theme_id` nullable (a clip Analyze proposes belongs to a source) and `tier` nullable (it does
+  not grade its own clips; `sw_accept_quote_suggestion` records no `quality_tier` for an unrated clip);
+  `sw_context_note_points` (which findings a consulted page informed); `tw_speakers.role`; run kinds `analyze`,
+  `synthesis` and `outline` (the last two reserved for later slices). A clip with no `sw_quote_suggestion_points`
+  rows serves no finding.
+- **Screens**: Analyze replaces Extract data points on the Sources tab and in the source's Data points panel, and
+  works in a project with no research question. A source opened from any project has its Data points layer. Clips
+  to review appear above the findings and reuse the suggested-quote card (play, trim, accept, reject). The Setup
+  tab no longer looks up background on a schedule or when a question changes; its notes list is now "Pages
+  consulted", still dismissable. The speakers menu has an Interviewer checkbox (`setSpeakerRole`).
+- **Retrieval for later steps**: read-only capabilities `sourcework.project.searchTranscripts` (over `tw_search`),
+  `sourcework.source.readPassage` and `sourcework.project.readFindings` (`research-capabilities.ts`), available to the
+  assistant now and to the synthesis and outline runs when they land.
+- **Not built in this slice**: the project-wide synthesis that replaces themes (one run, a section per research
+  question, cited findings, tensions and gaps), the outline as `beat` blocks in the existing piece editor with Draft
+  expanding them, the comparative actuality pass against an outline, an evaluation harness reading old and new runs
+  side by side (`scripts/sourcework-eval/`), and removal of the old extraction runner, theme runs and unused prompt
+  slots.
+- **Status**: the migrations are written and **not yet applied to either project**; nothing here has run against a
+  live OpenAI model (this environment has no key). The parser, the freshness rules and the labels are unit-tested.

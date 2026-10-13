@@ -180,11 +180,11 @@ export async function getLatestExtractionRuns(
             .select(RUN_COLUMNS)
             .eq("project_id", projectId)
             .eq("source_id", sourceId)
-            .eq("kind", "extraction")
+            .in("kind", ["extraction", "analyze"])
             .eq("trial", false)
             .order("started_at", { ascending: false })
             .limit(1),
-          "a source's latest extraction run",
+          "a source's latest analysis run",
         ) ?? [];
       return rows[0] ? toRunSummary(rows[0]) : null;
     }),

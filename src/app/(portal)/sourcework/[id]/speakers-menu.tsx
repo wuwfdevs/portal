@@ -10,7 +10,7 @@ import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { filterSpeakerRows, speakerRows, speakerSummary } from "@/lib/transcription/speakers";
 import type { TranscriptSegment, TranscriptSpeaker } from "@/lib/transcription/projects";
-import { createSpeaker, mergeSpeakers, renameSpeaker } from "./actions";
+import { createSpeaker, mergeSpeakers, renameSpeaker, setSpeakerRole } from "./actions";
 import { useDismissable } from "@/lib/use-dismissable";
 
 /** Past this many speakers the panel offers a filter; below it a filter is clutter. */
@@ -340,6 +340,24 @@ function SpeakerEditRow({
   const [mergeTarget, setMergeTarget] = useState("");
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [mergePending, setMergePending] = useState(false);
+  const [interviewer, setInterviewer] = useSyncedState(speaker.role === "interviewer");
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  async function handleInterviewer(next: boolean) {
+    setInterviewer(next);
+    setRoleError(null);
+    const result = await setSpeakerRole({
+      projectId,
+      speakerId: speaker.id,
+      role: next ? "interviewer" : null,
+    });
+    if (result.error) {
+      setInterviewer(!next);
+      setRoleError(result.error);
+      return;
+    }
+    router.refresh();
+  }
 
   async function handleBlur() {
     if (!isDirty) return;
@@ -414,6 +432,15 @@ function SpeakerEditRow({
             Merge…
           </Button>
         )}
+        <label className="flex min-h-11 items-center gap-1.5 text-xs text-ink-700 lg:min-h-0">
+          <input
+            type="checkbox"
+            checked={interviewer}
+            onChange={(event) => void handleInterviewer(event.target.checked)}
+          />
+          Interviewer
+        </label>
+        {roleError && <span className="text-xs text-danger">{roleError}</span>}
         <span className="text-xs text-ink-400" aria-live="polite">
           {status === "saving" && "Saving…"}
           {status === "saved" && "Saved"}

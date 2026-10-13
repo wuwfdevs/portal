@@ -944,6 +944,7 @@ export function TranscriptWorkspace({
               const span = point.spans.find((candidate) => candidate.kind === "temporal");
               if (span?.kind === "temporal") previewRange(span.startMs, span.endMs);
             }}
+            onPlayClip={(range) => previewRange(range.startMs, range.endMs)}
             onOpen={(point) => {
               // A tap on a card's time: select it, go to the words, and put the
               // playhead there without starting playback.

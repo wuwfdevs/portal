@@ -30,7 +30,10 @@ import {
 } from "@/lib/sourcework/research-queries";
 import { sortDataPointsBySpan } from "@/lib/sourcework/research";
 import { listThemesForDataPoints } from "@/lib/sourcework/theme-queries";
-import { listExcerptsForDataPoints } from "@/lib/sourcework/quote-queries";
+import {
+  listExcerptsForDataPoints,
+  listWaitingClipsForSource,
+} from "@/lib/sourcework/quote-queries";
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
@@ -103,7 +106,7 @@ export default async function SourceDetailPage({
   const representationStatus = source.transcript?.status ?? "pending";
   const contentReady = fileReady && representationStatus === "ready";
 
-  // Data points mode: only from a project that has at least one active question.
+  // Data points mode: whenever the source is opened from a project.
   const research: SourceResearchView | null = contextProject
     ? await loadResearchView(contextProject.id, id, source.status, isDocument)
     : null;
@@ -378,11 +381,12 @@ async function loadResearchView(
   status: Parameters<typeof getSourceResearch>[1][number]["status"],
   isDocument: boolean,
 ): Promise<SourceResearchView | null> {
+  // Analyze needs no research question, so a source opened from a project always has its
+  // Data points layer; a question only sharpens what the model looks for.
   const questions = await listResearchQuestions(projectId);
-  const active = questions.filter((question) => !question.archivedAt);
-  if (active.length === 0) return null;
-  const [points, researchBySource] = await Promise.all([
+  const [points, clips, researchBySource] = await Promise.all([
     listDataPointsForSource(projectId, sourceId),
+    listWaitingClipsForSource(sourceId),
     getSourceResearch(projectId, [
       { sourceId, status, kind: isDocument ? "document" : "audio_video" },
     ]),
@@ -397,6 +401,7 @@ async function loadResearchView(
   ]);
   return {
     points: sortDataPointsBySpan(points),
+    clips,
     labels: Object.fromEntries(questions.map((question) => [question.id, question.label])),
     questionTexts: Object.fromEntries(
       questions.map((question) => [question.id, question.question]),

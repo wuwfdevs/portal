@@ -49,3 +49,19 @@ describe("setup view rules", () => {
     expect(extractButtonLabel(3)).toBe("Extract data points (3)");
   });
 });
+
+describe("Analyze labels", () => {
+  it("counts the sources a batch would analyze", async () => {
+    const { analyzeButtonLabel } = await import("./setup-view");
+    expect(analyzeButtonLabel(0)).toBe("Analyze");
+    expect(analyzeButtonLabel(3)).toBe("Analyze (3)");
+  });
+
+  it("summarizes a run in findings and clips, and says plainly when there is nothing new", async () => {
+    const { analysisSummary } = await import("./setup-view");
+    expect(analysisSummary(0, 0)).toBe("Nothing new to review.");
+    expect(analysisSummary(1, 0)).toBe("1 finding added for review.");
+    expect(analysisSummary(4, 2)).toBe("4 findings and 2 clips added for review.");
+    expect(analysisSummary(0, 1)).toBe("1 clip added for review.");
+  });
+});

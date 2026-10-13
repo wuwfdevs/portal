@@ -4,13 +4,11 @@ import { TextLink } from "@/components/ui/primary-link";
 import type { ProjectSourceSummary } from "@/lib/transcription/projects";
 import { projectPath } from "@/lib/transcription/links";
 import {
-  getLatestContextRun,
   getSourceResearch,
   listContextNotes,
   listResearchQuestions,
 } from "@/lib/sourcework/research-queries";
 import { projectStanding } from "@/lib/sourcework/run-state";
-import { contextNeedsRefresh } from "@/lib/sourcework/context-prompt";
 import { currentStepIndex } from "@/lib/sourcework/setup-view";
 import {
   getThemeDecisionCounts,
@@ -34,35 +32,23 @@ export async function SetupTab({
   projectId: string;
   sources: ProjectSourceSummary[];
 }) {
-  const [questions, notes, lastContextRun, research, themeRows, decisions, waiting] =
-    await Promise.all([
-      listResearchQuestions(projectId),
-      listContextNotes(projectId),
-      getLatestContextRun(projectId),
-      getSourceResearch(
-        projectId,
-        sources.map((entry) => ({
-          sourceId: entry.sourceId,
-          status: entry.status,
-          kind: entry.source.kind,
-        })),
-      ),
-      listThemeRows(projectId),
-      getThemeDecisionCounts(projectId),
-      getWaitingNumbers(projectId),
-    ]);
+  const [questions, notes, research, themeRows, decisions, waiting] = await Promise.all([
+    listResearchQuestions(projectId),
+    listContextNotes(projectId),
+    getSourceResearch(
+      projectId,
+      sources.map((entry) => ({
+        sourceId: entry.sourceId,
+        status: entry.status,
+        kind: entry.source.kind,
+      })),
+    ),
+    listThemeRows(projectId),
+    getThemeDecisionCounts(projectId),
+    getWaitingNumbers(projectId),
+  ]);
 
   const activeQuestions = questions.filter((question) => question.archivedAt === null);
-  const fingerprint = lastContextRun?.counts.questions_fingerprint;
-  const backgroundStale = contextNeedsRefresh({
-    questions: activeQuestions.map((question) => question.question),
-    lastRun: lastContextRun
-      ? {
-          status: lastContextRun.status,
-          fingerprint: typeof fingerprint === "string" ? fingerprint : null,
-        }
-      : null,
-  });
 
   const standing = projectStanding({
     questionCount: activeQuestions.length,
@@ -130,12 +116,7 @@ export async function SetupTab({
         </div>
       </section>
 
-      <SetupResearch
-        projectId={projectId}
-        questions={questions}
-        notes={notes}
-        backgroundStale={backgroundStale}
-      />
+      <SetupResearch projectId={projectId} questions={questions} notes={notes} />
     </div>
   );
 }

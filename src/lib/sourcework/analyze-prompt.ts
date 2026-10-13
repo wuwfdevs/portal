@@ -64,11 +64,18 @@ export interface EstablishedFinding {
   sourceTitle: string;
 }
 
+export interface AnalyzeNote {
+  title: string;
+  summary: string;
+}
+
 export interface AnalyzeInput {
   projectTitle: string;
   projectDescription: string | null;
   questions: readonly AnalyzeQuestion[];
   established: readonly EstablishedFinding[];
+  /** Pages consulted on earlier runs and not dismissed; reference for reading the source, never evidence. */
+  notes: readonly AnalyzeNote[];
   sourceTitle: string;
   sourceKindLabel: string;
   units: readonly ExtractionUnit[];
@@ -103,6 +110,13 @@ export function buildAnalyzeInput(input: AnalyzeInput): string {
               `- ${finding.questionLabel ? `${finding.questionLabel}: ` : ""}${finding.claim} [${finding.sourceTitle}]`,
           )
           .join("\n"),
+    );
+  }
+
+  if (input.notes.length > 0) {
+    parts.push(
+      "Background from the web, gathered earlier. Unverified reference for reading names and terms; never evidence:\n" +
+        input.notes.map((note) => `- ${note.title}: ${note.summary}`).join("\n"),
     );
   }
 

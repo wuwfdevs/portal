@@ -77,23 +77,46 @@ export function progressDetail(done: number, total: number): string | null {
 }
 
 export type ExtractClientResult =
-  | { ok: true; added: number; skippedReviewed: number; dropped: number }
+  | {
+      ok: true;
+      added: number;
+      skippedReviewed: number;
+      dropped: number;
+      /** Analyze only. */
+      clips?: number;
+      consulted?: number;
+    }
   | { ok: false; error: string; retryable: boolean };
+
+interface RequestArgs {
+  projectId: string;
+  sourceId: string;
+  onProgress?: (done: number, total: number) => void;
+  signal?: AbortSignal;
+}
 
 /**
  * Runs one source's extraction from the browser and reports its progress. A
  * dropped connection is retryable (the run, if it died, is recovered by the
  * server as stale); a refusal by the server is not.
  */
-export async function requestExtraction(args: {
-  projectId: string;
-  sourceId: string;
-  onProgress?: (done: number, total: number) => void;
-  signal?: AbortSignal;
-}): Promise<ExtractClientResult> {
+export function requestExtraction(args: RequestArgs): Promise<ExtractClientResult> {
+  return requestRun("/api/sourcework/extract", "extraction", args);
+}
+
+/** The same for Analyze (docs/sourcework-analysis-design.md §20): findings, a few clips, the pages consulted. */
+export function requestAnalysis(args: RequestArgs): Promise<ExtractClientResult> {
+  return requestRun("/api/sourcework/analyze", "analysis", args);
+}
+
+async function requestRun(
+  endpoint: string,
+  noun: string,
+  args: RequestArgs,
+): Promise<ExtractClientResult> {
   let response: Response;
   try {
-    response = await fetch("/api/sourcework/extract", {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ projectId: args.projectId, sourceId: args.sourceId }),
@@ -102,7 +125,7 @@ export async function requestExtraction(args: {
   } catch {
     return {
       ok: false,
-      error: "The connection dropped before extraction finished.",
+      error: `The connection dropped before ${noun} finished.`,
       retryable: true,
     };
   }
@@ -110,7 +133,7 @@ export async function requestExtraction(args: {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     return {
       ok: false,
-      error: body?.error ?? "Extraction couldn't start.",
+      error: body?.error ?? `${noun[0]!.toUpperCase()}${noun.slice(1)} couldn't start.`,
       retryable: response.status >= 500,
     };
   }
@@ -132,6 +155,8 @@ export async function requestExtraction(args: {
             added: event.added,
             skippedReviewed: event.skippedReviewed,
             dropped: event.dropped,
+            ...(event.clips !== undefined ? { clips: event.clips } : {}),
+            ...(event.consulted !== undefined ? { consulted: event.consulted } : {}),
           };
         } else return { ok: false, error: event.error, retryable: false };
       }
@@ -140,9 +165,9 @@ export async function requestExtraction(args: {
   } catch {
     return {
       ok: false,
-      error: "The connection dropped before extraction finished.",
+      error: `The connection dropped before ${noun} finished.`,
       retryable: true,
     };
   }
-  return { ok: false, error: "The connection closed before extraction finished.", retryable: true };
+  return { ok: false, error: `The connection closed before ${noun} finished.`, retryable: true };
 }

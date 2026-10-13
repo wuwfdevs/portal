@@ -494,6 +494,21 @@ format by hand (`setPieceFormat`, New piece's format select) — that sets the t
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
+**Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet applied or run live).** Read
+`docs/sourcework-analysis-design.md` §20 first; this is a pointer. One run per source (`lib/sourcework/analyze-run.ts`,
+`/api/sourcework/analyze`) replaces Extract data points as the way in: the model reads the source with web search
+available and returns findings (each with a one-line `significance`), at most five candidate clips and the pages it
+relied on. Four things are load-bearing: (1) **a research question is not required**: findings with none are
+`relevance = 'general'`, and the old extraction runner still refuses to run without one, which is why it is no longer
+linked; (2) **structure is enforced in `analyze-prompt.ts`'s parser, not the prompt**: interviewer-only findings and clips,
+clips across speakers or outside 1.5–60 s, addresses the search never returned, and the five-clip ceiling are all dropped
+in code and counted; (3) **the model is shown the project's accepted findings** so a re-run adds rather than repeats,
+which is also why `loadAnalyzeContext` filters to the project's current `sw_project_sources`; (4) **a clip Analyze proposes
+has no theme and no tier** (`sw_quote_suggestions.theme_id` and `tier` are nullable): anything reading that table must
+cope with both. The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
+per-theme quote code is untouched until a later slice retires it. Migrations `20261022120000` (schema) and `20261022130000`
+(Resources) are written and not applied; `npm run db:check` fails until they are recorded in `APPLIED.md`.
+
 **Sourcework: excerpt loudness (2026-10-12; standard changed 2026-10-12).** Actualities from different tape come
 in at very different levels, so every temporal excerpt is measured (BS.1770 integrated loudness, via ffmpeg's
 `ebur128`, `lib/transcription/loudness-measure.ts`) when it is created or trimmed, and played and exported at

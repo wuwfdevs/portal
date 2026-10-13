@@ -75,21 +75,22 @@ export default async function TranscriptionProjectPage({
     ? decisionsWaiting(await getThemeDecisionCounts(project.id))
     : 0;
 
-  // Research state is read only where the Sources tab shows it. A project with
-  // no active question reads nothing and looks as it always did.
+  // Research state is read only where the Sources tab shows it. Analyze needs no research
+  // question, so it is offered with or without one; a question only sharpens it.
   const questions =
     sourcesView && project.sources.length > 0 ? await listResearchQuestions(project.id) : [];
   const hasQuestions = questions.some((question) => question.archivedAt === null);
-  const research = hasQuestions
-    ? await getSourceResearch(
-        project.id,
-        project.sources.map((entry) => ({
-          sourceId: entry.sourceId,
-          status: entry.status,
-          kind: entry.source.kind,
-        })),
-      )
-    : null;
+  const research =
+    sourcesView && project.sources.length > 0
+      ? await getSourceResearch(
+          project.id,
+          project.sources.map((entry) => ({
+            sourceId: entry.sourceId,
+            status: entry.status,
+            kind: entry.source.kind,
+          })),
+        )
+      : null;
   const extractTargets = research
     ? sourcesToExtract(
         project.sources.map((entry) => ({
@@ -277,12 +278,11 @@ export default async function TranscriptionProjectPage({
           </div>
           {!hasQuestions && (
             <p className="mt-4 max-w-2xl text-xs text-ink-400">
-              A project without research questions works as it does today. Add them in{" "}
+              Analyze works without a research question. Add one in{" "}
               <TextLink href={projectPath(project.id, "setup")} className="px-0 text-xs">
                 Setup
               </TextLink>{" "}
-              to get data points and themes; sources already in the project can be extracted
-              afterward.
+              to focus it on what you are trying to learn.
             </p>
           )}
         </section>
