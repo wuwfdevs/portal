@@ -52,9 +52,7 @@ export async function listAcceptedFindings(
   const [pointResult, sourceResult] = await Promise.all([
     supabase
       .from("sw_data_points")
-      .select(
-        "id, claim, significance, kind, question_id, source_id, speaker_id, updated_at, created_at",
-      )
+      .select(FINDING_COLUMNS)
       .eq("project_id", projectId)
       .eq("status", "accepted")
       .in("source_id", sourceIds)
@@ -73,6 +71,31 @@ export async function listAcceptedFindings(
     ]),
   );
 
+  return { truncated, findings: await hydrateFindings(supabase, points, titles) };
+}
+
+type Client = Awaited<ReturnType<typeof createClient>>;
+
+interface FindingRow {
+  id: string;
+  claim: string;
+  significance: string | null;
+  kind: string;
+  question_id: string | null;
+  source_id: string;
+  speaker_id: string | null;
+  updated_at: string;
+}
+
+const FINDING_COLUMNS =
+  "id, claim, significance, kind, question_id, source_id, speaker_id, updated_at, created_at";
+
+/** Adds each finding's first passage and speaker name. One implementation for every way of loading findings. */
+async function hydrateFindings(
+  supabase: Client,
+  points: readonly FindingRow[],
+  titles: ReadonlyMap<string, string>,
+): Promise<AcceptedFinding[]> {
   const firstSpan = new Map<
     string,
     { startMs: number | null; endMs: number | null; page: number | null }
@@ -117,28 +140,69 @@ export async function listAcceptedFindings(
     }
   }
 
-  return {
-    truncated,
-    findings: points.map((point) => {
-      const span = firstSpan.get(point.id);
-      return {
-        id: point.id,
-        claim: point.claim,
-        significance: point.significance,
-        kind: point.kind,
-        questionId: point.question_id,
-        sourceId: point.source_id,
-        sourceTitle: titles.get(point.source_id) ?? "Source",
-        speakerId: point.speaker_id,
-        speakerLabel: point.speaker_id ? (speakerLabel.get(point.speaker_id) ?? null) : null,
-        startMs: span?.startMs ?? null,
-        endMs: span?.endMs ?? null,
-        page: span?.page ?? null,
-        at: span?.startMs != null ? formatDuration(span.startMs) : null,
-        updatedAt: point.updated_at,
-      };
-    }),
-  };
+  return points.map((point) => {
+    const span = firstSpan.get(point.id);
+    return {
+      id: point.id,
+      claim: point.claim,
+      significance: point.significance,
+      kind: point.kind,
+      questionId: point.question_id,
+      sourceId: point.source_id,
+      sourceTitle: titles.get(point.source_id) ?? "Source",
+      speakerId: point.speaker_id,
+      speakerLabel: point.speaker_id ? (speakerLabel.get(point.speaker_id) ?? null) : null,
+      startMs: span?.startMs ?? null,
+      endMs: span?.endMs ?? null,
+      page: span?.page ?? null,
+      at: span?.startMs != null ? formatDuration(span.startMs) : null,
+      updatedAt: point.updated_at,
+    };
+  });
+}
+
+/**
+ * The accepted findings among `ids` (an outline beat's citations), in the order asked. A finding that was
+ * rejected or removed since is missing from the result, so a caller can say it was withdrawn.
+ */
+export async function getFindingsByIds(
+  projectId: string,
+  ids: readonly string[],
+): Promise<AcceptedFinding[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const supabase = await createClient();
+  const rows: FindingRow[] = [];
+  for (const chunk of chunked(unique)) {
+    rows.push(
+      ...(unwrapRead(
+        await supabase
+          .from("sw_data_points")
+          .select(FINDING_COLUMNS)
+          .eq("project_id", projectId)
+          .eq("status", "accepted")
+          .in("id", chunk),
+        "these findings",
+      ) ?? []),
+    );
+  }
+  if (rows.length === 0) return [];
+  const sourceIds = [...new Set(rows.map((row) => row.source_id))];
+  const titles = new Map(
+    (
+      unwrapRead(
+        await supabase.from("sw_sources").select("id, title").in("id", sourceIds),
+        "these findings' sources",
+      ) ?? []
+    ).map((row) => [row.id, row.title]),
+  );
+  const hydrated = new Map(
+    (await hydrateFindings(supabase, rows, titles)).map((finding) => [finding.id, finding]),
+  );
+  return unique.flatMap((id) => {
+    const finding = hydrated.get(id);
+    return finding ? [finding] : [];
+  });
 }
 
 export interface SynthesisVersionSummary {

@@ -128,12 +128,23 @@ export function buildSynthesisInput(args: SynthesisInputArgs): string {
  */
 export function renderBaseSynthesis(
   base: SynthesisBody,
-  context: {
-    version: number;
-    questionNumberById: ReadonlyMap<string, number>;
-    findingNumberById: ReadonlyMap<string, number>;
-  },
+  context: SynthesisRenderContext & { version: number },
 ): string | null {
+  const lines = renderSynthesisLines(base, context);
+  if (lines.length === 0) return null;
+  return `Current synthesis (version ${context.version}), to revise rather than start over:\n${lines.join("\n")}`;
+}
+
+export interface SynthesisRenderContext {
+  questionNumberById: ReadonlyMap<string, number>;
+  findingNumberById: ReadonlyMap<string, number>;
+}
+
+/** The synthesis, one line per statement, citing this run's finding numbers. Empty when there is nothing to show. */
+export function renderSynthesisLines(
+  base: SynthesisBody,
+  context: SynthesisRenderContext,
+): string[] {
   const cites = (ids: readonly string[]): string => {
     const numbers = ids
       .map((id) => context.findingNumberById.get(id))
@@ -162,8 +173,7 @@ export function renderBaseSynthesis(
       ...tension.sides.map((side) => `- ${side.label}${cites(side.cites)}`),
     );
   }
-  if (lines.length === 0) return null;
-  return `Current synthesis (version ${context.version}), to revise rather than start over:\n${lines.join("\n")}`;
+  return lines;
 }
 
 export function buildSynthesisOutputSchema(): Record<string, unknown> {

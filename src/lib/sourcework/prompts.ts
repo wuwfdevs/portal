@@ -11,6 +11,7 @@
 export type PromptSlot =
   | "analyze"
   | "synthesis"
+  | "outline"
   | "context"
   | "extraction"
   | "theme_assign"
@@ -50,6 +51,16 @@ A good tension changes how a claim should be understood: an official count again
 A gap names something a reporter could go and get: a document, a person, a number, a date. "More research is needed" is not a gap.
 
 Offer a narrative note only for what a paraphrase would lose: a moment, a voice, a telling detail that would be remembered on the air. Most projects have few.`;
+
+export const OUTLINE_GUIDE_BUILT_IN = `Start with the angle. Say, in one sentence a listener could repeat, what this piece is about and why it matters today. If you cannot, the material is not ready and the outline should say what is missing, in a beat marked to check.
+
+Build the spine from what is established, and put the strongest, most specific thing early. Give a tension its own beat: an official account against a firsthand one is usually the story. Leave out what is true but does not serve the angle; a research question that matters to the project does not need a beat in every piece.
+
+A beat that states a number, a name or an attribution should rest on more than one source, or be marked to check. Prefer a firsthand account to an official's summary of it.
+
+Choose clips by walking the story, not by scanning the list. For each place where narration would be flat, ask whether anyone said it better in their own voice; if so, place that clip, and if not, leave the beat as narration. A good clip carries feeling, a scene, or a detail only that person knew, makes sense on its own, and does not repeat the beat before it. Do not use a clip to deliver a figure. Prefer different voices when the choice is close, but never at the cost of a better clip.
+
+A short piece may need three beats and one clip. A longer one needs a turn: somewhere the story complicates itself. Close on something that moves the story forward, not a summary.`;
 
 export const EXTRACTION_GUIDE_BUILT_IN = `Read the transcript as a producer looking for material for a radio story, and as a researcher answering this project's questions.
 
@@ -130,6 +141,22 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "The model returns finding and passage numbers, never text: the code supplies the words and times. The shape is fixed; your wording decides what counts as established and what is a tension.",
     ],
     builtIn: SYNTHESIS_GUIDE_BUILT_IN,
+  },
+  {
+    slot: "outline",
+    label: "Outline guide",
+    description:
+      "Tells the model what makes a good outline and which clips earn a place in it. Used when someone chooses Outline on a piece.",
+    tryable: false,
+    gives: [
+      "The reporter's direction, the piece's format, the project's research questions, the current synthesis, the accepted findings (numbered) and every excerpt the project has (numbered, with speaker, length and words).",
+      "Tools to search the transcripts and read around a finding, so a thin finding can be checked and tape not yet cut can be found.",
+    ],
+    returns: [
+      "An ordered list of beats and actualities. A beat says what that part of the story has to do, which findings carry it, whether to check it, and optionally a stretch of tape worth a look. An actuality is an excerpt, placed by number.",
+      "The model returns finding numbers, excerpt numbers and tape refs, never text from a recording or a time: the code supplies those. The shape is fixed; your wording decides what makes a story and which clips earn a place.",
+    ],
+    builtIn: OUTLINE_GUIDE_BUILT_IN,
   },
   {
     slot: "context",

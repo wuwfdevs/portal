@@ -9,13 +9,17 @@ import {
   insertBlockAt,
   moveBlock,
   moveBlockTo,
+  hasBeats,
   newActuality,
+  newBeat,
   newNarration,
   parsePieceBody,
   parseTargetInput,
   pieceAsText,
   removeBlock,
   setActualityTrim,
+  setBeatText,
+  setBeatVerify,
   swapExcerpt,
   type PieceBlock,
 } from "./pieces";
@@ -261,5 +265,68 @@ describe("anchor intro", () => {
     const on = setNarrationRole(blocks, ID[0]!, "anchor");
     expect(on[0]).toMatchObject({ role: "anchor" });
     expect(setNarrationRole(on, ID[0]!, undefined)[0]).not.toHaveProperty("role");
+  });
+});
+
+describe("outline beats", () => {
+  const beat = newBeat(id(5), "Open on the tree coming down.", {
+    cites: [id(100), id(101)],
+    verify: true,
+    tape: { sourceId: id(200), startMs: 1000, endMs: 9000 },
+  });
+
+  it("round-trips through the parser, keeping only the beat's own fields", () => {
+    const body = [beat, newBeat(id(6), "Pace.", { role: "anchor" })];
+    expect(parsePieceBody(JSON.parse(JSON.stringify(body)))).toEqual(body);
+    const stray = parsePieceBody([{ ...beat, extra: 1 }]);
+    expect(stray?.[0]).not.toHaveProperty("extra");
+  });
+
+  it("refuses a malformed beat", () => {
+    const base = { id: id(5), type: "beat", text: "x", cites: [], verify: false };
+    expect(parsePieceBody([base])).toEqual([base]);
+    expect(parsePieceBody([{ ...base, verify: "yes" }])).toBeNull();
+    expect(parsePieceBody([{ ...base, text: "x".repeat(601) }])).toBeNull();
+    expect(parsePieceBody([{ ...base, cites: ["nope"] }])).toBeNull();
+    expect(parsePieceBody([{ ...base, cites: [id(1), id(1)] }])).toBeNull();
+    expect(
+      parsePieceBody([{ ...base, cites: Array.from({ length: 13 }, (_, i) => id(i + 1)) }]),
+    ).toBeNull();
+    expect(parsePieceBody([{ ...base, role: "reporter" }])).toBeNull();
+    expect(
+      parsePieceBody([{ ...base, tape: { sourceId: id(2), startMs: 5000, endMs: 5000 } }]),
+    ).toBeNull();
+    expect(
+      parsePieceBody([{ ...base, tape: { sourceId: "x", startMs: 0, endMs: 5000 } }]),
+    ).toBeNull();
+  });
+
+  it("takes no time, and is counted", () => {
+    const blocks: PieceBlock[] = [
+      beat,
+      newNarration(id(7), "One two three four five six seven eight."),
+      newActuality(id(8), id(900)),
+    ];
+    const length = computePieceLength(blocks, [EXCERPT]);
+    expect(length.perBlock.get(id(5))).toBe(0);
+    expect(length.beatCount).toBe(1);
+    expect(length.totalSeconds).toBe(length.narrationSeconds + length.actualitySeconds);
+    expect(length.actualitySeconds).toBe(9);
+  });
+
+  it("edits only a beat, and reports whether a piece has any", () => {
+    const blocks: PieceBlock[] = [beat, newNarration(id(7), "Hi.")];
+    expect(setBeatText(blocks, id(5), "New")[0]).toMatchObject({ text: "New" });
+    expect(setBeatText(blocks, id(7), "New")[1]).toMatchObject({ text: "Hi." });
+    expect(setBeatVerify(blocks, id(5), false)[0]).toMatchObject({ verify: false });
+    expect(hasBeats(blocks)).toBe(true);
+    expect(hasBeats([newNarration(id(7), "Hi.")])).toBe(false);
+  });
+
+  it("prints in the text export without a length", () => {
+    const blocks: PieceBlock[] = [beat, newNarration(id(7), "Hi there.")];
+    const text = pieceAsText("T", blocks, () => null, computePieceLength(blocks, []));
+    expect(text).toContain("[BEAT · CHECK] Open on the tree coming down.");
+    expect(text).toContain("Hi there.");
   });
 });

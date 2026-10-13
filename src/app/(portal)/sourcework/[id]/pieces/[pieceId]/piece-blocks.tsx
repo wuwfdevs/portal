@@ -6,8 +6,11 @@ import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/format";
 import { PlayIcon } from "../../transport-icons";
-import type { ActualityBlock, NarrationBlock } from "@/lib/sourcework/pieces";
-import type { PieceExcerpt } from "@/lib/sourcework/piece-queries";
+import Link from "next/link";
+import { formatDuration } from "@/lib/transcription/media";
+import { sourcePath } from "@/lib/transcription/links";
+import type { ActualityBlock, BeatBlock, NarrationBlock } from "@/lib/sourcework/pieces";
+import type { BeatContext, PieceExcerpt } from "@/lib/sourcework/piece-queries";
 
 const BLOCK_LABEL =
   "text-[11px] font-bold uppercase tracking-[0.05em] max-lg:mb-0.5 lg:w-[72px] lg:flex-none lg:pt-3";
@@ -30,7 +33,7 @@ export function BlockRow({
   id: string;
   label: string;
   seconds: number;
-  accent: "narration" | "actuality";
+  accent: "narration" | "actuality" | "beat";
   onDragStart: (id: string) => void;
   onDropOn: (id: string) => void;
   menu: ReactNode;
@@ -66,7 +69,11 @@ export function BlockRow({
         className={cn(
           BLOCK_LABEL,
           "hidden lg:block",
-          accent === "actuality" ? "text-brand-link" : "text-ink-500",
+          accent === "actuality"
+            ? "text-brand-link"
+            : accent === "beat"
+              ? "text-ink-700"
+              : "text-ink-500",
         )}
       >
         {label}
@@ -166,6 +173,150 @@ export function NarrationRow({
           }}
           className="block w-full resize-none overflow-hidden bg-transparent font-serif text-[17px] leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none"
         />
+        {assistantNote}
+      </div>
+    </BlockRow>
+  );
+}
+
+/**
+ * An outline beat (docs/sourcework-analysis-design.md §22): what a part of the story has to do, not yet
+ * written. It takes no time, so it shows no length. The findings it cites open to their claims, a
+ * finding no longer accepted says so, and tape the outline pointed at is a link into the recording.
+ */
+export function BeatRow({
+  block,
+  label,
+  projectId,
+  context,
+  focus,
+  onFocused,
+  onChange,
+  onToggleVerify,
+  assistantNote,
+  menuItems,
+  ...dragProps
+}: {
+  block: BeatBlock;
+  /** "Angle" for the first beat of an outline, else "Beat". */
+  label: string;
+  projectId: string;
+  context: BeatContext;
+  focus: boolean;
+  onFocused: () => void;
+  onChange: (text: string) => void;
+  onToggleVerify: () => void;
+  assistantNote?: ReactNode;
+  menuItems: ActionMenuItem[];
+  onDragStart: (id: string) => void;
+  onDropOn: (id: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [block.text]);
+  useEffect(() => {
+    if (!focus) return;
+    ref.current?.focus();
+    onFocused();
+  }, [focus, onFocused]);
+
+  const cited = block.cites.flatMap((id) => {
+    const finding = context.findings[id];
+    return finding ? [{ id, finding }] : [];
+  });
+  const withdrawn = block.cites.length - cited.length;
+  const tapeTitle = block.tape ? (context.sourceTitles[block.tape.sourceId] ?? "Recording") : null;
+
+  return (
+    <BlockRow
+      id={block.id}
+      label={block.role === "anchor" ? "Anchor beat" : label}
+      seconds={0}
+      accent="beat"
+      menu={
+        <ActionMenu
+          label="Outline beat actions"
+          trigger="quiet"
+          sheetHeading="Outline beat"
+          items={menuItems}
+        />
+      }
+      {...dragProps}
+    >
+      <div className="rounded border border-dashed border-ink-400/60 bg-panel-50 px-3.5 py-2.5 focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-surface">
+        <p className={cn(BLOCK_LABEL, "lg:hidden", "!w-auto text-ink-700")}>
+          {block.role === "anchor" ? "Anchor beat" : label} · outline
+        </p>
+        <textarea
+          ref={ref}
+          value={block.text}
+          rows={1}
+          aria-label={label}
+          placeholder="What does this part of the story have to do?"
+          onChange={(event) => onChange(event.target.value)}
+          className="block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none"
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
+          <button
+            type="button"
+            onClick={onToggleVerify}
+            aria-pressed={block.verify}
+            className={cn(
+              "min-h-8 rounded-full border px-2.5 font-bold max-lg:min-h-11",
+              block.verify
+                ? "border-warning-border bg-warning-bg text-warning-fg"
+                : "border-line text-ink-500 hover:border-ink-400",
+            )}
+          >
+            {block.verify ? "Check before writing" : "Mark to check"}
+          </button>
+          {block.cites.length > 0 && (
+            <span>
+              {cited.length} {cited.length === 1 ? "finding" : "findings"}
+              {withdrawn > 0 && ` · ${withdrawn} no longer accepted`}
+            </span>
+          )}
+          {block.tape && tapeTitle && (
+            <Link
+              href={sourcePath(block.tape.sourceId, { projectId, t: block.tape.startMs })}
+              className="font-bold text-brand-link hover:underline"
+            >
+              Tape: {tapeTitle} at {formatDuration(block.tape.startMs)}
+            </Link>
+          )}
+        </div>
+        {cited.length > 0 && (
+          <details className="mt-1.5 text-xs">
+            <summary className="min-h-8 cursor-pointer text-ink-500 hover:text-ink-700 max-lg:min-h-11">
+              What carries it
+            </summary>
+            <ul className="mt-1 flex flex-col gap-1.5 border-l-2 border-line pl-3">
+              {cited.map(({ id, finding }) => (
+                <li key={id}>
+                  <p className="text-ink-900">{finding.claim}</p>
+                  <p className="text-ink-500">
+                    {[finding.speaker, finding.sourceTitle].filter(Boolean).join(" · ")}
+                    {" · "}
+                    <Link
+                      href={sourcePath(finding.sourceId, {
+                        projectId,
+                        t: finding.startMs,
+                        page: finding.page,
+                      })}
+                      className="text-brand-link hover:underline"
+                    >
+                      {finding.at ? `Listen at ${finding.at}` : "Open"}
+                    </Link>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {assistantNote}
       </div>
     </BlockRow>

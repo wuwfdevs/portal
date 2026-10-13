@@ -18,6 +18,7 @@ export function PieceInsertionPoint({
   id,
   excerpts,
   onAddNarration,
+  onAddBeat,
   onAddExcerpt,
   onAskAssistant,
   afterLabel,
@@ -25,6 +26,8 @@ export function PieceInsertionPoint({
   id: string;
   excerpts: PieceExcerpt[];
   onAddNarration: () => void;
+  /** Adds an outline beat: narration not yet written (docs/sourcework-analysis-design.md §22). */
+  onAddBeat?: () => void;
   onAddExcerpt: (excerpt: PieceExcerpt) => void;
   /** "Ask the assistant to write it": opens the assistant with a request to finish (§6.4). */
   onAskAssistant?: () => void;
@@ -85,6 +88,18 @@ export function PieceInsertionPoint({
               >
                 Narration
               </button>
+              {onAddBeat && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddBeat();
+                    close();
+                  }}
+                  className="flex h-[52px] w-full items-center border-t border-line text-left text-base"
+                >
+                  Outline beat
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setMode("excerpt")}
@@ -180,6 +195,18 @@ export function PieceInsertionPoint({
           >
             + Add a narration block
           </Button>
+          {onAddBeat && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                onAddBeat();
+                close();
+              }}
+            >
+              + Add an outline beat
+            </Button>
+          )}
           {onAskAssistant && (
             <Button
               type="button"

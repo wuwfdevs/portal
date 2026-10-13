@@ -495,8 +495,19 @@ never text, times or ids** — findings by number, passages only by a ref a tool
 (`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
 **`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
 tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
-`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slices 3 (outline as `beat` blocks) and 4
-(retire the old runners) are not built.
+`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slice 3 (outline as `beat` blocks) has landed (below); slice 4 (retire the old runners) is not built.
+
+**Sourcework analysis, slice 3 (outline as beats; Write from outline) has landed (2026-10-24).** Read
+`docs/sourcework-analysis-design.md` §22 first; this is a pointer. A piece body can hold a third block type, `beat`
+(`pieces.ts`): narration not yet written, citing accepted findings, optionally marked to check, optionally pointing at tape.
+**Outline with AI** (`piece-outline-run.ts`) fills an empty piece with beats and excerpts; **Write from outline**
+(`piece-expand-run.ts`) turns each beat into narration at the same place. Four things are load-bearing: (1) **a beat takes no
+time** and every function that switches on a block's type must handle `beat` explicitly — `pieces.ts`'s parser refuses an
+unknown type, so a missing branch makes the whole body unreadable; (2) **code keeps the structure when a beat is written out**
+(`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
+numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
+(4) `DRAFT_STANDARDS` is the one copy of the accuracy and writing standards the draft, outline and expansion share. No schema
+change; the Resources migration `20261024120000` is written but **not applied**. Slice 4 (retire the old runners) is not built.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats

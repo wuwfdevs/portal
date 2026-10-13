@@ -37,7 +37,32 @@ export interface Cut {
   end_ms: number;
 }
 
-export type PieceBlock = NarrationBlock | ActualityBlock;
+/**
+ * An outline beat (docs/sourcework-analysis-design.md §22): narration not yet written. `text` says what
+ * the beat has to do; `cites` are the accepted findings that carry it; `verify` marks a fact the
+ * reporter must check before it is written as settled. `tape` is a passage in a recording worth
+ * considering that is not an excerpt yet, filled by a run from a place its tools showed, never typed
+ * by a model. A beat counts as no time. The first beat of an outline is the story's angle.
+ */
+export interface BeatBlock {
+  id: string;
+  type: "beat";
+  text: string;
+  /** Accepted-finding ids. */
+  cites: string[];
+  verify: boolean;
+  /** "anchor": the beat is the anchor's lead-in; writing it out makes an anchor narration block. */
+  role?: "anchor";
+  tape?: BeatTape;
+}
+
+export interface BeatTape {
+  sourceId: string;
+  startMs: number;
+  endMs: number;
+}
+
+export type PieceBlock = NarrationBlock | ActualityBlock | BeatBlock;
 
 /** What length needs to know about an excerpt. */
 export interface ExcerptTiming {
@@ -47,6 +72,8 @@ export interface ExcerptTiming {
 }
 
 export const MAX_NARRATION_CHARS = 5000;
+export const MAX_BEAT_CHARS = 600;
+export const MAX_BEAT_CITES = 12;
 export const MAX_BLOCKS = 200;
 export const MIN_ACTUALITY_MS = 500;
 export const MAX_CUTS = 200;
@@ -98,11 +125,44 @@ export function parsePieceBody(value: unknown): PieceBlock[] | null {
         if (cuts.length > 0) block.cuts = cuts;
       }
       blocks.push(block);
+    } else if (raw.type === "beat") {
+      const beat = parseBeat(raw);
+      if (!beat) return null;
+      blocks.push(beat);
     } else {
       return null;
     }
   }
   return blocks;
+}
+
+function parseBeat(raw: Record<string, unknown>): BeatBlock | null {
+  if (typeof raw.id !== "string") return null;
+  if (typeof raw.text !== "string" || raw.text.length > MAX_BEAT_CHARS) return null;
+  if (typeof raw.verify !== "boolean") return null;
+  if (raw.role !== undefined && raw.role !== "anchor") return null;
+  if (!Array.isArray(raw.cites) || raw.cites.length > MAX_BEAT_CITES) return null;
+  const cites: string[] = [];
+  for (const cite of raw.cites) {
+    if (typeof cite !== "string" || !UUID.test(cite) || cites.includes(cite)) return null;
+    cites.push(cite);
+  }
+  const beat: BeatBlock = {
+    id: raw.id,
+    type: "beat",
+    text: raw.text,
+    cites,
+    verify: raw.verify,
+    ...(raw.role === "anchor" ? { role: "anchor" as const } : {}),
+  };
+  if (raw.tape !== undefined) {
+    const tape = (raw.tape ?? {}) as Record<string, unknown>;
+    if (typeof tape.sourceId !== "string" || !UUID.test(tape.sourceId)) return null;
+    if (!isNonNegativeInt(tape.startMs) || !isNonNegativeInt(tape.endMs)) return null;
+    if (tape.endMs <= tape.startMs) return null;
+    beat.tape = { sourceId: tape.sourceId, startMs: tape.startMs, endMs: tape.endMs };
+  }
+  return beat;
 }
 
 function parseCuts(value: unknown): Cut[] | null {
@@ -179,6 +239,22 @@ export function setNarrationRole(
   });
 }
 
+export function newBeat(
+  id: string,
+  text = "",
+  options: { cites?: string[]; verify?: boolean; role?: "anchor"; tape?: BeatTape } = {},
+): BeatBlock {
+  return {
+    id,
+    type: "beat",
+    text,
+    cites: options.cites ?? [],
+    verify: options.verify ?? false,
+    ...(options.role ? { role: options.role } : {}),
+    ...(options.tape ? { tape: options.tape } : {}),
+  };
+}
+
 export function newActuality(id: string, excerptId: string): ActualityBlock {
   return { id, type: "actuality", excerpt_id: excerptId };
 }
@@ -201,6 +277,8 @@ export function blockSeconds(
   excerptsById: ReadonlyMap<string, ExcerptTiming>,
 ): number {
   if (block.type === "narration") return estimateReadSeconds(block.text) ?? 0;
+  // An outline beat is not written yet, so it takes no time.
+  if (block.type === "beat") return 0;
   const range = actualityRange(block, excerptsById.get(block.excerpt_id));
   return range ? Math.max(0, Math.round(playedMs(range, block.cuts) / 1000)) : 0;
 }
@@ -212,6 +290,8 @@ export interface PieceLength {
   actualitySeconds: number;
   /** The anchor's lead-in, kept out of totalSeconds (the piece's timed length). */
   anchorSeconds: number;
+  /** Outline beats not yet written; they add no time. */
+  beatCount: number;
   perBlock: Map<string, number>;
 }
 
@@ -224,10 +304,12 @@ export function computePieceLength(
   let narrationSeconds = 0;
   let actualitySeconds = 0;
   let anchorSeconds = 0;
+  let beatCount = 0;
   for (const block of blocks) {
     const seconds = blockSeconds(block, byId);
     perBlock.set(block.id, seconds);
-    if (block.type === "narration" && block.role === "anchor") anchorSeconds += seconds;
+    if (block.type === "beat") beatCount += 1;
+    else if (block.type === "narration" && block.role === "anchor") anchorSeconds += seconds;
     else if (block.type === "narration") narrationSeconds += seconds;
     else actualitySeconds += seconds;
   }
@@ -236,6 +318,7 @@ export function computePieceLength(
     narrationSeconds,
     actualitySeconds,
     anchorSeconds,
+    beatCount,
     perBlock,
   };
 }
@@ -319,6 +402,26 @@ export function setNarrationText(
   return blocks.map((block) =>
     block.id === id && block.type === "narration" ? { ...block, text } : block,
   );
+}
+
+export function setBeatText(blocks: readonly PieceBlock[], id: string, text: string): PieceBlock[] {
+  return blocks.map((block) =>
+    block.id === id && block.type === "beat" ? { ...block, text } : block,
+  );
+}
+
+export function setBeatVerify(
+  blocks: readonly PieceBlock[],
+  id: string,
+  verify: boolean,
+): PieceBlock[] {
+  return blocks.map((block) =>
+    block.id === id && block.type === "beat" ? { ...block, verify } : block,
+  );
+}
+
+export function hasBeats(blocks: readonly PieceBlock[]): boolean {
+  return blocks.some((block) => block.type === "beat");
 }
 
 export function swapExcerpt(
@@ -419,6 +522,12 @@ export function pieceAsText(
           block.role === "anchor" ? `[ANCHOR INTRO] ${block.text.trim()}` : block.text.trim(),
           "",
         );
+      }
+      continue;
+    }
+    if (block.type === "beat") {
+      if (block.text.trim()) {
+        lines.push(`[BEAT${block.verify ? " · CHECK" : ""}] ${block.text.trim()}`, "");
       }
       continue;
     }

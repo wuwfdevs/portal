@@ -17,16 +17,20 @@ import {
   cutsWithin,
   computePieceLength,
   describeAgainstTarget,
+  hasBeats,
   insertBlockAt,
   moveBlock,
   moveBlockTo,
   newActuality,
+  newBeat,
   newNarration,
   parseTargetInput,
   pieceAsText,
   removeBlock,
   setActualityCuts,
   setActualityTrim,
+  setBeatText,
+  setBeatVerify,
   setNarrationRole,
   setNarrationText,
   swapExcerpt,
@@ -51,7 +55,8 @@ import {
 import { DraftWithAi, type DraftFormatOption } from "./draft-with-ai";
 import { FormatGuide, type GuideFormat } from "./format-guide";
 import { ExcerptPicker } from "./excerpt-picker";
-import { ActualityRow, FooterButton, NarrationRow } from "./piece-blocks";
+import { ActualityRow, BeatRow, FooterButton, NarrationRow } from "./piece-blocks";
+import { OutlineWithAi } from "./outline-with-ai";
 import { PieceInsertionPoint } from "./piece-insertion-point";
 import { TrimPanel } from "./trim-panel";
 import { usePiecePlayer } from "./use-piece-player";
@@ -132,6 +137,9 @@ function PieceEditor({
   const [versions, setVersions] = useState<PieceVersionRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
+  // Outline (an empty piece) and Write from outline (a piece with beats), docs/sourcework-analysis-design.md §22.
+  const [outlining, setOutlining] = useState(false);
+  const [expanding, setExpanding] = useState(false);
   // "Edited by the assistant · Undo" until the next person edit (§6.4).
   const [assistantChanges, setAssistantChanges] = useState(piece.assistantChanges);
   // "Drafted from Radio wrap v3 · Undo", until anything else is saved.
@@ -254,6 +262,12 @@ function PieceEditor({
     setFocusId(block.id);
   }
 
+  function addBeatAt(index: number) {
+    const block = newBeat(crypto.randomUUID());
+    commit(insertBlockAt(blocksRef.current, index, block));
+    setFocusId(block.id);
+  }
+
   function addExcerptAt(index: number, excerpt: PieceExcerpt) {
     setExcerpts((current) => new Map(current).set(excerpt.id, excerpt));
     commit(insertBlockAt(blocksRef.current, index, newActuality(crypto.randomUUID(), excerpt.id)));
@@ -263,7 +277,7 @@ function PieceEditor({
     const index = blocksRef.current.findIndex((block) => block.id === id);
     const previous = blocksRef.current[index - 1];
     commit(removeBlock(blocksRef.current, id));
-    if (previous?.type === "narration") setFocusId(previous.id);
+    if (previous?.type === "narration" || previous?.type === "beat") setFocusId(previous.id);
   }
 
   function startDrag(id: string) {
@@ -351,6 +365,23 @@ function PieceEditor({
             message: block.text.trim()
               ? "Remove this narration? You can get it back from History."
               : "Remove this empty narration block?",
+            confirmLabel: "Remove",
+          },
+          onClick: () => commit(removeBlock(blocksRef.current, block.id)),
+        },
+      ];
+    }
+    if (block.type === "beat") {
+      return [
+        ...move,
+        {
+          label: "Remove beat…",
+          variant: "danger",
+          dividerBefore: true,
+          confirm: {
+            message: block.text.trim()
+              ? "Remove this outline beat? You can get it back from History."
+              : "Remove this empty outline beat?",
             confirmLabel: "Remove",
           },
           onClick: () => commit(removeBlock(blocksRef.current, block.id)),
@@ -501,6 +532,7 @@ function PieceEditor({
   );
   const trimmingExcerpt = trimming && excerpts.get(trimming.excerpt_id);
   const isBlank = blocks.length === 0;
+  const firstBeatId = blocks.find((block) => block.type === "beat")?.id ?? null;
 
   function panelFor(content: ReactNode, label: string, close: () => void) {
     if (!narrow) return <div className="my-1 lg:mx-[100px] lg:mr-10">{content}</div>;
@@ -659,6 +691,8 @@ function PieceEditor({
             <span className="text-xs text-ink-500">
               Narration {formatClock(length.narrationSeconds)} · Actualities{" "}
               {formatClock(length.actualitySeconds)}
+              {length.beatCount > 0 &&
+                ` · ${length.beatCount} outline ${length.beatCount === 1 ? "beat" : "beats"}, not written yet`}
               {length.anchorSeconds > 0 &&
                 ` · Anchor intro ${formatClock(length.anchorSeconds)}, not timed`}
             </span>
@@ -769,6 +803,57 @@ function PieceEditor({
         </section>
       )}
 
+      {isBlank && outlining && (
+        <OutlineWithAi
+          mode="outline"
+          pieceId={piece.id}
+          getVersion={() => versionRef.current}
+          beforeGenerate={flushNow}
+          formats={formats.map((format) => ({ id: format.id, name: format.name }))}
+          initialFormatId={formatId}
+          onCancel={() => setOutlining(false)}
+          onDone={() => {
+            // The outline is a new version on the server; the page reloads into it.
+            dirtyRef.current = false;
+            router.refresh();
+          }}
+        />
+      )}
+      {!isBlank && hasBeats(blocks) && expanding && (
+        <OutlineWithAi
+          mode="expand"
+          pieceId={piece.id}
+          getVersion={() => versionRef.current}
+          beforeGenerate={flushNow}
+          formats={formats.map((format) => ({ id: format.id, name: format.name }))}
+          initialFormatId={formatId}
+          onCancel={() => setExpanding(false)}
+          onDone={() => {
+            dirtyRef.current = false;
+            router.refresh();
+          }}
+        />
+      )}
+      {!isBlank && hasBeats(blocks) && !expanding && (
+        <p
+          className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line bg-panel-50 px-3 py-2 text-[13px] text-ink-700"
+          role="status"
+        >
+          <span>
+            {length.beatCount} outline {length.beatCount === 1 ? "beat is" : "beats are"} not
+            written yet. Edit the outline, then write it out.
+          </span>
+          <Button
+            touch
+            type="button"
+            variant="link"
+            className="text-brand-link"
+            onClick={() => setExpanding(true)}
+          >
+            Write from outline
+          </Button>
+        </p>
+      )}
       {isBlank && drafting && draftMaterial && (
         <DraftWithAi
           pieceId={piece.id}
@@ -784,7 +869,7 @@ function PieceEditor({
           }}
         />
       )}
-      {isBlank && !(drafting && !narrow) ? (
+      {isBlank && !((drafting && !narrow) || outlining) ? (
         <div className="mt-5 rounded border border-dashed border-line bg-panel-50 px-6 py-9 text-center max-lg:px-4 max-lg:py-6">
           <p className="text-[15px] font-bold text-ink-700">Start your piece</p>
           <p className="mx-auto mt-1 max-w-lg text-sm text-ink-500">
@@ -813,6 +898,14 @@ function PieceEditor({
               aria-expanded={emptyPicker}
             >
               + Excerpt
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOutlining(true)}
+              className="bg-brand-surface"
+            >
+              Outline with AI
             </Button>
             {draftMaterial && (
               <Button
@@ -847,6 +940,7 @@ function PieceEditor({
             id="0"
             excerpts={pickerExcerpts}
             onAddNarration={() => addNarrationAt(0)}
+            onAddBeat={() => addBeatAt(0)}
             onAddExcerpt={(excerpt) => addExcerptAt(0, excerpt)}
             onAskAssistant={() => askAssistantAfter("the start (make it the first block)")}
             afterLabel="the start"
@@ -857,7 +951,23 @@ function PieceEditor({
             const swapping = swappingId === block.id;
             return (
               <div key={block.id} className="flex flex-col gap-0.5">
-                {block.type === "narration" ? (
+                {block.type === "beat" ? (
+                  <BeatRow
+                    block={block}
+                    label={block.id === firstBeatId ? "Angle" : "Beat"}
+                    projectId={piece.projectId}
+                    context={piece.beatContext}
+                    focus={focusId === block.id}
+                    onFocused={() => setFocusId(null)}
+                    onChange={(text) => commit(setBeatText(blocksRef.current, block.id, text))}
+                    onToggleVerify={() =>
+                      commit(setBeatVerify(blocksRef.current, block.id, !block.verify))
+                    }
+                    assistantNote={assistantNoteFor(block)}
+                    menuItems={menuFor(block, index)}
+                    {...common}
+                  />
+                ) : block.type === "narration" ? (
                   <NarrationRow
                     block={block}
                     seconds={seconds}
@@ -985,16 +1095,19 @@ function PieceEditor({
                   id={block.id}
                   excerpts={pickerExcerpts}
                   onAddNarration={() => addNarrationAt(index + 1)}
+                  onAddBeat={() => addBeatAt(index + 1)}
                   onAddExcerpt={(excerpt) => addExcerptAt(index + 1, excerpt)}
                   onAskAssistant={() =>
                     askAssistantAfter(
                       block.type === "narration"
                         ? `the narration that begins “${block.text.trim().slice(0, 40)}”`
-                        : `the excerpt “${(excerpts.get(block.excerpt_id)?.title ?? "").slice(0, 40)}”`,
+                        : block.type === "beat"
+                          ? `the outline beat “${block.text.trim().slice(0, 40)}”`
+                          : `the excerpt “${(excerpts.get(block.excerpt_id)?.title ?? "").slice(0, 40)}”`,
                     )
                   }
                   afterLabel={
-                    block.type === "narration"
+                    block.type === "narration" || block.type === "beat"
                       ? `“${block.text.trim().slice(0, 28)}${block.text.trim().length > 28 ? "…" : ""}”`
                       : "this excerpt"
                   }

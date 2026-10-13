@@ -1022,3 +1022,49 @@ findings establish, how firmly, where they conflict, and what is open.
   transaction (first save returns 1, a stale base -1, versions can't be updated, a non-member sees and saves nothing).
   Nothing here has run against a live OpenAI model (this environment has no key). The parser, the carry-forward, the
   ledger, the tool loop (against a mocked client) and the view rules are unit-tested.
+
+## 22. Outline as beats, and writing it out (2026-10-24)
+
+Slice 3 of `docs/sourcework-refinement-plan.md`. Draft with AI wrote a piece straight from themes, so the reporter's
+first view of the model's thinking was finished prose. An outline puts the story's spine, its sources and its clips in
+front of the reporter first, in the editor they already use.
+
+- **A third block type, `beat`** (`pieces.ts`): `{ id, type: "beat", text, cites, verify, role?, tape? }`. A beat is
+  narration not yet written. `cites` are accepted-finding ids (at most 12); `verify` marks a fact to check before it is
+  written as settled; `role: "anchor"` marks the anchor's lead-in; `tape` is a stretch of a recording worth a look that is
+  not an excerpt. A beat takes no time (`PieceLength.beatCount`), so the length at the top counts only narration and clips.
+  The first beat of an outline is the angle; the editor labels it so and there is no column for it.
+- **No schema change.** `sw_piece_versions.body` only checks that it is a JSON array; length and the excerpt list are
+  computed in TypeScript. An outline saves as `saved_via = 'generation'` and does not set `drafted_version`. The parser's new
+  branch is what makes a body with a beat readable everywhere (editor, History restore, assistant).
+- **Outline run** (`piece-outline-run.ts`, `/api/sourcework/pieces/outline`, run kind `outline`, offered on an empty piece):
+  the model gets the direction, an optional format guide, the research questions, the current synthesis, the numbered
+  accepted findings and the project's excerpts (up to 150, newest first, with speaker, length and words), and the same two
+  lookups synthesis uses (`search_transcripts`, `read_around`) through `runToolLoop`. It returns beats and actualities.
+  **Code maps every reference** (`parseOutlineOutput`): finding numbers to ids, excerpt numbers to ids, a `tape_ref` to a
+  place a tool returned (through the run's `PassageLedger`) and only if it is a recording range. Unknown numbers, repeated
+  excerpts, an anchor flag past the first block and a beat with no words are dropped and counted; an answer with no beat
+  is a failure. The model never types a time, an id or a quotation. Clips are chosen against every excerpt shown, with the
+  framing saying fewer is normal and no quota exists. An `outline` prompt slot (`OUTLINE_GUIDE_BUILT_IN`) holds the
+  editor-owned wording (not tryable yet).
+- **Write from outline** (`piece-expand-prompt.ts`, `piece-expand-run.ts`, `/api/sourcework/pieces/expand`, run kind
+  `piece_draft` with `counts.mode = "expand_outline"`): **code keeps the structure; the model writes prose only.** It sees
+  the outline in order (beats with their cited findings loaded by id, clips with their words as read-only context, any
+  narration already written) and returns paragraphs per beat number. `expandBeats` replaces each beat with those
+  paragraphs at the same position and leaves every other block untouched, so an actuality keeps its id, trim and cuts. A
+  beat the model skipped stays a beat and is reported; a piece never grows past the block limit. A cited finding no longer
+  accepted is shown as withdrawn and contributes nothing. No tools in this step: the cited findings are given in full.
+  Sets `drafted_version`, so the editor's Undo returns to the outline.
+- **Shared standards**: `DRAFT_STANDARDS` (accuracy, attribution and writing for the ear) is one constant used by the
+  draft, outline and expansion framings; a test pins that each contains it.
+- **Editor**: `BeatRow` (editable text, a Mark to check toggle, the cited findings under "What carries it", tape as a link),
+  an "outline beat" action in the insertion point, **Outline with AI** beside Draft with AI on an empty piece, and **Write
+  from outline** when beats exist (`outline-with-ai.tsx` serves both). `getPieceDetail` loads `beatContext` (the cited
+  findings and tape titles). The assistant reads beats (`describePiece`), and has `insertBeat` and `replaceBeat`;
+  its other block tools say what a block really is when it isn't the kind they edit.
+- **Not built**: the Pieces list's "Outlined / Drafted / Written by hand" label (the list does not read bodies),
+  copy-outline-between-pieces, embedding a tape range in a player, a one-running-outline index (`expectVersion` already
+  makes a double click harmless), and an `outline` Try this draft.
+- **Status**: no migration. The Resources content migration `20261024120000` is written and **not applied** to either
+  project. Nothing here has run against a live OpenAI model (this environment has no key). The beat model, both
+  parsers, the in-place replacement and both inputs are unit-tested.

@@ -55,25 +55,31 @@ export function trialSide(args: {
     minActualities: args.spec.minActualities,
     maxActualities: args.spec.maxActualities,
     warnings: args.warnings,
-    blocks: args.blocks.map((block): TrialBlock => {
+    // A trial draft is written prose; an outline beat never appears in one.
+    blocks: args.blocks.flatMap((block): TrialBlock[] => {
       const seconds = args.perBlockSeconds.get(block.id) ?? 0;
+      if (block.type === "beat") return [];
       if (block.type === "narration") {
-        return {
-          type: "narration",
-          text: block.text,
-          seconds,
-          ...(block.role === "anchor" ? { anchor: true } : {}),
-        };
+        return [
+          {
+            type: "narration",
+            text: block.text,
+            seconds,
+            ...(block.role === "anchor" ? { anchor: true } : {}),
+          },
+        ];
       }
       const excerpt = args.excerpts.get(block.excerpt_id);
-      return {
-        type: "actuality",
-        excerptId: block.excerpt_id,
-        title: excerpt?.title ?? "Excerpt",
-        speaker: excerpt?.speaker ?? null,
-        words: excerpt?.text ?? "",
-        seconds,
-      };
+      return [
+        {
+          type: "actuality",
+          excerptId: block.excerpt_id,
+          title: excerpt?.title ?? "Excerpt",
+          speaker: excerpt?.speaker ?? null,
+          words: excerpt?.text ?? "",
+          seconds,
+        },
+      ];
     }),
   };
 }
