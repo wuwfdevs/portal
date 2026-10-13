@@ -18,7 +18,12 @@ export type StoryElement = (typeof STORY_ELEMENTS)[number];
 export const DATA_POINT_STATUSES = ["suggested", "accepted", "rejected"] as const;
 export type DataPointStatus = (typeof DATA_POINT_STATUSES)[number];
 
-export type DataPointRelevance = "question" | "story";
+/**
+ * `question`: answers one of the project's research questions. `story`: material the earlier
+ * extraction kept for a producer (no longer produced; old rows stay). `general`: a finding from a
+ * project with no research question, or one that answers none (docs/sourcework-analysis-design.md §20).
+ */
+export type DataPointRelevance = "question" | "story" | "general";
 
 export const KIND_LABEL: Record<DataPointKind, string> = {
   firsthand: "Firsthand",
@@ -162,6 +167,8 @@ export interface DataPoint {
   storyElement: StoryElement | null;
   claim: string;
   aiClaim: string;
+  /** One line on why the finding matters to the question; null on points made before Analyze. */
+  significance: string | null;
   speakerId: string | null;
   kind: DataPointKind;
   status: DataPointStatus;

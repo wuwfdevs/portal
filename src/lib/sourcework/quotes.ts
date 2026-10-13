@@ -48,7 +48,8 @@ export function quoteStance(pointStances: readonly QuoteStance[]): QuoteStance {
 export interface QuoteSuggestion {
   id: string;
   stance: QuoteStance;
-  themeId: string;
+  /** Null for a clip Analyze proposed for a source rather than for a theme. */
+  themeId: string | null;
   sourceId: string;
   sourceTitle: string;
   representationId: string | null;
@@ -57,18 +58,23 @@ export interface QuoteSuggestion {
   endMs: number;
   text: string;
   reason: string;
-  tier: QuoteTier;
+  /** Null for a clip Analyze proposed: it does not rate its own clips. */
+  tier: QuoteTier | null;
   status: QuoteStatus;
   excerptId: string | null;
 }
 
-/** Strongest first, then in the order the clips occur in their source. */
+function tierRank(tier: QuoteTier | null): number {
+  return tier === null ? QUOTE_TIERS.length : QUOTE_TIERS.indexOf(tier);
+}
+
+/** Strongest first (unrated clips last), then in the order the clips occur in their source. */
 export function compareQuotes(
   a: Pick<QuoteSuggestion, "tier" | "sourceTitle" | "startMs" | "id">,
   b: Pick<QuoteSuggestion, "tier" | "sourceTitle" | "startMs" | "id">,
 ): number {
   return (
-    QUOTE_TIERS.indexOf(a.tier) - QUOTE_TIERS.indexOf(b.tier) ||
+    tierRank(a.tier) - tierRank(b.tier) ||
     a.sourceTitle.localeCompare(b.sourceTitle) ||
     a.startMs - b.startMs ||
     a.id.localeCompare(b.id)

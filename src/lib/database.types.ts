@@ -995,7 +995,10 @@ export interface Database {
             | "theme_assign"
             | "theme_review"
             | "quote_suggest"
-            | "piece_draft";
+            | "piece_draft"
+            | "analyze"
+            | "synthesis"
+            | "outline";
           project_id: string;
           source_id: string | null;
           /** The theme a quote_suggest run is about (20261014120000); null for every other kind. */
@@ -1022,7 +1025,10 @@ export interface Database {
             | "theme_assign"
             | "theme_review"
             | "quote_suggest"
-            | "piece_draft";
+            | "piece_draft"
+            | "analyze"
+            | "synthesis"
+            | "outline";
           project_id: string;
           model: string;
           created_by: string;
@@ -1037,10 +1043,12 @@ export interface Database {
           source_id: string;
           representation_id: string;
           question_id: string | null;
-          relevance: "question" | "story";
+          relevance: "question" | "story" | "general";
           story_element: "character" | "place" | "moment" | "detail" | "background" | null;
           claim: string;
           ai_claim: string;
+          /** Why the finding matters, in one line the model wrote (20261022120000); null on earlier points. */
+          significance: string | null;
           speaker_id: string | null;
           kind: "firsthand" | "secondhand" | "opinion" | "factual";
           status: "suggested" | "accepted" | "rejected";
@@ -1058,7 +1066,7 @@ export interface Database {
           project_id: string;
           source_id: string;
           representation_id: string;
-          relevance: "question" | "story";
+          relevance: "question" | "story" | "general";
           claim: string;
           ai_claim: string;
           kind: "firsthand" | "secondhand" | "opinion" | "factual";
@@ -1168,7 +1176,8 @@ export interface Database {
         Row: {
           id: string;
           project_id: string;
-          theme_id: string;
+          /** Null for a clip Analyze proposed for a source (20261022120000). */
+          theme_id: string | null;
           source_id: string;
           representation_id: string | null;
           speaker_id: string | null;
@@ -1176,7 +1185,8 @@ export interface Database {
           end_ms: number;
           quote_text: string;
           reason: string;
-          tier: "strong" | "good" | "usable";
+          /** Null for a clip Analyze proposed: it does not rate its own clips (20261022120000). */
+          tier: "strong" | "good" | "usable" | null;
           status: "suggested" | "accepted" | "rejected";
           excerpt_id: string | null;
           run_id: string | null;
@@ -1188,13 +1198,11 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["sw_quote_suggestions"]["Row"]> & {
           project_id: string;
-          theme_id: string;
           source_id: string;
           start_ms: number;
           end_ms: number;
           quote_text: string;
           reason: string;
-          tier: "strong" | "good" | "usable";
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["sw_quote_suggestions"]["Row"]>;
@@ -1203,6 +1211,12 @@ export interface Database {
       sw_quote_suggestion_points: {
         Row: { suggestion_id: string; data_point_id: string };
         Insert: { suggestion_id: string; data_point_id: string };
+        Update: never;
+        Relationships: [];
+      };
+      sw_context_note_points: {
+        Row: { note_id: string; data_point_id: string };
+        Insert: { note_id: string; data_point_id: string };
         Update: never;
         Relationships: [];
       };
@@ -1294,6 +1308,8 @@ export interface Database {
           representation_id: string;
           diarization_label: string;
           display_name: string | null;
+          /** Set by a person; an interviewer's lines are skipped by Analyze (20261022120000). */
+          role: "interviewer" | "subject" | null;
           created_at: string;
           updated_at: string;
         };

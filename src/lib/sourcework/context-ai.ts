@@ -24,7 +24,7 @@ export type ContextCallResult =
   | { ok: false; error: string };
 
 /** Every page the search tool returned or cited, so an address the model invented can be refused. */
-function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
+export function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
   const urls = new Set<string>();
   for (const item of response.output) {
     if (item.type === "web_search_call") {
@@ -43,7 +43,7 @@ function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
   return urls;
 }
 
-function collectQueries(response: OpenAI.Responses.Response): string[] {
+export function collectQueries(response: OpenAI.Responses.Response): string[] {
   const queries: string[] = [];
   for (const item of response.output) {
     if (item.type !== "web_search_call") continue;

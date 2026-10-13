@@ -312,6 +312,7 @@ export function toDataPoint(row: DataPointRow, spans: DataPointSpan[]): DataPoin
     storyElement: row.story_element,
     claim: row.claim,
     aiClaim: row.ai_claim,
+    significance: row.significance,
     speakerId: row.speaker_id,
     kind: row.kind,
     status: row.status,
@@ -321,7 +322,7 @@ export function toDataPoint(row: DataPointRow, spans: DataPointSpan[]): DataPoin
 }
 
 export const DATA_POINT_COLUMNS =
-  "id, project_id, source_id, representation_id, question_id, relevance, story_element, claim, ai_claim, speaker_id, kind, status, prompt_version_id, run_id, created_at, updated_at";
+  "id, project_id, source_id, representation_id, question_id, relevance, story_element, claim, ai_claim, significance, speaker_id, kind, status, prompt_version_id, run_id, created_at, updated_at";
 
 /**
  * One project's data points for one source, with their spans. Rejected ones are
@@ -431,7 +432,8 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
 export async function getAcceptRatesForSlot(
   slot: PromptSlot,
 ): Promise<Map<string | null, { accepted: number; rejected: number }> | null> {
-  if (slot === "extraction") return getExtractionAcceptRates();
+  // Analyze writes its findings with the version that produced them, so the same count serves.
+  if (slot === "extraction" || slot === "analyze") return getExtractionAcceptRates();
   if (slot === "theme_review") return getThemeAcceptRates();
   if (slot === "quote_quality") return getQuoteAcceptRates();
   return null;

@@ -66,18 +66,20 @@ export function QuoteCard({
 
   return (
     <article
-      aria-label={`${QUOTE_TIER_LABEL[quote.tier]} quote`}
+      aria-label={quote.tier ? `${QUOTE_TIER_LABEL[quote.tier]} quote` : "Suggested clip"}
       className="rounded border border-dashed border-ink-400 bg-white p-3.5"
     >
       <div className="mb-2 flex items-center gap-2">
-        <span
-          className={cn(
-            "rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider",
-            TIER_BADGE[quote.tier],
-          )}
-        >
-          {QUOTE_TIER_LABEL[quote.tier]}
-        </span>
+        {quote.tier && (
+          <span
+            className={cn(
+              "rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider",
+              TIER_BADGE[quote.tier],
+            )}
+          >
+            {QUOTE_TIER_LABEL[quote.tier]}
+          </span>
+        )}
         {quote.stance === "complicates" && (
           <span
             title="Every data point behind this clip pushes against the theme"

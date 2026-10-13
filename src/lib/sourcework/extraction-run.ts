@@ -58,6 +58,8 @@ export interface ReadSource {
   speakerByUnit: Map<number, string | null>;
   /** Display names of the people on the recording, for keeping them out of searches. */
   speakerNames: string[];
+  /** Speakers a person marked as the interviewer; Analyze skips what they say. */
+  interviewerSpeakerIds: Set<string>;
 }
 
 export type ReadSourceResult = { ok: true; source: ReadSource } | { ok: false; error: string };
@@ -104,6 +106,7 @@ export async function readSourceUnits(
         groups,
         speakerByUnit: new Map(),
         speakerNames: [],
+        interviewerSpeakerIds: new Set(),
       },
     };
   }
@@ -119,7 +122,8 @@ export async function readSourceUnits(
         text: segment.text,
         words: segment.words,
         speakerLabel: speaker
-          ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName)
+          ? speakerDisplayLabel(speaker.diarizationLabel, speaker.displayName) +
+            (speaker.role === "interviewer" ? " (interviewer)" : "")
           : "Unknown speaker",
       };
     }),
@@ -145,6 +149,9 @@ export async function readSourceUnits(
       speakerNames: transcript.speakers
         .map((speaker) => speaker.displayName?.trim() ?? "")
         .filter((name) => name !== ""),
+      interviewerSpeakerIds: new Set(
+        transcript.speakers.filter((speaker) => speaker.role === "interviewer").map((s) => s.id),
+      ),
     },
   };
 }

@@ -8,7 +8,16 @@
 
 export type ExtractStreamEvent =
   | { type: "progress"; done: number; total: number }
-  | { type: "result"; ok: true; added: number; skippedReviewed: number; dropped: number }
+  | {
+      type: "result";
+      ok: true;
+      added: number;
+      skippedReviewed: number;
+      dropped: number;
+      /** Analyze only: candidate clips proposed, and web pages the model relied on. */
+      clips?: number;
+      consulted?: number;
+    }
   | { type: "result"; ok: false; error: string };
 
 export function encodeStreamEvent(event: ExtractStreamEvent): string {
@@ -46,6 +55,8 @@ export function parseStreamBuffer(buffer: string): { events: ExtractStreamEvent[
         added: Number(ok.added) || 0,
         skippedReviewed: Number(ok.skippedReviewed) || 0,
         dropped: Number(ok.dropped) || 0,
+        ...(ok.clips !== undefined ? { clips: Number(ok.clips) || 0 } : {}),
+        ...(ok.consulted !== undefined ? { consulted: Number(ok.consulted) || 0 } : {}),
       });
     } else if (event?.type === "result" && event.ok === false) {
       const failed = event as Extract<ExtractStreamEvent, { type: "result"; ok: false }>;

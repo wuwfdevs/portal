@@ -14,7 +14,7 @@ export interface TrialPoint {
   claim: string;
   /** "Firsthand · Q1" / "Firsthand · Story · Place". */
   tag: string;
-  relevance: "question" | "story";
+  relevance: "question" | "story" | "general";
   storyElement: string | null;
   spans: DataPointSpan[];
   /** The units the point rests on, for matching only. */

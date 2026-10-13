@@ -18,9 +18,12 @@ import { projectPath, themePath, themeQuotesPath } from "@/lib/transcription/lin
 // Any tool member may decide on a suggestion — RLS is the boundary, these are the courtesy in
 // front. Rejecting never deletes; accepting writes an ordinary excerpt.
 
-function revalidateQuotes(projectId: string, themeId: string, sourceId: string) {
-  revalidatePath(themeQuotesPath(projectId, themeId));
-  revalidatePath(themePath(projectId, themeId));
+function revalidateQuotes(projectId: string, themeId: string | null, sourceId: string) {
+  // A clip Analyze proposed belongs to a source, not a theme.
+  if (themeId) {
+    revalidatePath(themeQuotesPath(projectId, themeId));
+    revalidatePath(themePath(projectId, themeId));
+  }
   revalidatePath(projectPath(projectId, "excerpts"));
   revalidatePath(`/sourcework/sources/${sourceId}`);
 }
@@ -28,7 +31,7 @@ function revalidateQuotes(projectId: string, themeId: string, sourceId: string) 
 interface WaitingSuggestion {
   id: string;
   project_id: string;
-  theme_id: string;
+  theme_id: string | null;
   source_id: string;
   representation_id: string | null;
 }

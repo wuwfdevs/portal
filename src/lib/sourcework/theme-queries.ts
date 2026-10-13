@@ -443,7 +443,7 @@ export async function listPointsNotInTheme(
     id: string;
     claim: string;
     sourceTitle: string;
-    relevance: "question" | "story";
+    relevance: "question" | "story" | "general";
     questionId: string | null;
   }[]
 > {

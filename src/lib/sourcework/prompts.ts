@@ -9,7 +9,7 @@
 // version it used (null = built-in).
 
 export type PromptSlot =
-  "context" | "extraction" | "theme_assign" | "theme_review" | "quote_quality";
+  "analyze" | "context" | "extraction" | "theme_assign" | "theme_review" | "quote_quality";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -26,6 +26,14 @@ export interface PromptSlotDefinition {
   /** The text that runs until an editor publishes a version. */
   builtIn: string;
 }
+
+export const ANALYZE_GUIDE_BUILT_IN = `A finding states what the source establishes, in a sentence a reporter could attribute on the air. Keep who said it, the numbers and dates, and the speaker's own hedges ("he thinks", "around 1960"). Mark what someone lived as firsthand and what they heard as secondhand; an opinion stays an opinion. Prefer the firsthand and the specific to the general, and an official's figures to their reassurances. A source that qualifies or contradicts something already established is worth more than one that repeats it: when two accounts of the same thing differ, or an official account and a firsthand one do not match, say so in the significance.
+
+Before you answer, check each finding against the passages it points to and correct or drop any that says more than the speaker did.
+
+A clip earns its place by doing what narration cannot: a distinctive voice, an experience told by the person who lived it, a detail only they would know, an explanation in their words that is clearer than a paraphrase. It should make sense to someone hearing it once, start and end where the speaker does, and say something the narration will not already have said. A figure, a date or a list of facts is narration. A reassurance every official gives is not a clip. A few exceptional clips are better than many adequate ones, and none is often right.
+
+A moment of character, a telling detail or a scene that answers no question may be offered as a clip with no finding, but only when a listener would remember it.`;
 
 export const EXTRACTION_GUIDE_BUILT_IN = `Read the transcript as a producer looking for material for a radio story, and as a researcher answering this project's questions.
 
@@ -75,6 +83,22 @@ export const QUOTE_QUALITY_BUILT_IN = `A good clip is one a host can play straig
 Prefer a clip that shows over one that explains. Prefer a different speaker or source over a second clip of the same point. When nothing in the evidence works on air, say so by returning no clips.`;
 
 export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
+  {
+    slot: "analyze",
+    label: "Analyze guide",
+    description:
+      "Tells the model what makes a finding worth keeping and a clip worth offering. Used when someone chooses Analyze on a source.",
+    tryable: false,
+    gives: [
+      "The project's title and background text, its research questions (or a note that there are none), and the findings already accepted from its other sources.",
+      "The source as numbered sentences (a transcript) or numbered blocks (a document), under headers naming the speaker and time or the page. Web search is available to the model whenever it needs context.",
+    ],
+    returns: [
+      "Findings: a claim, the question it answers (if any), whether the speaker lived it, heard it, believes it or states it as fact, one line on why it matters, and the numbers of the passages it rests on. A few candidate clips, each with a reason and the finding it serves. The web pages the model relied on.",
+      "The model returns passage numbers, never text: the code derives times and words. The shape is fixed; your wording decides what is worth keeping and what makes a clip.",
+    ],
+    builtIn: ANALYZE_GUIDE_BUILT_IN,
+  },
   {
     slot: "context",
     label: "Background",
