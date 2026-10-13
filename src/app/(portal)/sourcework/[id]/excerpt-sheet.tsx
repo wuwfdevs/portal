@@ -2,16 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/segmented";
-import { Select } from "@/components/ui/input";
 import { formatDuration } from "@/lib/transcription/media";
 import type { ProjectClip } from "@/lib/transcription/clips";
 import type { TextSegment } from "@/lib/sourcework/piece-text";
 import { ClipCard } from "./clip-rail";
 import { PauseIcon, PlayIcon } from "./transport-icons";
-
-/** Past this many excerpts over one word, a menu reads better than side-by-side buttons. */
-const SWITCHER_MAX_SEGMENTS = 3;
 
 /**
  * What tapping a saved excerpt's words does on a phone. On desktop the same tap
@@ -24,7 +19,9 @@ const SWITCHER_MAX_SEGMENTS = 3;
  * implementation of each. Below lg only; from lg up the rail does this job.
  *
  * `clips` is every excerpt covering the tapped word, shortest first; with more
- * than one, a switcher picks which the sheet shows.
+ * than one, a "1 of 2" stepper picks which the sheet shows (titles are often long, so they
+ * are not repeated as buttons). Everything above the action row is `shrink-0` and the top block
+ * scrolls if the screen is short, so a long title or a keyboard never squashes the quote.
  */
 export function ExcerptSheet({
   clips,
@@ -66,48 +63,52 @@ export function ExcerptSheet({
   }, [onClose]);
 
   if (!clip) return null;
+  const clipIndex = clips.indexOf(clip);
+  const step = (delta: number) =>
+    onActivate(clips[(clipIndex + delta + clips.length) % clips.length]!.id);
   const playing = playingClipId === clip.id;
 
   return (
     <div
       role="dialog"
       aria-label="Excerpt"
-      className="fixed inset-x-0 bottom-[var(--player-dock-h,7rem)] z-50 flex max-h-[calc(100dvh-var(--player-dock-h,7rem)-4rem)] flex-col rounded-t-xl border border-x-0 border-brand-primary bg-white shadow-lg lg:hidden"
+      className="fixed inset-x-0 bottom-[var(--player-dock-h,7rem)] z-50 flex max-h-[calc(100dvh-var(--player-dock-h,7rem)-5rem)] flex-col rounded-t-xl border border-x-0 border-brand-primary bg-white shadow-lg lg:hidden"
     >
-      <div className="flex flex-col gap-2 px-4 pb-3 pt-3">
+      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3 pt-3 [&>*]:shrink-0">
         {clips.length > 1 && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-ink-500">This spot is in {clips.length} excerpts</span>
-            {clips.length <= SWITCHER_MAX_SEGMENTS ? (
-              <Segmented
-                name="overlapping-excerpts"
-                options={clips.map((candidate) => ({
-                  value: candidate.id,
-                  label: candidate.title,
-                }))}
-                value={clip.id}
-                onChange={onActivate}
-                className="self-stretch max-lg:[&_span]:h-11"
-              />
-            ) : (
-              <Select
-                value={clip.id}
-                onChange={(event) => onActivate(event.target.value)}
-                aria-label="Which excerpt"
-              >
-                {clips.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.title}
-                  </option>
-                ))}
-              </Select>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-xs text-ink-500">
+              This spot is in {clips.length} excerpts
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => step(-1)}
+              aria-label="Previous excerpt"
+              className="min-h-11 min-w-11"
+            >
+              ‹
+            </Button>
+            <span className="min-w-12 text-center text-sm tabular-nums text-ink-700">
+              {clipIndex + 1} of {clips.length}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => step(1)}
+              aria-label="Next excerpt"
+              className="min-h-11 min-w-11"
+            >
+              ›
+            </Button>
           </div>
         )}
 
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <strong className="block font-serif text-lg font-semibold leading-tight text-ink-900">
+            <strong className="line-clamp-2 block font-serif text-lg font-semibold leading-tight text-ink-900">
               {clip.title}
             </strong>
             <span className="font-mono text-xs text-ink-500">
@@ -158,7 +159,7 @@ export function ExcerptSheet({
               type="button"
               variant="link"
               onClick={onShowInExcerptsTab}
-              className="min-h-11 self-start text-brand-link"
+              className="min-h-10 self-start text-brand-link"
             >
               Show in Excerpts tab
             </Button>
