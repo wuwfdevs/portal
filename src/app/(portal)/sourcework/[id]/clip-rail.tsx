@@ -207,6 +207,7 @@ export function ClipCard({
   isPlaying = false,
   onPause,
   onShowInTranscript,
+  hidePlayButton = false,
   segments,
 }: {
   clip: ProjectClip;
@@ -220,6 +221,8 @@ export function ClipCard({
   isPlaying?: boolean;
   onPause?: () => void;
   onShowInTranscript?: () => void;
+  /** The phone sheet pins its own Play under the card, so the card's would be a second one. */
+  hidePlayButton?: boolean;
   segments?: TextSegment[];
 }) {
   const router = useRouter();
@@ -455,19 +458,21 @@ export function ClipCard({
         {/* The one icon-only control in the rail: a clip is a piece of audio,
             and this is the same play glyph the transport bar uses, so the
             card doesn't have to spend a whole labelled button saying so. */}
-        <button
-          type="button"
-          onClick={() => (isPlaying ? onPause?.() : onPreview(startMs, endMs, clip.id))}
-          aria-label={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
-          title={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"
-        >
-          {isPlaying ? (
-            <PauseIcon className="h-2.5 w-2.5" />
-          ) : (
-            <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
-          )}
-        </button>
+        {!hidePlayButton && (
+          <button
+            type="button"
+            onClick={() => (isPlaying ? onPause?.() : onPreview(startMs, endMs, clip.id))}
+            aria-label={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
+            title={isPlaying ? "Pause this excerpt" : "Preview this excerpt"}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"
+          >
+            {isPlaying ? (
+              <PauseIcon className="h-2.5 w-2.5" />
+            ) : (
+              <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+            )}
+          </button>
+        )}
         <Button
           type="button"
           variant="secondary"

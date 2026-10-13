@@ -75,7 +75,9 @@ export function ExcerptSheet({
       aria-label="Excerpt"
       className="fixed inset-x-0 bottom-[var(--player-dock-h,7rem)] z-50 flex max-h-[calc(100dvh-var(--player-dock-h,7rem)-5rem)] flex-col rounded-t-xl border border-x-0 border-brand-primary bg-white pb-[env(safe-area-inset-bottom)] shadow-lg lg:hidden"
     >
-      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3 pt-3 [&>*]:shrink-0">
+      <div
+        className={`flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-3 pt-3 [&>*]:shrink-0 ${expanded && clips.length <= 1 ? "hidden" : ""}`}
+      >
         {clips.length > 1 && (
           <div className="flex items-center gap-2">
             <span className="flex-1 text-xs text-ink-500">
@@ -107,27 +109,30 @@ export function ExcerptSheet({
           </div>
         )}
 
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <strong className="line-clamp-2 block font-serif text-lg font-semibold leading-tight text-ink-900">
-              {clip.title}
-            </strong>
-            <span className="font-mono text-xs text-ink-500">
-              {formatDuration(clip.startMs)}–{formatDuration(clip.endMs)} (
-              {formatDuration(clip.endMs - clip.startMs)})
-            </span>
+        {/* Editing shows the same title, words and time in the card below, so the header steps aside. */}
+        {!expanded && (
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <strong className="line-clamp-2 block font-serif text-lg font-semibold leading-tight text-ink-900">
+                {clip.title}
+              </strong>
+              <span className="font-mono text-xs text-ink-500">
+                {formatDuration(clip.startMs)}–{formatDuration(clip.endMs)} (
+                {formatDuration(clip.endMs - clip.startMs)})
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-2 -mt-1 min-h-11 min-w-11 px-3 text-base"
+            >
+              ✕
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            aria-label="Close"
-            className="-mr-2 -mt-1 min-h-11 min-w-11 px-3 text-base"
-          >
-            ✕
-          </Button>
-        </div>
+        )}
 
         {!expanded && (
           <>
@@ -182,6 +187,7 @@ export function ExcerptSheet({
               onPreview={onPreview}
               isPlaying={playing}
               onPause={onPause}
+              hidePlayButton
               segments={segments}
             />
           </div>
