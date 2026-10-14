@@ -3,6 +3,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { TextLink } from "@/components/ui/primary-link";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { LogContentItemRow } from "@/lib/log/queries";
+import { ControlRow } from "@/components/ui/control-row";
 
 /**
  * The content item field set, shared by the "new content item" page and the
@@ -99,10 +100,14 @@ export function ContentItemForm({
           defaultValue={item?.community_issue_tags.join(", ") ?? ""}
         />
       </Field>
-      <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
-        {cancelHref && <TextLink href={cancelHref}>Cancel</TextLink>}
+      <ControlRow className="justify-end gap-3 border-t border-line pt-4">
+        {cancelHref && (
+          <TextLink href={cancelHref} data-row="fixed">
+            Cancel
+          </TextLink>
+        )}
         <Button type="submit">{submitLabel}</Button>
-      </div>
+      </ControlRow>
     </form>
   );
 }

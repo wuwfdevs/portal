@@ -39,6 +39,7 @@ import {
   deactivateOpportunityAssignment,
   updateLocalOpportunity,
 } from "../../clock-actions";
+import { ControlRow } from "@/components/ui/control-row";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -353,9 +354,9 @@ export default async function ClockTemplateDetailPage({
               This describes only the network&apos;s own structure. Mark a slot eligible for local
               content from its panel above once it exists.
             </FieldHint>
-            <div className="flex justify-end">
+            <ControlRow className="justify-end">
               <Button type="submit">Add slot</Button>
-            </div>
+            </ControlRow>
           </form>
         </details>
       )}
@@ -386,9 +387,9 @@ export default async function ClockTemplateDetailPage({
               A version is immutable once created — a correction is a new version, not an edit.
               Local eligibility is marked per slot, per version, in the panel above.
             </FieldHint>
-            <div className="flex justify-end border-t border-line pt-4">
+            <ControlRow className="justify-end border-t border-line pt-4">
               <Button type="submit">Start version</Button>
-            </div>
+            </ControlRow>
           </form>
         </Card>
       )}
@@ -461,9 +462,9 @@ function OpportunityForm({
           defaultValue={defaultNotes ?? undefined}
         />
       </Field>
-      <div className="flex justify-end">
+      <ControlRow className="justify-end">
         <Button type="submit">{submitLabel}</Button>
-      </div>
+      </ControlRow>
     </form>
   );
 }
@@ -535,9 +536,9 @@ function AssignmentForm({
       <Field label="Notes" htmlFor={`assign-notes-${opportunityId}`}>
         <Input id={`assign-notes-${opportunityId}`} name="notes" maxLength={280} />
       </Field>
-      <div className="flex justify-end">
+      <ControlRow className="justify-end">
         <Button type="submit">Pin content</Button>
-      </div>
+      </ControlRow>
     </form>
   );
 }

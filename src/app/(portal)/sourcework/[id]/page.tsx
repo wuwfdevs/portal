@@ -510,13 +510,13 @@ export default async function TranscriptionProjectPage({
       ) : excerptsView ? (
         <>
           {projectExcerpts.length > 0 && (
-            <div className="mb-4 flex justify-end">
+            <ControlRow className="mb-4 justify-end">
               <ExportExcerptsButton
                 projectId={project.id}
                 projectTitle={project.title}
                 exportDate={project.sources[0]?.source.interview_date ?? project.createdAt}
               />
-            </div>
+            </ControlRow>
           )}
           <ProjectExcerptsView projectId={project.id} clips={projectExcerpts} />
         </>

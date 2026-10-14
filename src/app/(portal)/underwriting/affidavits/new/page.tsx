@@ -7,6 +7,7 @@ import { listContracts } from "@/lib/underwriting/queries";
 import { generateAffidavit } from "../../affidavit-actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { ControlRow } from "@/components/ui/control-row";
 
 /**
  * Workflow G's own generation form (docs/underwriting-design.md §4) — pick a
@@ -81,9 +82,9 @@ export default async function NewAffidavitPage({
             period is fine — it produces a new, separately versioned affidavit rather than replacing
             the old one.
           </FieldHint>
-          <div className="flex justify-end border-t border-line pt-4">
+          <ControlRow className="justify-end border-t border-line pt-4">
             <Button type="submit">Generate</Button>
-          </div>
+          </ControlRow>
         </form>
       </Card>
     </div>

@@ -26,6 +26,7 @@ import type {
 } from "@/lib/editorial/data";
 import type { EpConcernFlag, EpRecommendation } from "@/lib/database.types";
 import { addPitchToSlate, removePitchFromSlate, submitReview } from "../actions";
+import { ControlRow } from "@/components/ui/control-row";
 
 /**
  * The independent-review UI while a meeting is open — and, for an editor, the
@@ -247,11 +248,11 @@ function AddPitchControl({
               </option>
             ))}
           </Select>
-          <div className="flex justify-end">
+          <ControlRow className="justify-end">
             <Button type="submit" variant="secondary" size="sm">
               Add to slate
             </Button>
-          </div>
+          </ControlRow>
         </form>
       </FloatingPanel>
     </details>
@@ -390,11 +391,11 @@ function ReviewForm({
           )}
         </div>
 
-        <div className="flex justify-end">
+        <ControlRow className="justify-end">
           <Button type="submit" variant="secondary">
             {own ? "Update review" : "Save review"}
           </Button>
-        </div>
+        </ControlRow>
       </div>
     </form>
   );
