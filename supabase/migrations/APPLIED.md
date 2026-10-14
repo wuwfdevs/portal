@@ -289,6 +289,8 @@ repo and a project's history, not the version number.
 | `20261026130000_resources_sourcework_retire_themes.sql`               | 2026-10-14 | 2026-10-14 |
 | `20261026140000_sourcework_clear_legacy_waiting_clips.sql`            | 2026-10-14 | 2026-10-14 |
 | `20261027120000_resources_sourcework_review_and_story.sql`            | 2026-10-14 | 2026-10-14 |
+| `20261028120000_resources_sourcework_project_overview.sql`            | 2026-10-14 | 2026-10-14 |
+| `20261028130000_sourcework_project_overview_stage.sql`                | 2026-10-14 | 2026-10-14 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

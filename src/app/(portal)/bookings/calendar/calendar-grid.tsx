@@ -1,4 +1,5 @@
 import { WeekMonthLinks } from "@/components/ui/segmented";
+import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { dayOfWeekISO } from "@/lib/dates";
@@ -458,10 +459,10 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
           })}
         </div>
       </div>
-      <p className="text-xs text-ink-500">
+      <DismissibleHint id="bookings-month-day" className="text-xs">
         Each day counts its confirmed and tentative bookings and WUWF&apos;s holds. Pick a day to
         see its week.
-      </p>
+      </DismissibleHint>
     </section>
   );
 }

@@ -4213,8 +4213,15 @@ export interface Database {
           active_count: number;
           excerpt_count: number;
           last_activity: string;
-          /** Decisions waiting: data points, proposed themes and merges (20261012120000, 20261013120000). */
+          /** Suggested data points waiting for a decision. */
           review_count: number;
+          /** Inputs to the project stage (20261028130000): lib/sourcework/project-stage.ts's projectStage(). */
+          ready_count: number;
+          analyzed_count: number;
+          clip_review_count: number;
+          accepted_count: number;
+          has_synthesis: boolean;
+          piece_count: number;
         };
         Relationships: [];
       };

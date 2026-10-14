@@ -1,5 +1,6 @@
 "use client";
 
+import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -718,7 +719,10 @@ export function TranscriptWorkspace({
             pane === "transcript" ? "flex" : pane === "projects" ? "hidden" : "hidden lg:flex",
           )}
         >
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+            <h2 className="mr-auto text-[11px] font-bold uppercase tracking-wider text-ink-400 max-lg:hidden">
+              Transcript
+            </h2>
             <SpeakersMenu
               projectId={projectId}
               representationId={representationId}
@@ -727,7 +731,6 @@ export function TranscriptWorkspace({
               onSeek={seekTo}
               onRenamed={handleSpeakerRenamed}
             />
-            <span className="flex-1 max-lg:hidden" />
             <form
               role="search"
               onSubmit={(event) => {
@@ -797,11 +800,11 @@ export function TranscriptWorkspace({
             </p>
           ) : (
             <div>
-              <p className="mb-2 text-xs text-ink-400">
-                Select any stretch of text to make an excerpt — on a phone, touch and hold a word,
-                then drag. Use the ⋮ on a line to edit, merge, or reassign it, or to make an excerpt
+              <DismissibleHint id="transcript-select" className="mb-3">
+                Select any stretch of text to make an excerpt. On a phone, touch and hold a word,
+                then drag. Use the ⋮ on a line to edit, merge or reassign it, or to make an excerpt
                 from the whole line.
-              </p>
+              </DismissibleHint>
               <div className="relative">
                 <div
                   ref={transcriptRef}
@@ -818,7 +821,7 @@ export function TranscriptWorkspace({
                   // reporter takes over, instead of fighting them for the pane.
                   onWheel={() => setFollow(false)}
                   onTouchMove={() => setFollow(false)}
-                  className="py-2 max-lg:pb-0 lg:max-h-[max(24rem,calc(100vh-17rem))] lg:overflow-y-auto lg:rounded lg:border lg:border-line lg:pb-24"
+                  className="py-2 max-lg:pb-0 lg:pb-24"
                 >
                   {segments.map((segment, index) => (
                     <SegmentRow

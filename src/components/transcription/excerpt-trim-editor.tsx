@@ -1,5 +1,6 @@
 "use client";
 
+import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { useMemo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDuration } from "@/lib/transcription/media";
@@ -115,9 +116,9 @@ export function ExcerptTrimEditor({
             : "The transcript words aren’t available for this clip. Use the buttons below."}
         </p>
       )}
-      <p className="mt-1.5 text-xs text-ink-400">
+      <DismissibleHint id="trim-tap-word" className="mt-1.5 text-xs">
         Tap a word to move the start or end there, or nudge below.
-      </p>
+      </DismissibleHint>
 
       <div className="mt-2.5 flex flex-col gap-2 text-xs text-ink-500 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-7 lg:gap-y-2">
         <TrimRow label="In" valueMs={range.startMs} onNudge={(delta) => nudge("start", delta)} />
