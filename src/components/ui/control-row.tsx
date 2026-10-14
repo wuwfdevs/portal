@@ -12,8 +12,9 @@ import type { ComponentProps } from "react";
  *   and the other control takes the rest;
  * - a child marked `data-row="full"` (a search box) takes its own row;
  * - a child marked `data-row="skip"` is hidden (a desktop-only spacer);
- * - three or more stretching controls pair up, and the last one — the primary
- *   action by the portal's own convention — takes the last row alone.
+ * - three or more stretching controls pair up two to a row; with an odd count
+ *   the last one — the primary action by the portal's own convention — takes
+ *   the last row alone.
  *
  * `Button`, `PrimaryLink`, `SecondaryLink`, `Select` and `ListSearch` need no
  * marking, and `ActionMenu` marks its own ⋮ trigger. Use `CONTROL_ROW` on an

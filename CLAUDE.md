@@ -425,7 +425,8 @@ assistant) has since landed; see below.
 **Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
 `docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
 (`?view=setup`) holds its research questions, the web background notes the model gathered (background
-only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source was
+only, never evidence); its "Where this project stands" status was removed on 2026-10-14 as a duplicate of the
+Sources tab's overview strip, and "+ Add source" moved from the project header to the Sources toolbar. A source was
 **extracted** into data points (retired in slice 4; Analyze replaced it) and reviewed in the source
 workspace through an **Excerpts | Data points** switch (lime marks; dashed = unreviewed). Four things are
 load-bearing: (1) **the model returns numbered passage units, never text** — `extraction-units.ts` derives
@@ -1650,8 +1651,8 @@ by side; this is a pointer. A row of buttons, button-styled links, selects or me
 `ControlRow` (`components/ui/control-row.tsx`, `CONTROL_ROW` for a `<form>`), never a flex
 container typed per screen. Below `sm` the rule in `globals.css` sizes the children: two share
 the row at half width, an icon-only button (`data-row="fixed"`) keeps its square, a search box
-(`data-row="full"`) takes its own row, and with three or more the last — the primary — takes
-the last row alone. `ListToolbar` is one already, so its trailing children need nothing.
+(`data-row="full"`) takes its own row, and with an odd count of three or more the last — the
+primary — takes the last row alone. `ListToolbar` is one already, so its trailing children need nothing.
 
 **Filters and tables on a phone — one approach for every list (2026-09-30).** Read
 `docs/ui-patterns.md` "Filters" and "Tables on narrow screens" before adding a list page or

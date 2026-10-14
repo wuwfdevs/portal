@@ -3,7 +3,7 @@
 // JSX (docs/sourcework-analysis-design.md §7.1).
 
 import { pluralize } from "@/lib/format";
-import { canExtract, type ExtractionState, type Standing } from "./run-state";
+import { canExtract, type ExtractionState } from "./run-state";
 import type { ContextNote } from "./research";
 
 /** Background notes shown before "Show N more". */
@@ -17,12 +17,6 @@ export function splitContextNotes(notes: readonly ContextNote[]): {
     active: notes.filter((note) => note.status === "active"),
     dismissed: notes.filter((note) => note.status === "dismissed"),
   };
-}
-
-/** The `Steps` index of the first step not yet done; past the end when all are. */
-export function currentStepIndex(steps: Standing["steps"]): number {
-  const index = steps.findIndex((step) => step.state !== "done");
-  return index === -1 ? steps.length : index;
 }
 
 /** Sources a batch should run: not extracted yet, or whose last try failed. */

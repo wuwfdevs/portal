@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentStepIndex, sourcesToExtract, splitContextNotes } from "./setup-view";
+import { sourcesToExtract, splitContextNotes } from "./setup-view";
 import type { ContextNote } from "./research";
 
 const note = (id: string, status: "active" | "dismissed"): ContextNote => ({
@@ -18,14 +18,6 @@ describe("setup view rules", () => {
     const { active, dismissed } = splitContextNotes([note("a", "active"), note("b", "dismissed")]);
     expect(active.map((n) => n.id)).toEqual(["a"]);
     expect(dismissed.map((n) => n.id)).toEqual(["b"]);
-  });
-
-  it("finds the first step not done", () => {
-    const step = (state: "done" | "current" | "upcoming") => ({ label: "", shortLabel: "", state });
-    expect(currentStepIndex([step("done"), step("done"), step("current"), step("upcoming")])).toBe(
-      2,
-    );
-    expect(currentStepIndex([step("done"), step("done")])).toBe(2);
   });
 
   it("runs only idle and failed sources", () => {
