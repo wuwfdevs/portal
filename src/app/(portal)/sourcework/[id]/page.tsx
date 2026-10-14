@@ -73,6 +73,7 @@ export default async function TranscriptionProjectPage({
     view?: string;
     q?: string;
     version?: string;
+    cert?: string;
     show?: string;
     sort?: string;
     edit?: string;
@@ -86,6 +87,7 @@ export default async function TranscriptionProjectPage({
     view,
     q,
     version,
+    cert,
     show: showParam,
     sort: sortParam,
     edit,
@@ -484,7 +486,7 @@ export default async function TranscriptionProjectPage({
       ) : setupView ? (
         <SetupTab projectId={project.id} sources={project.sources} />
       ) : synthesisView ? (
-        <SynthesisTab projectId={project.id} versionParam={version} />
+        <SynthesisTab projectId={project.id} versionParam={version} certParam={cert} />
       ) : piecesView ? (
         <PiecesTab
           projectId={project.id}

@@ -76,7 +76,7 @@ export function SynthesizeButton({
       )}
       {!running && alreadyRunning && (
         <Alert variant="info">
-          A synthesis is already being written for this project. Reload in a minute.
+          A synthesis is already being written for this project. This page updates when it finishes.
         </Alert>
       )}
       {message && <Alert variant={message.ok ? "success" : "danger"}>{message.text}</Alert>}
