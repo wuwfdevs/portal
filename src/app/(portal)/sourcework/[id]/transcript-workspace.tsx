@@ -942,9 +942,14 @@ export function TranscriptWorkspace({
             onSelect={handleSelectFromRail}
             onPlay={(point) => {
               const span = point.spans.find((candidate) => candidate.kind === "temporal");
-              if (span?.kind === "temporal") previewRange(span.startMs, span.endMs);
+              if (span?.kind === "temporal")
+                previewRange(span.startMs, span.endMs, `point:${point.id}`);
             }}
-            onPlayClip={(range) => previewRange(range.startMs, range.endMs)}
+            onPlayClip={(range, clipId) =>
+              previewRange(range.startMs, range.endMs, `clip:${clipId}`)
+            }
+            onPause={pausePreview}
+            playingKey={isPlaying ? previewingClipId : null}
             onOpen={(point) => {
               // A tap on a card's time: select it, go to the words, and put the
               // playhead there without starting playback.

@@ -13,8 +13,8 @@ describe("prompt slots", () => {
       expect(validatePromptBody(definition.slot, definition.builtIn).ok).toBe(true);
     }
   });
-  it("has the three slots that still run a model", () => {
-    expect(PROMPT_SLOTS.map((d) => d.slot)).toEqual(["analyze", "synthesis", "outline"]);
+  it("has the four slots that still run a model", () => {
+    expect(PROMPT_SLOTS.map((d) => d.slot)).toEqual(["analyze", "synthesis", "outline", "writing"]);
   });
   it("looks a slot up by name", () => {
     expect(promptSlotDefinition("analyze")?.label).toBe("Analyze guide");
@@ -49,5 +49,13 @@ describe("acceptRateLabel", () => {
     expect(acceptRateLabel(78, 22)).toBe("78% accepted");
     expect(acceptRateLabel(0, 0)).toBeNull();
     expect(acceptRateLabel(0, 3)).toBe("0% accepted");
+  });
+});
+
+describe("the writing guide", () => {
+  it("asks for attribution in the past tense", () => {
+    const writing = PROMPT_SLOTS.find((d) => d.slot === "writing");
+    expect(writing?.builtIn).toMatch(/past tense/);
+    expect(writing?.builtIn).toContain("said");
   });
 });

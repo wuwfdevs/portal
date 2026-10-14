@@ -27,7 +27,7 @@ import {
 import { MAX_QUOTE_MS, MIN_QUOTE_MS, sameStretch } from "./quotes";
 
 /** The most candidate clips one source yields. A ceiling, not a target: none is a normal answer. */
-export const MAX_ANALYZE_EXCERPTS = 5;
+export const MAX_ANALYZE_EXCERPTS = 8;
 /** Findings already established that are shown to the model, so a long project does not crowd the source out. */
 export const MAX_ESTABLISHED_FINDINGS = 150;
 export const SIGNIFICANCE_MAX = 400;
@@ -51,11 +51,13 @@ Read the way a reporter would. When something in the source depends on context y
 
 The source arrives as numbered units (sentences of a transcript, or blocks of a document) under headers naming the speaker and the time, or the page. Point at passages only by unit number. Never copy or retype source text. What an interviewer says is a question, not a finding or a clip.
 
+The research questions decide which findings answer the project's purpose; they do not decide what is worth noticing. A seasoned reporter listens for more than the questions: for what a speaker keeps coming back to, volunteers without being asked, or tells with feeling, and for a way of seeing events that other people in the project may share (for instance, neighbors organizing to help one another instead of waiting for official help). When you hear something like that, record it as a finding with question_number null, and use the significance to say what pattern it points to and why it might matter beyond this one speaker. Keep these to the few that recur within the source or carry real weight; do not log every aside. Across sources, they are how patterns nobody asked about get noticed.
+
 Be selective. A finding earns its place by what it adds to what the project has already established: something new, more precise, better sourced, firsthand where the record was secondhand, or in tension with it. Leave out what repeats an established finding, what is tangential to the questions, what could be said of any storm or any town, and what is merely interesting. Fewer, better findings are the goal; an empty list is a valid answer.
 
 Return:
 - findings: each with question_number (null when it answers none of the questions, or the project has none), kind (firsthand: the speaker lived or did it; secondhand: they heard it; opinion: their view; factual: a statement of record), claim (a short paraphrase in plain words that keeps the names, places, numbers, dates and hedges the speaker used; not a topic label, not a quote), significance (one sentence on what this adds), and spans (ranges of unit numbers it rests on, as tight as the claim allows).
-- excerpts: passages that would work as audio because they do something narration can't: a voice, an experience, a revealing detail or turn of phrase, an explanation only this speaker can give. One speaker's consecutive sentences (first_unit to last_unit) that make sense on their own. Give why in one sentence, and finding_number for the finding it serves, or null for a moment of character or narrative detail that serves none. Choose few. None is a normal answer; never add a weaker clip to reach a number.
+- excerpts: passages that would work as audio because they do something narration can't: a voice, an experience, a revealing detail or turn of phrase, an explanation only this speaker can give. One speaker's consecutive sentences (first_unit to last_unit) that make sense on their own. Give why in one sentence, and finding_number for the finding it serves, or null for a moment of character or narrative detail that serves none. Judge clips by how they would sound on the air, not by whether they answer a research question: a strong moment that serves no question is still a clip (finding_number null). Offer every clip that is strong, and no filler. Some sources have none; a long, rich interview may have several.
 - consulted: the web pages that changed how you read the source: a title, one or two sentences on what the page told you, its address copied from a search result (never invented), and finding_numbers for the findings it informed. List only pages you relied on.
 
 The newsroom's editors give their guidance below.`;

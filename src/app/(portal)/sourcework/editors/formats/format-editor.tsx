@@ -1,5 +1,6 @@
 "use client";
 
+import { SparklesIcon } from "@/components/ui/sparkles-icon";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -294,6 +295,7 @@ export function FormatEditor({
           "inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-lg:flex-1",
         )}
       >
+        <SparklesIcon className="mr-1.5 h-3.5 w-3.5" />
         Try this draft
       </Link>
     </>

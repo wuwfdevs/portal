@@ -1135,3 +1135,50 @@ piece is the story, planned as beats and then written. With the data being test 
   Production held 9 such clips. `20261026140000_sourcework_clear_legacy_waiting_clips.sql` deletes waiting suggestions with
   no run (Analyze always sets one); accepted and rejected ones stay, because Analyze skips stretches a person already
   decided on. Nothing here has run against a live OpenAI model.
+
+## 25. Review across sources, emerging themes, and a one-shot story (2026-10-14)
+
+Notes from using the pipeline on a real project (Isaias, two interviews that both described neighbors
+helping one another instead of waiting for official help — a pattern the model did not notice — and strong
+clips it missed). No schema change; the content migration is `20261027120000`.
+
+- **Review is a project-level tab** (`?view=review`, `review-tab.tsx`, `review-list.tsx`, `review-queries.ts`):
+  every suggested finding and clip across the project's current sources, grouped by source, each playable from
+  the source's recording through one shared audio element (`signReviewMedia`), with Accept all for findings
+  (`acceptSuggestedDataPoints`, project-wide) and for clips (`acceptAllSuggestedClips`, which reuses
+  `lib/sourcework/quote-accept.ts`, moved out of the Server Action file because it takes a client). The Sources
+  tab says how many are waiting and links there. The per-source screen still works for a close read next to the
+  transcript.
+- **Pages the model looked up are visible.** Setup's copy always promised "each finding it helped with says so" and
+  nothing did. A finding's card now has a "Looked up" line (`listBackgroundForPoints` over
+  `sw_context_note_points`, active notes only), and the Review tab opens a "Pages the model looked up" list.
+  They stay context, never evidence.
+- **Emerging themes.** Two changes aimed at the same miss. (1) Analyze's framing now tells the model that the research
+  questions decide what a finding is _for_, not what is worth noticing: record what a speaker keeps returning to as
+  a finding that answers no question, with a significance saying what pattern it points to. Clips are judged as
+  audio, not by whether they serve a question, and the per-source ceiling rose from 5 to 8 (still a ceiling).
+  (2) Synthesis returns `emerging`: patterns across sources no question asked about. **Enforced in code:** a theme
+  must cite findings from at least two different sources (`theme_one_source`), at most `MAX_EMERGING` (5) are kept,
+  and it needs a valid cite. That is the noise control; the prompt also says none is a fine answer. A theme appears
+  under "Patterns across sources" and has **Track as a research question**, so the next Analyze listens for it in every
+  source. Versions written before this read as no themes; a person's pinned theme is carried forward like any statement.
+- **Outline readiness** (`outline-readiness.ts`): the piece editor warns, above the Outline button and inside its card,
+  when no excerpts have been accepted (the outline would be beats with no tape) and disables it when there are neither
+  findings nor excerpts, linking to Review.
+- **One format choice.** The piece's format is set once in the header; Outline and Write from outline show it and use it.
+- **Writing guide.** A fourth prompt slot, `writing`, holds house style for narration: attribution in the past tense
+  ("said", "told"), writing for the ear. The accuracy and attribution rules stay in code (`WRITING_STANDARDS`).
+  Write from outline appends the live guide to the framing and records its version on the run.
+- **Write a story** (`autopilot.ts`, `autopilot-panel.tsx`, `autopilot-actions.ts`): chains wait for transcripts →
+  Analyze each source → accept → Synthesize → Outline → Write, from the browser, ending on the piece. Each step is the
+  request a person would make by hand; completed steps are remembered so "Carry on" after a failure does not redo them.
+  A second mode, "Let me review first", stops after Analyze and opens Review. There is still no job queue, so the page
+  must stay open; stopping leaves the project where the last step left it. Accepting everything is the trade this mode
+  makes: the draft and every earlier step stay reversible, and the Review tab is where to undo findings.
+- **Sparkles mark** on every AI-starting control (`Button ai`, `components/ui/sparkles-icon.tsx`); the rule is in
+  `docs/ui-patterns.md` and CLAUDE.md.
+- **Not built:** starting "Write a story" automatically at the end of a new-project upload (the panel is on the Sources tab
+  after upload); inline playback of a document finding (it opens the page instead); a server-side queue so the run survives
+  closing the tab.
+- **Status:** nothing here has run against a live OpenAI model or a live database in this environment. The parser rules,
+  readiness, autopilot planning and prompt slots are unit-tested.

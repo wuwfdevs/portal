@@ -82,6 +82,7 @@ export function FormatTryForm({
           </div>
           <Button
             type="button"
+            ai
             onClick={() => void run()}
             disabled={running || !canRun}
             className="max-lg:min-h-12 max-lg:w-full"

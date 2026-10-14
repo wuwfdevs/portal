@@ -8,7 +8,7 @@
 // writes a sw_prompt_versions row and moves sw_prompt_live; the run records the
 // version it used (null = built-in).
 
-export type PromptSlot = "analyze" | "synthesis" | "outline";
+export type PromptSlot = "analyze" | "synthesis" | "outline" | "writing";
 
 export interface PromptSlotDefinition {
   slot: PromptSlot;
@@ -28,9 +28,9 @@ export const ANALYZE_GUIDE_BUILT_IN = `A finding states what the source establis
 
 Before you answer, check each finding against the passages it points to and correct or drop any that says more than the speaker did.
 
-A clip earns its place by doing what narration cannot: a distinctive voice, an experience told by the person who lived it, a detail only they would know, an explanation in their words that is clearer than a paraphrase. It should make sense to someone hearing it once, start and end where the speaker does, and say something the narration will not already have said. A figure, a date or a list of facts is narration. A reassurance every official gives is not a clip. A few exceptional clips are better than many adequate ones, and none is often right.
+A clip earns its place by doing what narration cannot: a distinctive voice, an experience told by the person who lived it, a detail only they would know, an explanation in their words that is clearer than a paraphrase. It should make sense to someone hearing it once, start and end where the speaker does, and say something the narration will not already have said. A figure, a date or a list of facts is narration. A reassurance every official gives is not a clip. Do not hold a clip back because it answers no research question: the questions say what a finding is for, not what makes good audio. A moment of character, a telling detail, a scene or a way of putting it that a listener would remember should be offered as a clip with no finding. Offer every strong clip and no filler.
 
-A moment of character, a telling detail or a scene that answers no question may be offered as a clip with no finding, but only when a listener would remember it.`;
+Listen for what the speaker keeps returning to or says with feeling, even when no question asks for it. If it is a way of seeing things other people in the project may share, record it as a finding that answers no question, and say in the significance what pattern it points to.`;
 
 export const SYNTHESIS_GUIDE_BUILT_IN = `Write each statement so a reporter could attribute it and defend it. State no more than the findings behind it allow, and keep who said it and how they know whenever it changes how far a claim can be trusted.
 
@@ -51,6 +51,14 @@ A beat that states a number, a name or an attribution should rest on more than o
 Choose clips by walking the story, not by scanning the list. For each place where narration would be flat, ask whether anyone said it better in their own voice; if so, place that clip, and if not, leave the beat as narration. A good clip carries feeling, a scene, or a detail only that person knew, makes sense on its own, and does not repeat the beat before it. Do not use a clip to deliver a figure. Prefer different voices when the choice is close, but never at the cost of a better clip.
 
 A short piece may need three beats and one clip. A longer one needs a turn: somewhere the story complicates itself. Close on something that moves the story forward, not a summary.`;
+
+export const WRITING_GUIDE_BUILT_IN = `Write attribution in the past tense, as a professional journalist does: "the mayor said", "she told us", "he remembered", "officials reported". Use the present tense only when the speaker is stating something that is still true and is being said now, in this piece (a live interview, a statement made today), or for a standing fact that needs no attribution. "Says" and "tells" are not the default; "said" and "told" are.
+
+Write for the ear. Short sentences, one idea each, in plain spoken language that can be read aloud in one breath. Put the attribution first when it helps the listener know who is talking ("the mayor said the plan would cost...").
+
+Lead with the newest or most important fact. Do not restate the first line of the story in the anchor intro: the intro sets up the story and the reporter's piece takes it on.
+
+Avoid stacked clauses, jargon and numbers a listener cannot hold. Round figures unless the exact figure is the point, and say what a number means.`;
 
 export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
   {
@@ -97,6 +105,19 @@ export const PROMPT_SLOTS: readonly PromptSlotDefinition[] = [
       "The model returns finding numbers, excerpt numbers and tape refs, never text from a recording or a time: the code supplies those. The shape is fixed; your wording decides what makes a story and which clips earn a place.",
     ],
     builtIn: OUTLINE_GUIDE_BUILT_IN,
+  },
+  {
+    slot: "writing",
+    label: "Writing guide",
+    description:
+      "House style for the narration the model writes: tense of attribution and writing for the ear. Used when someone chooses Write from outline.",
+    gives: [
+      "The outline in order (beats, placed clips and any narration already written), the cited findings, the reporter's direction and the piece's format.",
+    ],
+    returns: [
+      "Narration for each beat, by the beat's number. The accuracy and attribution rules (use only what the material says, never invent, name the speaker before a clip) are fixed in code; your wording decides how the narration reads.",
+    ],
+    builtIn: WRITING_GUIDE_BUILT_IN,
   },
 ];
 

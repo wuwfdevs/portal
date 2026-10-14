@@ -4533,6 +4533,9 @@ make explicitly, not by default.
   - Tone is the station's: factual, calm, sentence case, no exclamation points.
   - The migration goes through `APPLIED.md` like any other. Internal-only changes
     (refactors, fixes nobody sees, docs) don't need one.
+- **Every control that starts a model run carries the sparkles mark** (`<Button ai>`, or `SparklesIcon`
+  beside a link's label). See `docs/ui-patterns.md`, "AI actions carry the sparkles mark". Add it in the
+  same change that adds the AI action.
 - Inspect the relevant existing file(s) before editing; match existing patterns rather
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename

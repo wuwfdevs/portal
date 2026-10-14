@@ -652,7 +652,7 @@ export function DocumentsRun({
         )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
-        <Button type="button" disabled={runCount === 0} onClick={start}>
+        <Button type="button" ai disabled={runCount === 0} onClick={start}>
           {runCount === 0
             ? "Import"
             : `Import ${runCount} ${runCount === 1 ? (documentsOnly ? "document" : "entry") : documentsOnly ? "documents" : "entries"}`}

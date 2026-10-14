@@ -291,6 +291,7 @@ function ContextView(
           {props.canDrillDown && (
             <Button
               variant="secondary"
+              ai
               className={COMPACT_BUTTON}
               onClick={props.onDrillDown}
               disabled={actionsDisabled}
@@ -301,6 +302,7 @@ function ContextView(
           )}
           <Button
             variant="secondary"
+            ai
             className={COMPACT_BUTTON}
             onClick={props.onEvaluate}
             disabled={actionsDisabled}

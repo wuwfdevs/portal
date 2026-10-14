@@ -137,6 +137,14 @@ export interface ContextNote {
   status: "active" | "dismissed";
 }
 
+/** A web page the model consulted while reading, as a finding's card names it. */
+export interface BackgroundLink {
+  url: string;
+  title: string;
+  /** The site ("nps.gov"). */
+  host: string;
+}
+
 /** "https://www.nps.gov/pere/fort.htm" → "nps.gov". Empty for something that is not a URL. */
 export function hostLabel(url: string): string {
   try {

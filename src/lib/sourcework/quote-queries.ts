@@ -53,33 +53,30 @@ export async function listExcerptsForDataPoints(
   return result;
 }
 
-/**
- * The clips Analyze proposed for a source that are still waiting for a decision in the order they occur. The source workspace's Data points layer lists them beside
- * the findings; accepting one writes an ordinary excerpt, rejecting one hides it.
- */
-export async function listWaitingClipsForSource(sourceId: string): Promise<QuoteSuggestion[]> {
-  const supabase = await createClient();
-  const [rows, sourceRows] = await Promise.all([
-    supabase
-      .from("sw_quote_suggestions")
-      .select(SUGGESTION_COLUMNS)
-      .eq("source_id", sourceId)
-      .eq("status", "suggested")
-      .order("start_ms")
-      .then((result) => unwrapRead(result, "this source's suggested clips") ?? []),
-    supabase
-      .from("sw_sources")
-      .select("title")
-      .eq("id", sourceId)
-      .maybeSingle()
-      .then((result) => unwrapRead(result, "this source's title")),
-  ]);
+type SuggestionRow = {
+  id: string;
+  source_id: string;
+  representation_id: string | null;
+  speaker_id: string | null;
+  start_ms: number;
+  end_ms: number;
+  quote_text: string;
+  reason: string;
+  status: QuoteSuggestion["status"];
+  excerpt_id: string | null;
+};
+
+/** Rows -> cards: the speaker's name and the source's title looked up in as few reads as possible. */
+async function toQuoteSuggestions(rows: readonly SuggestionRow[]): Promise<QuoteSuggestion[]> {
   if (rows.length === 0) return [];
+  const supabase = await createClient();
 
   const speakerIds = [
     ...new Set(rows.map((row) => row.speaker_id).filter((id): id is string => Boolean(id))),
   ];
+  const sourceIds = [...new Set(rows.map((row) => row.source_id))];
   const speakers = new Map<string, string>();
+  const titles = new Map<string, string>();
   for (const ids of chunked(speakerIds)) {
     for (const speaker of unwrapRead(
       await supabase
@@ -94,11 +91,19 @@ export async function listWaitingClipsForSource(sourceId: string): Promise<Quote
       );
     }
   }
+  for (const ids of chunked(sourceIds)) {
+    for (const source of unwrapRead(
+      await supabase.from("sw_sources").select("id, title").in("id", ids),
+      "these clips' sources",
+    ) ?? []) {
+      titles.set(source.id, source.title);
+    }
+  }
 
   return rows.map<QuoteSuggestion>((row) => ({
     id: row.id,
     sourceId: row.source_id,
-    sourceTitle: sourceRows?.title ?? "Source",
+    sourceTitle: titles.get(row.source_id) ?? "Source",
     representationId: row.representation_id,
     speakerName: row.speaker_id ? (speakers.get(row.speaker_id) ?? null) : null,
     startMs: row.start_ms,
@@ -108,4 +113,33 @@ export async function listWaitingClipsForSource(sourceId: string): Promise<Quote
     status: row.status,
     excerptId: row.excerpt_id,
   }));
+}
+
+/**
+ * The clips Analyze proposed for a source that are still waiting for a decision in the order they occur. The source workspace's Data points layer lists them beside
+ * the findings; accepting one writes an ordinary excerpt, rejecting one hides it.
+ */
+export async function listWaitingClipsForSource(sourceId: string): Promise<QuoteSuggestion[]> {
+  const supabase = await createClient();
+  const rows = await supabase
+    .from("sw_quote_suggestions")
+    .select(SUGGESTION_COLUMNS)
+    .eq("source_id", sourceId)
+    .eq("status", "suggested")
+    .order("start_ms")
+    .then((result) => unwrapRead(result, "this source's suggested clips") ?? []);
+  return toQuoteSuggestions(rows);
+}
+
+/** Every clip waiting in a project, for the Review tab. The caller drops those of detached sources. */
+export async function listWaitingClipsForProject(projectId: string): Promise<QuoteSuggestion[]> {
+  const supabase = await createClient();
+  const rows = await supabase
+    .from("sw_quote_suggestions")
+    .select(SUGGESTION_COLUMNS)
+    .eq("project_id", projectId)
+    .eq("status", "suggested")
+    .order("start_ms")
+    .then((result) => unwrapRead(result, "this project's suggested clips") ?? []);
+  return toQuoteSuggestions(rows);
 }

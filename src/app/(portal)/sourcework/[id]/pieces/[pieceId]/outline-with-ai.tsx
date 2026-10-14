@@ -4,13 +4,9 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
-import { Label, Select, Textarea } from "@/components/ui/input";
+import { TextLink } from "@/components/ui/primary-link";
+import { Label, Textarea } from "@/components/ui/input";
 import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
-
-export interface OutlineFormatOption {
-  id: string;
-  name: string;
-}
 
 const COPY = {
   outline: {
@@ -42,31 +38,38 @@ const COPY = {
 /**
  * One card for both outline runs (docs/sourcework-analysis-design.md §22): "Outline" on an empty piece
  * (beats and excerpts from the project's accepted findings), and "Write from outline" on a piece that
- * has beats (narration at each beat's place). A format is optional: it sets length and style guidance.
+ * has beats (narration at each beat's place). The piece's format, chosen once in the editor's header, is
+ * optional guidance on length and style; this card shows it and never asks for it a second time.
  */
 export function OutlineWithAi({
   mode,
   pieceId,
+  readinessMessage = null,
+  reviewHref,
   getVersion,
   beforeGenerate,
-  formats,
-  initialFormatId,
+  formatId,
+  formatName,
   onCancel,
   onDone,
 }: {
   mode: "outline" | "expand";
   pieceId: string;
+  /** Why this run would be thin (no accepted excerpts), or null when the project is ready. */
+  readinessMessage?: string | null;
+  /** Where the findings and clips waiting for a decision are reviewed. */
+  reviewHref?: string;
   /** The version the piece is at when the run starts; refused if it moved on. */
   getVersion: () => number;
   /** Saves anything typed first, so the version checked is the person's own latest. */
   beforeGenerate: () => Promise<void>;
-  formats: OutlineFormatOption[];
-  initialFormatId: string | null;
+  /** The piece's format (set in the header), or null for none. */
+  formatId: string | null;
+  formatName: string | null;
   onCancel: () => void;
   onDone: () => void;
 }) {
   const copy = COPY[mode];
-  const [formatId, setFormatId] = useState(initialFormatId ?? "");
   const [direction, setDirection] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export function OutlineWithAi({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pieceId,
-          formatId: formatId || null,
+          formatId,
           direction,
           expectVersion: getVersion(),
         }),
@@ -108,24 +111,16 @@ export function OutlineWithAi({
         {copy.heading}
       </h2>
       <div className="flex flex-col gap-[18px] px-5 py-[18px] max-lg:px-4">
-        <div>
-          <Label htmlFor={`outline-format-${mode}`}>
-            Format <span className="font-normal text-ink-400">(optional)</span>
-          </Label>
-          <Select
-            id={`outline-format-${mode}`}
-            value={formatId}
-            disabled={running}
-            onChange={(event) => setFormatId(event.target.value)}
-          >
-            <option value="">No format</option>
-            {formats.map((format) => (
-              <option key={format.id} value={format.id}>
-                {format.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        <p className="text-[13px] text-ink-700">
+          {formatName ? (
+            <>
+              Writing to the <strong>{formatName}</strong> format.
+            </>
+          ) : (
+            "No format chosen, so there is no target length or style guide."
+          )}{" "}
+          <span className="text-ink-500">Change it with Format at the top of the piece.</span>
+        </p>
         <div>
           <Label htmlFor={`outline-direction-${mode}`}>
             Direction <span className="font-normal text-ink-400">(optional)</span>
@@ -140,6 +135,19 @@ export function OutlineWithAi({
             placeholder={copy.directionPlaceholder}
           />
         </div>
+        {readinessMessage && (
+          <Alert variant="warning">
+            {readinessMessage}
+            {reviewHref && (
+              <>
+                {" "}
+                <TextLink href={reviewHref} className="px-0 font-bold">
+                  Review what is waiting
+                </TextLink>
+              </>
+            )}
+          </Alert>
+        )}
         {error && <Alert variant="danger">{error}</Alert>}
         {running && (
           <BusyPanel
@@ -152,6 +160,7 @@ export function OutlineWithAi({
       <div className="flex flex-wrap items-center gap-3.5 border-t border-line px-5 py-3 max-lg:px-4">
         <Button
           type="button"
+          ai
           onClick={() => void run()}
           disabled={running}
           className="max-lg:min-h-11"

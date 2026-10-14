@@ -4,6 +4,9 @@ import { TextLink } from "@/components/ui/primary-link";
 import { projectPath } from "@/lib/transcription/links";
 import { getPieceDetail, listPickerExcerpts } from "@/lib/sourcework/piece-queries";
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
+import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
+import { countWaitingReview } from "@/lib/sourcework/review-queries";
+import { listSourceIdsForProject } from "@/lib/sourcework/piece-queries";
 import { PieceEditorHost } from "./piece-editor";
 
 /**
@@ -23,10 +26,13 @@ export default async function PiecePage({
   const piece = await getPieceDetail(pieceId);
   if (!piece || piece.projectId !== id) notFound();
   // Formats are listed always: a piece can be written to one by hand, and an outline can follow one.
-  const [pickerExcerpts, formats] = await Promise.all([
+  const [pickerExcerpts, formats, standing, sourceIds] = await Promise.all([
     listPickerExcerpts(piece.projectId),
     listLiveFormats(),
+    getSynthesisStanding(piece.projectId),
+    listSourceIdsForProject(piece.projectId),
   ]);
+  const waiting = await countWaitingReview(piece.projectId, sourceIds);
 
   return (
     <div className="max-w-5xl px-4 py-8 sm:px-10 sm:py-10">
@@ -40,6 +46,12 @@ export default async function PiecePage({
       <PieceEditorHost
         piece={piece}
         pickerExcerpts={pickerExcerpts}
+        material={{
+          excerpts: pickerExcerpts.length,
+          findings: standing.acceptedFindings,
+          waiting,
+        }}
+        reviewHref={projectPath(piece.projectId, "review")}
         formats={formats.map((format) => ({ id: format.id, name: format.name, spec: format.spec }))}
       />
     </div>

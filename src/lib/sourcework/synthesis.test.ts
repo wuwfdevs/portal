@@ -43,6 +43,7 @@ describe("parseSynthesisBody", () => {
           origin: "model",
         },
       ],
+      emerging: [],
     };
     expect(parseSynthesisBody(JSON.parse(JSON.stringify(body)))).toEqual(body);
   });
@@ -95,11 +96,13 @@ describe("carryPinned", () => {
       ],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const fresh: SynthesisBody = {
       sections: [{ questionId: "q1", findings: [finding("new-model", "model", ["b"])], gaps: [] }],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const merged = carryPinned(base, fresh, accepted);
     expect(merged.sections[0]!.findings.map((f) => f.id)).toEqual(["mine", "new-model"]);
@@ -111,6 +114,7 @@ describe("carryPinned", () => {
       sections: [{ questionId: "q1", findings: [finding("old", "model", ["a"])], gaps: [] }],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const merged = carryPinned(base, emptySynthesis(), accepted);
     expect(isEmptySynthesis(merged)).toBe(true);
@@ -123,6 +127,7 @@ describe("carryPinned", () => {
       ],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const merged = carryPinned(base, emptySynthesis(), new Set(["a"]));
     expect(merged.sections[0]!.findings[0]!.cites).toEqual(["a"]);
@@ -140,6 +145,7 @@ describe("carryPinned", () => {
       ],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const fresh: SynthesisBody = {
       sections: [
@@ -148,6 +154,7 @@ describe("carryPinned", () => {
       ],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const merged = carryPinned(base, fresh, accepted);
     expect(merged.sections.map((s) => s.questionId)).toEqual(["q1", "q2", "q3"]);
@@ -181,10 +188,11 @@ describe("carryPinned", () => {
           origin: "model",
         },
       ],
+      emerging: [],
     };
     const merged = carryPinned(
       base,
-      { sections: [], tensions: [tension("new", "model")], narrative: [] },
+      { sections: [], tensions: [tension("new", "model")], narrative: [], emerging: [] },
       accepted,
     );
     expect(merged.tensions.map((t) => t.id)).toEqual(["mine", "new"]);
@@ -193,7 +201,7 @@ describe("carryPinned", () => {
   });
 
   it("is the fresh body when there is no base", () => {
-    const fresh = { ...emptySynthesis(), narrative: [] };
+    const fresh = { ...emptySynthesis(), narrative: [], emerging: [] };
     expect(carryPinned(null, fresh, accepted)).toBe(fresh);
   });
 });
@@ -214,6 +222,7 @@ describe("reading helpers", () => {
         },
       ],
       narrative: [],
+      emerging: [],
     };
     expect(citedFindingIds(body)).toEqual(new Set(["a", "b", "c"]));
   });

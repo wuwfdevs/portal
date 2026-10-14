@@ -268,6 +268,17 @@ export async function loadSegmentsAround(
 }
 
 /** Every temporal excerpt in a project, for the insert picker, newest first. */
+/** The ids of a project's current sources. */
+export async function listSourceIdsForProject(projectId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const links =
+    unwrapRead(
+      await supabase.from("sw_project_sources").select("source_id").eq("project_id", projectId),
+      "this project's sources",
+    ) ?? [];
+  return links.map((link) => link.source_id);
+}
+
 export async function listPickerExcerpts(projectId: string): Promise<PieceExcerpt[]> {
   const supabase = await createClient();
   const links =
