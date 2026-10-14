@@ -1,0 +1,237 @@
+import "server-only";
+import { randomUUID } from "node:crypto";
+import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
+import { RESEARCH_MODEL } from "./model";
+import {
+  OUTLINE_FRAMING,
+  MAX_OUTLINE_EXCERPTS,
+  buildOutlineInput,
+  buildOutlineOutputSchema,
+  parseOutlineOutput,
+} from "./piece-outline-prompt";
+import { renderFormatGuide } from "./piece-formats";
+import { getLiveFormat } from "./piece-format-queries";
+import { computePieceLength } from "./pieces";
+import { PassageLedger } from "./passage-ledger";
+import { listPickerExcerpts } from "./piece-queries";
+import { savePieceBlocks } from "./piece-writes";
+import { getProjectById } from "@/lib/transcription/projects";
+import { getLivePrompt, listResearchQuestions } from "./research-queries";
+import { finishRun, startRun } from "./research-runs";
+import { getCurrentSynthesis, listAcceptedFindings } from "./synthesis-queries";
+import { renderSynthesisLines } from "./synthesis-prompt";
+import { buildSynthesisTools } from "./synthesis-tools";
+import { runToolLoop } from "./tool-loop";
+
+// Outline a piece (docs/sourcework-analysis-design.md §22): read the project's accepted findings, its
+// synthesis and every excerpt it has, let the model check the tape with the same lookups synthesis uses,
+// and save beats and actualities as the piece's next version. The outline is an ordinary version: History
+// and Undo already work, and nothing a person wrote is touched because this is offered on an empty piece
+// and refuses if the piece changed.
+
+export type OutlinePieceResult =
+  | {
+      ok: true;
+      version: number;
+      beats: number;
+      actualities: number;
+      warnings: string[];
+    }
+  | { ok: false; error: string; conflict?: boolean };
+
+export async function outlinePiece(args: {
+  pieceId: string;
+  /** A published format to follow (length, usual actuality range, style); null for none. */
+  formatId: string | null;
+  direction: string;
+  userId: string;
+  /** Refuse unless the piece is still at this version. */
+  expectVersion: number;
+}): Promise<OutlinePieceResult> {
+  const supabase = await createClient();
+  const piece = unwrapRead(
+    await supabase
+      .from("sw_pieces")
+      .select("id, project_id, current_version, target_seconds")
+      .eq("id", args.pieceId)
+      .maybeSingle(),
+    "this piece",
+  );
+  if (!piece) return { ok: false, error: "That piece no longer exists." };
+  if (piece.current_version !== args.expectVersion) {
+    return {
+      ok: false,
+      conflict: true,
+      error: "This piece changed while you were choosing. Reload to see it.",
+    };
+  }
+
+  const format = args.formatId ? await getLiveFormat(args.formatId) : null;
+  if (args.formatId && !format) {
+    return { ok: false, error: "That format isn't published, so it can't guide an outline." };
+  }
+  const project = await getProjectById(piece.project_id);
+  if (!project) return { ok: false, error: "That project doesn't exist." };
+
+  const [{ findings }, picker, synthesis, questionRows, live] = await Promise.all([
+    listAcceptedFindings(piece.project_id),
+    listPickerExcerpts(piece.project_id),
+    getCurrentSynthesis(piece.project_id),
+    listResearchQuestions(piece.project_id),
+    getLivePrompt("outline"),
+  ]);
+  if (findings.length === 0 && picker.length === 0) {
+    return {
+      ok: false,
+      error:
+        "There is nothing to outline from yet. Accept some findings or make an excerpt, then try again.",
+    };
+  }
+
+  const questions = questionRows
+    .filter((question) => !question.archivedAt)
+    .map((question, index) => ({
+      id: question.id,
+      number: index + 1,
+      question: question.question,
+    }));
+  const questionNumberById = new Map(questions.map((question) => [question.id, question.number]));
+  const findingNumberById = new Map(findings.map((finding, index) => [finding.id, index + 1]));
+  const excerpts = picker.slice(0, MAX_OUTLINE_EXCERPTS).map((excerpt, index) => ({
+    number: index + 1,
+    id: excerpt.id,
+    title: excerpt.title,
+    speaker: excerpt.speaker,
+    sourceTitle: excerpt.sourceTitle,
+    seconds: Math.max(0, Math.round((excerpt.endMs - excerpt.startMs) / 1000)),
+    words: excerpt.text,
+  }));
+
+  const run = await startRun(supabase, {
+    kind: "outline",
+    projectId: piece.project_id,
+    sourceId: null,
+    pieceId: piece.id,
+    formatVersionId: format?.versionId ?? null,
+    promptVersionId: live.versionId,
+    trial: false,
+    model: RESEARCH_MODEL,
+    userId: args.userId,
+  });
+  if (!run.ok) return { ok: false, error: run.error };
+
+  try {
+    const ledger = new PassageLedger();
+    const sourceTitleById = new Map(
+      findings.map((finding) => [finding.sourceId, finding.sourceTitle]),
+    );
+    for (const excerpt of picker) sourceTitleById.set(excerpt.sourceId, excerpt.sourceTitle);
+
+    const looped = await runToolLoop({
+      step: "outline",
+      instructions: `${OUTLINE_FRAMING}\n\n${live.body}`,
+      input: buildOutlineInput({
+        projectTitle: project.title,
+        projectDescription: project.description,
+        direction: args.direction,
+        formatGuide: format ? renderFormatGuide(format.name, format.spec) : null,
+        targetSeconds: piece.target_seconds ?? format?.spec.targetSeconds ?? null,
+        questions,
+        synthesisLines: synthesis
+          ? renderSynthesisLines(synthesis.body, { questionNumberById, findingNumberById })
+          : [],
+        findings: findings.map((finding, index) => ({
+          number: index + 1,
+          claim: finding.claim,
+          significance: finding.significance,
+          kind: finding.kind,
+          sourceTitle: finding.sourceTitle,
+          speaker: finding.speakerLabel,
+          at: finding.at,
+          questionNumber: finding.questionId
+            ? (questionNumberById.get(finding.questionId) ?? null)
+            : null,
+        })),
+        excerpts,
+      }),
+      schemaName: "piece_outline",
+      schema: buildOutlineOutputSchema(),
+      tools: buildSynthesisTools({
+        projectId: piece.project_id,
+        findings,
+        sourceTitleById,
+        ledger,
+      }),
+    });
+    if (!looped.ok) {
+      await finishRun(supabase, run.runId, { status: "failed", error: looped.error });
+      return { ok: false, error: looped.error };
+    }
+
+    const parsed = parseOutlineOutput(looped.text, {
+      findingIds: findings.map((finding) => finding.id),
+      excerpts,
+      passages: ledger.asMap(),
+      newId: randomUUID,
+    });
+    if (!parsed.ok) {
+      await finishRun(supabase, run.runId, { status: "failed", error: parsed.error });
+      return { ok: false, error: parsed.error };
+    }
+
+    const saved = await savePieceBlocks(
+      supabase,
+      piece.id,
+      piece.current_version,
+      parsed.blocks,
+      "generation",
+    );
+    if (!saved.ok) {
+      const error =
+        "conflict" in saved
+          ? "Someone saved this piece while the outline was being written."
+          : saved.error;
+      await finishRun(supabase, run.runId, { status: "failed", error });
+      return { ok: false, error, conflict: "conflict" in saved };
+    }
+
+    // The format guides the piece from here, but nothing was drafted: drafted_version stays as it is.
+    if (format) {
+      const updated = await supabase
+        .from("sw_pieces")
+        .update({
+          format_version_id: format.versionId,
+          ...(piece.target_seconds === null ? { target_seconds: format.spec.targetSeconds } : {}),
+        })
+        .eq("id", piece.id);
+      if (updated.error) console.error("Could not record the format of an outline:", updated.error);
+    }
+
+    const beats = parsed.blocks.filter((block) => block.type === "beat").length;
+    const actualities = parsed.blocks.filter((block) => block.type === "actuality").length;
+    await finishRun(supabase, run.runId, {
+      status: "succeeded",
+      counts: {
+        beats,
+        actualities,
+        length_seconds: computePieceLength(parsed.blocks, []).totalSeconds,
+        findings_shown: findings.length,
+        excerpts_shown: excerpts.length,
+        excerpts_available: picker.length,
+        rounds: looped.rounds,
+        tool_calls: looped.calls.length,
+        tool_calls_failed: looped.calls.filter((call) => call.failed).length,
+        passages_shown: ledger.size,
+        synthesis_version: synthesis?.version ?? null,
+        dropped: parsed.dropped,
+      },
+    });
+    return { ok: true, version: saved.version, beats, actualities, warnings: parsed.warnings };
+  } catch (error) {
+    console.error("Sourcework outline failed:", error);
+    const message = error instanceof Error ? error.message : "The outline failed.";
+    await finishRun(supabase, run.runId, { status: "failed", error: message });
+    return { ok: false, error: message };
+  }
+}

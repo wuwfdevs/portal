@@ -33,6 +33,9 @@ describe("helpContextForPath", () => {
   });
 
   it("finds a project's Themes tab and a theme's page", () => {
+    expect(helpContextForPath("/sourcework/0b6c3a52", "?view=synthesis")?.screenKey).toBe(
+      "sourcework.synthesis",
+    );
     expect(helpContextForPath("/sourcework/0b6c3a52", "?view=themes")?.screenKey).toBe(
       "sourcework.themes",
     );

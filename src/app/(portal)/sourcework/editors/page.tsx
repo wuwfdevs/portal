@@ -32,7 +32,7 @@ export default async function EditorsPage({
   const context = await requireSourceworkEditor();
   if (!context) notFound();
   const params = await searchParams;
-  const definition = promptSlotDefinition(params.slot) ?? promptSlotDefinition("extraction")!;
+  const definition = promptSlotDefinition(params.slot) ?? promptSlotDefinition("analyze")!;
   const slot: PromptSlot = definition.slot;
 
   const [live, versions, draft] = await Promise.all([
@@ -45,9 +45,8 @@ export default async function EditorsPage({
     { degrade: true },
   );
 
-  // The accept rate means something for the slots whose output a person accepts or rejects: the
-  // extraction guide's data points, Review themes' themes and the quote quality guide's clips. The
-  // built-in text has a rate of its own, keyed by null.
+  // The accept rate means something for the slot whose output a person accepts or rejects: the
+  // Analyze guide's findings. The built-in text has a rate of its own, keyed by null.
   const rates = await getAcceptRatesForSlot(slot);
   let liveRate: string | null = null;
   if (rates) {
@@ -128,7 +127,6 @@ export default async function EditorsPage({
           <PromptEditor
             key={slot}
             slot={slot}
-            tryable={definition.tryable}
             initialText={initialPromptText({
               draft: draft?.body ?? null,
               live: live.versionId ? live.body : null,

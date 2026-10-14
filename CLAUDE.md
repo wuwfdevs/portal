@@ -405,7 +405,7 @@ the maximum allowed size" is the **project-wide Storage limit** (a bucket can on
 `transcription-media` allows 2 GB), which is raised in the Supabase dashboard, not in code.
 
 **Sourcework analysis, Phase D (pieces by hand) has landed (2026-10-11).** Read
-`docs/sourcework-analysis-design.md` §6 first (Phases A–C and E are still design only); this is a
+`docs/sourcework-analysis-design.md` §6 first (Phases A–C and E have since landed; see below); this is a
 pointer. A project's **Pieces** tab (`?view=pieces`, `[id]/pieces-tab.tsx`) lists `sw_pieces`; a
 piece opens blank at `/sourcework/[id]/pieces/[pieceId]`, a block editor of narration and
 actuality blocks (`pieces/[pieceId]/piece-editor.tsx`). Four things are load-bearing: (1) **the
@@ -425,8 +425,8 @@ assistant) has since landed; see below.
 **Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
 `docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
 (`?view=setup`) holds its research questions, the web background notes the model gathered (background
-only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source is
-**extracted** into data points (`/api/sourcework/extract`, `extraction-run.ts`) and reviewed in the source
+only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source was
+**extracted** into data points (retired in slice 4; Analyze replaced it) and reviewed in the source
 workspace through an **Excerpts | Data points** switch (lime marks; dashed = unreviewed). Four things are
 load-bearing: (1) **the model returns numbered passage units, never text** — `extraction-units.ts` derives
 timestamps or page/block ids, and `parseExtractionOutput` drops anything it can't verify; (2) **a run
@@ -448,24 +448,23 @@ this is a pointer. A project's **Themes** tab (`?view=themes`, shown once it has
 alters an accepted theme or writes a memo**; reject hides, a removed data point keeps its row (`removed_at`), and no Phase B
 table has a delete policy; (2) **assignment is `after()` best effort** and a data point is re-checked only when a theme has
 been accepted since (`theme_checked_at`) — don't make it re-ask the whole pool per click; (3) **the model returns numbers,
-never text** (`theme-prompt.ts`), and `callStructuredModel` in `extraction-ai.ts` is the one structured-output call all
+never text** (`theme-prompt.ts`), and `callStructuredModel` (now in `openai-call.ts`) is the one structured-output call all
 research steps share; (4) `sw_add_proposed_themes()` and `sw_merge_themes()` exist because there is no delete to undo a half
 write. Migrations `20261013120000` (schema) and `20261013130000` (Resources content) are applied to both projects
 (through `execute_sql` in one transaction, not `apply_migration`, so the Supabase migration history has no entry for them). Splits, the theme page's excerpts and Suggest
 quotes (Phase C) are not built.
 
 **Sourcework analysis, Phase C (suggested quotes) has landed (2026-10-14).** Read
-`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes**
-(`/api/sourcework/themes/quotes`, `quote-run.ts`) has the model choose clips from the theme's supporting data points and
+`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes** (retired in slice 4; the cards remain decide-only)
+had the model choose clips from the theme's supporting data points and
 the transcript around them; the cards are at `/sourcework/[id]/themes/[themeId]/quotes` and the theme page gained an
 Excerpts panel. Four things are load-bearing: (1) **a suggestion is not a `sw_source_excerpts` row** — it lives in
 `sw_quote_suggestions` and the excerpt is written only on accept (`sw_accept_quote_suggestion()`), so none of the nine
 readers of the excerpts table needs a filter; do not move suggestions onto that table without fixing every one. (2) **the
 model returns sentence numbers, never text or times** (`quote-prompt.ts`), and an accepted excerpt's words are re-derived
 from the transcript for the range actually accepted (after any trim). (3) a run replaces only still-waiting suggestions
-and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot is editor-owned like the others, with
-an accept rate per version and its own **Try this draft** (sampled on a theme, compared as two playable clip lists;
-`quote-trial-run.ts`, `sw_prompt_trials.theme_id`). Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
+and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot and its **Try this draft** were retired in
+slice 4. Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
 `20261014130000` (Resources content) are applied to both projects (2026-10-10, through `execute_sql` in one transaction, not `apply_migration`, so the Supabase
 migration history has no entry for them).
 
@@ -484,6 +483,44 @@ editor while a person may have unsaved edits (title rename no longer does). Capa
 widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
 (Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
 
+**Sourcework analysis, slice 2 (project synthesis) has landed (2026-10-23).** Read
+`docs/sourcework-analysis-design.md` §21 and `docs/sourcework-refinement-plan.md` first; this is a pointer. A
+project's **Synthesis** tab (`?view=synthesis`, shown once it has an accepted finding) holds one project-wide run's
+answer per research question: statements marked established, contested or uncertain, tensions between accounts, gaps
+and a few narrative moments, each opening onto the findings behind it. It replaces themes as the way to an answer;
+the Themes tab now shows only where themes exist. Four things are load-bearing: (1) **the model returns numbers,
+never text, times or ids** — findings by number, passages only by a ref a tool gave out (`PassageLedger`), and
+`parseSynthesisOutput` drops what it can't verify; (2) **content is insert-only versions**
+(`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
+**`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
+tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
+`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slice 3 (outline as `beat` blocks) has landed (below), and slice 4 retired the old runners (below).
+
+**Sourcework analysis, slice 3 (outline as beats; Write from outline) has landed (2026-10-24).** Read
+`docs/sourcework-analysis-design.md` §22 first; this is a pointer. A piece body can hold a third block type, `beat`
+(`pieces.ts`): narration not yet written, citing accepted findings, optionally marked to check, optionally pointing at tape.
+**Outline with AI** (`piece-outline-run.ts`) fills an empty piece with beats and excerpts; **Write from outline**
+(`piece-expand-run.ts`) turns each beat into narration at the same place. Four things are load-bearing: (1) **a beat takes no
+time** and every function that switches on a block's type must handle `beat` explicitly — `pieces.ts`'s parser refuses an
+unknown type, so a missing branch makes the whole body unreadable; (2) **code keeps the structure when a beat is written out**
+(`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
+numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
+(4) `DRAFT_STANDARDS` is the one copy of the accuracy and writing standards the draft, outline and expansion share. No schema
+change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`).
+
+**Sourcework: the earlier research steps are retired (slice 4, 2026-10-25).** Read
+`docs/sourcework-analysis-design.md` §23 first; this is a pointer. Gone: the extraction, background (context),
+theme-assignment, Review themes and per-theme Suggest quotes runners and their routes, the five prompt slots they
+used (`context`, `extraction`, `theme_assign`, `theme_review`, `quote_quality`; their `sw_prompt_*` rows stay), the
+prompt "Try this draft" screen (`/sourcework/editors/try`, `api/sourcework/editors/trial`), and accepting a data point
+no longer files it into themes in `after()`. Kept: the Themes tab and theme/quote pages as decide-only surfaces for
+data that exists (hand-written themes, accept/reject/edit, merges, waiting clips), the piece-format trial, and the old
+Phase A/B/C tables, so nothing in the database was dropped. Shared helpers moved first: `source-units.ts`
+(`readSourceUnits`), `openai-call.ts` (the structured-call helper, formerly `extraction-ai.ts`), `noteKey` into
+`analyze-prompt.ts`, `collectSeenUrls`/`collectQueries` into `analyze-ai.ts`, `QuoteCard` into `[id]/quote-card.tsx`.
+The prompt slots are now `analyze`, `synthesis`, `outline`. The Resources migration `20261025120000` (rewrites the stale
+guides, one release note) is applied to both projects (2026-10-14, through `execute_sql`). Nothing here has run against a live OpenAI model.
+
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
 (`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline
@@ -494,6 +531,20 @@ format by hand (`setPieceFormat`, New piece's format select) — that sets the t
 content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
+**Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet run against a live model).** Read
+`docs/sourcework-analysis-design.md` §20 first; this is a pointer. One run per source (`lib/sourcework/analyze-run.ts`,
+`/api/sourcework/analyze`) replaces Extract data points as the way in: the model reads the source with web search
+available and returns findings (each with a one-line `significance`), at most five candidate clips and the pages it
+relied on. Four things are load-bearing: (1) **a research question is not required**: findings with none are
+`relevance = 'general'`, and the old extraction runner (retired in slice 4) refused to run without one; (2) **structure is enforced in `analyze-prompt.ts`'s parser, not the prompt**: interviewer-only findings and clips,
+clips across speakers or outside 1.5–60 s, addresses the search never returned, and the five-clip ceiling are all dropped
+in code and counted; (3) **the model is shown the project's accepted findings** so a re-run adds rather than repeats,
+which is also why `loadAnalyzeContext` filters to the project's current `sw_project_sources`; (4) **a clip Analyze proposes
+has no theme and no tier** (`sw_quote_suggestions.theme_id` and `tier` are nullable): anything reading that table must
+cope with both. The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
+per-theme quote code was retired in slice 4. Migrations `20261022120000` (schema) and `20261022130000`
+(Resources) are applied to both projects (2026-10-13, through `execute_sql`, not `apply_migration`, because they drop constraints).
+
 **Sourcework: excerpt loudness (2026-10-12; standard changed 2026-10-12).** Actualities from different tape come
 in at very different levels, so every temporal excerpt is measured (BS.1770 integrated loudness, via ffmpeg's
 `ebur128`, `lib/transcription/loudness-measure.ts`) when it is created or trimmed, and played and exported at
@@ -501,7 +552,7 @@ one **fixed gain** to **-18 LUFS**, followed by a **hard limiter with a -6 dBFS 
 (`lib/sourcework/loudness.ts`, pure, tested). Five things are load-bearing: (1) **why this standard:** it is
 the WUWF team's own Audition practice (normalize to 100%, then hard-limit at -6 dB, which measures about -14 to
 -21 LUFS). The first version targeted NPR/PRSS's -24 LUFS / -3 dBTP with no limiter, and that is a
-*distribution* spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
+_distribution_ spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
 don't reintroduce a peak-headroom hold-back on the gain — peaks are the limiter's job, so the gain is only ever
 reduced by the boost/cut caps (`MAX_AUTO_BOOST_DB` 45 — field tape commonly needs 35-42 dB —
 `MAX_AUTO_CUT_DB`) and the short-clip rule. A boost past `NOISY_BOOST_DB` (20) is allowed but the card says it
@@ -514,10 +565,10 @@ Limiter defaults; `level=false` is required or alimiter adds its own makeup gain
 loudness of peaky tape, so the render is measured with ebur128 and, if it is more than 0.3 LU from the loudness
 the gain intended (stored loudness + gain), rendered **once more** with the gain adjusted by the difference.
 Playback (`pieces/[pieceId]/use-piece-player.ts`) applies the same gain through a Web Audio `GainNode` into a
-`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an *approximation* of
+`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an _approximation_ of
 the limiter, not the same algorithm, so levels match the export closely, not exactly. The shared graph is `lib/sourcework/excerpt-playback.ts`; it needs the audio
 element's `crossOrigin="anonymous"`. It is applied by the piece editor's player and by the source workspace's
-preview of a *saved* excerpt (the transcript element is routed through it only once one is previewed, and put back
+preview of a _saved_ excerpt (the transcript element is routed through it only once one is previewed, and put back
 to neutral when playback stops); a selection not yet saved, a data point's preview, and the quote-suggestion
 players (suggestions have no measurement) still play as recorded. An export made before a level
 change keeps its old level until re-exported (the 2026-10-20 migration un-caches the existing ones).

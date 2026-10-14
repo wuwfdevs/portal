@@ -103,24 +103,6 @@ export async function listQuoteSuggestions(
     .sort(compareQuotes);
 }
 
-/** Whether Suggest quotes has ever finished for a theme, so an empty list can say why it is empty. */
-export async function hasQuoteRun(themeId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase
-        .from("sw_analysis_runs")
-        .select("id")
-        .eq("theme_id", themeId)
-        .eq("kind", "quote_suggest")
-        .eq("trial", false)
-        .eq("status", "succeeded")
-        .limit(1),
-      "this theme's quote runs",
-    ) ?? [];
-  return rows.length > 0;
-}
-
 /** How many suggestions wait for a decision on a theme, for the button's label on its page. */
 export async function countWaitingQuotes(themeId: string): Promise<number> {
   const supabase = await createClient();
@@ -233,4 +215,66 @@ export async function listExcerptsForDataPoints(
     result.set(link.data_point_id, list);
   }
   return result;
+}
+
+/**
+ * The clips Analyze proposed for a source that are still waiting for a decision (the ones with
+ * no theme), in the order they occur. The source workspace's Data points layer lists them beside
+ * the findings; accepting one writes an ordinary excerpt, rejecting one hides it.
+ */
+export async function listWaitingClipsForSource(sourceId: string): Promise<QuoteSuggestion[]> {
+  const supabase = await createClient();
+  const [rows, sourceRows] = await Promise.all([
+    supabase
+      .from("sw_quote_suggestions")
+      .select(SUGGESTION_COLUMNS)
+      .eq("source_id", sourceId)
+      .is("theme_id", null)
+      .eq("status", "suggested")
+      .order("start_ms")
+      .then((result) => unwrapRead(result, "this source's suggested clips") ?? []),
+    supabase
+      .from("sw_sources")
+      .select("title")
+      .eq("id", sourceId)
+      .maybeSingle()
+      .then((result) => unwrapRead(result, "this source's title")),
+  ]);
+  if (rows.length === 0) return [];
+
+  const speakerIds = [
+    ...new Set(rows.map((row) => row.speaker_id).filter((id): id is string => Boolean(id))),
+  ];
+  const speakers = new Map<string, string>();
+  for (const ids of chunked(speakerIds)) {
+    for (const speaker of unwrapRead(
+      await supabase
+        .from("tw_speakers")
+        .select("id, diarization_label, display_name")
+        .in("id", ids),
+      "these clips' speakers",
+    ) ?? []) {
+      speakers.set(
+        speaker.id,
+        speakerDisplayLabel(speaker.diarization_label, speaker.display_name),
+      );
+    }
+  }
+
+  return rows.map<QuoteSuggestion>((row) => ({
+    id: row.id,
+    stance: quoteStance([]),
+    themeId: row.theme_id,
+    sourceId: row.source_id,
+    sourceTitle: sourceRows?.title ?? "Source",
+    representationId: row.representation_id,
+    speakerName: row.speaker_id ? (speakers.get(row.speaker_id) ?? null) : null,
+    startMs: row.start_ms,
+    endMs: row.end_ms,
+    text: row.quote_text,
+    reason: row.reason,
+    tier: row.tier,
+    status: row.status,
+    excerptId: row.excerpt_id,
+  }));
 }

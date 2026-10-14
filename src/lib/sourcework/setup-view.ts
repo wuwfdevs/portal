@@ -30,18 +30,22 @@ export function sourcesToExtract<T extends { state: ExtractionState }>(sources: 
   return sources.filter((source) => canExtract(source.state) && source.state.kind !== "done");
 }
 
-export function extractButtonLabel(count: number): string {
-  return count > 0 ? `Extract data points (${count})` : "Extract data points";
+export function analyzeButtonLabel(count: number): string {
+  return count > 0 ? `Analyze (${count})` : "Analyze";
+}
+
+/** What a finished Analyze run says: findings and clips added for review, or that nothing new was found. */
+export function analysisSummary(findings: number, clips: number): string {
+  if (findings === 0 && clips === 0) return "Nothing new to review.";
+  const parts = [];
+  if (findings > 0) parts.push(pluralize(findings, "finding"));
+  if (clips > 0) parts.push(pluralize(clips, "clip"));
+  return `${parts.join(" and ")} added for review.`;
 }
 
 /** "1 of 1 running"-style summary is the panel's job; this is the footer line. */
 export const EXTRACTION_FOOTER =
   "You can leave this page; it keeps running while it is open in another tab.";
-
-/** Error line for a failed background run, or null when the failure is only "not configured". */
-export function isNotConfiguredMessage(message: string): boolean {
-  return /isn.t configured/i.test(message);
-}
 
 export function dataPointsLabel(count: number): string {
   return pluralize(count, "data point");

@@ -81,23 +81,23 @@ export function extractionLine(
       return {
         text:
           sourceKind === "document"
-            ? "Reading the document. Extraction can start when it finishes."
-            : "Transcribing. Extraction can start when it finishes.",
+            ? "Reading the document. Analysis can start when it finishes."
+            : "Transcribing. Analysis can start when it finishes.",
       };
     case "idle":
-      return { text: "Not extracted yet" };
+      return { text: "Not analyzed yet" };
     case "running":
-      return { text: "Extracting data points…" };
+      return { text: "Analyzing…" };
     case "failed":
-      return { text: "Extraction didn't finish. Try again." };
+      return { text: "Analysis didn't finish. Try again." };
     case "done":
-      if (state.total === 0) return { text: "No data points found" };
+      if (state.total === 0) return { text: "No findings" };
       return state.toReview > 0
         ? {
-            text: `${pluralize(state.total, "data point")} · `,
+            text: `${pluralize(state.total, "finding")} · `,
             strong: `${state.toReview} to review`,
           }
-        : { text: `${pluralize(state.total, "data point")} · all reviewed` };
+        : { text: `${pluralize(state.total, "finding")} · all reviewed` };
   }
 }
 
@@ -109,7 +109,7 @@ export interface Standing {
   steps: { label: string; shortLabel: string; state: StepState }[];
   message: string;
   /** Where the message's link goes, if it has one. */
-  link: { label: string; to: "setup" | "sources" | "themes" } | null;
+  link: { label: string; to: "setup" | "sources" | "synthesis" } | null;
 }
 
 export interface StandingSource {
@@ -117,29 +117,33 @@ export interface StandingSource {
   state: ExtractionState;
 }
 
-export interface ThemeStanding {
-  /** Accepted themes the project has. */
-  accepted: number;
-  /** Suggested themes plus merge suggestions waiting for a decision. */
-  decisions: number;
-  /** Accepted data points that sit in no live theme. */
-  unthemed: number;
+export interface SynthesisStanding {
+  /** Accepted findings the project has. */
+  acceptedFindings: number;
+  /** Whether a synthesis has been written. */
+  hasSynthesis: boolean;
+  /** Accepted findings that changed after the current synthesis was written. */
+  changedSince: number;
 }
 
 /**
  * The four-step status on the Setup tab. It reports; it never gates. The last
- * step is done when the project has an accepted theme and nothing is left
- * waiting on the Themes tab; it is only "current" once every source is
- * extracted, because new sources can send a project back.
+ * step is done when a synthesis exists and no accepted finding has changed
+ * since it was written; it is only "current" once every source is analyzed and
+ * reviewed, because new sources can send a project back.
  */
 export function projectStanding(input: {
   questionCount: number;
   sources: readonly StandingSource[];
   toReviewTotal: number;
-  themes?: ThemeStanding;
+  synthesis?: SynthesisStanding;
 }): Standing {
   const { questionCount, sources, toReviewTotal } = input;
-  const themes = input.themes ?? { accepted: 0, decisions: 0, unthemed: 0 };
+  const synthesis = input.synthesis ?? {
+    acceptedFindings: 0,
+    hasSynthesis: false,
+    changedSince: 0,
+  };
   const total = sources.length;
   const extractable = sources.filter((source) => source.state.kind !== "source_failed");
   const processing = extractable.filter((source) => source.state.kind === "waiting");
@@ -154,24 +158,20 @@ export function projectStanding(input: {
   const extractDone =
     hasSources && extractable.length > 0 && extracted.length === extractable.length;
 
-  const themesDone =
-    extractDone &&
-    toReviewTotal === 0 &&
-    themes.accepted > 0 &&
-    themes.decisions === 0 &&
-    themes.unthemed === 0;
+  const synthesisDone =
+    extractDone && toReviewTotal === 0 && synthesis.hasSynthesis && synthesis.changedSince === 0;
 
   const states: StepState[] = [
     hasQuestions ? "done" : "current",
     hasSources ? "done" : hasQuestions ? "current" : "upcoming",
     extractDone ? "done" : hasQuestions && hasSources ? "current" : "upcoming",
-    themesDone ? "done" : extractDone ? "current" : "upcoming",
+    synthesisDone ? "done" : extractDone ? "current" : "upcoming",
   ];
   const labels = [
     ["Research questions", "Questions"],
     ["Add sources", "Add sources"],
-    ["Extract data points", "Extract"],
-    ["Review themes", "Review themes"],
+    ["Analyze sources", "Analyze"],
+    ["Synthesize", "Synthesize"],
   ] as const;
   const steps = labels.map(([label, shortLabel], index) => ({
     label,
@@ -183,14 +183,14 @@ export function projectStanding(input: {
     return {
       steps,
       message:
-        "Add the questions you are trying to answer. Data points that answer one are tagged with it; passages worth using that answer none are kept as story material.",
+        "Add the questions you are trying to answer, or analyze a source without one. Findings that answer a question are tagged with it.",
       link: null,
     };
   }
   if (!hasSources) {
     return {
       steps,
-      message: "Add sources. Interviews and PDFs can be extracted once they are ready.",
+      message: "Add sources. Interviews and PDFs can be analyzed once they are ready.",
       link: { label: "Go to Sources", to: "sources" },
     };
   }
@@ -203,62 +203,58 @@ export function projectStanding(input: {
   }
 
   if (extractDone) {
-    const extracted = `${total === 1 ? "The source is" : `All ${total} sources are`} extracted`;
+    const extracted = `${total === 1 ? "The source is" : `All ${total} sources are`} analyzed`;
     if (toReviewTotal > 0) {
       return {
         steps,
-        message: `${extracted}. ${pluralize(toReviewTotal, "data point")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`,
+        message: `${extracted}. ${pluralize(toReviewTotal, "finding")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`,
         link: { label: "Go to Sources", to: "sources" },
       };
     }
-    if (themes.decisions > 0) {
+    if (!synthesis.hasSynthesis) {
       return {
         steps,
-        message: `${extracted} and reviewed. ${pluralize(themes.decisions, "theme suggestion")} ${themes.decisions === 1 ? "is" : "are"} waiting for a decision.`,
-        link: { label: "Go to Themes", to: "themes" },
+        message:
+          synthesis.acceptedFindings > 0
+            ? `${extracted} and reviewed. Synthesize says what the ${pluralize(synthesis.acceptedFindings, "accepted finding")} establish for each question.`
+            : `${extracted} and reviewed. Accept the findings worth keeping, then Synthesize can say what they establish.`,
+        link: synthesis.acceptedFindings > 0 ? { label: "Go to Synthesis", to: "synthesis" } : null,
       };
     }
-    if (themes.unthemed > 0) {
+    if (synthesis.changedSince > 0) {
       return {
         steps,
-        message: `${extracted} and reviewed. ${pluralize(themes.unthemed, "accepted data point")} ${themes.unthemed === 1 ? "is" : "are"} not in a theme yet; Review themes proposes where they go.`,
-        link: { label: "Go to Themes", to: "themes" },
-      };
-    }
-    if (themes.accepted === 0) {
-      return {
-        steps,
-        message: `${extracted} and reviewed. Review themes looks for what they have in common.`,
-        link: { label: "Go to Themes", to: "themes" },
+        message: `${extracted} and reviewed. ${pluralize(synthesis.changedSince, "finding")} ${synthesis.changedSince === 1 ? "has" : "have"} changed since the synthesis was written.`,
+        link: { label: "Go to Synthesis", to: "synthesis" },
       };
     }
     return {
       steps,
-      message: `${extracted} and reviewed, and every accepted data point is in a theme.`,
-      link: { label: "Go to Themes", to: "themes" },
+      message: `${extracted} and reviewed, and the synthesis is up to date.`,
+      link: { label: "Go to Synthesis", to: "synthesis" },
     };
   }
 
   const parts: string[] = [
-    `${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} extracted.`,
+    `${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} analyzed.`,
   ];
   if (running.length > 0) {
     parts.push(
       running.length === 1
-        ? `${running[0]!.title} is being extracted now.`
-        : `${running.length} are being extracted now.`,
+        ? `${running[0]!.title} is being analyzed now.`
+        : `${running.length} are being analyzed now.`,
     );
   }
   if (processing.length > 0) {
     const first = processing[0]!;
     parts.push(
       processing.length === 1
-        ? `${first.title} is still processing, so extraction can start for it when it finishes.`
-        : `${first.title} and ${processing.length - 1} more are still processing, so extraction can start for them when they finish.`,
+        ? `${first.title} is still processing, so analysis can start for it when it finishes.`
+        : `${first.title} and ${processing.length - 1} more are still processing, so analysis can start for them when they finish.`,
     );
   }
   if (needing.length > 0 && processing.length === 0 && running.length === 0) {
-    parts.push(`${needing.length === 1 ? "One is" : `${needing.length} are`} ready to extract.`);
+    parts.push(`${needing.length === 1 ? "One is" : `${needing.length} are`} ready to analyze.`);
   }
   return { steps, message: parts.join(" "), link: { label: "Go to Sources", to: "sources" } };
 }

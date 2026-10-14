@@ -916,3 +916,180 @@ different, so the model should assemble narration and actualities freely from th
 - Separately fixed the same day: deleting a piece written by Draft with AI failed because `sw_analysis_runs`'s
   `piece_draft` check required a non-trial draft run to name its piece, while the foreign key sets it null on deletion
   (`20261018100000` drops the check).
+
+## 20. Analyze source (slice 1 of the 2026-10-13 refinement)
+
+Why. Production use of Phases A–E (Hurricane Isaias, Tunnel Visions) showed the pipeline working but not
+serving the editorial workflow: 186 of 186 data points accepted and none rejected; short briefings
+paraphrased into a point per sentence (177 words became 7 points); the same facts restated across sources
+(26 water points over 7 sources) because extraction judged one source at a time and never saw what the
+project already knew; 107 quote suggestions from per-theme neighbourhoods of data points; background notes
+that were a glossary no later step could cite; and a piece pair written by hand from sources that had never
+been extracted. The reasoning and the remaining plan are in `docs/sourcework-refinement-plan.md`; this section
+records what slice 1 built.
+
+- **One run per source** (`analyze-run.ts`, `/api/sourcework/analyze`, run kind `analyze`) replaces Extract data
+  points, the per-theme Suggest quotes pass and the separate background pre-pass as the way in. The old
+  extraction runner, route, themes and quote runs are untouched and still work; they are retired in a later slice.
+- **Input** (`analyze-prompt.ts`): the source as numbered units; the research questions, or an explicit note that
+  there are none (**a question is not required**; the model is told to use the project description instead and to
+  give every finding `question_number: null`, stored as `relevance = 'general'`); the findings the project has
+  already accepted, so the model adds to, sharpens or contradicts them rather than repeating them; and the
+  not-dismissed background notes already on file. Interviewer lines are marked `(interviewer)`.
+- **Tools**: OpenAI's built-in `web_search`, `tool_choice: auto`, no list of subjects. The model decides when
+  context is worth a search. The searches made are recorded on the run; `counts.searches_naming_people` flags any
+  query that contains a name from the recording, since the privacy rule is a prompt instruction and this is how it
+  is checked.
+- **Output**: `findings` (claim, kind, question number or null, a one-line `significance` the model must write,
+  unit spans), `excerpts` (candidate clips: first and last unit, a reason, the finding served or null for
+  narrative colour) and `consulted` (title, summary, address, the findings it informed).
+- **Enforced in code, not in the prompt**: a finding with no passage, no words or no significance is dropped; a
+  finding or clip that rests only on an interviewer is dropped; a clip must be one speaker's consecutive units the
+  window showed, 1.5–60 s, with a reason; at most **5 clips per source** (a ceiling, never a target; the old pass
+  allowed 8 per theme); a consulted address the search tool never returned is dropped. Times and the clip's words
+  are derived from the units, never typed by the model.
+- **Re-runs** replace only what is still waiting. A finding on a passage a person already decided is not made
+  again; a clip over a stretch already decided or already cut as an excerpt is not proposed (`analyze-fresh.ts`).
+- **Schema** (`20261022120000_sourcework_analyze.sql`): `sw_data_points.significance` and `relevance = 'general'`;
+  `sw_quote_suggestions.theme_id` nullable (a clip Analyze proposes belongs to a source) and `tier` nullable (it does
+  not grade its own clips; `sw_accept_quote_suggestion` records no `quality_tier` for an unrated clip);
+  `sw_context_note_points` (which findings a consulted page informed); `tw_speakers.role`; run kinds `analyze`,
+  `synthesis` and `outline` (the last two reserved for later slices). A clip with no `sw_quote_suggestion_points`
+  rows serves no finding.
+- **Screens**: Analyze replaces Extract data points on the Sources tab and in the source's Data points panel, and
+  works in a project with no research question. A source opened from any project has its Data points layer. Clips
+  to review appear above the findings and reuse the suggested-quote card (play, trim, accept, reject). The Setup
+  tab no longer looks up background on a schedule or when a question changes; its notes list is now "Pages
+  consulted", still dismissable. The speakers menu has an Interviewer checkbox (`setSpeakerRole`).
+- **Retrieval for later steps**: read-only capabilities `sourcework.project.searchTranscripts` (over `tw_search`),
+  `sourcework.source.readPassage` and `sourcework.project.readFindings` (`research-capabilities.ts`), available to the
+  assistant now and to the synthesis and outline runs when they land.
+- **Not built in this slice**: the project-wide synthesis that replaces themes (one run, a section per research
+  question, cited findings, tensions and gaps), the outline as `beat` blocks in the existing piece editor with Draft
+  expanding them, the comparative actuality pass against an outline, an evaluation harness reading old and new runs
+  side by side (`scripts/sourcework-eval/`), and removal of the old extraction runner, theme runs and unused prompt
+  slots.
+- **Status**: both migrations are applied to preview and production (2026-10-13). Production's new constraints were
+  exercised in a rolled-back transaction (a no-question finding, a theme-less unrated clip, one analyze run in flight
+  at a time). Nothing here has run against a live OpenAI model (this environment has no key). The parser, the
+  freshness rules and the labels are unit-tested.
+
+## 21. Project synthesis (2026-10-23)
+
+Slice 2 of `docs/sourcework-refinement-plan.md`. Themes were project-wide codes with no link to the research
+questions and no answer anywhere; a reporter reading Isaias's 15 themes still had to work out what the project had
+established. Synthesis is one run over **every accepted finding** that writes, per research question, what the
+findings establish, how firmly, where they conflict, and what is open.
+
+- **One project-wide run, a section per question** (`synthesis-run.ts`, `/api/sourcework/synthesize`, run kind
+  `synthesis`, at most one in flight per project). Not one run per question: the tensions a reporter most wants span
+  questions (an official's "no confirmed fatalities" against a county's confirmed death). Findings that answer no
+  question get a section of their own; a project with no question gets only that section.
+- **Output** (`synthesis-prompt.ts`): `sections` (per question: statements with a `certainty` of established,
+  contested or uncertain and the finding numbers they cite, and `gaps`), `tensions` (a statement and two or more
+  sides, each with its own cited findings) and `narrative` (moments worth hearing, cited by passage ref).
+- **Enforced in code** (`parseSynthesisOutput`): a statement citing no finding the model was shown is dropped; so is a
+  certainty outside the three, a tension with fewer than two sides or whose sides rest on fewer than two distinct
+  findings, and anything over the ceilings in `synthesis.ts`. **The model returns numbers, never text, times or
+  ids**: finding numbers map to ids, and a narrative note may cite a passage only by a ref the tools gave out.
+- **Tools inside the step** (`tool-loop.ts`, `synthesis-tools.ts`): `search_transcripts` and `read_around`, both
+  read-only through the caller's session, let the model check a thin finding against the tape. Every place a tool
+  shows goes into a `PassageLedger`; a narrative note's source, time and page come from the ledger, so the model
+  cannot invent a place. The loop has a round limit; the last round is forced to answer. A failed lookup is
+  reported to the model, not the run. `tool-loop.ts` is the generic "agentic inside a step, structured at its
+  boundary" call (`runToolLoop`); the outline run in slice 3 reuses it.
+- **Versions** (`20261023120000_sourcework_synthesis.sql`): `sw_project_syntheses` (one row per project, a version
+  pointer) and insert-only `sw_project_synthesis_versions`, written only by `sw_save_project_synthesis()`, which checks
+  the base version and returns -1 if someone saved first (the pieces pattern). A run writes the next version; earlier
+  ones stay. A statement cites findings by id with no foreign key, so a finding rejected later makes the statement
+  say it has no accepted finding behind it rather than breaking the row.
+- **A person's wording is never overwritten** (`carryPinned`): a statement, gap or tension with `origin = 'person'`
+  is carried into every new model version as it is, with its citations trimmed to findings still accepted. **No
+  screen creates or edits one yet**; the writer function and the carry-forward exist so adding that does not need a
+  schema change or change how runs behave.
+- **Breadth is computed, never stored** (`supportBreadth`): the findings, sources and speakers behind a statement
+  are counted from the cited findings each render, and a statement resting on one source says so.
+- **Staleness**: the tab counts accepted findings changed since the current version was written
+  (`findingsChangedSince`); the button reads Update synthesis. The Setup status ends with Synthesize instead of
+  Review themes.
+- **Themes are demoted, not removed**: the tab and theme pages show only on projects that already have themes
+  (`hasThemes`); assign-on-accept and Review themes still run for them until slice 4.
+- **Guide**: a `synthesis` prompt slot (`SYNTHESIS_GUIDE_BUILT_IN`; editors maintain the wording, code owns the
+  schema). Not tryable yet.
+- **Not built**: editing or pinning a statement by hand, a section redone on its own, the outline and the draft
+  expanding it (slices 3), the comparative clip pass, and the evaluation harness.
+- **Status**: both migrations are applied to preview and production (2026-10-13), each checked in a rolled-back
+  transaction (first save returns 1, a stale base -1, versions can't be updated, a non-member sees and saves nothing).
+  Nothing here has run against a live OpenAI model (this environment has no key). The parser, the carry-forward, the
+  ledger, the tool loop (against a mocked client) and the view rules are unit-tested.
+
+## 22. Outline as beats, and writing it out (2026-10-24)
+
+Slice 3 of `docs/sourcework-refinement-plan.md`. Draft with AI wrote a piece straight from themes, so the reporter's
+first view of the model's thinking was finished prose. An outline puts the story's spine, its sources and its clips in
+front of the reporter first, in the editor they already use.
+
+- **A third block type, `beat`** (`pieces.ts`): `{ id, type: "beat", text, cites, verify, role?, tape? }`. A beat is
+  narration not yet written. `cites` are accepted-finding ids (at most 12); `verify` marks a fact to check before it is
+  written as settled; `role: "anchor"` marks the anchor's lead-in; `tape` is a stretch of a recording worth a look that is
+  not an excerpt. A beat takes no time (`PieceLength.beatCount`), so the length at the top counts only narration and clips.
+  The first beat of an outline is the angle; the editor labels it so and there is no column for it.
+- **No schema change.** `sw_piece_versions.body` only checks that it is a JSON array; length and the excerpt list are
+  computed in TypeScript. An outline saves as `saved_via = 'generation'` and does not set `drafted_version`. The parser's new
+  branch is what makes a body with a beat readable everywhere (editor, History restore, assistant).
+- **Outline run** (`piece-outline-run.ts`, `/api/sourcework/pieces/outline`, run kind `outline`, offered on an empty piece):
+  the model gets the direction, an optional format guide, the research questions, the current synthesis, the numbered
+  accepted findings and the project's excerpts (up to 150, newest first, with speaker, length and words), and the same two
+  lookups synthesis uses (`search_transcripts`, `read_around`) through `runToolLoop`. It returns beats and actualities.
+  **Code maps every reference** (`parseOutlineOutput`): finding numbers to ids, excerpt numbers to ids, a `tape_ref` to a
+  place a tool returned (through the run's `PassageLedger`) and only if it is a recording range. Unknown numbers, repeated
+  excerpts, an anchor flag past the first block and a beat with no words are dropped and counted; an answer with no beat
+  is a failure. The model never types a time, an id or a quotation. Clips are chosen against every excerpt shown, with the
+  framing saying fewer is normal and no quota exists. An `outline` prompt slot (`OUTLINE_GUIDE_BUILT_IN`) holds the
+  editor-owned wording (not tryable yet).
+- **Write from outline** (`piece-expand-prompt.ts`, `piece-expand-run.ts`, `/api/sourcework/pieces/expand`, run kind
+  `piece_draft` with `counts.mode = "expand_outline"`): **code keeps the structure; the model writes prose only.** It sees
+  the outline in order (beats with their cited findings loaded by id, clips with their words as read-only context, any
+  narration already written) and returns paragraphs per beat number. `expandBeats` replaces each beat with those
+  paragraphs at the same position and leaves every other block untouched, so an actuality keeps its id, trim and cuts. A
+  beat the model skipped stays a beat and is reported; a piece never grows past the block limit. A cited finding no longer
+  accepted is shown as withdrawn and contributes nothing. No tools in this step: the cited findings are given in full.
+  Sets `drafted_version`, so the editor's Undo returns to the outline.
+- **Shared standards**: `DRAFT_STANDARDS` (accuracy, attribution and writing for the ear) is one constant used by the
+  draft, outline and expansion framings; a test pins that each contains it.
+- **Editor**: `BeatRow` (editable text, a Mark to check toggle, the cited findings under "What carries it", tape as a link),
+  an "outline beat" action in the insertion point, **Outline with AI** beside Draft with AI on an empty piece, and **Write
+  from outline** when beats exist (`outline-with-ai.tsx` serves both). `getPieceDetail` loads `beatContext` (the cited
+  findings and tape titles). The assistant reads beats (`describePiece`), and has `insertBeat` and `replaceBeat`;
+  its other block tools say what a block really is when it isn't the kind they edit.
+- **Not built**: the Pieces list's "Outlined / Drafted / Written by hand" label (the list does not read bodies),
+  copy-outline-between-pieces, embedding a tape range in a player, a one-running-outline index (`expectVersion` already
+  makes a double click harmless), and an `outline` Try this draft.
+- **Status**: no migration. The Resources content migration `20261024120000` is applied to both projects
+  (2026-10-14). Nothing here has run against a live OpenAI model (this environment has no key). The beat model, both
+  parsers, the in-place replacement and both inputs are unit-tested.
+
+## 23. Retiring the earlier research steps (slice 4, 2026-10-25)
+
+Since slice 1 nothing user-facing started extraction or the background pre-pass. What still ran was assign-on-accept (an
+`after()` model call on every accept), **Review themes**, **Suggest quotes** per theme, and five editor prompt slots with a
+trial screen for two of them. They cost money and contradicted the Analyze → Synthesize → Outline flow, so they are removed.
+
+- **Removed**: `extraction-run`/`-prompt`, `context-run`/`-ai`/`-prompt`, `theme-run`/`-prompt`, `quote-run`/`-prompt`,
+  `quote-trial-run`, `quote-trials`, `quote-trial-queries`, `trial-run`, `trials`, `trial-samples` and the sample half of
+  `trial-sample`; routes `/api/sourcework/{extract,context,themes/review,themes/quotes,editors/trial}`; the editors `try`
+  screens; Review themes and Suggest quotes in the UI; the `after()` assignment hooks in `research-actions.ts` and
+  `theme-actions.ts`; the "Waiting for you → not in a theme yet" line; `getLatestContextRun`, `getThemeAcceptRates`,
+  `getQuoteAcceptRates`, `hasQuoteRun`, `quoteAvailability`, `guideBlocks`.
+- **Moved first** (new code imported them from the old modules): `readSourceUnits`/`ReadSource` → `source-units.ts`;
+  `callStructuredModel`, `openAIClient`, `withRateLimitRetry`, `NOT_CONFIGURED` → `openai-call.ts`; `noteKey` and the note
+  length limits → `analyze-prompt.ts`; `collectSeenUrls`/`collectQueries` → `analyze-ai.ts`; `QuoteCard` → `[id]/quote-card.tsx`.
+- **Kept**: themes where they exist (accept, reject, edit, memo, merge, add or remove a data point by hand, + New theme),
+  the theme quotes page for clips an earlier run left waiting (accept, reject, accept all), the piece-format trial and
+  `TRIAL_KEEP_DAYS` (now in `piece-format-trials.ts`), `RunKind`'s old kinds so old run rows still type, and every table and
+  prompt row. `getExtractionAcceptRates` stays: the Analyze slot's accept rate is the same count.
+- **Prompt slots** are `analyze`, `synthesis`, `outline`; `getLivePrompt` still throws for an unknown slot, and the editors
+  page now defaults to `analyze`.
+- **Copy**: source cards and the Setup status say "analyzed" and "findings".
+- **Status**: no schema change. The Resources content migration `20261025120000` is applied to both projects (2026-10-14). This
+  removes the old pipeline as a fallback while slices 1–3 have never run against a live model.

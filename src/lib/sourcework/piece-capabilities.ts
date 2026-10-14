@@ -16,6 +16,7 @@ import { assertToolAccess } from "@/lib/auth/authz";
 import { formatClock } from "@/lib/format";
 import { piecePath } from "@/lib/transcription/links";
 import {
+  MAX_BEAT_CHARS,
   MAX_NARRATION_CHARS,
   actualityRange,
   clampTrim,
@@ -25,10 +26,12 @@ import {
   insertBlockAt,
   moveBlock,
   newActuality,
+  newBeat,
   newNarration,
   parsePieceBody,
   removeBlock,
   setActualityTrim,
+  setBeatText,
   setNarrationText,
   swapExcerpt,
   type PieceBlock,
@@ -106,6 +109,18 @@ async function describePiece(supabase: Client, piece: LoadedPiece) {
       if (block.type === "narration") {
         return { id: block.id, type: "narration", seconds, text: block.text };
       }
+      if (block.type === "beat") {
+        return {
+          id: block.id,
+          type: "beat",
+          seconds: 0,
+          text: block.text,
+          needsChecking: block.verify,
+          anchorIntro: block.role === "anchor",
+          findingsCited: block.cites.length,
+          tape: block.tape ?? null,
+        };
+      }
       const excerpt = piece.excerpts.get(block.excerpt_id);
       if (!excerpt) {
         return {
@@ -153,6 +168,7 @@ async function describePiece(supabase: Client, piece: LoadedPiece) {
     lengthSeconds: length.totalSeconds,
     narration: formatClock(length.narrationSeconds),
     actualities: formatClock(length.actualitySeconds),
+    beatsNotYetWritten: length.beatCount,
     target: piece.targetSeconds === null ? null : formatClock(piece.targetSeconds),
     againstTarget: describeAgainstTarget(length.totalSeconds, piece.targetSeconds),
     format: format ? `${format.name} v${format.version}` : null,
@@ -382,7 +398,13 @@ export const replaceNarration = defineCapability({
   async handler({ supabase }, input) {
     return editPiece(supabase, input.pieceId, (piece) => {
       const block = requireBlock(piece, input.blockId);
-      if (block.type !== "narration") throw new Error("That block is an actuality, not narration.");
+      if (block.type !== "narration") {
+        throw new Error(
+          block.type === "beat"
+            ? "That block is an outline beat, not narration. Use replaceBeat to change it."
+            : "That block is an actuality, not narration.",
+        );
+      }
       return setNarrationText(piece.blocks, input.blockId, input.text);
     });
   },
@@ -405,6 +427,52 @@ export const insertNarration = defineCapability({
         newNarration(crypto.randomUUID(), input.text),
       ),
     );
+  },
+});
+
+export const insertBeat = defineCapability({
+  id: "sourcework.piece.insertBeat",
+  label: "add outline beat",
+  writes: true,
+  summary:
+    "Add an outline beat to a piece, after the given block (or at the start): one line saying what that part of the story has to do. A beat is narration not yet written and takes no time. Use it to outline; use insertNarration to write.",
+  input: z.object({
+    pieceId: uuid,
+    afterBlockId: uuid.nullable().optional(),
+    text: z.string().trim().min(1).max(MAX_BEAT_CHARS),
+    needsChecking: z.boolean().optional(),
+  }),
+  requires: { tool: TOOL },
+  confirmation: "none",
+  async handler({ supabase }, input) {
+    return editPiece(supabase, input.pieceId, (piece) =>
+      insertBlockAt(
+        piece.blocks,
+        insertIndex(piece, input.afterBlockId),
+        newBeat(crypto.randomUUID(), input.text, { verify: input.needsChecking ?? false }),
+      ),
+    );
+  },
+});
+
+export const replaceBeat = defineCapability({
+  id: "sourcework.piece.replaceBeat",
+  label: "change outline beat",
+  writes: true,
+  summary: "Replace the text of one outline beat in a piece.",
+  input: z.object({
+    pieceId: uuid,
+    blockId: uuid,
+    text: z.string().trim().min(1).max(MAX_BEAT_CHARS),
+  }),
+  requires: { tool: TOOL },
+  confirmation: "none",
+  async handler({ supabase }, input) {
+    return editPiece(supabase, input.pieceId, (piece) => {
+      const block = requireBlock(piece, input.blockId);
+      if (block.type !== "beat") throw new Error("That block is not an outline beat.");
+      return setBeatText(piece.blocks, input.blockId, input.text);
+    });
   },
 });
 
@@ -442,7 +510,11 @@ export const swapActuality = defineCapability({
     await requireExcerpt(supabase, input.excerptId);
     return editPiece(supabase, input.pieceId, (piece) => {
       const block = requireBlock(piece, input.blockId);
-      if (block.type !== "actuality") throw new Error("That block is narration, not an actuality.");
+      if (block.type !== "actuality") {
+        throw new Error(
+          `That block is ${block.type === "beat" ? "an outline beat" : "narration"}, not an actuality.`,
+        );
+      }
       return swapExcerpt(piece.blocks, input.blockId, input.excerptId);
     });
   },

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import * as editorialCapabilities from "@/lib/editorial/capabilities";
 import * as transcriptionCapabilities from "@/lib/transcription/capabilities";
 import * as pieceCapabilities from "@/lib/sourcework/piece-capabilities";
+import * as researchCapabilities from "@/lib/sourcework/research-capabilities";
 import * as remoteInterviewCapabilities from "@/lib/remote-interview/capabilities";
 import * as audienceListeningCapabilities from "@/lib/audience-listening/capabilities";
 import * as roadmapCapabilities from "@/lib/roadmap/capabilities";
@@ -29,6 +30,7 @@ const CAPABILITY_MODULES = [
   editorialCapabilities,
   transcriptionCapabilities,
   pieceCapabilities,
+  researchCapabilities,
   remoteInterviewCapabilities,
   audienceListeningCapabilities,
   roadmapCapabilities,

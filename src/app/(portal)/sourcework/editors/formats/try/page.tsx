@@ -14,7 +14,7 @@ import {
 } from "@/lib/sourcework/piece-format-queries";
 import { parseFormatTrialResults } from "@/lib/sourcework/piece-format-trials";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { TRIAL_KEEP_DAYS } from "@/lib/sourcework/trials";
+import { TRIAL_KEEP_DAYS } from "@/lib/sourcework/piece-format-trials";
 import { LocalTime } from "../../local-time";
 import { FormatTryActions } from "./format-try-actions";
 import { FormatTryForm } from "./format-try-form";

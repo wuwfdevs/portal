@@ -4,20 +4,13 @@ import { TextLink } from "@/components/ui/primary-link";
 import type { ProjectSourceSummary } from "@/lib/transcription/projects";
 import { projectPath } from "@/lib/transcription/links";
 import {
-  getLatestContextRun,
   getSourceResearch,
   listContextNotes,
   listResearchQuestions,
 } from "@/lib/sourcework/research-queries";
 import { projectStanding } from "@/lib/sourcework/run-state";
-import { contextNeedsRefresh } from "@/lib/sourcework/context-prompt";
 import { currentStepIndex } from "@/lib/sourcework/setup-view";
-import {
-  getThemeDecisionCounts,
-  getWaitingNumbers,
-  listThemeRows,
-} from "@/lib/sourcework/theme-queries";
-import { decisionsWaiting } from "@/lib/sourcework/themes";
+import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
 import { SetupResearch } from "./setup-research";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 import { cn } from "@/lib/cn";
@@ -34,35 +27,21 @@ export async function SetupTab({
   projectId: string;
   sources: ProjectSourceSummary[];
 }) {
-  const [questions, notes, lastContextRun, research, themeRows, decisions, waiting] =
-    await Promise.all([
-      listResearchQuestions(projectId),
-      listContextNotes(projectId),
-      getLatestContextRun(projectId),
-      getSourceResearch(
-        projectId,
-        sources.map((entry) => ({
-          sourceId: entry.sourceId,
-          status: entry.status,
-          kind: entry.source.kind,
-        })),
-      ),
-      listThemeRows(projectId),
-      getThemeDecisionCounts(projectId),
-      getWaitingNumbers(projectId),
-    ]);
+  const [questions, notes, research, synthesis] = await Promise.all([
+    listResearchQuestions(projectId),
+    listContextNotes(projectId),
+    getSourceResearch(
+      projectId,
+      sources.map((entry) => ({
+        sourceId: entry.sourceId,
+        status: entry.status,
+        kind: entry.source.kind,
+      })),
+    ),
+    getSynthesisStanding(projectId),
+  ]);
 
   const activeQuestions = questions.filter((question) => question.archivedAt === null);
-  const fingerprint = lastContextRun?.counts.questions_fingerprint;
-  const backgroundStale = contextNeedsRefresh({
-    questions: activeQuestions.map((question) => question.question),
-    lastRun: lastContextRun
-      ? {
-          status: lastContextRun.status,
-          fingerprint: typeof fingerprint === "string" ? fingerprint : null,
-        }
-      : null,
-  });
 
   const standing = projectStanding({
     questionCount: activeQuestions.length,
@@ -71,11 +50,7 @@ export async function SetupTab({
       state: research.get(entry.sourceId)?.state ?? { kind: "idle" },
     })),
     toReviewTotal: [...research.values()].reduce((sum, item) => sum + item.counts.toReview, 0),
-    themes: {
-      accepted: themeRows.filter((row) => row.status === "accepted").length,
-      decisions: decisionsWaiting(decisions),
-      unthemed: waiting.unthemed,
-    },
+    synthesis,
   });
   const current = currentStepIndex(standing.steps);
 
@@ -107,8 +82,8 @@ export async function SetupTab({
                   href={
                     standing.link.to === "sources"
                       ? projectPath(projectId)
-                      : standing.link.to === "themes"
-                        ? projectPath(projectId, "themes")
+                      : standing.link.to === "synthesis"
+                        ? projectPath(projectId, "synthesis")
                         : projectPath(projectId, "setup")
                   }
                   className={cn(TAP_TARGET, "inline-flex max-lg:items-center")}
@@ -130,12 +105,7 @@ export async function SetupTab({
         </div>
       </section>
 
-      <SetupResearch
-        projectId={projectId}
-        questions={questions}
-        notes={notes}
-        backgroundStale={backgroundStale}
-      />
+      <SetupResearch projectId={projectId} questions={questions} notes={notes} />
     </div>
   );
 }

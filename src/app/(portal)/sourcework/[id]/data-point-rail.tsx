@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExtractSourceButton } from "@/components/sourcework/extract-source-button";
@@ -14,14 +15,18 @@ import {
   type DataPointFilter,
 } from "@/lib/sourcework/research";
 import { hiddenSummary } from "@/lib/sourcework/data-point-view";
+import type { ClipRange, QuoteSuggestion } from "@/lib/sourcework/quotes";
 import { canExtract, type ExtractionState } from "@/lib/sourcework/run-state";
 import { AcceptAllDataPoints } from "./bulk-accept-button";
 import { DataPointCard, type PointSelectionOrigin } from "./data-point-card";
 import { ProcessingPoller } from "./processing-poller";
+import { QuoteCard } from "./quote-card";
 
 /** What a source screen opened from a project with research questions hands its workspace. */
 export interface SourceResearchView {
   points: DataPoint[];
+  /** Clips Analyze proposed that still wait for a decision. */
+  clips: QuoteSuggestion[];
   /** Question id -> "Q1", for the card tags. */
   labels: Record<string, string>;
   /** Question id -> the question as worded, for the tag's hover text. */
@@ -46,6 +51,7 @@ export function DataPointRail({
   selectionOrigin,
   onSelect,
   onPlay,
+  onPlayClip,
   onOpen,
 }: {
   projectId: string;
@@ -55,6 +61,8 @@ export function DataPointRail({
   selectionOrigin: PointSelectionOrigin | null;
   onSelect: (id: string) => void;
   onPlay?: (point: DataPoint) => void;
+  /** Plays a suggested clip's range on the source's player. */
+  onPlayClip?: (range: ClipRange) => void;
   onOpen?: (point: DataPoint) => void;
 }) {
   const { points, extraction } = research;
@@ -71,46 +79,50 @@ export function DataPointRail({
   const chips: { value: DataPointFilter; label: string; count: number }[] = [
     { value: "to_review", label: "To review", count: counts.toReview },
     { value: "all", label: "All", count: counts.total },
-    { value: "story", label: "Story", count: counts.story },
+    // Story material is what the earlier extraction kept for a producer; Analyze no longer makes it.
+    ...(counts.story > 0 ? [{ value: "story" as const, label: "Story", count: counts.story }] : []),
     ...(counts.rejected > 0
       ? [{ value: "rejected" as const, label: "Rejected", count: counts.rejected }]
       : []),
   ];
 
+  const clipsSection = <ClipsToReview clips={research.clips} onPlayClip={onPlayClip} />;
+
   if (points.length === 0) {
     return (
       <div className="flex flex-col gap-3">
         {extraction.kind === "running" && <ProcessingPoller />}
+        {clipsSection}
         {extraction.kind === "running" ? (
-          <EmptyState compact title="Extracting data points…">
+          <EmptyState compact title="Analyzing this source…">
             This takes a minute or two. The list fills in on its own.
           </EmptyState>
         ) : extraction.kind === "done" ? (
           <EmptyState
             compact
-            title="No data points found"
+            title="Nothing found to review"
             action={
               <ExtractSourceButton projectId={projectId} sourceId={sourceId} variant="secondary">
                 Run again
               </ExtractSourceButton>
             }
           >
-            Nothing in this source answers the project&apos;s questions or adds to the story.
+            Nothing in this source adds to what the project already has.
           </EmptyState>
         ) : canExtract(extraction) ? (
           <EmptyState
             compact
-            title="No data points yet"
+            title="Nothing analyzed yet"
             action={<ExtractSourceButton projectId={projectId} sourceId={sourceId} />}
           >
             {extraction.kind === "failed"
               ? (extraction.error ?? "The last run didn't finish. Run it again.")
-              : "Read this source against the project's questions and suggest data points to review."}
+              : "Read this source and suggest findings and clips to review. A research question on the Setup tab focuses it."}
           </EmptyState>
         ) : (
           <EmptyState compact>
             {extraction.kind === "waiting"
-              ? "Data points can be extracted once this source has finished processing."
+              ? "This source can be analyzed once it has finished processing."
               : "This source can't be read right now."}
           </EmptyState>
         )}
@@ -123,6 +135,7 @@ export function DataPointRail({
   return (
     <div className="flex flex-col gap-3">
       {extraction.kind === "running" && <ProcessingPoller />}
+      {clipsSection}
       <div role="group" aria-label="Show data points" className="flex flex-wrap gap-1.5">
         {chips.map((chip) => (
           <button
@@ -178,13 +191,51 @@ export function DataPointRail({
       {canExtract(extraction) && (
         <div className="flex flex-col gap-1 border-t border-line pt-3">
           <ExtractSourceButton projectId={projectId} sourceId={sourceId} variant="secondary">
-            Re-run extraction
+            Analyze again
           </ExtractSourceButton>
           <p className="text-xs text-ink-500">
-            Accepted and rejected points are kept; only new ones are added for review.
+            Accepted and rejected findings and clips are kept; only new ones are added for review.
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The clips Analyze proposed for this source, above the findings: play one as it will cut, trim it,
+ * accept it into an ordinary excerpt or reject it. Few is normal, and the section is absent when
+ * none is waiting.
+ */
+function ClipsToReview({
+  clips,
+  onPlayClip,
+}: {
+  clips: QuoteSuggestion[];
+  onPlayClip?: (range: ClipRange) => void;
+}) {
+  const router = useRouter();
+  const [decided, setDecided] = useState<ReadonlySet<string>>(new Set());
+  const waiting = clips.filter((clip) => !decided.has(clip.id));
+  if (waiting.length === 0) return null;
+
+  return (
+    <section aria-label="Clips to review" className="flex flex-col gap-3">
+      <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500">
+        Clips to review · {waiting.length}
+      </h3>
+      {waiting.map((clip) => (
+        <QuoteCard
+          key={clip.id}
+          quote={clip}
+          playing={false}
+          onPlay={(range) => onPlayClip?.(range)}
+          onDecided={(id) => {
+            setDecided((current) => new Set(current).add(id));
+            router.refresh();
+          }}
+        />
+      ))}
+    </section>
   );
 }

@@ -29,12 +29,6 @@ import {
   type ThemeStatusFilter,
 } from "@/lib/sourcework/themes";
 import { createThemeFromForm } from "../theme-actions";
-import {
-  ReviewThemesButton,
-  ReviewThemesLink,
-  ReviewThemesProvider,
-  ReviewThemesStatus,
-} from "./review-themes";
 import { AcceptAllDataPoints, AcceptAllThemes } from "./bulk-accept-button";
 import { MergeDecisionButtons, ThemeDecisionButtons } from "./theme-decision-buttons";
 
@@ -98,7 +92,6 @@ export async function ThemesTab({
         title: sourceTitles.get(entry.sourceId) ?? "Source",
         count: entry.count,
       })),
-    unthemed: waiting.unthemed,
     suggestedThemes: counts.suggested,
     suggestedMerges: merges.length,
   });
@@ -109,7 +102,7 @@ export async function ThemesTab({
   const empty = rows.length === 0 && merges.length === 0;
 
   return (
-    <ReviewThemesProvider projectId={projectId}>
+    <>
       <section
         aria-label="Waiting for you"
         className="mb-5 rounded border border-line bg-panel-50 px-4 py-3.5 sm:flex sm:gap-10 sm:px-5"
@@ -155,15 +148,6 @@ export async function ThemesTab({
           {summary.toReview && summary.toReview.total > 1 && (
             <AcceptAllDataPoints projectId={projectId} count={summary.toReview.total} />
           )}
-          {summary.unthemed > 0 && (
-            <p>
-              <strong>{pluralize(summary.unthemed, "accepted data point")}</strong>{" "}
-              {summary.unthemed === 1 ? "is" : "are"} not in a theme yet.{" "}
-              <span className="hidden sm:inline">
-                <ReviewThemesLink /> proposes where they go.
-              </span>
-            </p>
-          )}
           {summary.suggestions > 0 && (
             <p>
               <strong>{pluralize(summary.suggestions, "suggestion")}</strong> below{" "}
@@ -172,8 +156,6 @@ export async function ThemesTab({
           )}
         </div>
       </section>
-
-      <ReviewThemesStatus />
 
       {showNew && (
         <InlineCreateCard
@@ -210,8 +192,7 @@ export async function ThemesTab({
                 placeholder="Children explored the tunnels as an ordinary part of growing up, out of sight of adults."
               />
               <p className="mt-1 text-xs text-ink-500">
-                Accepted data points are filed into it as they are accepted, and you can add them
-                yourself from its page.
+                Nothing is filed into it for you. Add data points to it yourself from its page.
               </p>
             </div>
           </div>
@@ -222,20 +203,16 @@ export async function ThemesTab({
         <EmptyState
           title="No themes yet"
           action={
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <ReviewThemesButton className="max-sm:min-h-11" />
-              <SecondaryLink
-                href={`${projectPath(projectId, "themes")}&new=1`}
-                className="max-sm:min-h-11"
-              >
-                + New theme
-              </SecondaryLink>
-            </div>
+            <SecondaryLink
+              href={`${projectPath(projectId, "themes")}&new=1`}
+              className="max-sm:min-h-11"
+            >
+              + New theme
+            </SecondaryLink>
           }
         >
-          {waiting.unthemed > 0
-            ? `Review themes looks across your ${pluralize(waiting.unthemed, "accepted data point")} for claims several of them bear on. You can also write a theme yourself.`
-            : "Themes form from accepted data points. Extract and review data points in your sources first, or write a theme yourself."}
+          Themes you write yourself, and any made by earlier runs, are listed here. Analysis now
+          answers each research question on the Synthesis tab.
         </EmptyState>
       ) : (
         <>
@@ -312,7 +289,6 @@ export async function ThemesTab({
             >
               + New theme
             </SecondaryLink>
-            <ReviewThemesButton className="max-sm:min-h-11" />
             {counts.suggested > 1 && (
               <AcceptAllThemes projectId={projectId} count={counts.suggested} />
             )}
@@ -430,6 +406,6 @@ export async function ThemesTab({
           </p>
         </>
       )}
-    </ReviewThemesProvider>
+    </>
   );
 }

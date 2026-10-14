@@ -13,30 +13,27 @@ describe("prompt slots", () => {
       expect(validatePromptBody(definition.slot, definition.builtIn).ok).toBe(true);
     }
   });
-  it("only the extraction and quote guides can be tried yet", () => {
-    expect(PROMPT_SLOTS.filter((d) => d.tryable).map((d) => d.slot)).toEqual([
-      "extraction",
-      "quote_quality",
-    ]);
+  it("has the three slots that still run a model", () => {
+    expect(PROMPT_SLOTS.map((d) => d.slot)).toEqual(["analyze", "synthesis", "outline"]);
   });
   it("looks a slot up by name", () => {
-    expect(promptSlotDefinition("extraction")?.label).toBe("Extraction guide");
+    expect(promptSlotDefinition("analyze")?.label).toBe("Analyze guide");
     expect(promptSlotDefinition("nope")).toBeNull();
   });
 });
 
 describe("validatePromptBody", () => {
   it("trims and normalizes line endings", () => {
-    expect(validatePromptBody("extraction", "  a\r\nb  ")).toEqual({ ok: true, body: "a\nb" });
+    expect(validatePromptBody("analyze", "  a\r\nb  ")).toEqual({ ok: true, body: "a\nb" });
   });
   it("refuses blank text and placeholders", () => {
-    expect(validatePromptBody("extraction", "  ").ok).toBe(false);
-    const result = validatePromptBody("extraction", "Use {{ questions }} here");
+    expect(validatePromptBody("analyze", "  ").ok).toBe(false);
+    const result = validatePromptBody("analyze", "Use {{ questions }} here");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("questions");
   });
   it("refuses text over the limit", () => {
-    expect(validatePromptBody("extraction", "x".repeat(20001)).ok).toBe(false);
+    expect(validatePromptBody("analyze", "x".repeat(20001)).ok).toBe(false);
   });
 });
 

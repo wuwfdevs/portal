@@ -20,12 +20,14 @@ import { ProjectDetails } from "./project-details";
 import { ProjectExcerptsView } from "./project-excerpts-view";
 import { PiecesTab } from "./pieces-tab";
 import { SetupTab } from "./setup-tab";
+import { SynthesisTab } from "./synthesis-tab";
 import { ThemesTab } from "./themes-tab";
 import { ExtractionControls } from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { sourcesToExtract } from "@/lib/sourcework/setup-view";
-import { getThemeDecisionCounts, hasResearchSignal } from "@/lib/sourcework/theme-queries";
+import { getThemeDecisionCounts, hasThemes } from "@/lib/sourcework/theme-queries";
+import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
 import { decisionsWaiting } from "@/lib/sourcework/themes";
 
 /**
@@ -33,10 +35,10 @@ import { decisionsWaiting } from "@/lib/sourcework/themes";
  * surface for a recording or a document is its own screen
  * (`/sourcework/sources/[id]`), reached from a source card here and left with
  * its back link — this screen has no player, no transcript and no view state
- * beyond which of the tabs is showing (`?view=themes`, `?view=excerpts`,
+ * beyond which of the tabs is showing (`?view=synthesis`, `?view=themes`, `?view=excerpts`,
  * `?view=pieces`, `?view=setup`). Setup sits at the right edge and is reachable
- * before any source exists: the research questions come first. Themes shows
- * once the project has a research question or a data point.
+ * before any source exists: the research questions come first. Synthesis shows
+ * once the project has an accepted finding; Themes only where themes already exist.
  */
 export default async function TranscriptionProjectPage({
   params,
@@ -47,6 +49,7 @@ export default async function TranscriptionProjectPage({
     view?: string;
     q?: string;
     status?: string;
+    version?: string;
     question?: string;
     new?: string;
     error?: string;
@@ -54,42 +57,47 @@ export default async function TranscriptionProjectPage({
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q, status, question, new: showNew, error } = await searchParams;
+  const { view, q, status, version, question, new: showNew, error } = await searchParams;
   const themesView = view === "themes";
+  const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !themesView && !excerptsView && !piecesView && !setupView;
+  const sourcesView = !themesView && !synthesisView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  const [pieceCount, pieces, showThemesTab] = await Promise.all([
+  const [pieceCount, pieces, showThemesTab, synthesis] = await Promise.all([
     countPieces(project.id),
     piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
-    themesView ? Promise.resolve(true) : hasResearchSignal(project.id),
+    themesView ? Promise.resolve(true) : hasThemes(project.id),
+    getSynthesisStanding(project.id),
   ]);
+  const showSynthesisTab =
+    synthesisView || synthesis.acceptedFindings > 0 || synthesis.hasSynthesis;
   const themeDecisions = showThemesTab
     ? decisionsWaiting(await getThemeDecisionCounts(project.id))
     : 0;
 
-  // Research state is read only where the Sources tab shows it. A project with
-  // no active question reads nothing and looks as it always did.
+  // Research state is read only where the Sources tab shows it. Analyze needs no research
+  // question, so it is offered with or without one; a question only sharpens it.
   const questions =
     sourcesView && project.sources.length > 0 ? await listResearchQuestions(project.id) : [];
   const hasQuestions = questions.some((question) => question.archivedAt === null);
-  const research = hasQuestions
-    ? await getSourceResearch(
-        project.id,
-        project.sources.map((entry) => ({
-          sourceId: entry.sourceId,
-          status: entry.status,
-          kind: entry.source.kind,
-        })),
-      )
-    : null;
+  const research =
+    sourcesView && project.sources.length > 0
+      ? await getSourceResearch(
+          project.id,
+          project.sources.map((entry) => ({
+            sourceId: entry.sourceId,
+            status: entry.status,
+            kind: entry.source.kind,
+          })),
+        )
+      : null;
   const extractTargets = research
     ? sourcesToExtract(
         project.sources.map((entry) => ({
@@ -156,6 +164,16 @@ export default async function TranscriptionProjectPage({
             active: sourcesView,
             badge: project.sources.length,
           },
+          ...(showSynthesisTab
+            ? [
+                {
+                  href: projectPath(project.id, "synthesis"),
+                  label: "Synthesis",
+                  active: synthesisView,
+                  badge: synthesis.changedSince,
+                },
+              ]
+            : []),
           ...(showThemesTab
             ? [
                 {
@@ -187,6 +205,8 @@ export default async function TranscriptionProjectPage({
 
       {setupView ? (
         <SetupTab projectId={project.id} sources={project.sources} />
+      ) : synthesisView ? (
+        <SynthesisTab projectId={project.id} versionParam={version} />
       ) : themesView ? (
         <ThemesTab
           projectId={project.id}
@@ -277,12 +297,11 @@ export default async function TranscriptionProjectPage({
           </div>
           {!hasQuestions && (
             <p className="mt-4 max-w-2xl text-xs text-ink-400">
-              A project without research questions works as it does today. Add them in{" "}
+              Analyze works without a research question. Add one in{" "}
               <TextLink href={projectPath(project.id, "setup")} className="px-0 text-xs">
                 Setup
               </TextLink>{" "}
-              to get data points and themes; sources already in the project can be extracted
-              afterward.
+              to focus it on what you are trying to learn.
             </p>
           )}
         </section>

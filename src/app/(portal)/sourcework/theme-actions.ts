@@ -1,6 +1,5 @@
 "use server";
 
-import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -8,7 +7,6 @@ import { assertSourceworkContext } from "@/lib/sourcework/access";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-response";
 import { field } from "@/lib/form-fields";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { assignPool, assignQuietly } from "@/lib/sourcework/theme-run";
 import { THEME_LIMIT, validateMemo, validateThemeText } from "@/lib/sourcework/themes";
 import { projectPath, themePath } from "@/lib/transcription/links";
 
@@ -31,7 +29,6 @@ export type ThemeDecision = "accept" | "reject" | "undo";
 /**
  * Accept keeps a theme, reject hides it (its data points go back to the pool and
  * the title is never proposed again), undo puts a rejected one back for review.
- * Accepting also files the pool's unchecked data points into it, afterwards.
  */
 export async function reviewTheme(input: {
   id: string;
@@ -66,9 +63,6 @@ export async function reviewTheme(input: {
   const row = updated.data[0];
   if (!row) return actionError("That theme doesn't exist.");
 
-  if (input.decision === "accept") {
-    after(() => assignQuietly(() => assignPool({ projectId: row.project_id, userId: profile.id })));
-  }
   revalidateTheme(row.project_id, id);
   return actionOk();
 }
@@ -102,7 +96,6 @@ export async function acceptSuggestedThemes(input: {
   }
   if (updated.data.length === 0) return actionOk({ count: 0 });
 
-  after(() => assignQuietly(() => assignPool({ projectId, userId: profile.id })));
   revalidateTheme(projectId);
   return actionOk({ count: updated.data.length });
 }
@@ -160,14 +153,11 @@ export async function editTheme(input: {
   const row = updated.data[0];
   if (!row) return actionError("That theme doesn't exist.");
 
-  if (accepting) {
-    after(() => assignQuietly(() => assignPool({ projectId: row.project_id, userId: profile.id })));
-  }
   revalidateTheme(row.project_id, id);
   return actionOk();
 }
 
-/** A theme written by hand (§2.8): accepted at once, empty until data points are added or assigned. */
+/** A theme written by hand (§2.8): accepted at once, empty until data points are added. */
 export async function createTheme(input: {
   projectId: string;
   title: string;
@@ -215,7 +205,6 @@ export async function createTheme(input: {
     return actionError("Couldn't add the theme. Try again.");
   }
 
-  after(() => assignQuietly(() => assignPool({ projectId, userId: profile.id })));
   revalidateTheme(projectId);
   return actionOk({ id: inserted.data.id });
 }

@@ -5,21 +5,24 @@ import { useRouter } from "next/navigation";
 import { BatchRunPanel } from "@/components/ui/batch-run-panel";
 import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { pluralize } from "@/lib/format";
 import { summarizeTasks } from "@/lib/task-queue";
 import { useRefreshPoller } from "@/lib/use-refresh-poller";
 import { useTaskQueue, type TaskResult } from "@/lib/use-task-queue";
-import { progressDetail, requestExtraction } from "@/lib/sourcework/extract-stream";
-import { EXTRACTION_FOOTER, extractButtonLabel } from "@/lib/sourcework/setup-view";
+import { progressDetail, requestAnalysis } from "@/lib/sourcework/extract-stream";
+import {
+  EXTRACTION_FOOTER,
+  analysisSummary,
+  analyzeButtonLabel,
+} from "@/lib/sourcework/setup-view";
 
 const EXTRACT_CONCURRENCY = 3;
 const POLL_INTERVAL_MS = 5000;
 
 /**
- * The Sources tab's header for a project that has research questions: the
- * "Sources" label with "Extract data points" beside "+ Add source" (passed as
- * children), and, while a batch runs, its progress panel. Sources that are
- * extracting refresh the page on their own so the cards follow along.
+ * The Sources tab's header: the "Sources" label with "Analyze" beside
+ * "+ Add source" (passed as children), and, while a batch runs, its progress
+ * panel. Sources that are being analyzed refresh the page on their own so the
+ * cards follow along.
  */
 export function ExtractionControls({
   projectId,
@@ -28,7 +31,7 @@ export function ExtractionControls({
   children,
 }: {
   projectId: string;
-  /** Sources that are ready and not yet extracted (or whose last try failed). */
+  /** Sources that are ready and not yet analyzed (or whose last try failed). */
   targets: { id: string; title: string }[];
   /** Whether any source's server state is "running" — drives the poll. */
   anyRunning: boolean;
@@ -38,7 +41,7 @@ export function ExtractionControls({
   const queue = useTaskQueue<string>({
     concurrency: EXTRACT_CONCURRENCY,
     worker: async (sourceId, context): Promise<TaskResult> => {
-      const result = await requestExtraction({
+      const result = await requestAnalysis({
         projectId,
         sourceId,
         onProgress: (done, total) => context.setDetail(progressDetail(done, total)),
@@ -46,10 +49,7 @@ export function ExtractionControls({
       if (result.ok) {
         return {
           ok: true,
-          detail:
-            result.added === 0
-              ? "No new data points"
-              : `${pluralize(result.added, "data point")} added`,
+          detail: analysisSummary(result.added, result.clips ?? 0),
         };
       }
       return { ok: false, error: result.error, retryable: result.retryable };
@@ -101,7 +101,7 @@ export function ExtractionControls({
                 disabled={!canStart}
                 onClick={start}
               >
-                {extractButtonLabel(targets.length)}
+                {analyzeButtonLabel(targets.length)}
               </Button>
             )}
             {children}
@@ -113,7 +113,7 @@ export function ExtractionControls({
 
       {started && (
         <div className="mb-4 flex flex-col gap-2">
-          <p className="text-sm font-bold text-ink-900">Extracting data points</p>
+          <p className="text-sm font-bold text-ink-900">Analyzing sources</p>
           <BatchRunPanel
             tasks={queue.tasks}
             running={queue.running}

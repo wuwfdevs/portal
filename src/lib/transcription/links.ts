@@ -23,7 +23,7 @@ export function themeQuotesPath(projectId: string, themeId: string): string {
 
 export function projectPath(
   projectId: string,
-  view?: "themes" | "excerpts" | "pieces" | "setup",
+  view?: "themes" | "synthesis" | "excerpts" | "pieces" | "setup",
 ): string {
   return view ? `/sourcework/${projectId}?view=${view}` : `/sourcework/${projectId}`;
 }

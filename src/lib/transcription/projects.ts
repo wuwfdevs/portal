@@ -202,6 +202,8 @@ export interface TranscriptSpeaker {
   id: string;
   diarizationLabel: string;
   displayName: string | null;
+  /** Set by a person. An interviewer's lines are skipped by Analyze. */
+  role: "interviewer" | "subject" | null;
 }
 
 export interface ProjectTranscript {
@@ -538,7 +540,7 @@ export async function getTranscriptForRepresentation(
       .order("position"),
     supabase
       .from("tw_speakers")
-      .select("id, diarization_label, display_name")
+      .select("id, diarization_label, display_name, role")
       .eq("representation_id", representationId),
   ]);
 
@@ -560,6 +562,7 @@ export async function getTranscriptForRepresentation(
       id: row.id,
       diarizationLabel: row.diarization_label,
       displayName: row.display_name,
+      role: row.role,
     })),
   };
 }

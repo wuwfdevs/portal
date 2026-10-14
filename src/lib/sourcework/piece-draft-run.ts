@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
-import { callStructuredModel } from "./extraction-ai";
+import { callStructuredModel } from "./openai-call";
 import { RESEARCH_MODEL } from "./model";
 import {
   DIRECTION_MAX,

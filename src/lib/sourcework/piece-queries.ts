@@ -1,4 +1,5 @@
 import "server-only";
+import { getFindingsByIds } from "./synthesis-queries";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { likeTerm } from "@/lib/list-search";
@@ -84,6 +85,25 @@ export interface PieceOrigin {
   justDrafted: boolean;
 }
 
+/** A finding an outline beat cites, as the editor shows it. */
+export interface BeatFindingView {
+  claim: string;
+  speaker: string | null;
+  sourceTitle: string;
+  sourceId: string;
+  startMs: number | null;
+  page: number | null;
+  /** "12:41" into a recording. */
+  at: string | null;
+}
+
+export interface BeatContext {
+  /** The accepted findings the piece's beats cite, by id. A cited id missing here has been withdrawn. */
+  findings: Record<string, BeatFindingView>;
+  /** Titles of the recordings beats point at as tape, by source id. */
+  sourceTitles: Record<string, string>;
+}
+
 export interface PieceDetail {
   id: string;
   projectId: string;
@@ -100,6 +120,8 @@ export interface PieceDetail {
   origin: PieceOrigin;
   /** Blocks the assistant changed since a person or a draft last saved (§6.4). */
   assistantChanges: AssistantChanges;
+  /** What outline beats cite and point at; empty when the piece has none. */
+  beatContext: BeatContext;
 }
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -363,6 +385,8 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
     }),
   );
 
+  const beatContext = await loadBeatContext(supabase, piece.project_id, blocks);
+
   return {
     id: piece.id,
     projectId: piece.project_id,
@@ -380,5 +404,45 @@ export async function getPieceDetail(pieceId: string): Promise<PieceDetail | nul
         versionRow?.saved_via === "generation" && piece.drafted_version === piece.current_version,
     },
     assistantChanges,
+    beatContext,
   };
+}
+
+/** The findings an outline's beats cite and the titles of the recordings they point at, for the editor to show. */
+async function loadBeatContext(
+  supabase: Client,
+  projectId: string,
+  blocks: readonly PieceBlock[],
+): Promise<BeatContext> {
+  const beats = blocks.filter((block) => block.type === "beat");
+  if (beats.length === 0) return { findings: {}, sourceTitles: {} };
+
+  const found = await getFindingsByIds(
+    projectId,
+    beats.flatMap((beat) => beat.cites),
+  );
+  const findings: Record<string, BeatFindingView> = {};
+  for (const finding of found) {
+    findings[finding.id] = {
+      claim: finding.claim,
+      speaker: finding.speakerLabel,
+      sourceTitle: finding.sourceTitle,
+      sourceId: finding.sourceId,
+      startMs: finding.startMs,
+      page: finding.page,
+      at: finding.at,
+    };
+  }
+
+  const tapeIds = [...new Set(beats.flatMap((beat) => (beat.tape ? [beat.tape.sourceId] : [])))];
+  const sourceTitles: Record<string, string> = {};
+  if (tapeIds.length > 0) {
+    const rows =
+      unwrapRead(
+        await supabase.from("sw_sources").select("id, title").in("id", tapeIds),
+        "the recordings an outline points at",
+      ) ?? [];
+    for (const row of rows) sourceTitles[row.id] = row.title;
+  }
+  return { findings, sourceTitles };
 }

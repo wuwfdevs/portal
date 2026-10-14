@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import type { ClipRange, QuoteSuggestion } from "@/lib/sourcework/quotes";
 import { usePiecePlayer } from "../../../pieces/[pieceId]/use-piece-player";
-import { QuoteCard } from "./quote-card";
+import { QuoteCard } from "../../../quote-card";
 
 /**
  * The waiting suggestions, sharing one audio element so only one clip plays at a time (the piece

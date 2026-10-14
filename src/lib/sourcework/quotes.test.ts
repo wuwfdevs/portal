@@ -8,9 +8,7 @@ import {
   formatClipLength,
   formatClipRange,
   formatClipTime,
-  guideBlocks,
   nudgeEdge,
-  quoteAvailability,
   quoteStance,
   quoteCounts,
   sameStretch,
@@ -130,14 +128,11 @@ describe("sameStretch", () => {
 
 describe("emptyQuotesMessage", () => {
   it("says nothing while suggestions wait", () => {
-    expect(emptyQuotesMessage({ waiting: 2, accepted: 0, rejected: 0 }, true)).toBe("");
+    expect(emptyQuotesMessage({ waiting: 2, accepted: 0, rejected: 0 })).toBe("");
   });
-  it("tells the three empty states apart", () => {
-    expect(emptyQuotesMessage({ waiting: 0, accepted: 0, rejected: 0 }, false)).toContain("yet");
-    expect(emptyQuotesMessage({ waiting: 0, accepted: 1, rejected: 0 }, true)).toContain("decided");
-    expect(emptyQuotesMessage({ waiting: 0, accepted: 0, rejected: 0 }, true)).toContain(
-      "didn't find",
-    );
+  it("tells the two empty states apart", () => {
+    expect(emptyQuotesMessage({ waiting: 0, accepted: 1, rejected: 0 })).toContain("decided");
+    expect(emptyQuotesMessage({ waiting: 0, accepted: 0, rejected: 0 })).toContain("No clips");
   });
 });
 
@@ -149,54 +144,11 @@ describe("formatClipTime", () => {
   });
 });
 
-describe("guideBlocks", () => {
-  it("splits plain text into paragraphs and lists", () => {
-    expect(
-      guideBlocks(
-        "A good clip works on air.\nSecond line.\n\n- It sings.\n- It stands alone.\n\nPrefer showing.",
-      ),
-    ).toEqual([
-      { kind: "paragraph", text: "A good clip works on air. Second line." },
-      { kind: "list", items: ["It sings.", "It stands alone."] },
-      { kind: "paragraph", text: "Prefer showing." },
-    ]);
-  });
-  it("keeps a list that follows a sentence in the same block", () => {
-    expect(guideBlocks("Aim for:\n- one\n- two")).toEqual([
-      { kind: "paragraph", text: "Aim for:" },
-      { kind: "list", items: ["one", "two"] },
-    ]);
-  });
-  it("returns nothing for blank text", () => {
-    expect(guideBlocks("  \n\n ")).toEqual([]);
-  });
-});
-
 describe("quoteStance", () => {
   it("complicates only when every data point behind it does", () => {
     expect(quoteStance(["complicates"])).toBe("complicates");
     expect(quoteStance(["complicates", "complicates"])).toBe("complicates");
     expect(quoteStance(["complicates", "supports"])).toBe("supports");
     expect(quoteStance([])).toBe("supports");
-  });
-});
-
-describe("quoteAvailability", () => {
-  it("offers quotes for an accepted theme with evidence from a recording", () => {
-    expect(
-      quoteAvailability({ themeStatus: "accepted", evidence: [{ hasRecordingSpan: true }] }),
-    ).toEqual({ canSuggest: true, reason: null });
-  });
-  it("says why when it can't", () => {
-    expect(quoteAvailability({ themeStatus: "suggested", evidence: [] }).reason).toContain(
-      "Accept",
-    );
-    expect(quoteAvailability({ themeStatus: "accepted", evidence: [] }).reason).toContain(
-      "no accepted data points",
-    );
-    expect(
-      quoteAvailability({ themeStatus: "accepted", evidence: [{ hasRecordingSpan: false }] })
-        .reason,
-    ).toContain("documents");
   });
 });

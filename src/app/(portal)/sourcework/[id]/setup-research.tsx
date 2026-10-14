@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
@@ -17,12 +17,7 @@ import {
   type ContextNote,
   type ResearchQuestion,
 } from "@/lib/sourcework/research";
-import {
-  NOTES_SHOWN,
-  dataPointsLabel,
-  isNotConfiguredMessage,
-  splitContextNotes,
-} from "@/lib/sourcework/setup-view";
+import { NOTES_SHOWN, dataPointsLabel, splitContextNotes } from "@/lib/sourcework/setup-view";
 import {
   addResearchQuestion,
   moveResearchQuestion,
@@ -32,77 +27,25 @@ import {
 } from "../research-actions";
 
 /**
- * The Setup tab's two editable sections, in one component because they share
- * the background lookup: changing a question gathers background again, and the
- * Refresh button, the first visit and a question edit all show the same
- * "Looking up background…" state.
+ * The Setup tab's two sections: the research questions, which are editable, and the pages the
+ * model consulted while analyzing, which can be dismissed. Background is no longer gathered on a
+ * schedule or when a question changes: Analyze searches the web itself when a source needs context.
  */
 export function SetupResearch({
   projectId,
   questions,
   notes,
-  backgroundStale,
 }: {
   projectId: string;
   questions: ResearchQuestion[];
   notes: ContextNote[];
-  /** The server's contextNeedsRefresh() for the current questions and last run. */
-  backgroundStale: boolean;
 }) {
-  const router = useRouter();
-  const [gathering, setGathering] = useState(false);
-  const [gatherError, setGatherError] = useState<string | null>(null);
-  const startedAuto = useRef(false);
-
-  async function gather(force: boolean) {
-    setGathering(true);
-    setGatherError(null);
-    try {
-      const response = await fetch("/api/sourcework/context", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(force ? { projectId, force: true } : { projectId }),
-      });
-      const body = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-      } | null;
-      if (!response.ok || body?.ok === false) {
-        setGatherError(body?.error ?? "Couldn't look up background. Try again.");
-      }
-    } catch {
-      setGatherError("Couldn't look up background. Check your connection and try again.");
-    } finally {
-      setGathering(false);
-      router.refresh();
-    }
-  }
-
-  // Once per visit, when the background is missing or no longer matches the
-  // questions. The ref keeps React's strict-mode double effect to one request.
-  useEffect(() => {
-    if (!backgroundStale || startedAuto.current) return;
-    startedAuto.current = true;
-    void gather(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backgroundStale]);
-
   const active = questions.filter((question) => question.archivedAt === null);
 
   return (
     <>
-      <QuestionsSection
-        projectId={projectId}
-        questions={questions}
-        onChanged={() => void gather(false)}
-      />
-      <BackgroundSection
-        notes={notes}
-        hasQuestions={active.length > 0}
-        gathering={gathering}
-        error={gatherError}
-        onRefresh={() => void gather(true)}
-      />
+      <QuestionsSection projectId={projectId} questions={questions} />
+      <BackgroundSection notes={notes} hasQuestions={active.length > 0} />
     </>
   );
 }
@@ -112,11 +55,9 @@ export function SetupResearch({
 function QuestionsSection({
   projectId,
   questions,
-  onChanged,
 }: {
   projectId: string;
   questions: ResearchQuestion[];
-  onChanged: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -130,7 +71,6 @@ function QuestionsSection({
 
   async function act(
     write: () => Promise<ActionResult<Record<string, unknown>>>,
-    options: { gather?: boolean } = {},
   ): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -141,7 +81,6 @@ function QuestionsSection({
         return false;
       }
       router.refresh();
-      if (options.gather) onChanged();
       return true;
     } catch (caught) {
       setError(actionFailureMessage(caught));
@@ -153,9 +92,7 @@ function QuestionsSection({
 
   async function submitNew() {
     if (newText.trim() === "") return;
-    const ok = await act(() => addResearchQuestion({ projectId, question: newText }), {
-      gather: true,
-    });
+    const ok = await act(() => addResearchQuestion({ projectId, question: newText }));
     if (ok) {
       setNewText("");
       setAdding(false);
@@ -184,17 +121,13 @@ function QuestionsSection({
                 isLast={index === active.length - 1}
                 busy={busy}
                 onSave={(text) =>
-                  act(() => updateResearchQuestion({ id: question.id, question: text }), {
-                    gather: true,
-                  })
+                  act(() => updateResearchQuestion({ id: question.id, question: text }))
                 }
                 onMove={(direction) =>
                   act(() => moveResearchQuestion({ id: question.id, direction }))
                 }
                 onArchive={() =>
-                  act(() => setResearchQuestionArchived({ id: question.id, archived: true }), {
-                    gather: true,
-                  })
+                  act(() => setResearchQuestionArchived({ id: question.id, archived: true }))
                 }
               />
             ))}
@@ -279,11 +212,8 @@ function QuestionsSection({
                     disabled={busy || atLimit}
                     title={atLimit ? "Archive another question first" : undefined}
                     onClick={() =>
-                      void act(
-                        () => setResearchQuestionArchived({ id: question.id, archived: false }),
-                        {
-                          gather: true,
-                        },
+                      void act(() =>
+                        setResearchQuestionArchived({ id: question.id, archived: false }),
                       )
                     }
                   >
@@ -382,19 +312,7 @@ function QuestionRow({
 
 // Background -------------------------------------------------------------------------
 
-function BackgroundSection({
-  notes,
-  hasQuestions,
-  gathering,
-  error,
-  onRefresh,
-}: {
-  notes: ContextNote[];
-  hasQuestions: boolean;
-  gathering: boolean;
-  error: string | null;
-  onRefresh: () => void;
-}) {
+function BackgroundSection({ notes }: { notes: ContextNote[]; hasQuestions: boolean }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -418,48 +336,20 @@ function BackgroundSection({
 
   return (
     <section aria-labelledby="background-heading">
-      <SectionHeading
-        level="eyebrow"
-        id="background-heading"
-        className="mb-2 items-center"
-        action={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={gathering || !hasQuestions}
-            aria-busy={gathering || undefined}
-            onClick={onRefresh}
-          >
-            {gathering ? "Looking up background…" : "Refresh"}
-          </Button>
-        }
-      >
-        Background notes · {active.length}
+      <SectionHeading level="eyebrow" id="background-heading" className="mb-2 items-center">
+        Pages consulted · {active.length}
       </SectionHeading>
       <div className="flex flex-col gap-3 rounded border border-line bg-white p-4 sm:p-5">
         <p className="text-sm text-ink-500">
-          Found on the web to help read your sources: people, places and terms they mention. They
-          inform the model, are never quoted, and never count as evidence. Dismiss one that is wrong
-          or irrelevant.
+          Web pages the model relied on to read your sources: places, terms and claims it needed
+          context for. They inform its reading, are never quoted, and never count as evidence. Each
+          finding it helped with says so. Dismiss one that is wrong or irrelevant, and the model
+          stops being shown it.
         </p>
         {actionError && <Alert variant="danger">{actionError}</Alert>}
-        {error &&
-          (isNotConfiguredMessage(error) ? (
-            <p className="text-sm text-ink-500">{error}</p>
-          ) : (
-            <Alert variant="danger">{error}</Alert>
-          ))}
-        {gathering && active.length === 0 && (
-          <p role="status" className="text-sm text-ink-500">
-            Looking up background…
-          </p>
-        )}
-        {!gathering && active.length === 0 && !error && (
+        {active.length === 0 && (
           <p className="text-sm text-ink-400">
-            {hasQuestions
-              ? "No background notes yet."
-              : "Background is looked up once the project has research questions."}
+            None yet. The model searches the web while analyzing a source when it needs to.
           </p>
         )}
 
@@ -529,8 +419,7 @@ function BackgroundSection({
         )}
       </div>
       <p className="mt-2 text-xs text-ink-400">
-        Gathered automatically when you add or change questions, and before sources are extracted.
-        Search queries avoid interviewee names.
+        Searches avoid interviewee names; the searches made are kept with each run.
       </p>
     </section>
   );

@@ -10,7 +10,15 @@ import { isStaleRun } from "./run-state";
 
 type Client = SupabaseClient<Database>;
 export type RunKind =
-  "context" | "extraction" | "theme_assign" | "theme_review" | "quote_suggest" | "piece_draft";
+  | "context"
+  | "extraction"
+  | "theme_assign"
+  | "theme_review"
+  | "quote_suggest"
+  | "piece_draft"
+  | "analyze"
+  | "synthesis"
+  | "outline";
 
 const ALREADY_RUNNING: Record<RunKind, string> = {
   extraction: "This source is already being extracted.",
@@ -19,6 +27,9 @@ const ALREADY_RUNNING: Record<RunKind, string> = {
   theme_review: "Themes are already being reviewed for this project.",
   quote_suggest: "Quotes are already being suggested for this theme.",
   piece_draft: "A draft is already being written for this piece.",
+  analyze: "This source is already being analyzed.",
+  synthesis: "This project is already being synthesized.",
+  outline: "An outline is already being written for this piece.",
 };
 
 export type StartedRun =
