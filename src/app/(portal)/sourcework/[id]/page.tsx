@@ -166,10 +166,10 @@ export default async function TranscriptionProjectPage({
       )
     : null;
 
-  // One Notebook tab holds the project's material: its sources, what is waiting to be decided on,
-  // and the excerpts made from them. Each keeps its own URL (`?view=`), so links and search hits
-  // still land where they did; the second row says which of the three you are on.
-  const notebookView = sourcesView || reviewView || pointsView || excerptsView;
+  // Review is a step you act on, so it keeps a top-level tab (and the badge) matching the step strip.
+  // Notebook holds the material to browse: sources, decided data points and excerpts. Each keeps its
+  // own URL (`?view=`), so links and search hits still land where they did.
+  const notebookView = sourcesView || pointsView || excerptsView;
   const tabNav = (
     <>
       <TabNav
@@ -178,6 +178,11 @@ export default async function TranscriptionProjectPage({
             href: projectPath(project.id),
             label: "Notebook",
             active: notebookView,
+          },
+          {
+            href: projectPath(project.id, "review"),
+            label: "Review",
+            active: reviewView,
             badge: waitingReview,
           },
           ...(showSynthesisTab
@@ -213,12 +218,6 @@ export default async function TranscriptionProjectPage({
               label: "Sources",
               active: sourcesView,
               count: project.sources.length,
-            },
-            {
-              href: projectPath(project.id, "review"),
-              label: "Review",
-              active: reviewView,
-              count: waitingReview,
             },
             {
               href: projectPath(project.id, "points"),
