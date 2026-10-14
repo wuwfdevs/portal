@@ -24,6 +24,7 @@ import { ReviewTab } from "./review-tab";
 import { HandoverButton } from "./handover";
 import { ProjectActionsMenu } from "./project-actions-menu";
 import { ProjectOverview, offersHandover } from "./project-overview";
+import { PointsTab } from "./points-tab";
 import { SourceTable } from "./source-table";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { SubNav } from "@/components/ui/sub-nav";
@@ -75,6 +76,7 @@ export default async function TranscriptionProjectPage({
     sort?: string;
     edit?: string;
     page?: string;
+    filter?: string;
   }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
@@ -87,13 +89,16 @@ export default async function TranscriptionProjectPage({
     sort: sortParam,
     edit,
     page: pageParam,
+    filter: filterParam,
   } = await searchParams;
   const reviewView = view === "review";
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
+  const pointsView = view === "points";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !reviewView && !synthesisView && !excerptsView && !piecesView && !setupView;
+  const sourcesView =
+    !reviewView && !pointsView && !synthesisView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
@@ -163,7 +168,7 @@ export default async function TranscriptionProjectPage({
   // One Notebook tab holds the project's material: its sources, what is waiting to be decided on,
   // and the excerpts made from them. Each keeps its own URL (`?view=`), so links and search hits
   // still land where they did; the second row says which of the three you are on.
-  const notebookView = sourcesView || reviewView || excerptsView;
+  const notebookView = sourcesView || reviewView || pointsView || excerptsView;
   const tabNav = (
     <>
       <TabNav
@@ -213,6 +218,11 @@ export default async function TranscriptionProjectPage({
               label: "Review",
               active: reviewView,
               count: waitingReview,
+            },
+            {
+              href: projectPath(project.id, "points"),
+              label: "Data points",
+              active: pointsView,
             },
             {
               href: projectPath(project.id, "excerpts"),
@@ -480,6 +490,16 @@ export default async function TranscriptionProjectPage({
           pieces={pieces}
           search={pieceSearch}
           totalCount={pieceCount}
+        />
+      ) : pointsView ? (
+        <PointsTab
+          projectId={project.id}
+          sources={project.sources.map((entry) => ({
+            id: entry.sourceId,
+            title: entry.source.title,
+          }))}
+          filterParam={filterParam}
+          pageParam={pageParam}
         />
       ) : excerptsView ? (
         <>
