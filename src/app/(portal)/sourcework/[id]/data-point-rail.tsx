@@ -11,6 +11,7 @@ import {
   filterDataPoints,
   questionTitle,
   reviewCounts,
+  type BackgroundLink,
   type DataPoint,
   type DataPointFilter,
 } from "@/lib/sourcework/research";
@@ -34,6 +35,8 @@ export interface SourceResearchView {
   extraction: ExtractionState;
   /** Data point id -> the excerpts that exemplify it (the card's "Excerpt:" line). */
   excerpts: Record<string, { href: string; title: string }[]>;
+  /** Data point id -> the pages the model consulted for it (the card's "Background" line). */
+  background?: Record<string, BackgroundLink[]>;
 }
 
 /**
@@ -50,6 +53,8 @@ export function DataPointRail({
   onSelect,
   onPlay,
   onPlayClip,
+  onPause,
+  playingKey = null,
   onOpen,
 }: {
   projectId: string;
@@ -60,7 +65,11 @@ export function DataPointRail({
   onSelect: (id: string) => void;
   onPlay?: (point: DataPoint) => void;
   /** Plays a suggested clip's range on the source's player. */
-  onPlayClip?: (range: ClipRange) => void;
+  onPlayClip?: (range: ClipRange, clipId: string) => void;
+  /** Pauses whatever passage or clip this rail started. */
+  onPause?: () => void;
+  /** `point:<id>` or `clip:<id>` while that card's range is playing, else null. */
+  playingKey?: string | null;
   onOpen?: (point: DataPoint) => void;
 }) {
   const { points, extraction } = research;
@@ -84,7 +93,14 @@ export function DataPointRail({
       : []),
   ];
 
-  const clipsSection = <ClipsToReview clips={research.clips} onPlayClip={onPlayClip} />;
+  const clipsSection = (
+    <ClipsToReview
+      clips={research.clips}
+      onPlayClip={onPlayClip}
+      onPause={onPause}
+      playingKey={playingKey}
+    />
+  );
 
   if (points.length === 0) {
     return (
@@ -177,8 +193,11 @@ export function DataPointRail({
             selectionOrigin={selectionOrigin}
             onSelect={() => onSelect(point.id)}
             onPlay={onPlay ? () => onPlay(point) : undefined}
+            onPause={onPause}
+            isPlaying={playingKey === `point:${point.id}`}
             onOpen={onOpen ? () => onOpen(point) : undefined}
             excerpts={research.excerpts[point.id] ?? []}
+            background={research.background?.[point.id] ?? []}
           />
         ))
       )}
@@ -207,9 +226,13 @@ export function DataPointRail({
 function ClipsToReview({
   clips,
   onPlayClip,
+  onPause,
+  playingKey,
 }: {
   clips: QuoteSuggestion[];
-  onPlayClip?: (range: ClipRange) => void;
+  onPlayClip?: (range: ClipRange, clipId: string) => void;
+  onPause?: () => void;
+  playingKey: string | null;
 }) {
   const router = useRouter();
   const [decided, setDecided] = useState<ReadonlySet<string>>(new Set());
@@ -225,8 +248,10 @@ function ClipsToReview({
         <QuoteCard
           key={clip.id}
           quote={clip}
-          playing={false}
-          onPlay={(range) => onPlayClip?.(range)}
+          playing={playingKey === `clip:${clip.id}`}
+          onPlay={(range) =>
+            playingKey === `clip:${clip.id}` ? onPause?.() : onPlayClip?.(range, clip.id)
+          }
           onDecided={(id) => {
             setDecided((current) => new Set(current).add(id));
             router.refresh();

@@ -156,7 +156,7 @@ export function ImportClient({ fromDate }: { fromDate: string | null }) {
             className="max-w-md"
             aria-label="Program-log export file"
           />
-          <Button type="button" onClick={upload} disabled={pending}>
+          <Button type="button" ai onClick={upload} disabled={pending}>
             {pending ? "Reading…" : "Preview import"}
           </Button>
         </div>

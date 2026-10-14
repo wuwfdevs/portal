@@ -31,11 +31,14 @@ export function synthesisSummary(outcome: {
   tensions: number;
   gaps: number;
   narrative: number;
+  emerging?: number;
   dropped: number;
 }): string {
   const parts = [pluralize(outcome.statements, "statement")];
   if (outcome.tensions > 0) parts.push(pluralize(outcome.tensions, "tension"));
   if (outcome.gaps > 0) parts.push(pluralize(outcome.gaps, "gap"));
+  if (outcome.emerging && outcome.emerging > 0)
+    parts.push(pluralize(outcome.emerging, "emerging theme"));
   if (outcome.narrative > 0) parts.push(pluralize(outcome.narrative, "narrative note"));
   const dropped =
     outcome.dropped > 0

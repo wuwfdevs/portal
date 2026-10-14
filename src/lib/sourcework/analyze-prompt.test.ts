@@ -328,7 +328,8 @@ describe("mergeAnalyses", () => {
       finding_numbers: [] as number[],
     };
     const makeWindow = (offset: number) => {
-      const all = Array.from({ length: 4 }, (_, index) => ({
+      const perWindow = MAX_ANALYZE_EXCERPTS;
+      const all = Array.from({ length: perWindow }, (_, index) => ({
         id: offset + index + 1,
         groupIndex: 0,
         text: "x",
@@ -353,7 +354,7 @@ describe("mergeAnalyses", () => {
         }),
       );
     };
-    const merged = mergeAnalyses([makeWindow(0), makeWindow(4)]);
+    const merged = mergeAnalyses([makeWindow(0), makeWindow(MAX_ANALYZE_EXCERPTS)]);
     expect(merged.excerpts).toHaveLength(MAX_ANALYZE_EXCERPTS);
     expect(merged.dropped.clip_over_limit).toBeGreaterThan(0);
     expect(merged.consulted).toHaveLength(1);

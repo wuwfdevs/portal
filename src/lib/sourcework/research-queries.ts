@@ -7,6 +7,7 @@ import {
   compareQuestions,
   hostLabel,
   questionLabels,
+  type BackgroundLink,
   type ContextNote,
   type DataPoint,
   type DataPointSpan,
@@ -96,6 +97,53 @@ export async function listContextNotes(projectId: string): Promise<ContextNote[]
     retrievedAt: row.retrieved_at,
     status: row.status,
   }));
+}
+
+/**
+ * For each given finding, the active pages the model consulted when it made it (what the card's
+ * "Background" line names). Dismissed pages are left out: dismissing one means it is wrong or beside
+ * the point, so it should not stand beside a finding as support for reading it.
+ */
+export async function listBackgroundForPoints(
+  dataPointIds: readonly string[],
+): Promise<Map<string, BackgroundLink[]>> {
+  const result = new Map<string, BackgroundLink[]>();
+  if (dataPointIds.length === 0) return result;
+  const supabase = await createClient();
+  const links: { note_id: string; data_point_id: string }[] = [];
+  for (const ids of chunked(dataPointIds)) {
+    links.push(
+      ...(unwrapRead(
+        await supabase
+          .from("sw_context_note_points")
+          .select("note_id, data_point_id")
+          .in("data_point_id", ids),
+        "the pages consulted for these findings",
+      ) ?? []),
+    );
+  }
+  if (links.length === 0) return result;
+  const notes = new Map<string, BackgroundLink>();
+  for (const ids of chunked([...new Set(links.map((link) => link.note_id))])) {
+    for (const note of unwrapRead(
+      await supabase
+        .from("sw_context_notes")
+        .select("id, title, url, status")
+        .in("id", ids)
+        .eq("status", "active"),
+      "the pages consulted for these findings",
+    ) ?? []) {
+      notes.set(note.id, { url: note.url, title: note.title, host: hostLabel(note.url) });
+    }
+  }
+  for (const link of links) {
+    const note = notes.get(link.note_id);
+    if (!note) continue;
+    const list = result.get(link.data_point_id) ?? [];
+    list.push(note);
+    result.set(link.data_point_id, list);
+  }
+  return result;
 }
 
 // Runs and counts ------------------------------------------------------------------

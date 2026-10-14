@@ -476,6 +476,7 @@ export function AgentChatWidget() {
             <div className="mt-2 flex justify-end">
               <Button
                 type="submit"
+                ai
                 disabled={loading || Boolean(pending) || !draft.trim()}
                 className="px-4 py-1.5 text-xs"
               >

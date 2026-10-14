@@ -33,6 +33,7 @@ import {
 } from "@/lib/sourcework/synthesis-view";
 import { findingsChangedSince } from "@/lib/sourcework/synthesis";
 import { SynthesizeButton } from "./synthesize-button";
+import { TrackThemeButton } from "./track-theme-button";
 
 /**
  * The Synthesis tab (docs/sourcework-analysis-design.md §21): what the project's accepted findings
@@ -250,6 +251,61 @@ function SynthesisBodyView({
           )}
         </section>
       ))}
+
+      {body.emerging.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <SectionHeading>Patterns across sources</SectionHeading>
+          <p className="-mt-2 text-sm text-ink-500">
+            Things several people described separately that no research question asked about. They
+            are leads, not answers: open the findings or recordings behind one, and track it as a
+            question to have the next Analyze listen for it.
+          </p>
+          <ul className="flex flex-col gap-3">
+            {body.emerging.map((theme) => (
+              <li key={theme.id} className="rounded border border-line bg-white p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="accent">Emerging</Badge>
+                  <OriginBadge origin={theme.origin} />
+                  {unsupported.has(theme.id) && (
+                    <Badge variant="danger">No accepted finding behind it</Badge>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-ink-900">{theme.label}</p>
+                <p className="mt-0.5 text-[15px] leading-snug text-ink-900">{theme.statement}</p>
+                {theme.cites.length > 0 && (
+                  <FindingsDetails
+                    projectId={projectId}
+                    cites={theme.cites}
+                    findingById={findingById}
+                    info={info}
+                  />
+                )}
+                {theme.passages.length > 0 && (
+                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                    <span className="text-ink-500">In the recordings:</span>
+                    {theme.passages.map((passage, index) => (
+                      <Link
+                        key={index}
+                        href={sourcePath(passage.sourceId, {
+                          projectId,
+                          t: passage.startMs,
+                          page: passage.page,
+                        })}
+                        className="text-brand-link hover:underline"
+                      >
+                        {[...findingById.values()].find((f) => f.sourceId === passage.sourceId)
+                          ?.sourceTitle ?? "Source"}
+                        {passage.startMs != null ? ` at ${formatDuration(passage.startMs)}` : ""}
+                      </Link>
+                    ))}
+                  </p>
+                )}
+                <TrackThemeButton projectId={projectId} label={theme.label} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {body.tensions.length > 0 && (
         <section className="flex flex-col gap-3">

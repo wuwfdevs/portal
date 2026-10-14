@@ -276,6 +276,7 @@ describe("buildSynthesisInput and renderBaseSynthesis", () => {
       ],
       tensions: [],
       narrative: [],
+      emerging: [],
     };
     const text = renderBaseSynthesis(body, {
       version: 3,
@@ -295,7 +296,7 @@ describe("buildSynthesisInput and renderBaseSynthesis", () => {
   it("renders nothing for an empty synthesis", () => {
     expect(
       renderBaseSynthesis(
-        { sections: [], tensions: [], narrative: [] },
+        { sections: [], tensions: [], narrative: [], emerging: [] },
         { version: 1, questionNumberById: new Map(), findingNumberById: new Map() },
       ),
     ).toBeNull();
@@ -315,5 +316,79 @@ describe("buildSynthesisOutputSchema", () => {
       for (const value of Object.values(schema)) check(value);
     }
     check(buildSynthesisOutputSchema());
+  });
+});
+
+describe("parseSynthesisOutput: emerging themes", () => {
+  const theme = (cites: number[]) => ({
+    label: "Neighbors helping neighbors",
+    statement:
+      "Residents describe organizing to help one another instead of waiting for official help.",
+    cites,
+  });
+  const sources = { findingSourceIds: ["s1", "s1", "s2", "s3"] };
+
+  it("keeps a theme resting on findings from two different sources", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [theme([1, 3])] }),
+      context(sources),
+    );
+    expect(body.emerging).toHaveLength(1);
+    expect(body.emerging[0]).toMatchObject({ cites: ["f1", "f3"], origin: "model" });
+    expect(dropped.theme_one_source).toBe(0);
+  });
+
+  it("drops a theme that rests on a single source, however many findings it cites", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [theme([1, 2])] }),
+      context(sources),
+    );
+    expect(body.emerging).toEqual([]);
+    expect(dropped.theme_one_source).toBe(1);
+  });
+
+  it("keeps a theme whose second source is a passage the tools showed", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [{ ...theme([1]), passage_refs: [1] }] }),
+      context({
+        ...sources,
+        passages: new Map([[1, { sourceId: "s9", startMs: 0, endMs: 5000, page: null }]]),
+      }),
+    );
+    expect(body.emerging).toHaveLength(1);
+    expect(body.emerging[0]!.passages[0]!.sourceId).toBe("s9");
+    expect(dropped.theme_one_source).toBe(0);
+  });
+
+  it("drops a theme whose passage is in the same source as its finding", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [{ ...theme([1]), passage_refs: [1] }] }),
+      context({
+        ...sources,
+        passages: new Map([[1, { sourceId: "s1", startMs: 0, endMs: 5000, page: null }]]),
+      }),
+    );
+    expect(body.emerging).toEqual([]);
+    expect(dropped.theme_one_source).toBe(1);
+  });
+
+  it("drops a theme with no citation the model was shown", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [theme([99])] }),
+      context(sources),
+    );
+    expect(body.emerging).toEqual([]);
+    expect(dropped.no_valid_cite).toBe(1);
+  });
+
+  it("keeps no more than the ceiling", () => {
+    const many = Array.from({ length: 8 }, () => theme([1, 3]));
+    const { body, dropped } = parseSynthesisOutput(answer({ emerging: many }), context(sources));
+    expect(body.emerging).toHaveLength(5);
+    expect(dropped.over_limit).toBe(3);
+  });
+
+  it("reads an answer with no emerging field", () => {
+    expect(parseSynthesisOutput(answer({}), context(sources)).body.emerging).toEqual([]);
   });
 });

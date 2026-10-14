@@ -432,3 +432,17 @@ Anything tappable is at least 44px tall below `lg`, and the rule lives in one pl
   isn't padded; pass `touch` where it must be a target.
 - A raw `<button>`, `<a>`/`Link` or `<summary>` takes `TAP_TARGET` in its `className`.
 - The always-on and `max-sm`/`max-md` variants are separate calls, not this rule.
+
+## AI actions carry the sparkles mark (2026-10-14)
+
+Any button or link that starts a model run — Analyze, Synthesize, Outline, Write from outline, Drill down,
+Evaluate, Create from the agreement, Preview import on the program log, the assistant's Send, Try this
+draft — shows `SparklesIcon` (`components/ui/sparkles-icon.tsx`) before its label, so a person can tell
+at a glance which controls spend a model call and which only move their own work. For a `Button`, pass
+`ai`; the mark is hidden while the button shows its own busy spinner. A link-styled control that cannot
+be a `Button` renders `<SparklesIcon className="mr-1.5 h-3.5 w-3.5" />` itself.
+
+- The mark goes on the control that **starts** the run, not on screens or results that merely show what a
+  model wrote, and not on controls that only use deterministic code (a suggested excerpt title is not AI).
+- A run started from a menu item or an assistant capability is marked where the person clicks.
+- A new AI action without the mark is a bug, the same as a missing confirm on a delete.

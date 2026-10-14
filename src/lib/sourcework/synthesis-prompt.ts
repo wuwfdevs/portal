@@ -14,12 +14,15 @@ import {
   GAP_MAX,
   MAX_FINDINGS_PER_SECTION,
   MAX_GAPS_PER_SECTION,
+  MAX_EMERGING,
   MAX_NARRATIVE,
   MAX_TENSIONS,
   NOTE_MAX,
   SIDE_LABEL_MAX,
   STATEMENT_MAX,
+  THEME_LABEL_MAX,
   type Certainty,
+  type EmergingTheme,
   type NarrativeNote,
   type PassageRef,
   type SynthesisBody,
@@ -36,6 +39,8 @@ export const SYNTHESIS_FRAMING = `You are a research collaborator for a public r
 Each finding is numbered and paraphrases one passage in one source. Cite findings only by number. Every statement must rest on the findings you cite: add nothing from elsewhere, and state nothing more firmly than they allow. Mark each statement established (the findings agree and are firsthand or on the record), contested (credible findings conflict, or only an interested party says it) or uncertain (thin, secondhand or unconfirmed). Several findings repeating one claim from one source are one source's claim.
 
 Tension is the most useful thing to find: sources that disagree, an official account that does not match a firsthand one, a qualification that changes what a claim means, a figure that changed over time. Report a tension only when the findings really show it; never manufacture disagreement. Give each side of a tension its position and the findings behind it.
+
+emerging is for patterns across sources that no research question asked about. The findings were chosen against the questions, so such a pattern may be only half visible in them: when you suspect one, use search_transcripts to check the other recordings and cite what you find by passage ref. A theme needs at least two different sources showing it independently; give it a short label and a sentence on what they share, and cite the findings and passages behind it. A few well-grounded themes are useful; a long list is noise, and none is a fine answer. The editors' guidance below says what qualifies.
 
 gaps are what the findings leave unanswered for a question that a reporter could go and get before relying on it.
 
@@ -173,6 +178,11 @@ export function renderSynthesisLines(
       ...tension.sides.map((side) => `- ${side.label}${cites(side.cites)}`),
     );
   }
+  for (const theme of base.emerging) {
+    lines.push(
+      `Emerging theme${theme.origin === "person" ? " (pinned)" : ""}: ${theme.label}: ${theme.statement}${cites(theme.cites)}${theme.passages.length > 0 ? ` (+${theme.passages.length} passages)` : ""}`,
+    );
+  }
   return lines;
 }
 
@@ -181,7 +191,7 @@ export function buildSynthesisOutputSchema(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["sections", "tensions", "narrative"],
+    required: ["sections", "tensions", "narrative", "emerging"],
     properties: {
       sections: {
         type: "array",
@@ -228,6 +238,20 @@ export function buildSynthesisOutputSchema(): Record<string, unknown> {
           },
         },
       },
+      emerging: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "statement", "cites", "passage_refs"],
+          properties: {
+            label: { type: "string" },
+            statement: { type: "string" },
+            cites,
+            passage_refs: { type: "array", items: { type: "integer" } },
+          },
+        },
+      },
       narrative: {
         type: "array",
         items: {
@@ -254,6 +278,7 @@ export type SynthesisDropReason =
   | "bad_certainty"
   | "no_valid_cite"
   | "tension_one_sided"
+  | "theme_one_source"
   | "note_no_passage"
   | "over_limit";
 
@@ -266,6 +291,7 @@ export function emptySynthesisDropped(): Record<SynthesisDropReason, number> {
     bad_certainty: 0,
     no_valid_cite: 0,
     tension_one_sided: 0,
+    theme_one_source: 0,
     note_no_passage: 0,
     over_limit: 0,
   };
@@ -276,6 +302,11 @@ export interface SynthesisParseContext {
   findingIds: readonly string[];
   /** Active question ids in the order they were numbered. */
   questionIds: readonly string[];
+  /**
+   * The source of each finding, aligned with findingIds. A theme must rest on findings from two
+   * different sources; when this is absent the check is skipped (only for callers with no sources).
+   */
+  findingSourceIds?: readonly string[];
   /** What the tools showed the model, by the ref it was given. */
   passages: ReadonlyMap<number, PassageRef>;
   newId: () => string;
@@ -308,7 +339,7 @@ function words(value: unknown): string {
  */
 export function parseSynthesisOutput(raw: string, context: SynthesisParseContext): ParsedSynthesis {
   const dropped = emptySynthesisDropped();
-  const body: SynthesisBody = { sections: [], tensions: [], narrative: [] };
+  const body: SynthesisBody = { sections: [], tensions: [], narrative: [], emerging: [] };
 
   let parsed: unknown;
   try {
@@ -317,7 +348,12 @@ export function parseSynthesisOutput(raw: string, context: SynthesisParseContext
     dropped.unreadable += 1;
     return { body, dropped };
   }
-  const answer = parsed as { sections?: unknown; tensions?: unknown; narrative?: unknown } | null;
+  const answer = parsed as {
+    sections?: unknown;
+    tensions?: unknown;
+    narrative?: unknown;
+    emerging?: unknown;
+  } | null;
   if (!Array.isArray(answer?.sections)) {
     dropped.unreadable += 1;
     return { body, dropped };
@@ -420,6 +456,54 @@ export function parseSynthesisOutput(raw: string, context: SynthesisParseContext
     }
     const tension: SynthesisTension = { id: context.newId(), statement, sides, origin: "model" };
     body.tensions.push(tension);
+  }
+
+  for (const raw of Array.isArray(answer.emerging) ? answer.emerging : []) {
+    const row = (raw ?? {}) as Record<string, unknown>;
+    const label = words(row.label);
+    const statement = words(row.statement);
+    if (label === "" || label.length > THEME_LABEL_MAX || statement === "") {
+      dropped.empty_statement += 1;
+      continue;
+    }
+    if (statement.length > STATEMENT_MAX) {
+      dropped.statement_too_long += 1;
+      continue;
+    }
+    const cites = resolveCites(row.cites, context.findingIds);
+    const passages: PassageRef[] = [];
+    for (const ref of Array.isArray(row.passage_refs) ? row.passage_refs : []) {
+      const found = typeof ref === "number" ? context.passages.get(ref) : undefined;
+      if (found && !passages.includes(found)) passages.push(found);
+    }
+    if (cites.length === 0 && passages.length === 0) {
+      dropped.no_valid_cite += 1;
+      continue;
+    }
+    // Independence is the whole claim of a theme: the findings and passages behind it, together,
+    // must come from two different sources.
+    const sourceIds = new Set(passages.map((item) => item.sourceId));
+    if (context.findingSourceIds) {
+      for (const id of cites)
+        sourceIds.add(context.findingSourceIds[context.findingIds.indexOf(id)]!);
+    }
+    if (context.findingSourceIds && sourceIds.size < 2) {
+      dropped.theme_one_source += 1;
+      continue;
+    }
+    if (body.emerging.length >= MAX_EMERGING) {
+      dropped.over_limit += 1;
+      continue;
+    }
+    const theme: EmergingTheme = {
+      id: context.newId(),
+      label,
+      statement,
+      cites,
+      passages,
+      origin: "model",
+    };
+    body.emerging.push(theme);
   }
 
   for (const raw of Array.isArray(answer.narrative) ? answer.narrative : []) {

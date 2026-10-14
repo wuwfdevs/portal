@@ -63,7 +63,7 @@ export function SynthesizeButton({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <Button type="button" onClick={run} disabled={disabled || running || alreadyRunning}>
+        <Button type="button" ai onClick={run} disabled={disabled || running || alreadyRunning}>
           {running ? "Synthesizing…" : label}
         </Button>
       </div>

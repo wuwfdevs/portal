@@ -2,6 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
+import { SparklesIcon } from "./sparkles-icon";
 import { TAP_TARGET } from "./tap-target";
 import type { ComponentProps } from "react";
 
@@ -13,6 +14,8 @@ interface ButtonProps extends ComponentProps<"button"> {
   size?: ButtonSize;
   /** 44px tall below `lg` for a ghost/link button; boxed variants always are. */
   touch?: boolean;
+  /** The button starts a model run: it carries the sparkles mark (and says so to nobody else). */
+  ai?: boolean;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -57,6 +60,7 @@ export function Button({
   variant = "primary",
   size = "md",
   touch = false,
+  ai = false,
   className,
   children,
   ...props
@@ -83,6 +87,7 @@ export function Button({
           className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
         />
       )}
+      {ai && !isPendingSubmit && <SparklesIcon className="h-3.5 w-3.5 shrink-0" />}
       {children}
     </button>
   );

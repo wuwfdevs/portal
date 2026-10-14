@@ -13,7 +13,7 @@ import {
   type QuoteSuggestion,
 } from "@/lib/sourcework/quotes";
 import { acceptQuote, rejectQuote } from "../quote-actions";
-import { PlayIcon } from "./transport-icons";
+import { PauseIcon, PlayIcon } from "./transport-icons";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 
 /**
@@ -92,11 +92,11 @@ export function QuoteCard({
         <button
           type="button"
           onClick={() => onPlay(range)}
-          aria-label={playing ? "Stop" : "Play the clip as it will cut"}
+          aria-label={playing ? "Pause the clip" : "Play the clip as it will cut"}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link hover:bg-brand-surface lg:h-7 lg:w-7"
         >
           {playing ? (
-            <span aria-hidden className="h-2.5 w-2.5 bg-current" />
+            <PauseIcon className="h-2.5 w-2.5" />
           ) : (
             <PlayIcon className="ml-0.5 h-3 w-3 lg:h-2.5 lg:w-2.5" />
           )}

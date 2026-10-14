@@ -14,6 +14,7 @@ import {
 } from "./piece-expand-prompt";
 import { renderFormatGuide } from "./piece-formats";
 import { getLiveFormat } from "./piece-format-queries";
+import { getLivePrompt } from "./research-queries";
 import { DIRECTION_MAX } from "./piece-standards";
 import {
   actualityRange,
@@ -93,6 +94,7 @@ export async function expandOutline(args: {
   }
   const project = await getProjectById(piece.project_id);
   if (!project) return { ok: false, error: "That project doesn't exist." };
+  const writingGuide = await getLivePrompt("writing");
 
   const run = await startRun(supabase, {
     kind: "expand",
@@ -100,7 +102,7 @@ export async function expandOutline(args: {
     sourceId: null,
     pieceId: piece.id,
     formatVersionId: format?.versionId ?? null,
-    promptVersionId: null,
+    promptVersionId: writingGuide.versionId,
     trial: false,
     model: RESEARCH_MODEL,
     userId: args.userId,
@@ -161,7 +163,7 @@ export async function expandOutline(args: {
       schemaName: "piece_expand",
       schema: buildExpandOutputSchema(),
       framing: EXPAND_FRAMING,
-      guide: formatGuide ?? "",
+      guide: [writingGuide.body, formatGuide].filter(Boolean).join("\n\n"),
       input: buildExpandInput({
         projectTitle: project.title,
         direction: args.direction.slice(0, DIRECTION_MAX),

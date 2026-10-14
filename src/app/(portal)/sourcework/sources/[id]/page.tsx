@@ -27,6 +27,7 @@ import {
   listResearchQuestions,
   listDataPointsForSource,
   getSourceResearch,
+  listBackgroundForPoints,
 } from "@/lib/sourcework/research-queries";
 import { sortDataPointsBySpan } from "@/lib/sourcework/research";
 import {
@@ -394,7 +395,10 @@ async function loadResearchView(
   const acceptedIds = points
     .filter((point) => point.status === "accepted")
     .map((point) => point.id);
-  const excerptLinks = await listExcerptsForDataPoints(acceptedIds);
+  const [excerptLinks, backgroundLinks] = await Promise.all([
+    listExcerptsForDataPoints(acceptedIds),
+    listBackgroundForPoints(points.map((point) => point.id)),
+  ]);
   return {
     points: sortDataPointsBySpan(points),
     clips,
@@ -403,6 +407,7 @@ async function loadResearchView(
       questions.map((question) => [question.id, question.question]),
     ),
     extraction: state,
+    background: Object.fromEntries(backgroundLinks),
     excerpts: Object.fromEntries(
       [...excerptLinks.entries()].map(([pointId, links]) => [
         pointId,

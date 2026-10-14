@@ -21,10 +21,14 @@ import { ProjectExcerptsView } from "./project-excerpts-view";
 import { PiecesTab } from "./pieces-tab";
 import { SetupTab } from "./setup-tab";
 import { SynthesisTab } from "./synthesis-tab";
+import { ReviewTab } from "./review-tab";
+import { AutopilotPanel } from "./autopilot-panel";
+import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
 import { ExtractionControls } from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { sourcesToExtract } from "@/lib/sourcework/setup-view";
+import { countWaitingReview } from "@/lib/sourcework/review-queries";
 import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
 
 /**
@@ -51,21 +55,24 @@ export default async function TranscriptionProjectPage({
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
   const { view, q, version } = await searchParams;
+  const reviewView = view === "review";
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !synthesisView && !excerptsView && !piecesView && !setupView;
+  const sourcesView = !reviewView && !synthesisView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  const [pieceCount, pieces, synthesis] = await Promise.all([
+  const sourceIds = project.sources.map((entry) => entry.sourceId);
+  const [pieceCount, pieces, synthesis, waitingReview] = await Promise.all([
     countPieces(project.id),
     piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
     getSynthesisStanding(project.id),
+    countWaitingReview(project.id, sourceIds),
   ]);
   const showSynthesisTab =
     synthesisView || synthesis.acceptedFindings > 0 || synthesis.hasSynthesis;
@@ -101,6 +108,7 @@ export default async function TranscriptionProjectPage({
       )
     : false;
 
+  const formats = sourcesView && project.sources.length > 0 ? await listLiveFormats() : [];
   const projectExcerpts = excerptsView ? await listLibraryClips(project.id) : [];
 
   // Only the person who started the project can delete it, so only they pay
@@ -152,6 +160,12 @@ export default async function TranscriptionProjectPage({
             active: sourcesView,
             badge: project.sources.length,
           },
+          {
+            href: projectPath(project.id, "review"),
+            label: "Review",
+            active: reviewView,
+            badge: waitingReview,
+          },
           ...(showSynthesisTab
             ? [
                 {
@@ -181,7 +195,16 @@ export default async function TranscriptionProjectPage({
         ]}
       />
 
-      {setupView ? (
+      {reviewView ? (
+        <ReviewTab
+          projectId={project.id}
+          sources={project.sources.map((entry) => ({
+            id: entry.sourceId,
+            title: entry.source.title,
+            kind: entry.source.kind,
+          }))}
+        />
+      ) : setupView ? (
         <SetupTab projectId={project.id} sources={project.sources} />
       ) : synthesisView ? (
         <SynthesisTab projectId={project.id} versionParam={version} />
@@ -231,6 +254,16 @@ export default async function TranscriptionProjectPage({
               Sources
             </SectionHeading>
           )}
+          {waitingReview > 0 && (
+            <p className="mb-3 rounded border border-brand-surface bg-brand-surface px-3 py-2 text-sm text-ink-900">
+              {waitingReview}{" "}
+              {waitingReview === 1 ? "finding or clip is" : "findings and clips are"} waiting for a
+              decision.{" "}
+              <TextLink href={projectPath(project.id, "review")} className="px-0 font-bold">
+                Review them all in one place
+              </TextLink>
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {project.sources.map((entry) => (
               <SourceCard
@@ -263,6 +296,10 @@ export default async function TranscriptionProjectPage({
               />
             ))}
           </div>
+          <AutopilotPanel
+            projectId={project.id}
+            formats={formats.map((format) => ({ id: format.id, name: format.name }))}
+          />
           {!hasQuestions && (
             <p className="mt-4 max-w-2xl text-xs text-ink-400">
               Analyze works without a research question. Add one in{" "}

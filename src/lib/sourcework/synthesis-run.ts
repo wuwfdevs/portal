@@ -31,6 +31,7 @@ export interface SynthesisOutcome {
   tensions: number;
   gaps: number;
   narrative: number;
+  emerging: number;
   dropped: number;
 }
 
@@ -133,6 +134,7 @@ export async function runSynthesis(args: {
 
     const parsed = parseSynthesisOutput(looped.text, {
       findingIds: findings.map((finding) => finding.id),
+      findingSourceIds: findings.map((finding) => finding.sourceId),
       questionIds: questions.map((question) => question.id),
       passages: ledger.asMap(),
       newId: randomUUID,
@@ -182,6 +184,7 @@ export async function runSynthesis(args: {
         tensions: body.tensions.length,
         gaps,
         narrative: body.narrative.length,
+        emerging: body.emerging.length,
         version: saved.data,
         dropped: parsed.dropped,
       },
@@ -194,6 +197,7 @@ export async function runSynthesis(args: {
       tensions: body.tensions.length,
       gaps,
       narrative: body.narrative.length,
+      emerging: body.emerging.length,
       dropped: droppedTotal,
     };
   } catch (error) {

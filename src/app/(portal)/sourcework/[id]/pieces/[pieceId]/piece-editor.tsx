@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { TextLink } from "@/components/ui/primary-link";
 import { Input } from "@/components/ui/input";
 import { formatClock } from "@/lib/format";
 import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
@@ -38,6 +40,7 @@ import {
   type ActualityBlock,
   type PieceBlock,
 } from "@/lib/sourcework/pieces";
+import { outlineReadiness, type OutlineMaterial } from "@/lib/sourcework/outline-readiness";
 import { textForRange, type TextSegment } from "@/lib/sourcework/piece-text";
 import type { PieceDetail, PieceExcerpt } from "@/lib/sourcework/piece-queries";
 import { ExportExcerptsButton } from "../../export-excerpts-button";
@@ -71,6 +74,9 @@ type PieceEditorProps = {
   pickerExcerpts: PieceExcerpt[];
   /** Every published format, for writing to one by hand. */
   formats: GuideFormat[];
+  /** What the project has for an outline to work from, and where to decide on what is waiting. */
+  material: OutlineMaterial;
+  reviewHref: string;
 };
 
 /**
@@ -99,6 +105,8 @@ function PieceEditor({
   piece,
   pickerExcerpts,
   formats,
+  material,
+  reviewHref,
   onOwnVersion,
 }: PieceEditorProps & { onOwnVersion: (version: number) => void }) {
   const router = useRouter();
@@ -130,6 +138,10 @@ function PieceEditor({
   const [historyError, setHistoryError] = useState<string | null>(null);
   // Outline (an empty piece) and Write from outline (a piece with beats), docs/sourcework-analysis-design.md §22.
   const [outlining, setOutlining] = useState(false);
+  const readiness = (() => {
+    const result = outlineReadiness(material);
+    return { ...result, canRun: result.level === "ready" || result.canRun };
+  })();
   const [expanding, setExpanding] = useState(false);
   // "Edited by the assistant · Undo" until the next person edit (§6.4).
   const [assistantChanges, setAssistantChanges] = useState(piece.assistantChanges);
@@ -800,10 +812,12 @@ function PieceEditor({
         <OutlineWithAi
           mode="outline"
           pieceId={piece.id}
+          readinessMessage={readiness.level === "ready" ? null : readiness.message}
+          reviewHref={reviewHref}
           getVersion={() => versionRef.current}
           beforeGenerate={flushNow}
-          formats={formats.map((format) => ({ id: format.id, name: format.name }))}
-          initialFormatId={formatId}
+          formatId={formatId}
+          formatName={formats.find((format) => format.id === formatId)?.name ?? null}
           onCancel={() => setOutlining(false)}
           onDone={() => {
             // The outline is a new version on the server; the page reloads into it.
@@ -818,8 +832,8 @@ function PieceEditor({
           pieceId={piece.id}
           getVersion={() => versionRef.current}
           beforeGenerate={flushNow}
-          formats={formats.map((format) => ({ id: format.id, name: format.name }))}
-          initialFormatId={formatId}
+          formatId={formatId}
+          formatName={formats.find((format) => format.id === formatId)?.name ?? null}
           onCancel={() => setExpanding(false)}
           onDone={() => {
             dirtyRef.current = false;
@@ -840,6 +854,7 @@ function PieceEditor({
             touch
             type="button"
             variant="link"
+            ai
             className="text-brand-link"
             onClick={() => setExpanding(true)}
           >
@@ -874,12 +889,24 @@ function PieceEditor({
             <Button
               type="button"
               variant="secondary"
+              ai
+              disabled={!readiness.canRun}
               onClick={() => setOutlining(true)}
               className="bg-brand-surface"
             >
               Outline with AI
             </Button>
           </div>
+          {readiness.level !== "ready" && (
+            <div className="mx-auto mt-4 max-w-lg text-left">
+              <Alert variant="warning">
+                {readiness.message}{" "}
+                <TextLink href={reviewHref} className="px-0 font-bold">
+                  Review what is waiting
+                </TextLink>
+              </Alert>
+            </div>
+          )}
           {emptyPicker &&
             panelFor(
               <div className="mt-4 text-left">

@@ -180,6 +180,7 @@ export default async function NewContractPage({
               <Button
                 type="submit"
                 variant="secondary"
+                ai
                 formAction={createContractFromAgreement}
                 formNoValidate
               >

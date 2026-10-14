@@ -63,6 +63,7 @@ export function ExtractSourceButton({
       <Button
         type="button"
         variant={variant}
+        ai
         onClick={start}
         disabled={busy}
         aria-busy={busy || undefined}

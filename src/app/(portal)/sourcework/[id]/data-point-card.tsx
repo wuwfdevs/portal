@@ -6,9 +6,14 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { CLAIM_MAX, formatSpans, type DataPoint } from "@/lib/sourcework/research";
+import {
+  CLAIM_MAX,
+  formatSpans,
+  type BackgroundLink,
+  type DataPoint,
+} from "@/lib/sourcework/research";
 import { editDataPoint, reviewDataPoint } from "../research-actions";
-import { PlayIcon } from "./transport-icons";
+import { PauseIcon, PlayIcon } from "./transport-icons";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 
 /** Same meaning as ClipSelectionOrigin: which side the selection came from decides what scrolls. */
@@ -27,9 +32,12 @@ export function DataPointCard({
   selectionOrigin,
   onSelect,
   onPlay,
+  onPause,
+  isPlaying = false,
   onOpen,
   openLabel,
   excerpts = [],
+  background = [],
 }: {
   point: DataPoint;
   tag: string;
@@ -40,11 +48,17 @@ export function DataPointCard({
   onSelect: () => void;
   /** Plays the first span (audio and video only). */
   onPlay?: () => void;
+  /** Pauses it again; the same button toggles, as on an excerpt card. */
+  onPause?: () => void;
+  /** This card's passage is the one playing now. */
+  isPlaying?: boolean;
   /** Opens the point where it lives: the transcript tab on a phone, the page for a document. */
   onOpen?: () => void;
   openLabel?: string;
   /** The excerpts that exemplify this point (accepted suggested quotes). */
   excerpts?: { href: string; title: string }[];
+  /** Pages the model consulted when it made this finding: reading context, never evidence. */
+  background?: BackgroundLink[];
 }) {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -158,12 +172,16 @@ export function DataPointCard({
           {onPlay && (
             <button
               type="button"
-              onClick={onPlay}
-              aria-label="Play this passage"
-              title="Play this passage"
+              onClick={() => (isPlaying && onPause ? onPause() : onPlay())}
+              aria-label={isPlaying ? "Pause this passage" : "Play this passage"}
+              title={isPlaying ? "Pause this passage" : "Play this passage"}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-link text-brand-link transition-colors hover:bg-brand-surface lg:h-7 lg:w-7"
             >
-              <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+              {isPlaying ? (
+                <PauseIcon className="h-2.5 w-2.5" />
+              ) : (
+                <PlayIcon className="ml-0.5 h-2.5 w-2.5" />
+              )}
             </button>
           )}
           {!onPlay && onOpen && (
@@ -260,6 +278,28 @@ export function DataPointCard({
               >
                 {excerpt.title}
               </Link>
+            </span>
+          ))}
+        </p>
+      )}
+
+      {background.length > 0 && !editing && (
+        <p className="mt-1.5 text-xs text-ink-500" onClick={(event) => event.stopPropagation()}>
+          <span title="Pages the model looked up to read this passage. They are context, not evidence.">
+            Looked up:{" "}
+          </span>
+          {background.map((page, index) => (
+            <span key={page.url}>
+              {index > 0 && " · "}
+              <a
+                href={page.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={page.title}
+                className="font-semibold text-brand-link hover:underline max-lg:inline-block max-lg:py-2.5"
+              >
+                {page.host || page.title}
+              </a>
             </span>
           ))}
         </p>

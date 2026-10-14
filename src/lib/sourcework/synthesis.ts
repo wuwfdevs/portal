@@ -26,6 +26,9 @@ export const MAX_FINDINGS_PER_SECTION = 12;
 export const MAX_GAPS_PER_SECTION = 6;
 export const MAX_TENSIONS = 10;
 export const MAX_NARRATIVE = 8;
+/** Themes the model may offer that no question asked for: few on purpose, or they become noise. */
+export const MAX_EMERGING = 5;
+export const THEME_LABEL_MAX = 80;
 
 export interface SynthesisFinding {
   id: string;
@@ -78,20 +81,41 @@ export interface NarrativeNote {
   origin: SynthesisOrigin;
 }
 
+/**
+ * A pattern across sources that no research question asked about: several people, in separate sources,
+ * describing the same thing. It is a lead for the reporter, not an answer: it can be turned into a
+ * research question, which is how the next Analyze starts listening for it.
+ */
+export interface EmergingTheme {
+  id: string;
+  /** A few words naming it. */
+  label: string;
+  /** What the sources share, in a sentence or two. */
+  statement: string;
+  /** Accepted data point ids it rests on. */
+  cites: string[];
+  /** Places in the recordings the model found with its tools, for what no finding yet covers. */
+  passages: PassageRef[];
+  origin: SynthesisOrigin;
+}
+
 export interface SynthesisBody {
   sections: SynthesisSection[];
   tensions: SynthesisTension[];
   narrative: NarrativeNote[];
+  /** Absent in versions written before themes could emerge; read as none. */
+  emerging: EmergingTheme[];
 }
 
 export function emptySynthesis(): SynthesisBody {
-  return { sections: [], tensions: [], narrative: [] };
+  return { sections: [], tensions: [], narrative: [], emerging: [] };
 }
 
 export function isEmptySynthesis(body: SynthesisBody): boolean {
   return (
     body.tensions.length === 0 &&
     body.narrative.length === 0 &&
+    body.emerging.length === 0 &&
     body.sections.every((section) => section.findings.length === 0 && section.gaps.length === 0)
   );
 }
@@ -194,6 +218,24 @@ export function parseSynthesisBody(value: unknown): SynthesisBody {
       result.narrative.push({ id: row.id, note, passages, origin: origin(row.origin) });
     }
   }
+
+  for (const raw of Array.isArray(body.emerging) ? body.emerging : []) {
+    const row = (raw ?? {}) as Record<string, unknown>;
+    const label = text(row.label, THEME_LABEL_MAX);
+    const statement = text(row.statement, STATEMENT_MAX);
+    if (label && statement && typeof row.id === "string") {
+      result.emerging.push({
+        id: row.id,
+        label,
+        statement,
+        cites: strings(row.cites),
+        passages: (Array.isArray(row.passages) ? row.passages : [])
+          .map(passage)
+          .filter((item): item is PassageRef => item !== null),
+        origin: origin(row.origin),
+      });
+    }
+  }
   return result;
 }
 
@@ -263,6 +305,12 @@ export function carryPinned(
       ...fresh.tensions,
     ],
     narrative: [...base.narrative.filter((note) => note.origin === "person"), ...fresh.narrative],
+    emerging: [
+      ...base.emerging
+        .filter((theme) => theme.origin === "person")
+        .map((theme) => ({ ...theme, cites: keep(theme.cites) })),
+      ...fresh.emerging,
+    ],
   };
 }
 
@@ -277,6 +325,7 @@ export function citedFindingIds(body: SynthesisBody): Set<string> {
   for (const tension of body.tensions) {
     for (const side of tension.sides) for (const id of side.cites) ids.add(id);
   }
+  for (const theme of body.emerging) for (const id of theme.cites) ids.add(id);
   return ids;
 }
 
@@ -318,6 +367,11 @@ export function unsupportedIds(body: SynthesisBody, acceptedIds: ReadonlySet<str
   for (const tension of body.tensions) {
     if (!tension.sides.some((side) => side.cites.some((id) => acceptedIds.has(id)))) {
       bare.add(tension.id);
+    }
+  }
+  for (const theme of body.emerging) {
+    if (theme.passages.length === 0 && !theme.cites.some((id) => acceptedIds.has(id))) {
+      bare.add(theme.id);
     }
   }
   return bare;

@@ -15,7 +15,7 @@ export function piecePath(projectId: string, pieceId: string): string {
 
 export function projectPath(
   projectId: string,
-  view?: "synthesis" | "excerpts" | "pieces" | "setup",
+  view?: "review" | "synthesis" | "excerpts" | "pieces" | "setup",
 ): string {
   return view ? `/sourcework/${projectId}?view=${view}` : `/sourcework/${projectId}`;
 }

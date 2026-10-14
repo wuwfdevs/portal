@@ -97,6 +97,7 @@ export function ExtractionControls({
                 type="button"
                 variant="secondary"
                 size="sm"
+                ai
                 className="shrink-0"
                 disabled={!canStart}
                 onClick={start}
