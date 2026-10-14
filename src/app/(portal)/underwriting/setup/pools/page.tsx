@@ -19,6 +19,7 @@ import {
 import { PoolTargetRows } from "./pool-target-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { ControlRow } from "@/components/ui/control-row";
 
 const POOLS_PATH = "/underwriting/setup/pools";
 
@@ -221,11 +222,11 @@ export default async function InventoryPoolsPage({
                     <Label htmlFor={`notes_${pool.id}`}>Notes</Label>
                     <Input id={`notes_${pool.id}`} name="notes" />
                   </div>
-                  <div className="flex justify-end">
+                  <ControlRow className="justify-end">
                     <Button type="submit" variant="secondary">
                       Add target
                     </Button>
-                  </div>
+                  </ControlRow>
                 </form>
               </details>
             </li>

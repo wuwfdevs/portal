@@ -28,6 +28,8 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { TextLink } from "@/components/ui/primary-link";
 import { archivePitch, unarchivePitch } from "../actions";
+import { CONTROL_ROW } from "@/components/ui/control-row";
+import { cn } from "@/lib/cn";
 
 export default async function PitchDetailPage({
   params,
@@ -219,7 +221,7 @@ export default async function PitchDetailPage({
         </form>
       )}
       {role === "editor" && pitch.status === "archived" && (
-        <form action={unarchivePitch} className="mt-4 flex justify-end">
+        <form action={unarchivePitch} className={cn(CONTROL_ROW, "mt-4 justify-end")}>
           <input type="hidden" name="pitch_id" value={pitch.id} />
           <Button type="submit" variant="secondary">
             Restore to backlog

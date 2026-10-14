@@ -120,7 +120,7 @@ export default async function TranscriptionListPage({
         className="mb-6"
         actions={
           <>
-            <form method="get" role="search" className="w-72 max-sm:w-full sm:w-96">
+            <form method="get" role="search" className="sm:w-96" data-row="full">
               <Input
                 type="search"
                 name="q"

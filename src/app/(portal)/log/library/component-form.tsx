@@ -3,6 +3,7 @@ import { CheckboxField, Field, Input, Select } from "@/components/ui/input";
 import { TextLink } from "@/components/ui/primary-link";
 import { COMPONENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { LogContentComponentRow } from "@/lib/log/queries";
+import { ControlRow } from "@/components/ui/control-row";
 
 /**
  * A content item component's field set, shared by "Add a component" and the
@@ -77,10 +78,14 @@ export function ComponentForm({
         label="Required (counts toward total occupied time)"
         className="items-center"
       />
-      <div className="flex items-center justify-end gap-3">
-        {cancelHref && <TextLink href={cancelHref}>Cancel</TextLink>}
+      <ControlRow className="justify-end gap-3">
+        {cancelHref && (
+          <TextLink href={cancelHref} data-row="fixed">
+            Cancel
+          </TextLink>
+        )}
         <Button type="submit">{submitLabel}</Button>
-      </div>
+      </ControlRow>
     </form>
   );
 }

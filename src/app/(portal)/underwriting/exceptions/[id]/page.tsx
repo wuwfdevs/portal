@@ -32,7 +32,7 @@ import {
 import type { UwResolutionAction } from "@/lib/database.types";
 import { TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CONTROL_ROW } from "@/components/ui/control-row";
+import { CONTROL_ROW, ControlRow } from "@/components/ui/control-row";
 import { EXCEPTION_STEP_STATUS, MAKEGOOD_STATUS } from "@/lib/underwriting/status";
 
 const COMMON_DECISIONS: UwResolutionAction[] = [
@@ -192,11 +192,11 @@ export default async function ExceptionDetailPage({
                 />
               </div>
             </div>
-            <div className="flex justify-end">
+            <ControlRow className="justify-end">
               <Button type="submit" variant="secondary">
                 Record answer
               </Button>
-            </div>
+            </ControlRow>
           </form>
         </Card>
       )}
@@ -509,9 +509,9 @@ async function PickBreak({
           <FieldHint>Only a manager&apos;s override is honored.</FieldHint>
         </div>
       </details>
-      <div className="flex justify-end">
+      <ControlRow className="justify-end">
         <Button type="submit">Schedule makegood</Button>
-      </div>
+      </ControlRow>
     </form>
   );
 }

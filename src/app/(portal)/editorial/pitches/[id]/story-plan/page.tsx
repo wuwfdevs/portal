@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { CONTROL_ROW } from "@/components/ui/control-row";
+import { CONTROL_ROW, ControlRow } from "@/components/ui/control-row";
 import {
   addMilestone,
   createStoryPlan,
@@ -79,9 +79,9 @@ export default async function StoryPlanPage({
             <Field label="Confirmed central reporting question" htmlFor="seed_question">
               <Textarea id="seed_question" name="seed_question" rows={2} />
             </Field>
-            <div className="mt-3 flex justify-end">
+            <ControlRow className="mt-3 justify-end">
               <Button type="submit">Start story plan</Button>
-            </div>
+            </ControlRow>
           </form>
         ) : (
           <Alert variant="note">
@@ -288,9 +288,9 @@ export default async function StoryPlanPage({
             </div>
           </Section>
 
-          <div className="flex justify-end border-t border-line pt-4">
+          <ControlRow className="justify-end border-t border-line pt-4">
             <Button type="submit">Save story plan</Button>
-          </div>
+          </ControlRow>
         </form>
       ) : (
         <ReadOnlyPlan plan={plan} names={names} />
