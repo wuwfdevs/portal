@@ -425,8 +425,8 @@ assistant) has since landed; see below.
 **Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
 `docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
 (`?view=setup`) holds its research questions, the web background notes the model gathered (background
-only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source is
-**extracted** into data points (`/api/sourcework/extract`, `extraction-run.ts`) and reviewed in the source
+only, never evidence) and a derived status (`lib/sourcework/run-state.ts`'s `projectStanding`). A source was
+**extracted** into data points (retired in slice 4; Analyze replaced it) and reviewed in the source
 workspace through an **Excerpts | Data points** switch (lime marks; dashed = unreviewed). Four things are
 load-bearing: (1) **the model returns numbered passage units, never text** — `extraction-units.ts` derives
 timestamps or page/block ids, and `parseExtractionOutput` drops anything it can't verify; (2) **a run
@@ -455,8 +455,8 @@ write. Migrations `20261013120000` (schema) and `20261013130000` (Resources cont
 quotes (Phase C) are not built.
 
 **Sourcework analysis, Phase C (suggested quotes) has landed (2026-10-14).** Read
-`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes**
-(`/api/sourcework/themes/quotes`, `quote-run.ts`) has the model choose clips from the theme's supporting data points and
+`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes** (retired in slice 4; the cards remain decide-only)
+had the model choose clips from the theme's supporting data points and
 the transcript around them; the cards are at `/sourcework/[id]/themes/[themeId]/quotes` and the theme page gained an
 Excerpts panel. Four things are load-bearing: (1) **a suggestion is not a `sw_source_excerpts` row** — it lives in
 `sw_quote_suggestions` and the excerpt is written only on accept (`sw_accept_quote_suggestion()`), so none of the nine
@@ -495,7 +495,7 @@ never text, times or ids** — findings by number, passages only by a ref a tool
 (`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
 **`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
 tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
-`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slice 3 (outline as `beat` blocks) has landed (below); slice 4 (retire the old runners) is not built.
+`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slice 3 (outline as `beat` blocks) has landed (below), and slice 4 retired the old runners (below).
 
 **Sourcework analysis, slice 3 (outline as beats; Write from outline) has landed (2026-10-24).** Read
 `docs/sourcework-analysis-design.md` §22 first; this is a pointer. A piece body can hold a third block type, `beat`
@@ -507,7 +507,7 @@ unknown type, so a missing branch makes the whole body unreadable; (2) **code ke
 (`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
 numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
 (4) `DRAFT_STANDARDS` is the one copy of the accuracy and writing standards the draft, outline and expansion share. No schema
-change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`). Slice 4 (retire the old runners) is not built.
+change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`).
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
@@ -4561,3 +4561,16 @@ make explicitly, not by default.
   dependency set.
 - End each implementation task with a short summary of what changed and anything left
   unresolved.
+
+**Sourcework: the earlier research steps are retired (slice 4, 2026-10-25).** Read
+`docs/sourcework-analysis-design.md` §23 first; this is a pointer. Gone: the extraction, background (context),
+theme-assignment, Review themes and per-theme Suggest quotes runners and their routes, the five prompt slots they
+used (`context`, `extraction`, `theme_assign`, `theme_review`, `quote_quality`; their `sw_prompt_*` rows stay), the
+prompt "Try this draft" screen (`/sourcework/editors/try`, `api/sourcework/editors/trial`), and accepting a data point
+no longer files it into themes in `after()`. Kept: the Themes tab and theme/quote pages as decide-only surfaces for
+data that exists (hand-written themes, accept/reject/edit, merges, waiting clips), the piece-format trial, and the old
+Phase A/B/C tables, so nothing in the database was dropped. Shared helpers moved first: `source-units.ts`
+(`readSourceUnits`), `openai-call.ts` (the structured-call helper, formerly `extraction-ai.ts`), `noteKey` into
+`analyze-prompt.ts`, `collectSeenUrls`/`collectQueries` into `analyze-ai.ts`, `QuoteCard` into `[id]/quote-card.tsx`.
+The prompt slots are now `analyze`, `synthesis`, `outline`. The Resources migration `20261025120000` (rewrites the stale
+guides, one release note) is written but **not applied**. Nothing here has run against a live OpenAI model.

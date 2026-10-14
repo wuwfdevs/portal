@@ -6,6 +6,7 @@ import {
   mergeAnalyses,
   parseAnalysisOutput,
   type AnalyzeParseContext,
+  noteKey,
 } from "./analyze-prompt";
 import type { ExtractionUnit } from "./extraction-units";
 
@@ -436,5 +437,11 @@ describe("buildAnalyzeOutputSchema", () => {
       for (const value of Object.values(schema)) check(value);
     }
     check(buildAnalyzeOutputSchema());
+  });
+});
+
+describe("noteKey", () => {
+  it("makes two spellings of one subject the same key", () => {
+    expect(noteKey("Fort  Barrancas!")).toBe("fort barrancas");
   });
 });

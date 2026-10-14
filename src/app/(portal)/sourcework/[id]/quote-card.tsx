@@ -13,8 +13,8 @@ import {
   type ClipRange,
   type QuoteSuggestion,
 } from "@/lib/sourcework/quotes";
-import { acceptQuote, rejectQuote } from "../../../../quote-actions";
-import { PlayIcon } from "../../../transport-icons";
+import { acceptQuote, rejectQuote } from "../quote-actions";
+import { PlayIcon } from "./transport-icons";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 
 const TIER_BADGE = {

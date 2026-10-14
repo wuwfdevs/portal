@@ -68,17 +68,17 @@ describe("extractionState", () => {
 describe("extractionLine", () => {
   it("reads like the cards in the design", () => {
     expect(extractionLine({ kind: "done", total: 12, toReview: 3 }, "audio_video")).toEqual({
-      text: "12 data points · ",
+      text: "12 findings · ",
       strong: "3 to review",
     });
     expect(extractionLine({ kind: "done", total: 9, toReview: 0 }, "audio_video")).toEqual({
-      text: "9 data points · all reviewed",
+      text: "9 findings · all reviewed",
     });
     expect(extractionLine({ kind: "done", total: 1, toReview: 0 }, "audio_video")?.text).toBe(
-      "1 data point · all reviewed",
+      "1 finding · all reviewed",
     );
     expect(extractionLine({ kind: "running" }, "document")).toEqual({
-      text: "Extracting data points…",
+      text: "Analyzing…",
     });
     expect(
       extractionLine({ kind: "waiting", reason: "processing" }, "audio_video")?.text,
@@ -132,10 +132,10 @@ describe("projectStanding", () => {
     });
     expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
     expect(standing.message).toBe(
-      "3 of 4 sources are extracted. Ruth Ann Delancey, interview is still processing, so extraction can start for it when it finishes.",
+      "3 of 4 sources are analyzed. Ruth Ann Delancey, interview is still processing, so analysis can start for it when it finishes.",
     );
   });
-  it("is done when every usable source is extracted, and says what is waiting", () => {
+  it("is done when every usable source is analyzed, and says what is waiting", () => {
     const standing = projectStanding({
       questionCount: 1,
       sources: [
@@ -145,7 +145,7 @@ describe("projectStanding", () => {
       toReviewTotal: 4,
     });
     expect(stepStates(standing)).toEqual(["done", "done", "done", "current"]);
-    expect(standing.message).toContain("4 data points are waiting for review");
+    expect(standing.message).toContain("4 findings are waiting for review");
   });
   it("finishes with the synthesis: write it, refresh it when findings change, then done", () => {
     const sources = [{ title: "A", state: done }];
@@ -172,7 +172,7 @@ describe("projectStanding", () => {
     expect(stepStates(finished)).toEqual(["done", "done", "done", "done"]);
     expect(finished.message).toContain("the synthesis is up to date");
   });
-  it("keeps the synthesis step upcoming until the sources are extracted", () => {
+  it("keeps the synthesis step upcoming until the sources are analyzed", () => {
     const standing = projectStanding({
       questionCount: 1,
       sources: [{ title: "A", state: { kind: "idle" } }],
@@ -181,7 +181,7 @@ describe("projectStanding", () => {
     });
     expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
   });
-  it("says when sources are ready to extract", () => {
+  it("says when sources are ready to analyze", () => {
     const standing = projectStanding({
       questionCount: 1,
       sources: [
@@ -190,6 +190,6 @@ describe("projectStanding", () => {
       ],
       toReviewTotal: 0,
     });
-    expect(standing.message).toBe("0 of 2 sources are extracted. 2 are ready to extract.");
+    expect(standing.message).toBe("0 of 2 sources are analyzed. 2 are ready to analyze.");
   });
 });

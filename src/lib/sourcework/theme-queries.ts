@@ -197,27 +197,15 @@ export async function hasThemes(projectId: string): Promise<boolean> {
 /** The numbers behind the "Waiting for you" strip, apart from the decisions (getThemeDecisionCounts). */
 export async function getWaitingNumbers(projectId: string): Promise<{
   toReviewBySource: { sourceId: string; count: number }[];
-  unthemed: number;
 }> {
   const supabase = await createClient();
-  const [counts, pool] = await Promise.all([
-    supabase
-      .from("sw_data_point_counts")
-      .select("source_id, to_review")
-      .eq("project_id", projectId),
-    supabase
-      .from("sw_unthemed_data_points")
-      .select("id", { count: "exact", head: true })
-      .eq("project_id", projectId),
-  ]);
+  const counts = await supabase
+    .from("sw_data_point_counts")
+    .select("source_id, to_review")
+    .eq("project_id", projectId);
   const rows = unwrapRead(counts, "this project's data point counts") ?? [];
-  const unthemed = unwrapRead(
-    { data: pool.count, error: pool.error },
-    "this project's unfiled data points",
-  );
   return {
     toReviewBySource: rows.map((row) => ({ sourceId: row.source_id, count: row.to_review })),
-    unthemed: unthemed ?? 0,
   };
 }
 

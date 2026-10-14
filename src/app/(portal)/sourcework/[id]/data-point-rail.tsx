@@ -20,7 +20,7 @@ import { canExtract, type ExtractionState } from "@/lib/sourcework/run-state";
 import { AcceptAllDataPoints } from "./bulk-accept-button";
 import { DataPointCard, type PointSelectionOrigin } from "./data-point-card";
 import { ProcessingPoller } from "./processing-poller";
-import { QuoteCard } from "./themes/[themeId]/quotes/quote-card";
+import { QuoteCard } from "./quote-card";
 
 /** What a source screen opened from a project with research questions hands its workspace. */
 export interface SourceResearchView {

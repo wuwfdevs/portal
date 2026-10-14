@@ -1,8 +1,8 @@
-<!-- Status (2026-10-24): slices 1 (Analyze), 2 (project synthesis) and 3 (outline as beats, Write from outline) are
-built; slice 4 (retire the old runners) and the §7 evaluation harness are not. Slice 3's design is design doc §22. Section 5.2's "Questions
-tab" became a Synthesis tab (docs/sourcework-analysis-design.md §21). The sections below are the plan as agreed,
-kept so a later session has the reasoning; where the design doc's §20/§21 differ, the design doc describes what
-was built. -->
+<!-- Status (2026-10-25): slices 1 (Analyze), 2 (project synthesis), 3 (outline as beats, Write from outline) and 4
+(retire the old runners, design doc §23) are built; the §7 evaluation harness is not. Slice 3's design is design doc §22.
+Section 5.2's "Questions tab" became a Synthesis tab (docs/sourcework-analysis-design.md §21). The sections below are the
+plan as agreed, kept so a later session has the reasoning; where the design doc's §20/§21 differ, the design doc describes
+what was built. -->
 
 # Sourcework: assessment of the AI research workflow, and the recommended direction
 

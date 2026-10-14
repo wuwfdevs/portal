@@ -2,9 +2,39 @@ import "server-only";
 import type OpenAI from "openai";
 import { humanizeOpenAIError } from "@/lib/openai-error";
 import { RESEARCH_MODEL } from "./model";
-import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./extraction-ai";
-import { collectQueries, collectSeenUrls } from "./context-ai";
+import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./openai-call";
 import { ANALYZE_FRAMING, buildAnalyzeOutputSchema } from "./analyze-prompt";
+
+/** Every page the search tool returned or cited, so an address the model invented can be refused. */
+export function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
+  const urls = new Set<string>();
+  for (const item of response.output) {
+    if (item.type === "web_search_call") {
+      const action = item.action as { sources?: { url?: string }[] } | undefined;
+      for (const source of action?.sources ?? []) if (source.url) urls.add(source.url);
+    }
+    if (item.type === "message") {
+      for (const part of item.content) {
+        if (part.type !== "output_text") continue;
+        for (const annotation of part.annotations ?? []) {
+          if (annotation.type === "url_citation") urls.add(annotation.url);
+        }
+      }
+    }
+  }
+  return urls;
+}
+
+export function collectQueries(response: OpenAI.Responses.Response): string[] {
+  const queries: string[] = [];
+  for (const item of response.output) {
+    if (item.type !== "web_search_call") continue;
+    const action = item.action as { query?: string; queries?: string[] } | undefined;
+    if (action?.query) queries.push(action.query);
+    for (const query of action?.queries ?? []) if (!queries.includes(query)) queries.push(query);
+  }
+  return queries;
+}
 
 // The Analyze model call (docs/sourcework-analysis-design.md §20): one window of one source in, the
 // model's JSON out, with OpenAI's built-in web search available for the model to use when it needs

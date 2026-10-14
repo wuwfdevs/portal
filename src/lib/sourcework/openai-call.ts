@@ -4,18 +4,17 @@ import { humanizeOpenAIError, isOpenAIRateLimit } from "@/lib/openai-error";
 import { parseRetryAfterMs } from "@/lib/openai-retry";
 import { backoffDelayMs } from "@/lib/backoff";
 import { RESEARCH_MODEL } from "./model";
-import { EXTRACTION_FRAMING, buildExtractionOutputSchema } from "./extraction-prompt";
 
-// The extraction model call (docs/sourcework-analysis-design.md §5.2): one
-// window of one source in, the model's JSON text out. Nothing here knows what a
-// data point is — parsing, checking and writing belong to the caller, so a bad
-// answer can never be half-applied.
+// The shared model call for every research step: framing and guide in, the
+// model's JSON text out. Nothing here knows what a finding or a piece is —
+// parsing, checking and writing belong to the caller, so a bad answer can
+// never be half-applied.
 
 // Includes reasoning tokens; a window can hold dozens of data points.
 const MAX_OUTPUT_TOKENS = 32768;
 const MAX_ATTEMPTS = 3;
 
-export type ExtractionCallResult = { ok: true; text: string } | { ok: false; error: string };
+export type ModelCallResult = { ok: true; text: string } | { ok: false; error: string };
 
 /** Runs `call`, retrying a rate limit after the wait the provider suggests (or a backoff), a few times. */
 export async function withRateLimitRetry<T>(call: () => Promise<T>): Promise<T> {
@@ -42,10 +41,10 @@ export const NOT_CONFIGURED =
 /**
  * One structured-output call: the fixed framing plus the editors' guide as
  * instructions, the step's input as the message, and the model's JSON text out.
- * Every research step shares it — extraction, and the two theme steps — so the
+ * Every research step shares it — Analyze, synthesis, outline and the draft — so the
  * model, the reasoning effort, the retry and the way a refusal or a truncated
  * answer is reported are one implementation. `step` names the step in the
- * messages ("The extraction step ran out of room…").
+ * messages ("The analysis step ran out of room…").
  */
 export async function callStructuredModel(args: {
   step: string;
@@ -57,9 +56,9 @@ export async function callStructuredModel(args: {
   client?: OpenAI | null;
   /** Defaults to medium. A one-line answer (a title) can use less. */
   effort?: "low" | "medium";
-  /** Includes reasoning tokens. Defaults to the large ceiling the extraction windows need. */
+  /** Includes reasoning tokens. Defaults to the large ceiling a long source needs. */
   maxOutputTokens?: number;
-}): Promise<ExtractionCallResult> {
+}): Promise<ModelCallResult> {
   const client = args.client ?? openAIClient();
   if (!client) return { ok: false, error: NOT_CONFIGURED };
 
@@ -107,21 +106,4 @@ export async function callStructuredModel(args: {
   if (refusal) return { ok: false, error: `The ${args.step} step declined: ${refusal.refusal}` };
 
   return { ok: true, text: response.output_text };
-}
-
-/** One window of one source. */
-export function callExtractionModel(args: {
-  guide: string;
-  input: string;
-  client?: OpenAI | null;
-}): Promise<ExtractionCallResult> {
-  return callStructuredModel({
-    step: "extraction",
-    schemaName: "data_points",
-    schema: buildExtractionOutputSchema(),
-    framing: EXTRACTION_FRAMING,
-    guide: args.guide,
-    input: args.input,
-    client: args.client,
-  });
 }

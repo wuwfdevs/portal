@@ -113,7 +113,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
     key: "sourcework.editors",
     name: "Research prompts",
     toolKey: "transcription",
-    paths: ["/sourcework/editors", "/sourcework/editors/try"],
+    paths: ["/sourcework/editors"],
   },
   {
     key: "sourcework.formats",

@@ -126,3 +126,6 @@ export function parseFormatTrialResults(value: unknown): FormatTrialResults | nu
     draft: raw.draft,
   };
 }
+
+/** How long a trial's results are kept (the column default); the screen says so. */
+export const TRIAL_KEEP_DAYS = 14;

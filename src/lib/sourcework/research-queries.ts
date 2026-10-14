@@ -143,24 +143,6 @@ function toRunSummary(row: RunRow): RunSummary {
   };
 }
 
-/** The project's most recent non-trial background run, however many runs have happened since. */
-export async function getLatestContextRun(projectId: string): Promise<RunSummary | null> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase
-        .from("sw_analysis_runs")
-        .select(RUN_COLUMNS)
-        .eq("project_id", projectId)
-        .eq("kind", "context")
-        .eq("trial", false)
-        .order("started_at", { ascending: false })
-        .limit(1),
-      "this project's latest background run",
-    ) ?? [];
-  return rows[0] ? toRunSummary(rows[0]) : null;
-}
-
 /**
  * The latest non-trial extraction run of each given source. One query per
  * source rather than one truncated history, so a project with many runs never
@@ -427,15 +409,13 @@ export async function listPromptVersions(slot: PromptSlot): Promise<PromptVersio
 
 /**
  * Accepted and rejected suggestions per version of a slot, or null for a slot whose output nobody
- * accepts or rejects (background, theme filing).
+ * accepts or rejects (synthesis, outline).
  */
 export async function getAcceptRatesForSlot(
   slot: PromptSlot,
 ): Promise<Map<string | null, { accepted: number; rejected: number }> | null> {
   // Analyze writes its findings with the version that produced them, so the same count serves.
-  if (slot === "extraction" || slot === "analyze") return getExtractionAcceptRates();
-  if (slot === "theme_review") return getThemeAcceptRates();
-  if (slot === "quote_quality") return getQuoteAcceptRates();
+  if (slot === "analyze") return getExtractionAcceptRates();
   return null;
 }
 
@@ -447,30 +427,6 @@ export async function getExtractionAcceptRates(): Promise<
   const rows =
     unwrapRead(await supabase.rpc("sw_extraction_accept_rates"), "the extraction accept rates") ??
     [];
-  return new Map(
-    rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
-  );
-}
-
-/** Accepted and rejected themes per prompt version of Review themes; the built-in text is keyed by `null`. */
-export async function getThemeAcceptRates(): Promise<
-  Map<string | null, { accepted: number; rejected: number }>
-> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(await supabase.rpc("sw_theme_accept_rates"), "the theme accept rates") ?? [];
-  return new Map(
-    rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
-  );
-}
-
-/** Accepted and rejected quote suggestions per prompt version of the quote quality guide; the built-in text is keyed by `null`. */
-export async function getQuoteAcceptRates(): Promise<
-  Map<string | null, { accepted: number; rejected: number }>
-> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(await supabase.rpc("sw_quote_accept_rates"), "the quote accept rates") ?? [];
   return new Map(
     rows.map((row) => [row.prompt_version_id, { accepted: row.accepted, rejected: row.rejected }]),
   );

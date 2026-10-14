@@ -1068,3 +1068,28 @@ front of the reporter first, in the editor they already use.
 - **Status**: no migration. The Resources content migration `20261024120000` is applied to both projects
   (2026-10-14). Nothing here has run against a live OpenAI model (this environment has no key). The beat model, both
   parsers, the in-place replacement and both inputs are unit-tested.
+
+## 23. Retiring the earlier research steps (slice 4, 2026-10-25)
+
+Since slice 1 nothing user-facing started extraction or the background pre-pass. What still ran was assign-on-accept (an
+`after()` model call on every accept), **Review themes**, **Suggest quotes** per theme, and five editor prompt slots with a
+trial screen for two of them. They cost money and contradicted the Analyze → Synthesize → Outline flow, so they are removed.
+
+- **Removed**: `extraction-run`/`-prompt`, `context-run`/`-ai`/`-prompt`, `theme-run`/`-prompt`, `quote-run`/`-prompt`,
+  `quote-trial-run`, `quote-trials`, `quote-trial-queries`, `trial-run`, `trials`, `trial-samples` and the sample half of
+  `trial-sample`; routes `/api/sourcework/{extract,context,themes/review,themes/quotes,editors/trial}`; the editors `try`
+  screens; Review themes and Suggest quotes in the UI; the `after()` assignment hooks in `research-actions.ts` and
+  `theme-actions.ts`; the "Waiting for you → not in a theme yet" line; `getLatestContextRun`, `getThemeAcceptRates`,
+  `getQuoteAcceptRates`, `hasQuoteRun`, `quoteAvailability`, `guideBlocks`.
+- **Moved first** (new code imported them from the old modules): `readSourceUnits`/`ReadSource` → `source-units.ts`;
+  `callStructuredModel`, `openAIClient`, `withRateLimitRetry`, `NOT_CONFIGURED` → `openai-call.ts`; `noteKey` and the note
+  length limits → `analyze-prompt.ts`; `collectSeenUrls`/`collectQueries` → `analyze-ai.ts`; `QuoteCard` → `[id]/quote-card.tsx`.
+- **Kept**: themes where they exist (accept, reject, edit, memo, merge, add or remove a data point by hand, + New theme),
+  the theme quotes page for clips an earlier run left waiting (accept, reject, accept all), the piece-format trial and
+  `TRIAL_KEEP_DAYS` (now in `piece-format-trials.ts`), `RunKind`'s old kinds so old run rows still type, and every table and
+  prompt row. `getExtractionAcceptRates` stays: the Analyze slot's accept rate is the same count.
+- **Prompt slots** are `analyze`, `synthesis`, `outline`; `getLivePrompt` still throws for an unknown slot, and the editors
+  page now defaults to `analyze`.
+- **Copy**: source cards and the Setup status say "analyzed" and "findings".
+- **Status**: no schema change. The Resources content migration `20261025120000` is written and **not applied**. This
+  removes the old pipeline as a fallback while slices 1–3 have never run against a live model.

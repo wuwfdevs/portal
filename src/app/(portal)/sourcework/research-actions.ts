@@ -1,6 +1,5 @@
 "use server";
 
-import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertSourceworkContext } from "@/lib/sourcework/access";
@@ -14,7 +13,6 @@ import {
   moveAmongActive,
 } from "@/lib/sourcework/research";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { assignDataPoints, assignPool, assignQuietly } from "@/lib/sourcework/theme-run";
 
 // Writes behind the research screens (docs/sourcework-analysis-design.md):
 // questions, background notes, and the review of data points. Called straight
@@ -221,19 +219,6 @@ export async function setContextNoteDismissed(input: {
 
 // Data points --------------------------------------------------------------------------------
 
-/**
- * Accepting a data point files it into the project's themes, after the
- * response (docs/sourcework-analysis-design.md §5.4: "automatic after accept,
- * cheap"). There is no job queue, so this is a best-effort step in `after()`:
- * it never fails the click, does nothing without the model key or any accepted
- * theme, and a point it can't place waits in the pool for Review themes.
- */
-function fileIntoThemes(projectId: string, userId: string, dataPointId: string) {
-  after(() =>
-    assignQuietly(() => assignDataPoints({ projectId, userId, dataPointIds: [dataPointId] })),
-  );
-}
-
 export type DataPointDecision = "accept" | "reject" | "undo";
 
 const STATUS_FOR: Record<DataPointDecision, "accepted" | "rejected" | "suggested"> = {
@@ -247,7 +232,7 @@ export async function reviewDataPoint(input: {
   id: string;
   decision: DataPointDecision;
 }): Promise<ActionResult> {
-  const { profile } = await assertSourceworkContext();
+  await assertSourceworkContext();
   const id = uuidParam(input.id);
   const status = STATUS_FOR[input.decision];
   if (!id || !status) return actionError("That data point doesn't exist.");
@@ -264,7 +249,6 @@ export async function reviewDataPoint(input: {
   }
   const row = updated.data[0];
   if (!row) return actionError("That data point doesn't exist.");
-  if (status === "accepted") fileIntoThemes(row.project_id, profile.id, id);
   revalidateSource(row.project_id, row.source_id);
   return actionOk();
 }
@@ -274,7 +258,7 @@ export async function reviewDataPoint(input: {
  * model's own wording stays in `ai_claim`.
  */
 export async function editDataPoint(input: { id: string; claim: string }): Promise<ActionResult> {
-  const { profile } = await assertSourceworkContext();
+  await assertSourceworkContext();
   const id = uuidParam(input.id);
   if (!id) return actionError("That data point doesn't exist.");
   const claim = typeof input.claim === "string" ? collapseWhitespace(input.claim) : "";
@@ -294,7 +278,6 @@ export async function editDataPoint(input: { id: string; claim: string }): Promi
   }
   const row = updated.data[0];
   if (!row) return actionError("That data point doesn't exist.");
-  fileIntoThemes(row.project_id, profile.id, id);
   revalidateSource(row.project_id, row.source_id);
   return actionOk();
 }
@@ -302,13 +285,13 @@ export async function editDataPoint(input: { id: string; claim: string }): Promi
 /**
  * Accepts every data point still waiting for review in a project, or in one source of it. Only
  * `suggested` rows change, so anything decided meanwhile (by someone else, or since the screen
- * loaded) is left as it is. Filing into themes is the same best-effort step as for one point.
+ * loaded) is left as it is.
  */
 export async function acceptSuggestedDataPoints(input: {
   projectId: string;
   sourceId?: string;
 }): Promise<ActionResult<{ count: number }>> {
-  const { profile } = await assertSourceworkContext();
+  await assertSourceworkContext();
   const projectId = uuidParam(input.projectId);
   const sourceId = input.sourceId === undefined ? null : uuidParam(input.sourceId);
   if (!projectId || (input.sourceId !== undefined && !sourceId)) {
@@ -329,8 +312,6 @@ export async function acceptSuggestedDataPoints(input: {
   }
   if (updated.data.length === 0) return actionOk({ count: 0 });
 
-  // One pass over the project's unfiled points rather than a model call per accepted point.
-  after(() => assignQuietly(() => assignPool({ projectId, userId: profile.id })));
   revalidateProject(projectId);
   if (sourceId) revalidatePath(`/sourcework/sources/${sourceId}`);
   return actionOk({ count: updated.data.length });

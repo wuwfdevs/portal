@@ -40,16 +40,11 @@ export function SetupResearch({
   questions: ResearchQuestion[];
   notes: ContextNote[];
 }) {
-  const router = useRouter();
   const active = questions.filter((question) => question.archivedAt === null);
 
   return (
     <>
-      <QuestionsSection
-        projectId={projectId}
-        questions={questions}
-        onChanged={() => router.refresh()}
-      />
+      <QuestionsSection projectId={projectId} questions={questions} />
       <BackgroundSection notes={notes} hasQuestions={active.length > 0} />
     </>
   );
@@ -60,11 +55,9 @@ export function SetupResearch({
 function QuestionsSection({
   projectId,
   questions,
-  onChanged,
 }: {
   projectId: string;
   questions: ResearchQuestion[];
-  onChanged: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -78,7 +71,6 @@ function QuestionsSection({
 
   async function act(
     write: () => Promise<ActionResult<Record<string, unknown>>>,
-    options: { gather?: boolean } = {},
   ): Promise<boolean> {
     setBusy(true);
     setError(null);
@@ -89,7 +81,6 @@ function QuestionsSection({
         return false;
       }
       router.refresh();
-      if (options.gather) onChanged();
       return true;
     } catch (caught) {
       setError(actionFailureMessage(caught));
@@ -101,9 +92,7 @@ function QuestionsSection({
 
   async function submitNew() {
     if (newText.trim() === "") return;
-    const ok = await act(() => addResearchQuestion({ projectId, question: newText }), {
-      gather: true,
-    });
+    const ok = await act(() => addResearchQuestion({ projectId, question: newText }));
     if (ok) {
       setNewText("");
       setAdding(false);
@@ -132,17 +121,13 @@ function QuestionsSection({
                 isLast={index === active.length - 1}
                 busy={busy}
                 onSave={(text) =>
-                  act(() => updateResearchQuestion({ id: question.id, question: text }), {
-                    gather: true,
-                  })
+                  act(() => updateResearchQuestion({ id: question.id, question: text }))
                 }
                 onMove={(direction) =>
                   act(() => moveResearchQuestion({ id: question.id, direction }))
                 }
                 onArchive={() =>
-                  act(() => setResearchQuestionArchived({ id: question.id, archived: true }), {
-                    gather: true,
-                  })
+                  act(() => setResearchQuestionArchived({ id: question.id, archived: true }))
                 }
               />
             ))}
@@ -227,11 +212,8 @@ function QuestionsSection({
                     disabled={busy || atLimit}
                     title={atLimit ? "Archive another question first" : undefined}
                     onClick={() =>
-                      void act(
-                        () => setResearchQuestionArchived({ id: question.id, archived: false }),
-                        {
-                          gather: true,
-                        },
+                      void act(() =>
+                        setResearchQuestionArchived({ id: question.id, archived: false }),
                       )
                     }
                   >

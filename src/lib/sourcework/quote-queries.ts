@@ -103,24 +103,6 @@ export async function listQuoteSuggestions(
     .sort(compareQuotes);
 }
 
-/** Whether Suggest quotes has ever finished for a theme, so an empty list can say why it is empty. */
-export async function hasQuoteRun(themeId: string): Promise<boolean> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase
-        .from("sw_analysis_runs")
-        .select("id")
-        .eq("theme_id", themeId)
-        .eq("kind", "quote_suggest")
-        .eq("trial", false)
-        .eq("status", "succeeded")
-        .limit(1),
-      "this theme's quote runs",
-    ) ?? [];
-  return rows.length > 0;
-}
-
 /** How many suggestions wait for a decision on a theme, for the button's label on its page. */
 export async function countWaitingQuotes(themeId: string): Promise<number> {
   const supabase = await createClient();

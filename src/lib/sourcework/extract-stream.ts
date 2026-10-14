@@ -96,15 +96,10 @@ interface RequestArgs {
 }
 
 /**
- * Runs one source's extraction from the browser and reports its progress. A
- * dropped connection is retryable (the run, if it died, is recovered by the
- * server as stale); a refusal by the server is not.
+ * Runs Analyze on one source from the browser and reports its progress. A dropped connection is
+ * retryable (the run, if it died, is recovered by the server as stale); a refusal by the server is
+ * not. Findings, a few clips, the pages consulted (docs/sourcework-analysis-design.md §20).
  */
-export function requestExtraction(args: RequestArgs): Promise<ExtractClientResult> {
-  return requestRun("/api/sourcework/extract", "extraction", args);
-}
-
-/** The same for Analyze (docs/sourcework-analysis-design.md §20): findings, a few clips, the pages consulted. */
 export function requestAnalysis(args: RequestArgs): Promise<ExtractClientResult> {
   return requestRun("/api/sourcework/analyze", "analysis", args);
 }

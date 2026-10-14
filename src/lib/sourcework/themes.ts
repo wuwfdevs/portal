@@ -212,15 +212,12 @@ export function decisionsWaiting(counts: { suggestedThemes: number; suggestedMer
 export interface WaitingInput {
   /** Data points to review, by source, for the project's current sources only. */
   toReviewBySource: readonly { sourceId: string; title: string; count: number }[];
-  /** Accepted data points that sit in no live theme. */
-  unthemed: number;
   suggestedThemes: number;
   suggestedMerges: number;
 }
 
 export interface WaitingSummary {
   toReview: { total: number; sources: { sourceId: string; title: string; count: number }[] } | null;
-  unthemed: number;
   suggestions: number;
   /** Nothing is waiting on this reporter. */
   clear: boolean;
@@ -234,9 +231,8 @@ export function waitingSummary(input: WaitingInput): WaitingSummary {
   const suggestions = input.suggestedThemes + input.suggestedMerges;
   return {
     toReview: total > 0 ? { total, sources } : null,
-    unthemed: input.unthemed,
     suggestions,
-    clear: total === 0 && input.unthemed === 0 && suggestions === 0,
+    clear: total === 0 && suggestions === 0,
   };
 }
 

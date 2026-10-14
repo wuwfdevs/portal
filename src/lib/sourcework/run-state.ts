@@ -81,23 +81,23 @@ export function extractionLine(
       return {
         text:
           sourceKind === "document"
-            ? "Reading the document. Extraction can start when it finishes."
-            : "Transcribing. Extraction can start when it finishes.",
+            ? "Reading the document. Analysis can start when it finishes."
+            : "Transcribing. Analysis can start when it finishes.",
       };
     case "idle":
-      return { text: "Not extracted yet" };
+      return { text: "Not analyzed yet" };
     case "running":
-      return { text: "Extracting data points…" };
+      return { text: "Analyzing…" };
     case "failed":
-      return { text: "Extraction didn't finish. Try again." };
+      return { text: "Analysis didn't finish. Try again." };
     case "done":
-      if (state.total === 0) return { text: "No data points found" };
+      if (state.total === 0) return { text: "No findings" };
       return state.toReview > 0
         ? {
-            text: `${pluralize(state.total, "data point")} · `,
+            text: `${pluralize(state.total, "finding")} · `,
             strong: `${state.toReview} to review`,
           }
-        : { text: `${pluralize(state.total, "data point")} · all reviewed` };
+        : { text: `${pluralize(state.total, "finding")} · all reviewed` };
   }
 }
 
@@ -190,7 +190,7 @@ export function projectStanding(input: {
   if (!hasSources) {
     return {
       steps,
-      message: "Add sources. Interviews and PDFs can be extracted once they are ready.",
+      message: "Add sources. Interviews and PDFs can be analyzed once they are ready.",
       link: { label: "Go to Sources", to: "sources" },
     };
   }
@@ -203,11 +203,11 @@ export function projectStanding(input: {
   }
 
   if (extractDone) {
-    const extracted = `${total === 1 ? "The source is" : `All ${total} sources are`} extracted`;
+    const extracted = `${total === 1 ? "The source is" : `All ${total} sources are`} analyzed`;
     if (toReviewTotal > 0) {
       return {
         steps,
-        message: `${extracted}. ${pluralize(toReviewTotal, "data point")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`,
+        message: `${extracted}. ${pluralize(toReviewTotal, "finding")} ${toReviewTotal === 1 ? "is" : "are"} waiting for review in the sources.`,
         link: { label: "Go to Sources", to: "sources" },
       };
     }
@@ -236,25 +236,25 @@ export function projectStanding(input: {
   }
 
   const parts: string[] = [
-    `${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} extracted.`,
+    `${extracted.length} of ${total} ${total === 1 ? "source is" : "sources are"} analyzed.`,
   ];
   if (running.length > 0) {
     parts.push(
       running.length === 1
-        ? `${running[0]!.title} is being extracted now.`
-        : `${running.length} are being extracted now.`,
+        ? `${running[0]!.title} is being analyzed now.`
+        : `${running.length} are being analyzed now.`,
     );
   }
   if (processing.length > 0) {
     const first = processing[0]!;
     parts.push(
       processing.length === 1
-        ? `${first.title} is still processing, so extraction can start for it when it finishes.`
-        : `${first.title} and ${processing.length - 1} more are still processing, so extraction can start for them when they finish.`,
+        ? `${first.title} is still processing, so analysis can start for it when it finishes.`
+        : `${first.title} and ${processing.length - 1} more are still processing, so analysis can start for them when they finish.`,
     );
   }
   if (needing.length > 0 && processing.length === 0 && running.length === 0) {
-    parts.push(`${needing.length === 1 ? "One is" : `${needing.length} are`} ready to extract.`);
+    parts.push(`${needing.length === 1 ? "One is" : `${needing.length} are`} ready to analyze.`);
   }
   return { steps, message: parts.join(" "), link: { label: "Go to Sources", to: "sources" } };
 }

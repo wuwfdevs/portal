@@ -25,7 +25,6 @@ import {
   type UnitRange,
 } from "./extraction-units";
 import { MAX_QUOTE_MS, MIN_QUOTE_MS, sameStretch } from "./quotes";
-import { NOTE_SUMMARY_MAX, NOTE_TITLE_MAX, noteKey } from "./context-prompt";
 
 /** The most candidate clips one source yields. A ceiling, not a target: none is a normal answer. */
 export const MAX_ANALYZE_EXCERPTS = 5;
@@ -35,6 +34,16 @@ export const SIGNIFICANCE_MAX = 400;
 export const EXCERPT_WHY_MAX = 600;
 /** Pages the model may list as consulted, per window. */
 export const MAX_CONSULTED = 8;
+export const NOTE_TITLE_MAX = 200;
+export const NOTE_SUMMARY_MAX = 600;
+
+/** What makes two notes the same subject. */
+export function noteKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 export const ANALYZE_FRAMING = `You are a research collaborator for a public radio newsroom. A reporter has given you one source and wants to know what in it matters: what it establishes, sharpens or complicates for the project's research questions, and the few passages that would work as audio on the air.
 

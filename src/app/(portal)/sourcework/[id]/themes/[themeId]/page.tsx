@@ -16,7 +16,6 @@ import { projectPath, sourcePath, themePath, themeQuotesPath } from "@/lib/trans
 import { listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { getThemeDetail, listPointsNotInTheme } from "@/lib/sourcework/theme-queries";
 import { countWaitingQuotes, listThemeExcerpts } from "@/lib/sourcework/quote-queries";
-import { quoteAvailability } from "@/lib/sourcework/quotes";
 import {
   STANCE_LABEL,
   filterEvidence,
@@ -32,7 +31,6 @@ import {
 import { pointQuestionLabel, questionTitle, type DataPointSpan } from "@/lib/sourcework/research";
 import { QuestionChip } from "../../question-chip";
 import { ThemeDecisionButtons } from "../../theme-decision-buttons";
-import { SuggestQuotesProvider } from "./suggest-quotes";
 import { ThemeExcerptsPanel } from "./theme-excerpts";
 import { PlayIcon } from "../../transport-icons";
 import {
@@ -101,19 +99,11 @@ export default async function ThemePage({
   const editing = edit === "1";
   const suggested = theme.status === "suggested";
   const single = isSingleSource(breadth, project.sources.length);
-  // Quotes are clips, so the theme needs accepted evidence that points into a recording.
-  const availability = quoteAvailability({
-    themeStatus: theme.status,
-    evidence: detail.evidence.map((entry) => ({
-      hasRecordingSpan: entry.spans.some((span) => span.kind === "temporal"),
-    })),
-  });
   const excerptsPanel = (variant: "phone" | "desktop") => (
     <ThemeExcerptsPanel
       projectId={id}
       excerpts={excerpts}
       waiting={waitingQuotes}
-      availability={availability}
       quotesHref={themeQuotesPath(id, themeId)}
       variant={variant}
     />
@@ -224,11 +214,7 @@ export default async function ThemePage({
         </p>
       )}
 
-      <SuggestQuotesProvider
-        projectId={id}
-        themeId={themeId}
-        goToHref={themeQuotesPath(id, themeId)}
-      >
+      <>
         <div className="mt-6 flex flex-col gap-8 lg:mt-7 lg:flex-row lg:items-start lg:gap-8">
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             {excerptsPanel("phone")}
@@ -361,7 +347,7 @@ export default async function ThemePage({
             )}
           </aside>
         </div>
-      </SuggestQuotesProvider>
+      </>
     </div>
   );
 }

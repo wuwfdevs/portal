@@ -205,88 +205,10 @@ export function sameStretch(a: ClipRange, b: ClipRange): boolean {
 }
 
 /** The sentence under the cards when there is nothing to review. */
-export function emptyQuotesMessage(counts: QuoteCounts, hasRun: boolean): string {
+export function emptyQuotesMessage(counts: QuoteCounts): string {
   if (counts.waiting > 0) return "";
-  if (!hasRun) {
-    return "No quotes have been suggested for this theme yet. Choose Suggest quotes to have the model read the evidence and the transcript around it.";
-  }
   if (counts.accepted + counts.rejected > 0) {
-    return "You have decided on every suggestion for this theme. Suggest quotes again to look for more.";
+    return "You have decided on every suggestion for this theme.";
   }
-  return "The model didn't find a clip in this theme's evidence that works on air. Add more accepted data points or cut one by hand from the source.";
-}
-
-export type GuideBlock = { kind: "paragraph"; text: string } | { kind: "list"; items: string[] };
-
-/**
- * The quote quality guide as the screen shows it beside the cards: paragraphs, and lines that
- * start with "- " gathered into a list. Editors write plain text, so this is all the formatting
- * there is; nothing in it is ever interpreted as markup.
- */
-export function guideBlocks(body: string): GuideBlock[] {
-  const blocks: GuideBlock[] = [];
-  for (const chunk of body.replace(/\r\n/g, "\n").split(/\n{2,}/)) {
-    const lines = chunk
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (lines.length === 0) continue;
-    let paragraph: string[] = [];
-    let list: string[] = [];
-    const flushParagraph = () => {
-      if (paragraph.length > 0) blocks.push({ kind: "paragraph", text: paragraph.join(" ") });
-      paragraph = [];
-    };
-    const flushList = () => {
-      if (list.length > 0) blocks.push({ kind: "list", items: list });
-      list = [];
-    };
-    for (const line of lines) {
-      const item = /^[-•*]\s+(.*)$/.exec(line);
-      if (item) {
-        flushParagraph();
-        list.push(item[1]!);
-      } else {
-        flushList();
-        paragraph.push(line);
-      }
-    }
-    flushParagraph();
-    flushList();
-  }
-  return blocks;
-}
-
-export interface QuoteAvailability {
-  canSuggest: boolean;
-  /** Why not, in a sentence, when it can't. */
-  reason: string | null;
-}
-
-/**
- * Whether Suggest quotes is offered for a theme, and if not, why. A quote is a clip, so the theme
- * needs accepted evidence that points into a recording; a document's passage can't be played.
- */
-export function quoteAvailability(input: {
-  themeStatus: "suggested" | "accepted" | "rejected";
-  evidence: readonly { hasRecordingSpan: boolean }[];
-}): QuoteAvailability {
-  if (input.themeStatus !== "accepted") {
-    return { canSuggest: false, reason: "Accept this theme to get suggested quotes for it." };
-  }
-  if (input.evidence.length === 0) {
-    return {
-      canSuggest: false,
-      reason:
-        "Quotes are chosen from a theme’s evidence, and this theme has no accepted data points yet. Add some below.",
-    };
-  }
-  if (!input.evidence.some((entry) => entry.hasRecordingSpan)) {
-    return {
-      canSuggest: false,
-      reason:
-        "Quotes are clips of a recording. This theme’s evidence is all from documents, so there is nothing to play.",
-    };
-  }
-  return { canSuggest: true, reason: null };
+  return "No clips are waiting for this theme. Analyzing a source proposes clips on its own page.";
 }

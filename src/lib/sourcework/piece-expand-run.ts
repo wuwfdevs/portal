@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { getProjectById } from "@/lib/transcription/projects";
-import { callStructuredModel } from "./extraction-ai";
+import { callStructuredModel } from "./openai-call";
 import { RESEARCH_MODEL } from "./model";
 import {
   EXPAND_FRAMING,

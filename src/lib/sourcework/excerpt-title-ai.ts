@@ -5,7 +5,7 @@ import {
   cleanProposedTitle,
   suggestExcerptTitle,
 } from "@/lib/transcription/excerpt-title";
-import { callStructuredModel } from "./extraction-ai";
+import { callStructuredModel } from "./openai-call";
 
 // A short descriptive title for a new excerpt (it becomes the quote id in the exported file name).
 // Optional like every model call here: with no OPENAI_API_KEY, or on any failure, the title is the

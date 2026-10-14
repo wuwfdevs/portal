@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { getProjectById } from "@/lib/transcription/projects";
 import { RESEARCH_MODEL } from "./model";
-import { readSourceUnits, type ReadSource } from "./extraction-run";
+import { readSourceUnits, type ReadSource } from "./source-units";
 import { resolveSpans, unitIdsForSpan, windowUnits } from "./extraction-units";
 import {
   buildAnalyzeInput,
@@ -18,8 +18,7 @@ import {
 } from "./analyze-prompt";
 import { dropDecidedClips, dropDecidedFindings, establishedLabel } from "./analyze-fresh";
 import { callAnalyzeModel } from "./analyze-ai";
-import { noteKey } from "./context-prompt";
-import { MAX_ESTABLISHED_FINDINGS } from "./analyze-prompt";
+import { MAX_ESTABLISHED_FINDINGS, noteKey } from "./analyze-prompt";
 import {
   getLivePrompt,
   listContextNotes,

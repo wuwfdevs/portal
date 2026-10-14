@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  currentStepIndex,
-  extractButtonLabel,
-  sourcesToExtract,
-  splitContextNotes,
-} from "./setup-view";
+import { currentStepIndex, sourcesToExtract, splitContextNotes } from "./setup-view";
 import type { ContextNote } from "./research";
 
 const note = (id: string, status: "active" | "dismissed"): ContextNote => ({
@@ -42,11 +37,6 @@ describe("setup view rules", () => {
       { state: { kind: "waiting", reason: "processing" } as const },
     ];
     expect(sourcesToExtract(sources)).toHaveLength(2);
-  });
-
-  it("labels the batch button", () => {
-    expect(extractButtonLabel(0)).toBe("Extract data points");
-    expect(extractButtonLabel(3)).toBe("Extract data points (3)");
   });
 });
 

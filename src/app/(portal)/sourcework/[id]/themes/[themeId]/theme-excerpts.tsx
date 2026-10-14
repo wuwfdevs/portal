@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { formatClipRange, type QuoteAvailability } from "@/lib/sourcework/quotes";
+import { formatClipRange } from "@/lib/sourcework/quotes";
 import { pluralize } from "@/lib/format";
 import { sourcePath } from "@/lib/transcription/links";
-import { SuggestQuotesButton, SuggestQuotesStatus, useSharedSuggestQuotes } from "./suggest-quotes";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 
 export interface ThemeExcerptCard {
@@ -20,29 +19,23 @@ export interface ThemeExcerptCard {
 
 /**
  * A theme's representative quotes (docs/sourcework-analysis-design.md §5.4, §5.5): the excerpts
- * that exemplify its evidence, and the way into Suggest quotes. With clips already waiting the
- * action is a link to review them; otherwise it runs the step and goes there when it has some.
+ * that exemplify its evidence, and a link to review clips still waiting for a decision.
  */
 export function ThemeExcerptsPanel({
   projectId,
   excerpts,
   waiting,
-  availability,
   quotesHref,
   variant,
 }: {
   projectId: string;
   excerpts: ThemeExcerptCard[];
   waiting: number;
-  /** Whether quotes can be suggested for this theme and, if not, why. */
-  availability: QuoteAvailability;
   quotesHref: string;
   /** Which of the page's two places this is; the other is hidden by the breakpoint. */
   variant: "phone" | "desktop";
 }) {
-  const state = useSharedSuggestQuotes();
-  const { canSuggest, reason } = availability;
-  if (!canSuggest && excerpts.length === 0 && !reason) return null;
+  if (waiting === 0 && excerpts.length === 0) return null;
 
   return (
     <section
@@ -55,25 +48,18 @@ export function ThemeExcerptsPanel({
           {excerpts.length}
           {variant === "phone" ? "" : ")"}
         </h2>
-        {canSuggest &&
-          (waiting > 0 && !state.busy ? (
-            <Link
-              href={quotesHref}
-              className={cn(
-                TAP_TARGET,
-                "rounded border border-brand-link px-2.5 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface max-lg:flex max-lg:items-center max-lg:px-4 max-lg:text-[13px]",
-              )}
-            >
-              Review {waiting} suggested
-            </Link>
-          ) : (
-            <SuggestQuotesButton state={state} className="max-lg:px-4 max-lg:text-[13px]" />
-          ))}
+        {waiting > 0 && (
+          <Link
+            href={quotesHref}
+            className={cn(
+              TAP_TARGET,
+              "rounded border border-brand-link px-2.5 py-1.5 text-xs font-bold text-brand-link hover:bg-brand-surface max-lg:flex max-lg:items-center max-lg:px-4 max-lg:text-[13px]",
+            )}
+          >
+            Review {waiting} suggested
+          </Link>
+        )}
       </div>
-
-      {!canSuggest && reason && <p className="text-[13px] text-ink-500">{reason}</p>}
-
-      <SuggestQuotesStatus state={state} />
 
       {excerpts.length > 0 ? (
         <ul className="flex flex-col gap-2.5">
@@ -101,11 +87,7 @@ export function ThemeExcerptsPanel({
       ) : (
         <p className="text-[13px] text-ink-500">
           No excerpts yet.{" "}
-          {waiting > 0
-            ? `${pluralize(waiting, "suggested clip")} ${waiting === 1 ? "is" : "are"} waiting for you.`
-            : canSuggest
-              ? "Suggest quotes to have the model find clips in this theme’s evidence."
-              : ""}
+          {`${pluralize(waiting, "suggested clip")} ${waiting === 1 ? "is" : "are"} waiting for you.`}
         </p>
       )}
     </section>

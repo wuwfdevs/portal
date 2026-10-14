@@ -2,7 +2,7 @@ import "server-only";
 import type OpenAI from "openai";
 import { humanizeOpenAIError } from "@/lib/openai-error";
 import { RESEARCH_MODEL } from "./model";
-import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./extraction-ai";
+import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./openai-call";
 
 // One structured-output call in which the model may use tools first (docs/sourcework-analysis-design.md
 // §21). The model looks things up through functions this code runs for it, and the loop ends when it

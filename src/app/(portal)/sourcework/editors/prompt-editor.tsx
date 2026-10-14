@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -36,7 +35,6 @@ type SaveState =
 
 export function PromptEditor({
   slot,
-  tryable,
   initialText,
   savedDraftAt,
   liveBody,
@@ -45,7 +43,6 @@ export function PromptEditor({
   versions,
 }: {
   slot: PromptSlot;
-  tryable: boolean;
   initialText: string;
   /** When the editor's saved draft was last written, or null with no draft. */
   savedDraftAt: string | null;
@@ -146,11 +143,6 @@ export function PromptEditor({
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }
 
-  async function goTry(event: React.MouseEvent) {
-    event.preventDefault();
-    if (await flush(true)) router.push(`/sourcework/editors/try?slot=${slot}`);
-  }
-
   function toggleHistory() {
     setHistoryOpen((open) => !open);
     setTimeout(
@@ -218,17 +210,6 @@ export function PromptEditor({
   const actions = (
     <>
       <PublishButton control={publish} className="max-lg:min-h-12 max-lg:flex-1" />
-      {tryable ? (
-        <Link
-          href={`/sourcework/editors/try?slot=${slot}`}
-          onClick={goTry}
-          className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-lg:min-h-12 max-lg:flex-1"
-        >
-          Try this draft
-        </Link>
-      ) : (
-        <span className="text-xs text-ink-400">Try this draft is coming for this prompt.</span>
-      )}
     </>
   );
 

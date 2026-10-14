@@ -155,7 +155,6 @@ describe("waiting strip", () => {
         { sourceId: "a", title: "Base newsletter, 1962", count: 11 },
         { sourceId: "c", title: "Empty", count: 0 },
       ],
-      unthemed: 6,
       suggestedThemes: 1,
       suggestedMerges: 1,
     });
@@ -168,7 +167,6 @@ describe("waiting strip", () => {
   it("is clear when nothing waits", () => {
     const summary = waitingSummary({
       toReviewBySource: [],
-      unthemed: 0,
       suggestedThemes: 0,
       suggestedMerges: 0,
     });
