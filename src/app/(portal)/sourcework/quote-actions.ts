@@ -11,19 +11,14 @@ import { storeFullExcerptName } from "@/lib/sourcework/excerpt-name";
 import { buildTimedTokens } from "@/lib/transcription/selection";
 import { embedPendingForRepresentation } from "@/lib/transcription/indexing";
 import { getTranscriptForRepresentation } from "@/lib/transcription/projects";
-import { projectPath, themePath, themeQuotesPath } from "@/lib/transcription/links";
+import { projectPath } from "@/lib/transcription/links";
 
-// Writes behind the suggested-quotes screen (docs/sourcework-analysis-design.md §5.5).
+// Writes behind a source's clips to review (docs/sourcework-analysis-design.md §20, §5.5).
 // Called straight from client components, so they return a result instead of redirecting.
 // Any tool member may decide on a suggestion — RLS is the boundary, these are the courtesy in
 // front. Rejecting never deletes; accepting writes an ordinary excerpt.
 
-function revalidateQuotes(projectId: string, themeId: string | null, sourceId: string) {
-  // A clip Analyze proposed belongs to a source, not a theme.
-  if (themeId) {
-    revalidatePath(themeQuotesPath(projectId, themeId));
-    revalidatePath(themePath(projectId, themeId));
-  }
+function revalidateQuotes(projectId: string, sourceId: string) {
   revalidatePath(projectPath(projectId, "excerpts"));
   revalidatePath(`/sourcework/sources/${sourceId}`);
 }
@@ -31,24 +26,20 @@ function revalidateQuotes(projectId: string, themeId: string | null, sourceId: s
 interface WaitingSuggestion {
   id: string;
   project_id: string;
-  theme_id: string | null;
   source_id: string;
   representation_id: string | null;
 }
 
-type Transcript = Awaited<ReturnType<typeof getTranscriptForRepresentation>>;
-
 /**
  * Writes one suggestion as an excerpt for the given range: checks the range, derives the words
  * from the transcript as it stands now (so a line corrected since the model read it is quoted as
- * corrected), accepts through the RPC and names the excerpt. Shared by the one-card and the
- * accept-all paths; revalidation and embedding are left to the caller so a batch does them once.
+ * corrected), accepts through the RPC and names the excerpt. Revalidation and embedding are left to
+ * the caller.
  */
 async function acceptSuggestionInRange(
   supabase: Awaited<ReturnType<typeof createClient>>,
   suggestion: WaitingSuggestion,
   range: { startMs: number; endMs: number },
-  transcripts: Map<string, Transcript> = new Map(),
 ): Promise<ActionResult<{ excerptId: string }>> {
   const source = await supabase
     .from("sw_sources")
@@ -67,11 +58,7 @@ async function acceptSuggestionInRange(
 
   let text = "";
   if (suggestion.representation_id) {
-    let transcript = transcripts.get(suggestion.representation_id);
-    if (!transcript) {
-      transcript = await getTranscriptForRepresentation(suggestion.representation_id);
-      transcripts.set(suggestion.representation_id, transcript);
-    }
+    const transcript = await getTranscriptForRepresentation(suggestion.representation_id);
     text = wordsInRange(
       transcript.segments.map((segment) =>
         buildTimedTokens({
@@ -127,7 +114,7 @@ export async function acceptQuote(input: {
   const supabase = await createClient();
   const found = await supabase
     .from("sw_quote_suggestions")
-    .select("id, project_id, theme_id, source_id, representation_id, status")
+    .select("id, project_id, source_id, representation_id, status")
     .eq("id", id)
     .maybeSingle();
   if (found.error) {
@@ -147,77 +134,8 @@ export async function acceptQuote(input: {
   if (suggestion.representation_id) {
     await embedPendingForRepresentation(supabase, suggestion.representation_id);
   }
-  revalidateQuotes(suggestion.project_id, suggestion.theme_id, suggestion.source_id);
+  revalidateQuotes(suggestion.project_id, suggestion.source_id);
   return result;
-}
-
-/** How many waiting quotes one accept-all handles; the rest stay for another click. */
-const ACCEPT_ALL_QUOTES_LIMIT = 30;
-const ACCEPT_ALL_CONCURRENCY = 3;
-
-/**
- * Accepts the quotes still waiting on a theme, each at the cut the model suggested (trim a clip
- * first if it needs one). A quote that can't be accepted (its words are gone from the transcript,
- * or someone else decided it first) is skipped and counted, never fails the rest.
- */
-export async function acceptSuggestedQuotes(input: {
-  themeId: string;
-}): Promise<ActionResult<{ accepted: number; skipped: number; remaining: number }>> {
-  await assertSourceworkContext();
-  const themeId = uuidParam(input.themeId);
-  if (!themeId) return actionError("That theme doesn't exist.");
-
-  const supabase = await createClient();
-  const waiting = await supabase
-    .from("sw_quote_suggestions")
-    .select("id, project_id, theme_id, source_id, representation_id, start_ms, end_ms")
-    .eq("theme_id", themeId)
-    .eq("status", "suggested")
-    .order("created_at")
-    .limit(ACCEPT_ALL_QUOTES_LIMIT + 1);
-  if (waiting.error) {
-    console.error("Could not read the waiting quotes:", waiting.error);
-    return actionError("Couldn't accept the quotes. Try again.");
-  }
-  const batch = waiting.data.slice(0, ACCEPT_ALL_QUOTES_LIMIT);
-  const remaining = waiting.data.length - batch.length;
-  if (batch.length === 0) return actionOk({ accepted: 0, skipped: 0, remaining: 0 });
-
-  const transcripts = new Map<string, Transcript>();
-  let accepted = 0;
-  let skipped = 0;
-  for (let index = 0; index < batch.length; index += ACCEPT_ALL_CONCURRENCY) {
-    const results = await Promise.all(
-      batch
-        .slice(index, index + ACCEPT_ALL_CONCURRENCY)
-        .map((suggestion) =>
-          acceptSuggestionInRange(
-            supabase,
-            suggestion,
-            { startMs: suggestion.start_ms, endMs: suggestion.end_ms },
-            transcripts,
-          ),
-        ),
-    );
-    for (const result of results) {
-      if (result.ok) accepted += 1;
-      else skipped += 1;
-    }
-  }
-
-  // Embedded once per recording rather than once per quote. Best effort.
-  const representations = new Set(
-    batch.map((suggestion) => suggestion.representation_id).filter((id): id is string => !!id),
-  );
-  for (const representationId of representations) {
-    await embedPendingForRepresentation(supabase, representationId);
-  }
-  const first = batch[0]!;
-  revalidateQuotes(first.project_id, themeId, first.source_id);
-  for (const sourceId of new Set(batch.map((suggestion) => suggestion.source_id))) {
-    revalidatePath(`/sourcework/sources/${sourceId}`);
-  }
-  return actionOk({ accepted, skipped, remaining });
 }
 
 /** Hides a suggestion. It stays on file, so a later run does not propose that stretch again. */
@@ -236,7 +154,7 @@ export async function rejectQuote(input: { suggestionId: string }): Promise<Acti
     })
     .eq("id", id)
     .eq("status", "suggested")
-    .select("project_id, theme_id, source_id");
+    .select("project_id, source_id");
   if (updated.error) {
     console.error("Could not reject the suggested quote:", updated.error);
     return actionError("Couldn't save that decision. Try again.");
@@ -244,6 +162,6 @@ export async function rejectQuote(input: { suggestionId: string }): Promise<Acti
   const row = updated.data[0];
   if (!row) return actionError("Someone has already decided on this quote.");
 
-  revalidateQuotes(row.project_id, row.theme_id, row.source_id);
+  revalidateQuotes(row.project_id, row.source_id);
   return actionOk();
 }

@@ -21,24 +21,21 @@ import { ProjectExcerptsView } from "./project-excerpts-view";
 import { PiecesTab } from "./pieces-tab";
 import { SetupTab } from "./setup-tab";
 import { SynthesisTab } from "./synthesis-tab";
-import { ThemesTab } from "./themes-tab";
 import { ExtractionControls } from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { sourcesToExtract } from "@/lib/sourcework/setup-view";
-import { getThemeDecisionCounts, hasThemes } from "@/lib/sourcework/theme-queries";
 import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
-import { decisionsWaiting } from "@/lib/sourcework/themes";
 
 /**
  * One project: its sources, and the excerpts made from them. The working
  * surface for a recording or a document is its own screen
  * (`/sourcework/sources/[id]`), reached from a source card here and left with
  * its back link — this screen has no player, no transcript and no view state
- * beyond which of the tabs is showing (`?view=synthesis`, `?view=themes`, `?view=excerpts`,
+ * beyond which of the tabs is showing (`?view=synthesis`, `?view=excerpts`,
  * `?view=pieces`, `?view=setup`). Setup sits at the right edge and is reachable
  * before any source exists: the research questions come first. Synthesis shows
- * once the project has an accepted finding; Themes only where themes already exist.
+ * once the project has an accepted finding.
  */
 export default async function TranscriptionProjectPage({
   params,
@@ -48,39 +45,30 @@ export default async function TranscriptionProjectPage({
   searchParams: Promise<{
     view?: string;
     q?: string;
-    status?: string;
     version?: string;
-    question?: string;
-    new?: string;
-    error?: string;
   }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q, status, version, question, new: showNew, error } = await searchParams;
-  const themesView = view === "themes";
+  const { view, q, version } = await searchParams;
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !themesView && !synthesisView && !excerptsView && !piecesView && !setupView;
+  const sourcesView = !synthesisView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
   if (!project) notFound();
 
   const canDelete = project.createdBy === profile.id;
-  const [pieceCount, pieces, showThemesTab, synthesis] = await Promise.all([
+  const [pieceCount, pieces, synthesis] = await Promise.all([
     countPieces(project.id),
     piecesView ? listPiecesForProject(project.id, pieceSearch) : Promise.resolve([]),
-    themesView ? Promise.resolve(true) : hasThemes(project.id),
     getSynthesisStanding(project.id),
   ]);
   const showSynthesisTab =
     synthesisView || synthesis.acceptedFindings > 0 || synthesis.hasSynthesis;
-  const themeDecisions = showThemesTab
-    ? decisionsWaiting(await getThemeDecisionCounts(project.id))
-    : 0;
 
   // Research state is read only where the Sources tab shows it. Analyze needs no research
   // question, so it is offered with or without one; a question only sharpens it.
@@ -174,16 +162,6 @@ export default async function TranscriptionProjectPage({
                 },
               ]
             : []),
-          ...(showThemesTab
-            ? [
-                {
-                  href: projectPath(project.id, "themes"),
-                  label: "Themes",
-                  active: themesView,
-                  badge: themeDecisions,
-                },
-              ]
-            : []),
           {
             href: projectPath(project.id, "excerpts"),
             label: "Excerpts",
@@ -207,16 +185,6 @@ export default async function TranscriptionProjectPage({
         <SetupTab projectId={project.id} sources={project.sources} />
       ) : synthesisView ? (
         <SynthesisTab projectId={project.id} versionParam={version} />
-      ) : themesView ? (
-        <ThemesTab
-          projectId={project.id}
-          sources={project.sources}
-          statusParam={status}
-          questionParam={question}
-          search={pieceSearch}
-          showNew={showNew === "1"}
-          error={error}
-        />
       ) : piecesView ? (
         <PiecesTab
           projectId={project.id}

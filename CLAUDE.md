@@ -440,39 +440,14 @@ stop counting) are applied through the SQL editor, not the Supabase MCP tool, wh
 `drop`; preview first, then production, then record both dates in `APPLIED.md`. Nothing here has run against a live
 Supabase or OpenAI.
 
-**Sourcework analysis, Phase B (themes) has landed (2026-10-13).** Read `docs/sourcework-analysis-design.md` §15 first;
-this is a pointer. A project's **Themes** tab (`?view=themes`, shown once it has a question or a data point) lists
-`sw_themes` with computed breadth (`sw_theme_breadth`: sources, speakers, supporting vs complicating, never stored), a
-"Waiting for you" strip, and Accept / Edit / Reject on suggestions and merge suggestions; a theme opens at
-`/sourcework/[id]/themes/[themeId]` (evidence by source, memo, history). Four things are load-bearing: (1) **a run never
-alters an accepted theme or writes a memo**; reject hides, a removed data point keeps its row (`removed_at`), and no Phase B
-table has a delete policy; (2) **assignment is `after()` best effort** and a data point is re-checked only when a theme has
-been accepted since (`theme_checked_at`) — don't make it re-ask the whole pool per click; (3) **the model returns numbers,
-never text** (`theme-prompt.ts`), and `callStructuredModel` (now in `openai-call.ts`) is the one structured-output call all
-research steps share; (4) `sw_add_proposed_themes()` and `sw_merge_themes()` exist because there is no delete to undo a half
-write. Migrations `20261013120000` (schema) and `20261013130000` (Resources content) are applied to both projects
-(through `execute_sql` in one transaction, not `apply_migration`, so the Supabase migration history has no entry for them). Splits, the theme page's excerpts and Suggest
-quotes (Phase C) are not built.
+**Sourcework analysis, Phase B (themes) landed (2026-10-13) and was retired in slice 5 (2026-10-26).** Themes, their breadth views, merge suggestions and the Themes tab are gone from the schema and the code; the way from findings to an answer is Synthesis. See `docs/sourcework-analysis-design.md` §15 for what they were and §24 for why they went. `callStructuredModel` (in `openai-call.ts`) is the one structured-output call every research step shares.
 
-**Sourcework analysis, Phase C (suggested quotes) has landed (2026-10-14).** Read
-`docs/sourcework-analysis-design.md` §16 first; this is a pointer. On an accepted theme, **Suggest quotes** (retired in slice 4; the cards remain decide-only)
-had the model choose clips from the theme's supporting data points and
-the transcript around them; the cards are at `/sourcework/[id]/themes/[themeId]/quotes` and the theme page gained an
-Excerpts panel. Four things are load-bearing: (1) **a suggestion is not a `sw_source_excerpts` row** — it lives in
-`sw_quote_suggestions` and the excerpt is written only on accept (`sw_accept_quote_suggestion()`), so none of the nine
-readers of the excerpts table needs a filter; do not move suggestions onto that table without fixing every one. (2) **the
-model returns sentence numbers, never text or times** (`quote-prompt.ts`), and an accepted excerpt's words are re-derived
-from the transcript for the range actually accepted (after any trim). (3) a run replaces only still-waiting suggestions
-and never re-proposes a decided stretch; reject hides. (4) the `quote_quality` slot and its **Try this draft** were retired in
-slice 4. Complicating evidence is offered to the model alongside supporting. Migrations `20261014120000` (schema) and
-`20261014130000` (Resources content) are applied to both projects (2026-10-10, through `execute_sql` in one transaction, not `apply_migration`, so the Supabase
-migration history has no entry for them).
+**Sourcework analysis, Phase C (suggested quotes) landed (2026-10-14); its per-theme runner and pages were retired in slice 4 and the theme link in slice 5.** What remains is the table, `sw_quote_suggestions`: a clip Analyze proposes for a source, with no theme and no tier. **A suggestion is not a `sw_source_excerpts` row** — it becomes one only on accept (`sw_accept_quote_suggestion()`), so none of the nine readers of the excerpts table needs a filter; do not move suggestions onto that table without fixing every one. The model returns sentence numbers, never text or times, and an accepted excerpt's words are re-derived from the transcript for the range actually accepted (after any trim). Clips are decided on the source's own page (`[id]/quote-card.tsx`).
 
-**Sourcework analysis, Phase E (formats, Draft with AI, the assistant in a piece) has landed (2026-10-15).** Read
+**Sourcework analysis, Phase E (formats, Draft with AI, the assistant in a piece) has landed (2026-10-15); Draft with AI was removed in slice 5 in favour of Outline and Write from outline.** Read
 `docs/sourcework-analysis-design.md` §17 first; this is a pointer. Editors maintain **piece formats** at
 `/sourcework/editors/formats` (`sw_piece_formats` + insert-only `sw_piece_format_versions`, a live pointer, drafts,
-private trials; `lib/sourcework/piece-formats.ts`). An empty piece offers **Draft with AI**
-(`/api/sourcework/pieces/draft`, `piece-draft-run.ts`). The **assistant** works in a piece through
+private trials; `lib/sourcework/piece-formats.ts`). An empty piece used to offer **Draft with AI** (removed in slice 5; see §24). The **assistant** works in a piece through
 `lib/sourcework/piece-capabilities.ts` and page context (`RightPanelProvider.assistantContext`). Four things are
 load-bearing: (1) **the model places actualities by excerpt number, code maps them to ids** — never let it return
 excerpt text or ids; (2) **every content write goes through `piece-writes.ts`'s `savePieceBlocks`** (editor, restore,
@@ -488,7 +463,7 @@ widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four f
 project's **Synthesis** tab (`?view=synthesis`, shown once it has an accepted finding) holds one project-wide run's
 answer per research question: statements marked established, contested or uncertain, tensions between accounts, gaps
 and a few narrative moments, each opening onto the findings behind it. It replaces themes as the way to an answer;
-the Themes tab now shows only where themes exist. Four things are load-bearing: (1) **the model returns numbers,
+the Themes tab it replaced is gone (slice 5). Four things are load-bearing: (1) **the model returns numbers,
 never text, times or ids** — findings by number, passages only by a ref a tool gave out (`PassageLedger`), and
 `parseSynthesisOutput` drops what it can't verify; (2) **content is insert-only versions**
 (`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
@@ -505,7 +480,7 @@ time** and every function that switches on a block's type must handle `beat` exp
 unknown type, so a missing branch makes the whole body unreadable; (2) **code keeps the structure when a beat is written out**
 (`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
 numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
-(4) `DRAFT_STANDARDS` is the one copy of the accuracy and writing standards the draft, outline and expansion share. No schema
+(4) `WRITING_STANDARDS` (`piece-standards.ts`) is the one copy of the accuracy and writing standards the outline and the write-out share. No schema
 change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`).
 
 **Sourcework: the earlier research steps are retired (slice 4, 2026-10-25).** Read
@@ -513,13 +488,30 @@ change; the Resources migration `20261024120000` is applied to both projects (20
 theme-assignment, Review themes and per-theme Suggest quotes runners and their routes, the five prompt slots they
 used (`context`, `extraction`, `theme_assign`, `theme_review`, `quote_quality`; their `sw_prompt_*` rows stay), the
 prompt "Try this draft" screen (`/sourcework/editors/try`, `api/sourcework/editors/trial`), and accepting a data point
-no longer files it into themes in `after()`. Kept: the Themes tab and theme/quote pages as decide-only surfaces for
-data that exists (hand-written themes, accept/reject/edit, merges, waiting clips), the piece-format trial, and the old
-Phase A/B/C tables, so nothing in the database was dropped. Shared helpers moved first: `source-units.ts`
+no longer files it into themes in `after()`. Kept at the time: the Themes tab and theme/quote pages as decide-only surfaces and the old tables; slice 5 (below) removed them too. Shared helpers moved first: `source-units.ts`
 (`readSourceUnits`), `openai-call.ts` (the structured-call helper, formerly `extraction-ai.ts`), `noteKey` into
 `analyze-prompt.ts`, `collectSeenUrls`/`collectQueries` into `analyze-ai.ts`, `QuoteCard` into `[id]/quote-card.tsx`.
 The prompt slots are now `analyze`, `synthesis`, `outline`. The Resources migration `20261025120000` (rewrites the stale
 guides, one release note) is applied to both projects (2026-10-14, through `execute_sql`). Nothing here has run against a live OpenAI model.
+
+**Sourcework: themes and Draft with AI are gone (slice 5, 2026-10-26).** Read `docs/sourcework-analysis-design.md`
+§24 first; this is a pointer. The pipeline is **Analyze → Synthesize → Outline → Write from outline**, and nothing else
+writes findings or pieces with a model. Removed: the Themes tab, theme pages and the waiting-quotes page; `sw_themes`,
+`sw_data_point_themes`, `sw_theme_merge_suggestions`, `sw_prompt_trials`, the theme views and functions; the theme and tier
+columns on `sw_quote_suggestions`, `theme_id` on `sw_analysis_runs`, `quality_tier` on excerpts, and the data points'
+embedding columns; Draft with AI (`piece-draft-run.ts`, `/api/sourcework/pieces/draft`, `draft-with-ai.tsx`). Four things
+are load-bearing: (1) **`generateOutline` (`piece-outline-run.ts`) is the read-and-ask half of an outline and writes
+nothing**; `outlinePiece` saves it as a version, and the piece-format trial runs it for the live version and the editor's
+draft side by side (`TrialBlock` is a beat or an actuality now), so "Try this draft" for a format compares outlines. (2)
+**The assistant's capabilities are `sourcework.piece.outline` and `.writeFromOutline`**, each taking the piece's current
+version as `expectVersion`; `draftFromFormat` is gone. (3) **Run kinds are `analyze`, `synthesis`, `outline`, `expand`**
+(`RunKind`, the check constraint, and a one-running index on `expand` per piece); `expand` was `piece_draft`. (4)
+**`RETIRED_SCREENS` (`lib/resources/screens.ts`) keeps the three theme screen keys** because earlier release migrations
+still name them and `release-content.test.ts` checks every migration; Help never maps a path to one. Existing data of the
+retired kinds was deleted, not migrated. `20261026120000` (schema) and `20261026130000` (Resources content) are written
+and **not applied**: the Supabase MCP tool holds `DROP` and `DELETE` statements for a confirmation that never arrives, so
+run them in the SQL editor, preview first. Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
+`ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
@@ -528,7 +520,7 @@ pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the
 free-text `style` the model reads, while it chooses the blocks itself); (2) a narration
 block may carry `role: "anchor"`, which `computePieceLength` keeps out of `totalSeconds`; (3) a piece can be written to a
 format by hand (`setPieceFormat`, New piece's format select) — that sets the target and shows a guide but never touches
-content, and only Draft with AI sets `drafted_version`; (4) journalistic standards live in `DRAFT_FRAMING`, not in
+content, and only Write from outline sets `drafted_version`; (4) journalistic standards live in `WRITING_STANDARDS` (`piece-standards.ts`), not in
 each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
 
 **Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet run against a live model).** Read
@@ -540,8 +532,7 @@ relied on. Four things are load-bearing: (1) **a research question is not requir
 clips across speakers or outside 1.5–60 s, addresses the search never returned, and the five-clip ceiling are all dropped
 in code and counted; (3) **the model is shown the project's accepted findings** so a re-run adds rather than repeats,
 which is also why `loadAnalyzeContext` filters to the project's current `sw_project_sources`; (4) **a clip Analyze proposes
-has no theme and no tier** (`sw_quote_suggestions.theme_id` and `tier` are nullable): anything reading that table must
-cope with both. The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
+has no theme and no tier** (both columns were dropped in slice 5). The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
 per-theme quote code was retired in slice 4. Migrations `20261022120000` (schema) and `20261022130000`
 (Resources) are applied to both projects (2026-10-13, through `execute_sql`, not `apply_migration`, because they drop constraints).
 

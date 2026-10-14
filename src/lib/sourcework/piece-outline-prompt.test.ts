@@ -6,7 +6,7 @@ import {
   parseOutlineOutput,
   type OutlineParseContext,
 } from "./piece-outline-prompt";
-import { DRAFT_STANDARDS } from "./piece-draft-prompt";
+import { WRITING_STANDARDS } from "./piece-standards";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
@@ -50,7 +50,7 @@ const parse = (blocks: unknown[]) => parseOutlineOutput(JSON.stringify({ blocks 
 
 describe("OUTLINE_FRAMING", () => {
   it("carries the shared standards and never lets the model name a time", () => {
-    expect(OUTLINE_FRAMING).toContain(DRAFT_STANDARDS);
+    expect(OUTLINE_FRAMING).toContain(WRITING_STANDARDS);
     expect(OUTLINE_FRAMING).toContain("you cannot name a time yourself");
   });
 });

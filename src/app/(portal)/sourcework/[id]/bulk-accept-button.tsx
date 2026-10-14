@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { actionOk, type ActionResult } from "@/lib/action-response";
 import { pluralize } from "@/lib/format";
 import { acceptSuggestedDataPoints } from "../research-actions";
-import { acceptSuggestedQuotes } from "../quote-actions";
-import { acceptSuggestedThemes } from "../theme-actions";
 
 /**
  * "Accept all" for the suggestions waiting on a screen: one click opens a plain-words
@@ -104,7 +102,7 @@ export function BulkAcceptButton({
   );
 }
 
-// The three bulk accepts. Each wraps its action's count in the sentence shown afterwards.
+// The bulk accept wraps its action's count in the sentence shown afterwards.
 
 export function AcceptAllDataPoints({
   projectId,
@@ -135,62 +133,6 @@ export function AcceptAllDataPoints({
               ? "Nothing was waiting."
               : `Accepted ${pluralize(result.count, "data point")}.`,
         });
-      }}
-    />
-  );
-}
-
-export function AcceptAllThemes({ projectId, count }: { projectId: string; count: number }) {
-  return (
-    <BulkAcceptButton
-      label={`Accept all ${count} suggested`}
-      confirmLabel={`Accept ${pluralize(count, "theme")}`}
-      message={
-        <>
-          Accept {count === 1 ? "the" : `all ${count}`} suggested theme{count === 1 ? "" : "s"} as
-          worded? Accepted data points are then filed into them. Merge suggestions are not included.
-          You can still reword a theme later, or reject it from its page.
-        </>
-      }
-      run={async () => {
-        const result = await acceptSuggestedThemes({ projectId });
-        if (!result.ok) return result;
-        return actionOk({
-          summary:
-            result.count === 0
-              ? "Nothing was waiting."
-              : `Accepted ${pluralize(result.count, "theme")}.`,
-        });
-      }}
-    />
-  );
-}
-
-export function AcceptAllQuotes({ themeId, count }: { themeId: string; count: number }) {
-  return (
-    <BulkAcceptButton
-      label={`Accept all ${count}`}
-      confirmLabel={`Accept ${pluralize(count, "clip")}`}
-      message={
-        <>
-          Save {count === 1 ? "the" : `all ${count}`} waiting clip{count === 1 ? "" : "s"} as
-          excerpts, each cut as suggested? Clips are accepted at the cut suggested; to use a trimmed
-          cut, accept that clip on its own. Excerpts can be deleted afterwards.
-        </>
-      }
-      run={async () => {
-        const result = await acceptSuggestedQuotes({ themeId });
-        if (!result.ok) return result;
-        const parts = [`Accepted ${pluralize(result.accepted, "clip")}.`];
-        if (result.skipped > 0) {
-          parts.push(
-            `${pluralize(result.skipped, "clip")} couldn’t be accepted and stay in the list.`,
-          );
-        }
-        if (result.remaining > 0) {
-          parts.push(`${result.remaining} more are waiting; accept again to continue.`);
-        }
-        return actionOk({ summary: parts.join(" ") });
       }}
     />
   );

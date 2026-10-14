@@ -20,7 +20,7 @@ import { FormatEditor } from "./format-editor";
 export const metadata = { title: "Piece formats" };
 
 /**
- * Piece formats (docs/sourcework-analysis-design.md §6.3): what Draft with AI follows. Editors
+ * Piece formats (docs/sourcework-analysis-design.md §6.3): what an outline and Write from outline follow. Editors
  * only. The list of formats beside the editor (a select on a phone), "+ New format" as an
  * inline card (`?new=1`), and the editor for the chosen one.
  */

@@ -4,7 +4,7 @@ import { unwrapRead } from "@/lib/read-result";
 import { readFormatSpec, type FormatSpec } from "./piece-formats";
 
 // Reads behind piece formats (docs/sourcework-analysis-design.md §6.3, §8): the live formats
-// Draft with AI offers, and what the Editors page shows for one format. Through the caller's
+// an outline can follow, and what the Editors page shows for one format. Through the caller's
 // session, so RLS is the boundary; a failed read throws.
 
 export interface LiveFormat {

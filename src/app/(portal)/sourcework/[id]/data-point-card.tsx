@@ -29,7 +29,6 @@ export function DataPointCard({
   onPlay,
   onOpen,
   openLabel,
-  themes = [],
   excerpts = [],
 }: {
   point: DataPoint;
@@ -44,8 +43,6 @@ export function DataPointCard({
   /** Opens the point where it lives: the transcript tab on a phone, the page for a document. */
   onOpen?: () => void;
   openLabel?: string;
-  /** The accepted themes this point sits in; shown on a point a person has accepted. */
-  themes?: { href: string; title: string; stance: "supports" | "complicates" }[];
   /** The excerpts that exemplify this point (accepted suggested quotes). */
   excerpts?: { href: string; title: string }[];
 }) {
@@ -249,24 +246,6 @@ export function DataPointCard({
             </Button>
           )}
         </div>
-      )}
-
-      {point.status === "accepted" && themes.length > 0 && !editing && (
-        <p className="mt-2 text-xs text-ink-500" onClick={(event) => event.stopPropagation()}>
-          {themes.map((theme, index) => (
-            <span key={theme.href}>
-              {index > 0 && " · "}
-              {themes.length === 1 || index === 0 ? "Theme: " : ""}
-              <Link
-                href={theme.href}
-                className="font-semibold text-brand-link hover:underline max-lg:inline-block max-lg:py-2.5"
-              >
-                {theme.title}
-              </Link>
-              {theme.stance === "complicates" && " (complicates)"}
-            </span>
-          ))}
-        </p>
       )}
 
       {point.status === "accepted" && excerpts.length > 0 && !editing && (

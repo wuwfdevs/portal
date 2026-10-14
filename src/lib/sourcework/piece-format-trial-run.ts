@@ -4,12 +4,14 @@ import { unwrapRead } from "@/lib/read-result";
 import { RESEARCH_MODEL } from "./model";
 import { computePieceLength } from "./pieces";
 import { readFormatSpec, type FormatSpec } from "./piece-formats";
-import { generateDraft, loadDraftMaterial, type DraftMaterial } from "./piece-draft-run";
+import { generateOutline, type GeneratedOutline } from "./piece-outline-run";
+import type { PieceExcerpt } from "./piece-queries";
+import { getLivePrompt } from "./research-queries";
 import { trialSide, type FormatTrialResults, type FormatTrialSide } from "./piece-format-trials";
 import { finishRun, startRun } from "./research-runs";
 
 // "Try this draft" for a piece format (docs/sourcework-analysis-design.md §6.3, §8.1): the live
-// version and the editor's draft each draft a piece from the same project's accepted themes and
+// version and the editor's draft each outline a piece from the same project's accepted findings and
 // excerpts, in parallel. Results go in sw_piece_format_trials; nothing is written to the project.
 
 export type FormatTrialRun = { ok: true; trialId: string } | { ok: false; error: string };
@@ -17,23 +19,22 @@ export type FormatTrialRun = { ok: true; trialId: string } | { ok: false; error:
 function sideFrom(
   label: string,
   spec: FormatSpec,
-  material: DraftMaterial,
-  draft: { blocks: Parameters<typeof computePieceLength>[0]; warnings: string[] },
+  picker: readonly PieceExcerpt[],
+  outline: Extract<GeneratedOutline, { ok: true }>,
 ): FormatTrialSide {
-  const length = computePieceLength(draft.blocks, material.excerptRecords);
+  const length = computePieceLength(outline.blocks, picker);
   return trialSide({
     label,
     spec,
-    blocks: draft.blocks,
+    blocks: outline.blocks,
     perBlockSeconds: length.perBlock,
-    lengthSeconds: length.totalSeconds,
     excerpts: new Map(
-      material.excerptRecords.map((record) => [
+      picker.map((record) => [
         record.id,
         { title: record.title, speaker: record.speaker, text: record.text },
       ]),
     ),
-    warnings: draft.warnings,
+    warnings: outline.warnings,
   });
 }
 
@@ -88,14 +89,15 @@ export async function runFormatTrial(args: {
     ...(liveRow && liveSpec ? [{ versionId: liveRow.id, spec: liveSpec }] : []),
     { versionId: null, spec: args.draftSpec },
   ];
+  const guide = await getLivePrompt("outline");
   const runs = await Promise.all(
     sides.map((side) =>
       startRun(supabase, {
-        kind: "piece_draft",
+        kind: "outline",
         projectId: args.projectId,
         sourceId: null,
         formatVersionId: side.versionId,
-        promptVersionId: null,
+        promptVersionId: guide.versionId,
         trial: true,
         model: RESEARCH_MODEL,
         userId: args.userId,
@@ -116,27 +118,27 @@ export async function runFormatTrial(args: {
   }
 
   try {
-    const material = await loadDraftMaterial(args.projectId, null);
-    const drafts = await Promise.all(
+    const outlines = await Promise.all(
       sides.map((side) =>
-        generateDraft({
-          material,
-          formatName: format.name,
-          spec: side.spec,
+        generateOutline({
+          projectId: args.projectId,
+          format: { name: format.name, spec: side.spec, versionId: side.versionId },
+          targetSeconds: null,
           direction: args.direction,
+          guide,
         }),
       ),
     );
-    for (const draft of drafts) if (!draft.ok) return await fail(draft.error);
+    for (const outline of outlines) if (!outline.ok) return await fail(outline.error);
 
-    const built = drafts.map((draft, index) => {
-      if (!draft.ok) throw new Error("unreachable");
+    const built = outlines.map((outline, index) => {
+      if (!outline.ok) throw new Error("unreachable");
       const isLive = sides[index]!.versionId !== null;
       return sideFrom(
         isLive ? `Live v${liveRow!.version}` : "Draft",
         sides[index]!.spec,
-        material,
-        draft,
+        outline.picker,
+        outline,
       );
     });
     const results: FormatTrialResults = {
@@ -162,7 +164,7 @@ export async function runFormatTrial(args: {
               counts: {
                 side: sides[index]!.versionId ? "live" : "draft",
                 blocks: built[index]!.blocks.length,
-                length_seconds: built[index]!.lengthSeconds,
+                clip_seconds: built[index]!.clipSeconds,
               },
             })
           : null,

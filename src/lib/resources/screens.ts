@@ -86,24 +86,6 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/sourcework/:id?view=synthesis"],
   },
   {
-    key: "sourcework.themes",
-    name: "Themes",
-    toolKey: "transcription",
-    paths: ["/sourcework/:id?view=themes"],
-  },
-  {
-    key: "sourcework.theme",
-    name: "Theme",
-    toolKey: "transcription",
-    paths: ["/sourcework/:id/themes/:themeId"],
-  },
-  {
-    key: "sourcework.theme_quotes",
-    name: "Suggested quotes",
-    toolKey: "transcription",
-    paths: ["/sourcework/:id/themes/:themeId/quotes"],
-  },
-  {
     key: "sourcework.setup",
     name: "Project setup",
     toolKey: "transcription",
@@ -452,6 +434,17 @@ const TOOL_ROUTE_SEGMENTS: Record<string, string> = {
 const BY_KEY = new Map(SCREENS.map((screen) => [screen.key, screen]));
 
 /** A screen key's display name, or null for a key this list doesn't know. */
+/**
+ * Screens that no longer exist. An earlier release migration may still name one of these keys, and the
+ * release-content test checks every migration against the screens it names, so the keys stay here.
+ * Help never maps a path to one.
+ */
+export const RETIRED_SCREENS: readonly { key: string; toolKey: string }[] = [
+  { key: "sourcework.themes", toolKey: "transcription" },
+  { key: "sourcework.theme", toolKey: "transcription" },
+  { key: "sourcework.theme_quotes", toolKey: "transcription" },
+];
+
 export function screenName(key: string): string | null {
   return BY_KEY.get(key)?.name ?? null;
 }

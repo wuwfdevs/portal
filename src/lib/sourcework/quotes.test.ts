@@ -3,43 +3,13 @@ import {
   MAX_QUOTE_MS,
   MIN_QUOTE_MS,
   checkQuoteRange,
-  compareQuotes,
-  emptyQuotesMessage,
   formatClipLength,
   formatClipRange,
   formatClipTime,
   nudgeEdge,
-  quoteStance,
-  quoteCounts,
   sameStretch,
   wordsInRange,
 } from "./quotes";
-
-describe("compareQuotes", () => {
-  const base = { sourceTitle: "Tom", startMs: 0, id: "a" };
-  it("puts the strongest first, then the source, then the order spoken", () => {
-    const quotes = [
-      { ...base, id: "1", tier: "usable" as const, startMs: 5 },
-      { ...base, id: "2", tier: "strong" as const, startMs: 90 },
-      { ...base, id: "3", tier: "strong" as const, startMs: 10 },
-      { ...base, id: "4", tier: "good" as const, sourceTitle: "Anna" },
-    ];
-    expect(quotes.sort(compareQuotes).map((quote) => quote.id)).toEqual(["3", "2", "4", "1"]);
-  });
-});
-
-describe("quoteCounts", () => {
-  it("counts each status", () => {
-    expect(
-      quoteCounts([
-        { status: "suggested" },
-        { status: "accepted" },
-        { status: "accepted" },
-        { status: "rejected" },
-      ]),
-    ).toEqual({ waiting: 1, accepted: 2, rejected: 1 });
-  });
-});
 
 describe("formatting", () => {
   it("writes a length in seconds, then minutes", () => {
@@ -126,29 +96,10 @@ describe("sameStretch", () => {
   });
 });
 
-describe("emptyQuotesMessage", () => {
-  it("says nothing while suggestions wait", () => {
-    expect(emptyQuotesMessage({ waiting: 2, accepted: 0, rejected: 0 })).toBe("");
-  });
-  it("tells the two empty states apart", () => {
-    expect(emptyQuotesMessage({ waiting: 0, accepted: 1, rejected: 0 })).toContain("decided");
-    expect(emptyQuotesMessage({ waiting: 0, accepted: 0, rejected: 0 })).toContain("No clips");
-  });
-});
-
 describe("formatClipTime", () => {
   it("shows a clip edge to the tenth", () => {
     expect(formatClipTime(769_000)).toBe("12:49.0");
     expect(formatClipTime(769_250)).toBe("12:49.2");
     expect(formatClipTime(-5)).toBe("0:00.0");
-  });
-});
-
-describe("quoteStance", () => {
-  it("complicates only when every data point behind it does", () => {
-    expect(quoteStance(["complicates"])).toBe("complicates");
-    expect(quoteStance(["complicates", "complicates"])).toBe("complicates");
-    expect(quoteStance(["complicates", "supports"])).toBe("supports");
-    expect(quoteStance([])).toBe("supports");
   });
 });

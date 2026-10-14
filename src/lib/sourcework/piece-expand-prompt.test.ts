@@ -6,7 +6,7 @@ import {
   expandBeats,
   numberedBeats,
 } from "./piece-expand-prompt";
-import { DRAFT_FRAMING, DRAFT_STANDARDS } from "./piece-draft-prompt";
+import { WRITING_STANDARDS } from "./piece-standards";
 import { MAX_BLOCKS, newActuality, newBeat, newNarration, type PieceBlock } from "./pieces";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -26,9 +26,8 @@ const outline = (): PieceBlock[] => [
 ];
 
 describe("the shared standards", () => {
-  it("are in both the draft and the expansion framing", () => {
-    expect(DRAFT_FRAMING).toContain(DRAFT_STANDARDS);
-    expect(EXPAND_FRAMING).toContain(DRAFT_STANDARDS);
+  it("are in the expansion framing", () => {
+    expect(EXPAND_FRAMING).toContain(WRITING_STANDARDS);
   });
 });
 

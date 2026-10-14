@@ -144,7 +144,7 @@ function toRunSummary(row: RunRow): RunSummary {
 }
 
 /**
- * The latest non-trial extraction run of each given source. One query per
+ * The latest non-trial Analyze run of each given source. One query per
  * source rather than one truncated history, so a project with many runs never
  * loses an older source's latest.
  */
@@ -162,7 +162,7 @@ export async function getLatestExtractionRuns(
             .select(RUN_COLUMNS)
             .eq("project_id", projectId)
             .eq("source_id", sourceId)
-            .in("kind", ["extraction", "analyze"])
+            .eq("kind", "analyze")
             .eq("trial", false)
             .order("started_at", { ascending: false })
             .limit(1),
@@ -277,11 +277,8 @@ export async function spansFor(
   );
 }
 
-/** The columns DATA_POINT_COLUMNS selects: the embedding and theme-check columns are never read into a DataPoint. */
-export type DataPointRow = Omit<
-  Tables["sw_data_points"]["Row"],
-  "embedding" | "embedding_stale" | "theme_checked_at"
->;
+/** The columns DATA_POINT_COLUMNS selects: the embedding columns are never read into a DataPoint. */
+export type DataPointRow = Omit<Tables["sw_data_points"]["Row"], "embedding" | "embedding_stale">;
 
 export function toDataPoint(row: DataPointRow, spans: DataPointSpan[]): DataPoint {
   return {

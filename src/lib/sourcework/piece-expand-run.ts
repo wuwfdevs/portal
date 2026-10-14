@@ -14,7 +14,7 @@ import {
 } from "./piece-expand-prompt";
 import { renderFormatGuide } from "./piece-formats";
 import { getLiveFormat } from "./piece-format-queries";
-import { DIRECTION_MAX } from "./piece-draft-prompt";
+import { DIRECTION_MAX } from "./piece-standards";
 import {
   actualityRange,
   blockSeconds,
@@ -29,7 +29,7 @@ import { finishRun, startRun } from "./research-runs";
 import { getFindingsByIds } from "./synthesis-queries";
 
 // Writing an outline out (docs/sourcework-analysis-design.md §22). Offered on a piece that has outline beats
-// (Draft with AI says "Write from outline" there). The model writes narration per beat; expandBeats puts it
+// (the editor says "Write from outline" there). The model writes narration per beat; expandBeats puts it
 // back at the beat's place and leaves every clip and every word a person wrote alone. Saved as the piece's
 // next version, so Undo returns to the outline.
 
@@ -89,13 +89,13 @@ export async function expandOutline(args: {
 
   const format = args.formatId ? await getLiveFormat(args.formatId) : null;
   if (args.formatId && !format) {
-    return { ok: false, error: "That format isn't published, so it can't guide the draft." };
+    return { ok: false, error: "That format isn't published, so it can't guide the writing." };
   }
   const project = await getProjectById(piece.project_id);
   if (!project) return { ok: false, error: "That project doesn't exist." };
 
   const run = await startRun(supabase, {
-    kind: "piece_draft",
+    kind: "expand",
     projectId: piece.project_id,
     sourceId: null,
     pieceId: piece.id,
@@ -157,7 +157,7 @@ export async function expandOutline(args: {
 
     const formatGuide = format ? renderFormatGuide(format.name, format.spec) : null;
     const answer = await callStructuredModel({
-      step: "drafting",
+      step: "writing",
       schemaName: "piece_expand",
       schema: buildExpandOutputSchema(),
       framing: EXPAND_FRAMING,
@@ -191,7 +191,7 @@ export async function expandOutline(args: {
     if (!saved.ok) {
       const error =
         "conflict" in saved
-          ? "Someone saved this piece while the draft was being written."
+          ? "Someone saved this piece while the outline was being written out."
           : saved.error;
       await finishRun(supabase, run.runId, { status: "failed", error });
       return { ok: false, error, conflict: "conflict" in saved };
@@ -229,7 +229,7 @@ export async function expandOutline(args: {
     };
   } catch (error) {
     console.error("Sourcework outline expansion failed:", error);
-    const message = error instanceof Error ? error.message : "The draft failed.";
+    const message = error instanceof Error ? error.message : "Writing the outline out failed.";
     await finishRun(supabase, run.runId, { status: "failed", error: message });
     return { ok: false, error: message };
   }

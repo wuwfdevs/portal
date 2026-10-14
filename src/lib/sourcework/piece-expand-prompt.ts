@@ -1,5 +1,5 @@
 // Writing an outline out (docs/sourcework-analysis-design.md §22): what the model is given and what it may
-// return when "Draft with AI" meets a piece that has outline beats, and the pure step that puts the prose
+// return when "Write from outline" meets a piece that has outline beats, and the pure step that puts the prose
 // back into the piece. Pure.
 //
 // Code keeps the structure. The model returns narration for each beat by the beat's number and nothing
@@ -17,7 +17,7 @@ import {
   type BeatBlock,
   type PieceBlock,
 } from "./pieces";
-import { DRAFT_STANDARDS } from "./piece-draft-prompt";
+import { WRITING_STANDARDS } from "./piece-standards";
 
 /** Paragraphs the model may write for one beat; each becomes a narration block. */
 export const MAX_PARAGRAPHS_PER_BEAT = 4;
@@ -28,7 +28,7 @@ Write each beat out as narration the reporter will read. Do not change the order
 
 Write from the findings a beat cites, and only from them. A finding is a paraphrase, so attribute it. If a beat is marked to check, and its findings do not settle a figure, name, date or attribution it needs, write the sentence with its attribution and add a short bracketed placeholder such as [CHECK: who confirmed the death toll] rather than stating it as settled. A cited finding marked withdrawn is no longer accepted: do not use it. A beat marked as the anchor's lead-in is read by the anchor to introduce the reporter's piece; write it that way and do not give away the first line of the story.
 
-${DRAFT_STANDARDS}
+${WRITING_STANDARDS}
 
 Aim for the format's length: narration is read at about ${READ_WORDS_PER_MINUTE} words a minute, so add up the clips' lengths and size the narration to make up the rest. A beat can take one to four short paragraphs; a thin beat may take one sentence.
 
@@ -173,11 +173,17 @@ export function expandBeats(
   try {
     raw = JSON.parse(text);
   } catch {
-    return { ok: false, error: "The draft came back in a shape that couldn't be read. Try again." };
+    return {
+      ok: false,
+      error: "The narration came back in a shape that couldn't be read. Try again.",
+    };
   }
   const entries = (raw as { beats?: unknown })?.beats;
   if (!Array.isArray(entries)) {
-    return { ok: false, error: "The draft came back in a shape that couldn't be read. Try again." };
+    return {
+      ok: false,
+      error: "The narration came back in a shape that couldn't be read. Try again.",
+    };
   }
 
   const written = new Map<number, string[]>();
@@ -235,7 +241,7 @@ export function expandBeats(
   }
 
   if (expanded === 0) {
-    return { ok: false, error: "The draft came back with no narration. Try again." };
+    return { ok: false, error: "The narration came back empty. Try again." };
   }
   const warnings: string[] = [];
   if (skipped > 0)

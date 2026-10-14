@@ -1,5 +1,5 @@
-// Suggested quotes (docs/sourcework-analysis-design.md §5.5): the pure half — the
-// tiers, the shape a suggestion has on screen, the trim arithmetic, and the text of a
+// Suggested clips (docs/sourcework-analysis-design.md §20): the pure half — the
+// shape a suggestion has on screen, the trim arithmetic, and the text of a
 // clip derived from a transcript. No Supabase and no model here, so the rules that
 // decide what a reporter is shown and what an accepted excerpt contains are tested
 // on their own.
@@ -7,49 +7,18 @@
 import { formatClockMs } from "@/lib/format";
 import type { TimedToken } from "@/lib/transcription/selection";
 
-export const QUOTE_TIERS = ["strong", "good", "usable"] as const;
-export type QuoteTier = (typeof QUOTE_TIERS)[number];
-
-export const QUOTE_TIER_LABEL: Record<QuoteTier, string> = {
-  strong: "Strong",
-  good: "Good",
-  usable: "Usable",
-};
-
-/** The number stored on an accepted excerpt (`sw_source_excerpts.quality_tier`). */
-export const QUOTE_TIER_VALUE: Record<QuoteTier, number> = { strong: 3, good: 2, usable: 1 };
-
 export type QuoteStatus = "suggested" | "accepted" | "rejected";
 
 /** A clip shorter than this is a word, not a quote. */
 export const MIN_QUOTE_MS = 1500;
 /** A clip longer than this is a passage, not an actuality. */
 export const MAX_QUOTE_MS = 60_000;
-/** Suggestions kept per run: the screen is "a few clips worth considering", not a transcript. */
-export const MAX_QUOTES_PER_RUN = 8;
 
 /** The nudges on the trim chips, in milliseconds (the same four the excerpt rail uses). */
 export const TRIM_STEPS_MS = [-250, -50, 50, 250] as const;
 
-export function parseQuoteTier(value: unknown): QuoteTier | null {
-  return QUOTE_TIERS.find((tier) => tier === value) ?? null;
-}
-
-/** Whether a clip backs the theme or pushes against it (from the data points it rests on). */
-export type QuoteStance = "supports" | "complicates";
-
-/** A clip complicates the theme only when every data point it rests on does; one that backs it in any way supports. */
-export function quoteStance(pointStances: readonly QuoteStance[]): QuoteStance {
-  return pointStances.length > 0 && pointStances.every((stance) => stance === "complicates")
-    ? "complicates"
-    : "supports";
-}
-
 export interface QuoteSuggestion {
   id: string;
-  stance: QuoteStance;
-  /** Null for a clip Analyze proposed for a source rather than for a theme. */
-  themeId: string | null;
   sourceId: string;
   sourceTitle: string;
   representationId: string | null;
@@ -58,41 +27,8 @@ export interface QuoteSuggestion {
   endMs: number;
   text: string;
   reason: string;
-  /** Null for a clip Analyze proposed: it does not rate its own clips. */
-  tier: QuoteTier | null;
   status: QuoteStatus;
   excerptId: string | null;
-}
-
-function tierRank(tier: QuoteTier | null): number {
-  return tier === null ? QUOTE_TIERS.length : QUOTE_TIERS.indexOf(tier);
-}
-
-/** Strongest first (unrated clips last), then in the order the clips occur in their source. */
-export function compareQuotes(
-  a: Pick<QuoteSuggestion, "tier" | "sourceTitle" | "startMs" | "id">,
-  b: Pick<QuoteSuggestion, "tier" | "sourceTitle" | "startMs" | "id">,
-): number {
-  return (
-    tierRank(a.tier) - tierRank(b.tier) ||
-    a.sourceTitle.localeCompare(b.sourceTitle) ||
-    a.startMs - b.startMs ||
-    a.id.localeCompare(b.id)
-  );
-}
-
-export interface QuoteCounts {
-  waiting: number;
-  accepted: number;
-  rejected: number;
-}
-
-export function quoteCounts(quotes: readonly Pick<QuoteSuggestion, "status">[]): QuoteCounts {
-  return {
-    waiting: quotes.filter((quote) => quote.status === "suggested").length,
-    accepted: quotes.filter((quote) => quote.status === "accepted").length,
-    rejected: quotes.filter((quote) => quote.status === "rejected").length,
-  };
 }
 
 /** "9s long", "1:05 long". */
@@ -202,13 +138,4 @@ export function sameStretch(a: ClipRange, b: ClipRange): boolean {
   if (overlap <= 0) return false;
   const shorter = Math.min(a.endMs - a.startMs, b.endMs - b.startMs);
   return shorter > 0 && overlap / shorter >= 0.5;
-}
-
-/** The sentence under the cards when there is nothing to review. */
-export function emptyQuotesMessage(counts: QuoteCounts): string {
-  if (counts.waiting > 0) return "";
-  if (counts.accepted + counts.rejected > 0) {
-    return "You have decided on every suggestion for this theme.";
-  }
-  return "No clips are waiting for this theme. Analyzing a source proposes clips on its own page.";
 }

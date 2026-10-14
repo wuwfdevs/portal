@@ -325,7 +325,6 @@ export async function runAnalyze(args: {
     const clipRows = clips.fresh.map((clip) => ({
       id: randomUUID(),
       project_id: projectId,
-      theme_id: null,
       source_id: sourceId,
       representation_id: read.source.representationId,
       speaker_id: clip.speakerId,
@@ -336,7 +335,6 @@ export async function runAnalyze(args: {
         .map((unit) => unit.text)
         .join(" "),
       reason: clip.why,
-      tier: null,
       run_id: runId,
       prompt_version_id: live.versionId,
       created_by: userId,
@@ -382,7 +380,6 @@ export async function runAnalyze(args: {
       .from("sw_quote_suggestions")
       .delete()
       .eq("source_id", sourceId)
-      .is("theme_id", null)
       .eq("status", "suggested")
       .or(`run_id.is.null,run_id.neq.${runId}`);
     if (clearedClips.error) {

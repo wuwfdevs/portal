@@ -5,7 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { Label, Select, Textarea } from "@/components/ui/input";
-import { DIRECTION_MAX } from "@/lib/sourcework/piece-draft-prompt";
+import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
 
 export interface OutlineFormatOption {
   id: string;

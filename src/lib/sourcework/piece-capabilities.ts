@@ -39,10 +39,11 @@ import {
 import { textForRange } from "./piece-text";
 import { loadPieceExcerpts, loadSegmentsAround, type PieceExcerpt } from "./piece-queries";
 import { savePieceBlocks } from "./piece-writes";
-import { DIRECTION_MAX } from "./piece-draft-prompt";
+import { DIRECTION_MAX } from "./piece-standards";
 import { describeFormat } from "./piece-formats";
 import { listLiveFormats, describeFormatVersions } from "./piece-format-queries";
-import { draftPiece } from "./piece-draft-run";
+import { outlinePiece } from "./piece-outline-run";
+import { expandOutline } from "./piece-expand-run";
 
 type Client = CapabilityContext["supabase"];
 
@@ -303,7 +304,7 @@ export const listPieceFormats = defineCapability({
   id: "sourcework.piece.listFormats",
   label: "list formats",
   summary:
-    "List the published piece formats a piece can be drafted from, with each one's length and actuality range.",
+    "List the published piece formats that can guide an outline, with each one's length and actuality range.",
   input: z.object({}),
   requires: { tool: TOOL },
   confirmation: "none",
@@ -321,7 +322,7 @@ export const listPieceFormats = defineCapability({
   },
 });
 
-// Creating and drafting ----------------------------------------------------------------------
+// Creating and outlining ----------------------------------------------------------------------
 
 export const createPiece = defineCapability({
   id: "sourcework.piece.create",
@@ -350,35 +351,66 @@ export const createPiece = defineCapability({
   },
 });
 
-export const draftPieceFromFormat = defineCapability({
-  id: "sourcework.piece.draftFromFormat",
-  label: "draft from a format",
+export const outlinePieceFromFindings = defineCapability({
+  id: "sourcework.piece.outline",
+  label: "outline the piece",
   writes: true,
   summary:
-    "Draft a piece from a published format, from the project's accepted themes and excerpts. Replaces the piece's current blocks with the draft as a new version (the old content stays in History). Only do this when the person asks for a draft or to start over. Takes a minute or two.",
+    "Plan a piece as outline beats and clip placements, from the project's accepted findings, its synthesis and its excerpts, optionally following a published format. Replaces the piece's current blocks with the outline as a new version (the old content stays in History). Only do this when the person asks for an outline or to start over. Takes a minute or two.",
   input: z.object({
     pieceId: uuid,
-    formatId: uuid,
-    /** Leave out to use every accepted theme. */
-    themeIds: z.array(uuid).max(40).optional(),
+    /** Leave out to outline without a format. */
+    formatId: uuid.optional(),
     direction: z.string().trim().max(DIRECTION_MAX).optional(),
   }),
   requires: { tool: TOOL },
   confirmation: "none",
   async handler({ supabase }, input) {
     const { profile } = await assertToolAccess(TOOL);
-    const result = await draftPiece({
+    const piece = await loadPiece(supabase, input.pieceId);
+    const result = await outlinePiece({
       pieceId: input.pieceId,
-      formatId: input.formatId,
-      themeIds: input.themeIds ?? null,
+      formatId: input.formatId ?? null,
       direction: input.direction ?? "",
       userId: profile.id,
-      savedVia: "generation",
+      expectVersion: piece.version,
     });
     if (!result.ok) throw new Error(result.error);
     return {
-      drafted: true,
-      from: `${result.formatName} v${result.formatVersion}`,
+      outlined: { beats: result.beats, actualities: result.actualities },
+      warnings: result.warnings,
+      ...(await describePiece(supabase, await loadPiece(supabase, input.pieceId))),
+    };
+  },
+});
+
+export const writePieceFromOutline = defineCapability({
+  id: "sourcework.piece.writeFromOutline",
+  label: "write the outline out",
+  writes: true,
+  summary:
+    "Turn each outline beat in a piece into narration, in place. Clips and anything already written are left exactly as they are; a beat the model leaves unwritten stays an outline beat. Saved as a new version, so the outline stays in History. Only do this when the person asks to write the piece out. Takes a minute or two.",
+  input: z.object({
+    pieceId: uuid,
+    formatId: uuid.optional(),
+    direction: z.string().trim().max(DIRECTION_MAX).optional(),
+  }),
+  requires: { tool: TOOL },
+  confirmation: "none",
+  async handler({ supabase }, input) {
+    const { profile } = await assertToolAccess(TOOL);
+    const piece = await loadPiece(supabase, input.pieceId);
+    const result = await expandOutline({
+      pieceId: input.pieceId,
+      formatId: input.formatId ?? null,
+      direction: input.direction ?? "",
+      userId: profile.id,
+      expectVersion: piece.version,
+    });
+    if (!result.ok) throw new Error(result.error);
+    return {
+      written: result.expanded,
+      leftAsBeats: result.skipped,
       warnings: result.warnings,
       ...(await describePiece(supabase, await loadPiece(supabase, input.pieceId))),
     };

@@ -28,7 +28,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 
 export const runtime = "nodejs";
-// A turn may draft a whole piece from a format (sourcework.piece.draftFromFormat), a model
+// A turn may outline or write out a whole piece (sourcework.piece.outline, .writeFromOutline), a model
 // call of a minute or two inside the turn's own.
 export const maxDuration = 300;
 

@@ -29,7 +29,6 @@ import {
   getSourceResearch,
 } from "@/lib/sourcework/research-queries";
 import { sortDataPointsBySpan } from "@/lib/sourcework/research";
-import { listThemesForDataPoints } from "@/lib/sourcework/theme-queries";
 import {
   listExcerptsForDataPoints,
   listWaitingClipsForSource,
@@ -37,7 +36,7 @@ import {
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
-import { projectPath, sourcePath, themePath } from "@/lib/transcription/links";
+import { projectPath, sourcePath } from "@/lib/transcription/links";
 import { pluralize } from "@/lib/format";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -395,10 +394,7 @@ async function loadResearchView(
   const acceptedIds = points
     .filter((point) => point.status === "accepted")
     .map((point) => point.id);
-  const [themeLinks, excerptLinks] = await Promise.all([
-    listThemesForDataPoints(acceptedIds),
-    listExcerptsForDataPoints(acceptedIds),
-  ]);
+  const excerptLinks = await listExcerptsForDataPoints(acceptedIds);
   return {
     points: sortDataPointsBySpan(points),
     clips,
@@ -407,16 +403,6 @@ async function loadResearchView(
       questions.map((question) => [question.id, question.question]),
     ),
     extraction: state,
-    themes: Object.fromEntries(
-      [...themeLinks.entries()].map(([pointId, links]) => [
-        pointId,
-        links.map((link) => ({
-          href: themePath(projectId, link.themeId),
-          title: link.title,
-          stance: link.stance,
-        })),
-      ]),
-    ),
     excerpts: Object.fromEntries(
       [...excerptLinks.entries()].map(([pointId, links]) => [
         pointId,

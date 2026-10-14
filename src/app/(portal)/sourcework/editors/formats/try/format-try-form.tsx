@@ -6,10 +6,10 @@ import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
 import { Label, Select, Textarea } from "@/components/ui/input";
-import { DIRECTION_MAX } from "@/lib/sourcework/piece-draft-prompt";
+import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
 import type { FormatTrialSample } from "@/lib/sourcework/piece-format-queries";
 
-/** Picks a project (and an optional direction) and drafts a piece from it with the live format and the draft. */
+/** Picks a project (and an optional direction) and outlines a piece from it with the live format and the draft. */
 export function FormatTryForm({
   formatId,
   samples,
@@ -62,7 +62,9 @@ export function FormatTryForm({
       <div className="flex flex-col gap-4 rounded border border-line bg-white p-4 sm:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1">
-            <Label htmlFor="format-trial-project">Project (supplies the themes and excerpts)</Label>
+            <Label htmlFor="format-trial-project">
+              Project (supplies the findings and excerpts)
+            </Label>
             <Select
               id="format-trial-project"
               value={projectId}
@@ -103,14 +105,14 @@ export function FormatTryForm({
       </div>
       <p className="text-xs text-ink-400">
         {hasLive
-          ? "Uses two drafting runs on the project's accepted themes and excerpts."
+          ? "Uses two outline runs on the project's accepted findings and excerpts."
           : "This format isn't published yet, so only your draft runs."}
       </p>
       {error && <Alert variant="danger">{error}</Alert>}
       {running && (
         <BusyPanel
           title={
-            hasLive ? "Drafting with the live format and your draft" : "Drafting with your draft"
+            hasLive ? "Outlining with the live format and your draft" : "Outlining with your draft"
           }
           hint="This can take a minute or two"
           note="Nothing is added to the project, and leaving this page does not lose the result: it is kept under Recent trials."

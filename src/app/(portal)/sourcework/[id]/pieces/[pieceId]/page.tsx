@@ -4,15 +4,13 @@ import { TextLink } from "@/components/ui/primary-link";
 import { projectPath } from "@/lib/transcription/links";
 import { getPieceDetail, listPickerExcerpts } from "@/lib/sourcework/piece-queries";
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
-import { loadMaterialSummary } from "@/lib/sourcework/piece-draft-run";
-import { describeFormat } from "@/lib/sourcework/piece-formats";
 import { PieceEditorHost } from "./piece-editor";
 
 /**
  * One piece: a block editor over narration and the project's excerpts
  * (docs/sourcework-analysis-design.md §6.2). Built by hand by default; an empty piece
- * can be drafted from a format (§6.3), and the assistant can edit it (§6.4). Every save
- * is a version.
+ * can be outlined and a piece with beats written out (§22), and the assistant can edit it
+ * (§6.4). Every save is a version.
  */
 export default async function PiecePage({
   params,
@@ -24,13 +22,10 @@ export default async function PiecePage({
 
   const piece = await getPieceDetail(pieceId);
   if (!piece || piece.projectId !== id) notFound();
-  const blank = piece.blocks.length === 0;
-  // Formats are listed always (a piece can be written to one by hand); the draft material only
-  // when Draft with AI is offered, which is on an empty piece (§6.1).
-  const [pickerExcerpts, formats, material] = await Promise.all([
+  // Formats are listed always: a piece can be written to one by hand, and an outline can follow one.
+  const [pickerExcerpts, formats] = await Promise.all([
     listPickerExcerpts(piece.projectId),
     listLiveFormats(),
-    blank ? loadMaterialSummary(piece.projectId) : Promise.resolve(null),
   ]);
 
   return (
@@ -41,17 +36,11 @@ export default async function PiecePage({
         </TextLink>
       </div>
       <h1 className="sr-only">{piece.title}</h1>
-      {/* The host starts the editor again when the assistant or a draft saves, not for the person's own autosaves. */}
+      {/* The host starts the editor again when the assistant, an outline or a write-out saves, not for the person's own autosaves. */}
       <PieceEditorHost
         piece={piece}
         pickerExcerpts={pickerExcerpts}
         formats={formats.map((format) => ({ id: format.id, name: format.name, spec: format.spec }))}
-        draftFormats={(blank ? formats : []).map((format) => ({
-          id: format.id,
-          name: format.name,
-          description: describeFormat(format.spec),
-        }))}
-        draftMaterial={material}
       />
     </div>
   );

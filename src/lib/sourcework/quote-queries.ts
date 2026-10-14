@@ -3,178 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
 import { chunked } from "./research-queries";
-import { compareQuotes, quoteStance, type QuoteStance, type QuoteSuggestion } from "./quotes";
+import type { QuoteSuggestion } from "./quotes";
 
-// Reads behind the suggested-quotes screen and the theme page's Excerpts panel
-// (docs/sourcework-analysis-design.md §5.5). Everything goes through the caller's session,
-// so RLS is still the boundary, and a failed read throws rather than rendering as an
-// empty state.
+// Reads behind a source's clips to review (docs/sourcework-analysis-design.md §20). Everything goes
+// through the caller's session, so RLS is still the boundary, and a failed read throws rather than
+// rendering as an empty state.
 
 const SUGGESTION_COLUMNS =
-  "id, theme_id, source_id, representation_id, speaker_id, start_ms, end_ms, quote_text, reason, tier, status, excerpt_id";
-
-/**
- * Every suggestion for a theme, decided ones included (the aside counts them and a
- * reporter can see what they accepted), in the order they should be reviewed. A source
- * the project no longer has is left out, the rule the data points follow.
- */
-export async function listQuoteSuggestions(
-  themeId: string,
-  sourceTitles: ReadonlyMap<string, string>,
-): Promise<QuoteSuggestion[]> {
-  const supabase = await createClient();
-  const rows =
-    unwrapRead(
-      await supabase
-        .from("sw_quote_suggestions")
-        .select(SUGGESTION_COLUMNS)
-        .eq("theme_id", themeId)
-        .order("created_at"),
-      "this theme's suggested quotes",
-    ) ?? [];
-  const current = rows.filter((row) => sourceTitles.has(row.source_id));
-
-  const speakerIds = [
-    ...new Set(current.map((row) => row.speaker_id).filter((id): id is string => Boolean(id))),
-  ];
-  const speakers = new Map<string, string>();
-  for (const ids of chunked(speakerIds)) {
-    for (const speaker of unwrapRead(
-      await supabase
-        .from("tw_speakers")
-        .select("id, diarization_label, display_name")
-        .in("id", ids),
-      "these quotes' speakers",
-    ) ?? []) {
-      speakers.set(
-        speaker.id,
-        speakerDisplayLabel(speaker.diarization_label, speaker.display_name),
-      );
-    }
-  }
-
-  // Whether each clip backs the theme or pushes against it, from the data points it rests on.
-  const stanceByPoint = new Map<string, QuoteStance>();
-  for (const row of unwrapRead(
-    await supabase
-      .from("sw_data_point_themes")
-      .select("data_point_id, stance")
-      .eq("theme_id", themeId)
-      .is("removed_at", null),
-    "this theme's data points",
-  ) ?? []) {
-    stanceByPoint.set(row.data_point_id, row.stance);
-  }
-  const pointsBySuggestion = new Map<string, QuoteStance[]>();
-  for (const ids of chunked(current.map((row) => row.id))) {
-    for (const link of unwrapRead(
-      await supabase
-        .from("sw_quote_suggestion_points")
-        .select("suggestion_id, data_point_id")
-        .in("suggestion_id", ids),
-      "what these quotes rest on",
-    ) ?? []) {
-      const stance = stanceByPoint.get(link.data_point_id);
-      if (!stance) continue;
-      pointsBySuggestion.set(link.suggestion_id, [
-        ...(pointsBySuggestion.get(link.suggestion_id) ?? []),
-        stance,
-      ]);
-    }
-  }
-
-  return current
-    .map<QuoteSuggestion>((row) => ({
-      id: row.id,
-      stance: quoteStance(pointsBySuggestion.get(row.id) ?? []),
-      themeId: row.theme_id,
-      sourceId: row.source_id,
-      sourceTitle: sourceTitles.get(row.source_id) ?? "Source",
-      representationId: row.representation_id,
-      speakerName: row.speaker_id ? (speakers.get(row.speaker_id) ?? null) : null,
-      startMs: row.start_ms,
-      endMs: row.end_ms,
-      text: row.quote_text,
-      reason: row.reason,
-      tier: row.tier,
-      status: row.status,
-      excerptId: row.excerpt_id,
-    }))
-    .sort(compareQuotes);
-}
-
-/** How many suggestions wait for a decision on a theme, for the button's label on its page. */
-export async function countWaitingQuotes(themeId: string): Promise<number> {
-  const supabase = await createClient();
-  const result = await supabase
-    .from("sw_quote_suggestions")
-    .select("id", { count: "exact", head: true })
-    .eq("theme_id", themeId)
-    .eq("status", "suggested");
-  if (result.error)
-    throw new Error(`Couldn't read this theme's suggested quotes: ${result.error.message}`);
-  return result.count ?? 0;
-}
-
-export interface ThemeExcerpt {
-  id: string;
-  title: string;
-  text: string;
-  startMs: number;
-  endMs: number;
-  sourceId: string;
-  sourceTitle: string;
-}
-
-/**
- * A theme's representative quotes: the temporal excerpts that exemplify its data points
- * (`sw_data_point_excerpts`). There is no theme-to-excerpt table — the link runs through
- * the evidence, so a data point taken out of the theme takes its quote with it.
- */
-export async function listThemeExcerpts(
-  dataPointIds: readonly string[],
-  sourceTitles: ReadonlyMap<string, string>,
-): Promise<ThemeExcerpt[]> {
-  if (dataPointIds.length === 0) return [];
-  const supabase = await createClient();
-
-  const excerptIds = new Set<string>();
-  for (const ids of chunked(dataPointIds)) {
-    for (const row of unwrapRead(
-      await supabase.from("sw_data_point_excerpts").select("excerpt_id").in("data_point_id", ids),
-      "this theme's excerpts",
-    ) ?? []) {
-      excerptIds.add(row.excerpt_id);
-    }
-  }
-
-  const excerpts: ThemeExcerpt[] = [];
-  for (const ids of chunked([...excerptIds])) {
-    for (const row of unwrapRead(
-      await supabase
-        .from("sw_source_excerpts")
-        .select("id, title, excerpt_text, start_ms, end_ms, source_id")
-        .in("id", ids)
-        .eq("locator_kind", "temporal"),
-      "this theme's excerpts",
-    ) ?? []) {
-      if (row.start_ms === null || row.end_ms === null || !sourceTitles.has(row.source_id))
-        continue;
-      excerpts.push({
-        id: row.id,
-        title: row.title,
-        text: row.excerpt_text,
-        startMs: row.start_ms,
-        endMs: row.end_ms,
-        sourceId: row.source_id,
-        sourceTitle: sourceTitles.get(row.source_id) ?? "Source",
-      });
-    }
-  }
-  return excerpts.sort(
-    (a, b) => a.sourceTitle.localeCompare(b.sourceTitle) || a.startMs - b.startMs,
-  );
-}
+  "id, source_id, representation_id, speaker_id, start_ms, end_ms, quote_text, reason, status, excerpt_id";
 
 /** For each given data point, the excerpts that exemplify it (what a card's "Excerpt:" line names). */
 export async function listExcerptsForDataPoints(
@@ -218,8 +54,7 @@ export async function listExcerptsForDataPoints(
 }
 
 /**
- * The clips Analyze proposed for a source that are still waiting for a decision (the ones with
- * no theme), in the order they occur. The source workspace's Data points layer lists them beside
+ * The clips Analyze proposed for a source that are still waiting for a decision in the order they occur. The source workspace's Data points layer lists them beside
  * the findings; accepting one writes an ordinary excerpt, rejecting one hides it.
  */
 export async function listWaitingClipsForSource(sourceId: string): Promise<QuoteSuggestion[]> {
@@ -229,7 +64,6 @@ export async function listWaitingClipsForSource(sourceId: string): Promise<Quote
       .from("sw_quote_suggestions")
       .select(SUGGESTION_COLUMNS)
       .eq("source_id", sourceId)
-      .is("theme_id", null)
       .eq("status", "suggested")
       .order("start_ms")
       .then((result) => unwrapRead(result, "this source's suggested clips") ?? []),
@@ -263,8 +97,6 @@ export async function listWaitingClipsForSource(sourceId: string): Promise<Quote
 
   return rows.map<QuoteSuggestion>((row) => ({
     id: row.id,
-    stance: quoteStance([]),
-    themeId: row.theme_id,
     sourceId: row.source_id,
     sourceTitle: sourceRows?.title ?? "Source",
     representationId: row.representation_id,
@@ -273,7 +105,6 @@ export async function listWaitingClipsForSource(sourceId: string): Promise<Quote
     endMs: row.end_ms,
     text: row.quote_text,
     reason: row.reason,
-    tier: row.tier,
     status: row.status,
     excerptId: row.excerpt_id,
   }));

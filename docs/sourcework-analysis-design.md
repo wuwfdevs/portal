@@ -1093,3 +1093,40 @@ trial screen for two of them. They cost money and contradicted the Analyze → S
 - **Copy**: source cards and the Setup status say "analyzed" and "findings".
 - **Status**: no schema change. The Resources content migration `20261025120000` is applied to both projects (2026-10-14). This
   removes the old pipeline as a fallback while slices 1–3 have never run against a live model.
+
+## 24. Themes and Draft with AI are retired (slice 5, 2026-10-26)
+
+Slice 4 removed the runners that produced themes but left the model they wrote into: themes, their links and merge
+suggestions, and a Themes tab and theme pages to decide on what was left. Draft with AI still built its material from
+accepted themes. That contradicted the agreed direction (§5.2): synthesis per research question replaces themes, and a
+piece is the story, planned as beats and then written. With the data being test data, the model came out entirely.
+
+- **The pipeline** is Analyze (findings, a few clips) → Synthesize (an answer per question) → Outline (beats and clip
+  placements on a piece) → Write from outline (narration at each beat). Every step is a version a person can undo, and
+  the model returns numbers rather than text, ids or times.
+- **Draft with AI is removed rather than rebuilt on findings.** A one-shot draft skipped the outline, which is where the
+  story is decided, and gave a second route to the same result. Outline then Write from outline is the route.
+- **Two things used Draft and were rewired.** The assistant's `sourcework.piece.draftFromFormat` became
+  `sourcework.piece.outline` and `sourcework.piece.writeFromOutline`. The piece-format trial ("Try this draft" on the
+  formats screen) now outlines a piece for the live version and the editor's draft in parallel, through
+  `generateOutline`, which `outlinePiece` shares; a trial side is a list of beats and actualities with the clip time, since
+  an outline measures nothing else. Stored trials were deleted: they held drafted prose.
+- **Schema**: dropped `sw_themes`, `sw_data_point_themes`, `sw_theme_merge_suggestions`, `sw_prompt_trials`; the views
+  `sw_theme_breadth`, `sw_theme_decision_counts`, `sw_theme_questions`, `sw_unthemed_data_points`; the functions
+  `sw_add_proposed_themes`, `sw_merge_themes`, `sw_nearest_themes`, `sw_theme_accept_rates`, `sw_quote_accept_rates`;
+  `theme_id` and `tier` on `sw_quote_suggestions`; `theme_id` on `sw_analysis_runs`; `quality_tier` on
+  `sw_source_excerpts`; `embedding`, `embedding_stale` and `theme_checked_at` on `sw_data_points` (they only matched a point
+  to a theme). `sw_project_overview.review_count` is now suggested data points alone. Run kinds are `analyze`, `synthesis`,
+  `outline`, `expand`.
+- **Data**: every data point not written by an Analyze run, every run of a retired kind, the prompt rows of the five
+  retired slots and stored format trials were deleted. Kept: excerpts (including every accepted clip), pieces and versions,
+  research questions, context notes, Analyze findings and syntheses.
+- **Not changed, on purpose**: the "extraction" vocabulary in `extraction-units.ts`, `extract-stream.ts`,
+  `ExtractionState`, `sourcesToExtract` and the extraction-controls component, which now name the Analyze batch. A rename
+  is mechanical and was left out of a change that already touches the schema. `relevance = 'story'` and `story_element` on
+  data points are also unused by Analyze and still allowed by the table.
+- **Status**: `20261026120000_sourcework_retire_themes.sql` (schema and data; transactional) and
+  `20261026130000_resources_sourcework_retire_themes.sql` (Resources content) are written and **not applied**. Neither
+  has been run: this environment's database tool holds `DROP`/`DELETE` statements for a confirmation that never arrives,
+  so the schema migration is meant for the SQL editor, preview first. It was checked statically against preview's
+  dependencies (constraints, indexes, views, triggers, foreign keys). Nothing here has run against a live OpenAI model.
