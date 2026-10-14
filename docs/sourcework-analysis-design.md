@@ -1065,6 +1065,6 @@ front of the reporter first, in the editor they already use.
 - **Not built**: the Pieces list's "Outlined / Drafted / Written by hand" label (the list does not read bodies),
   copy-outline-between-pieces, embedding a tape range in a player, a one-running-outline index (`expectVersion` already
   makes a double click harmless), and an `outline` Try this draft.
-- **Status**: no migration. The Resources content migration `20261024120000` is written and **not applied** to either
-  project. Nothing here has run against a live OpenAI model (this environment has no key). The beat model, both
+- **Status**: no migration. The Resources content migration `20261024120000` is applied to both projects
+  (2026-10-14). Nothing here has run against a live OpenAI model (this environment has no key). The beat model, both
   parsers, the in-place replacement and both inputs are unit-tested.

@@ -507,7 +507,7 @@ unknown type, so a missing branch makes the whole body unreadable; (2) **code ke
 (`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
 numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
 (4) `DRAFT_STANDARDS` is the one copy of the accuracy and writing standards the draft, outline and expansion share. No schema
-change; the Resources migration `20261024120000` is written but **not applied**. Slice 4 (retire the old runners) is not built.
+change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`). Slice 4 (retire the old runners) is not built.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
