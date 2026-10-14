@@ -531,10 +531,13 @@ rule in `lib/sourcework/project-stage.ts`) with one primary action; the Analyze 
 reporter's), Synthesis, Outline or a first draft (`AutopilotStop` in `lib/sourcework/autopilot.ts`; every stop
 past Analyze accepts suggestions unreviewed and the dialog says so). Delete project moved into the project's
 ⋮ menu (`[id]/project-actions-menu.tsx`) instead of a Danger zone under every tab. The Sourcework home leads
-with a "Needs you" strip (projects with a failed source or findings waiting) and its tabs read Source library
-and All excerpts. The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Not built
-from the review boards: a per-row pipeline progress bar on the projects list (the overview view carries no
-synthesis or piece state; add that before drawing it) and a source-row ⋮ menu. Resources migration
+with a "Pick up where you left off" strip (projects with a failed source or findings waiting first, then the
+most recently active) and its tabs read Source library and All excerpts. The next-step band shows findings
+decided of all findings as a `ProgressBar` on the Review step, and each source row has a ⋮ menu
+(`[id]/source-row-menu.tsx`: open, remove from this project). The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Not built
+from the review boards: a per-row pipeline progress bar on the projects list (`sw_project_overview` carries
+no analyzed, synthesis or piece state; extend the view, which is a migration to apply before the code ships,
+before drawing it), the tab counts, and the board's one-line source title row. Resources migration
 `20261028120000` is written and **not yet applied** to either project.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a

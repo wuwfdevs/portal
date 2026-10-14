@@ -95,7 +95,12 @@ export default async function TranscriptionListPage({
       ? listProjectsPage({ filter: "attention", userId: profile.id, page: 1 })
       : Promise.resolve(null),
   ]);
-  const attentionRows = attentionPage?.rows.slice(0, 3) ?? [];
+  // What needs a person first, then the most recently active projects to fill the strip to three.
+  const needsYou = attentionPage?.rows.slice(0, 3) ?? [];
+  const resumeRows = [
+    ...needsYou,
+    ...(projectPage?.rows.filter((row) => !needsYou.some((other) => other.id === row.id)) ?? []),
+  ].slice(0, 3);
 
   const info = pageInfo(pageNumber, projectPage?.total ?? 0);
   if (projectPage && isPastLastPage(info)) {
@@ -184,26 +189,35 @@ export default async function TranscriptionListPage({
         </>
       ) : (
         <>
-          {attentionRows.length > 0 && (
-            <section aria-labelledby="needs-you" className="mb-8">
+          {resumeRows.length > 0 && (
+            <section aria-labelledby="resume" className="mb-8">
               <div className="mb-3 flex items-baseline justify-between gap-3">
                 <h2
-                  id="needs-you"
+                  id="resume"
                   className="text-[11px] font-bold uppercase tracking-wider text-ink-400"
                 >
-                  Needs you
+                  Pick up where you left off
                 </h2>
-                <TextLink href={pageHref("/sourcework", { filter: "attention" }, 1)}>
-                  See all {filterCounts?.attention ?? attentionRows.length}
-                </TextLink>
+                {(filterCounts?.attention ?? 0) > 0 && (
+                  <TextLink href={pageHref("/sourcework", { filter: "attention" }, 1)}>
+                    {pluralize(filterCounts?.attention ?? 0, "project needs", "projects need")} you
+                  </TextLink>
+                )}
               </div>
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {attentionRows.map((row) => {
+                {resumeRows.map((row) => {
                   const failed = row.failedCount > 0;
+                  const waiting = row.reviewCount > 0;
                   return (
                     <li key={row.id}>
                       <Link
-                        href={failed ? projectPath(row.id) : projectPath(row.id, "review")}
+                        href={
+                          failed
+                            ? projectPath(row.id)
+                            : waiting
+                              ? projectPath(row.id, "review")
+                              : projectPath(row.id)
+                        }
                         className={
                           failed
                             ? "flex h-full flex-col gap-1.5 rounded border border-danger/40 bg-danger/[0.04] p-4 hover:border-danger"
@@ -219,7 +233,9 @@ export default async function TranscriptionListPage({
                         >
                           {failed
                             ? `${pluralize(row.failedCount, "source")} failed to process`
-                            : `Review · ${row.reviewCount} waiting`}
+                            : waiting
+                              ? `Review · ${row.reviewCount} waiting`
+                              : "Recent"}
                         </span>
                         <span className="font-semibold text-ink-900">{row.title}</span>
                         <span className="text-xs text-ink-500">

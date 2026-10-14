@@ -209,6 +209,15 @@ export default async function TranscriptionProjectPage({
   }));
   const readyCount = project.sources.filter((entry) => entry.status === "ready").length;
   const analyzedCount = listRows.filter((row) => row.analysis?.kind === "done").length;
+  // Findings (not clips) decided so far, from the same counts the source cards show.
+  let findingsTotal = 0;
+  let findingsToReview = 0;
+  for (const row of listRows) {
+    if (row.analysis?.kind === "done") {
+      findingsTotal += row.analysis.total;
+      findingsToReview += row.analysis.toReview;
+    }
+  }
   const stage = projectStage({
     sourceCount: project.sources.length,
     readyCount,
@@ -324,6 +333,11 @@ export default async function TranscriptionProjectPage({
           <ProjectOverview
             projectId={project.id}
             stage={stage}
+            reviewProgress={
+              findingsTotal > 0
+                ? { done: findingsTotal - findingsToReview, total: findingsTotal }
+                : null
+            }
             handover={
               offersHandover(stage.next) ? (
                 <HandoverButton
@@ -370,7 +384,7 @@ export default async function TranscriptionProjectPage({
             {/* Not when it is the band's primary action: one Analyze button on screen at a time. */}
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
           </ListToolbar>
-          <SourceTable rows={tableRows} emptyMessage={emptyMessage} />
+          <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
           {!hasQuestions && (
             <DismissibleHint id="project-analyze-no-question" className="mt-4 max-w-2xl text-xs">
               Analyze works without a research question. Add one in{" "}

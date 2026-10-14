@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SourceRowMenu } from "./source-row-menu";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import type { SwSourceKind } from "@/lib/database.types";
 import type { ExtractionLine } from "@/lib/sourcework/run-state";
@@ -32,9 +33,11 @@ export interface SourceTableRow {
  * holds twenty sources as readably as three.
  */
 export function SourceTable({
+  projectId,
   rows,
   emptyMessage,
 }: {
+  projectId: string;
   rows: SourceTableRow[];
   emptyMessage: string;
 }) {
@@ -70,7 +73,17 @@ export function SourceTable({
                 {row.length || "—"}
               </Cell>
               <Cell stack="aside">
-                <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />
+                <div className="flex items-center justify-end gap-1">
+                  <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />
+                  <span className="relative z-10">
+                    <SourceRowMenu
+                      projectId={projectId}
+                      sourceId={row.id}
+                      sourceTitle={row.title}
+                      href={row.href}
+                    />
+                  </span>
+                </div>
               </Cell>
               <Cell label="Analysis" className="text-ink-700">
                 {row.analysis ? (

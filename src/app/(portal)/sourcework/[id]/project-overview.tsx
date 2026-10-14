@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PrimaryLink } from "@/components/ui/primary-link";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { Steps } from "@/components/ui/steps";
 import {
   PROJECT_STEPS,
@@ -22,10 +23,13 @@ import { AnalyzeButton } from "./extraction-controls";
 export function ProjectOverview({
   projectId,
   stage,
+  reviewProgress,
   handover,
 }: {
   projectId: string;
   stage: ProjectStage;
+  /** Findings decided of all findings, shown on the Review step; null when there are none. */
+  reviewProgress: { done: number; total: number } | null;
   /** The client link that opens the hand-over dialog; omitted when nothing is left to hand over. */
   handover: ReactNode;
 }) {
@@ -39,7 +43,12 @@ export function ProjectOverview({
           href: projectPath(projectId, step.view ?? undefined),
         }))}
       />
-      <NextStepBand projectId={projectId} next={stage.next} handover={handover} />
+      <NextStepBand
+        projectId={projectId}
+        next={stage.next}
+        reviewProgress={reviewProgress}
+        handover={handover}
+      />
     </section>
   );
 }
@@ -47,10 +56,12 @@ export function ProjectOverview({
 function NextStepBand({
   projectId,
   next,
+  reviewProgress,
   handover,
 }: {
   projectId: string;
   next: NextStep;
+  reviewProgress: { done: number; total: number } | null;
   handover: ReactNode;
 }) {
   return (
@@ -62,6 +73,20 @@ function NextStepBand({
         <p className="text-base font-semibold leading-snug text-ink-900">
           {nextStepHeadline(next)}
         </p>
+        {next.kind === "review" && reviewProgress && (
+          <div className="flex max-w-md items-center gap-3">
+            <ProgressBar
+              className="flex-1"
+              label="Findings decided"
+              done={reviewProgress.done}
+              total={reviewProgress.total}
+              valueText={`${reviewProgress.done} of ${reviewProgress.total} findings decided`}
+            />
+            <span className="whitespace-nowrap text-xs text-ink-500">
+              {reviewProgress.done} of {reviewProgress.total} findings decided
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-start gap-2.5 sm:items-end">
         <NextStepAction projectId={projectId} next={next} />
