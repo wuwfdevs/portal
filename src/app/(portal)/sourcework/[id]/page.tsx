@@ -26,6 +26,7 @@ import { ProjectActionsMenu } from "./project-actions-menu";
 import { ProjectOverview, offersHandover } from "./project-overview";
 import { SourceTable } from "./source-table";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
+import { SubNav } from "@/components/ui/sub-nav";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { withQuery } from "@/lib/paths";
 import { projectStage } from "@/lib/sourcework/project-stage";
@@ -159,49 +160,69 @@ export default async function TranscriptionProjectPage({
       )
     : null;
 
+  // One Notebook tab holds the project's material: its sources, what is waiting to be decided on,
+  // and the excerpts made from them. Each keeps its own URL (`?view=`), so links and search hits
+  // still land where they did; the second row says which of the three you are on.
+  const notebookView = sourcesView || reviewView || excerptsView;
   const tabNav = (
-    <TabNav
-      tabs={[
-        {
-          href: projectPath(project.id),
-          label: "Sources",
-          active: sourcesView,
-        },
-        {
-          href: projectPath(project.id, "review"),
-          label: "Review",
-          active: reviewView,
-          badge: waitingReview,
-        },
-        ...(showSynthesisTab
-          ? [
-              {
-                href: projectPath(project.id, "synthesis"),
-                label: "Synthesis",
-                active: synthesisView,
-                badge: synthesis.changedSince,
-              },
-            ]
-          : []),
-        {
-          href: projectPath(project.id, "pieces"),
-          label: "Pieces",
-          active: piecesView,
-        },
-        {
-          href: projectPath(project.id, "excerpts"),
-          label: "Project excerpts",
-          active: excerptsView,
-          end: true,
-        },
-        {
-          href: projectPath(project.id, "setup"),
-          label: "Setup",
-          active: setupView,
-          end: true,
-        },
-      ]}
-    />
+    <>
+      <TabNav
+        tabs={[
+          {
+            href: projectPath(project.id),
+            label: "Notebook",
+            active: notebookView,
+            badge: waitingReview,
+          },
+          ...(showSynthesisTab
+            ? [
+                {
+                  href: projectPath(project.id, "synthesis"),
+                  label: "Synthesis",
+                  active: synthesisView,
+                  badge: synthesis.changedSince,
+                },
+              ]
+            : []),
+          {
+            href: projectPath(project.id, "pieces"),
+            label: "Pieces",
+            active: piecesView,
+          },
+          {
+            href: projectPath(project.id, "setup"),
+            label: "Setup",
+            active: setupView,
+            end: true,
+          },
+        ]}
+      />
+      {notebookView && (
+        <SubNav
+          label="Notebook sections"
+          className="mt-3"
+          items={[
+            {
+              href: projectPath(project.id),
+              label: "Sources",
+              active: sourcesView,
+              count: project.sources.length,
+            },
+            {
+              href: projectPath(project.id, "review"),
+              label: "Review",
+              active: reviewView,
+              count: waitingReview,
+            },
+            {
+              href: projectPath(project.id, "excerpts"),
+              label: "Excerpts",
+              active: excerptsView,
+            },
+          ]}
+        />
+      )}
+    </>
   );
 
   // The Sources tab, with its step strip and "next" band above the tabs. Every control that starts
