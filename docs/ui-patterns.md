@@ -348,7 +348,9 @@ Three primitives, used together. Pick by what is true about the wait:
 - **A flow with named stages** (contract setup; the program-log and library imports):
   `Steps`. Across screens each step has an `href`; within one screen `current` is derived
   from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
-  Give the list a `label` when "Steps" is too generic ("Import steps").
+  Give the list a `label` when "Steps" is too generic ("Import steps"). Below `sm` the strip is
+  one line: markers and connectors for every step, a label only on the current one (the others
+  stay in the accessible name).
 - **A long server step with no honest percentage** (a model reading a PDF, a single-request
   upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
   take a minute") and a note saying what has and hasn't happened. Mark the current step
@@ -456,10 +458,12 @@ in the row takes `data-row="full"` so it reads as a line of its own; a `Badge`, 
 text-style button beside stretching controls takes `data-row="fixed"`.
 
 `ListToolbar` is a control row already (its spacer is `data-row="skip"`, gone on a phone), so
-its trailing children need nothing; a child that is itself a `<form>` holding two controls
-(a format select and "+ New piece") is a second `CONTROL_ROW`. Page-header action groups
-(`+ Add source` and ⋮), form footers (Cancel and Save), confirm steps and dialog footers all
-use it. Don't add `max-sm:min-h-11`, `w-full sm:w-auto` or a `max-sm:` width to a child:
+its trailing children need nothing; a child that is itself a `<form>` holding two controls is a
+second `CONTROL_ROW`, and a hidden input inside one (`project_id`) is never counted as a control.
+Page-header action groups, form footers (Cancel and Save), confirm steps and dialog footers all
+use it. A row holding any stretching control spans its container, so beside a title it wraps
+underneath; a row of only fixed controls — the ⋮ alone — keeps its own width and stays on the
+title's line, which needs the title block to be `min-w-0 flex-1` (`PageHeader` is). Don't add `max-sm:min-h-11`, `w-full sm:w-auto` or a `max-sm:` width to a child:
 the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`max-w-`
 belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
 not control rows.

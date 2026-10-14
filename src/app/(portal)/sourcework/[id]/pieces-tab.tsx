@@ -2,21 +2,20 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Button } from "@/components/ui/button";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatClock, formatShortDate } from "@/lib/format";
 import { piecePath } from "@/lib/transcription/links";
 import type { PieceListRow } from "@/lib/sourcework/piece-queries";
-import { Select } from "@/components/ui/input";
-import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
 import { createPiece } from "./pieces/actions";
 
 /**
  * The project's pieces (docs/sourcework-analysis-design.md §6). A new piece
  * starts blank and opens straight into the editor — the button is a form
- * because creating a row is a write, not a navigation.
+ * because creating a row is a write, not a navigation. Its format is chosen
+ * in the editor (FormatGuide), where the guide it brings can be read; the
+ * list offers no format pick of its own.
  */
-export async function PiecesTab({
+export function PiecesTab({
   projectId,
   pieces,
   search,
@@ -27,7 +26,6 @@ export async function PiecesTab({
   search: string;
   totalCount: number;
 }) {
-  const formats = await listLiveFormats();
   return (
     <div>
       <ListToolbar
@@ -43,23 +41,8 @@ export async function PiecesTab({
             : undefined
         }
       >
-        <form action={createPiece} className={CONTROL_ROW}>
+        <form action={createPiece}>
           <input type="hidden" name="project_id" value={projectId} />
-          {formats.length > 0 && (
-            <Select
-              name="format_id"
-              aria-label="Start from a format"
-              defaultValue=""
-              className="sm:w-auto sm:max-w-44"
-            >
-              <option value="">No format</option>
-              {formats.map((format) => (
-                <option key={format.id} value={format.id}>
-                  {format.name}
-                </option>
-              ))}
-            </Select>
-          )}
           <Button type="submit">+ New piece</Button>
         </form>
       </ListToolbar>
@@ -111,8 +94,8 @@ export async function PiecesTab({
       )}
 
       <p className="mt-3.5 max-w-xl text-[13px] text-ink-500">
-        A new piece opens straight into the editor and starts blank. You build it from narration and
-        excerpts; outlining with AI is optional.
+        A new piece opens straight into the editor and starts blank. Choose its format there if you
+        want one; you build it from narration and excerpts, and outlining with AI is optional.
       </p>
     </div>
   );

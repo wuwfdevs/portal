@@ -65,8 +65,8 @@ function NextStepBand({
   handover: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded border border-line bg-panel-50 px-4 py-4 sm:px-5">
-      <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1.5">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 rounded border border-line bg-panel-50 px-4 py-3 sm:gap-y-3 sm:px-5 sm:py-4">
+      <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1 sm:gap-1.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
           {nextStepEyebrow(next)}
         </span>
@@ -88,7 +88,8 @@ function NextStepBand({
           </div>
         )}
       </div>
-      <div className="flex shrink-0 flex-col items-start gap-2.5 sm:items-end">
+      {/* On a phone the action and the hand-over link share a line; from `sm` they stack at the right. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 sm:flex-col sm:items-end sm:gap-2.5">
         <NextStepAction projectId={projectId} next={next} />
         {handover}
       </div>

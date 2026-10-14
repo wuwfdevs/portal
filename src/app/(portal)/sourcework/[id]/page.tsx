@@ -348,13 +348,15 @@ export default async function TranscriptionProjectPage({
       </div>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 max-w-3xl">
+        {/* flex-1 so the ⋮ shares the title's line on a phone instead of taking a row (control-row.tsx). */}
+        <div className="min-w-0 max-w-3xl flex-1">
           <PageHeader title={project.title} />
           <div className="mt-1.5">
             {project.description ? (
               <p className="mb-1.5 text-sm leading-relaxed text-ink-500">{project.description}</p>
             ) : (
-              <p className="mb-1.5 text-sm italic text-ink-400">
+              // On a phone the "Add background" link alone says it; the form's own hint explains why.
+              <p className="mb-1.5 hidden text-sm italic text-ink-400 sm:block">
                 No background yet. A note here tells someone finding a quote from this project in
                 two years what it was about.
               </p>
