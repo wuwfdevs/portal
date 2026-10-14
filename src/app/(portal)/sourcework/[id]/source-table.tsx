@@ -52,6 +52,9 @@ export function SourceTable({
             <Th>Length</Th>
             <Th>Status</Th>
             <Th>Analysis</Th>
+            <Th className="w-10 px-2">
+              <span className="sr-only">Actions</span>
+            </Th>
           </HeaderRow>
         </thead>
         <tbody>
@@ -72,18 +75,8 @@ export function SourceTable({
               <Cell label="Length" className="whitespace-nowrap text-ink-500">
                 {row.length || "—"}
               </Cell>
-              <Cell stack="aside">
-                <div className="flex items-center justify-end gap-1">
-                  <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />
-                  <span className="relative z-10">
-                    <SourceRowMenu
-                      projectId={projectId}
-                      sourceId={row.id}
-                      sourceTitle={row.title}
-                      href={row.href}
-                    />
-                  </span>
-                </div>
+              <Cell label="Status">
+                <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />
               </Cell>
               <Cell label="Analysis" className="text-ink-700">
                 {row.analysis ? (
@@ -96,6 +89,15 @@ export function SourceTable({
                 ) : (
                   <span className="text-ink-400">—</span>
                 )}
+              </Cell>
+              {/* Its own last column, so the menu sits at the row's right edge on a table and in the card's top corner on a phone. */}
+              <Cell stack="aside" className="relative z-10 px-2 text-right">
+                <SourceRowMenu
+                  projectId={projectId}
+                  sourceId={row.id}
+                  sourceTitle={row.title}
+                  href={row.href}
+                />
               </Cell>
             </Row>
           ))}

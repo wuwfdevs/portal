@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { Pagination } from "@/components/ui/pagination";
+import { isPastLastPage, pageHref, pageInfo, pageRange, parsePage } from "@/lib/pagination";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
@@ -71,11 +73,20 @@ export default async function TranscriptionProjectPage({
     show?: string;
     sort?: string;
     edit?: string;
+    page?: string;
   }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q, version, show: showParam, sort: sortParam, edit } = await searchParams;
+  const {
+    view,
+    q,
+    version,
+    show: showParam,
+    sort: sortParam,
+    edit,
+    page: pageParam,
+  } = await searchParams;
   const reviewView = view === "review";
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
@@ -230,7 +241,22 @@ export default async function TranscriptionProjectPage({
   const counts = countByShow(listRows);
   const visibleRows = filterSources(listRows, { query: sourceQuery, show, sort });
   const entryById = new Map(project.sources.map((entry) => [entry.sourceId, entry]));
-  const tableRows = visibleRows.flatMap((row) => {
+  const sourcePage = pageInfo(parsePage(pageParam), visibleRows.length);
+  if (sourcesView && isPastLastPage(sourcePage)) {
+    redirect(
+      pageHref(
+        projectPath(project.id),
+        {
+          q: sourceQuery || null,
+          show: show === "all" ? null : show,
+          sort: sort === "date" ? null : sort,
+        },
+        sourcePage.pageCount,
+      ),
+    );
+  }
+  const { from: pageFrom, to: pageTo } = pageRange(sourcePage.page, sourcePage.pageSize);
+  const tableRows = visibleRows.slice(pageFrom, pageTo + 1).flatMap((row) => {
     const entry = entryById.get(row.id);
     if (!entry) return [];
     const line = research?.get(entry.sourceId)?.state
@@ -385,6 +411,16 @@ export default async function TranscriptionProjectPage({
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
           </ListToolbar>
           <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
+          <Pagination
+            info={sourcePage}
+            path={projectPath(project.id)}
+            params={{
+              q: sourceQuery || null,
+              show: show === "all" ? null : show,
+              sort: sort === "date" ? null : sort,
+            }}
+            noun="sources"
+          />
           {!hasQuestions && (
             <DismissibleHint id="project-analyze-no-question" className="mt-4 max-w-2xl text-xs">
               Analyze works without a research question. Add one in{" "}
