@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { parseWords } from "@/lib/transcription/transcript";
+import type { ProjectStageInput } from "@/lib/sourcework/project-stage";
 import type { TranscribedWord } from "@/lib/transcription/asr-provider";
 import type { Database, SwSourceKind } from "@/lib/database.types";
 import { computeProjectStatus, type ProjectStatus } from "@/lib/transcription/status";
@@ -591,6 +592,8 @@ export interface ProjectOverviewRow {
   lastActivity: string;
   /** Data points waiting for a decision. */
   reviewCount: number;
+  /** Where the project stands in the Analyze, Review, Synthesis, Piece flow (lib/sourcework/project-stage.ts). */
+  stage: ProjectStageInput;
 }
 
 /**
@@ -632,6 +635,15 @@ export async function listProjectsPage(options: {
       excerptCount: row.excerpt_count,
       lastActivity: row.last_activity,
       reviewCount: row.review_count,
+      stage: {
+        sourceCount: row.source_count,
+        readyCount: row.ready_count,
+        analyzedCount: row.analyzed_count,
+        waitingReview: row.review_count + row.clip_review_count,
+        acceptedFindings: row.accepted_count,
+        hasSynthesis: row.has_synthesis,
+        pieceCount: row.piece_count,
+      },
     })),
   };
 }

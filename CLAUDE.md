@@ -534,11 +534,12 @@ past Analyze accepts suggestions unreviewed and the dialog says so). Delete proj
 with a "Pick up where you left off" strip (projects with a failed source or findings waiting first, then the
 most recently active) and its tabs read Source library and All excerpts. The next-step band shows findings
 decided of all findings as a `ProgressBar` on the Review step, and each source row has a ⋮ menu
-(`[id]/source-row-menu.tsx`: open, remove from this project). The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Not built
-from the review boards: a per-row pipeline progress bar on the projects list (`sw_project_overview` carries
-no analyzed, synthesis or piece state; extend the view, which is a migration to apply before the code ships,
-before drawing it), the tab counts, and the board's one-line source title row. Resources migration
-`20261028120000` is written and **not yet applied** to either project.
+(`[id]/source-row-menu.tsx`: open, remove from this project). The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Each row of the Projects list shows a `ProgressBar` of steps done of five (`projectProgress()` in
+`lib/sourcework/project-stage.ts`, the same rule as the project page's strip), fed by columns appended to
+`sw_project_overview` (`20261028130000`: `ready_count`, `analyzed_count`, `clip_review_count`,
+`accepted_count`, `has_synthesis`, `piece_count`; the view computes no stage itself). Not built from the
+review boards: the tab counts and the board's one-line source title row. Migrations `20261028120000`
+(Resources) and `20261028130000` (the view) are applied to both projects through `execute_sql`.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats

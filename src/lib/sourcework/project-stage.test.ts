@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PROJECT_STEPS,
+  projectProgress,
   nextStepHeadline,
   projectStage,
   type ProjectStageInput,
@@ -70,5 +71,36 @@ describe("nextStepHeadline", () => {
   it("agrees in number", () => {
     expect(nextStepHeadline({ kind: "review", waiting: 1 })).toMatch(/^1 finding or clip is/);
     expect(nextStepHeadline({ kind: "review", waiting: 14 })).toMatch(/^14 findings and clips are/);
+  });
+});
+
+describe("projectProgress", () => {
+  it("counts finished steps and names the one under way", () => {
+    expect(projectProgress(base)).toEqual({
+      done: 2,
+      inProgress: 1,
+      total: 5,
+      complete: false,
+      label: "Review",
+    });
+  });
+  it("says so for an empty project and one still processing", () => {
+    expect(
+      projectProgress({ ...base, sourceCount: 0, readyCount: 0, analyzedCount: 0 }),
+    ).toMatchObject({
+      done: 0,
+      inProgress: 0,
+      label: "No sources",
+    });
+    expect(projectProgress({ ...base, readyCount: 0, analyzedCount: 0 })).toMatchObject({
+      done: 0,
+      inProgress: 1,
+      label: "Processing",
+    });
+  });
+  it("is complete once a piece exists", () => {
+    expect(
+      projectProgress({ ...base, waitingReview: 0, hasSynthesis: true, pieceCount: 1 }),
+    ).toMatchObject({ done: 5, inProgress: 0, complete: true, label: "Piece started" });
   });
 });

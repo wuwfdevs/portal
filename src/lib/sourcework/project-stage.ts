@@ -108,3 +108,43 @@ export function nextStepEyebrow(next: NextStep): string {
       return "Next";
   }
 }
+
+export interface ProjectProgress {
+  /** Steps finished, of PROJECT_STEPS.length. */
+  done: number;
+  /** One step is under way when the project is not finished. */
+  inProgress: number;
+  total: number;
+  complete: boolean;
+  /** Where it is, in a word or two, for under the bar. */
+  label: string;
+}
+
+/** A project's progress for its row in the Projects list: the same rule as the project page's step strip. */
+export function projectProgress(input: ProjectStageInput): ProjectProgress {
+  const stage = projectStage(input);
+  const total = PROJECT_STEPS.length;
+  const complete = stage.current >= total;
+  const done = Math.min(stage.current, total);
+  let label: string;
+  switch (stage.next.kind) {
+    case "add_sources":
+      label = "No sources";
+      break;
+    case "wait_for_sources":
+      label = "Processing";
+      break;
+    case "continue_piece":
+      label = "Piece started";
+      break;
+    default:
+      label = PROJECT_STEPS[stage.current]?.label ?? "";
+  }
+  return {
+    done,
+    inProgress: complete ? 0 : input.sourceCount === 0 ? 0 : 1,
+    total,
+    complete,
+    label,
+  };
+}

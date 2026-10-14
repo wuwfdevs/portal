@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { projectProgress } from "@/lib/sourcework/project-stage";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/format";
@@ -33,6 +35,7 @@ export function ProjectTable({
         <thead>
           <HeaderRow>
             <Th>Project</Th>
+            <Th>Progress</Th>
             <Th>Sources</Th>
             <Th>Excerpts</Th>
             <Th>Started by</Th>
@@ -55,6 +58,9 @@ export function ProjectTable({
                     {row.description}
                   </p>
                 )}
+              </Cell>
+              <Cell label="Progress">
+                <ProjectProgressCell stage={row.stage} />
               </Cell>
               <Cell label="Sources" className="text-ink-500">
                 {row.sourceCount}
@@ -81,5 +87,29 @@ export function ProjectTable({
         </tbody>
       </Table>
     </TableFrame>
+  );
+}
+
+/**
+ * How far along a project is, as the same five steps its own page shows (Sources, Analyze, Review,
+ * Synthesis, Piece): the bar is the steps finished, the lighter stretch the one under way, and the
+ * word under it says which. A project with no sources has no bar to fill, so it shows the word alone.
+ */
+function ProjectProgressCell({ stage }: { stage: ProjectOverviewRow["stage"] }) {
+  const progress = projectProgress(stage);
+  const text = `${progress.done} of ${progress.total} steps done`;
+  return (
+    <div className="flex w-36 flex-col gap-1 max-md:w-full">
+      <ProgressBar
+        size="md"
+        label="Project progress"
+        done={progress.done}
+        pending={progress.inProgress}
+        total={progress.total}
+        complete={progress.complete}
+        valueText={`${text}${progress.label ? `, ${progress.label}` : ""}`}
+      />
+      <span className="text-xs text-ink-500">{progress.label}</span>
+    </div>
   );
 }
