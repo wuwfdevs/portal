@@ -4573,4 +4573,4 @@ Phase A/B/C tables, so nothing in the database was dropped. Shared helpers moved
 (`readSourceUnits`), `openai-call.ts` (the structured-call helper, formerly `extraction-ai.ts`), `noteKey` into
 `analyze-prompt.ts`, `collectSeenUrls`/`collectQueries` into `analyze-ai.ts`, `QuoteCard` into `[id]/quote-card.tsx`.
 The prompt slots are now `analyze`, `synthesis`, `outline`. The Resources migration `20261025120000` (rewrites the stale
-guides, one release note) is written but **not applied**. Nothing here has run against a live OpenAI model.
+guides, one release note) is applied to both projects (2026-10-14, through `execute_sql`). Nothing here has run against a live OpenAI model.

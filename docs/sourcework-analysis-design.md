@@ -1091,5 +1091,5 @@ trial screen for two of them. They cost money and contradicted the Analyze → S
 - **Prompt slots** are `analyze`, `synthesis`, `outline`; `getLivePrompt` still throws for an unknown slot, and the editors
   page now defaults to `analyze`.
 - **Copy**: source cards and the Setup status say "analyzed" and "findings".
-- **Status**: no schema change. The Resources content migration `20261025120000` is written and **not applied**. This
+- **Status**: no schema change. The Resources content migration `20261025120000` is applied to both projects (2026-10-14). This
   removes the old pipeline as a fallback while slices 1–3 have never run against a live model.
