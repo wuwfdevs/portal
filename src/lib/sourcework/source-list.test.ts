@@ -4,6 +4,7 @@ import {
   filterSources,
   parseSourceShow,
   parseSourceSort,
+  sourceProgress,
   type SourceListRow,
 } from "./source-list";
 
@@ -62,5 +63,32 @@ describe("filterSources", () => {
   it("matches titles regardless of case", () => {
     const out = filterSources(rows, { query: " CARL ", show: "all", sort: "date" });
     expect(out.map((r) => r.id)).toEqual(["Carla"]);
+  });
+});
+
+describe("sourceProgress", () => {
+  it("walks processed, analyzed, reviewed", () => {
+    expect(sourceProgress("processing", { kind: "waiting", reason: "processing" })).toMatchObject({
+      done: 0,
+      pending: 1,
+    });
+    expect(sourceProgress("ready", { kind: "idle" })).toMatchObject({ done: 1, pending: 0 });
+    expect(sourceProgress("ready", { kind: "running" })).toMatchObject({ done: 1, pending: 1 });
+    expect(sourceProgress("ready", { kind: "done", total: 4, toReview: 2 })).toMatchObject({
+      done: 2,
+      pending: 1,
+      label: "To review",
+    });
+    expect(sourceProgress("ready", { kind: "done", total: 4, toReview: 0 })).toMatchObject({
+      done: 3,
+      complete: true,
+    });
+  });
+  it("shows a failed source as empty", () => {
+    expect(sourceProgress("failed", { kind: "source_failed" })).toMatchObject({
+      done: 0,
+      pending: 0,
+      label: "Failed",
+    });
   });
 });

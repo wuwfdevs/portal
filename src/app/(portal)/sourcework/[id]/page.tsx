@@ -1,4 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { Pagination } from "@/components/ui/pagination";
+import { isPastLastPage, pageHref, pageInfo, pageRange, parsePage } from "@/lib/pagination";
 import { requireToolAccess } from "@/lib/auth/authz";
 import { getProjectById } from "@/lib/transcription/projects";
 import { listLibraryClips } from "@/lib/transcription/clips";
@@ -22,8 +24,10 @@ import { ReviewTab } from "./review-tab";
 import { HandoverButton } from "./handover";
 import { ProjectActionsMenu } from "./project-actions-menu";
 import { ProjectOverview, offersHandover } from "./project-overview";
+import { PointsTab } from "./points-tab";
 import { SourceTable } from "./source-table";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
+import { SubNav } from "@/components/ui/sub-nav";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { withQuery } from "@/lib/paths";
 import { projectStage } from "@/lib/sourcework/project-stage";
@@ -32,6 +36,7 @@ import {
   SOURCE_SORT_LABEL,
   countByShow,
   filterSources,
+  sourceProgress,
   parseSourceShow,
   parseSourceSort,
   type SourceListRow,
@@ -71,17 +76,30 @@ export default async function TranscriptionProjectPage({
     show?: string;
     sort?: string;
     edit?: string;
+    page?: string;
+    filter?: string;
   }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q, version, show: showParam, sort: sortParam, edit } = await searchParams;
+  const {
+    view,
+    q,
+    version,
+    show: showParam,
+    sort: sortParam,
+    edit,
+    page: pageParam,
+    filter: filterParam,
+  } = await searchParams;
   const reviewView = view === "review";
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
+  const pointsView = view === "points";
   const piecesView = view === "pieces";
   const setupView = view === "setup";
-  const sourcesView = !reviewView && !synthesisView && !excerptsView && !piecesView && !setupView;
+  const sourcesView =
+    !reviewView && !pointsView && !synthesisView && !excerptsView && !piecesView && !setupView;
   const pieceSearch = (q ?? "").trim();
 
   const project = await getProjectById(id);
@@ -148,49 +166,73 @@ export default async function TranscriptionProjectPage({
       )
     : null;
 
+  // Review is a step you act on, so it keeps a top-level tab (and the badge) matching the step strip.
+  // Notebook holds the material to browse: sources, decided data points and excerpts. Each keeps its
+  // own URL (`?view=`), so links and search hits still land where they did.
+  const notebookView = sourcesView || pointsView || excerptsView;
   const tabNav = (
-    <TabNav
-      tabs={[
-        {
-          href: projectPath(project.id),
-          label: "Sources",
-          active: sourcesView,
-        },
-        {
-          href: projectPath(project.id, "review"),
-          label: "Review",
-          active: reviewView,
-          badge: waitingReview,
-        },
-        ...(showSynthesisTab
-          ? [
-              {
-                href: projectPath(project.id, "synthesis"),
-                label: "Synthesis",
-                active: synthesisView,
-                badge: synthesis.changedSince,
-              },
-            ]
-          : []),
-        {
-          href: projectPath(project.id, "pieces"),
-          label: "Pieces",
-          active: piecesView,
-        },
-        {
-          href: projectPath(project.id, "excerpts"),
-          label: "Project excerpts",
-          active: excerptsView,
-          end: true,
-        },
-        {
-          href: projectPath(project.id, "setup"),
-          label: "Setup",
-          active: setupView,
-          end: true,
-        },
-      ]}
-    />
+    <>
+      <TabNav
+        tabs={[
+          {
+            href: projectPath(project.id),
+            label: "Notebook",
+            active: notebookView,
+          },
+          {
+            href: projectPath(project.id, "review"),
+            label: "Review",
+            active: reviewView,
+            badge: waitingReview,
+          },
+          ...(showSynthesisTab
+            ? [
+                {
+                  href: projectPath(project.id, "synthesis"),
+                  label: "Synthesis",
+                  active: synthesisView,
+                  badge: synthesis.changedSince,
+                },
+              ]
+            : []),
+          {
+            href: projectPath(project.id, "pieces"),
+            label: "Pieces",
+            active: piecesView,
+          },
+          {
+            href: projectPath(project.id, "setup"),
+            label: "Setup",
+            active: setupView,
+            end: true,
+          },
+        ]}
+      />
+      {notebookView && (
+        <SubNav
+          label="Notebook sections"
+          className="mt-3"
+          items={[
+            {
+              href: projectPath(project.id),
+              label: "Sources",
+              active: sourcesView,
+              count: project.sources.length,
+            },
+            {
+              href: projectPath(project.id, "points"),
+              label: "Data points",
+              active: pointsView,
+            },
+            {
+              href: projectPath(project.id, "excerpts"),
+              label: "Excerpts",
+              active: excerptsView,
+            },
+          ]}
+        />
+      )}
+    </>
   );
 
   // The Sources tab, with its step strip and "next" band above the tabs. Every control that starts
@@ -230,7 +272,22 @@ export default async function TranscriptionProjectPage({
   const counts = countByShow(listRows);
   const visibleRows = filterSources(listRows, { query: sourceQuery, show, sort });
   const entryById = new Map(project.sources.map((entry) => [entry.sourceId, entry]));
-  const tableRows = visibleRows.flatMap((row) => {
+  const sourcePage = pageInfo(parsePage(pageParam), visibleRows.length);
+  if (sourcesView && isPastLastPage(sourcePage)) {
+    redirect(
+      pageHref(
+        projectPath(project.id),
+        {
+          q: sourceQuery || null,
+          show: show === "all" ? null : show,
+          sort: sort === "date" ? null : sort,
+        },
+        sourcePage.pageCount,
+      ),
+    );
+  }
+  const { from: pageFrom, to: pageTo } = pageRange(sourcePage.page, sourcePage.pageSize);
+  const tableRows = visibleRows.slice(pageFrom, pageTo + 1).flatMap((row) => {
     const entry = entryById.get(row.id);
     if (!entry) return [];
     const line = research?.get(entry.sourceId)?.state
@@ -256,6 +313,7 @@ export default async function TranscriptionProjectPage({
               ? formatDuration(durationMs)
               : "",
         analysis: line,
+        progress: sourceProgress(entry.status, research?.get(entry.sourceId)?.state ?? null),
         footnote:
           entry.status === "failed"
             ? (entry.source.error_message ??
@@ -385,6 +443,16 @@ export default async function TranscriptionProjectPage({
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
           </ListToolbar>
           <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
+          <Pagination
+            info={sourcePage}
+            path={projectPath(project.id)}
+            params={{
+              q: sourceQuery || null,
+              show: show === "all" ? null : show,
+              sort: sort === "date" ? null : sort,
+            }}
+            noun="sources"
+          />
           {!hasQuestions && (
             <DismissibleHint id="project-analyze-no-question" className="mt-4 max-w-2xl text-xs">
               Analyze works without a research question. Add one in{" "}
@@ -423,6 +491,16 @@ export default async function TranscriptionProjectPage({
           pieces={pieces}
           search={pieceSearch}
           totalCount={pieceCount}
+        />
+      ) : pointsView ? (
+        <PointsTab
+          projectId={project.id}
+          sources={project.sources.map((entry) => ({
+            id: entry.sourceId,
+            title: entry.source.title,
+          }))}
+          filterParam={filterParam}
+          pageParam={pageParam}
         />
       ) : excerptsView ? (
         <>
