@@ -14,13 +14,17 @@ import type { ComponentProps } from "react";
  * - a child marked `data-row="skip"` is hidden (a desktop-only spacer);
  * - three or more stretching controls pair up two to a row; with an odd count
  *   the last one — the primary action by the portal's own convention — takes
- *   the last row alone.
+ *   the last row alone;
+ * - a hidden input is not a control and is never counted;
+ * - a row with any stretching control spans its container (so beside a title
+ *   it wraps underneath); a row of only fixed controls — a lone ⋮ — keeps its
+ *   own width and stays on the title's line.
  *
  * `Button`, `PrimaryLink`, `SecondaryLink`, `Select` and `ListSearch` need no
  * marking, and `ActionMenu` marks its own ⋮ trigger. Use `CONTROL_ROW` on an
  * element that can't be this component (a `<form>` footer).
  */
-export const CONTROL_ROW = "control-row flex flex-wrap items-center gap-2 max-sm:w-full";
+export const CONTROL_ROW = "control-row flex flex-wrap items-center gap-2";
 
 export function ControlRow({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn(CONTROL_ROW, className)} {...props} />;

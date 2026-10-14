@@ -38,7 +38,8 @@ export function PageHeader({
 }) {
   return (
     <header className={cn("flex flex-wrap items-start justify-between gap-4", className)}>
-      <div className="min-w-0">
+      {/* flex-1 so a lone ⋮ in the actions sits on the title's line on a phone (control-row.tsx). */}
+      <div className="min-w-0 flex-1">
         {back && (
           <Link href={back.href} className="px-1 text-sm font-bold text-brand-link hover:underline">
             ← {back.label}

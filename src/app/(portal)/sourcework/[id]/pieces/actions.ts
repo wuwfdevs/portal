@@ -27,26 +27,19 @@ function revalidatePieces(projectId: string, pieceId?: string) {
   if (pieceId) revalidatePath(piecePath(projectId, pieceId));
 }
 
-/** A new, blank piece. It opens straight into the editor (no form first). */
+/**
+ * A new, blank piece. It opens straight into the editor (no form first), where its format is
+ * chosen (`setPieceFormat`) — the list used to offer a format pick too, and on a phone the
+ * two controls crowded the toolbar for a choice the editor already makes beside its guide.
+ */
 export async function createPiece(formData: FormData) {
   const { profile } = await assertToolAccess("transcription");
   const projectId = field(formData, "project_id");
   const supabase = await createClient();
 
-  // An optional starting format: its length becomes the piece's target, and the piece keeps
-  // the version so the editor can show its guide while the reporter writes by hand.
-  const formatId = field(formData, "format_id");
-  const chosen = formatId ? await liveFormatVersion(supabase, formatId) : null;
-
   const { data, error } = await supabase
     .from("sw_pieces")
-    .insert({
-      project_id: projectId,
-      created_by: profile.id,
-      ...(chosen
-        ? { format_version_id: chosen.versionId, target_seconds: chosen.targetSeconds }
-        : {}),
-    })
+    .insert({ project_id: projectId, created_by: profile.id })
     .select("id")
     .single();
   if (error || !data) {

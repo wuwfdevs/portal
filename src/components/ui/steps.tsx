@@ -18,6 +18,10 @@ export interface StepItem {
  * ring, and `busyNote` (a few words: "reading the file") follows its label.
  * The ring stops under prefers-reduced-motion; the note is what carries the
  * meaning either way.
+ *
+ * Below `sm` the strip is one line: every step keeps its marker and its
+ * connector, and only the current step shows its label (the others stay in the
+ * accessible name), so five steps fit a phone's width instead of wrapping.
  */
 export function Steps({
   steps,
@@ -38,7 +42,7 @@ export function Steps({
   return (
     <ol
       aria-label={label}
-      className={cn("flex max-w-4xl flex-wrap items-center gap-3 sm:gap-3.5", className)}
+      className={cn("flex max-w-4xl flex-wrap items-center gap-2 sm:gap-3.5", className)}
     >
       {steps.map((step, index) => {
         const done = index < current;
@@ -75,12 +79,12 @@ export function Steps({
             )}
           >
             {marker}
-            {step.label}
+            <span className={cn(!active && "max-sm:sr-only")}>{step.label}</span>
             {working && busyNote && <span className="font-normal text-ink-500">· {busyNote}</span>}
           </span>
         );
         return (
-          <li key={step.label} className="flex items-center gap-3 sm:gap-3.5">
+          <li key={step.label} className="flex items-center gap-2 sm:gap-3.5">
             {done && step.href ? (
               <Link href={step.href} className="hover:underline">
                 {body}
@@ -91,7 +95,7 @@ export function Steps({
               </span>
             )}
             {index < steps.length - 1 && (
-              <span aria-hidden="true" className="hidden h-px w-8 bg-line sm:block" />
+              <span aria-hidden="true" className="h-px w-3 bg-line sm:w-8" />
             )}
           </li>
         );

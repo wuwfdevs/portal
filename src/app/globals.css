@@ -71,18 +71,42 @@ body {
 }
 
 /*
+ * The assistant bubble (components/agent-chat-widget.tsx) floats over the
+ * bottom-right corner, where it would cover a page's last control. The page it
+ * floats over — the <main> before it in the portal layout — gets room for it,
+ * so the last row scrolls clear: the bubble's 1.5rem offset and 3.5rem height.
+ * Nothing is padded where the bubble isn't rendered (Editorial Inquiry's
+ * canvas) or is hidden on a phone (a piece's own bottom bar).
+ */
+main:has(~ [data-assistant-bubble="always"]) {
+  padding-bottom: 5rem;
+}
+@media (min-width: 1024px) {
+  main:has(~ [data-assistant-bubble]) {
+    padding-bottom: 5rem;
+  }
+}
+
+/**
  * Control rows on a phone (docs/ui-patterns.md, "Control rows on a phone";
  * components/ui/control-row.tsx). Below `sm` the children of a `.control-row`
  * stop sitting at their natural width: a basis of 40% lets exactly two share a
  * row and grow to fill it, a third wraps. A child marked `data-row` opts out —
  * `fixed` keeps its own size (an icon button), `full` takes a row to itself (a
- * search box), `skip` is a desktop-only spacer. With an odd count of three or
- * more stretching controls the last one takes the last row alone, so pairs
- * stay pairs and only the odd one out spans (`:nth-child(... of S)` counts
- * only the stretching siblings). Unlayered, after the utilities, so it
- * wins over a child's own `shrink-0` or `w-` at these widths only.
+ * search box), `skip` is a desktop-only spacer. A hidden input (a form's
+ * `project_id`) is not a control and is left out of every count. With an odd
+ * count of three or more stretching controls the last one takes the last row
+ * alone, so pairs stay pairs and only the odd one out spans (`:nth-child(... of
+ * S)` counts only the stretching siblings). A row holding any stretching
+ * control spans its container, so it wraps under a title it sits beside; a row
+ * of only fixed controls (a lone ⋮) keeps its own width and stays on the
+ * title's line. Unlayered, after the utilities, so it wins over a child's own
+ * `shrink-0` or `w-` at these widths only.
  */
 @media (max-width: 639.98px) {
+  .control-row:has(> :not([data-row="fixed"], [data-row="skip"], [type="hidden"], [hidden])) {
+    width: 100%;
+  }
   .control-row > * {
     flex: 1 1 40%;
     min-width: 0;
@@ -98,13 +122,13 @@ body {
   }
   /* A one-button <form>, a wrapper <div>, a <label> around a select, an <a>
      around a button: the control inside fills the stretched child. */
-  .control-row > :not([data-row]) > :is(button, a, select) {
+  .control-row > :not([data-row], [type="hidden"], [hidden]) > :is(button, a, select) {
     width: 100%;
   }
   .control-row
-    > :nth-last-child(1 of :not([data-row])):nth-child(odd of :not([data-row])):nth-child(
-      n + 3 of :not([data-row])
-    ) {
+    > :nth-last-child(1 of :not([data-row], [type="hidden"], [hidden])):nth-child(
+      odd of :not([data-row], [type="hidden"], [hidden])
+    ):nth-child(n + 3 of :not([data-row], [type="hidden"], [hidden])) {
     flex-basis: 100%;
   }
 }

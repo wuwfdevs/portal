@@ -288,6 +288,10 @@ export function AgentChatWidget() {
           type="button"
           onClick={() => rightPanel.toggle("assistant")}
           aria-label={open ? "Close assistant" : "Open assistant"}
+          // Read by globals.css: the page beside it gets bottom padding so its
+          // last row scrolls clear of the bubble. "desktop" says the bubble is
+          // hidden below lg (a piece's own bar is there instead).
+          data-assistant-bubble={onPiece ? "desktop" : "always"}
           className={cn(
             "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right] duration-200 hover:scale-105 hover:bg-[#2278B8]",
             // Only shifts aside on large screens, to stay beside the push
