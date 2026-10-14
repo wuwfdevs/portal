@@ -1,5 +1,5 @@
 // Piece formats (docs/sourcework-analysis-design.md §6.3, §8): the shape and wording
-// the model follows when it drafts a piece. Editors own the language: a free-text
+// the model follows when it outlines a piece. Editors own the language: a free-text
 // description and style, the length, the actuality range, and whether an anchor leads in. These
 // are guardrails; the model decides the blocks. Code owns
 // the block schema and places actualities by excerpt id, so a format can never make

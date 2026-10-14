@@ -8,7 +8,7 @@ import {
 import { LocalTime } from "../../local-time";
 
 /**
- * The two drafts side by side (§8.1), Live and Draft as columns on a desktop. On a phone the
+ * The two outlines side by side (§8.1), Live and Draft as columns on a desktop. On a phone the
  * columns stack, Live above Draft (the design's answer to open question 9).
  */
 export function FormatTrialView({
@@ -37,8 +37,8 @@ export function FormatTrialView({
         ))}
       </div>
       <p className="text-xs text-ink-400">
-        Lengths are worked out the way the piece editor does: narration at 160 words a minute,
-        actualities by their clips. Actualities show the transcript&rsquo;s words.
+        An outline plans a piece; the narration is written afterwards. Beats take no time, so only
+        the clips are timed. Actualities show the transcript&rsquo;s words.
       </p>
     </section>
   );
@@ -53,13 +53,15 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
         <span
           className={cn(
             "font-mono text-[13px]",
-            summary.withinLength && summary.withinActualities ? "text-ink-500" : "text-warning-fg",
+            summary.clipsFit && summary.withinActualities ? "text-ink-500" : "text-warning-fg",
           )}
         >
           {summary.line}
         </span>
-        {!summary.withinLength && (
-          <span className="text-xs text-warning-fg">outside ±{side.toleranceSeconds}s</span>
+        {!summary.clipsFit && (
+          <span className="text-xs text-warning-fg">
+            clips run past the {formatClock(side.targetSeconds)} target
+          </span>
         )}
         {!summary.withinActualities && (
           <span className="text-xs text-warning-fg">
@@ -77,17 +79,19 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
               )}
             >
               {block.type === "actuality"
-                ? "Actuality"
+                ? `Actuality · ${formatClock(block.seconds)}`
                 : block.anchor
-                  ? "Anchor intro (not timed)"
-                  : "Narration"}{" "}
-              · {formatClock(block.seconds)}
+                  ? "Anchor intro beat"
+                  : "Beat"}
+              {block.type === "beat" && block.verify && (
+                <span className="font-normal normal-case tracking-normal"> · to check</span>
+              )}
               {block.type === "actuality" && block.speaker && (
                 <span className="font-normal normal-case tracking-normal"> · {block.speaker}</span>
               )}
             </p>
             <p className="mt-0.5 font-serif text-[15px] leading-snug text-ink-900">
-              {block.type === "narration" ? block.text : `“${block.words || block.title}”`}
+              {block.type === "beat" ? block.text : `“${block.words || block.title}”`}
             </p>
           </li>
         ))}

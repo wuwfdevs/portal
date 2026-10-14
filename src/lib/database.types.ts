@@ -989,23 +989,12 @@ export interface Database {
       sw_analysis_runs: {
         Row: {
           id: string;
-          kind: 
-            | "context"
-            | "extraction"
-            | "theme_assign"
-            | "theme_review"
-            | "quote_suggest"
-            | "piece_draft"
-            | "analyze"
-            | "synthesis"
-            | "outline";
+          kind: "analyze" | "synthesis" | "outline" | "expand";
           project_id: string;
           source_id: string | null;
-          /** The theme a quote_suggest run is about (20261014120000); null for every other kind. */
-          theme_id: string | null;
-          /** The piece a piece_draft run wrote (20261015120000); null for a trial and every other kind. */
+          /** The piece an expand run wrote; null for a trial and every other kind. */
           piece_id: string | null;
-          /** The format version a piece_draft run followed. */
+          /** The format version an outline or expand run followed. */
           format_version_id: string | null;
           prompt_version_id: string | null;
           trial: boolean;
@@ -1019,16 +1008,7 @@ export interface Database {
           finished_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["sw_analysis_runs"]["Row"]> & {
-          kind: 
-            | "context"
-            | "extraction"
-            | "theme_assign"
-            | "theme_review"
-            | "quote_suggest"
-            | "piece_draft"
-            | "analyze"
-            | "synthesis"
-            | "outline";
+          kind: "analyze" | "synthesis" | "outline" | "expand";
           project_id: string;
           model: string;
           created_by: string;
@@ -1054,11 +1034,6 @@ export interface Database {
           status: "suggested" | "accepted" | "rejected";
           prompt_version_id: string | null;
           run_id: string | null;
-          /** pgvector value as PostgREST returns it: a text literal "[0.1,0.2,…]". Null until embedded (20261013120000). */
-          embedding: string | null;
-          embedding_stale: boolean;
-          /** When assignment last checked it against the accepted themes. */
-          theme_checked_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1094,90 +1069,10 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["sw_data_point_spans"]["Row"]>;
         Relationships: [];
       };
-      sw_themes: {
-        Row: {
-          id: string;
-          project_id: string;
-          title: string;
-          definition: string;
-          memo: string;
-          status: "suggested" | "accepted" | "rejected";
-          origin: "model" | "person";
-          /** Set when an accepted merge folded this theme into another. */
-          merged_into_id: string | null;
-          run_id: string | null;
-          prompt_version_id: string | null;
-          created_by: string;
-          accepted_by: string | null;
-          accepted_at: string | null;
-          /** pgvector value as PostgREST returns it: a text literal. Null until embedded. */
-          embedding: string | null;
-          embedding_stale: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]> & {
-          project_id: string;
-          title: string;
-          definition: string;
-          created_by: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["sw_themes"]["Row"]>;
-        Relationships: [];
-      };
-      sw_data_point_themes: {
-        Row: {
-          data_point_id: string;
-          theme_id: string;
-          project_id: string;
-          stance: "supports" | "complicates";
-          assigned_by: "model" | "person";
-          run_id: string | null;
-          removed_at: string | null;
-          removed_by: string | null;
-          created_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["sw_data_point_themes"]["Row"]> & {
-          data_point_id: string;
-          theme_id: string;
-          project_id: string;
-          stance: "supports" | "complicates";
-          assigned_by: "model" | "person";
-        };
-        Update: Partial<Database["public"]["Tables"]["sw_data_point_themes"]["Row"]>;
-        Relationships: [];
-      };
-      sw_theme_merge_suggestions: {
-        Row: {
-          id: string;
-          project_id: string;
-          from_theme_id: string;
-          into_theme_id: string;
-          reason: string;
-          status: "suggested" | "accepted" | "rejected";
-          run_id: string | null;
-          prompt_version_id: string | null;
-          created_by: string;
-          created_at: string;
-          decided_by: string | null;
-          decided_at: string | null;
-        };
-        Insert: Partial<Database["public"]["Tables"]["sw_theme_merge_suggestions"]["Row"]> & {
-          project_id: string;
-          from_theme_id: string;
-          into_theme_id: string;
-          reason: string;
-          created_by: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["sw_theme_merge_suggestions"]["Row"]>;
-        Relationships: [];
-      };
       sw_quote_suggestions: {
         Row: {
           id: string;
           project_id: string;
-          /** Null for a clip Analyze proposed for a source (20261022120000). */
-          theme_id: string | null;
           source_id: string;
           representation_id: string | null;
           speaker_id: string | null;
@@ -1185,8 +1080,6 @@ export interface Database {
           end_ms: number;
           quote_text: string;
           reason: string;
-          /** Null for a clip Analyze proposed: it does not rate its own clips (20261022120000). */
-          tier: "strong" | "good" | "usable" | null;
           status: "suggested" | "accepted" | "rejected";
           excerpt_id: string | null;
           run_id: string | null;
@@ -1305,33 +1198,6 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["sw_prompt_drafts"]["Row"]>;
         Relationships: [];
       };
-      sw_prompt_trials: {
-        Row: {
-          id: string;
-          slot: string;
-          draft_body: string;
-          live_version_id: string | null;
-          project_id: string;
-          /** Null for a quote-guide trial, whose sample is a theme (20261014120000). */
-          source_id: string | null;
-          theme_id: string | null;
-          status: "running" | "succeeded" | "failed";
-          error: string | null;
-          results: unknown;
-          created_by: string;
-          created_at: string;
-          finished_at: string | null;
-          expires_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["sw_prompt_trials"]["Row"]> & {
-          slot: string;
-          draft_body: string;
-          project_id: string;
-          created_by: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["sw_prompt_trials"]["Row"]>;
-        Relationships: [];
-      };
       tw_speakers: {
         Row: {
           id: string;
@@ -1395,8 +1261,6 @@ export interface Database {
           /** 'suggested' when it began as an accepted quote suggestion (20261014120000). Informational. */
           origin: "manual" | "suggested";
           suggestion_reason: string | null;
-          /** 3 strong, 2 good, 1 usable; null for an excerpt made by hand. */
-          quality_tier: number | null;
           /** Gated integrated loudness (BS.1770, LUFS) of the excerpt's range; null until measured (20261019120000). */
           loudness_lufs: number | null;
           /** True peak (dBTP), set with loudness_lufs. */
@@ -4335,33 +4199,6 @@ export interface Database {
         };
         Relationships: [];
       };
-      /** security_invoker (20261013120000). Per theme: distinct sources and speakers, supporting and complicating data points. */
-      sw_theme_breadth: {
-        Row: {
-          theme_id: string;
-          project_id: string;
-          source_count: number;
-          speaker_count: number;
-          supporting: number;
-          complicating: number;
-        };
-        Relationships: [];
-      };
-      /** security_invoker (20261013120000). The research questions a theme's data points answer. */
-      sw_theme_questions: {
-        Row: { theme_id: string; project_id: string; question_id: string; total: number };
-        Relationships: [];
-      };
-      /** security_invoker (20261013120000). Per project: themes proposed and merges suggested, waiting for a decision. */
-      sw_theme_decision_counts: {
-        Row: { project_id: string; suggested_themes: number; suggested_merges: number };
-        Relationships: [];
-      };
-      /** security_invoker (20261013120000). Accepted data points that sit in no live theme. */
-      sw_unthemed_data_points: {
-        Row: { id: string; project_id: string; source_id: string };
-        Relationships: [];
-      };
       sw_project_overview: {
         Row: {
           id: string;
@@ -4388,16 +4225,6 @@ export interface Database {
         Args: Record<string, never>;
         Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
       };
-      /** Security invoker (20261013120000). The nearest accepted themes to each data point, by embedding. */
-      sw_nearest_themes: {
-        Args: { p_project_id: string; p_data_point_ids: string[]; p_k: number };
-        Returns: { data_point_id: string; theme_id: string; similarity: number }[];
-      };
-      /** Security invoker (20261014120000). Accepted and rejected quote suggestions per quote-quality-guide version; a null version is the built-in text. */
-      sw_quote_accept_rates: {
-        Args: Record<string, never>;
-        Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
-      };
       /** Security invoker (20261014120000). Accepts a quote suggestion into an excerpt in one transaction; returns the excerpt id, or null when the suggestion is gone or already decided. */
       sw_accept_quote_suggestion: {
         Args: {
@@ -4408,26 +4235,6 @@ export interface Database {
           p_text: string;
         };
         Returns: string | null;
-      };
-      /** Security invoker (20261013120000). Accepted and rejected themes per prompt version; a null version is the built-in text. */
-      sw_theme_accept_rates: {
-        Args: Record<string, never>;
-        Returns: { prompt_version_id: string | null; accepted: number; rejected: number }[];
-      };
-      /** Security invoker (20261013120000). Writes proposed themes and their data points in one transaction; returns how many themes. */
-      sw_add_proposed_themes: {
-        Args: {
-          p_project_id: string;
-          p_run_id: string;
-          p_prompt_version_id: string | null;
-          p_themes: unknown;
-        };
-        Returns: number;
-      };
-      /** Security invoker (20261013120000). Accepts a merge suggestion: 'merged', or why nothing changed. */
-      sw_merge_themes: {
-        Args: { p_suggestion_id: string };
-        Returns: "merged" | "missing" | "decided" | "stale";
       };
       /** Security invoker (20261012120000). Saves the next version of a prompt slot and makes it live; returns the version number. */
       sw_publish_prompt: {

@@ -4,7 +4,7 @@ import { computePieceLength, excerptIdsIn, type PieceBlock } from "./pieces";
 import { loadPieceExcerpts } from "./piece-queries";
 
 // The one way a piece's content is saved (docs/sourcework-analysis-design.md §4.7), shared by
-// the editor's autosave, History's restore, Draft with AI and the assistant's capabilities.
+// the editor's autosave, History's restore, Outline with AI, Write from outline and the assistant's capabilities.
 // Length and the excerpt list are derived here from the blocks, never taken from a caller, and
 // every actuality must be an excerpt of one of the project's sources.
 

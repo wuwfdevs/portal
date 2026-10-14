@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isEmptyRichText, parseRichText } from "@/lib/rich-text";
-import { SCREENS } from "./screens";
+import { RETIRED_SCREENS, SCREENS } from "./screens";
 
 // Release migrations write Resources content through private.rc_release_guide()
 // and private.rc_release_note() (20260928200000_resources_release_helpers.sql),
@@ -73,7 +73,7 @@ function withoutEmptyMarks(value: unknown): unknown {
 }
 
 const calls = readCalls();
-const screens = new Map(SCREENS.map((screen) => [screen.key, screen]));
+const screens = new Map([...SCREENS, ...RETIRED_SCREENS].map((screen) => [screen.key, screen]));
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 describe("Resources release content in migrations", () => {

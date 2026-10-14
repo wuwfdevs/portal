@@ -1,5 +1,5 @@
 <!-- Status (2026-10-25): slices 1 (Analyze), 2 (project synthesis), 3 (outline as beats, Write from outline) and 4
-(retire the old runners, design doc §23) are built; the §7 evaluation harness is not. Slice 3's design is design doc §22.
+(retire the old runners, design doc §23) are built, and slice 5 (themes and Draft with AI removed, design doc §24) followed; the §7 evaluation harness is not. Slice 3's design is design doc §22.
 Section 5.2's "Questions tab" became a Synthesis tab (docs/sourcework-analysis-design.md §21). The sections below are the
 plan as agreed, kept so a later session has the reasoning; where the design doc's §20/§21 differ, the design doc describes
 what was built. -->

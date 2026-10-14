@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { guardRoute } from "@/lib/auth/route-guard";
 import { assertSourceworkEditor } from "@/lib/sourcework/access";
 import { uuidParam } from "@/lib/sourcework/route-input";
-import { DIRECTION_MAX } from "@/lib/sourcework/piece-draft-prompt";
+import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
 import { getFormatDraft } from "@/lib/sourcework/piece-format-queries";
 import { validateFormatSpec } from "@/lib/sourcework/piece-formats";
 import { runFormatTrial } from "@/lib/sourcework/piece-format-trial-run";

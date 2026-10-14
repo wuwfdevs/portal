@@ -348,8 +348,9 @@ export function FormatEditor({
         )}
         {nameError && <p className="mt-1 text-sm text-danger">{nameError}</p>}
         <p className="mt-0.5 text-sm text-ink-500">
-          The guardrails the model follows when it drafts a piece. It assembles the narration and
-          chooses the actualities itself; actualities are always your excerpts.
+          The guardrails the model follows when it outlines a piece and writes the outline out. It
+          decides the beats and chooses the actualities itself; actualities are always your
+          excerpts.
         </p>
       </div>
 
@@ -475,8 +476,8 @@ export function FormatEditor({
       </div>
       <p className="text-[13px] text-ink-500 lg:hidden">{liveLine}</p>
       <p className="text-xs text-ink-400">
-        Trying a format drafts a piece from a project&rsquo;s accepted themes and excerpts, with the
-        draft and the live version side by side. Nothing is saved to the project.
+        Trying a format outlines a piece from a project&rsquo;s accepted findings and excerpts, with
+        the draft and the live version side by side. Nothing is saved to the project.
       </p>
 
       {historyOpen && (

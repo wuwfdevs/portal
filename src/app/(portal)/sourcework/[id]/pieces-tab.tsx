@@ -113,7 +113,7 @@ export async function PiecesTab({
 
       <p className="mt-3.5 max-w-xl text-[13px] text-ink-500">
         A new piece opens straight into the editor and starts blank. You build it from narration and
-        excerpts; drafting with AI from a format is optional.
+        excerpts; outlining with AI is optional.
       </p>
     </div>
   );

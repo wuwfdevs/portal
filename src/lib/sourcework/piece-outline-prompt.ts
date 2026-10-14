@@ -19,7 +19,7 @@ import {
   type BeatTape,
   type PieceBlock,
 } from "./pieces";
-import { DRAFT_STANDARDS } from "./piece-draft-prompt";
+import { WRITING_STANDARDS } from "./piece-standards";
 import type { PassageRef } from "./synthesis";
 
 /** Excerpts offered to one outline run. Draft offers 80; an outline is where a project's clips are weighed against each other. */
@@ -37,7 +37,7 @@ An actuality is the speaker's own voice, placed only by its excerpt number; leav
 
 You can search the transcripts and read around a finding or a place you found. Use that when a finding looks thin, or to find tape worth the reporter's attention that is not an excerpt yet. Give such a place as tape_ref, using a ref a tool returned: you cannot name a time yourself. Most outlines need few lookups.
 
-${DRAFT_STANDARDS}
+${WRITING_STANDARDS}
 
 Return the blocks in order. For a beat: kind "beat", its text, finding_numbers, verify, anchor, tape_ref or null, and excerpt_number null. For an actuality: kind "actuality", empty text, no findings, verify false, anchor false, tape_ref null, and the excerpt's number. The newsroom's guidance follows.`;
 

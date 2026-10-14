@@ -40,7 +40,6 @@ import {
 } from "@/lib/sourcework/pieces";
 import { textForRange, type TextSegment } from "@/lib/sourcework/piece-text";
 import type { PieceDetail, PieceExcerpt } from "@/lib/sourcework/piece-queries";
-import type { MaterialSummary } from "@/lib/sourcework/piece-draft-run";
 import { ExportExcerptsButton } from "../../export-excerpts-button";
 import {
   deletePiece,
@@ -52,7 +51,6 @@ import {
   setPieceTarget,
   type PieceVersionRow,
 } from "../actions";
-import { DraftWithAi, type DraftFormatOption } from "./draft-with-ai";
 import { FormatGuide, type GuideFormat } from "./format-guide";
 import { ExcerptPicker } from "./excerpt-picker";
 import { ActualityRow, BeatRow, FooterButton, NarrationRow } from "./piece-blocks";
@@ -73,10 +71,6 @@ type PieceEditorProps = {
   pickerExcerpts: PieceExcerpt[];
   /** Every published format, for writing to one by hand. */
   formats: GuideFormat[];
-  /** The formats Draft with AI offers; empty unless the piece is blank. */
-  draftFormats: DraftFormatOption[];
-  /** The themes and excerpts Draft with AI would use; null unless the piece is blank. */
-  draftMaterial: MaterialSummary | null;
 };
 
 /**
@@ -105,8 +99,6 @@ function PieceEditor({
   piece,
   pickerExcerpts,
   formats,
-  draftFormats,
-  draftMaterial,
   onOwnVersion,
 }: PieceEditorProps & { onOwnVersion: (version: number) => void }) {
   const router = useRouter();
@@ -136,13 +128,12 @@ function PieceEditor({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [versions, setVersions] = useState<PieceVersionRow[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [drafting, setDrafting] = useState(false);
   // Outline (an empty piece) and Write from outline (a piece with beats), docs/sourcework-analysis-design.md §22.
   const [outlining, setOutlining] = useState(false);
   const [expanding, setExpanding] = useState(false);
   // "Edited by the assistant · Undo" until the next person edit (§6.4).
   const [assistantChanges, setAssistantChanges] = useState(piece.assistantChanges);
-  // "Drafted from Radio wrap v3 · Undo", until anything else is saved.
+  // "Written from the outline · Undo", until anything else is saved.
   const [justDrafted, setJustDrafted] = useState(piece.origin.justDrafted);
   const dragId = useRef<string | null>(null);
 
@@ -709,13 +700,15 @@ function PieceEditor({
         />
       </div>
 
-      {justDrafted && piece.origin.format && (
+      {justDrafted && (
         <p
           className="mt-2.5 rounded border border-line bg-panel-50 px-3 py-2 text-[13px] text-ink-700"
           role="status"
         >
-          Drafted from {piece.origin.format.name} v{piece.origin.format.version} ·{" "}
-          {formatClock(length.totalSeconds)}
+          Written from the outline
+          {piece.origin.format &&
+            ` with ${piece.origin.format.name} v${piece.origin.format.version}`}{" "}
+          · {formatClock(length.totalSeconds)}
           {targetSeconds !== null && ` of ${formatClock(targetSeconds)}`} ·{" "}
           <button
             type="button"
@@ -775,7 +768,7 @@ function PieceEditor({
                       {row.savedVia === "person"
                         ? row.savedBy
                         : row.savedVia === "generation"
-                          ? `Draft with AI, for ${row.savedBy}`
+                          ? `AI, for ${row.savedBy}`
                           : `the assistant, for ${row.savedBy}`}{" "}
                       ·{" "}
                       {new Date(row.createdAt).toLocaleString([], {
@@ -854,38 +847,17 @@ function PieceEditor({
           </Button>
         </p>
       )}
-      {isBlank && drafting && draftMaterial && (
-        <DraftWithAi
-          pieceId={piece.id}
-          getVersion={() => versionRef.current}
-          beforeGenerate={flushNow}
-          formats={draftFormats}
-          material={draftMaterial}
-          onCancel={() => setDrafting(false)}
-          onDrafted={() => {
-            // The draft is a new version on the server; the page reloads into it.
-            dirtyRef.current = false;
-            router.refresh();
-          }}
-        />
-      )}
-      {isBlank && !((drafting && !narrow) || outlining) ? (
+      {isBlank && !outlining ? (
         <div className="mt-5 rounded border border-dashed border-line bg-panel-50 px-6 py-9 text-center max-lg:px-4 max-lg:py-6">
           <p className="text-[15px] font-bold text-ink-700">Start your piece</p>
           <p className="mx-auto mt-1 max-w-lg text-sm text-ink-500">
-            {draftMaterial ? (
-              <>
-                <span className="max-lg:hidden">
-                  Write narration and add excerpts one block at a time. Or let AI draft a first
-                  version from your themes, then keep editing by hand.
-                </span>
-                <span className="lg:hidden">
-                  Add narration and excerpts one block at a time, or let AI draft a first version.
-                </span>
-              </>
-            ) : (
-              "Write narration and add excerpts one block at a time."
-            )}
+            <span className="max-lg:hidden">
+              Write narration and add excerpts one block at a time. Or let AI outline the piece from
+              your accepted findings, then keep editing by hand.
+            </span>
+            <span className="lg:hidden">
+              Add narration and excerpts one block at a time, or let AI outline the piece.
+            </span>
           </p>
           <div className="mt-4 flex justify-center gap-2.5 max-lg:flex-col">
             <Button type="button" onClick={() => addNarrationAt(0)}>
@@ -907,16 +879,6 @@ function PieceEditor({
             >
               Outline with AI
             </Button>
-            {draftMaterial && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setDrafting(true)}
-                className="bg-brand-surface"
-              >
-                Draft with AI
-              </Button>
-            )}
           </div>
           {emptyPicker &&
             panelFor(

@@ -1,14 +1,14 @@
 // "Try this draft" for a piece format (docs/sourcework-analysis-design.md §6.3, §8.1): what a
 // trial stores and how its two sides are compared. The live version and the editor's draft each
-// draft a piece from the same project's accepted material; nothing is written to the project.
-// Pure, so the result screen and the run share one shape.
+// outline a piece from the same project's accepted findings and excerpts; nothing is written to the
+// project. Pure, so the result screen and the run share one shape.
 
 import { formatClock } from "@/lib/format";
 import type { PieceBlock } from "./pieces";
 import type { FormatSpec } from "./piece-formats";
 
 export type TrialBlock =
-  | { type: "narration"; text: string; seconds: number; anchor?: boolean }
+  | { type: "beat"; text: string; verify: boolean; anchor?: boolean }
   | {
       type: "actuality";
       excerptId: string;
@@ -22,9 +22,9 @@ export interface FormatTrialSide {
   /** "Live v3" or "Draft". */
   label: string;
   blocks: TrialBlock[];
-  lengthSeconds: number;
+  /** The clips the outline placed, added up. Beats take no time, so this is all an outline measures. */
+  clipSeconds: number;
   targetSeconds: number;
-  toleranceSeconds: number;
   minActualities: number;
   maxActualities: number;
   warnings: string[];
@@ -37,68 +37,71 @@ export interface FormatTrialResults {
   draft: FormatTrialSide;
 }
 
-/** The trial's record of one generated draft, with each actuality's words as the screen shows them. */
+/** The trial's record of one generated outline, with each actuality's words as the screen shows them. */
 export function trialSide(args: {
   label: string;
   spec: FormatSpec;
   blocks: readonly PieceBlock[];
   perBlockSeconds: ReadonlyMap<string, number>;
-  lengthSeconds: number;
   excerpts: ReadonlyMap<string, { title: string; speaker: string | null; text: string }>;
   warnings: string[];
 }): FormatTrialSide {
+  let clipSeconds = 0;
+  const blocks = args.blocks.flatMap((block): TrialBlock[] => {
+    if (block.type === "beat") {
+      return [
+        {
+          type: "beat",
+          text: block.text,
+          verify: block.verify,
+          ...(block.role === "anchor" ? { anchor: true } : {}),
+        },
+      ];
+    }
+    // An outline holds beats and actualities only; written narration is not part of one.
+    if (block.type === "narration") return [];
+    const seconds = args.perBlockSeconds.get(block.id) ?? 0;
+    clipSeconds += seconds;
+    const excerpt = args.excerpts.get(block.excerpt_id);
+    return [
+      {
+        type: "actuality",
+        excerptId: block.excerpt_id,
+        title: excerpt?.title ?? "Excerpt",
+        speaker: excerpt?.speaker ?? null,
+        words: excerpt?.text ?? "",
+        seconds,
+      },
+    ];
+  });
   return {
     label: args.label,
-    lengthSeconds: args.lengthSeconds,
+    blocks,
+    clipSeconds,
     targetSeconds: args.spec.targetSeconds,
-    toleranceSeconds: args.spec.toleranceSeconds,
     minActualities: args.spec.minActualities,
     maxActualities: args.spec.maxActualities,
     warnings: args.warnings,
-    // A trial draft is written prose; an outline beat never appears in one.
-    blocks: args.blocks.flatMap((block): TrialBlock[] => {
-      const seconds = args.perBlockSeconds.get(block.id) ?? 0;
-      if (block.type === "beat") return [];
-      if (block.type === "narration") {
-        return [
-          {
-            type: "narration",
-            text: block.text,
-            seconds,
-            ...(block.role === "anchor" ? { anchor: true } : {}),
-          },
-        ];
-      }
-      const excerpt = args.excerpts.get(block.excerpt_id);
-      return [
-        {
-          type: "actuality",
-          excerptId: block.excerpt_id,
-          title: excerpt?.title ?? "Excerpt",
-          speaker: excerpt?.speaker ?? null,
-          words: excerpt?.text ?? "",
-          seconds,
-        },
-      ];
-    }),
   };
 }
 
-/** What a side is worth at a glance: "0:57 of 1:00 · 2 actualities", and whether it meets the format. */
+/** What a side is worth at a glance: "5 beats · 2 actualities · 0:41 of clips", and whether it fits the format. */
 export function summarizeTrialSide(side: FormatTrialSide): {
   line: string;
-  withinLength: boolean;
+  clipsFit: boolean;
   withinActualities: boolean;
 } {
+  const beats = side.blocks.filter((block) => block.type === "beat").length;
   const actualities = side.blocks.filter((block) => block.type === "actuality").length;
-  const withinLength = Math.abs(side.lengthSeconds - side.targetSeconds) <= side.toleranceSeconds;
+  // The clips alone can't be longer than the piece; narration is written later.
+  const clipsFit = side.clipSeconds <= side.targetSeconds;
   // The range is a guide: fewer clips than usual is a choice, more than the most is flagged.
   const withinActualities = actualities <= side.maxActualities;
   return {
-    line: `${formatClock(side.lengthSeconds)} of ${formatClock(side.targetSeconds)} · ${actualities} ${
+    line: `${beats} ${beats === 1 ? "beat" : "beats"} · ${actualities} ${
       actualities === 1 ? "actuality" : "actualities"
-    }`,
-    withinLength,
+    } · ${formatClock(side.clipSeconds)} of clips`,
+    clipsFit,
     withinActualities,
   };
 }
@@ -109,7 +112,7 @@ function isSide(value: unknown): value is FormatTrialSide {
   return (
     typeof side.label === "string" &&
     Array.isArray(side.blocks) &&
-    typeof side.lengthSeconds === "number" &&
+    typeof side.clipSeconds === "number" &&
     typeof side.targetSeconds === "number"
   );
 }

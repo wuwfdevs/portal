@@ -13,17 +13,9 @@ export function piecePath(projectId: string, pieceId: string): string {
   return `/sourcework/${projectId}/pieces/${pieceId}`;
 }
 
-export function themePath(projectId: string, themeId: string): string {
-  return `/sourcework/${projectId}/themes/${themeId}`;
-}
-
-export function themeQuotesPath(projectId: string, themeId: string): string {
-  return `/sourcework/${projectId}/themes/${themeId}/quotes`;
-}
-
 export function projectPath(
   projectId: string,
-  view?: "themes" | "synthesis" | "excerpts" | "pieces" | "setup",
+  view?: "synthesis" | "excerpts" | "pieces" | "setup",
 ): string {
   return view ? `/sourcework/${projectId}?view=${view}` : `/sourcework/${projectId}`;
 }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import {
-  QUOTE_TIER_LABEL,
   TRIM_STEPS_MS,
   formatClipRange,
   formatClipSeconds,
@@ -17,14 +16,8 @@ import { acceptQuote, rejectQuote } from "../quote-actions";
 import { PlayIcon } from "./transport-icons";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 
-const TIER_BADGE = {
-  strong: "bg-[#0F2235] text-white",
-  good: "bg-brand-surface text-brand-link",
-  usable: "bg-panel-100 text-ink-500",
-} as const;
-
 /**
- * One suggested clip (docs/sourcework-analysis-design.md §5.5): the tier, who says it, the words,
+ * One suggested clip (docs/sourcework-analysis-design.md §20): who says it, the words,
  * why it works, and Play / Accept / Trim / Reject. Play plays the clip as it will cut, so after a
  * trim it plays the trimmed range. Accepting writes an ordinary excerpt for that range.
  */
@@ -66,28 +59,10 @@ export function QuoteCard({
 
   return (
     <article
-      aria-label={quote.tier ? `${QUOTE_TIER_LABEL[quote.tier]} quote` : "Suggested clip"}
+      aria-label="Suggested clip"
       className="rounded border border-dashed border-ink-400 bg-white p-3.5"
     >
       <div className="mb-2 flex items-center gap-2">
-        {quote.tier && (
-          <span
-            className={cn(
-              "rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider",
-              TIER_BADGE[quote.tier],
-            )}
-          >
-            {QUOTE_TIER_LABEL[quote.tier]}
-          </span>
-        )}
-        {quote.stance === "complicates" && (
-          <span
-            title="Every data point behind this clip pushes against the theme"
-            className="rounded-full bg-warning-bg px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider text-warning-fg"
-          >
-            Complicates
-          </span>
-        )}
         <span className="text-xs text-ink-500">
           {quote.speakerName ?? quote.sourceTitle}
           <span className="lg:hidden"> · {formatClipSeconds(range.startMs, range.endMs)}</span>
@@ -129,7 +104,6 @@ export function QuoteCard({
         <Button
           type="button"
           size="sm"
-          variant={quote.tier === "usable" ? "secondary" : "primary"}
           onClick={accept}
           disabled={busy}
           className="max-lg:px-[18px] max-lg:text-sm"

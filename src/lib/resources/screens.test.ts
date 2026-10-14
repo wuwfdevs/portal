@@ -32,18 +32,9 @@ describe("helpContextForPath", () => {
     );
   });
 
-  it("finds a project's Themes tab and a theme's page", () => {
+  it("finds a project's Synthesis tab", () => {
     expect(helpContextForPath("/sourcework/0b6c3a52", "?view=synthesis")?.screenKey).toBe(
       "sourcework.synthesis",
-    );
-    expect(helpContextForPath("/sourcework/0b6c3a52", "?view=themes")?.screenKey).toBe(
-      "sourcework.themes",
-    );
-    expect(helpContextForPath("/sourcework/0b6c3a52/themes/9f1")?.screenKey).toBe(
-      "sourcework.theme",
-    );
-    expect(helpContextForPath("/sourcework/0b6c3a52/themes/9f1/quotes")?.screenKey).toBe(
-      "sourcework.theme_quotes",
     );
   });
 

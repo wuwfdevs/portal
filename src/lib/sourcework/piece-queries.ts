@@ -73,7 +73,7 @@ export interface PieceListRow {
   lengthSeconds: number;
   targetSeconds: number | null;
   updatedAt: string;
-  /** The format that drafted it, and whether anyone saved after the draft; null = written by hand. */
+  /** The format that guided it, and whether anyone saved after it was written out; null = written by hand. */
   madeWith: { formatName: string; edited: boolean } | null;
 }
 
@@ -81,7 +81,7 @@ export interface PieceListRow {
 export interface PieceOrigin {
   /** The format version that last drafted it. */
   format: { id: string; name: string; version: number } | null;
-  /** Set when the latest version is that draft: "Drafted from Radio wrap v3 · Undo". */
+  /** Set when the latest version is the write-out of an outline: "Written from the outline · Undo". */
   justDrafted: boolean;
 }
 

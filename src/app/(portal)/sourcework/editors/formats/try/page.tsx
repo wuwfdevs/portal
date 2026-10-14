@@ -24,8 +24,8 @@ export const metadata = { title: "Try a format" };
 // The trial runs in its own route (maxDuration 300); this page only reads.
 
 /**
- * "Try this draft" for a piece format (docs/sourcework-analysis-design.md §6.3, §8.1): draft a
- * piece from one project's accepted themes and excerpts with the live version and the draft,
+ * "Try this draft" for a piece format (docs/sourcework-analysis-design.md §6.3, §8.1): outline a
+ * piece from one project's accepted findings and excerpts with the live version and the draft,
  * side by side. Nothing is saved to the project; results are the editor's own, kept 14 days.
  */
 export default async function FormatTryPage({
@@ -66,7 +66,7 @@ export default async function FormatTryPage({
               ? `Draft compared with live v${format.live.version}`
               : "Draft, not yet published"
           }
-          description="Drafts a piece from one project's accepted themes and excerpts with your draft and with the live version, and shows them side by side. Nothing is added to the project, and the results are only visible to you."
+          description="Outlines a piece from one project's accepted findings and excerpts with your draft and with the live version, and shows them side by side. Nothing is added to the project, and the results are only visible to you."
           size="page"
         />
 
