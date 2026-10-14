@@ -508,9 +508,13 @@ version as `expectVersion`; `draftFromFormat` is gone. (3) **Run kinds are `anal
 (`RunKind`, the check constraint, and a one-running index on `expand` per piece); `expand` was `piece_draft`. (4)
 **`RETIRED_SCREENS` (`lib/resources/screens.ts`) keeps the three theme screen keys** because earlier release migrations
 still name them and `release-content.test.ts` checks every migration; Help never maps a path to one. Existing data of the
-retired kinds was deleted, not migrated. `20261026120000` (schema) and `20261026130000` (Resources content) are written
-and **not applied**: the Supabase MCP tool holds `DROP` and `DELETE` statements for a confirmation that never arrives, so
-run them in the SQL editor, preview first. Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
+retired kinds was deleted, not migrated. `20261026120000` (schema) and `20261026130000` (Resources content) are applied to
+both projects (verified 2026-10-14; the Supabase MCP tool holds `DROP` and `DELETE` statements for a confirmation that never
+arrives, so run this kind in the SQL editor, preview first). **Apply them before the code ships:** `expand` is only in the
+new `sw_analysis_runs_kind_check`, so Write from outline fails against a database without it. The schema migration dropped
+`sw_quote_suggestions.theme_id` without deleting the clips still waiting under a theme, and the source page lists every waiting
+suggestion, so `20261026140000` deletes the waiting ones with no run (decided ones stay: Analyze reads them as stretches
+already decided on). Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
 `ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
 
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a

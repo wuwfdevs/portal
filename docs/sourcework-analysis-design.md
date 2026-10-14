@@ -1126,7 +1126,12 @@ piece is the story, planned as beats and then written. With the data being test 
   is mechanical and was left out of a change that already touches the schema. `relevance = 'story'` and `story_element` on
   data points are also unused by Analyze and still allowed by the table.
 - **Status**: `20261026120000_sourcework_retire_themes.sql` (schema and data; transactional) and
-  `20261026130000_resources_sourcework_retire_themes.sql` (Resources content) are written and **not applied**. Neither
-  has been run: this environment's database tool holds `DROP`/`DELETE` statements for a confirmation that never arrives,
-  so the schema migration is meant for the SQL editor, preview first. It was checked statically against preview's
-  dependencies (constraints, indexes, views, triggers, foreign keys). Nothing here has run against a live OpenAI model.
+  `20261026130000_resources_sourcework_retire_themes.sql` (Resources content) are applied to preview and production
+  (verified 2026-10-14: the theme tables are gone and `sw_analysis_runs_kind_check` admits `expand`). They go before the
+  code: Write from outline writes `kind = 'expand'`, which the earlier check refuses. This environment's database tool
+  holds `DROP`/`DELETE` statements for a confirmation that never arrives, so they were run outside it.
+- **Leftover clips**: dropping `sw_quote_suggestions.theme_id` did not delete the suggestions still waiting under a theme
+  (their runs were deleted, which only nulls `run_id`), and the source page lists every waiting suggestion for a source.
+  Production held 9 such clips. `20261026140000_sourcework_clear_legacy_waiting_clips.sql` deletes waiting suggestions with
+  no run (Analyze always sets one); accepted and rejected ones stay, because Analyze skips stretches a person already
+  decided on. Nothing here has run against a live OpenAI model.
