@@ -517,6 +517,22 @@ suggestion, so `20261026140000` deletes the waiting ones with no run (decided on
 already decided on). Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
 `ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
 
+**Sourcework: the Synthesis tab, reworked (2026-10-30).** A pointer; the code is the record. The tab is a header
+(version menu, the change since the previous *run*, the one action), a summary strip, a section list, the answer and
+an evidence panel (`evidence-panel.tsx`, one open at a time; recordings play in place through
+`getEvidenceMediaUrl`, which signs only a source of the project). Four things are load-bearing: (1) **a person's
+choices live in the synthesis body, not in a table** — a pattern's `status` (`tracking`/`dismissed`) and `questionId`,
+and a gap's `questionId`, are saved as a `saved_via = 'person'` version by `synthesis-actions.ts` on top of the
+version the page showed (`expectVersion`; a conflict saves nothing), and setting one makes the item `origin:
+"person"` so `carryPinned` keeps it; **no schema change**. (2) **A model run gives every theme a new id**, so
+"the same pattern" is `sameTheme()` (normalized label, or mostly the same cited findings), which is how a decided
+pattern is not offered again and how "New" is worked out. (3) **"Since version N" compares runs, not versions**
+(`previousRunVersion`), because a person's edit is a version too; statements match by what they cite, never by id or
+wording. (4) Tracking creates the research question first and records it second; if the record fails the question
+still exists and the error says so. Not built: the "N new findings since" line on a tracked pattern, theme filter
+chips, and a "Pin this statement" action (`carryPinned` still has no screen that writes a statement). Unverified in a
+browser: this session had no running Supabase.
+
 **One-time hints, and the Sourcework project overview (2026-10-14).** Read `docs/ui-patterns.md` "One-time
 hints" before writing a paragraph of instruction above a working surface; this is a pointer. Instruction a
 person needs once ("select any stretch of text to make an excerpt") is a `DismissibleHint`

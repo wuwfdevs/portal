@@ -43,6 +43,8 @@ export interface SynthesisGap {
   id: string;
   text: string;
   origin: SynthesisOrigin;
+  /** The research question made from this gap, once someone tracked it. */
+  questionId?: string;
 }
 
 export interface SynthesisSection {
@@ -97,7 +99,16 @@ export interface EmergingTheme {
   /** Places in the recordings the model found with its tools, for what no finding yet covers. */
   passages: PassageRef[];
   origin: SynthesisOrigin;
+  /**
+   * What a person decided about it. Only a person sets this, which makes the theme theirs (origin
+   * "person"), so every later run carries it as it is and never offers it a second time.
+   */
+  status?: ThemeStatus;
+  /** The research question made from it, when it is being tracked. */
+  questionId?: string;
 }
+
+export type ThemeStatus = "tracking" | "dismissed";
 
 export interface SynthesisBody {
   sections: SynthesisSection[];
@@ -188,7 +199,14 @@ export function parseSynthesisBody(value: unknown): SynthesisBody {
       const gap = (item ?? {}) as Record<string, unknown>;
       const gapText = text(gap.text, GAP_MAX);
       if (gapText && typeof gap.id === "string") {
-        section.gaps.push({ id: gap.id, text: gapText, origin: origin(gap.origin) });
+        section.gaps.push({
+          id: gap.id,
+          text: gapText,
+          origin: origin(gap.origin),
+          ...(typeof gap.questionId === "string" && gap.questionId !== ""
+            ? { questionId: gap.questionId }
+            : {}),
+        });
       }
     }
     result.sections.push(section);
@@ -233,6 +251,12 @@ export function parseSynthesisBody(value: unknown): SynthesisBody {
           .map(passage)
           .filter((item): item is PassageRef => item !== null),
         origin: origin(row.origin),
+        ...(row.status === "tracking" || row.status === "dismissed"
+          ? { status: row.status as ThemeStatus }
+          : {}),
+        ...(typeof row.questionId === "string" && row.questionId !== ""
+          ? { questionId: row.questionId }
+          : {}),
       });
     }
   }
@@ -305,13 +329,66 @@ export function carryPinned(
       ...fresh.tensions,
     ],
     narrative: [...base.narrative.filter((note) => note.origin === "person"), ...fresh.narrative],
-    emerging: [
-      ...base.emerging
+    emerging: (() => {
+      const carried = base.emerging
         .filter((theme) => theme.origin === "person")
-        .map((theme) => ({ ...theme, cites: keep(theme.cites) })),
-      ...fresh.emerging,
-    ],
+        .map((theme) => ({ ...theme, cites: keep(theme.cites) }));
+      // A theme a person already decided on is not offered again under a new id.
+      const decided = carried.filter((theme) => theme.status !== undefined);
+      return [
+        ...carried,
+        ...fresh.emerging.filter((theme) => !decided.some((old) => sameTheme(old, theme))),
+      ];
+    })(),
   };
+}
+
+// Themes across versions -------------------------------------------------------------------------
+
+function normalizeLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Share of the smaller set that the two have in common; 0 when either is empty. */
+export function overlap(a: readonly string[], b: readonly string[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  const other = new Set(b);
+  const shared = new Set(a.filter((id) => other.has(id))).size;
+  return shared / Math.min(new Set(a).size, other.size);
+}
+
+/**
+ * Whether two themes are the same pattern written in two versions. A model run gives every theme a new
+ * id, so identity is the label, or findings that mostly overlap.
+ */
+export function sameTheme(
+  a: Pick<EmergingTheme, "label" | "cites">,
+  b: Pick<EmergingTheme, "label" | "cites">,
+): boolean {
+  if (normalizeLabel(a.label) === normalizeLabel(b.label)) return true;
+  return overlap(a.cites, b.cites) >= 0.6;
+}
+
+/** A theme that rests on passages the model found, with no accepted finding yet behind it. */
+export function isPassagesOnly(
+  theme: Pick<EmergingTheme, "cites" | "passages">,
+  acceptedIds: ReadonlySet<string>,
+): boolean {
+  return theme.passages.length > 0 && !theme.cites.some((id) => acceptedIds.has(id));
+}
+
+/** Themes in `current` that `previous` did not have. With no previous version nothing is new. */
+export function newThemeIds(previous: SynthesisBody | null, current: SynthesisBody): Set<string> {
+  if (!previous) return new Set();
+  return new Set(
+    current.emerging
+      .filter((theme) => !previous.emerging.some((old) => sameTheme(old, theme)))
+      .map((theme) => theme.id),
+  );
 }
 
 // Reading it -------------------------------------------------------------------------------------

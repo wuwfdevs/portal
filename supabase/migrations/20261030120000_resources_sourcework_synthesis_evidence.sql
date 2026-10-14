@@ -1,0 +1,22 @@
+-- Resources content for the Synthesis tab changes (CLAUDE.md, "Resources stay in step with the code").
+-- Content only; no schema. Depends on 20261026130000 (the 'sourcework-synthesis' guide).
+
+select private.rc_release_guide(
+  p_slug => 'sourcework-synthesis',
+  p_tool_key => 'transcription',
+  p_title => 'Synthesis',
+  p_summary => 'Read what a project''s accepted findings establish for each research question, hear the evidence, and decide what to do with the patterns that emerge.',
+  p_screen_keys => array['sourcework.synthesis'],
+  p_sort_order => 20,
+  p_version_note => 'Summary, evidence panel, version menu, and tracking patterns and open points',
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Synthesis reads every finding you have accepted in a project and says what they establish about each of your research questions. It is a reading aid: nothing on this tab is evidence, and every statement opens onto the findings behind it."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"The top of the tab"}]},{"type":"paragraph","content":[{"type":"text","text":"The header says which version you are reading, when it was written and how many findings and sources it reads. "},{"type":"text","text":"Synthesize","marks":[{"type":"bold"}]},{"type":"text","text":", or Update synthesis when findings have changed, writes a new version. The version menu lists every earlier one; reading an old version is read-only. When a version is not the first, a line under the header says what changed since the previous run: new statements, removed ones, and statements whose certainty moved."}]},{"type":"paragraph","content":[{"type":"text","text":"Under it, a summary shows the whole answer at once: how many statements are established, contested and uncertain, and how many tensions, open points and patterns there are. A count in red means statements that no longer have an accepted finding behind them. The chips under the summary show only statements of one certainty."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Reading a statement"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Patterns, and what is still open"}]},{"type":"paragraph","content":[{"type":"text","text":"Patterns across sources are things several people described separately that no question asked about. A pattern marked Passages only rests on moments the model found in the recordings, not on an accepted finding, so treat it as less firm. A pattern marked New was not in the previous run."}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"type"},{"type":"text","text":"content"}]}]}]},{"type":"paragraph","content":[{"type":"text","text":"Choices you make here are saved as a new version marked as edited by a person, and a later run keeps them as they are."}]}]}$body$
+);
+
+select private.rc_release_note(
+  p_slug => 'release-2026-10-30-sourcework-synthesis-evidence',
+  p_tool_key => 'transcription',
+  p_released_on => '2026-10-30',
+  p_title => 'Sourcework: Synthesis shows the whole answer and its evidence side by side',
+  p_guide_slugs => array['sourcework-synthesis'],
+  p_body => $body${"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"The Synthesis tab now opens on a header that holds the version, the changes since the previous run and the one action, followed by a summary of the whole answer. Evidence opens beside the synthesis, where recordings can be played in place. Patterns can be tracked as a research question, which the page now remembers, or dismissed. Open points can be tracked as questions too, and the tab updates itself while a synthesis is being written."}]}]}$body$
+);

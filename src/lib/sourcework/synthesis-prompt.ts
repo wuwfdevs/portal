@@ -180,7 +180,7 @@ export function renderSynthesisLines(
   }
   for (const theme of base.emerging) {
     lines.push(
-      `Emerging theme${theme.origin === "person" ? " (pinned)" : ""}: ${theme.label}: ${theme.statement}${cites(theme.cites)}${theme.passages.length > 0 ? ` (+${theme.passages.length} passages)` : ""}`,
+      `Emerging theme${theme.origin === "person" ? " (pinned)" : ""}${theme.status === "dismissed" ? " (a person dismissed it: do not offer it again)" : theme.status === "tracking" ? " (a person is tracking it as a question)" : ""}: ${theme.label}: ${theme.statement}${cites(theme.cites)}${theme.passages.length > 0 ? ` (+${theme.passages.length} passages)` : ""}`,
     );
   }
   return lines;

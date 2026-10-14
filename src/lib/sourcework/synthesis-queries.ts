@@ -339,3 +339,15 @@ export async function getSynthesisStanding(projectId: string): Promise<Synthesis
       unwrapRead({ data: changed.count, error: changed.error }, "this project's findings") ?? 0,
   };
 }
+
+/** Titles of sources by id, for a passage in a source that has no accepted finding to borrow a title from. */
+export async function getSourceTitles(ids: readonly string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const supabase = await createClient();
+  const rows = unwrapRead(
+    await supabase.from("sw_sources").select("id, title").in("id", unique),
+    "these sources",
+  );
+  return new Map((rows ?? []).map((row) => [row.id, row.title]));
+}
