@@ -370,7 +370,6 @@ export default async function TranscriptionProjectPage({
           </div>
         </div>
         <ControlRow className="shrink-0">
-          {project.sources.length > 0 && <AddSourceButton projectId={project.id} hasSources />}
           <ProjectActionsMenu
             projectId={project.id}
             projectTitle={project.title}
@@ -444,6 +443,7 @@ export default async function TranscriptionProjectPage({
           >
             {/* Not when it is the band's primary action: one Analyze button on screen at a time. */}
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
+            <AddSourceButton projectId={project.id} hasSources />
           </ListToolbar>
           <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
           <Pagination
@@ -485,7 +485,7 @@ export default async function TranscriptionProjectPage({
           }))}
         />
       ) : setupView ? (
-        <SetupTab projectId={project.id} sources={project.sources} />
+        <SetupTab projectId={project.id} />
       ) : synthesisView ? (
         <SynthesisTab projectId={project.id} versionParam={version} certParam={cert} />
       ) : piecesView ? (

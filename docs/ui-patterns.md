@@ -447,8 +447,8 @@ the rule in `globals.css` (`.control-row`) takes over:
    and the other control takes the rest.
 3. **A search box takes its own row** (`data-row="full"`; `ListSearch` marks itself), and a
    control left alone on a row goes full width rather than left-aligned at its natural size.
-4. **Three or more** pair up, and the last one — the primary action, by the convention that it
-   comes last — takes the last row alone.
+4. **Three or more** pair up two to a row; with an odd count the last one — the primary action,
+   by the convention that it comes last — takes the last row alone. Four make two pairs.
 
 A child that is a wrapper — a one-button `<form>`, a `<div>` around a button, a `<label>` around a
 select, an `<a>` around a button — stretches too, and the control inside fills it. A text hint

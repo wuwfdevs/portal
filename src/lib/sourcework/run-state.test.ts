@@ -4,7 +4,6 @@ import {
   extractionLine,
   extractionState,
   isStaleRun,
-  projectStanding,
   type ExtractionState,
   type SourceExtractionInput,
 } from "./run-state";
@@ -101,95 +100,5 @@ describe("extractionLine", () => {
     ];
     yes.forEach((state) => expect(canExtract(state)).toBe(true));
     no.forEach((state) => expect(canExtract(state)).toBe(false));
-  });
-});
-
-describe("projectStanding", () => {
-  const done: ExtractionState = { kind: "done", total: 5, toReview: 0 };
-  const stepStates = (standing: ReturnType<typeof projectStanding>) =>
-    standing.steps.map((step) => step.state);
-
-  it("starts with the questions", () => {
-    const standing = projectStanding({ questionCount: 0, sources: [], toReviewTotal: 0 });
-    expect(stepStates(standing)).toEqual(["current", "upcoming", "upcoming", "upcoming"]);
-    expect(standing.link).toBeNull();
-  });
-  it("then the sources", () => {
-    const standing = projectStanding({ questionCount: 2, sources: [], toReviewTotal: 0 });
-    expect(stepStates(standing)).toEqual(["done", "current", "upcoming", "upcoming"]);
-    expect(standing.link?.to).toBe("sources");
-  });
-  it("names the source that is still processing, as the design does", () => {
-    const standing = projectStanding({
-      questionCount: 3,
-      sources: [
-        { title: "Tom Reyes, interview", state: done },
-        { title: "Marlene Gaskin, interview", state: done },
-        { title: "Base newsletter, 1962", state: done },
-        { title: "Ruth Ann Delancey, interview", state: { kind: "waiting", reason: "processing" } },
-      ],
-      toReviewTotal: 0,
-    });
-    expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
-    expect(standing.message).toBe(
-      "3 of 4 sources are analyzed. Ruth Ann Delancey, interview is still processing, so analysis can start for it when it finishes.",
-    );
-  });
-  it("is done when every usable source is analyzed, and says what is waiting", () => {
-    const standing = projectStanding({
-      questionCount: 1,
-      sources: [
-        { title: "A", state: done },
-        { title: "B", state: { kind: "source_failed" } },
-      ],
-      toReviewTotal: 4,
-    });
-    expect(stepStates(standing)).toEqual(["done", "done", "done", "current"]);
-    expect(standing.message).toContain("4 findings are waiting for review");
-  });
-  it("finishes with the synthesis: write it, refresh it when findings change, then done", () => {
-    const sources = [{ title: "A", state: done }];
-    const standing = (synthesis: {
-      acceptedFindings: number;
-      hasSynthesis: boolean;
-      changedSince: number;
-    }) => projectStanding({ questionCount: 1, sources, toReviewTotal: 0, synthesis });
-
-    const none = standing({ acceptedFindings: 4, hasSynthesis: false, changedSince: 0 });
-    expect(stepStates(none)).toEqual(["done", "done", "done", "current"]);
-    expect(none.message).toContain("Synthesize says what the 4 accepted findings establish");
-    expect(none.link).toEqual({ label: "Go to Synthesis", to: "synthesis" });
-
-    const nothingAccepted = standing({ acceptedFindings: 0, hasSynthesis: false, changedSince: 0 });
-    expect(nothingAccepted.message).toContain("Accept the findings worth keeping");
-    expect(nothingAccepted.link).toBeNull();
-
-    const stale = standing({ acceptedFindings: 4, hasSynthesis: true, changedSince: 2 });
-    expect(stepStates(stale)[3]).toBe("current");
-    expect(stale.message).toContain("2 findings have changed since the synthesis was written");
-
-    const finished = standing({ acceptedFindings: 4, hasSynthesis: true, changedSince: 0 });
-    expect(stepStates(finished)).toEqual(["done", "done", "done", "done"]);
-    expect(finished.message).toContain("the synthesis is up to date");
-  });
-  it("keeps the synthesis step upcoming until the sources are analyzed", () => {
-    const standing = projectStanding({
-      questionCount: 1,
-      sources: [{ title: "A", state: { kind: "idle" } }],
-      toReviewTotal: 0,
-      synthesis: { acceptedFindings: 3, hasSynthesis: true, changedSince: 0 },
-    });
-    expect(stepStates(standing)).toEqual(["done", "done", "current", "upcoming"]);
-  });
-  it("says when sources are ready to analyze", () => {
-    const standing = projectStanding({
-      questionCount: 1,
-      sources: [
-        { title: "A", state: { kind: "idle" } },
-        { title: "B", state: { kind: "idle" } },
-      ],
-      toReviewTotal: 0,
-    });
-    expect(standing.message).toBe("0 of 2 sources are analyzed. 2 are ready to analyze.");
   });
 });

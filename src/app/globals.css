@@ -76,9 +76,10 @@ body {
  * stop sitting at their natural width: a basis of 40% lets exactly two share a
  * row and grow to fill it, a third wraps. A child marked `data-row` opts out —
  * `fixed` keeps its own size (an icon button), `full` takes a row to itself (a
- * search box), `skip` is a desktop-only spacer. With three or more stretching
- * controls the last one takes the last row alone (`:nth-child(... of S)`
- * counts only the stretching siblings). Unlayered, after the utilities, so it
+ * search box), `skip` is a desktop-only spacer. With an odd count of three or
+ * more stretching controls the last one takes the last row alone, so pairs
+ * stay pairs and only the odd one out spans (`:nth-child(... of S)` counts
+ * only the stretching siblings). Unlayered, after the utilities, so it
  * wins over a child's own `shrink-0` or `w-` at these widths only.
  */
 @media (max-width: 639.98px) {
@@ -100,7 +101,10 @@ body {
   .control-row > :not([data-row]) > :is(button, a, select) {
     width: 100%;
   }
-  .control-row > :nth-last-child(1 of :not([data-row])):nth-child(n + 3 of :not([data-row])) {
+  .control-row
+    > :nth-last-child(1 of :not([data-row])):nth-child(odd of :not([data-row])):nth-child(
+      n + 3 of :not([data-row])
+    ) {
     flex-basis: 100%;
   }
 }
