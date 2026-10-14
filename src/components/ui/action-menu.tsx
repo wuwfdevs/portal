@@ -241,7 +241,13 @@ export function ActionMenu({
   ) : null;
 
   return (
-    <div ref={containerRef} className="relative inline-block">
+    // In a control row (control-row.tsx) a ⋮ keeps its square while a labelled
+    // trigger stretches like the button beside it.
+    <div
+      ref={containerRef}
+      className="relative inline-block"
+      data-row={triggerLabel ? undefined : "fixed"}
+    >
       <button
         type="button"
         aria-haspopup="menu"
@@ -250,7 +256,7 @@ export function ActionMenu({
         onClick={() => (open ? close() : setOpen(true))}
         className={
           triggerLabel
-            ? "inline-flex h-11 items-center gap-1.5 rounded border border-line bg-white px-3 text-sm font-semibold text-brand-link hover:border-brand-primary lg:h-9"
+            ? "inline-flex h-11 items-center gap-1.5 rounded border border-line bg-white px-3 text-sm font-semibold text-brand-link hover:border-brand-primary max-sm:w-full max-sm:justify-center lg:h-9"
             : trigger === "quiet"
               ? "flex h-11 w-11 items-center justify-center rounded text-ink-400 hover:bg-panel-100 hover:text-ink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface lg:h-8 lg:w-8"
               : "flex h-11 w-11 items-center justify-center rounded border border-line text-ink-500 hover:border-brand-primary hover:text-brand-link lg:h-8 lg:w-8"

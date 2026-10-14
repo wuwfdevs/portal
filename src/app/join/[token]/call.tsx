@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { ControlRow } from "@/components/ui/control-row";
 import {
   localRecordingBadgeVariant,
   uploadBacklogBadgeVariant,
@@ -243,14 +244,14 @@ export function Call({
         </Alert>
       )}
 
-      <div className="flex items-center gap-3">
+      <ControlRow>
         <Button type="button" variant="secondary" onClick={toggleMic}>
           {micOn ? "Mute myself" : "Unmute myself"}
         </Button>
         <Button type="button" variant="secondary" onClick={handleLeave}>
           Leave
         </Button>
-      </div>
+      </ControlRow>
 
       <p className="mt-4 text-xs leading-relaxed text-ink-400">
         {recordingActive

@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { formatQuantity } from "@/lib/bookings/labels";
 import { plannedFigures } from "@/lib/bookings/observed";
 import type { BkHoursUsedRow, BkPoolRow, ProjectDetail } from "@/lib/bookings/queries";
@@ -99,17 +100,19 @@ export function HoursUsed({
           ))}
         </div>
         {canEdit && (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className={CONTROL_ROW}>
             <Button type="submit" name="mode" value="as_planned">
               Confirm as planned
             </Button>
             <Button type="submit" name="mode" value="custom" variant="secondary">
               Save these figures
             </Button>
-            <FieldHint>
-              Used figures feed the term report and the next rate version. They never change the
-              estimate&apos;s price.
-            </FieldHint>
+            <div data-row="full">
+              <FieldHint>
+                Used figures feed the term report and the next rate version. They never change the
+                estimate&apos;s price.
+              </FieldHint>
+            </div>
           </div>
         )}
       </form>

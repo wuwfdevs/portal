@@ -37,6 +37,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Card } from "@/components/ui/card";
 import { DetailSummary } from "@/components/ui/detail-summary";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { CONTRACT_STATUS, REVISION_STATUS } from "@/lib/underwriting/status";
 import { pluralize } from "@/lib/format";
 import { groupBy } from "@/lib/collections";
@@ -239,7 +240,7 @@ export default async function ContractDetailPage({
             {contract.account_rep ? ` · Rep: ${contract.account_rep}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={CONTROL_ROW}>
           <SecondaryLink href={`${base}/order`}>Edit order details</SecondaryLink>
           {isDraft && (
             <form action={setContractStatus}>
@@ -347,7 +348,7 @@ export default async function ContractDetailPage({
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <ViewToggle base={base} view={scheduleView} />
-                <div className="flex flex-wrap items-center gap-2">
+                <div className={CONTROL_ROW}>
                   <SecondaryLink size="sm" href={`${base}/schedule`}>
                     Add a line
                   </SecondaryLink>

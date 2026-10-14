@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
+import { ControlRow } from "@/components/ui/control-row";
 
 const TITLE_SIZE = {
   page: "text-2xl",
@@ -58,7 +59,7 @@ export function PageHeader({
           <p className="mt-1.5 text-sm leading-relaxed text-ink-500">{description}</p>
         )}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <ControlRow className="shrink-0">{actions}</ControlRow>}
     </header>
   );
 }

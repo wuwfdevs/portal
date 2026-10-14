@@ -38,6 +38,7 @@ import type { LegacyCopyImportResult } from "@/lib/underwriting/legacy-copy-impo
 import { importLegacyCopy } from "./actions";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { groupBy } from "@/lib/collections";
 import { actionFailureMessage } from "@/lib/use-action";
 
@@ -787,7 +788,7 @@ function ImportResult({
         </section>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className={CONTROL_ROW}>
         <PrimaryLink href="/underwriting/copy">Open the copy library</PrimaryLink>
         <Button type="button" variant="secondary" onClick={onAgain}>
           Review another export

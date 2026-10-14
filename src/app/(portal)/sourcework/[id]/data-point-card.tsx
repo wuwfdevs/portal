@@ -15,6 +15,7 @@ import {
 import { editDataPoint, reviewDataPoint } from "../research-actions";
 import { PauseIcon, PlayIcon } from "./transport-icons";
 import { TAP_TARGET } from "@/components/ui/tap-target";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 /** Same meaning as ClipSelectionOrigin: which side the selection came from decides what scrolls. */
 export type PointSelectionOrigin = "transcript" | "rail";
@@ -122,7 +123,7 @@ export function DataPointCard({
             autoFocus
             aria-label="Data point"
           />
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className={`${CONTROL_ROW} mt-2`}>
             <Button type="button" size="sm" onClick={save} disabled={busy || draft.trim() === ""}>
               Save
             </Button>

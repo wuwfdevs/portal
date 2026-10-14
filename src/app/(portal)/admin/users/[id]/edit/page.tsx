@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, Input, Label, Select } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateUserAccess } from "../../actions";
 import { ToolGrantRow } from "../../tool-grant-row";
 
@@ -66,7 +67,7 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
               ))}
             </div>
           </div>
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/admin/users">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>

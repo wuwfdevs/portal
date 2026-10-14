@@ -17,16 +17,20 @@ export function Badge({
   className,
   title,
   children,
+  ...rest
 }: {
   variant?: BadgeVariant;
   className?: string;
   /** A tooltip: what the badge means. */
   title?: string;
+  /** Its place in a control row (`control-row.tsx`): a badge never stretches. */
+  "data-row"?: "fixed";
   children: ReactNode;
 }) {
   return (
     <span
       title={title}
+      {...rest}
       className={cn(
         "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
         VARIANT_CLASSES[variant],

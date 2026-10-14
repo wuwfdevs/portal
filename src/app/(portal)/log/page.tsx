@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 import { isValidDateISO } from "@/lib/dates";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
@@ -18,7 +19,7 @@ import { generateRundown } from "./rundown-actions";
 const COUNT_PARAM = /^\d{1,4}$/;
 
 const NAV_LINK_CLASSES =
-  "inline-flex shrink-0 items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
+  "inline-flex shrink-0 items-center justify-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
 
 /** Tray with an arrow into it (import) or out of it (export). */
 function TransferIcon({ direction }: { direction: "in" | "out" }) {
@@ -120,24 +121,26 @@ export default async function LogTodayPage({
             </Button>
           </form>
           <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
-          <SecondaryLink
-            href={importHref}
-            size="sm"
-            className="shrink-0"
-            title="Import the traffic system's program log"
-          >
-            <TransferIcon direction="in" />
-            Import
-          </SecondaryLink>
-          <SecondaryLink
-            href={`/log/dad-log?date=${selectedDate}`}
-            size="sm"
-            className="shrink-0"
-            title="Export the DAD log for automated hours"
-          >
-            <TransferIcon direction="out" />
-            Export
-          </SecondaryLink>
+          <div className={CONTROL_ROW}>
+            <SecondaryLink
+              href={importHref}
+              size="sm"
+              className="shrink-0"
+              title="Import the traffic system's program log"
+            >
+              <TransferIcon direction="in" />
+              Import
+            </SecondaryLink>
+            <SecondaryLink
+              href={`/log/dad-log?date=${selectedDate}`}
+              size="sm"
+              className="shrink-0"
+              title="Export the DAD log for automated hours"
+            >
+              <TransferIcon direction="out" />
+              Export
+            </SecondaryLink>
+          </div>
         </div>
       </div>
       {error && <Alert className="mb-4">{error}</Alert>}

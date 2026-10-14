@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
+import { ControlRow } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import {
   PARTNERSHIP_TYPE_DESCRIPTION,
@@ -320,7 +321,7 @@ export function PartnerForm({
 
         {state.status === "error" && <Alert variant="danger">{state.message}</Alert>}
 
-        <div className="flex items-center justify-between gap-3">
+        <ControlRow className="sm:justify-between">
           <Button type="button" variant="secondary" onClick={goBack} disabled={currentIndex === 0}>
             Back
           </Button>
@@ -344,7 +345,7 @@ export function PartnerForm({
           >
             {isLastStep ? (isPending ? "Submitting…" : "Submit inquiry") : "Next"}
           </Button>
-        </div>
+        </ControlRow>
       </form>
     </div>
   );

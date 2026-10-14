@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { ControlRow } from "@/components/ui/control-row";
 import { formatBytes } from "@/lib/format";
 import { foldTasks, summarizeTasks, type QueueTask } from "@/lib/task-queue";
 
@@ -80,7 +81,7 @@ export function BatchRunPanel({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <ControlRow>
         {running && (
           <Button type="button" variant="secondary" size="sm" onClick={onStop}>
             Stop after the current {summary.running === 1 ? "file" : "files"}
@@ -96,7 +97,7 @@ export function BatchRunPanel({
             Retry all {summary.failed} that failed
           </Button>
         )}
-      </div>
+      </ControlRow>
     </div>
   );
 }

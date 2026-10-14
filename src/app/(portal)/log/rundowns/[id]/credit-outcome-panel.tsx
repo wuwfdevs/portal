@@ -3,6 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
+import { TAP_TARGET } from "@/components/ui/tap-target";
+import { cn } from "@/lib/cn";
 import { pendingOutcomeByItem } from "@/lib/log/broadcast-queue";
 import type { LogMissReason } from "@/lib/database.types";
 import { useBroadcastSync } from "../../broadcast-sync";
@@ -94,12 +97,17 @@ export function CreditOutcomePanel({
   return (
     <div className="mt-2 rounded border-2 border-brand-primary bg-brand-surface/30 p-3">
       <p className="mb-2 text-sm font-semibold text-ink-900">Did this air at {breakTimeLabel}?</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={CONTROL_ROW}>
         <Button type="button" onClick={() => enqueue({ kind: "outcome_aired", itemId })}>
           Yes, aired
         </Button>
         <details className="inline-block">
-          <summary className="inline-flex cursor-pointer items-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700">
+          <summary
+            className={cn(
+              "inline-flex cursor-pointer items-center justify-center rounded border border-line bg-white px-4 py-2.5 text-sm font-bold text-ink-700 max-sm:w-full",
+              TAP_TARGET,
+            )}
+          >
             No — flag it
           </summary>
           <form

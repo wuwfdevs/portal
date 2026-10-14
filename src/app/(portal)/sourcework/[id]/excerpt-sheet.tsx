@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { formatDuration } from "@/lib/transcription/media";
 import type { ProjectClip } from "@/lib/transcription/clips";
 import type { TextSegment } from "@/lib/sourcework/piece-text";
@@ -139,7 +140,7 @@ export function ExcerptSheet({
             <p className="line-clamp-2 rounded bg-panel-50 px-2.5 py-2 text-[15px] leading-snug text-ink-700">
               {clip.excerpt}
             </p>
-            <div className="flex gap-2">
+            <div className={CONTROL_ROW}>
               <Button
                 type="button"
                 onClick={() => (playing ? onPause() : onPreview(clip.startMs, clip.endMs, clip.id))}
@@ -191,7 +192,7 @@ export function ExcerptSheet({
               segments={segments}
             />
           </div>
-          <div className="flex gap-2 border-t border-line px-4 py-3">
+          <div className={`${CONTROL_ROW} border-t border-line px-4 py-3`}>
             <Button
               type="button"
               onClick={() => (playing ? onPause() : onPreview(clip.startMs, clip.endMs, clip.id))}

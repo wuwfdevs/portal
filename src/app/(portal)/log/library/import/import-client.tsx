@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, FileInput } from "@/components/ui/input";
 import { Steps } from "@/components/ui/steps";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import { CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { DadLibraryPlan } from "@/lib/log/dad-library-plan";
@@ -173,7 +174,7 @@ export function ImportClient() {
 
       {plan && (
         <>
-          <div className="flex items-center gap-3">
+          <div className={CONTROL_ROW}>
             <Button type="button" onClick={confirm} disabled={pending}>
               {pending
                 ? "Importing…"

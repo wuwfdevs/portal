@@ -28,6 +28,7 @@ import { PointsTab } from "./points-tab";
 import { SourceTable } from "./source-table";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { SubNav } from "@/components/ui/sub-nav";
+import { ControlRow } from "@/components/ui/control-row";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { withQuery } from "@/lib/paths";
 import { projectStage } from "@/lib/sourcework/project-stage";
@@ -368,7 +369,7 @@ export default async function TranscriptionProjectPage({
             />
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <ControlRow className="shrink-0">
           {project.sources.length > 0 && <AddSourceButton projectId={project.id} hasSources />}
           <ProjectActionsMenu
             projectId={project.id}
@@ -376,7 +377,7 @@ export default async function TranscriptionProjectPage({
             editHref={`${projectPath(project.id)}?edit=1`}
             plan={deletionPlan}
           />
-        </div>
+        </ControlRow>
       </div>
     </>
   );

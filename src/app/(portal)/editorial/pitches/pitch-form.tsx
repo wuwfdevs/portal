@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { SecondaryLink } from "@/components/ui/primary-link";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { savePitch, type PitchFormState } from "./actions";
 import {
   NON_PILLAR_OPTIONS,
@@ -148,7 +149,7 @@ export function PitchForm({
         );
       })}
 
-      <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+      <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
         <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : pitchId ? "Save changes" : "Submit pitch"}

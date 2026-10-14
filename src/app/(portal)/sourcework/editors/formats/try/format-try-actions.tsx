@@ -4,6 +4,7 @@ import Link from "next/link";
 import { validateFormatSpec, type FormatSpec } from "@/lib/sourcework/piece-formats";
 import { publishFormat } from "../actions";
 import { PublishButton, PublishNote, PublishStatus, usePublish } from "../../publish-control";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 /** Publish (the saved draft) and Back to editing, under a format trial's result. */
 export function FormatTryActions({
@@ -29,7 +30,7 @@ export function FormatTryActions({
         placeholder="Shorter setup; asks for a second voice"
         consequence="Shown in History. Publishing changes what every reporter's next draft follows; the previous version stays available to make live again."
       />
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className={CONTROL_ROW}>
         <PublishButton control={publish} className="max-sm:min-h-12" />
         <Link
           href={editorHref}

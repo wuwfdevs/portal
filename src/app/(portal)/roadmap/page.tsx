@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/input";
 import { TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { listPosts, listTargetTools } from "@/lib/roadmap/queries";
 import {
@@ -16,6 +17,7 @@ import {
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 import { PostRow } from "./post-row";
 import { RoadmapKanban } from "./kanban-board";
+import { cn } from "@/lib/cn";
 
 const TABS = ["requests", "roadmap"] as const;
 type Tab = (typeof TABS)[number];
@@ -86,7 +88,7 @@ export default async function RoadmapPage({
 
       {activeTab === "requests" ? (
         <>
-          <form method="get" className="flex flex-wrap items-end gap-2">
+          <form method="get" className={cn(CONTROL_ROW, "sm:items-end")}>
             <input type="hidden" name="tab" value="requests" />
             <FilterSelect name="status" label="Status" value={params.status}>
               {STATUSES.map((value) => (
@@ -191,7 +193,7 @@ function FilterSelect({
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</span>
-      <Select name={name} defaultValue={value ?? ""} className="w-auto min-w-[9rem]">
+      <Select name={name} defaultValue={value ?? ""} className="sm:w-auto sm:min-w-[9rem]">
         {allLabel !== null && <option value="">{allLabel}</option>}
         {children}
       </Select>

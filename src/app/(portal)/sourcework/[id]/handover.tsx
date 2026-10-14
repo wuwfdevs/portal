@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label, Select, Textarea } from "@/components/ui/input";
 import { SparklesIcon } from "@/components/ui/sparkles-icon";
 import { Steps } from "@/components/ui/steps";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { piecePath, projectPath } from "@/lib/transcription/links";
 import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
 import { progressDetail, requestAnalysis } from "@/lib/sourcework/extract-stream";
@@ -402,7 +403,7 @@ export function HandoverButton({
                   ? "Keep this page open. Leaving stops the run after the step it is on."
                   : "Keep this page open while it runs."}
               </span>
-              <div className="flex items-center gap-2">
+              <div className={CONTROL_ROW}>
                 {running ? (
                   <Button
                     type="button"

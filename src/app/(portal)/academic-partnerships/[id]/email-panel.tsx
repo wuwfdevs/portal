@@ -8,6 +8,7 @@ import { buildMailtoUrl, interpolateTemplate } from "@/lib/academic-partnerships
 import type { ApEmailTemplateRow } from "@/lib/academic-partnerships/queries";
 import { recordEmailAction, sendInquiryEmail } from "../actions";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { ControlRow } from "@/components/ui/control-row";
 import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
@@ -136,7 +137,7 @@ export function EmailPanel({
           </form>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <ControlRow>
           <Button
             type="button"
             variant="secondary"
@@ -152,7 +153,7 @@ export function EmailPanel({
               I sent this myself instead
             </Button>
           )}
-        </div>
+        </ControlRow>
 
         {showManual && (
           <form

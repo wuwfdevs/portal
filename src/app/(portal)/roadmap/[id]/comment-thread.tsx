@@ -4,6 +4,7 @@ import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { RichText } from "@/components/ui/rich-text";
 import { RichTextField } from "@/components/ui/rich-text-field";
+import { ControlRow } from "@/components/ui/control-row";
 import type { PostComment } from "@/lib/roadmap/queries";
 import { addComment, deleteComment, updateComment } from "../actions";
 import { pluralize } from "@/lib/format";
@@ -58,10 +59,10 @@ export function CommentThread({
                   ariaLabel="Edit your comment"
                   minHeightClassName="min-h-[110px]"
                 />
-                <div className="flex gap-2">
-                  <Button type="submit">Save comment</Button>
+                <ControlRow>
                   <SecondaryLink href={`/roadmap/${postId}`}>Cancel</SecondaryLink>
-                </div>
+                  <Button type="submit">Save comment</Button>
+                </ControlRow>
               </form>
             ) : (
               <>

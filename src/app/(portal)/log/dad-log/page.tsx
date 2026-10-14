@@ -32,7 +32,7 @@ import { isValidDateISO } from "@/lib/dates";
 import { releaseDadLog } from "./actions";
 
 const NAV_LINK =
-  "inline-flex shrink-0 items-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
+  "inline-flex shrink-0 items-center justify-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
 
 /**
  * The DAD log for one day (lib/log/dad-export.ts): the credits DAD plays in

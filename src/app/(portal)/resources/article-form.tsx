@@ -2,6 +2,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, FieldError, FieldHint, Input } from "@/components/ui/input";
 import { SecondaryLink } from "@/components/ui/primary-link";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   AREA_MAX,
   SLUG_MAX,
@@ -240,7 +241,7 @@ export function ArticleForm({
         />
       </Field>
 
-      <div className="flex items-center justify-end gap-3">
+      <div className={`${CONTROL_ROW} sm:justify-end`}>
         <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
         <Button type="submit">{editing ? "Save changes" : `Create ${kind}`}</Button>
       </div>

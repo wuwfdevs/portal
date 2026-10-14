@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { SecondaryLink } from "@/components/ui/primary-link";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updatePillar } from "../../../actions";
 
 export default async function EditPillarPage({
@@ -57,7 +58,7 @@ export default async function EditPillarPage({
               defaultValue={pillar.guiding_question ?? ""}
             />
           </Field>
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/editorial/settings/pillars">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>

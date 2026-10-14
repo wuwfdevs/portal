@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, Input, Select } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateTool } from "../../actions";
 
 export default async function EditToolPage({
@@ -65,7 +66,7 @@ export default async function EditToolPage({
               <option value="open">Open</option>
             </Select>
           </Field>
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/admin/tools">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>

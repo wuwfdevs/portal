@@ -38,6 +38,7 @@ import { formatBytes as formatMB } from "@/lib/format";
 import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
 import { useInterval } from "@/lib/use-poller";
@@ -651,7 +652,7 @@ export function DocumentsRun({
           </Card>
         )}
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+      <div className={`${CONTROL_ROW} border-t border-line pt-5`}>
         <Button type="button" ai disabled={runCount === 0} onClick={start}>
           {runCount === 0
             ? "Import"
@@ -661,7 +662,7 @@ export function DocumentsRun({
           {entries.length === 0 && documentsOnly ? "Cancel" : "Go to the batch"}
         </SecondaryLink>
         {!documentsOnly && matching.attention.length > 0 && runCount > 0 && (
-          <span className="text-[13px] text-ink-500">
+          <span className="text-[13px] text-ink-500" data-row="full">
             {pluralize(matching.attention.length, "entry", "entries")} still without a usable file
             stay as “Not run”. Add their files here any time.
           </span>

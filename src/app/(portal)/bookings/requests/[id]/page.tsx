@@ -78,6 +78,7 @@ import { EstimateSection } from "./estimate-section";
 import { TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 type Params = {
   error?: string;
@@ -419,7 +420,7 @@ export default async function ProjectPage({
                     Is this strategic or applied-learning work? If yes, WUWF contributes the staff
                     time.
                   </span>
-                  <span className="flex gap-2">
+                  <span className={CONTROL_ROW}>
                     <Button
                       type="submit"
                       name="qualifies_strategic"
@@ -439,8 +440,10 @@ export default async function ProjectPage({
                   <p className="font-semibold">The dates need attention.</p>
                   <p>{planFailure.message}</p>
                   {planFailure.alternatives.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs">Nearest that work:</span>
+                    <div className={CONTROL_ROW}>
+                      <span className="text-xs" data-row="full">
+                        Nearest that work:
+                      </span>
                       {planFailure.alternatives.map((alt) => (
                         <form key={`${alt.date}-${alt.window_start}`} action={chooseAlternative}>
                           <input type="hidden" name="project_id" value={project.id} />

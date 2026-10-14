@@ -20,6 +20,7 @@ import { stationTodayISO } from "@/lib/log/timezone";
 import { generateAffidavitsForMonth } from "../affidavit-actions";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 
 /**
@@ -86,27 +87,29 @@ export default async function AffidavitsPage({
             : `${pluralize(allRows.length, "contract")} · ${counts.generate} to generate · ${counts.sign} to sign · ${counts.signed} signed`}
         </span>
         <span className="flex-1" />
-        {toGenerate.length > 0 && (
-          <form action={generateAffidavitsForMonth}>
-            <input type="hidden" name="month" value={month} />
-            {toGenerate.map((row) => (
-              <input
-                key={row.key}
-                type="hidden"
-                name="row"
-                value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
-              />
-            ))}
-            <Button type="submit" variant="secondary">
-              Generate {toGenerate.length}
-            </Button>
-          </form>
-        )}
-        {isManager && queue.length > 0 && (
-          <PrimaryLink href={`/underwriting/affidavits/${queue[0]}?signing=1`}>
-            Sign {queue.length} in order
-          </PrimaryLink>
-        )}
+        <div className={CONTROL_ROW}>
+          {toGenerate.length > 0 && (
+            <form action={generateAffidavitsForMonth}>
+              <input type="hidden" name="month" value={month} />
+              {toGenerate.map((row) => (
+                <input
+                  key={row.key}
+                  type="hidden"
+                  name="row"
+                  value={`${row.contract.id}|${row.periodStart}|${row.periodEnd}`}
+                />
+              ))}
+              <Button type="submit" variant="secondary">
+                Generate {toGenerate.length}
+              </Button>
+            </form>
+          )}
+          {isManager && queue.length > 0 && (
+            <PrimaryLink href={`/underwriting/affidavits/${queue[0]}?signing=1`}>
+              Sign {queue.length} in order
+            </PrimaryLink>
+          )}
+        </div>
       </div>
 
       {error && <Alert>{error}</Alert>}

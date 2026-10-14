@@ -62,6 +62,7 @@ import { PieceInsertionPoint } from "./piece-insertion-point";
 import { TrimPanel } from "./trim-panel";
 import { usePiecePlayer } from "./use-piece-player";
 import { TAP_TARGET } from "@/components/ui/tap-target";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -874,7 +875,7 @@ function PieceEditor({
               Add narration and excerpts one block at a time, or let AI outline the piece.
             </span>
           </p>
-          <div className="mt-4 flex justify-center gap-2.5 max-lg:flex-col">
+          <div className={`${CONTROL_ROW} mt-4 sm:justify-center`}>
             <Button type="button" onClick={() => addNarrationAt(0)}>
               + Narration
             </Button>
@@ -1107,7 +1108,7 @@ function PieceEditor({
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-2.5">
+      <div className={`${CONTROL_ROW} mt-6`}>
         <FooterButton
           type="button"
           disabled={isBlank}
@@ -1136,7 +1137,7 @@ function PieceEditor({
           projectTitle={piece.projectTitle}
           exportDate={piece.updatedAt}
         />
-        <span className="ml-auto text-xs text-ink-400 max-lg:hidden">
+        <span className="ml-auto text-xs text-ink-400 max-lg:hidden" data-row="skip">
           Every save is a version. Drag ⋮⋮ or use ⋮ to reorder. Enter in narration adds a block
           below.
         </span>

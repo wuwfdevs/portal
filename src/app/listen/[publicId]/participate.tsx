@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, FieldHint, Input, Label, Textarea } from "@/components/ui/input";
+import { ControlRow } from "@/components/ui/control-row";
 import {
   AUDIENCE_LISTENING_MEDIA_BUCKET,
   MAX_ANSWER_BYTES,
@@ -676,10 +677,12 @@ export function Participate({
           {micState === "denied" && guidance && (
             <>
               <Alert>{guidance.message}</Alert>
-              <div className="flex flex-wrap gap-2">
+              <ControlRow>
                 {guidance.offerNewTab && (
                   <a href={standaloneUrl} target="_blank" rel="noopener noreferrer">
-                    <Button type="button">Open in a new tab</Button>
+                    <Button type="button" className="max-sm:w-full">
+                      Open in a new tab
+                    </Button>
                   </a>
                 )}
                 {guidance.offerRetry && (
@@ -691,7 +694,7 @@ export function Participate({
                     Try again
                   </Button>
                 )}
-              </div>
+              </ControlRow>
             </>
           )}
 
@@ -783,7 +786,7 @@ export function Participate({
                 </audio>
               )}
               {currentAnswer.error && <Alert>{currentAnswer.error}</Alert>}
-              <div className="flex flex-wrap gap-2">
+              <ControlRow>
                 <Button
                   type="button"
                   variant="secondary"
@@ -807,7 +810,7 @@ export function Participate({
                         ? "Save and review"
                         : "Save and continue"}
                 </Button>
-              </div>
+              </ControlRow>
             </div>
           ) : currentAnswer.take === "uploading" ? (
             <Alert variant="note" className="p-4 text-sm font-semibold text-ink-700">
@@ -816,7 +819,7 @@ export function Participate({
           ) : isSaved && !currentAnswer.retake ? (
             <Alert variant="success" className="flex flex-col gap-3 p-4 text-sm">
               <p className="font-bold">Saved — WUWF has this answer</p>
-              <div className="flex flex-wrap gap-2">
+              <ControlRow>
                 <Button
                   type="button"
                   variant="secondary"
@@ -828,7 +831,7 @@ export function Participate({
                 <Button type="button" className="flex-1" onClick={advance}>
                   {questionIndex === questions.length - 1 ? "Review answers" : "Next question"}
                 </Button>
-              </div>
+              </ControlRow>
             </Alert>
           ) : (
             <div className="flex flex-col gap-3">
@@ -996,7 +999,7 @@ export function Participate({
             </div>
           ))}
 
-          <div className="flex flex-wrap gap-2">
+          <ControlRow>
             <Button type="button" variant="secondary" onClick={() => setScreen("review")}>
               Back
             </Button>
@@ -1007,7 +1010,7 @@ export function Participate({
             >
               Continue
             </Button>
-          </div>
+          </ControlRow>
           {missingFields.length > 0 && (
             <p className="text-xs text-ink-400">
               {submitBlockedReason(readiness, true, missingFields)}
@@ -1058,7 +1061,7 @@ export function Participate({
             label="I have read and agree to these terms."
           />
 
-          <div className="flex flex-wrap gap-2">
+          <ControlRow>
             <Button
               type="button"
               variant="secondary"
@@ -1073,7 +1076,7 @@ export function Participate({
             >
               Submit my response
             </Button>
-          </div>
+          </ControlRow>
           {blockedReason && <p className="text-xs text-ink-400">{blockedReason}</p>}
         </div>
       )}

@@ -17,6 +17,7 @@ import { snapshotRateCard } from "../actions";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { PrintButton } from "./print-button";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 type Params = { version?: string; error?: string };
 
@@ -91,15 +92,17 @@ export default async function RateCardPage({ searchParams }: { searchParams: Pro
               )}
             </div>
             <span className="flex-1" />
-            {context.isFinance && version.in_use && snapshotStale && (
-              <form action={snapshotRateCard}>
-                <input type="hidden" name="version_id" value={version.id} />
-                <Button type="submit" variant="secondary">
-                  Record for estimates
-                </Button>
-              </form>
-            )}
-            <PrintButton />
+            <div className={CONTROL_ROW}>
+              {context.isFinance && version.in_use && snapshotStale && (
+                <form action={snapshotRateCard}>
+                  <input type="hidden" name="version_id" value={version.id} />
+                  <Button type="submit" variant="secondary">
+                    Record for estimates
+                  </Button>
+                </form>
+              )}
+              <PrintButton />
+            </div>
           </div>
 
           {detail.pools.some((row) => row.units_basis === "volume_forecast") && (

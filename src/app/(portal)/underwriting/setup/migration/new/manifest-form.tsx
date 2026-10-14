@@ -29,6 +29,7 @@ import {
 import { submitMigrationManifest } from "../actions";
 import { batchDocumentsPath, MIGRATION_PATH } from "../paths";
 import { Card } from "@/components/ui/card";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 
 type Source = "manifest" | "documents";
@@ -360,7 +361,7 @@ export function ManifestForm({
               </section>
             )}
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+            <div className={`${CONTROL_ROW} border-t border-line pt-5`}>
               <Button type="submit" disabled={!labelOk || !check || check.ready.length === 0}>
                 {check && check.ready.length > 0
                   ? `Load ${pluralize(check.ready.length, "entry", "entries")} and continue`
@@ -368,7 +369,7 @@ export function ManifestForm({
               </Button>
               <SecondaryLink href={MIGRATION_PATH}>Cancel</SecondaryLink>
               {check && check.problems.length > 0 && check.ready.length > 0 && (
-                <span className="text-[13px] text-ink-500">
+                <span className="text-[13px] text-ink-500" data-row="full">
                   The {pluralize(check.problems.length, "row", "rows")} that need a fix are left
                   out. Fix them and load the manifest again — nothing loads twice.
                 </span>

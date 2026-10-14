@@ -4,6 +4,7 @@ import { TextLink } from "@/components/ui/primary-link";
 import { Input, Select } from "@/components/ui/input";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   listAllSubmissions,
   listSubmittedDepartments,
@@ -22,6 +23,7 @@ import {
   PARTNERSHIP_TYPES,
 } from "@/lib/academic-partnerships/partnership-types";
 import type { ApDisposition, ApPartnershipType, ApStage } from "@/lib/database.types";
+import { cn } from "@/lib/cn";
 
 interface SearchParams {
   stage?: string;
@@ -75,14 +77,14 @@ export default async function AllSubmissionsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <form method="get" className="flex flex-wrap items-end gap-2">
+      <form method="get" className={cn(CONTROL_ROW, "sm:items-end")}>
         <FilterField label="Search">
           <Input
             type="search"
             name="q"
             defaultValue={params.q}
             placeholder="Name, email, department, course…"
-            className="w-56"
+            className="sm:w-56"
           />
         </FilterField>
         <FilterField label="Stage">

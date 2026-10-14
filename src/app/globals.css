@@ -69,3 +69,38 @@ body {
     @apply text-[11px] font-bold uppercase tracking-wide text-ink-500;
   }
 }
+
+/*
+ * Control rows on a phone (docs/ui-patterns.md, "Control rows on a phone";
+ * components/ui/control-row.tsx). Below `sm` the children of a `.control-row`
+ * stop sitting at their natural width: a basis of 40% lets exactly two share a
+ * row and grow to fill it, a third wraps. A child marked `data-row` opts out —
+ * `fixed` keeps its own size (an icon button), `full` takes a row to itself (a
+ * search box), `skip` is a desktop-only spacer. With three or more stretching
+ * controls the last one takes the last row alone (`:nth-child(... of S)`
+ * counts only the stretching siblings). Unlayered, after the utilities, so it
+ * wins over a child's own `shrink-0` or `w-` at these widths only.
+ */
+@media (max-width: 639.98px) {
+  .control-row > * {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+  .control-row > [data-row="fixed"] {
+    flex: 0 0 auto;
+  }
+  .control-row > [data-row="full"] {
+    flex-basis: 100%;
+  }
+  .control-row > [data-row="skip"] {
+    display: none;
+  }
+  /* A one-button <form>, a wrapper <div>, a <label> around a select, an <a>
+     around a button: the control inside fills the stretched child. */
+  .control-row > :not([data-row]) > :is(button, a, select) {
+    width: 100%;
+  }
+  .control-row > :nth-last-child(1 of :not([data-row])):nth-child(n + 3 of :not([data-row])) {
+    flex-basis: 100%;
+  }
+}

@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { SecondaryLink } from "@/components/ui/primary-link";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateFormField } from "../../../actions";
 
 export default async function EditFormFieldPage({
@@ -80,7 +81,7 @@ export default async function EditFormFieldPage({
             </Field>
           )}
           <CheckboxField name="required" defaultChecked={field.required} label="Required" />
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/editorial/settings/form">Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>

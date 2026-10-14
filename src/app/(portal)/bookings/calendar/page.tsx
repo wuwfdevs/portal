@@ -3,6 +3,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
@@ -289,9 +290,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       )}
 
       <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className={`${CONTROL_ROW} sm:gap-3`}>
           <FilterChips
             label="Pool"
+            data-row="full"
             chips={[
               { label: "All pools", href: here({ pool: undefined }), active: poolFilter === null },
               ...resourcedPools.map((pool) => ({
@@ -301,7 +303,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               })),
             ]}
           />
-          <span className="flex-1" />
+          <span className="flex-1" data-row="skip" />
           <ActionMenu
             label="More"
             items={[

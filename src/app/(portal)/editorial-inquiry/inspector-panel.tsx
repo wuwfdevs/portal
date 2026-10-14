@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Markdown } from "@/components/ui/markdown";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   EVIDENTIARY_STATUSES,
   labelForDepth,
@@ -386,7 +387,7 @@ function AddYourOwn(props: InspectorPanelProps) {
             onChange={(e) => props.onManualAddTextChange(e.target.value)}
             placeholder="Type the question…"
           />
-          <div className="flex justify-end gap-2">
+          <div className={`${CONTROL_ROW} sm:justify-end`}>
             <Button variant="secondary" className={COMPACT_BUTTON} onClick={props.onCloseManualAdd}>
               Cancel
             </Button>
@@ -508,7 +509,7 @@ function ContextSection(props: InspectorPanelProps) {
             onChange={(e) => props.onContextTextChange(e.target.value)}
             placeholder="Paste a note, link, or excerpt…"
           />
-          <div className="flex justify-end gap-2">
+          <div className={`${CONTROL_ROW} sm:justify-end`}>
             <Button
               variant="secondary"
               className={COMPACT_BUTTON}

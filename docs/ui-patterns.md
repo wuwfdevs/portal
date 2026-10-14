@@ -433,6 +433,37 @@ Anything tappable is at least 44px tall below `lg`, and the rule lives in one pl
 - A raw `<button>`, `<a>`/`Link` or `<summary>` takes `TAP_TARGET` in its `className`.
 - The always-on and `max-sm`/`max-md` variants are separate calls, not this rule.
 
+## Control rows on a phone (2026-10-14)
+
+A row of boxed controls — buttons, links styled as buttons, selects, menu triggers — is a
+`ControlRow` (`components/ui/control-row.tsx`; `CONTROL_ROW` for a `<form>` footer), never a
+flex container typed per screen. From `sm` up nothing changes: controls keep their natural
+width and sit where the caller puts them, with the primary action on the right. Below `sm`
+the rule in `globals.css` (`.control-row`) takes over:
+
+1. **Two controls share one row** at half width each, with no spacer between them, so neither
+   is pinned to an edge with white space beside it.
+2. **An icon-only button keeps its square** (`data-row="fixed"`; `ActionMenu` marks its own ⋮)
+   and the other control takes the rest.
+3. **A search box takes its own row** (`data-row="full"`; `ListSearch` marks itself), and a
+   control left alone on a row goes full width rather than left-aligned at its natural size.
+4. **Three or more** pair up, and the last one — the primary action, by the convention that it
+   comes last — takes the last row alone.
+
+A child that is a wrapper — a one-button `<form>`, a `<div>` around a button, a `<label>` around a
+select, an `<a>` around a button — stretches too, and the control inside fills it. A text hint
+in the row takes `data-row="full"` so it reads as a line of its own; a `Badge`, a `TextLink` or a
+text-style button beside stretching controls takes `data-row="fixed"`.
+
+`ListToolbar` is a control row already (its spacer is `data-row="skip"`, gone on a phone), so
+its trailing children need nothing; a child that is itself a `<form>` holding two controls
+(a format select and "+ New piece") is a second `CONTROL_ROW`. Page-header action groups
+(`+ Add source` and ⋮), form footers (Cancel and Save), confirm steps and dialog footers all
+use it. Don't add `max-sm:min-h-11`, `w-full sm:w-auto` or a `max-sm:` width to a child:
+the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`max-w-`
+belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
+not control rows.
+
 ## AI actions carry the sparkles mark (2026-10-14)
 
 Any button or link that starts a model run — Analyze, Synthesize, Outline, Write from outline, Drill down,

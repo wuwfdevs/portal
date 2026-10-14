@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { FilterChips } from "@/components/ui/filter-chips";
+import { TAP_TARGET } from "@/components/ui/tap-target";
 import { cn } from "@/lib/cn";
 import { appliedFilterLabels, type FilterGroup } from "@/lib/filter-groups";
 import { useDismissable } from "@/lib/use-dismissable";
@@ -39,7 +40,10 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
     >
       <summary
         className={cn(
-          "inline-flex h-9 max-w-[16rem] cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden",
+          // In a control row (list-toolbar.tsx) the <details> stretches below `sm`, so the
+          // button fills it and centres, the same as the button beside it.
+          "inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface max-sm:w-full max-sm:justify-center sm:max-w-[16rem] [&::-webkit-details-marker]:hidden",
+          TAP_TARGET,
           applied.length > 0
             ? "border-brand-primary bg-brand-surface text-brand-link"
             : "border-line bg-white text-ink-700 hover:border-brand-primary",
