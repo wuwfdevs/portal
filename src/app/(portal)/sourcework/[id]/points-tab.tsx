@@ -37,8 +37,9 @@ export async function PointsTab({
 }) {
   const filter = parsePointsFilter(filterParam);
   const page = parsePage(pageParam);
-  const base = projectPath(projectId, "points");
-  const params = { filter: filter === "accepted" ? null : filter };
+  // pageHref adds the query itself, so the path must be query-free and `view` travels as a parameter.
+  const base = projectPath(projectId);
+  const params = { view: "points", filter: filter === "accepted" ? null : filter };
   const [{ rows, total }, questions] = await Promise.all([
     listProjectPoints(
       projectId,
@@ -60,7 +61,7 @@ export async function PointsTab({
         className="mb-4"
         chips={(Object.keys(FILTER_LABEL) as PointsFilter[]).map((value) => ({
           label: FILTER_LABEL[value],
-          href: pageHref(base, { filter: value === "accepted" ? null : value }, 1),
+          href: pageHref(base, { view: "points", filter: value === "accepted" ? null : value }, 1),
           active: filter === value,
         }))}
       />
