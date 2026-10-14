@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Field, Input } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { createProposedTool } from "../actions";
 
 /**
@@ -61,7 +62,7 @@ export default async function NewProposedToolPage({
           >
             <Input id="sort_order" name="sort_order" type="number" defaultValue={99} />
           </Field>
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/admin/tools">Cancel</SecondaryLink>
             <Button type="submit">Create proposal</Button>
           </div>

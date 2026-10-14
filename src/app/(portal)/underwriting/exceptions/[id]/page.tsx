@@ -32,6 +32,7 @@ import {
 import type { UwResolutionAction } from "@/lib/database.types";
 import { TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { EXCEPTION_STEP_STATUS, MAKEGOOD_STATUS } from "@/lib/underwriting/status";
 
 const COMMON_DECISIONS: UwResolutionAction[] = [
@@ -306,9 +307,11 @@ export default async function ExceptionDetailPage({
               />
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className={`${CONTROL_ROW} sm:justify-end`}>
             {open && activeMakegood && (
-              <span className="text-xs text-ink-500">Resolves itself when the makegood airs.</span>
+              <span className="text-xs text-ink-500" data-row="full">
+                Resolves itself when the makegood airs.
+              </span>
             )}
             {open ? (
               <>
@@ -328,7 +331,7 @@ export default async function ExceptionDetailPage({
               </>
             ) : (
               <>
-                <Button type="submit" name="resolution_status" value="open" variant="ghost">
+                <Button type="submit" name="resolution_status" value="open" variant="ghost" touch>
                   Reopen
                 </Button>
                 <Button type="submit" name="resolution_status" value="resolved">

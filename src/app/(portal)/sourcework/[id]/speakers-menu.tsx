@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { CheckboxField, Input, Select } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { filterSpeakerRows, speakerRows, speakerSummary } from "@/lib/transcription/speakers";
@@ -273,7 +274,7 @@ function AddSpeakerForm({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2">
+    <div className={`${CONTROL_ROW} border-t border-line px-3 py-2`}>
       {open ? (
         <>
           <Input
@@ -287,6 +288,7 @@ function AddSpeakerForm({
             placeholder="Speaker’s name"
             aria-label="Name of the new speaker"
             className="w-full px-2.5 py-1.5 sm:w-44"
+            data-row="full"
           />
           <Button
             type="button"

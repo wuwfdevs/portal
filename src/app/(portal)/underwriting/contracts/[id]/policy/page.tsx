@@ -7,6 +7,7 @@ import { updateContractPolicy } from "../../../contract-actions";
 import { WizardHeader } from "../wizard-header";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 /**
  * Setup step 4: the traffic policy the order states (docs/underwriting-
@@ -119,14 +120,14 @@ export default async function ContractPolicyPage({
                   />
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+              <div className={`${CONTROL_ROW} border-t border-line pt-4`}>
                 <Button type="submit" variant="secondary">
                   Save policy
                 </Button>
-                <TextLink href={`/underwriting/contracts/${contract.id}/copy`}>
+                <TextLink href={`/underwriting/contracts/${contract.id}/copy`} data-row="fixed">
                   ← Back to copy
                 </TextLink>
-                <span className="flex-1" />
+                <span className="flex-1" data-row="skip" />
                 <PrimaryLink href={`/underwriting/contracts/${contract.id}`}>
                   Continue to review
                 </PrimaryLink>

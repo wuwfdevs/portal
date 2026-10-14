@@ -62,7 +62,7 @@ export function BulkAcceptButton({
         <Button
           type="button"
           variant={variant}
-          className={className ?? "max-sm:min-h-11"}
+          className={className ?? "max-sm:w-full"}
           onClick={() => setConfirming(true)}
         >
           {label}

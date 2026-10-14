@@ -7,6 +7,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { isValidDateISO } from "@/lib/dates";
 import { formatClock } from "@/lib/format";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   getRundownForProgramOnDate,
   listClockSlotsForVersion,
@@ -111,13 +112,13 @@ export default async function NprPage({
       <SourceHeader title="NPR" />
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <form className="flex flex-wrap items-end gap-3" method="get">
+        <form className={`${CONTROL_ROW} sm:items-end`} method="get">
           <Field label="Program" htmlFor="npr-program">
             <Select
               id="npr-program"
               name="program"
               defaultValue={selectedProgram.id}
-              className="w-64"
+              className="sm:w-64"
             >
               {programs.map((program) => (
                 <option key={program.id} value={program.id}>
@@ -133,7 +134,7 @@ export default async function NprPage({
               type="date"
               name="date"
               defaultValue={selectedDate}
-              className="w-40"
+              className="sm:w-40"
             />
           </Field>
           <Button type="submit" variant="secondary" className="shrink-0">

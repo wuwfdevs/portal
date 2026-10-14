@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { TextLink } from "@/components/ui/primary-link";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   deriveParticipantHealth,
   anyParticipantNeedsAttention,
@@ -462,7 +463,7 @@ export function StudioClient({
         </Alert>
       )}
 
-      <Card className="mb-6 flex flex-wrap items-center gap-4 p-4">
+      <Card className={`${CONTROL_ROW} mb-6 p-4 sm:gap-4`}>
         <Button
           type="button"
           variant={recordingActive ? "secondary" : "primary"}
@@ -472,7 +473,7 @@ export function StudioClient({
           {recordingActive ? "Stop recording" : "Start recording"}
         </Button>
         {recordingActive && (
-          <span className="font-mono text-lg font-bold text-ink-900">
+          <span className="font-mono text-lg font-bold text-ink-900" data-row="fixed">
             {formatElapsed(elapsedMs)}
           </span>
         )}
@@ -486,6 +487,7 @@ export function StudioClient({
         </Button>
         <Badge
           variant={!cloudBackupConfigured ? "muted" : cloudBackupBadgeVariant(cloudBackupState)}
+          data-row="fixed"
         >
           Cloud backup:{" "}
           {!cloudBackupConfigured

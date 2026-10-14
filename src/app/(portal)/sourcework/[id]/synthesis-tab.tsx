@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { ControlRow } from "@/components/ui/control-row";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips } from "@/components/ui/filter-chips";
@@ -142,6 +143,30 @@ export async function SynthesisTab({
   const canEdit = shown !== null && !viewingOlder;
   const sourceCount = new Set(findings.map((finding) => finding.sourceId)).size;
 
+  // The version menu shares a row with Synthesize again; alone when reading an older version.
+  const versionsMenu =
+    versions.length > 1 ? (
+      <ActionMenu
+        label="Versions"
+        triggerLabel={
+          <>
+            Version {shown?.version ?? current?.version}
+            {!viewingOlder ? " · latest" : ""} ▾
+          </>
+        }
+        sheetHeading="Versions"
+        items={versions.map((version) => ({
+          label: `Version ${version.version} · ${formatShortDateTime(version.createdAt)} · ${
+            version.savedVia === "person" ? "edited by a person" : "written by a run"
+          }${version.version === current?.version ? " · latest" : ""}`,
+          href:
+            version.version === current?.version
+              ? projectPath(projectId, "synthesis")
+              : `${projectPath(projectId, "synthesis")}&version=${version.version}`,
+        }))}
+      />
+    ) : null;
+
   return (
     <div className="flex flex-col gap-5">
       {running && <ProcessingPoller />}
@@ -167,50 +192,24 @@ export async function SynthesisTab({
           {diff && !viewingOlder && <p className="mt-1 text-sm text-ink-500">{diff}</p>}
         </div>
 
-        {findings.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3">
-            {current && changedSince > 0 && !viewingOlder && (
-              <Badge
-                variant="warning"
-                title="Accepted findings edited after this version was written"
-              >
-                {pluralize(changedSince, "finding")} changed since
-              </Badge>
-            )}
-            {versions.length > 1 && (
-              <ActionMenu
-                label="Versions"
-                triggerLabel={
-                  <>
-                    Version {shown?.version ?? current?.version}
-                    {!viewingOlder ? " · latest" : ""} ▾
-                  </>
-                }
-                sheetHeading="Versions"
-                items={versions.map((version) => ({
-                  label: `Version ${version.version} · ${formatShortDateTime(version.createdAt)} · ${
-                    version.savedVia === "person" ? "edited by a person" : "written by a run"
-                  }${version.version === current?.version ? " · latest" : ""}`,
-                  href:
-                    version.version === current?.version
-                      ? projectPath(projectId, "synthesis")
-                      : `${projectPath(projectId, "synthesis")}&version=${version.version}`,
-                }))}
-              />
-            )}
-          </div>
+        {findings.length > 0 && current && changedSince > 0 && !viewingOlder && (
+          <Badge variant="warning" title="Accepted findings edited after this version was written">
+            {pluralize(changedSince, "finding")} changed since
+          </Badge>
         )}
       </div>
 
-      {findings.length > 0 && !viewingOlder && (
-        <div>
+      {findings.length > 0 &&
+        (viewingOlder ? (
+          versionsMenu && <ControlRow>{versionsMenu}</ControlRow>
+        ) : (
           <SynthesizeButton
             projectId={projectId}
             label={synthesizeButtonLabel(current !== null, changedSince)}
             alreadyRunning={running}
+            controls={versionsMenu}
           />
-        </div>
-      )}
+        ))}
       {shown && !viewingOlder && (
         <DismissibleHint id="synthesis-intro">
           Each statement opens onto the findings behind it. Synthesize again after you accept new

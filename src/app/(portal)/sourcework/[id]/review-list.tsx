@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { formatShortDate, pluralize } from "@/lib/format";
 import {
   dataPointTag,
@@ -119,7 +120,7 @@ export function ReviewList({
           from {pluralize(groups.length, "source")} are waiting for a decision. Nothing here is
           deleted by deciding: an accepted finding can be put back, and a rejected one too.
         </p>
-        <div className="flex flex-wrap items-start gap-3">
+        <div className={`${CONTROL_ROW} sm:items-start`}>
           {pointCount > 0 && <AcceptAllDataPoints projectId={projectId} count={pointCount} />}
           {waitingClips > 0 && (
             <BulkAcceptButton

@@ -1644,6 +1644,15 @@ attention (Exceptions, Affidavits, badged with decisions waiting plus unsigned a
 Library (Underwriters, Copy) · Setup, at the right edge — modelled in `lib/underwriting/nav.ts`;
 routes did not move. `20261009120000` is Resources content only.
 
+**Control rows on a phone — one rule for every row of controls (2026-10-14).** Read
+`docs/ui-patterns.md` "Control rows on a phone" before laying out two or more boxed controls side
+by side; this is a pointer. A row of buttons, button-styled links, selects or menu triggers is a
+`ControlRow` (`components/ui/control-row.tsx`, `CONTROL_ROW` for a `<form>`), never a flex
+container typed per screen. Below `sm` the rule in `globals.css` sizes the children: two share
+the row at half width, an icon-only button (`data-row="fixed"`) keeps its square, a search box
+(`data-row="full"`) takes its own row, and with three or more the last — the primary — takes
+the last row alone. `ListToolbar` is one already, so its trailing children need nothing.
+
 **Filters and tables on a phone — one approach for every list (2026-09-30).** Read
 `docs/ui-patterns.md` "Filters" and "Tables on narrow screens" before adding a list page or
 a filter; this is a pointer. `ListToolbar` takes filter groups (`filters`); one short group

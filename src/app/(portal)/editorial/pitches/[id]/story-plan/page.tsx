@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   addMilestone,
   createStoryPlan,
@@ -447,7 +448,7 @@ function StatusControls({
   }
 
   if (controls.length === 0) return null;
-  return <div className="flex flex-wrap gap-2">{controls}</div>;
+  return <div className={CONTROL_ROW}>{controls}</div>;
 }
 
 function ReadOnlyPlan({

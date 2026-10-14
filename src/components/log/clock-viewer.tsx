@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import { describeRingSegment, pointOnCircle } from "@/lib/log/clock-face";
 import {
@@ -1083,7 +1084,7 @@ function SlotPanel({
       </div>
 
       {(acting || (pinning && isLocal)) && !form && (
-        <div className="flex flex-wrap items-center gap-2.5 border-t border-line px-5 py-3">
+        <div className={`${CONTROL_ROW} border-t border-line px-5 py-3`}>
           {isLocal ? (
             <>
               {acting && (

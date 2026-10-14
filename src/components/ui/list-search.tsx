@@ -76,7 +76,14 @@ export function ListSearch({
   }
 
   return (
-    <form method="get" role="search" onSubmit={onSubmit} className={className}>
+    <form
+      method="get"
+      role="search"
+      onSubmit={onSubmit}
+      className={className}
+      // In a control row a search box always takes a row to itself.
+      data-row="full"
+    >
       {Object.entries(hidden ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}

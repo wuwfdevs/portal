@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Field, FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
+import { ControlRow } from "@/components/ui/control-row";
 import { availableStatusActions, POST_KIND_LABEL, STATUS_ACTION_LABEL } from "@/lib/roadmap/posts";
 import type { PostDetail, PostTarget } from "@/lib/roadmap/queries";
 import type { RdPostKind } from "@/lib/database.types";
@@ -37,7 +38,7 @@ export function CurationPanel({
 
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold text-ink-700">Move this request</span>
-        <div className="flex flex-wrap gap-2">
+        <ControlRow>
           {transitions
             .filter((next) => next !== "declined")
             .map((next) => (
@@ -49,7 +50,7 @@ export function CurationPanel({
                 </Button>
               </form>
             ))}
-        </div>
+        </ControlRow>
       </div>
 
       {transitions.includes("declined") && (

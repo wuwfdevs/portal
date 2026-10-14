@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
 import { PrimaryLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { DATA_SOURCES, formatStaleAfter } from "@/lib/log/data-sources";
 import { loadDataSourceStatuses } from "@/lib/log/data-source-status";
 import { DATA_SOURCE_STATE } from "@/lib/log/status-badges";
@@ -83,7 +84,7 @@ export default async function SourcesPage({
                 ]}
               />
 
-              <div className="mt-auto flex flex-wrap items-center gap-3">
+              <div className={`${CONTROL_ROW} mt-auto`}>
                 <PrimaryLink href={source.href}>Open {source.label}</PrimaryLink>
                 {source.key === "weather" && (
                   <form action={refreshWeatherAction}>

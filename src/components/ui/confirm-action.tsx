@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { ControlRow } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 
 /**
@@ -58,7 +59,7 @@ export function ConfirmAction({
   ) : (
     <div className="flex flex-col gap-2.5">
       <div className="text-sm leading-relaxed text-ink-700 lg:text-xs">{message}</div>
-      <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+      <ControlRow>
         <Button
           type="button"
           variant="danger"
@@ -71,13 +72,14 @@ export function ConfirmAction({
         <Button
           type="button"
           variant="ghost"
+          touch
           onClick={() => setConfirming(false)}
           disabled={busy}
           className="max-lg:min-h-12"
         >
           Cancel
         </Button>
-      </div>
+      </ControlRow>
     </div>
   );
 

@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { useRightPanel } from "@/components/right-panel";
 import { summarizeToolsUsed } from "@/lib/agent/tools-used";
 import { readSseEvents, SSE_STOPPED_MESSAGE, SSE_UNREACHABLE_MESSAGE } from "@/lib/read-sse";
@@ -428,7 +429,7 @@ export function AgentChatWidget() {
                   {JSON.stringify(pending.input, null, 2)}
                 </pre>
               )}
-              <div className="mt-2.5 flex gap-2">
+              <div className={`${CONTROL_ROW} mt-2.5`}>
                 <Button
                   type="button"
                   onClick={() => resolveConfirmation(true)}

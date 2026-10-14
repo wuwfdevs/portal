@@ -29,6 +29,7 @@ import { FileInput } from "@/components/ui/input";
 import { TextLink } from "@/components/ui/primary-link";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Steps } from "@/components/ui/steps";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import { formatStationDateLong } from "@/lib/log/timezone";
 import type {
@@ -299,14 +300,16 @@ function PlanPreview({
         <h2 className="text-sm font-bold text-ink-900">
           {plan.airDate ? formatStationDateLong(plan.airDate) : "Unknown date"}
         </h2>
-        <Button type="button" onClick={onConfirm} disabled={pending || creatable.length === 0}>
-          {pending
-            ? "Importing…"
-            : `Import ${pluralize(creatable.length, "rundown")}${plan.airDate ? ` for ${plan.airDate}` : ""}`}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onReset} disabled={pending}>
-          Start over
-        </Button>
+        <div className={CONTROL_ROW}>
+          <Button type="button" onClick={onConfirm} disabled={pending || creatable.length === 0}>
+            {pending
+              ? "Importing…"
+              : `Import ${pluralize(creatable.length, "rundown")}${plan.airDate ? ` for ${plan.airDate}` : ""}`}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onReset} disabled={pending}>
+            Start over
+          </Button>
+        </div>
       </div>
 
       {/* The whole review at a glance; each figure is expanded below. */}

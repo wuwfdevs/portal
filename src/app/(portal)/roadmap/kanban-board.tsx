@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { KanbanBoardField } from "@/components/ui/kanban-board-field";
+import { ControlRow } from "@/components/ui/control-row";
 import { availableStatusActions, KANBAN_STATUSES, POST_STATUS_BADGE } from "@/lib/roadmap/posts";
 import type { PostSummary } from "@/lib/roadmap/queries";
 import type { RdPostStatus } from "@/lib/database.types";
@@ -95,7 +96,7 @@ export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
             autoFocus
           />
           {declineError && <p className="mt-1.5 text-xs text-danger">{declineError}</p>}
-          <div className="mt-2 flex justify-end gap-2">
+          <ControlRow className="mt-2 sm:justify-end">
             <Button
               type="button"
               variant="secondary"
@@ -114,7 +115,7 @@ export function RoadmapKanban({ posts }: { posts: PostSummary[] }) {
             >
               Decline
             </Button>
-          </div>
+          </ControlRow>
         </div>
       )}
     </div>

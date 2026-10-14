@@ -6,6 +6,7 @@ import { Field, Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { SecondaryLink } from "@/components/ui/primary-link";
 import { RichTextField } from "@/components/ui/rich-text-field";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { getPostDetail } from "@/lib/roadmap/queries";
 import { updatePost } from "../../actions";
@@ -51,7 +52,7 @@ export default async function EditRequestPage({
             <RichTextField name="body" defaultValue={post.body} ariaLabel="Request description" />
           </Field>
 
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href={`/roadmap/${id}`}>Cancel</SecondaryLink>
             <Button type="submit">Save changes</Button>
           </div>

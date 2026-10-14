@@ -31,6 +31,7 @@ import { LineActions } from "./line-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { defineStatusMap, StatusBadge } from "@/components/ui/status-badge";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
 import { pluralize } from "@/lib/format";
 
@@ -133,12 +134,14 @@ export async function ContractCopyPanel({
             : `Messages · ${contract.copy.length} linked${awaiting > 0 ? ` · ${awaiting} awaiting approval` : ""}`}
         </SectionHeading>
         <span className="flex-1" />
-        <SecondaryLink size="sm" href={withQuery("link=1")}>
-          Link existing…
-        </SecondaryLink>
-        <PrimaryLink href={withQuery("new=1")} className="px-3 py-2 text-[13px]">
-          + New message
-        </PrimaryLink>
+        <div className={CONTROL_ROW}>
+          <SecondaryLink size="sm" href={withQuery("link=1")}>
+            Link existing…
+          </SecondaryLink>
+          <PrimaryLink href={withQuery("new=1")} className="px-3 py-2 text-[13px]">
+            + New message
+          </PrimaryLink>
+        </div>
       </div>
 
       {openCard === "new" && (

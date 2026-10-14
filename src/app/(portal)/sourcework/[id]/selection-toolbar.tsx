@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { formatDuration } from "@/lib/transcription/media";
 import { suggestExcerptTitle } from "@/lib/transcription/excerpt-title";
 import type { SelectionRange } from "@/lib/transcription/selection";
@@ -127,13 +128,13 @@ export function SelectionToolbar({
           {formatDuration(selection.startMs)}–{formatDuration(selection.endMs)} (
           {formatDuration(selection.endMs - selection.startMs)})
         </span>
-        <div className="flex w-full gap-2 lg:contents">
+        <div className={`${CONTROL_ROW} lg:contents`}>
           <Button
             type="button"
             size="sm"
             onClick={handleCreate}
             disabled={isPending}
-            className="max-lg:order-3 max-lg:flex-1"
+            className="max-lg:order-3"
           >
             {isPending ? "Saving…" : "Save excerpt"}
           </Button>

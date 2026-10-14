@@ -17,6 +17,7 @@ import {
   updateAssessment,
 } from "../actions";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 const FIT_OPTIONS = ["strong", "possible", "weak"] as const;
 const CAPACITY_OPTIONS = ["available", "uncertain", "unavailable"] as const;
@@ -51,9 +52,9 @@ export function InternalPanel({
         <SectionHeading level="eyebrow" className="mb-2">
           Stage
         </SectionHeading>
-        <form action={setStageForm} className="flex items-end gap-2">
+        <form action={setStageForm} className={CONTROL_ROW}>
           <input type="hidden" name="submission_id" value={submission.id} />
-          <Select name="stage" defaultValue={submission.stage} className="w-auto">
+          <Select name="stage" defaultValue={submission.stage} className="sm:w-auto">
             {STAGES.map((stage) => (
               <option key={stage} value={stage}>
                 {STAGE_LABEL[stage]}
@@ -70,9 +71,9 @@ export function InternalPanel({
         <SectionHeading level="eyebrow" className="mb-2">
           Owner
         </SectionHeading>
-        <form action={assignOwner} className="flex items-end gap-2">
+        <form action={assignOwner} className={CONTROL_ROW}>
           <input type="hidden" name="submission_id" value={submission.id} />
-          <Select name="owner_id" defaultValue={submission.owner_id ?? ""} className="w-auto">
+          <Select name="owner_id" defaultValue={submission.owner_id ?? ""} className="sm:w-auto">
             <option value="">Unassigned</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>

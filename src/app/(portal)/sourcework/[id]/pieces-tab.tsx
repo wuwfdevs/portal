@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatClock, formatShortDate } from "@/lib/format";
 import { piecePath } from "@/lib/transcription/links";
@@ -42,14 +43,14 @@ export async function PiecesTab({
             : undefined
         }
       >
-        <form action={createPiece} className="flex items-center gap-2">
+        <form action={createPiece} className={CONTROL_ROW}>
           <input type="hidden" name="project_id" value={projectId} />
           {formats.length > 0 && (
             <Select
               name="format_id"
               aria-label="Start from a format"
               defaultValue=""
-              className="w-auto max-w-44 max-sm:min-h-11"
+              className="sm:w-auto sm:max-w-44"
             >
               <option value="">No format</option>
               {formats.map((format) => (
@@ -59,9 +60,7 @@ export async function PiecesTab({
               ))}
             </Select>
           )}
-          <Button type="submit" className="max-sm:min-h-11">
-            + New piece
-          </Button>
+          <Button type="submit">+ New piece</Button>
         </form>
       </ListToolbar>
 

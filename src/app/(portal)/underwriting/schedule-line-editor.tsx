@@ -19,6 +19,7 @@ import {
 } from "@/lib/underwriting/schedule-line-form";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 
 /**
@@ -891,23 +892,27 @@ export function ScheduleLineEditor({
           </div>
         </details>
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+        <div className={`${CONTROL_ROW} border-t border-line pt-5`}>
           {editing ? (
             <>
               <Button type="submit">Save line</Button>
-              {cancelHref && <TextLink href={cancelHref}>Cancel</TextLink>}
+              {cancelHref && (
+                <TextLink href={cancelHref} data-row="fixed">
+                  Cancel
+                </TextLink>
+              )}
             </>
           ) : (
             <>
               <Button type="submit" name="then" value="done">
                 Add line
               </Button>
-              <Button type="submit" name="then" value="another" variant="ghost">
+              <Button type="submit" name="then" value="another" variant="ghost" touch>
                 Add and start another
               </Button>
             </>
           )}
-          <span className="flex-1" />
+          <span className="flex-1" data-row="skip" />
           {continueHref && (
             <SecondaryLink href={continueHref.href}>{continueHref.label}</SecondaryLink>
           )}

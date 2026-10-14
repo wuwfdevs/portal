@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
+import { ControlRow } from "@/components/ui/control-row";
 import { synthesisSummary } from "@/lib/sourcework/synthesis-view";
+import type { ReactNode } from "react";
 
 type Outcome = Parameters<typeof synthesisSummary>[0];
 
@@ -18,12 +20,15 @@ export function SynthesizeButton({
   label,
   disabled,
   alreadyRunning,
+  controls,
 }: {
   projectId: string;
   label: string;
   disabled?: boolean;
   /** A run started elsewhere is still going; wait for it instead of starting another. */
   alreadyRunning?: boolean;
+  /** Controls that share the button's row, before it (the version menu). */
+  controls?: ReactNode;
 }) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
@@ -62,11 +67,12 @@ export function SynthesizeButton({
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
+      <ControlRow>
+        {controls}
         <Button type="button" ai onClick={run} disabled={disabled || running || alreadyRunning}>
           {running ? "Synthesizing…" : label}
         </Button>
-      </div>
+      </ControlRow>
       {running && (
         <BusyPanel
           title="Reading the findings"

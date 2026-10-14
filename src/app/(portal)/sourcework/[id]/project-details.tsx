@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label, FieldError, FieldHint } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateProjectDetails } from "../actions";
 
 /**
@@ -98,7 +99,7 @@ export function ProjectDetails({
 
       {error && <FieldError>{error}</FieldError>}
 
-      <div className="flex gap-2">
+      <div className={CONTROL_ROW}>
         <Button type="submit" disabled={isSaving}>
           {isSaving ? "Saving…" : "Save details"}
         </Button>

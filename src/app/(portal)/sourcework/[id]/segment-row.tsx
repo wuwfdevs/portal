@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { useSyncedState } from "@/lib/use-synced-state";
 import { formatDuration } from "@/lib/transcription/media";
 import { speakerDisplayLabel } from "@/lib/transcription/transcript";
@@ -332,7 +333,7 @@ export function SegmentRow({
 
               {canSplit && <SplitPreview text={text} caret={caret} />}
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className={`${CONTROL_ROW} mt-2`}>
                 <Button
                   type="button"
                   size="sm"
@@ -365,10 +366,11 @@ export function SegmentRow({
                       : "Put the cursor inside the text to split there"
                   }
                   className="text-brand-link"
+                  data-row="fixed"
                 >
                   Split here
                 </Button>
-                <span className="text-[11px] text-ink-400 max-lg:hidden">
+                <span className="text-[11px] text-ink-400 max-lg:hidden" data-row="skip">
                   ⌘↵ to save · Esc to cancel
                 </span>
               </div>

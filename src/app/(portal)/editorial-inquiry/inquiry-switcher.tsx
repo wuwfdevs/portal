@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { FloatingPanel } from "@/components/ui/floating-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import type { GuidingQuestionOption } from "@/lib/editorial-inquiry/editorial-planning";
 import type { InquirySummary } from "@/lib/editorial-inquiry/queries";
 import { startNewInquiry } from "./actions";
@@ -117,7 +118,7 @@ export function InquirySwitcher({
                   </span>
                 </label>
               ))}
-              <div className="mt-1 flex justify-end gap-2">
+              <div className={`${CONTROL_ROW} mt-1 sm:justify-end`}>
                 <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>

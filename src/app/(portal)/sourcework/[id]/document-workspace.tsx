@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, FieldError } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { ScopedSearchPanel } from "@/components/transcription/scoped-search-panel";
 import {
   bboxForOffsetRange,
@@ -468,12 +469,13 @@ export function DocumentWorkspace({
             <p className="mb-2 line-clamp-3 text-xs italic text-ink-700">
               &ldquo;{pendingSelection.excerpt}&rdquo;
             </p>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={CONTROL_ROW}>
               <Input
                 placeholder="Excerpt title"
                 value={excerptTitle}
                 onChange={(event) => setExcerptTitle(event.target.value)}
-                className="max-w-xs"
+                className="sm:max-w-xs"
+                data-row="full"
               />
               <Button type="button" onClick={handleSaveExcerpt} disabled={saving}>
                 {saving ? "Saving…" : "Save excerpt"}

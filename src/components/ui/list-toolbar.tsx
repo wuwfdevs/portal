@@ -1,6 +1,7 @@
 import { FilterChips, type FilterChip } from "@/components/ui/filter-chips";
 import { FilterMenu } from "@/components/ui/filter-menu";
 import { ListSearch } from "@/components/ui/list-search";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import { filtersFitInline, type FilterGroup } from "@/lib/filter-groups";
 import type { ReactNode } from "react";
@@ -25,7 +26,9 @@ export interface ListToolbarSearch {
  * single-group `chips`). One short group shows inline from `sm` up; more than
  * one group, a long group, or any filter on a phone sits behind one Filter
  * button (FilterMenu) that names what's applied. On a phone the search takes
- * the first row to itself and everything else wraps beneath it.
+ * the first row to itself and everything else is a control row beneath it
+ * (`CONTROL_ROW`): the Filter button and the actions pair up at half width,
+ * the spacer is gone, and a third control's primary takes a row of its own.
  */
 export function ListToolbar({
   search,
@@ -54,8 +57,8 @@ export function ListToolbar({
   const inline = filtersFitInline(groups);
 
   return (
-    <div className={cn("relative flex flex-wrap items-center gap-2 sm:gap-3", className)}>
-      {leading}
+    <div className={cn(CONTROL_ROW, "relative sm:gap-3", className)}>
+      {leading && <div data-row="fixed">{leading}</div>}
       {search && <ListSearch {...search} className="w-full max-sm:order-first sm:w-80" />}
       {groups.length > 0 &&
         (inline ? (
@@ -64,13 +67,14 @@ export function ListToolbar({
               label={groups[0]!.label}
               chips={groups[0]!.chips}
               className="hidden sm:flex"
+              data-row="skip"
             />
             <FilterMenu groups={groups} className="sm:hidden" />
           </>
         ) : (
           <FilterMenu groups={groups} />
         ))}
-      <span className="flex-1" />
+      <span className="flex-1" data-row="skip" />
       {children}
     </div>
   );

@@ -30,6 +30,7 @@ import {
   saveFormatDraft,
 } from "./actions";
 import { TAP_TARGET } from "@/components/ui/tap-target";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 const AUTOSAVE_MS = 1200;
 
@@ -564,7 +565,9 @@ export function FormatEditor({
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 flex h-[68px] items-center gap-2.5 border-t border-line bg-white px-4 shadow-[0_-4px_14px_rgba(15,34,53,0.08)] lg:hidden">
+      <div
+        className={`${CONTROL_ROW} fixed inset-x-0 bottom-0 z-30 h-[68px] border-t border-line bg-white px-4 shadow-[0_-4px_14px_rgba(15,34,53,0.08)] lg:hidden`}
+      >
         {actions}
       </div>
     </div>

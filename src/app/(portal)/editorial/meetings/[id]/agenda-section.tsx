@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { formatScore } from "@/lib/editorial/format";
 import { weightedReviewScore, type PitchAggregate } from "@/lib/editorial/scoring";
 import { CONCERN_FLAG_LABEL, RECOMMENDATION_LABEL } from "@/lib/editorial/review";
@@ -255,12 +256,12 @@ function DecisionForm({
     <form action={recordDecision} className="px-4 py-3.5">
       <input type="hidden" name="meeting_id" value={meetingId} />
       <input type="hidden" name="entry_id" value={entry.id} />
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className={CONTROL_ROW}>
         <Select
           name="assigned_to"
           defaultValue={entry.assigned_to ?? ""}
           aria-label={`Assign ${pitchTitle} to`}
-          className="w-auto min-w-44 py-2"
+          className="py-2 sm:w-auto sm:min-w-44"
         >
           <option value="">Assign to…</option>
           {members.map((member) => (
@@ -277,7 +278,7 @@ function DecisionForm({
           maxLength={300}
           className="min-w-40 flex-1 py-2"
         />
-        <div className="flex gap-2">
+        <div className={CONTROL_ROW}>
           <Button type="submit" name="outcome" value="assigned" size="sm">
             Assign
           </Button>

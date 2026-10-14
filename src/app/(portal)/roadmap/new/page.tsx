@@ -5,6 +5,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { SecondaryLink } from "@/components/ui/primary-link";
 import { RichTextField } from "@/components/ui/rich-text-field";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { listTargetTools } from "@/lib/roadmap/queries";
 import { POST_KIND_LABEL } from "@/lib/roadmap/posts";
@@ -97,7 +98,7 @@ export default async function NewRequestPage({
             <RichTextField name="body" ariaLabel="Request description" />
           </Field>
 
-          <div className="flex justify-end gap-2.5 border-t border-line pt-4">
+          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
             <SecondaryLink href="/roadmap">Cancel</SecondaryLink>
             <Button type="submit">File request</Button>
           </div>

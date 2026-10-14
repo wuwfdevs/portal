@@ -9,13 +9,21 @@ export function FilterChips({
   chips,
   label,
   className,
+  ...rest
 }: {
   chips: FilterChip[];
   label: string;
   className?: string;
+  /** Its place in a control row (`control-row.tsx`): hidden below `sm`, or a row of its own. */
+  "data-row"?: "skip" | "full";
 }) {
   return (
-    <div role="group" aria-label={label} className={cn("flex flex-wrap gap-1.5", className)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cn("flex flex-wrap gap-1.5", className)}
+      {...rest}
+    >
       {chips.map((chip) => (
         <Link
           key={chip.href}

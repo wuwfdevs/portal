@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { actionFailureMessage } from "@/lib/use-action";
 import { formatShortDate } from "@/lib/format";
 import type { ActionResult } from "@/lib/action-response";
@@ -152,7 +153,7 @@ function QuestionsSection({
                 if (event.key === "Escape") setAdding(false);
               }}
             />
-            <div className="flex gap-2">
+            <div className={CONTROL_ROW}>
               <Button
                 type="button"
                 disabled={busy || newText.trim() === ""}

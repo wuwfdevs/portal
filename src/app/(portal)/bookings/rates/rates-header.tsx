@@ -12,6 +12,7 @@ import { RatesTabs } from "./rates-tabs";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 
 function statusVariant(version: BkVersionRow): "accent" | "neutral" | "success" | "muted" {
   if (version.status === "adopted") return "success";
@@ -99,7 +100,7 @@ export function RatesHeader({
           {version.notes && (
             <span className="basis-full text-xs text-ink-500">{version.notes}</span>
           )}
-          <span className="flex basis-full flex-wrap items-center gap-2 pt-1">
+          <span className={`${CONTROL_ROW} basis-full pt-1`}>
             {canSubmit && (
               <form action={submitVersion}>
                 <input type="hidden" name="version_id" value={version.id} />

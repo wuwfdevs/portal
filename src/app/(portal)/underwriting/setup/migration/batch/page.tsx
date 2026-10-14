@@ -21,6 +21,7 @@ import { formatDateRange } from "@/lib/underwriting/line-details";
 import { CATEGORY_META } from "../batch-progress";
 import { batchDocumentsPath, batchPath, MIGRATION_PATH, NEW_BATCH_PATH } from "../paths";
 import { Card } from "@/components/ui/card";
+import { CONTROL_ROW } from "@/components/ui/control-row";
 import { pluralize } from "@/lib/format";
 import { indexBy } from "@/lib/collections";
 
@@ -140,7 +141,7 @@ export default async function MigrationBatchPage({
           </p>
         </div>
         {batchLabel && (
-          <div className="flex flex-wrap gap-2">
+          <div className={CONTROL_ROW}>
             {!documentsOnly && (
               <SecondaryLink
                 size="sm"
