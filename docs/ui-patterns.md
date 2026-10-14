@@ -446,3 +446,39 @@ be a `Button` renders `<SparklesIcon className="mr-1.5 h-3.5 w-3.5" />` itself.
   model wrote, and not on controls that only use deterministic code (a suggested excerpt title is not AI).
 - A run started from a menu item or an assistant capability is marked where the person clicks.
 - A new AI action without the mark is a bug, the same as a missing confirm on a delete.
+
+## One-time hints (2026-10-14)
+
+How-to text a screen needs the first time and never again is a `DismissibleHint`
+(`components/ui/dismissible-hint.tsx`): a quiet tinted note with a **Got it** button that hides it for
+good in that browser. Permanent paragraphs of instruction above a working surface push the surface down
+on every visit and teach nobody after the first, so they are the thing to avoid.
+
+**Use it for** instructions that are useful once: how to select words into an excerpt, what a pick does,
+where a setting lives, a gesture ("Tap a word to move the start there"), a reminder that an optional field
+may be left blank.
+
+**Do not use it for** text that stays true or useful for as long as the screen is open: a field's format or
+limit (`FieldHint`), an error or a state explanation (`Alert`), a status such as "Times are Central", a
+consequence the person must read before a destructive step (the confirm step carries that), or an empty
+state's call to action (`EmptyState`). If removing the text would leave someone unable to tell what the
+screen is showing, it is not a hint.
+
+How it behaves:
+
+- `id` names the hint and is the remembered key (`hint-dismissed:<id>` in localStorage): unique, stable,
+  kebab-case, prefixed by the screen ("transcript-select"). Change the id to show a hint again, for
+  example after the screen it describes changes.
+- It remembers **per browser**, not per account. Nothing about a hint is worth a table, and a hint a person
+  dismissed on their phone is fair to show again on a studio PC.
+- It renders nothing on the server and on the first client render, then appears once dismissal is known,
+  so a returning reader never sees it flash. A new reader sees it arrive after hydration, so keep it where
+  a late-arriving line does not move something the person is already using (above content they have not
+  started on, not between two controls).
+- When storage is blocked the dismissal still holds until the page is closed (`lib/dismissed-hints.ts`).
+- One or two per screen at most. A screen that needs a third has a design problem the hint will not fix.
+- The "Got it" button meets the phone tap-target rule; never replace it with a bare ×.
+
+Where it is used: the transcript's selection note, the excerpt trim editor, the Sourcework home search
+and intro, a project's Analyze-without-a-question note, the Log week view's block note, and the Bookings
+month grid's day note. Add the next one the same way, with its own `id`.

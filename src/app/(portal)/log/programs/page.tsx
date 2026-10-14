@@ -1,4 +1,5 @@
 import { pluralize } from "@/lib/format";
+import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { SegmentedLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -574,13 +575,11 @@ async function WeekView({
       </div>
       <WeekAgenda days={days} canEdit={isProgramDirector} todayISO={today} startHour={startHour} />
 
-      <p className="text-[13px] text-ink-500">
-        <span className="max-md:hidden">
-          Select a block to edit when it airs or open its program. Shading is edited under
-          Automation and Underwriting.{" "}
-        </span>
-        Times are Central.
-      </p>
+      <DismissibleHint id="log-week-blocks" className="max-md:hidden">
+        Select a block to edit when it airs or open its program. Shading is edited under Automation
+        and Underwriting.
+      </DismissibleHint>
+      <p className="text-[13px] text-ink-500">Times are Central.</p>
     </div>
   );
 }

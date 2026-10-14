@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { planAutopilot, stepIndex, stepsFor, type AutopilotSource } from "./autopilot";
+import {
+  acceptsWithoutReview,
+  autopilotRunSummary,
+  planAutopilot,
+  stepIndex,
+  stepsFor,
+  type AutopilotSource,
+} from "./autopilot";
 
 const source = (over: Partial<AutopilotSource> & { id: string }): AutopilotSource => ({
   title: over.id,
@@ -12,7 +19,7 @@ const source = (over: Partial<AutopilotSource> & { id: string }): AutopilotSourc
 
 describe("stepsFor", () => {
   it("runs to the draft for a story", () => {
-    expect(stepsFor("story").map((s) => s.key)).toEqual([
+    expect(stepsFor("write").map((s) => s.key)).toEqual([
       "wait",
       "analyze",
       "accept",
@@ -22,7 +29,42 @@ describe("stepsFor", () => {
     ]);
   });
   it("stops after Analyze when the reporter reviews first", () => {
-    expect(stepsFor("review_first").map((s) => s.key)).toEqual(["wait", "analyze"]);
+    expect(stepsFor("analyze").map((s) => s.key)).toEqual(["wait", "analyze"]);
+  });
+  it("can hand control back after Synthesis or after the outline", () => {
+    expect(stepsFor("synthesize").map((s) => s.key)).toEqual([
+      "wait",
+      "analyze",
+      "accept",
+      "synthesize",
+    ]);
+    expect(stepsFor("outline").map((s) => s.key)).toEqual([
+      "wait",
+      "analyze",
+      "accept",
+      "synthesize",
+      "outline",
+    ]);
+  });
+});
+
+describe("acceptsWithoutReview", () => {
+  it("is true for every stop past Analyze", () => {
+    expect(acceptsWithoutReview("analyze")).toBe(false);
+    expect(acceptsWithoutReview("synthesize")).toBe(true);
+    expect(acceptsWithoutReview("write")).toBe(true);
+  });
+});
+
+describe("autopilotRunSummary", () => {
+  it("lists what will run and skips Analyze when nothing needs it", () => {
+    expect(autopilotRunSummary("analyze", 1)).toBe("Analyze 1 source");
+    expect(autopilotRunSummary("write", 0)).toBe(
+      "Accept the suggestions \u00b7 Synthesize \u00b7 Outline \u00b7 Write from outline",
+    );
+    expect(autopilotRunSummary("synthesize", 3)).toBe(
+      "Analyze 3 sources \u00b7 Accept the suggestions \u00b7 Synthesize",
+    );
   });
 });
 
@@ -48,7 +90,7 @@ describe("planAutopilot", () => {
 });
 
 describe("stepIndex", () => {
-  const steps = stepsFor("story");
+  const steps = stepsFor("write");
   it("points at the running or failed step, and past the end when done", () => {
     expect(stepIndex({ phase: "idle" }, steps)).toBe(0);
     expect(stepIndex({ phase: "running", step: "synthesize", detail: null }, steps)).toBe(3);

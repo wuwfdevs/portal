@@ -517,6 +517,26 @@ suggestion, so `20261026140000` deletes the waiting ones with no run (decided on
 already decided on). Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
 `ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
 
+**One-time hints, and the Sourcework project overview (2026-10-14).** Read `docs/ui-patterns.md` "One-time
+hints" before writing a paragraph of instruction above a working surface; this is a pointer. Instruction a
+person needs once ("select any stretch of text to make an excerpt") is a `DismissibleHint`
+(`components/ui/dismissible-hint.tsx`, remembered per browser in localStorage by `lib/dismissed-hints.ts`),
+not permanent text; text that stays useful (a field's format, an error, a status) is not. A project's Sources
+tab (`[id]/page.tsx`) now opens on the `Steps` strip and a "next" band (`[id]/project-overview.tsx`, the pure
+rule in `lib/sourcework/project-stage.ts`) with one primary action; the Analyze batch is one
+`ExtractionProvider` shared by the band's button, the toolbar's and the progress panel
+(`[id]/extraction-controls.tsx`); sources are a filterable, sortable `SourceTable` (URL state `?q=&show=&sort=`,
+`lib/sourcework/source-list.ts`); and the old Autopilot panel became **Run the remaining steps with AI**
+(`[id]/handover.tsx`), a dialog that hands control back after Analyze (the default, so Review stays the
+reporter's), Synthesis, Outline or a first draft (`AutopilotStop` in `lib/sourcework/autopilot.ts`; every stop
+past Analyze accepts suggestions unreviewed and the dialog says so). Delete project moved into the project's
+⋮ menu (`[id]/project-actions-menu.tsx`) instead of a Danger zone under every tab. The Sourcework home leads
+with a "Needs you" strip (projects with a failed source or findings waiting) and its tabs read Source library
+and All excerpts. The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Not built
+from the review boards: a per-row pipeline progress bar on the projects list (the overview view carries no
+synthesis or piece state; add that before drawing it) and a source-row ⋮ menu. Resources migration
+`20261028120000` is written and **not yet applied** to either project.
+
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
 (`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline

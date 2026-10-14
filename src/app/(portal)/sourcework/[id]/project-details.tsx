@@ -22,13 +22,19 @@ export function ProjectDetails({
   projectId,
   title,
   description,
+  startOpen = false,
+  showTrigger = true,
 }: {
   projectId: string;
   title: string;
   description: string | null;
+  /** Open for editing on arrival (the project menu's "Edit title and background"). */
+  startOpen?: boolean;
+  /** False when the page's menu is the way in, so a project with a background shows no second button. */
+  showTrigger?: boolean;
 }) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(startOpen);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +60,7 @@ export function ProjectDetails({
   }
 
   if (!isOpen) {
+    if (!showTrigger) return null;
     return (
       <Button
         type="button"

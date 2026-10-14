@@ -22,8 +22,8 @@ export function SourceworkTabs({
       className={className}
       tabs={[
         { href: "/sourcework", label: "Projects", active: active === "projects" },
-        { href: "/sourcework?tab=sources", label: "Sources", active: active === "sources" },
-        { href: "/sourcework?tab=clips", label: "Excerpts", active: active === "clips" },
+        { href: "/sourcework?tab=sources", label: "Source library", active: active === "sources" },
+        { href: "/sourcework?tab=clips", label: "All excerpts", active: active === "clips" },
         ...(isEditor
           ? [{ href: "/sourcework/editors", label: "Setup", active: active === "setup", end: true }]
           : []),

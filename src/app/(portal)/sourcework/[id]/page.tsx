@@ -5,12 +5,9 @@ import { listLibraryClips } from "@/lib/transcription/clips";
 import { countPieces, listPiecesForProject } from "@/lib/sourcework/piece-queries";
 import { sourcePath, projectPath } from "@/lib/transcription/links";
 import { PageHeader } from "@/components/ui/page-header";
-import { SectionHeading } from "@/components/ui/section-heading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TabNav } from "@/components/ui/tab-nav";
 import { TextLink } from "@/components/ui/primary-link";
-import { SourceCard, formatSourceMeta } from "@/components/transcription/source-card";
-import { DeleteProjectPanel } from "../delete-project-panel";
 import { describeProjectDeletion } from "@/lib/transcription/project-deletion";
 import { loadDeletionSources } from "@/lib/transcription/project-deletion-plan";
 import { createClient } from "@/lib/supabase/server";
@@ -22,11 +19,32 @@ import { PiecesTab } from "./pieces-tab";
 import { SetupTab } from "./setup-tab";
 import { SynthesisTab } from "./synthesis-tab";
 import { ReviewTab } from "./review-tab";
-import { AutopilotPanel } from "./autopilot-panel";
+import { HandoverButton } from "./handover";
+import { ProjectActionsMenu } from "./project-actions-menu";
+import { ProjectOverview, offersHandover } from "./project-overview";
+import { SourceTable } from "./source-table";
+import { DismissibleHint } from "@/components/ui/dismissible-hint";
+import { ListToolbar } from "@/components/ui/list-toolbar";
+import { withQuery } from "@/lib/paths";
+import { projectStage } from "@/lib/sourcework/project-stage";
+import {
+  SOURCE_SHOW_LABEL,
+  SOURCE_SORT_LABEL,
+  countByShow,
+  filterSources,
+  parseSourceShow,
+  parseSourceSort,
+  type SourceListRow,
+  type SourceListShow,
+  type SourceListSort,
+} from "@/lib/sourcework/source-list";
+import { formatShortDate } from "@/lib/format";
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
-import { ExtractionControls } from "./extraction-controls";
+import { AnalyzeButton, AnalyzeProgress, ExtractionProvider } from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
+import { formatDuration } from "@/lib/transcription/media";
+import { pluralize } from "@/lib/format";
 import { sourcesToExtract } from "@/lib/sourcework/setup-view";
 import { countWaitingReview } from "@/lib/sourcework/review-queries";
 import { getSynthesisStanding } from "@/lib/sourcework/synthesis-queries";
@@ -50,11 +68,14 @@ export default async function TranscriptionProjectPage({
     view?: string;
     q?: string;
     version?: string;
+    show?: string;
+    sort?: string;
+    edit?: string;
   }>;
 }) {
   const { profile } = await requireToolAccess("transcription");
   const { id } = await params;
-  const { view, q, version } = await searchParams;
+  const { view, q, version, show: showParam, sort: sortParam, edit } = await searchParams;
   const reviewView = view === "review";
   const synthesisView = view === "synthesis";
   const excerptsView = view === "excerpts";
@@ -127,73 +148,247 @@ export default async function TranscriptionProjectPage({
       )
     : null;
 
-  return (
-    <div className="px-6 py-10 sm:px-10 sm:py-12">
+  const tabNav = (
+    <TabNav
+      tabs={[
+        {
+          href: projectPath(project.id),
+          label: "Sources",
+          active: sourcesView,
+        },
+        {
+          href: projectPath(project.id, "review"),
+          label: "Review",
+          active: reviewView,
+          badge: waitingReview,
+        },
+        ...(showSynthesisTab
+          ? [
+              {
+                href: projectPath(project.id, "synthesis"),
+                label: "Synthesis",
+                active: synthesisView,
+                badge: synthesis.changedSince,
+              },
+            ]
+          : []),
+        {
+          href: projectPath(project.id, "pieces"),
+          label: "Pieces",
+          active: piecesView,
+        },
+        {
+          href: projectPath(project.id, "excerpts"),
+          label: "Project excerpts",
+          active: excerptsView,
+          end: true,
+        },
+        {
+          href: projectPath(project.id, "setup"),
+          label: "Setup",
+          active: setupView,
+          end: true,
+        },
+      ]}
+    />
+  );
+
+  // The Sources tab, with its step strip and "next" band above the tabs. Every control that starts
+  // or reports an Analyze batch shares one provider, so the band's button, the toolbar's and the
+  // progress panel are the same run.
+  const showSources = sourcesView && project.sources.length > 0 && research !== null;
+  const show: SourceListShow = parseSourceShow(showParam);
+  const sort: SourceListSort = parseSourceSort(sortParam);
+  const sourceQuery = (q ?? "").trim();
+  const listRows: SourceListRow[] = project.sources.map((entry) => ({
+    id: entry.sourceId,
+    title: entry.source.title,
+    date: entry.source.interview_date ?? entry.source.created_at,
+    status: entry.status,
+    analysis: research?.get(entry.sourceId)?.state ?? null,
+  }));
+  const readyCount = project.sources.filter((entry) => entry.status === "ready").length;
+  const analyzedCount = listRows.filter((row) => row.analysis?.kind === "done").length;
+  const stage = projectStage({
+    sourceCount: project.sources.length,
+    readyCount,
+    analyzedCount,
+    waitingReview,
+    acceptedFindings: synthesis.acceptedFindings,
+    hasSynthesis: synthesis.hasSynthesis,
+    pieceCount,
+  });
+  const counts = countByShow(listRows);
+  const visibleRows = filterSources(listRows, { query: sourceQuery, show, sort });
+  const entryById = new Map(project.sources.map((entry) => [entry.sourceId, entry]));
+  const tableRows = visibleRows.flatMap((row) => {
+    const entry = entryById.get(row.id);
+    if (!entry) return [];
+    const line = research?.get(entry.sourceId)?.state
+      ? extractionLine(research.get(entry.sourceId)!.state, entry.source.kind)
+      : null;
+    const durationMs = entry.source.original_duration_ms;
+    return [
+      {
+        id: entry.sourceId,
+        href: sourcePath(entry.sourceId, { projectId: project.id }),
+        title: entry.source.title,
+        kind: entry.source.kind,
+        status: entry.status,
+        date: formatShortDate(entry.source.interview_date ?? entry.source.created_at, {
+          year: true,
+        }),
+        length:
+          entry.source.kind === "document"
+            ? entry.source.page_count
+              ? pluralize(entry.source.page_count, "page")
+              : ""
+            : durationMs
+              ? formatDuration(durationMs)
+              : "",
+        analysis: line,
+        footnote:
+          entry.status === "failed"
+            ? (entry.source.error_message ??
+              entry.transcript?.error_message ??
+              "This source needs attention. Open it for details.")
+            : undefined,
+      },
+    ];
+  });
+  const listQuery = (over: { show?: SourceListShow; sort?: SourceListSort }) =>
+    withQuery(projectPath(project.id), {
+      q: sourceQuery || null,
+      show: (over.show ?? show) === "all" ? null : (over.show ?? show),
+      sort: (over.sort ?? sort) === "date" ? null : (over.sort ?? sort),
+    });
+  const emptyMessage =
+    show === "attention"
+      ? "Nothing needs attention: every source processed and analyzed cleanly."
+      : show === "not_analyzed"
+        ? "Every ready source has been analyzed."
+        : sourceQuery
+          ? `No source matches “${sourceQuery}”.`
+          : "No sources yet.";
+
+  const header = (
+    <>
       <div className="mb-5">
         <TextLink href="/sourcework">← Back to projects</TextLink>
       </div>
 
-      <div className="mb-6">
-        <PageHeader title={project.title} />
-        <div className="mt-1.5">
-          {project.description ? (
-            <p className="mb-1.5 max-w-xl text-sm text-ink-500">{project.description}</p>
-          ) : (
-            <p className="mb-1.5 max-w-xl text-sm italic text-ink-400">
-              No background yet — a note here is what tells someone finding a quote from this
-              project in two years what it was about.
-            </p>
-          )}
-          <ProjectDetails
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 max-w-3xl">
+          <PageHeader title={project.title} />
+          <div className="mt-1.5">
+            {project.description ? (
+              <p className="mb-1.5 text-sm leading-relaxed text-ink-500">{project.description}</p>
+            ) : (
+              <p className="mb-1.5 text-sm italic text-ink-400">
+                No background yet. A note here tells someone finding a quote from this project in
+                two years what it was about.
+              </p>
+            )}
+            <ProjectDetails
+              key={edit === "1" ? "editing" : "reading"}
+              projectId={project.id}
+              title={project.title}
+              description={project.description}
+              startOpen={edit === "1"}
+              showTrigger={!project.description}
+            />
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {project.sources.length > 0 && <AddSourceButton projectId={project.id} hasSources />}
+          <ProjectActionsMenu
             projectId={project.id}
-            title={project.title}
-            description={project.description}
+            projectTitle={project.title}
+            editHref={`${projectPath(project.id)}?edit=1`}
+            plan={deletionPlan}
           />
         </div>
       </div>
+    </>
+  );
 
-      <TabNav
-        tabs={[
-          {
-            href: projectPath(project.id),
-            label: "Sources",
-            active: sourcesView,
-            badge: project.sources.length,
-          },
-          {
-            href: projectPath(project.id, "review"),
-            label: "Review",
-            active: reviewView,
-            badge: waitingReview,
-          },
-          ...(showSynthesisTab
-            ? [
-                {
-                  href: projectPath(project.id, "synthesis"),
-                  label: "Synthesis",
-                  active: synthesisView,
-                  badge: synthesis.changedSince,
-                },
-              ]
-            : []),
-          {
-            href: projectPath(project.id, "excerpts"),
-            label: "Excerpts",
-            active: excerptsView,
-          },
-          {
-            href: projectPath(project.id, "pieces"),
-            label: "Pieces",
-            active: piecesView,
-          },
-          {
-            href: projectPath(project.id, "setup"),
-            label: "Setup",
-            active: setupView,
-            end: true,
-          },
-        ]}
-      />
+  if (showSources) {
+    return (
+      <div className="px-6 py-10 sm:px-10 sm:py-12">
+        {header}
+        <ExtractionProvider
+          projectId={project.id}
+          targets={extractTargets.map((target) => ({ id: target.id, title: target.title }))}
+          anyRunning={anyExtracting}
+        >
+          <ProjectOverview
+            projectId={project.id}
+            stage={stage}
+            handover={
+              offersHandover(stage.next) ? (
+                <HandoverButton
+                  projectId={project.id}
+                  formats={formats.map((format) => ({ id: format.id, name: format.name }))}
+                  toAnalyze={extractTargets.length}
+                />
+              ) : null
+            }
+          />
+          {tabNav}
+          <AnalyzeProgress />
+          <ListToolbar
+            className="mb-4"
+            search={{
+              placeholder: "Filter sources",
+              label: "Filter this project's sources",
+              defaultValue: sourceQuery,
+              hidden: {
+                ...(show !== "all" ? { show } : {}),
+                ...(sort !== "date" ? { sort } : {}),
+              },
+            }}
+            filters={[
+              {
+                label: "Show",
+                chips: (Object.keys(SOURCE_SHOW_LABEL) as SourceListShow[]).map((value) => ({
+                  label: SOURCE_SHOW_LABEL[value],
+                  count: counts[value],
+                  href: listQuery({ show: value }),
+                  active: show === value,
+                })),
+              },
+              {
+                label: "Sort",
+                chips: (Object.keys(SOURCE_SORT_LABEL) as SourceListSort[]).map((value) => ({
+                  label: SOURCE_SORT_LABEL[value],
+                  href: listQuery({ sort: value }),
+                  active: sort === value,
+                })),
+              },
+            ]}
+          >
+            {/* Not when it is the band's primary action: one Analyze button on screen at a time. */}
+            {stage.next.kind !== "analyze" && <AnalyzeButton />}
+          </ListToolbar>
+          <SourceTable rows={tableRows} emptyMessage={emptyMessage} />
+          {!hasQuestions && (
+            <DismissibleHint id="project-analyze-no-question" className="mt-4 max-w-2xl text-xs">
+              Analyze works without a research question. Add one in{" "}
+              <TextLink href={projectPath(project.id, "setup")} className="px-0 text-xs">
+                Setup
+              </TextLink>{" "}
+              to focus it on what you are trying to learn.
+            </DismissibleHint>
+          )}
+        </ExtractionProvider>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-6 py-10 sm:px-10 sm:py-12">
+      {header}
+      {tabNav}
 
       {reviewView ? (
         <ReviewTab
@@ -228,96 +423,13 @@ export default async function TranscriptionProjectPage({
           )}
           <ProjectExcerptsView projectId={project.id} clips={projectExcerpts} />
         </>
-      ) : project.sources.length === 0 ? (
+      ) : (
         <EmptyState
           title="No sources yet"
           action={<AddSourceButton projectId={project.id} hasSources={false} primary />}
         >
           Upload interviews or PDFs, or reference ones already in the library.
         </EmptyState>
-      ) : (
-        <section>
-          {research ? (
-            <ExtractionControls
-              projectId={project.id}
-              targets={extractTargets.map((target) => ({ id: target.id, title: target.title }))}
-              anyRunning={anyExtracting}
-            >
-              <AddSourceButton projectId={project.id} hasSources />
-            </ExtractionControls>
-          ) : (
-            <SectionHeading
-              level="eyebrow"
-              className="mb-3 items-center"
-              action={<AddSourceButton projectId={project.id} hasSources />}
-            >
-              Sources
-            </SectionHeading>
-          )}
-          {waitingReview > 0 && (
-            <p className="mb-3 rounded border border-brand-surface bg-brand-surface px-3 py-2 text-sm text-ink-900">
-              {waitingReview}{" "}
-              {waitingReview === 1 ? "finding or clip is" : "findings and clips are"} waiting for a
-              decision.{" "}
-              <TextLink href={projectPath(project.id, "review")} className="px-0 font-bold">
-                Review them all in one place
-              </TextLink>
-            </p>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {project.sources.map((entry) => (
-              <SourceCard
-                key={entry.sourceId}
-                href={sourcePath(entry.sourceId, { projectId: project.id })}
-                kind={entry.source.kind}
-                status={entry.status}
-                title={entry.source.title}
-                meta={formatSourceMeta({
-                  kind: entry.source.kind,
-                  date: entry.source.interview_date ?? entry.source.created_at,
-                  durationMs: entry.source.original_duration_ms,
-                  pageCount: entry.source.page_count,
-                })}
-                extraction={
-                  research
-                    ? (() => {
-                        const state = research.get(entry.sourceId)?.state;
-                        return state ? extractionLine(state, entry.source.kind) : null;
-                      })()
-                    : null
-                }
-                footnote={
-                  entry.status === "failed"
-                    ? (entry.source.error_message ??
-                      entry.transcript?.error_message ??
-                      "This source needs attention. Open it for details.")
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-          <AutopilotPanel
-            projectId={project.id}
-            formats={formats.map((format) => ({ id: format.id, name: format.name }))}
-          />
-          {!hasQuestions && (
-            <p className="mt-4 max-w-2xl text-xs text-ink-400">
-              Analyze works without a research question. Add one in{" "}
-              <TextLink href={projectPath(project.id, "setup")} className="px-0 text-xs">
-                Setup
-              </TextLink>{" "}
-              to focus it on what you are trying to learn.
-            </p>
-          )}
-        </section>
-      )}
-
-      {deletionPlan && (
-        <DeleteProjectPanel
-          projectId={project.id}
-          projectTitle={project.title}
-          plan={deletionPlan}
-        />
       )}
     </div>
   );

@@ -15,14 +15,48 @@ export const AUTOPILOT_STEPS = [
 
 export type AutopilotStepKey = (typeof AUTOPILOT_STEPS)[number]["key"];
 
-/** Where the run hands over to the reporter: at the end, or before anything is accepted. */
-export type AutopilotMode = "story" | "review_first";
+/**
+ * Where the run hands control back to the reporter. Every stop but "analyze" accepts the suggested
+ * findings and clips on the way, because the later steps read accepted findings only.
+ */
+export type AutopilotStop = "analyze" | "synthesize" | "outline" | "write";
 
-/** The steps a mode runs, in order. Review first stops after Analyze and opens the Review tab. */
-export function stepsFor(mode: AutopilotMode): (typeof AUTOPILOT_STEPS)[number][] {
-  const last = mode === "review_first" ? "analyze" : "write";
-  const end = AUTOPILOT_STEPS.findIndex((step) => step.key === last);
+export const AUTOPILOT_STOPS: readonly {
+  value: AutopilotStop;
+  title: string;
+  hint: string;
+}[] = [
+  {
+    value: "analyze",
+    title: "Analyze",
+    hint: "I\u2019ll decide what to keep on the Review tab.",
+  },
+  {
+    value: "synthesize",
+    title: "Synthesis",
+    hint: "Accepts what Analyze found, then answers each research question. I\u2019ll edit the synthesis.",
+  },
+  {
+    value: "outline",
+    title: "Outline",
+    hint: "Builds a beat outline with tape suggestions. I\u2019ll write the narration.",
+  },
+  {
+    value: "write",
+    title: "A first draft",
+    hint: "Writes narration from the outline. I\u2019ll edit the piece.",
+  },
+];
+
+/** The steps a run to `stop` performs, in order. */
+export function stepsFor(stop: AutopilotStop): (typeof AUTOPILOT_STEPS)[number][] {
+  const end = AUTOPILOT_STEPS.findIndex((step) => step.key === stop);
   return AUTOPILOT_STEPS.slice(0, end + 1);
+}
+
+/** Whether a run to `stop` accepts suggestions without the reporter's review. */
+export function acceptsWithoutReview(stop: AutopilotStop): boolean {
+  return stop !== "analyze";
 }
 
 export interface AutopilotSource {
@@ -67,11 +101,46 @@ export function planAutopilot(sources: readonly AutopilotSource[]): AutopilotPla
   };
 }
 
-/** The sentence under the button, so a person knows what one click will do. */
-export function autopilotPromise(mode: AutopilotMode): string {
-  return mode === "story"
-    ? "Runs every step for you: reads each source, accepts what it finds, synthesizes, outlines and writes a first draft. Nothing is deleted at any step: the draft is a version you can undo, findings can be put back for review, and each step can be redone by hand."
-    : "Reads each source and then stops, so you can accept or reject the findings and clips yourself on the Review tab before anything is written.";
+/** The sentence under the dialog's button, so a person knows what one click will do. */
+export function autopilotPromise(stop: AutopilotStop): string {
+  switch (stop) {
+    case "analyze":
+      return "Reads each source and stops, so you decide what to keep on the Review tab before anything is written.";
+    case "synthesize":
+      return "Reads each source, accepts what it finds, and synthesizes. Findings can be put back for review afterwards.";
+    case "outline":
+      return "Reads, accepts, synthesizes and outlines. The outline is a version of a new piece you can undo.";
+    case "write":
+      return "Runs every step: reads each source, accepts what it finds, synthesizes, outlines and writes a first draft. The draft is a version you can undo, findings can be put back for review, and each step can be redone by hand.";
+  }
+}
+
+/** The button's label for a stop. */
+export function autopilotButtonLabel(stop: AutopilotStop): string {
+  switch (stop) {
+    case "analyze":
+      return "Analyze and review";
+    case "synthesize":
+      return "Analyze and synthesize";
+    case "outline":
+      return "Write the outline";
+    case "write":
+      return "Write the story";
+  }
+}
+
+/** The step labels a run will perform, minus the ones the project has already finished. */
+export function autopilotRunSummary(stop: AutopilotStop, toAnalyze: number): string {
+  const parts: string[] = [];
+  const keys = stepsFor(stop).map((step) => step.key);
+  if (keys.includes("analyze") && toAnalyze > 0) {
+    parts.push(toAnalyze === 1 ? "Analyze 1 source" : `Analyze ${toAnalyze} sources`);
+  }
+  if (keys.includes("accept")) parts.push("Accept the suggestions");
+  if (keys.includes("synthesize")) parts.push("Synthesize");
+  if (keys.includes("outline")) parts.push("Outline");
+  if (keys.includes("write")) parts.push("Write from outline");
+  return parts.join(" \u00b7 ");
 }
 
 export type AutopilotRunState =
