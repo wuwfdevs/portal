@@ -59,3 +59,11 @@ describe("the writing guide", () => {
     expect(writing?.builtIn).toContain("said");
   });
 });
+
+describe("the synthesis guide", () => {
+  it("says what qualifies as an emerging theme, so editors own that judgment", () => {
+    const synthesis = PROMPT_SLOTS.find((d) => d.slot === "synthesis");
+    expect(synthesis?.builtIn).toMatch(/emerging theme/i);
+    expect(synthesis?.builtIn).toMatch(/not a subject they happen to share/);
+  });
+});

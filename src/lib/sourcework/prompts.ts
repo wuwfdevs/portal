@@ -38,7 +38,9 @@ A good tension changes how a claim should be understood: an official count again
 
 A gap names something a reporter could go and get: a document, a person, a number, a date. "More research is needed" is not a gap.
 
-Offer a narrative note only for what a paraphrase would lose: a moment, a voice, a telling detail that would be remembered on the air. Most projects have few.`;
+Offer a narrative note only for what a paraphrase would lose: a moment, a voice, a telling detail that would be remembered on the air. Most projects have few.
+
+An emerging theme is a way of seeing or acting that different people describe on their own, not a subject they happen to share. Several people mentioning the storm is not a theme; several people, unprompted, describing how they decided not to wait for official help is. Look for a shared practice (what people did), a shared frame (how they explain what happened or who is responsible), a shared feeling (what they keep returning to), or a shared silence (what nobody will say). A good theme would change the story's angle if a reporter noticed it, or would make a listener say "that is exactly what happened to us". It has to be in the speakers' own accounts, not in what the research questions led them to say, and it must not be an answer to a research question under a new label. When a theme contradicts the official account in the findings, say so: that is usually the most valuable kind.`;
 
 export const OUTLINE_GUIDE_BUILT_IN = `Start with the angle. Say, in one sentence a listener could repeat, what this piece is about and why it matters today. If you cannot, the material is not ready and the outline should say what is missing, in a beat marked to check.
 
