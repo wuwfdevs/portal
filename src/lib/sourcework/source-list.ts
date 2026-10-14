@@ -72,3 +72,42 @@ export function filterSources(
       : b.date.localeCompare(a.date) || a.title.localeCompare(b.title),
   );
 }
+
+export interface SourceProgress {
+  done: number;
+  /** The step under way, shown as the lighter stretch. */
+  pending: number;
+  total: number;
+  complete: boolean;
+  /** Where the source is, in a word or two, for under the bar. */
+  label: string;
+}
+
+/**
+ * How far one source has come: processed, analyzed, reviewed. The same three steps the project's
+ * flow runs a source through, derived from state the list already holds rather than stored.
+ */
+export function sourceProgress(
+  status: SourceListRow["status"],
+  analysis: ExtractionState | null,
+): SourceProgress {
+  const total = 3;
+  if (status === "failed" || analysis?.kind === "source_failed") {
+    return { done: 0, pending: 0, total, complete: false, label: "Failed" };
+  }
+  if (!analysis || analysis.kind === "waiting" || status !== "ready") {
+    return { done: 0, pending: 1, total, complete: false, label: "Processing" };
+  }
+  switch (analysis.kind) {
+    case "idle":
+      return { done: 1, pending: 0, total, complete: false, label: "Ready to analyze" };
+    case "running":
+      return { done: 1, pending: 1, total, complete: false, label: "Analyzing" };
+    case "failed":
+      return { done: 1, pending: 0, total, complete: false, label: "Analysis failed" };
+    case "done":
+      return analysis.toReview > 0
+        ? { done: 2, pending: 1, total, complete: false, label: "To review" }
+        : { done: 3, pending: 0, total, complete: true, label: "Reviewed" };
+  }
+}

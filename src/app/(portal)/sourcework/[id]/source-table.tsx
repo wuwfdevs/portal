@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import type { SourceProgress } from "@/lib/sourcework/source-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SourceRowMenu } from "./source-row-menu";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -22,6 +24,7 @@ export interface SourceTableRow {
   /** "38:12" or "14 pages"; empty when unknown. */
   length: string;
   analysis: ExtractionLine | null;
+  progress: SourceProgress;
   /** Why a failed source failed, in a line. */
   footnote?: string;
 }
@@ -50,6 +53,7 @@ export function SourceTable({
           <HeaderRow>
             <Th>Source</Th>
             <Th>Length</Th>
+            <Th>Progress</Th>
             <Th>Status</Th>
             <Th>Analysis</Th>
             <Th className="w-10 px-2">
@@ -74,6 +78,20 @@ export function SourceTable({
               </Cell>
               <Cell label="Length" className="whitespace-nowrap text-ink-500">
                 {row.length || "—"}
+              </Cell>
+              <Cell label="Progress">
+                <div className="flex w-32 flex-col gap-1 max-md:w-full">
+                  <ProgressBar
+                    size="md"
+                    label={`Progress for ${row.title}`}
+                    done={row.progress.done}
+                    pending={row.progress.pending}
+                    total={row.progress.total}
+                    complete={row.progress.complete}
+                    valueText={`${row.progress.done} of ${row.progress.total} steps done, ${row.progress.label}`}
+                  />
+                  <span className="text-xs text-ink-500">{row.progress.label}</span>
+                </div>
               </Cell>
               <Cell label="Status">
                 <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />

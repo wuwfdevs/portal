@@ -36,6 +36,7 @@ import {
   SOURCE_SORT_LABEL,
   countByShow,
   filterSources,
+  sourceProgress,
   parseSourceShow,
   parseSourceSort,
   type SourceListRow,
@@ -313,6 +314,7 @@ export default async function TranscriptionProjectPage({
               ? formatDuration(durationMs)
               : "",
         analysis: line,
+        progress: sourceProgress(entry.status, research?.get(entry.sourceId)?.state ?? null),
         footnote:
           entry.status === "failed"
             ? (entry.source.error_message ??
