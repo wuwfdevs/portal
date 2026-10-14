@@ -347,6 +347,31 @@ describe("parseSynthesisOutput: emerging themes", () => {
     expect(dropped.theme_one_source).toBe(1);
   });
 
+  it("keeps a theme whose second source is a passage the tools showed", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [{ ...theme([1]), passage_refs: [1] }] }),
+      context({
+        ...sources,
+        passages: new Map([[1, { sourceId: "s9", startMs: 0, endMs: 5000, page: null }]]),
+      }),
+    );
+    expect(body.emerging).toHaveLength(1);
+    expect(body.emerging[0]!.passages[0]!.sourceId).toBe("s9");
+    expect(dropped.theme_one_source).toBe(0);
+  });
+
+  it("drops a theme whose passage is in the same source as its finding", () => {
+    const { body, dropped } = parseSynthesisOutput(
+      answer({ emerging: [{ ...theme([1]), passage_refs: [1] }] }),
+      context({
+        ...sources,
+        passages: new Map([[1, { sourceId: "s1", startMs: 0, endMs: 5000, page: null }]]),
+      }),
+    );
+    expect(body.emerging).toEqual([]);
+    expect(dropped.theme_one_source).toBe(1);
+  });
+
   it("drops a theme with no citation the model was shown", () => {
     const { body, dropped } = parseSynthesisOutput(
       answer({ emerging: [theme([99])] }),

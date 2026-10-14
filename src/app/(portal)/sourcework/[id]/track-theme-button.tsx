@@ -31,7 +31,7 @@ export function TrackThemeButton({ projectId, label }: { projectId: string; labe
     }
     setState({
       ok: true,
-      text: "Added as a research question. Edit its wording on the Setup tab.",
+      text: "Added as a research question. Edit its wording on the Setup tab, then Analyze again: passages already accepted or rejected are not suggested a second time, so the new findings come from what is still undecided.",
     });
     router.refresh();
   }

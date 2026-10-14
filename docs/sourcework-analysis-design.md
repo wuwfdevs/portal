@@ -1153,15 +1153,17 @@ clips it missed). No schema change; the content migration is `20261027120000`.
   nothing did. A finding's card now has a "Looked up" line (`listBackgroundForPoints` over
   `sw_context_note_points`, active notes only), and the Review tab opens a "Pages the model looked up" list.
   They stay context, never evidence.
-- **Emerging themes.** Two changes aimed at the same miss. (1) Analyze's framing now tells the model that the research
-  questions decide what a finding is _for_, not what is worth noticing: record what a speaker keeps returning to as
-  a finding that answers no question, with a significance saying what pattern it points to. Clips are judged as
-  audio, not by whether they serve a question, and the per-source ceiling rose from 5 to 8 (still a ceiling).
-  (2) Synthesis returns `emerging`: patterns across sources no question asked about. **Enforced in code:** a theme
-  must cite findings from at least two different sources (`theme_one_source`), at most `MAX_EMERGING` (5) are kept,
-  and it needs a valid cite. That is the noise control; the prompt also says none is a fine answer. A theme appears
-  under "Patterns across sources" and has **Track as a research question**, so the next Analyze listens for it in every
-  source. Versions written before this read as no themes; a person's pinned theme is carried forward like any statement.
+- **Emerging themes live in Synthesis, not Analyze.** Analyze reads one source at a time, so no instruction can make it
+  notice that two interviews describe the same thing; a first cut asked it to anyway and was reverted (that, and a clip
+  ceiling raised to 8 on one anecdote, before any eval). The one Analyze change kept: clips are judged as audio, not by
+  whether they serve a question. Synthesis sees every source and has `search_transcripts`/`read_around`, so it returns
+  `emerging`: patterns across sources no question asked about, citing accepted findings **and**, for what the findings
+  (chosen against the questions) do not cover, passages the tools showed by ledger ref. **Enforced in code:** the findings
+  and passages behind a theme must come from at least two different sources (`theme_one_source`), it needs a cite or a
+  passage, and at most `MAX_EMERGING` (5) are kept. A theme appears under "Patterns across sources" with **Track as a
+  research question**, so the next Analyze listens for it; the button says that passages already decided on are not
+  suggested again (`analyze-fresh.ts`), so a re-run surfaces only what is still undecided. Versions written before this
+  read as no themes; a person's pinned theme is carried forward like any statement.
 - **Outline readiness** (`outline-readiness.ts`): the piece editor warns, above the Outline button and inside its card,
   when no excerpts have been accepted (the outline would be beats with no tape) and disables it when there are neither
   findings nor excerpts, linking to Review.

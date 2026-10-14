@@ -257,8 +257,8 @@ function SynthesisBodyView({
           <SectionHeading>Patterns across sources</SectionHeading>
           <p className="-mt-2 text-sm text-ink-500">
             Things several people described separately that no research question asked about. They
-            are leads, not answers: open the findings behind one, and track it as a question to have
-            the next Analyze listen for it.
+            are leads, not answers: open the findings or recordings behind one, and track it as a
+            question to have the next Analyze listen for it.
           </p>
           <ul className="flex flex-col gap-3">
             {body.emerging.map((theme) => (
@@ -272,12 +272,34 @@ function SynthesisBodyView({
                 </div>
                 <p className="text-sm font-bold text-ink-900">{theme.label}</p>
                 <p className="mt-0.5 text-[15px] leading-snug text-ink-900">{theme.statement}</p>
-                <FindingsDetails
-                  projectId={projectId}
-                  cites={theme.cites}
-                  findingById={findingById}
-                  info={info}
-                />
+                {theme.cites.length > 0 && (
+                  <FindingsDetails
+                    projectId={projectId}
+                    cites={theme.cites}
+                    findingById={findingById}
+                    info={info}
+                  />
+                )}
+                {theme.passages.length > 0 && (
+                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                    <span className="text-ink-500">In the recordings:</span>
+                    {theme.passages.map((passage, index) => (
+                      <Link
+                        key={index}
+                        href={sourcePath(passage.sourceId, {
+                          projectId,
+                          t: passage.startMs,
+                          page: passage.page,
+                        })}
+                        className="text-brand-link hover:underline"
+                      >
+                        {[...findingById.values()].find((f) => f.sourceId === passage.sourceId)
+                          ?.sourceTitle ?? "Source"}
+                        {passage.startMs != null ? ` at ${formatDuration(passage.startMs)}` : ""}
+                      </Link>
+                    ))}
+                  </p>
+                )}
                 <TrackThemeButton projectId={projectId} label={theme.label} />
               </li>
             ))}

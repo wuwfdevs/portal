@@ -92,8 +92,10 @@ export interface EmergingTheme {
   label: string;
   /** What the sources share, in a sentence or two. */
   statement: string;
-  /** Accepted data point ids it rests on, from at least two different sources. */
+  /** Accepted data point ids it rests on. */
   cites: string[];
+  /** Places in the recordings the model found with its tools, for what no finding yet covers. */
+  passages: PassageRef[];
   origin: SynthesisOrigin;
 }
 
@@ -227,6 +229,9 @@ export function parseSynthesisBody(value: unknown): SynthesisBody {
         label,
         statement,
         cites: strings(row.cites),
+        passages: (Array.isArray(row.passages) ? row.passages : [])
+          .map(passage)
+          .filter((item): item is PassageRef => item !== null),
         origin: origin(row.origin),
       });
     }
@@ -365,7 +370,9 @@ export function unsupportedIds(body: SynthesisBody, acceptedIds: ReadonlySet<str
     }
   }
   for (const theme of body.emerging) {
-    if (!theme.cites.some((id) => acceptedIds.has(id))) bare.add(theme.id);
+    if (theme.passages.length === 0 && !theme.cites.some((id) => acceptedIds.has(id))) {
+      bare.add(theme.id);
+    }
   }
   return bare;
 }

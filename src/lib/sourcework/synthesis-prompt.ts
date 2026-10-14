@@ -40,7 +40,7 @@ Each finding is numbered and paraphrases one passage in one source. Cite finding
 
 Tension is the most useful thing to find: sources that disagree, an official account that does not match a firsthand one, a qualification that changes what a claim means, a figure that changed over time. Report a tension only when the findings really show it; never manufacture disagreement. Give each side of a tension its position and the findings behind it.
 
-emerging is for patterns nobody asked about. A seasoned reporter going through their material notices when different people, separately, describe the same thing: for instance, neighbors organizing to help one another instead of waiting for official help. Offer a theme only when at least two different sources independently show it, give it a short label and a sentence on what they share, and cite the findings (including ones that answer no question). Do not restate an answer to a research question, and do not offer a theme because one source dwelt on it. A few well-grounded themes are useful; a long list is noise, and none is a fine answer.
+emerging is for patterns nobody asked about. A seasoned reporter going through their material notices when different people, separately, describe the same thing: for instance, neighbors organizing to help one another instead of waiting for official help. The findings were chosen against the research questions, so such a pattern may be only half visible in them: when you suspect one, use search_transcripts to check the other recordings for it and cite what you find by passage ref. Offer a theme only when at least two different sources independently show it, give it a short label and a sentence on what they share, and cite the findings and passages behind it. Do not restate an answer to a research question, and do not offer a theme because one source dwelt on it. A few well-grounded themes are useful; a long list is noise, and none is a fine answer.
 
 gaps are what the findings leave unanswered for a question that a reporter could go and get before relying on it.
 
@@ -180,7 +180,7 @@ export function renderSynthesisLines(
   }
   for (const theme of base.emerging) {
     lines.push(
-      `Emerging theme${theme.origin === "person" ? " (pinned)" : ""}: ${theme.label}: ${theme.statement}${cites(theme.cites)}`,
+      `Emerging theme${theme.origin === "person" ? " (pinned)" : ""}: ${theme.label}: ${theme.statement}${cites(theme.cites)}${theme.passages.length > 0 ? ` (+${theme.passages.length} passages)` : ""}`,
     );
   }
   return lines;
@@ -243,8 +243,13 @@ export function buildSynthesisOutputSchema(): Record<string, unknown> {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["label", "statement", "cites"],
-          properties: { label: { type: "string" }, statement: { type: "string" }, cites },
+          required: ["label", "statement", "cites", "passage_refs"],
+          properties: {
+            label: { type: "string" },
+            statement: { type: "string" },
+            cites,
+            passage_refs: { type: "array", items: { type: "integer" } },
+          },
         },
       },
       narrative: {
@@ -466,24 +471,38 @@ export function parseSynthesisOutput(raw: string, context: SynthesisParseContext
       continue;
     }
     const cites = resolveCites(row.cites, context.findingIds);
-    if (cites.length === 0) {
+    const passages: PassageRef[] = [];
+    for (const ref of Array.isArray(row.passage_refs) ? row.passage_refs : []) {
+      const found = typeof ref === "number" ? context.passages.get(ref) : undefined;
+      if (found && !passages.includes(found)) passages.push(found);
+    }
+    if (cites.length === 0 && passages.length === 0) {
       dropped.no_valid_cite += 1;
       continue;
     }
+    // Independence is the whole claim of a theme: the findings and passages behind it, together,
+    // must come from two different sources.
+    const sourceIds = new Set(passages.map((item) => item.sourceId));
     if (context.findingSourceIds) {
-      const sourceIds = new Set(
-        cites.map((id) => context.findingSourceIds![context.findingIds.indexOf(id)]),
-      );
-      if (sourceIds.size < 2) {
-        dropped.theme_one_source += 1;
-        continue;
-      }
+      for (const id of cites)
+        sourceIds.add(context.findingSourceIds[context.findingIds.indexOf(id)]!);
+    }
+    if (context.findingSourceIds && sourceIds.size < 2) {
+      dropped.theme_one_source += 1;
+      continue;
     }
     if (body.emerging.length >= MAX_EMERGING) {
       dropped.over_limit += 1;
       continue;
     }
-    const theme: EmergingTheme = { id: context.newId(), label, statement, cites, origin: "model" };
+    const theme: EmergingTheme = {
+      id: context.newId(),
+      label,
+      statement,
+      cites,
+      passages,
+      origin: "model",
+    };
     body.emerging.push(theme);
   }
 
