@@ -287,6 +287,7 @@ repo and a project's history, not the version number.
 | `20261025120000_resources_sourcework_retire_old_pipeline.sql`         | 2026-10-14 | 2026-10-14 |
 | `20261026120000_sourcework_retire_themes.sql`                         | 2026-10-14 | 2026-10-14 |
 | `20261026130000_resources_sourcework_retire_themes.sql`               | 2026-10-14 | 2026-10-14 |
+| `20261026140000_sourcework_clear_legacy_waiting_clips.sql`            | 2026-10-14 | 2026-10-14 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
