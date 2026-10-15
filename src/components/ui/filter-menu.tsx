@@ -14,7 +14,9 @@ import { useDismissable } from "@/lib/use-dismissable";
  * name. Chips stay plain links, and the panel is a <details>, so it opens
  * without JavaScript; with it, the panel closes on an outside click, Escape,
  * or picking a chip. On a phone the panel spans the toolbar (the nearest
- * positioned ancestor); from `sm` it drops from the button.
+ * positioned ancestor) and the button is an icon square that sits beside the search
+ * (`data-row="fixed"`); the label stays for screen readers. From `sm` it is the labelled
+ * button and the panel drops from it.
  */
 export function FilterMenu({ groups, className }: { groups: FilterGroup[]; className?: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
@@ -36,13 +38,14 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
     <details
       ref={ref}
       className={cn("group/filter sm:relative", className)}
+      data-row="fixed"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary
         className={cn(
-          // In a control row (list-toolbar.tsx) the <details> stretches below `sm`, so the
-          // button fills it and centres, the same as the button beside it.
-          "inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface max-sm:w-full max-sm:justify-center sm:max-w-[16rem] [&::-webkit-details-marker]:hidden",
+          // Below `sm` it is a square the search sits beside (list-toolbar.tsx); the label and
+          // the chevron go, and the tint of an applied filter still shows.
+          "inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface max-sm:w-11 max-sm:justify-center max-sm:px-0 sm:max-w-[16rem] [&::-webkit-details-marker]:hidden",
           TAP_TARGET,
           applied.length > 0
             ? "border-brand-primary bg-brand-surface text-brand-link"
@@ -52,10 +55,10 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 shrink-0 fill-current">
           <path d="M1.5 3h13l-5 6v4.5l-3 1.5V9z" />
         </svg>
-        <span className="truncate">
+        <span className="truncate max-sm:sr-only">
           {applied.length > 0 ? `Filter: ${applied.join(", ")}` : "Filter"}
         </span>
-        <span aria-hidden="true" className="text-[10px] group-open/filter:rotate-180">
+        <span aria-hidden="true" className="text-[10px] group-open/filter:rotate-180 max-sm:hidden">
           ▾
         </span>
       </summary>

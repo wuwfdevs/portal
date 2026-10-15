@@ -46,7 +46,12 @@ import {
 } from "@/lib/sourcework/source-list";
 import { formatShortDate } from "@/lib/format";
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
-import { AnalyzeButton, AnalyzeProgress, ExtractionProvider } from "./extraction-controls";
+import {
+  AnalyzeButton,
+  AnalyzeNotice,
+  AnalyzeProgress,
+  ExtractionProvider,
+} from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { formatDuration } from "@/lib/transcription/media";
@@ -343,11 +348,11 @@ export default async function TranscriptionProjectPage({
 
   const header = (
     <>
-      <div className="mb-5">
+      <div className="mb-3 sm:mb-5">
         <TextLink href="/sourcework">← Back to projects</TextLink>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4 sm:mb-6">
         {/* flex-1 so the ⋮ shares the title's line on a phone instead of taking a row (control-row.tsx). */}
         <div className="min-w-0 max-w-3xl flex-1">
           <PageHeader title={project.title} />
@@ -447,6 +452,7 @@ export default async function TranscriptionProjectPage({
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
             <AddSourceButton projectId={project.id} hasSources />
           </ListToolbar>
+          {stage.next.kind !== "analyze" && <AnalyzeNotice className="mb-4" />}
           <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
           <Pagination
             info={sourcePage}

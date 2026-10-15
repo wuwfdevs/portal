@@ -17,7 +17,8 @@ import { updateProjectDetails } from "../actions";
  * the difference between a field that's filled in and one that isn't.
  *
  * Collapsed by default: the workspace's job is the transcript, and this is a
- * thing you do once per project.
+ * thing you do once per project. On a phone the link is left out and the page's ⋮ menu
+ * ("Edit title and background") is the way in, one less line above the work.
  */
 export function ProjectDetails({
   projectId,
@@ -67,7 +68,7 @@ export function ProjectDetails({
         type="button"
         variant="link"
         onClick={() => setIsOpen(true)}
-        className="text-brand-link"
+        className="text-brand-link max-sm:hidden"
       >
         {description ? "Edit details" : "Add background"}
       </Button>

@@ -4,7 +4,7 @@ import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
 import { SparklesIcon } from "./sparkles-icon";
 import { TAP_TARGET } from "./tap-target";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link" | "danger-link";
 type ButtonSize = "md" | "sm";
@@ -16,6 +16,11 @@ interface ButtonProps extends ComponentProps<"button"> {
   touch?: boolean;
   /** The button starts a model run: it carries the sparkles mark (and says so to nobody else). */
   ai?: boolean;
+  /**
+   * An icon that stands in for the label below `sm`: the button becomes a 44px square (a fixed
+   * control in a control row, docs/ui-patterns.md) and the label stays for screen readers.
+   */
+  phoneIcon?: ReactNode;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -61,6 +66,7 @@ export function Button({
   size = "md",
   touch = false,
   ai = false,
+  phoneIcon,
   className,
   children,
   ...props
@@ -76,8 +82,10 @@ export function Button({
         variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
         (touch || BOXED_VARIANTS.has(variant)) && TAP_TARGET,
         VARIANT_CLASSES[variant],
+        phoneIcon ? "max-sm:w-11 max-sm:flex-none max-sm:px-0" : undefined,
         className,
       )}
+      data-row={phoneIcon ? "fixed" : undefined}
       {...props}
       disabled={isPendingSubmit || props.disabled}
     >
@@ -88,7 +96,16 @@ export function Button({
         />
       )}
       {ai && !isPendingSubmit && <SparklesIcon className="h-3.5 w-3.5 shrink-0" />}
-      {children}
+      {phoneIcon ? (
+        <>
+          <span aria-hidden="true" className="sm:hidden">
+            {phoneIcon}
+          </span>
+          <span className="max-sm:sr-only">{children}</span>
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

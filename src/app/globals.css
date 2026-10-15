@@ -117,6 +117,10 @@ main:has(~ [data-assistant-bubble="always"]) {
   .control-row > [data-row="full"] {
     flex-basis: 100%;
   }
+  /* A search box that shares the first row with a fixed control (the Filter icon). */
+  .control-row > [data-row="grow"] {
+    flex: 1 1 0%;
+  }
   .control-row > [data-row="skip"] {
     display: none;
   }

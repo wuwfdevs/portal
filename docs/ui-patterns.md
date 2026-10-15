@@ -177,6 +177,10 @@ Rules:
 6. A padded content card is `<Card className="p-4">`, not a hand-written
    `rounded border border-line bg-white p-4`.
 
+7. Below `sm`, a `SubNav` of up to four pages is one full-width grey track whose pages share it
+   equally, the current one lifted onto white (`PHONE_FILL_MAX` in `sub-nav.tsx`); a longer row
+   still flows and wraps. Don't hand-build a phone switch beside it.
+
 Traffic's row is the reference: Dashboard · Contracts · Needs attention (Exceptions, Affidavits) ·
 Library (Underwriters, Copy) · Setup (Overview, Pools, Industries, Migration), modelled in
 `lib/underwriting/nav.ts` (pure, tested).
@@ -350,7 +354,8 @@ Three primitives, used together. Pick by what is true about the wait:
   from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
   Give the list a `label` when "Steps" is too generic ("Import steps"). Below `sm` the strip is
   one line: markers and connectors for every step, a label only on the current one (the others
-  stay in the accessible name).
+  stay in the accessible name). A strip that only reports where a flow stands (the Sourcework
+  project's five stages) passes `phoneBar`: below `sm` it is one thin `ProgressBar` of steps done.
 - **A long server step with no honest percentage** (a model reading a PDF, a single-request
   upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
   take a minute") and a note saying what has and hasn't happened. Mark the current step
@@ -446,9 +451,13 @@ the rule in `globals.css` (`.control-row`) takes over:
 1. **Two controls share one row** at half width each, with no spacer between them, so neither
    is pinned to an edge with white space beside it.
 2. **An icon-only button keeps its square** (`data-row="fixed"`; `ActionMenu` marks its own ⋮)
-   and the other control takes the rest.
-3. **A search box takes its own row** (`data-row="full"`; `ListSearch` marks itself), and a
-   control left alone on a row goes full width rather than left-aligned at its natural size.
+   and the other control takes the rest. A labelled `Button` can become one below `sm` with
+   `phoneIcon` (the list toolbar's "+ Add source" is a "+" square beside the search and Filter,
+   with `max-sm:order-first` to sit on the first row); its label stays for screen readers.
+3. **A search box takes the first row** (`ListSearch` marks itself `full`, or `grow` when the
+   toolbar has filters). In `ListToolbar` the Filter is an icon-only square (`FilterMenu`, `fixed`,
+   its label kept for screen readers) beside it, so search and filter are one row, and the actions
+   pair up beneath. A control left alone on a row goes full width rather than left-aligned.
 4. **Three or more** pair up two to a row; with an odd count the last one — the primary action,
    by the convention that it comes last — takes the last row alone. Four make two pairs.
 
@@ -467,6 +476,10 @@ title's line, which needs the title block to be `min-w-0 flex-1` (`PageHeader` i
 the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`max-w-`
 belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
 not control rows.
+
+A toolbar action that only matters sometimes does not hold a button on a phone: Sourcework's
+quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3
+sources not analyzed" with the button on it) only while something is waiting.
 
 ## AI actions carry the sparkles mark (2026-10-14)
 
