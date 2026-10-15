@@ -82,7 +82,7 @@ export function Button({
         variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
         (touch || BOXED_VARIANTS.has(variant)) && TAP_TARGET,
         VARIANT_CLASSES[variant],
-        phoneIcon && "max-sm:w-11 max-sm:flex-none max-sm:px-0",
+        phoneIcon ? "max-sm:w-11 max-sm:flex-none max-sm:px-0" : undefined,
         className,
       )}
       data-row={phoneIcon ? "fixed" : undefined}
