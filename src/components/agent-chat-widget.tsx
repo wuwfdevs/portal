@@ -15,6 +15,7 @@ import { Alert } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/input";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { useRightPanel } from "@/components/right-panel";
+import { useTuckOnScroll } from "@/lib/use-tuck-on-scroll";
 import { summarizeToolsUsed } from "@/lib/agent/tools-used";
 import { readSseEvents, SSE_STOPPED_MESSAGE, SSE_UNREACHABLE_MESSAGE } from "@/lib/read-sse";
 
@@ -154,6 +155,8 @@ export function AgentChatWidget() {
   // effect below only moves focus.
   const { assistantDraft } = rightPanel;
   const [appliedDraftId, setAppliedDraftId] = useState(0);
+  // Below lg the bubble steps aside while the page scrolls down, so it never sits on a row's last button.
+  const tuckedAway = useTuckOnScroll();
   if (assistantDraft && assistantDraft.id !== appliedDraftId) {
     setAppliedDraftId(assistantDraft.id);
     setDraft(assistantDraft.text);
@@ -288,12 +291,16 @@ export function AgentChatWidget() {
           type="button"
           onClick={() => rightPanel.toggle("assistant")}
           aria-label={open ? "Close assistant" : "Open assistant"}
+          tabIndex={tuckedAway && !open ? -1 : undefined}
           // Read by globals.css: the page beside it gets bottom padding so its
           // last row scrolls clear of the bubble. "desktop" says the bubble is
           // hidden below lg (a piece's own bar is there instead).
           data-assistant-bubble={onPiece ? "desktop" : "always"}
           className={cn(
-            "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right] duration-200 hover:scale-105 hover:bg-[#2278B8]",
+            "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right,transform,opacity] duration-200 hover:scale-105 hover:bg-[#2278B8] motion-reduce:transition-none",
+            tuckedAway &&
+              !open &&
+              "max-lg:pointer-events-none max-lg:translate-y-24 max-lg:opacity-0",
             // Only shifts aside on large screens, to stay beside the push
             // panel (see the <aside> below) — below lg the panel is a
             // full-screen sheet with nothing to dodge, so the bubble stays

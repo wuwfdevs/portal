@@ -366,7 +366,7 @@ export function SegmentRow({
                       : "Put the cursor inside the text to split there"
                   }
                   className="text-brand-link"
-                  data-row="fixed"
+                  row="fixed"
                 >
                   Split here
                 </Button>

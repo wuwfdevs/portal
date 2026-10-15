@@ -4586,6 +4586,11 @@ make explicitly, not by default.
 - **Every control that starts a model run carries the sparkles mark** (`<Button ai>`, or `SparklesIcon`
   beside a link's label). See `docs/ui-patterns.md`, "AI actions carry the sparkles mark". Add it in the
   same change that adds the AI action.
+- **Controls come from the shared primitives, and a test checks it** (`docs/ui-patterns.md`, "Rules that
+  fail the build"). A form ends in `FormActions`; a removal in a plain form is `ConfirmSubmit`; a list's
+  "+ New X" is `ListToolbar`'s `primary` (a link) or `action` (a form button); a control that falls back to
+  an icon on a phone takes `phoneIcon`; its place in a `ControlRow` is the `row` prop; day navigation is
+  `DateStepper`. `src/lib/ui-rules.test.ts` fails the build on the hand-built versions.
 - Inspect the relevant existing file(s) before editing; match existing patterns rather
   than introducing a new one for the same problem.
 - Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename

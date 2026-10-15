@@ -246,11 +246,7 @@ export default async function ClockTemplateDetailPage({
                 keepParams={fromProgram ? { from: fromProgram.id } : {}}
               />
             )}
-            {isProgramDirector && (
-              <SecondaryLink href="#new-version" className="h-[38px] px-3.5 py-0">
-                + New version
-              </SecondaryLink>
-            )}
+            {isProgramDirector && <SecondaryLink href="#new-version">+ New version</SecondaryLink>}
           </>
         }
       />

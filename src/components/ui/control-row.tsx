@@ -24,6 +24,15 @@ import type { ComponentProps } from "react";
  * marking, and `ActionMenu` marks its own ⋮ trigger. Use `CONTROL_ROW` on an
  * element that can't be this component (a `<form>` footer).
  */
+/**
+ * How a child sits in a control row below `sm` (the `data-row` attribute the `.control-row` rule in
+ * `globals.css` reads): `fixed` keeps its own size (an icon square, a small button), `full` takes a
+ * row to itself, `grow` takes the rest of a row beside fixed ones, `skip` is hidden (a desktop-only
+ * spacer). `Button`, `PrimaryLink`, `SecondaryLink` and `TextLink` take it as the `row` prop; use
+ * the `data-row` attribute only on a raw element (a `form`, a `span`, a `div`).
+ */
+export type ControlRowPlacement = "fixed" | "full" | "grow" | "skip";
+
 export const CONTROL_ROW = "control-row flex flex-wrap items-center gap-2";
 
 export function ControlRow({ className, ...props }: ComponentProps<"div">) {
