@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, FieldHint, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { SecondaryLink } from "@/components/ui/primary-link";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateCriterion } from "../../../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditCriterionPage({
   params,
@@ -129,10 +128,12 @@ export default async function EditCriterionPage({
           >
             <Textarea id="anchors" name="anchors" rows={6} defaultValue={anchorsText} />
           </Field>
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/editorial/settings/rubric">Cancel</SecondaryLink>
+          <FormActions
+            cancelHref={"/editorial/settings/rubric"}
+            className="border-t border-line pt-4"
+          >
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

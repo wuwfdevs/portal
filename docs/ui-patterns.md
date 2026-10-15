@@ -487,6 +487,50 @@ A toolbar action that only matters sometimes does not hold a button on a phone: 
 quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3
 sources not analyzed" with the button on it) only while something is waiting.
 
+`PrimaryLink` and `SecondaryLink` carry `TAP_TARGET` like `Button` does, so a link-styled button is
+44px tall on a phone without a call site remembering to say so; don't force a smaller height
+(`h-9 py-0`, `px-3 py-2 text-[13px]`) or add `max-sm:min-h-*` to one.
+
+### Icons on a phone
+
+A boxed control whose verb has a picture everyone knows falls back to an icon square below `sm`, by
+`phoneIcon` on `Button`, `PrimaryLink` and `SecondaryLink` (44px, a fixed control in a control row, the
+label kept for screen readers). The set is in `components/ui/icons.tsx` plus `PlusIcon`: Add (a list's
+"+ New X" is `ListToolbar`'s `primary`, other create links pass `phoneIcon`), Edit, Download,
+Refresh, Print, and the Filter square. Use it where the control sits in a row with others, so the
+saved width is the point. Never for: a decision (Save, Submit, Confirm), a destructive action, an AI
+action (it keeps its label and the sparkles mark), or a verb that needs its noun to be understood
+("Edit order details" is fine because the page says whose order; "Remove" alone is not).
+
+### Destructive actions
+
+A delete or removal is a danger control with a consequence step, never a ghost or secondary "Remove"
+that acts on one click. `ConfirmAction` is the callback form; **`ConfirmSubmit`** is the same two
+steps for a plain `<form action>` (it takes `formAction`/`formNoValidate` through to the confirm
+button). Its message says what goes and what stays. A row action is the danger-link first step; a
+standalone one passes `trigger="button"`.
+
+### Form footers
+
+Every create or edit form ends in `FormActions` (`components/ui/form-actions.tsx`): Cancel, then the
+primary action last, on the right from `sm` up and sharing the row on a phone. Cancel is a
+`SecondaryLink` (`cancelHref`) or, when it must run code first, a secondary `Button` passed as
+`cancel`. Never a `TextLink` Cancel, and never the primary first. A hand-built `div` of
+`flex items-center gap-4` with a Save and a Cancel is the thing this retired.
+
+### Controls audit, still open (2026-10-15)
+
+A sweep of the portal's buttons and controls fixed the mechanical cases and left these as decisions:
+(1) ~~Form footers~~ done: `FormActions`. (2) ~~Destructive actions~~ done:
+`ConfirmSubmit`; the review-state "Reject" buttons (Audience Listening, Editorial Inquiry) are decisions
+that hide rather than delete and stay as they are. (3) **List searches off
+`ListSearch`**: Academic Partnerships' all-submissions form and Roadmap's filter form. (4) **File-picker
+buttons** (`<label>` styled as a button, four in Underwriting migration) want a shared primitive.
+(5) **`<summary>` "Add …" triggers** (about ten) want a shared disclosure primitive with `TAP_TARGET`.
+(6) **Create actions beside lists** outside a `ListToolbar` (Log automated hours, Resources home,
+Bookings calendar, Audience Listening and Remote Interview headers) should use `PrimaryLink phoneIcon`
+or `ListToolbar primary`.
+
 ## AI actions carry the sparkles mark (2026-10-14)
 
 Any button or link that starts a model run — Analyze, Synthesize, Outline, Write from outline, Drill down,

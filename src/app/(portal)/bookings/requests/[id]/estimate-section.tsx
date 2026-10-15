@@ -33,6 +33,8 @@ import {
 } from "../actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const LINE_KINDS: readonly BkEstimateLineKind[] = ["package", "labor", "expense"];
@@ -227,14 +229,6 @@ export function EstimateSection({
                             defaultValue={String(line.quantity)}
                           />
                         </div>
-                        <div className="flex items-end gap-3">
-                          <Button type="submit" variant="secondary">
-                            Save
-                          </Button>
-                          <TextLink href={here} className="pb-2.5">
-                            Cancel
-                          </TextLink>
-                        </div>
                         <div className="col-span-2 sm:col-span-5">
                           <Label htmlFor="l_notes">Notes</Label>
                           <Input
@@ -244,6 +238,11 @@ export function EstimateSection({
                             defaultValue={line.notes ?? ""}
                           />
                         </div>
+                        <FormActions cancelHref={here} className="col-span-2 sm:col-span-5">
+                          <Button type="submit" variant="secondary">
+                            Save
+                          </Button>
+                        </FormActions>
                       </form>
                     </Cell>
                   </Row>
@@ -288,9 +287,11 @@ export function EstimateSection({
                           <form action={removeEstimateLine} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="line_id" value={line.id} />
-                            <Button type="submit" variant="ghost">
-                              Remove
-                            </Button>
+                            <ConfirmSubmit
+                              label="Remove"
+                              confirmLabel="Yes, remove the line"
+                              message="This line is removed from the estimate and the price is worked out again."
+                            />
                           </form>
                         </span>
                       </Cell>
@@ -570,10 +571,9 @@ function ScopeCard({
             placeholder="Two stages, so a second crew"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <FormActions cancelHref={cancelHref}>
           <Button type="submit">Adjust the scope</Button>
-          <TextLink href={cancelHref}>Cancel</TextLink>
-        </div>
+        </FormActions>
       </form>
       {line.adjustment_reason && (
         <form action={resetLineScope}>

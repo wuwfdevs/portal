@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ControlRow } from "@/components/ui/control-row";
 import { actionOk, type ActionResult } from "@/lib/action-response";
 import { pluralize } from "@/lib/format";
 import { acceptSuggestedDataPoints } from "../research-actions";
@@ -79,20 +80,14 @@ export function BulkAcceptButton({
   return (
     <div className="flex max-w-xl flex-col gap-2.5 rounded border border-line bg-panel-50 p-3">
       <div className="text-sm leading-relaxed text-ink-700">{message}</div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button type="button" onClick={accept} disabled={busy} className="max-sm:min-h-12">
+      <ControlRow>
+        <Button type="button" onClick={accept} disabled={busy}>
           {busy ? "Accepting…" : confirmLabel}
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setConfirming(false)}
-          disabled={busy}
-          className="max-sm:min-h-12"
-        >
+        <Button type="button" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
           Cancel
         </Button>
-      </div>
+      </ControlRow>
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}

@@ -18,6 +18,8 @@ import { formatDateShort } from "@/lib/log/program-status";
 import { addCommitment, removeCommitment, updateCommitment } from "../actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 /**
  * The project's airtime commitments (docs/bookings-design.md §2.5): airings
@@ -140,9 +142,11 @@ export function AirtimeSection({
                           <form action={removeCommitment} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="commitment_id" value={commitment.id} />
-                            <Button type="submit" variant="ghost">
-                              Remove
-                            </Button>
+                            <ConfirmSubmit
+                              label="Remove"
+                              confirmLabel="Yes, remove the commitment"
+                              message="This airtime commitment is removed from the request."
+                            />
                           </form>
                         </span>
                       </Cell>
@@ -224,12 +228,11 @@ function CommitmentFields({
         project={{ id: project, event_starts_on: null, event_ends_on: null }}
         commitment={commitment}
       />
-      <div className="flex items-center gap-3">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit" variant="secondary">
           Save
         </Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

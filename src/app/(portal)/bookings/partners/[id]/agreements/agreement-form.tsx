@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Textarea } from "@/components/ui/input";
 import { AGREEMENT_LABEL_MAX } from "@/lib/bookings/agreements";
 import type { BkAgreementRow } from "@/lib/bookings/queries";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * The one agreement form, shared by `/agreements/new` and `/agreements/[id]/edit`
@@ -222,10 +222,9 @@ export function AgreementForm({
         </div>
       </Card>
 
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

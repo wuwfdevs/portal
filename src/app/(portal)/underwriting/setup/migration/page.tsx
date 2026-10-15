@@ -18,6 +18,7 @@ import { BatchProgress } from "./batch-progress";
 import { MigrationTabs } from "./migration-tabs";
 import { batchDocumentsPath, batchPath, NEW_BATCH_PATH } from "./paths";
 import { pluralize } from "@/lib/format";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const TILES: { category: MigrationItemCategory; title: string; hint: string; tone: string }[] = [
   {
@@ -110,7 +111,9 @@ export default async function AgreementMigrationPage({
             until someone reviews a draft and activates it.
           </p>
         </div>
-        <PrimaryLink href={NEW_BATCH_PATH}>+ New batch</PrimaryLink>
+        <PrimaryLink href={NEW_BATCH_PATH} phoneIcon={<PlusIcon className="size-4" />}>
+          + New batch
+        </PrimaryLink>
       </div>
 
       <MigrationTabs active="agreements" />

@@ -34,6 +34,7 @@ import { defineStatusMap, StatusBadge } from "@/components/ui/status-badge";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { COPY_APPROVAL_STATUS } from "@/lib/underwriting/status";
 import { pluralize } from "@/lib/format";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 // A draft message on a contract is a warning, not neutral: nothing places it
 // until someone approves it.
@@ -138,7 +139,7 @@ export async function ContractCopyPanel({
           <SecondaryLink size="sm" href={withQuery("link=1")}>
             Link existing…
           </SecondaryLink>
-          <PrimaryLink href={withQuery("new=1")} className="px-3 py-2 text-[13px]">
+          <PrimaryLink href={withQuery("new=1")} phoneIcon={<PlusIcon className="size-4" />}>
             + New message
           </PrimaryLink>
         </div>

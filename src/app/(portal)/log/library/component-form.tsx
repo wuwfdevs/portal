@@ -1,9 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, Input, Select } from "@/components/ui/input";
-import { TextLink } from "@/components/ui/primary-link";
 import { COMPONENT_TYPE_LABEL } from "@/lib/log/content-library";
 import type { LogContentComponentRow } from "@/lib/log/queries";
-import { ControlRow } from "@/components/ui/control-row";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * A content item component's field set, shared by "Add a component" and the
@@ -78,14 +77,9 @@ export function ComponentForm({
         label="Required (counts toward total occupied time)"
         className="items-center"
       />
-      <ControlRow className="justify-end gap-3">
-        {cancelHref && (
-          <TextLink href={cancelHref} data-row="fixed">
-            Cancel
-          </TextLink>
-        )}
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{submitLabel}</Button>
-      </ControlRow>
+      </FormActions>
     </form>
   );
 }

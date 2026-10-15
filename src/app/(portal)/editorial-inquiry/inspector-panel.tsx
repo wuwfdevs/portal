@@ -746,6 +746,7 @@ function DiscussComposer(props: InspectorPanelProps) {
           className="min-w-0 flex-1 px-2.5 py-2"
         />
         <Button
+          ai
           className={COMPACT_BUTTON}
           onClick={() => props.onSendChat()}
           disabled={!props.chatInput.trim() || turnMode !== null}

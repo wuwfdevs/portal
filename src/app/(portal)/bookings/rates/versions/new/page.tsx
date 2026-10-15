@@ -8,7 +8,7 @@ import { RATES_PATH } from "@/lib/bookings/paths";
 import { listVersions } from "@/lib/bookings/queries";
 import { createVersion } from "../../actions";
 import { RatesTabs } from "../../rates-tabs";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function NewVersionPage({
   searchParams,
@@ -77,10 +77,9 @@ export default async function NewVersionPage({
             placeholder="What this version is for — a new budget year, validated fringe, the asset inventory…"
           />
         </div>
-        <div className="flex items-center gap-4">
+        <FormActions cancelHref={RATES_PATH}>
           <Button type="submit">Create version</Button>
-          <TextLink href={RATES_PATH}>Cancel</TextLink>
-        </div>
+        </FormActions>
       </form>
     </div>
   );

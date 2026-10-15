@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckboxField, Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { SecondaryLink } from "@/components/ui/primary-link";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateFormField } from "../../../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditFormFieldPage({
   params,
@@ -81,10 +80,12 @@ export default async function EditFormFieldPage({
             </Field>
           )}
           <CheckboxField name="required" defaultChecked={field.required} label="Required" />
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/editorial/settings/form">Cancel</SecondaryLink>
+          <FormActions
+            cancelHref={"/editorial/settings/form"}
+            className="border-t border-line pt-4"
+          >
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

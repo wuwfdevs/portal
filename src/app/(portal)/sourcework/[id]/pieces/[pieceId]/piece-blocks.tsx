@@ -258,7 +258,7 @@ export function BeatRow({
           aria-label={label}
           placeholder="What does this part of the story have to do?"
           onChange={(event) => onChange(event.target.value)}
-          className="block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none"
+          className="block w-full resize-none overflow-hidden bg-transparent text-base leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none sm:text-[15px]"
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
           <button

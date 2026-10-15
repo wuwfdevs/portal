@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   buildScheduleLineDemandViews,
   getContractDetail,
@@ -19,6 +18,7 @@ import {
 } from "@/lib/underwriting/agreement-import";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { TextLink } from "@/components/ui/primary-link";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 /**
  * Setup step 2: the order's schedule, one line per printed instruction
@@ -140,9 +140,11 @@ export default async function ContractSchedulePage({
                         <input type="hidden" name="contract_id" value={contract.id} />
                         <input type="hidden" name="schedule_line_id" value={view.scheduleLine.id} />
                         <input type="hidden" name="return_to" value="schedule" />
-                        <Button type="submit" variant="ghost">
-                          Remove
-                        </Button>
+                        <ConfirmSubmit
+                          label="Remove"
+                          confirmLabel="Yes, remove the line"
+                          message="Nothing has scheduled from this line, so it goes away with no history to keep."
+                        />
                       </form>
                     </div>
                   )}

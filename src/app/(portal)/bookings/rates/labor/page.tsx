@@ -13,6 +13,7 @@ import { ClassCatalog, type CatalogParams } from "../catalog-sections";
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
 import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 type Params = {
   version?: string;
@@ -176,14 +177,10 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
                               />
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <FormActions cancelHref={here()}>
                             <Button type="submit">Save</Button>
-                            <TextLink href={here()}>Cancel</TextLink>
-                            <span className="flex-1" />
-                            <FieldHint>
-                              A changed figure goes back to awaiting validation.
-                            </FieldHint>
-                          </div>
+                          </FormActions>
+                          <FieldHint>A changed figure goes back to awaiting validation.</FieldHint>
                         </form>
                       </Cell>
                     </Row>

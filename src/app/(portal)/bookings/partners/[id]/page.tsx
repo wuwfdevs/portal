@@ -30,6 +30,7 @@ import { formatHours } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const SAVED_LABEL: Record<string, string> = {
   created: "Created",
@@ -96,7 +97,14 @@ export default async function PartnerPage({
                 airtime allowance. The Executive Director approves one after seeing its draw.
               </span>
               <span className="flex-1" />
-              {canEdit && <PrimaryLink href={agreementNewHref(id)}>+ Agreement</PrimaryLink>}
+              {canEdit && (
+                <PrimaryLink
+                  href={agreementNewHref(id)}
+                  phoneIcon={<PlusIcon className="size-4" />}
+                >
+                  + Agreement
+                </PrimaryLink>
+              )}
             </div>
             {agreements.length === 0 ? (
               <EmptyState compact>

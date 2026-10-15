@@ -3,14 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { SecondaryLink } from "@/components/ui/primary-link";
 import { RichTextField } from "@/components/ui/rich-text-field";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { listTargetTools } from "@/lib/roadmap/queries";
 import { POST_KIND_LABEL } from "@/lib/roadmap/posts";
 import type { RdPostKind } from "@/lib/database.types";
 import { createPost } from "../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 const KINDS: RdPostKind[] = ["improvement", "feature", "bug", "new_tool"];
 
@@ -98,10 +97,9 @@ export default async function NewRequestPage({
             <RichTextField name="body" ariaLabel="Request description" />
           </Field>
 
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/roadmap">Cancel</SecondaryLink>
+          <FormActions cancelHref={"/roadmap"} className="border-t border-line pt-4">
             <Button type="submit">File request</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

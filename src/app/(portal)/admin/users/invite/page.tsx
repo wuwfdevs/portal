@@ -1,14 +1,13 @@
 import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
-import { SecondaryLink } from "@/components/ui/primary-link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, Input, Label, Select } from "@/components/ui/input";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { inviteUser } from "../actions";
 import { ToolGrantRow } from "../tool-grant-row";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function InviteUserPage({
   searchParams,
@@ -68,10 +67,9 @@ export default async function InviteUserPage({
               ))}
             </div>
           </div>
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/admin/users">Cancel</SecondaryLink>
+          <FormActions cancelHref={"/admin/users"} className="border-t border-line pt-4">
             <Button type="submit">Send invitation</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

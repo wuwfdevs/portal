@@ -163,12 +163,10 @@ export function ReviseScheduleForm({ base, contractId }: { base: string; contrac
           label="Start from a copy of the current lines"
           className="pb-2"
         />
+        <SecondaryLink href={base}>Cancel</SecondaryLink>
         <Button type="submit" variant="secondary">
           Create draft
         </Button>
-        <TextLink href={base} className="pb-2 text-[13px]">
-          Cancel
-        </TextLink>
       </form>
       <FieldHint>
         A draft is edited beside the current schedule and schedules nothing until it is activated.

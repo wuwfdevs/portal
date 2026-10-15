@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { SecondaryLink } from "@/components/ui/primary-link";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updatePillar } from "../../../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditPillarPage({
   params,
@@ -58,10 +57,12 @@ export default async function EditPillarPage({
               defaultValue={pillar.guiding_question ?? ""}
             />
           </Field>
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/editorial/settings/pillars">Cancel</SecondaryLink>
+          <FormActions
+            cancelHref={"/editorial/settings/pillars"}
+            className="border-t border-line pt-4"
+          >
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

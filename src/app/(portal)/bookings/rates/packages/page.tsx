@@ -26,6 +26,7 @@ import { createPackage, setPackageActive, setPackageReview, updatePackage } from
 import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
 import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 type Params = {
   version?: string;
@@ -301,10 +302,9 @@ export default async function ServicePackagesPage({
                             pools={pools}
                             agreements={agreements}
                           />
-                          <div className="flex items-center gap-4">
+                          <FormActions cancelHref={here()}>
                             <Button type="submit">Save</Button>
-                            <TextLink href={here()}>Cancel</TextLink>
-                          </div>
+                          </FormActions>
                         </form>
                       </Cell>
                     </Row>

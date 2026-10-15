@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input";
 import type { UwIndustryCategoryRow, UwUnderwriterRow } from "@/lib/underwriting/queries";
 import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export type UnderwriterFormDefaults = Pick<
   UwUnderwriterRow,
@@ -100,10 +101,9 @@ export function UnderwriterForm({
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" name="notes" rows={3} defaultValue={defaults?.notes ?? ""} />
       </div>
-      <div className="flex items-center gap-4 border-t border-line pt-5">
+      <FormActions cancelHref={cancelHref} className="border-t border-line pt-5">
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

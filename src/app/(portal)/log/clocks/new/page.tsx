@@ -2,10 +2,10 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { TextLink } from "@/components/ui/primary-link";
 import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram } from "@/lib/log/queries";
 import { createClockTemplate } from "../../clock-actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * Creating a clock template: a name and a description, producer-only, reached
@@ -56,12 +56,9 @@ export default async function NewClockTemplatePage({
         >
           <Textarea id="description" name="description" rows={2} />
         </Field>
-        <div className="flex items-center gap-4 border-t border-line pt-5">
+        <FormActions cancelHref={backHref} className="border-t border-line pt-5">
           <Button type="submit">Create clock</Button>
-          <TextLink href={backHref} className="hover:underline">
-            Cancel
-          </TextLink>
-        </div>
+        </FormActions>
       </form>
     </div>
   );

@@ -61,6 +61,7 @@ import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 type Params = { saved?: string; error?: string; new?: string };
 
@@ -496,9 +497,11 @@ export default async function AgreementPage({
                                     <input type="hidden" name="partner_id" value={id} />
                                     <input type="hidden" name="agreement_id" value={agreementId} />
                                     <input type="hidden" name="block_id" value={block.id} />
-                                    <Button type="submit" variant="ghost" className="text-ink-500">
-                                      Remove
-                                    </Button>
+                                    <ConfirmSubmit
+                                      label="Remove"
+                                      confirmLabel="Yes, remove the block"
+                                      message="This reserved block is removed from the agreement."
+                                    />
                                   </form>
                                 </div>
                               )}
@@ -613,9 +616,12 @@ export default async function AgreementPage({
                       <form action={deleteAgreement}>
                         <input type="hidden" name="partner_id" value={id} />
                         <input type="hidden" name="agreement_id" value={agreementId} />
-                        <Button type="submit" variant="ghost" className="text-ink-500">
-                          Delete this draft
-                        </Button>
+                        <ConfirmSubmit
+                          label="Delete this draft"
+                          confirmLabel="Yes, delete the draft"
+                          message="This draft agreement is deleted. This can’t be undone."
+                          trigger="button"
+                        />
                       </form>
                     )}
                   </>

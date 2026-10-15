@@ -7,6 +7,7 @@ import { participantFields } from "@/lib/audience-listening/participation";
 import type { AlQuery } from "@/lib/audience-listening/queries";
 import type { AlFieldMode } from "@/lib/database.types";
 import { deleteQuery, updateQuerySettings } from "../actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 /** `datetime-local` needs "YYYY-MM-DDTHH:mm" in local time; Postgres gives ISO/UTC. */
 function toLocalInputValue(iso: string | null): string {
@@ -217,9 +218,12 @@ export function SettingsTab({
             </p>
             <form action={deleteQuery}>
               <input type="hidden" name="query_id" value={query.id} />
-              <Button type="submit" variant="danger">
-                Delete query
-              </Button>
+              <ConfirmSubmit
+                label="Delete query"
+                confirmLabel="Yes, delete the query"
+                message="This permanently deletes the query and its questions. This can’t be undone."
+                trigger="button"
+              />
             </form>
           </>
         )}

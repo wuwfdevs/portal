@@ -278,15 +278,11 @@ export function WeekGrid({
                 {canEdit && (
                   <PrimaryLink
                     href={`/log/programs/${selectedBlock.programId}/schedule/${selectedBlock.entryId}/edit`}
-                    className="h-9 py-0"
                   >
                     Edit schedule
                   </PrimaryLink>
                 )}
-                <SecondaryLink
-                  href={`/log/programs/${selectedBlock.programId}`}
-                  className="h-9 py-0"
-                >
+                <SecondaryLink href={`/log/programs/${selectedBlock.programId}`}>
                   Open program
                 </SecondaryLink>
               </div>

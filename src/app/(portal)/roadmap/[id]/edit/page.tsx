@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { SecondaryLink } from "@/components/ui/primary-link";
 import { RichTextField } from "@/components/ui/rich-text-field";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { requireRoadmapAccess } from "@/lib/roadmap/access";
 import { getPostDetail } from "@/lib/roadmap/queries";
 import { updatePost } from "../../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditRequestPage({
   params,
@@ -52,10 +51,9 @@ export default async function EditRequestPage({
             <RichTextField name="body" defaultValue={post.body} ariaLabel="Request description" />
           </Field>
 
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href={`/roadmap/${id}`}>Cancel</SecondaryLink>
+          <FormActions cancelHref={`/roadmap/${id}`} className="border-t border-line pt-4">
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

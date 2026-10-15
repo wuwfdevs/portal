@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/format";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 export default async function AudienceListeningPage({
   searchParams,
@@ -25,7 +26,11 @@ export default async function AudienceListeningPage({
         className="mb-8"
         title="Audience Listening"
         description="Recorded callouts you publish into a story, and the responses that come back — grouped by participant, with consent on the record."
-        actions={<PrimaryLink href="/audience-listening/new">New query</PrimaryLink>}
+        actions={
+          <PrimaryLink href="/audience-listening/new" phoneIcon={<PlusIcon className="size-4" />}>
+            New query
+          </PrimaryLink>
+        }
       />
 
       {error && <Alert className="mb-4">{error}</Alert>}

@@ -43,6 +43,7 @@ import { findOutOfStepRundowns } from "@/lib/log/clock-sync";
 import { cn } from "@/lib/cn";
 import { updateProgram } from "../../program-actions";
 import { switchProgramRundowns } from "../../rundown-actions";
+import { EditIcon } from "@/components/ui/icons";
 
 const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"];
 /** Mon..Sun, as the day pills and the editor lay them out. */
@@ -327,7 +328,11 @@ export default async function ProgramDetailPage({
                         {entry.notes && <div className="text-xs text-ink-400">{entry.notes}</div>}
                       </div>
                       {isProgramDirector && (
-                        <SecondaryLink href={editHref} className="h-9 shrink-0 py-0">
+                        <SecondaryLink
+                          href={editHref}
+                          className="shrink-0"
+                          phoneIcon={<EditIcon className="size-4" />}
+                        >
                           Edit
                         </SecondaryLink>
                       )}

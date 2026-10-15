@@ -5,7 +5,6 @@ import { useMemo, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldHint, Input, Select } from "@/components/ui/input";
-import { TextLink } from "@/components/ui/primary-link";
 import { cn } from "@/lib/cn";
 import {
   describeDaysOfWeek,
@@ -18,6 +17,7 @@ import {
 import { formatAirTime } from "@/lib/log/schedule";
 import { effectiveDays, findScheduleOverlaps, type OverlapOther } from "@/lib/log/schedule-overlap";
 import type { LogScheduleEntryType } from "@/lib/database.types";
+import { FormActions } from "@/components/ui/form-actions";
 
 /** Mon..Sun, as the mockup lays them out; values are 0 = Sunday like log_schedule.days_of_week. */
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -365,23 +365,19 @@ export function ScheduleEditor({
           <Input id="notes" name="notes" maxLength={240} defaultValue={entry?.notes ?? undefined} />
         </Field>
 
-        <div className="flex flex-wrap items-center gap-4 border-t border-line pt-5">
+        <FormActions cancelHref={cancelHref} className="border-t border-line pt-5">
           <Button type="submit">{submitLabel}</Button>
-          <TextLink href={cancelHref} className="hover:underline">
-            Cancel
-          </TextLink>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => {
-              endRef.current?.scrollIntoView({ block: "center" });
-              endRef.current?.focus();
-            }}
-            className="text-sm font-semibold text-ink-500 hover:text-ink-700 hover:underline"
-          >
-            Stop airing from a date…
-          </button>
-        </div>
+        </FormActions>
+        <button
+          type="button"
+          onClick={() => {
+            endRef.current?.scrollIntoView({ block: "center" });
+            endRef.current?.focus();
+          }}
+          className="self-start text-sm font-semibold text-ink-500 hover:text-ink-700 hover:underline"
+        >
+          Stop airing from a date…
+        </button>
       </form>
 
       <aside

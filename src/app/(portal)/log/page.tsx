@@ -18,9 +18,6 @@ import { generateRundown } from "./rundown-actions";
 
 const COUNT_PARAM = /^\d{1,4}$/;
 
-const NAV_LINK_CLASSES =
-  "inline-flex shrink-0 items-center justify-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
-
 /** Tray with an arrow into it (import) or out of it (export). */
 function TransferIcon({ direction }: { direction: "in" | "out" }) {
   return (
@@ -94,17 +91,17 @@ export default async function LogTodayPage({
           {selectedDate === today && <Badge variant="accent">Today</Badge>}
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <Link href={`/log?date=${shiftDateISO(selectedDate, -1)}`} className={NAV_LINK_CLASSES}>
+          <SecondaryLink size="sm" href={`/log?date=${shiftDateISO(selectedDate, -1)}`}>
             ← Prev day
-          </Link>
+          </SecondaryLink>
           {selectedDate !== today && (
-            <Link href="/log" className={NAV_LINK_CLASSES}>
+            <SecondaryLink size="sm" href="/log">
               Today
-            </Link>
+            </SecondaryLink>
           )}
-          <Link href={`/log?date=${shiftDateISO(selectedDate, 1)}`} className={NAV_LINK_CLASSES}>
+          <SecondaryLink size="sm" href={`/log?date=${shiftDateISO(selectedDate, 1)}`}>
             Next day →
-          </Link>
+          </SecondaryLink>
           <form method="get" className="flex flex-wrap items-end gap-2">
             <div>
               <Label htmlFor="log-today-date">Jump to date</Label>

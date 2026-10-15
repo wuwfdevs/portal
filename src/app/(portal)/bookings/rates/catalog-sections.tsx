@@ -8,6 +8,7 @@ import type { BkLaborClassRow, BkPoolRow } from "@/lib/bookings/queries";
 import { formatWindow, formatWindowLines, parseWindows } from "@/lib/bookings/scheduling";
 import { createLaborClass, createPool, updateLaborClass, updatePoolCatalog } from "./actions";
 import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export type CatalogParams = { new?: string; edit_class?: string; edit_pool?: string };
 
@@ -130,10 +131,9 @@ export function ClassCatalog({
                           className="self-end pb-2"
                         />
                       </div>
-                      <div className="flex items-center gap-4">
+                      <FormActions cancelHref={href({})}>
                         <Button type="submit">Save</Button>
-                        <TextLink href={href({})}>Cancel</TextLink>
-                      </div>
+                      </FormActions>
                     </form>
                   </Cell>
                 </Row>
@@ -225,10 +225,9 @@ export function PoolCatalog({
                       <input type="hidden" name="return_to" value={href({})} />
                       <input type="hidden" name="id" value={pool.id} />
                       <PoolFields defaults={pool} windows={windows} />
-                      <div className="flex items-center gap-4">
+                      <FormActions cancelHref={href({})}>
                         <Button type="submit">Save</Button>
-                        <TextLink href={href({})}>Cancel</TextLink>
-                      </div>
+                      </FormActions>
                     </form>
                   </Cell>
                 </Row>

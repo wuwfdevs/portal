@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, Textarea, CheckboxField } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { TITLE_MAX } from "@/lib/bookings/projects";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export interface FormPartner {
   id: string;
@@ -311,12 +311,11 @@ export function NewRequestForm({
         </div>
       </details>
 
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">
           {anyTicked ? "Create and price the estimate" : "Create the request"}
         </Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

@@ -5,12 +5,18 @@ import { Card } from "@/components/ui/card";
 import { DescriptionList, type DescriptionItem } from "@/components/ui/description-list";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CardHeader, SectionHeading } from "@/components/ui/section-heading";
-import { getAlertsView, getCurrentWeatherReading, getDailyOutlook, getForecastPeriods } from "@/lib/log/weather";
+import {
+  getAlertsView,
+  getCurrentWeatherReading,
+  getDailyOutlook,
+  getForecastPeriods,
+} from "@/lib/log/weather";
 import { refreshWeatherAction } from "../../weather-actions";
 import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
+import { RefreshIcon } from "@/components/ui/icons";
 
 // Weather is allowed to be 30 minutes old (lib/log/staleness.ts); this only needs
 // to re-run that check often enough to notice — see log-poller.tsx.
@@ -75,7 +81,11 @@ export default async function WeatherPage({
               {stale && <Badge variant="warning">Stale</Badge>}
             </div>
             <form action={refreshWeatherAction}>
-              <Button type="submit" variant="secondary">
+              <Button
+                type="submit"
+                variant="secondary"
+                phoneIcon={<RefreshIcon className="size-4" />}
+              >
                 Refresh
               </Button>
             </form>

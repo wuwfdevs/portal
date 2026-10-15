@@ -1087,16 +1087,8 @@ function SlotPanel({
         <div className={`${CONTROL_ROW} border-t border-line px-5 py-3`}>
           {isLocal ? (
             <>
-              {acting && (
-                <PrimaryLink href={actionHref("edit")} className="h-9 px-3.5 py-0">
-                  Edit eligibility
-                </PrimaryLink>
-              )}
-              {pinning && (
-                <SecondaryLink href={actionHref("pin")} className="h-9 px-3.5 py-0">
-                  Pin content
-                </SecondaryLink>
-              )}
+              {acting && <PrimaryLink href={actionHref("edit")}>Edit eligibility</PrimaryLink>}
+              {pinning && <SecondaryLink href={actionHref("pin")}>Pin content</SecondaryLink>}
               {acting && (
                 <form action={removeOpportunityAction}>
                   <input type="hidden" name="clock_template_id" value={templateId} />

@@ -7,7 +7,7 @@ import {
   ASSET_FUNDING_LABEL,
 } from "@/lib/bookings/labels";
 import type { BkAssetRow, BkPoolRow } from "@/lib/bookings/queries";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 const FUNDINGS = ["station", "foundation_gift", "grant_restricted", "uwf"] as const;
 const BURDENS = ["low", "medium", "high"] as const;
@@ -200,10 +200,9 @@ export function AssetForm({
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" name="notes" rows={2} defaultValue={defaults?.notes ?? ""} />
       </div>
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

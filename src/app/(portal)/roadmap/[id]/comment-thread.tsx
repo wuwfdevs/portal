@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { RichText } from "@/components/ui/rich-text";
 import { RichTextField } from "@/components/ui/rich-text-field";
-import { ControlRow } from "@/components/ui/control-row";
 import type { PostComment } from "@/lib/roadmap/queries";
 import { addComment, deleteComment, updateComment } from "../actions";
 import { pluralize } from "@/lib/format";
+import { FormActions } from "@/components/ui/form-actions";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -59,10 +59,9 @@ export function CommentThread({
                   ariaLabel="Edit your comment"
                   minHeightClassName="min-h-[110px]"
                 />
-                <ControlRow>
-                  <SecondaryLink href={`/roadmap/${postId}`}>Cancel</SecondaryLink>
+                <FormActions cancelHref={`/roadmap/${postId}`}>
                   <Button type="submit">Save comment</Button>
-                </ControlRow>
+                </FormActions>
               </form>
             ) : (
               <>

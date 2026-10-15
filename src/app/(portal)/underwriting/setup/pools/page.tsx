@@ -20,6 +20,7 @@ import { PoolTargetRows } from "./pool-target-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { ControlRow } from "@/components/ui/control-row";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 const POOLS_PATH = "/underwriting/setup/pools";
 
@@ -177,9 +178,11 @@ export default async function InventoryPoolsPage({
                     </span>
                     <form action={removeInventoryPoolTarget}>
                       <input type="hidden" name="target_id" value={target.id} />
-                      <Button type="submit" variant="ghost">
-                        Remove
-                      </Button>
+                      <ConfirmSubmit
+                        label="Remove"
+                        confirmLabel="Yes, remove the target"
+                        message="This target is removed from the pool. This can’t be undone."
+                      />
                     </form>
                   </li>
                 ))}
