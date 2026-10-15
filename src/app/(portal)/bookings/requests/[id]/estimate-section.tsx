@@ -229,11 +229,6 @@ export function EstimateSection({
                             defaultValue={String(line.quantity)}
                           />
                         </div>
-                        <FormActions cancelHref={here}>
-                          <Button type="submit" variant="secondary">
-                            Save
-                          </Button>
-                        </FormActions>
                         <div className="col-span-2 sm:col-span-5">
                           <Label htmlFor="l_notes">Notes</Label>
                           <Input
@@ -243,6 +238,11 @@ export function EstimateSection({
                             defaultValue={line.notes ?? ""}
                           />
                         </div>
+                        <FormActions cancelHref={here} className="col-span-2 sm:col-span-5">
+                          <Button type="submit" variant="secondary">
+                            Save
+                          </Button>
+                        </FormActions>
                       </form>
                     </Cell>
                   </Row>
