@@ -6,6 +6,7 @@
 // from the (server) page component that renders the SVG.
 
 import type { LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
+import { colors } from "@/lib/design-tokens";
 
 export type ClockFaceCategory =
   | "segment"
@@ -29,14 +30,14 @@ export const CATEGORY_LABEL: Record<ClockFaceCategory, string> = {
 };
 
 export const CATEGORY_COLOR: Record<ClockFaceCategory, { fill: string; stroke: string }> = {
-  segment: { fill: "#ECEFF2", stroke: "#E2E5E9" },
-  newscast: { fill: "#0F1419", stroke: "#0F1419" },
-  promo: { fill: "#3090D0", stroke: "#3090D0" },
-  music: { fill: "#6B9B96", stroke: "#6B9B96" },
-  credit: { fill: "#D63E2D", stroke: "#D63E2D" },
-  float: { fill: "#E3A63D", stroke: "#8A5A12" },
-  local_optional: { fill: "#8B6BC7", stroke: "#5B3F94" },
-  local_required: { fill: "#C74B6B", stroke: "#8A2E45" },
+  segment: { fill: colors.panel[100], stroke: colors.line.DEFAULT },
+  newscast: { fill: colors.ink[900], stroke: colors.ink[900] },
+  promo: { fill: colors.brand.primary, stroke: colors.brand.primary },
+  music: { fill: colors.data.teal, stroke: colors.data.teal },
+  credit: { fill: colors.danger.DEFAULT, stroke: colors.danger.DEFAULT },
+  float: { fill: colors.warning.border, stroke: colors.warning.fg },
+  local_optional: { fill: colors.data.violet, stroke: colors.data.violetDark },
+  local_required: { fill: colors.data.rose, stroke: colors.data.roseDark },
 };
 
 export interface ClockFaceSlotLike {

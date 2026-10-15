@@ -18,7 +18,7 @@ export async function BookPageContent({ embedded }: { embedded: boolean }) {
     return (
       <PublicShell embedded={embedded}>
         <PageHeader size="public" className="mb-3" title="This page isn't available" />
-        <p className="text-[15px] leading-relaxed text-ink-700">
+        <p className="text-body leading-relaxed text-ink-700">
           Something went wrong loading this form. Please try again shortly.
         </p>
       </PublicShell>

@@ -78,7 +78,7 @@ export function ExcerptTrimEditor({
 
   return (
     <div>
-      <p className="mb-2 text-[13px] text-ink-500">
+      <p className="mb-2 text-ui text-ink-500">
         {[speaker, `${formatDuration(range.startMs)}–${formatDuration(range.endMs)}`]
           .filter(Boolean)
           .join(" · ")}{" "}
@@ -86,7 +86,7 @@ export function ExcerptTrimEditor({
       </p>
 
       {tokens.length > 0 ? (
-        <p className="font-serif text-base leading-relaxed text-ink-400 max-lg:text-[17px] max-lg:leading-[1.7]">
+        <p className="font-serif text-base leading-relaxed text-ink-400 max-lg:text-section max-lg:leading-[1.7]">
           {tokens.map((token, index) => (
             <span key={`${token.startMs}-${index}`}>
               <button
@@ -176,8 +176,8 @@ function PauseMarker({
         title={applied ? `${seconds}s pause removed` : `${seconds}s pause would be removed`}
         className={
           applied
-            ? "rounded bg-panel-100 px-1 font-sans text-[11px] font-semibold text-ink-500 line-through"
-            : "rounded border border-dashed border-brand-link px-1 font-sans text-[11px] font-semibold text-brand-link"
+            ? "rounded bg-panel-100 px-1 font-sans text-label font-semibold text-ink-500 line-through"
+            : "rounded border border-dashed border-brand-link px-1 font-sans text-label font-semibold text-brand-link"
         }
       >
         {applied ? `−${seconds}s` : `⏸ ${seconds}s`}
@@ -208,7 +208,7 @@ function TrimRow({
             aria-label={`Move ${label.toLowerCase()} point ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
             className={cn(
               TAP_TARGET,
-              "rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:flex-1 max-lg:text-xs",
+              "rounded border border-line px-1.5 py-0.5 text-label font-semibold text-ink-700 hover:bg-panel-50 max-lg:flex-1 max-lg:text-xs",
             )}
           >
             {step > 0 ? `+${step}` : step}

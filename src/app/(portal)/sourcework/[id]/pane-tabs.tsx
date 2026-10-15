@@ -48,7 +48,7 @@ export function PaneTabs<T extends string>({
           aria-selected={pane === tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "-mb-px flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-[3px] text-[15px] font-semibold transition-colors lg:flex-none lg:px-5",
+            "-mb-px flex min-h-12 flex-1 items-center justify-center gap-1.5 border-b-[3px] text-body font-semibold transition-colors lg:flex-none lg:px-5",
             tab.phoneOnly && "lg:hidden",
             pane === tab.id
               ? "border-brand-primary text-brand-link"

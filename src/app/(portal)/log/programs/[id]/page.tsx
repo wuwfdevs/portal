@@ -300,7 +300,7 @@ export default async function ProgramDetailPage({
                               key={day}
                               aria-hidden="true"
                               className={cn(
-                                "inline-flex size-8 items-center justify-center rounded border text-[13px] font-bold",
+                                "inline-flex size-8 items-center justify-center rounded border text-ui font-bold",
                                 airingDays.includes(day)
                                   ? "border-brand-primary bg-brand-primary text-white"
                                   : "border-line bg-white text-ink-400",
@@ -311,7 +311,7 @@ export default async function ProgramDetailPage({
                           ))}
                         </div>
                       ) : (
-                        <div className="inline-flex h-8 shrink-0 items-center self-start rounded border border-brand-primary bg-brand-primary px-3 text-[13px] font-bold text-white sm:self-auto">
+                        <div className="inline-flex h-8 shrink-0 items-center self-start rounded border border-brand-primary bg-brand-primary px-3 text-ui font-bold text-white sm:self-auto">
                           {formatEntryDates(entry)}
                         </div>
                       )}
@@ -355,7 +355,7 @@ export default async function ProgramDetailPage({
                         <Link
                           href={clockHref}
                           className={cn(
-                            "ml-2 text-[15px] font-bold hover:underline",
+                            "ml-2 text-body font-bold hover:underline",
                             placeholder ? "text-ink-500" : "text-brand-link",
                           )}
                         >
@@ -366,7 +366,7 @@ export default async function ProgramDetailPage({
                             <Badge variant="warning" className="ml-2">
                               Placeholder
                             </Badge>
-                            <span className="ml-2 text-[13px] text-ink-500">
+                            <span className="ml-2 text-ui text-ink-500">
                               Shared with {Math.max(sharedBy - 1, 0)} other{" "}
                               {sharedBy === 2 ? "program" : "programs"}
                             </span>
@@ -380,7 +380,7 @@ export default async function ProgramDetailPage({
                               </Badge>
                             )}
                             {summary?.current && (
-                              <span className="ml-2 text-[13px] text-ink-500">
+                              <span className="ml-2 text-ui text-ink-500">
                                 Version in effect since{" "}
                                 {formatDateShort(summary.current.effective_from)}
                               </span>

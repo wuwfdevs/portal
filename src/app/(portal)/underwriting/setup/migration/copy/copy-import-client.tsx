@@ -220,11 +220,11 @@ function ChooseFile({
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
       <div className="flex flex-col gap-3 lg:col-span-7">
-        <label className="flex cursor-pointer flex-col items-center gap-1 rounded border-2 border-dashed border-[#9FB7CA] bg-[#F7FAFC] px-6 py-10 text-center hover:border-brand-primary">
-          <span className="text-[15px] font-bold text-ink-900">
+        <label className="flex cursor-pointer flex-col items-center gap-1 rounded border-2 border-dashed border-line-strong bg-brand-tint px-6 py-10 text-center hover:border-brand-primary">
+          <span className="text-body font-bold text-ink-900">
             Choose the RadioTraffic copy export (CSV)
           </span>
-          <span className="text-[13px] text-ink-500">
+          <span className="text-ui text-ink-500">
             Up to 1 MB. Nothing is written until you confirm on the next step.
           </span>
           <input
@@ -237,7 +237,7 @@ function ChooseFile({
         {fileError && <FieldError>{fileError}</FieldError>}
       </div>
       <aside className="flex flex-col gap-3 rounded border border-line px-5 py-4 text-sm text-ink-700 lg:col-span-5">
-        <h3 className="text-[15px] font-bold text-ink-900">Getting the file</h3>
+        <h3 className="text-body font-bold text-ink-900">Getting the file</h3>
         <p>
           Open the “Active Copy by Underwriter” workbook and use{" "}
           <strong>File › Save As › CSV</strong>. Title lines above the header row are fine.
@@ -303,7 +303,7 @@ function Review({
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
       <div className="flex flex-col gap-8 lg:col-span-8">
         <div className="flex flex-col gap-1.5">
-          <p className="text-[13px] text-ink-500">
+          <p className="text-ui text-ink-500">
             {fileName} · {pluralize(counts.rows, "row")} ·{" "}
             <button type="button" onClick={onChooseAnother} className="font-bold text-brand-link">
               Choose another file
@@ -329,7 +329,7 @@ function Review({
               <h4 id="questions-heading" className="text-base font-bold text-ink-900">
                 Questions
               </h4>
-              <span className="text-[13px] text-ink-500">
+              <span className="text-ui text-ink-500">
                 {plan.questions.length - open.length} of {plan.questions.length} answered
               </span>
             </div>
@@ -358,7 +358,7 @@ function Review({
             Coming in
           </h4>
           <details className="group rounded border border-line">
-            <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-[15px]">
+            <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-body">
               <strong>{pluralize(counts.ready, "row")}</strong>
               <span className="text-ink-700">
                 {[
@@ -379,7 +379,7 @@ function Review({
             <CopyList copies={readyCopies} />
           </details>
           {counts.done > 0 && (
-            <p className="text-[13px] text-ink-500">
+            <p className="text-ui text-ink-500">
               {pluralize(counts.done, "row")} already in the portal exactly as exported; nothing to
               write for them.
             </p>
@@ -392,7 +392,7 @@ function Review({
               Staying out
             </h4>
             <details className="group rounded border border-line">
-              <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-[15px]">
+              <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-4 gap-y-1 px-5 py-3.5 text-body">
                 <strong>{pluralize(counts.excluded, "row")}</strong>
                 <span className="text-ink-700">
                   {[
@@ -416,7 +416,7 @@ function Review({
       </div>
 
       <aside className="flex flex-col gap-3 self-start rounded border border-line px-5 py-4 text-sm text-ink-700 lg:col-span-4">
-        <h4 className="text-[15px] font-bold text-ink-900">How rows are matched</h4>
+        <h4 className="text-body font-bold text-ink-900">How rows are matched</h4>
         <p>
           Copy already in the portal is found by its script, so nothing is duplicated. Its wording
           only changes where a question says so.
@@ -487,7 +487,7 @@ function QuestionCard({
           ✓
         </span>
         <span className="text-xs font-bold uppercase tracking-wide text-ink-500">{kindLabel}</span>
-        <span className="text-[15px] font-semibold text-ink-900">{question.subject}</span>
+        <span className="text-body font-semibold text-ink-900">{question.subject}</span>
         <span className="text-sm text-ink-500">
           {answerLabel(question, value, underwriterNames)}
           {recommendedDefault && " (recommended)"}
@@ -523,7 +523,7 @@ function QuestionCard({
           }}
         />
         <span className="flex flex-col gap-0.5">
-          <span className="text-[15px] font-semibold text-ink-900">
+          <span className="text-body font-semibold text-ink-900">
             {option.label}
             {question.recommended === option.value && (
               <Badge variant="accent" className="ml-2 align-middle">
@@ -531,7 +531,7 @@ function QuestionCard({
               </Badge>
             )}
           </span>
-          <span className="text-[13px] text-ink-500">{option.hint}</span>
+          <span className="text-ui text-ink-500">{option.hint}</span>
         </span>
       </label>
     );
@@ -543,7 +543,7 @@ function QuestionCard({
         <span className="text-xs font-bold uppercase tracking-wide text-warning-fg">
           {kindLabel}
         </span>
-        <span className="text-[17px] font-bold text-ink-900">{question.question}</span>
+        <span className="text-section font-bold text-ink-900">{question.question}</span>
       </div>
       <p className="text-sm text-ink-700">
         {question.context}{" "}
@@ -569,10 +569,10 @@ function QuestionCard({
                 onChange={() => setPicking(true)}
               />
               <span className="flex flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink-900">
+                <span className="text-body font-semibold text-ink-900">
                   It’s an underwriter already on file
                 </span>
-                <span className="text-[13px] text-ink-500">Its copy is added under that name</span>
+                <span className="text-ui text-ink-500">Its copy is added under that name</span>
               </span>
             </label>
             {picking && (
@@ -666,10 +666,10 @@ function CopyList({ copies }: { copies: PlannedCopy[] }) {
           const source = list[0]!.sourceUnderwriter;
           return (
             <li key={name} className="border-b border-panel-100 px-5 py-3 last:border-b-0">
-              <p className="text-[15px] font-bold text-ink-900">
+              <p className="text-body font-bold text-ink-900">
                 {name}
                 {source !== name && (
-                  <span className="ml-2 text-[13px] font-normal text-ink-500">
+                  <span className="ml-2 text-ui font-normal text-ink-500">
                     RadioTraffic: {source}
                   </span>
                 )}
@@ -684,7 +684,7 @@ function CopyList({ copies }: { copies: PlannedCopy[] }) {
                     </span>
                     <span className="block text-ink-700">{describeCopy(copy)}</span>
                     {copy.notes.map((note) => (
-                      <span key={note} className="block text-[13px] text-ink-500">
+                      <span key={note} className="block text-ui text-ink-500">
                         {note}
                       </span>
                     ))}
@@ -743,7 +743,7 @@ function ImportResult({
               {tile.title}
             </span>
             <span className="font-serif text-3xl font-bold text-ink-900">{tile.count}</span>
-            <span className="text-[13px] text-ink-500">{tile.hint}</span>
+            <span className="text-ui text-ink-500">{tile.hint}</span>
           </Card>
         ))}
       </section>
@@ -764,7 +764,7 @@ function ImportResult({
               </li>
             ))}
           </ul>
-          <p className="text-[13px] text-ink-500">
+          <p className="text-ui text-ink-500">
             Choose the export again to retry these; the rest is recognised and skipped.
           </p>
         </section>

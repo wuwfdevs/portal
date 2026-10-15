@@ -265,7 +265,7 @@ export function ActionMenu({
         {triggerLabel ? (
           <>
             {triggerLabel}
-            <span aria-hidden="true" className="text-[10px]">
+            <span aria-hidden="true" className="text-badge">
               ▾
             </span>
           </>
@@ -283,7 +283,7 @@ export function ActionMenu({
             <div
               aria-hidden="true"
               onClick={() => !busy && close()}
-              className="absolute inset-0 bg-[#0F2235]/50"
+              className="absolute inset-0 bg-deep/50"
             />
             <div
               ref={panelRef}

@@ -68,7 +68,7 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
                   type="button"
                   aria-pressed={kindFilter === filter.value}
                   onClick={() => setKindFilter(filter.value)}
-                  className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                  className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-badge font-bold uppercase tracking-wider ${
                     kindFilter === filter.value
                       ? "border-brand-primary bg-brand-surface text-brand-link"
                       : "border-line text-ink-400 hover:border-ink-300"

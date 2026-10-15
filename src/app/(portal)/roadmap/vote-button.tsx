@@ -43,7 +43,7 @@ export function VoteButton({
         >
           <polyline points="6 15 12 9 18 15" />
         </svg>
-        <span className="text-[13px] font-bold tabular-nums">{voteCount}</span>
+        <span className="text-ui font-bold tabular-nums">{voteCount}</span>
       </button>
     </form>
   );

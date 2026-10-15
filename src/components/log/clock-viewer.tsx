@@ -39,6 +39,7 @@ import {
   type ClockViewSlot,
   type ShiftInfo,
 } from "@/lib/log/clock-view";
+import { colors } from "@/lib/design-tokens";
 
 export type ClockViewMode = "timeline" | "ring";
 
@@ -74,7 +75,7 @@ export interface ClockViewerProps {
 
 // The one accent: everything WUWF-local is this blue, everything the network
 // publishes is a neutral (see SLOT_VISUAL_COLORS).
-const LOCAL = "#185F95";
+const LOCAL = colors.brand.link;
 const LOCAL_TINT = "rgba(24, 95, 149, 0.07)";
 const LOCAL_CORE = "rgba(24, 95, 149, 0.16)";
 
@@ -272,10 +273,8 @@ export function ClockViewer(props: ClockViewerProps) {
                 aria-pressed={view === mode}
                 onClick={() => setView(mode)}
                 className={cn(
-                  "h-8 border-r border-line px-3.5 text-[13px] font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-link",
-                  view === mode
-                    ? "bg-[#0F2235] text-white"
-                    : "bg-white text-ink-900 hover:bg-panel-50",
+                  "h-8 border-r border-line px-3.5 text-ui font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-link",
+                  view === mode ? "bg-deep text-white" : "bg-white text-ink-900 hover:bg-panel-50",
                 )}
               >
                 {mode === "timeline" ? "Timeline" : "Ring"}
@@ -351,7 +350,7 @@ function HourStepper({
         aria-label="Previous hour"
         disabled={hour === 0}
         onClick={() => onChange(hour - 1)}
-        className={cn(button, hour === 0 ? "text-[#B5BCC4]" : "text-brand-link hover:bg-panel-50")}
+        className={cn(button, hour === 0 ? "text-ink-400" : "text-brand-link hover:bg-panel-50")}
       >
         ‹
       </button>
@@ -368,7 +367,7 @@ function HourStepper({
         onClick={() => onChange(hour + 1)}
         className={cn(
           button,
-          hour >= shift.hours - 1 ? "text-[#B5BCC4]" : "text-brand-link hover:bg-panel-50",
+          hour >= shift.hours - 1 ? "text-ink-400" : "text-brand-link hover:bg-panel-50",
         )}
       >
         ›
@@ -433,7 +432,7 @@ function Timeline({
     <div className="mt-3">
       <div
         aria-live="polite"
-        className="mb-2.5 ml-24 flex min-h-[34px] flex-wrap items-center gap-x-2.5 gap-y-1 rounded border border-line bg-panel-50 px-3 py-1 text-[15px]"
+        className="mb-2.5 ml-24 flex min-h-[34px] flex-wrap items-center gap-x-2.5 gap-y-1 rounded border border-line bg-panel-50 px-3 py-1 text-body"
       >
         <span className="text-xs font-bold uppercase tracking-wide text-ink-500">
           {previewing ? "Previewing" : "Selected"}
@@ -463,7 +462,7 @@ function Timeline({
 
       <div className="relative">
         <div className="flex items-center">
-          <div className="w-24 shrink-0 text-[13px] font-bold text-ink-500">Network</div>
+          <div className="w-24 shrink-0 text-ui font-bold text-ink-500">Network</div>
           <div className="relative h-11 flex-1 rounded-sm bg-panel-50">
             {fixed.map((slot) => {
               const color = SLOT_VISUAL_COLORS[slot.kind];
@@ -497,7 +496,7 @@ function Timeline({
         </div>
 
         <div className="mt-2 flex items-center">
-          <div className="w-24 shrink-0 text-[13px] font-bold text-brand-link">WUWF local</div>
+          <div className="w-24 shrink-0 text-ui font-bold text-brand-link">WUWF local</div>
           <div className="relative h-11 flex-1 rounded-sm bg-panel-50">
             {locals.map((slot) => {
               const required = slot.local?.requirement === "required";
@@ -523,7 +522,7 @@ function Timeline({
                   style={{ left: pct(slot.startSeconds), width: pct(slot.durationSeconds) }}
                 >
                   {slot.pinsThisHour.length > 0 && (
-                    <span className="absolute -right-1.5 -top-2 h-[18px] min-w-[18px] rounded-full bg-ink-900 px-1 text-center text-[11px] font-bold leading-[18px] text-white">
+                    <span className="absolute -right-1.5 -top-2 h-[18px] min-w-[18px] rounded-full bg-ink-900 px-1 text-center text-label font-bold leading-[18px] text-white">
                       {slot.pinsThisHour.length}
                     </span>
                   )}
@@ -562,7 +561,7 @@ function Timeline({
                     onBlur={onLeave}
                     onClick={onSelect(slot.id)}
                     className={cn(
-                      "pointer-events-auto absolute -top-3 left-1/2 h-5 -translate-x-1/2 rounded-full border border-brand-link bg-white px-2 text-[11px] font-bold text-brand-link",
+                      "pointer-events-auto absolute -top-3 left-1/2 h-5 -translate-x-1/2 rounded-full border border-brand-link bg-white px-2 text-label font-bold text-brand-link",
                       focusRing,
                       state(slot.id),
                     )}
@@ -625,7 +624,7 @@ function Ring({
         cy={RING_CENTER}
         r={(RING_NETWORK_OUTER + RING_NETWORK_INNER) / 2}
         fill="none"
-        stroke="#EEF0F3"
+        stroke={colors.panel[100]}
         strokeWidth={RING_NETWORK_OUTER - RING_NETWORK_INNER}
       />
       {minutes.map((minute) => {
@@ -638,7 +637,7 @@ function Ring({
             textAnchor="middle"
             dominantBaseline="central"
             fontSize={1.5}
-            fill="#5A6068"
+            fill={colors.ink[500]}
           >
             {minute}
           </text>
@@ -657,7 +656,7 @@ function Ring({
               slot.startSeconds + slot.durationSeconds,
             )}
             fill={color.fill}
-            stroke={isActive ? "#0F1419" : color.border}
+            stroke={isActive ? colors.ink[900] : color.border}
             strokeWidth={isActive ? 0.4 : 0.15}
             opacity={dim(slot.id)}
             tabIndex={0}
@@ -762,10 +761,17 @@ function Ring({
       })}
       {active && (
         <>
-          <text x={31} y={28.6} textAnchor="middle" fontSize={2.5} fontWeight={700} fill="#0F1419">
+          <text
+            x={31}
+            y={28.6}
+            textAnchor="middle"
+            fontSize={2.5}
+            fontWeight={700}
+            fill={colors.ink[900]}
+          >
             {active.label.length > 22 ? `${active.label.slice(0, 21)}…` : active.label}
           </text>
-          <text x={31} y={31.8} textAnchor="middle" fontSize={1.7} fill="#2B2F36">
+          <text x={31} y={31.8} textAnchor="middle" fontSize={1.7} fill={colors.ink[700]}>
             {active.float
               ? `${formatOffsetSeconds(active.float.startEarliest)}${active.float.startMoves ? `–${formatOffsetSeconds(active.float.startLatest)}` : ""} → ${formatOffsetSeconds(active.float.endEarliest)}${active.float.endMoves ? `–${formatOffsetSeconds(active.float.endLatest)}` : ""}`
               : `${formatOffsetSeconds(active.startSeconds)} – ${formatOffsetSeconds(active.startSeconds + active.durationSeconds)} · ${formatOffsetSeconds(active.durationSeconds)}`}
@@ -776,7 +782,7 @@ function Ring({
             textAnchor="middle"
             fontSize={1.7}
             fontWeight={700}
-            fill={active.local ? LOCAL : "#5A6068"}
+            fill={active.local ? LOCAL : colors.ink[500]}
           >
             {localText(active)}
           </text>
@@ -792,7 +798,7 @@ function Legend({ hasFloat, hasPins }: { hasFloat: boolean; hasPins: boolean }) 
   const item = "inline-flex items-center whitespace-nowrap";
   const swatch = "mr-1.5 inline-block h-3 shrink-0";
   return (
-    <div className="flex w-full flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] text-ink-700 lg:justify-start">
+    <div className="flex w-full flex-wrap justify-center gap-x-5 gap-y-2 text-ui text-ink-700 lg:justify-start">
       <span className={item}>
         <span
           className={cn(swatch, "w-3 border")}
@@ -837,7 +843,7 @@ function Legend({ hasFloat, hasPins }: { hasFloat: boolean; hasPins: boolean }) 
       )}
       {hasPins && (
         <span className={item}>
-          <span className="mr-1.5 inline-block h-4 min-w-4 shrink-0 rounded-full bg-ink-900 text-center text-[11px] font-bold leading-4 text-white">
+          <span className="mr-1.5 inline-block h-4 min-w-4 shrink-0 rounded-full bg-ink-900 text-center text-label font-bold leading-4 text-white">
             1
           </span>
           Pinned content this hour
@@ -859,10 +865,10 @@ function SlotList({
   return (
     <section aria-labelledby="clock-slots-heading" className="rounded border border-line">
       <div className="flex items-center border-b border-line px-4 py-2.5">
-        <h3 id="clock-slots-heading" className="text-[15px] font-bold text-ink-900">
+        <h3 id="clock-slots-heading" className="text-body font-bold text-ink-900">
           Slots
         </h3>
-        <span className="ml-2 text-[13px] text-ink-500">{slots.length} in this version</span>
+        <span className="ml-2 text-ui text-ink-500">{slots.length} in this version</span>
       </div>
       <Table>
         <thead>
@@ -1008,8 +1014,8 @@ function SlotPanel({
         {isLocal && slot.local ? (
           <>
             <div>
-              <div className="text-[13px] text-ink-500">Local opportunity</div>
-              <div className="text-[15px] font-semibold text-ink-900">
+              <div className="text-ui text-ink-500">Local opportunity</div>
+              <div className="text-body font-semibold text-ink-900">
                 {requirementLabel(slot.local.requirement)}
               </div>
               <div className="text-sm text-ink-700">
@@ -1022,7 +1028,7 @@ function SlotPanel({
               )}
             </div>
             <div>
-              <div className="mb-1.5 text-[13px] text-ink-500">Permitted content</div>
+              <div className="mb-1.5 text-ui text-ink-500">Permitted content</div>
               <div className="flex flex-wrap gap-1.5">
                 {(opportunity?.permittedTypeLabels.length
                   ? opportunity.permittedTypeLabels
@@ -1030,7 +1036,7 @@ function SlotPanel({
                 ).map((label) => (
                   <span
                     key={label}
-                    className="rounded-full bg-brand-surface px-2.5 py-0.5 text-[13px] font-semibold text-brand-link"
+                    className="rounded-full bg-brand-surface px-2.5 py-0.5 text-ui font-semibold text-brand-link"
                   >
                     {label}
                   </span>
@@ -1038,15 +1044,15 @@ function SlotPanel({
               </div>
             </div>
             <div>
-              <div className="mb-1.5 text-[13px] text-ink-500">Pinned content · {hourLabel}</div>
+              <div className="mb-1.5 text-ui text-ink-500">Pinned content · {hourLabel}</div>
               {slot.pinsThisHour.map((pin) => (
                 <div
                   key={pin.id}
                   className="mb-1.5 flex items-start justify-between gap-3 rounded border border-line px-3 py-2"
                 >
                   <div>
-                    <div className="text-[15px] font-semibold text-ink-900">{pin.title}</div>
-                    <div className="text-[13px] text-ink-500">{describePinScope(pin)}</div>
+                    <div className="text-body font-semibold text-ink-900">{pin.title}</div>
+                    <div className="text-ui text-ink-500">{describePinScope(pin)}</div>
                   </div>
                   {pinning && (
                     <form action={removePinAction}>

@@ -146,7 +146,7 @@ export default async function AgreementMigrationPage({
                 <span className="font-serif text-3xl font-bold text-ink-900">
                   {totals[tile.category]}
                 </span>
-                <span className="text-[13px] text-ink-500">{tile.hint}</span>
+                <span className="text-ui text-ink-500">{tile.hint}</span>
               </Link>
             ))}
           </section>
@@ -170,7 +170,7 @@ export default async function AgreementMigrationPage({
                       <Cell>
                         <Link
                           href={batchPath(batch.label)}
-                          className="text-[15px] font-bold text-brand-link"
+                          className="text-body font-bold text-brand-link"
                         >
                           {batch.label}
                         </Link>
@@ -193,7 +193,7 @@ export default async function AgreementMigrationPage({
                 </tbody>
               </Table>
             </TableFrame>
-            <p className="max-w-3xl text-[13px] text-ink-500">
+            <p className="max-w-3xl text-ui text-ink-500">
               Running a batch again never makes a second contract: an entry that already has a draft
               is skipped. Delete a draft to free its entry for another try.
             </p>

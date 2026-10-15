@@ -38,7 +38,7 @@ export function DadCutField({
   return (
     <fieldset className="flex flex-col gap-3.5 rounded border border-line p-5">
       <legend className="px-1.5 text-sm font-bold text-ink-900">In DAD</legend>
-      <p className="text-[13px] leading-relaxed text-ink-500">
+      <p className="text-ui leading-relaxed text-ink-500">
         The recording DAD plays: the spot itself, or a live read&apos;s recorded version for hours
         with no host.
       </p>
@@ -75,7 +75,7 @@ export function DadCutField({
               </span>
             </div>
           )}
-          <div className="flex flex-col gap-1 text-[13px] leading-snug text-ink-700">
+          <div className="flex flex-col gap-1 text-ui leading-snug text-ink-700">
             <span>
               {portalCut
                 ? "Record the message into DAD under this number."

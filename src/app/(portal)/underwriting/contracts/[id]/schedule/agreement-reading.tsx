@@ -34,11 +34,11 @@ export function AgreementReadingNotes({
     <section aria-labelledby="from-agreement" className="mb-5 flex flex-col gap-3">
       <h3
         id="from-agreement"
-        className="text-[11px] font-bold uppercase tracking-wider text-ink-500"
+        className="text-label font-bold uppercase tracking-wider text-ink-500"
       >
         From the agreement
       </h3>
-      <p className="text-[13px] text-ink-500">
+      <p className="text-ui text-ink-500">
         {saved} of {proposal.lines.length} lines read from the attached agreement were saved above.
         {unsaved.length > 0 && " These could not be:"}
       </p>
@@ -57,13 +57,13 @@ export function AgreementReadingNotes({
                     {line.values.label || line.description}
                   </div>
                   {line.values.source_text && (
-                    <blockquote className="mt-1 border-l-2 border-line pl-2 text-[13px] italic text-ink-500">
+                    <blockquote className="mt-1 border-l-2 border-line pl-2 text-ui italic text-ink-500">
                       {line.values.source_text}
                     </blockquote>
                   )}
-                  {error && <div className="mt-1 text-[13px] text-danger">{error}</div>}
+                  {error && <div className="mt-1 text-ui text-danger">{error}</div>}
                   {line.warnings.length > 0 && (
-                    <ul className="mt-1 list-disc pl-5 text-[13px] text-warning-fg">
+                    <ul className="mt-1 list-disc pl-5 text-ui text-warning-fg">
                       {line.warnings.map((warning) => (
                         <li key={warning}>{warning}</li>
                       ))}
@@ -72,7 +72,7 @@ export function AgreementReadingNotes({
                 </div>
                 <TextLink
                   href={`/underwriting/contracts/${contractId}/schedule?prefill=${line.index}#line-editor`}
-                  className="text-[13px]"
+                  className="text-ui"
                 >
                   Enter
                 </TextLink>
@@ -84,12 +84,12 @@ export function AgreementReadingNotes({
 
       {proposal.unresolved.length > 0 && (
         <div>
-          <div className="text-[13px] font-semibold text-ink-700">
+          <div className="text-ui font-semibold text-ink-700">
             Not expressed as a line — enter by hand
           </div>
           <ul className="mt-1 flex flex-col gap-1">
             {proposal.unresolved.map((entry) => (
-              <li key={`${entry.source_text}|${entry.reason}`} className="text-[13px] text-ink-700">
+              <li key={`${entry.source_text}|${entry.reason}`} className="text-ui text-ink-700">
                 <span className="italic">&ldquo;{entry.source_text}&rdquo;</span> — {entry.reason}
               </li>
             ))}

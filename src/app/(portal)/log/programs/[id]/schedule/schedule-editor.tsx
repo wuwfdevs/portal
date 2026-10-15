@@ -192,7 +192,7 @@ export function ScheduleEditor({
                   aria-pressed={on}
                   onClick={() => toggleDay(day)}
                   className={cn(
-                    "h-11 w-16 rounded border text-[15px] font-bold",
+                    "h-11 w-16 rounded border text-body font-bold",
                     on
                       ? "border-brand-primary bg-brand-primary text-white"
                       : "border-line bg-white text-ink-700 hover:bg-panel-50",
@@ -264,7 +264,7 @@ export function ScheduleEditor({
                 aria-pressed={durationMinutes === chip.minutes}
                 onClick={() => setDuration(String(chip.minutes))}
                 className={cn(
-                  "h-9 rounded-full border px-3 text-[13px] font-semibold",
+                  "h-9 rounded-full border px-3 text-ui font-semibold",
                   durationMinutes === chip.minutes
                     ? "border-brand-primary bg-brand-surface text-brand-link"
                     : "border-line bg-white text-ink-900 hover:bg-panel-50",
@@ -387,8 +387,8 @@ export function ScheduleEditor({
       >
         <div className="border-b border-line px-5 py-3.5">
           <div className="text-xs font-bold uppercase tracking-wider text-ink-500">Preview</div>
-          <div className="mt-1 text-[22px] font-bold tabular-nums text-ink-900">{timeText}</div>
-          <div className="text-[15px] text-ink-700">{daysText}</div>
+          <div className="mt-1 text-display font-bold tabular-nums text-ink-900">{timeText}</div>
+          <div className="text-body text-ink-700">{daysText}</div>
         </div>
         <div className="flex flex-col gap-3.5 px-5 py-4">
           <div className="grid grid-cols-7 gap-1.5">
@@ -402,7 +402,7 @@ export function ScheduleEditor({
                     on ? "border-brand-primary/40 bg-brand-surface" : "border-line bg-white",
                   )}
                 >
-                  <div className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+                  <div className="text-label font-bold uppercase tracking-wide text-ink-500">
                     {DAY_SHORT[day]}
                   </div>
                   <div

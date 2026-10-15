@@ -61,7 +61,7 @@ export function SourceCard({
       className="flex flex-col gap-2 rounded border border-line bg-white p-4 hover:border-brand-primary"
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+        <span className="text-badge font-bold uppercase tracking-wider text-ink-400">
           {SOURCE_KIND_LABEL[kind] ?? kind}
         </span>
         <StatusBadge map={projectStatusMap(kind)} value={status} />

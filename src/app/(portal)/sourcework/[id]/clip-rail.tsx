@@ -417,10 +417,10 @@ export function ClipCard({
       )}
       <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">{clip.excerpt}</p>
 
-      <p className="mt-1 font-mono text-[11px] text-ink-400">
+      <p className="mt-1 font-mono text-label text-ink-400">
         {formatDuration(startMs)}–{formatDuration(endMs)} · {formatDuration(endMs - startMs)} long
       </p>
-      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-500">
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-label text-ink-500">
         <span>
           {gainMode === "off"
             ? "Level: original"

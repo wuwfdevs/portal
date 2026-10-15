@@ -241,7 +241,7 @@ function EvidenceBody({ payload, onClose }: { payload: EvidencePayload; onClose:
         <ul>
           {payload.items.map((item) => (
             <li key={item.id} className="border-b border-line px-4 py-3 last:border-b-0">
-              <p className="text-[15px] leading-snug text-ink-900">{item.claim}</p>
+              <p className="text-body leading-snug text-ink-900">{item.claim}</p>
               <p className="mt-1 text-xs text-ink-500">{item.who}</p>
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                 {item.at !== null && (

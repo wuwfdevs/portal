@@ -288,7 +288,7 @@ export function SegmentRow({
           type="button"
           onClick={() => onSeek(segment.startMs)}
           title="Play from here"
-          className="-my-2 w-11 shrink-0 py-2 text-left font-mono text-[11px] text-ink-400 hover:text-brand-link hover:underline max-lg:hidden"
+          className="-my-2 w-11 shrink-0 py-2 text-left font-mono text-label text-ink-400 hover:text-brand-link hover:underline max-lg:hidden"
         >
           {formatDuration(segment.startMs)}
         </button>
@@ -370,7 +370,7 @@ export function SegmentRow({
                 >
                   Split here
                 </Button>
-                <span className="text-[11px] text-ink-400 max-lg:hidden" data-row="skip">
+                <span className="text-label text-ink-400 max-lg:hidden" data-row="skip">
                   ⌘↵ to save · Esc to cancel
                 </span>
               </div>
@@ -379,7 +379,7 @@ export function SegmentRow({
             <p
               onDoubleClick={beginEditing}
               onClick={handleTextClick}
-              className="text-[17px] leading-[26px] text-ink-900 lg:text-sm lg:leading-relaxed"
+              className="text-section leading-[26px] text-ink-900 lg:text-sm lg:leading-relaxed"
             >
               {/* Spaces sit between the spans, not inside them, so selecting
                   whitespace alone never counts as touching a word. They do get
@@ -423,8 +423,8 @@ export function SegmentRow({
           // way to edit, merge or reassign a line. A quiet "⋮" costs one
           // small icon per line instead of a toolbar.
           <div className="flex shrink-0 items-center gap-2">
-            {status === "saving" && <span className="text-[11px] text-ink-400">Saving…</span>}
-            {status === "saved" && <span className="text-[11px] text-ink-400">Saved</span>}
+            {status === "saving" && <span className="text-label text-ink-400">Saving…</span>}
+            {status === "saved" && <span className="text-label text-ink-400">Saved</span>}
             <ActionMenu
               label="Line actions"
               trigger="quiet"
@@ -564,7 +564,7 @@ function SplitPreview({ text, caret }: { text: string; caret: number }) {
   const second = text.slice(caret).trim();
 
   return (
-    <div className="mt-1.5 rounded border border-dashed border-line bg-panel-50 px-2 py-1.5 text-[11px] leading-relaxed text-ink-500">
+    <div className="mt-1.5 rounded border border-dashed border-line bg-panel-50 px-2 py-1.5 text-label leading-relaxed text-ink-500">
       <p className="truncate">
         <span className="font-semibold text-ink-700">1.</span> {first}
       </p>

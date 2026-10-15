@@ -240,7 +240,7 @@ export function PromptEditor({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex items-center gap-2.5 max-lg:hidden">{actions}</div>
-        <span className="text-[13px] text-ink-400" aria-live="polite">
+        <span className="text-ui text-ink-400" aria-live="polite">
           {saveLabel}
         </span>
         {draftExists && differs && (
@@ -251,9 +251,9 @@ export function PromptEditor({
             onConfirm={discard}
           />
         )}
-        <span className="text-[13px] text-ink-500 lg:ml-auto max-lg:hidden">{liveLine}</span>
+        <span className="text-ui text-ink-500 lg:ml-auto max-lg:hidden">{liveLine}</span>
       </div>
-      <p className="text-[13px] text-ink-500 lg:hidden">{liveLine}</p>
+      <p className="text-ui text-ink-500 lg:hidden">{liveLine}</p>
 
       {historyOpen && (
         <div ref={historyRef} className="flex flex-col gap-2 rounded border border-line p-4">
@@ -272,7 +272,7 @@ export function PromptEditor({
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                       <span className="font-bold text-ink-900">v{version.version}</span>
                       {version.isLive && (
-                        <span className="rounded bg-brand-surface px-1.5 py-0.5 text-[11px] font-bold uppercase text-brand-link">
+                        <span className="rounded bg-brand-surface px-1.5 py-0.5 text-label font-bold uppercase text-brand-link">
                           Live
                         </span>
                       )}

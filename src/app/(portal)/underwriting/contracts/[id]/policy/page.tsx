@@ -140,8 +140,8 @@ export default async function ContractPolicyPage({
           aria-label="About this step"
           className="w-full shrink-0 rounded border border-line bg-panel-50 px-5 py-4 lg:w-80"
         >
-          <div className="text-[13px] font-bold text-ink-900">Warnings never block activation</div>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+          <div className="text-ui font-bold text-ink-900">Warnings never block activation</div>
+          <p className="mt-1 text-ui leading-relaxed text-ink-700">
             Save what the order states. A separation rule printed with no unit keeps auto-fill
             waiting until a policy is chosen, and a stated total that disagrees with the lines is
             flagged on the review step — neither stops the contract being activated.

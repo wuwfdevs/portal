@@ -154,7 +154,7 @@ function EmptyPanel() {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-1.5 text-[10px] font-bold tracking-wider text-ink-400 uppercase">
+    <div className="mb-1.5 text-badge font-bold tracking-wider text-ink-400 uppercase">
       {children}
     </div>
   );
@@ -183,7 +183,7 @@ function PanelViewToggle({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            "flex-1 rounded px-2 py-1 text-[11px] font-semibold",
+            "flex-1 rounded px-2 py-1 text-label font-semibold",
             view === option.value ? "bg-white text-ink-900 shadow-sm" : "text-ink-500",
           )}
         >
@@ -312,7 +312,7 @@ function ContextView(
             {props.busy === "evaluate" ? "Evaluating…" : "Evaluate"}
           </Button>
         </div>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-ink-400">
+        <p className="mt-1.5 text-label leading-relaxed text-ink-400">
           Each runs in the Discussion view. The model works from this branch&apos;s context,
           searches for current developments, and can decline if the material doesn&apos;t support
           one.
@@ -414,7 +414,7 @@ function ContextSection(props: InspectorPanelProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-ink-400">
+        <span className="text-label text-ink-400">
           {props.selected?.depth === 0
             ? "Covers the whole inquiry"
             : "This question and its branch"}
@@ -442,11 +442,11 @@ function ContextSection(props: InspectorPanelProps) {
           className="rounded border border-line bg-panel-50 px-2 py-1.5 text-xs text-ink-700"
         >
           {entry.inherited && entry.sourceLabel && (
-            <div className="mb-0.5 text-[10px] text-ink-400">
+            <div className="mb-0.5 text-badge text-ink-400">
               From &quot;{entry.sourceLabel}&quot;
             </div>
           )}
-          <span className="mr-1 text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+          <span className="mr-1 text-badge font-semibold tracking-wide text-ink-400 uppercase">
             {entry.kind}
           </span>
           <Badge variant="neutral" className="mr-1 px-1.5 py-0.5">
@@ -475,7 +475,7 @@ function ContextSection(props: InspectorPanelProps) {
                 type="button"
                 onClick={() => props.onContextTypeChange(option.value)}
                 className={cn(
-                  "flex-1 rounded border border-line py-1 text-[11px]",
+                  "flex-1 rounded border border-line py-1 text-label",
                   props.contextType === option.value
                     ? "bg-brand-primary text-white"
                     : "bg-white text-ink-700",
@@ -486,7 +486,7 @@ function ContextSection(props: InspectorPanelProps) {
             ))}
           </div>
           <div>
-            <div className="mb-1 text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
+            <div className="mb-1 text-badge font-semibold tracking-wide text-ink-500 uppercase">
               How solid is this?
             </div>
             <Select
@@ -587,19 +587,19 @@ function DiscussThread(props: InspectorPanelProps) {
         <div className="flex flex-col gap-2.5">
           {turnMode === "discuss" && props.inFlightChatText && (
             <div className="flex flex-col items-end">
-              <div className="max-w-[92%] rounded bg-brand-surface px-2.5 py-2 text-[13px] leading-snug whitespace-pre-wrap text-brand-link">
+              <div className="max-w-[92%] rounded bg-brand-surface px-2.5 py-2 text-ui leading-snug whitespace-pre-wrap text-brand-link">
                 {props.inFlightChatText}
               </div>
             </div>
           )}
           {turnMode !== "discuss" && (
-            <div className="text-right text-[11px] text-ink-400 italic">
+            <div className="text-right text-label text-ink-400 italic">
               ↳ {DIRECTIVE_LABELS[turnMode]}
             </div>
           )}
           <div className="flex flex-col items-start">
             {props.streamingReply ? (
-              <div className="max-w-[92%] rounded bg-panel-50 px-2.5 py-2 text-[13px] leading-snug text-ink-700">
+              <div className="max-w-[92%] rounded bg-panel-50 px-2.5 py-2 text-ui leading-snug text-ink-700">
                 <Markdown text={props.streamingReply} />
               </div>
             ) : (
@@ -621,7 +621,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
   const directive = message.role === "user" ? directiveForBody(message.body) : null;
   if (directive) {
     return (
-      <div className="text-right text-[11px] text-ink-400 italic">
+      <div className="text-right text-label text-ink-400 italic">
         ↳ {DIRECTIVE_LABELS[directive]}
       </div>
     );
@@ -634,7 +634,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
       {hasBody && (
         <div
           className={cn(
-            "max-w-[92%] rounded px-2.5 py-2 text-[13px] leading-snug",
+            "max-w-[92%] rounded px-2.5 py-2 text-ui leading-snug",
             message.role === "user"
               ? "bg-brand-surface whitespace-pre-wrap text-brand-link"
               : message.actionKind === "diagnosis" || message.actionKind === "assessment"
@@ -647,7 +647,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
       )}
       {message.citations && message.citations.length > 0 && (
         <div className="mt-1 flex max-w-[92%] flex-col gap-0.5">
-          <div className="text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+          <div className="text-badge font-semibold tracking-wide text-ink-400 uppercase">
             Sources
           </div>
           {message.citations.map((citation, index) => (
@@ -656,7 +656,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
               href={citation.url}
               target="_blank"
               rel="noreferrer"
-              className="truncate text-[11px] text-brand-link hover:underline"
+              className="truncate text-label text-brand-link hover:underline"
             >
               {citation.title}
             </a>
@@ -674,13 +674,13 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
         </button>
       )}
       {message.actionKind === "reframe" && message.appliedAt && (
-        <div className="mt-1 text-[11px] text-ink-400">→ applied to this question</div>
+        <div className="mt-1 text-label text-ink-400">→ applied to this question</div>
       )}
       {/* A promote nomination waits for the reporter's confirming click, like
           a reframe — the model never promotes on its own. */}
       {message.actionKind === "promote" &&
         (message.appliedAt ? (
-          <div className="mt-1 text-[11px] text-ink-400">→ promoted to story question</div>
+          <div className="mt-1 text-label text-ink-400">→ promoted to story question</div>
         ) : props.selected?.status === "active" ? (
           <button
             type="button"
@@ -691,7 +691,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
             {props.applyingPromotionId === message.id ? "Promoting…" : "Promote to story question"}
           </button>
         ) : (
-          <div className="mt-1 text-[11px] text-ink-400">
+          <div className="mt-1 text-label text-ink-400">
             {ACTION_KIND_LABELS[message.actionKind]}
           </div>
         ))}
@@ -699,7 +699,7 @@ function ChatEntry({ message, props }: { message: ChatMessageRecord; props: Insp
         message.actionKind !== "reframe" &&
         message.actionKind !== "promote" &&
         ACTION_KIND_LABELS[message.actionKind] && (
-          <div className="mt-1 text-[11px] text-ink-400">
+          <div className="mt-1 text-label text-ink-400">
             {ACTION_KIND_LABELS[message.actionKind]}
           </div>
         )}
@@ -725,7 +725,7 @@ function DiscussComposer(props: InspectorPanelProps) {
               type="button"
               onClick={() => props.onSendChat(chip)}
               disabled={turnMode !== null}
-              className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] text-ink-700 disabled:opacity-60"
+              className="rounded-full border border-line bg-white px-2.5 py-1 text-label text-ink-700 disabled:opacity-60"
             >
               {chip}
             </button>
@@ -764,7 +764,7 @@ function DevelopIntoPitch(props: InspectorPanelProps) {
       <div className="text-xs font-bold text-ink-700">Develop into pitch</div>
       {props.canDevelopIntoPitch ? (
         <>
-          <p className="text-[11px] leading-relaxed text-ink-400">
+          <p className="text-label leading-relaxed text-ink-400">
             Opens Editorial Planning&apos;s pitch form, prefilled with this question and what the
             inquiry knows — review and submit it there.
           </p>
@@ -773,7 +773,7 @@ function DevelopIntoPitch(props: InspectorPanelProps) {
           </Button>
         </>
       ) : (
-        <p className="text-[11px] leading-relaxed text-ink-400">
+        <p className="text-label leading-relaxed text-ink-400">
           Ask an administrator for Editorial Planning access to develop this into a pitch.
         </p>
       )}

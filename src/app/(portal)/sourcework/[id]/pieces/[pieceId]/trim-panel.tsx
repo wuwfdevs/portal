@@ -139,9 +139,9 @@ export function TrimPanel({
       : "Saved";
 
   return (
-    <div className="rounded border border-brand-primary bg-white p-4 shadow-[0_0_0_2px_#D5EAF6]">
+    <div className="rounded border border-brand-primary bg-white p-4 shadow-[0_0_0_2px_theme(colors.brand.surface)]">
       <div className="mb-2.5 flex items-center">
-        <span className="flex-1 text-[13px] font-bold">
+        <span className="flex-1 text-ui font-bold">
           Trim this clip <span className="font-normal text-ink-400">· from ⋮ › Trim…</span>
         </span>
         <Button touch type="button" variant="link" onClick={onClose} className="text-brand-link">
@@ -163,7 +163,7 @@ export function TrimPanel({
       >
         <div className="mt-3 border-t border-line pt-2.5">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3.5">
-            <span className="text-[13px] font-bold">Pauses</span>
+            <span className="text-ui font-bold">Pauses</span>
             <Segmented
               name={`pause-setting-${block.id}`}
               options={SILENCE_SETTINGS.map((item) => ({ value: item.id, label: item.label }))}

@@ -330,7 +330,7 @@ export function ScheduleLineEditor({
           <h3 className="font-serif text-lg font-bold text-ink-900">
             {editing ? "Edit this line" : "Add a line from the order"}
           </h3>
-          <p className="mt-1 text-[13px] text-ink-500">
+          <p className="mt-1 text-ui text-ink-500">
             {editing
               ? "Nothing has scheduled from this line yet, so it can be corrected in place. Its demand is recompiled when you save."
               : "One line per instruction the order prints. Only the fields that instruction needs appear."}
@@ -519,7 +519,7 @@ export function ScheduleLineEditor({
                   One row per date the order prints, with its count.
                 </span>
               </div>
-              <span className="text-[13px] font-semibold text-ink-900">
+              <span className="text-ui font-semibold text-ink-900">
                 {parsed.ok
                   ? `${pluralize(parsed.value.buckets.length, "date")} · ${pluralize(compiledTotal, "credit")}`
                   : ""}
@@ -597,14 +597,14 @@ export function ScheduleLineEditor({
                   date to mark it with the quantity; type in a cell when a week differs.
                 </span>
               </div>
-              <span className="text-[13px] font-semibold text-ink-900">
+              <span className="text-ui font-semibold text-ink-900">
                 {weeks.length === 0
                   ? "No weeks — give the line an end date"
                   : `${pluralize(weeks.length, "week")} · ${gridStats.withCredits} with credits · ${gridStats.dark} dark · ${pluralize(gridStats.total, "credit")}${weeks.length >= MAX_WEEKS ? ` · capped at ${MAX_WEEKS}` : ""}`}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="grid_fill" className="text-[13px] text-ink-700">
+              <label htmlFor="grid_fill" className="text-ui text-ink-700">
                 Credits in a marked week
               </label>
               <Input
@@ -648,7 +648,7 @@ export function ScheduleLineEditor({
                       key={week.weekStart}
                       className={cn(
                         "relative flex flex-col gap-0.5 rounded border px-1.5 pb-1.5 pt-1",
-                        on ? "border-brand-primary bg-[#F3F9FD]" : "border-line bg-panel-50",
+                        on ? "border-brand-primary bg-brand-tint" : "border-line bg-panel-50",
                       )}
                     >
                       <button
@@ -657,14 +657,14 @@ export function ScheduleLineEditor({
                         aria-pressed={on}
                         aria-label={`${on ? "Clear" : "Mark"} the week of ${week.weekStart}`}
                         className={cn(
-                          "h-6 truncate rounded px-0.5 text-left text-[11px] font-semibold hover:bg-brand-surface hover:text-brand-link",
+                          "h-6 truncate rounded px-0.5 text-left text-label font-semibold hover:bg-brand-surface hover:text-brand-link",
                           on ? "text-brand-link" : "text-ink-500",
                         )}
                       >
                         {label}
                       </button>
                       {week.partial && (
-                        <span className="pointer-events-none absolute right-1.5 top-1.5 text-[9px] font-bold uppercase tracking-wider text-warning-fg">
+                        <span className="pointer-events-none absolute right-1.5 top-1.5 text-badge font-bold uppercase tracking-wider text-warning-fg">
                           partial
                         </span>
                       )}
@@ -804,7 +804,7 @@ export function ScheduleLineEditor({
         </fieldset>
 
         <details className="rounded border border-line">
-          <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-[13px]">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-ui">
             <span>
               <span className="font-bold text-ink-900">More about this line</span>{" "}
               <span className="text-ink-500">
@@ -920,7 +920,7 @@ export function ScheduleLineEditor({
         className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-5 lg:w-80"
       >
         <Card className="p-4.5 px-5 py-4">
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+          <div className="mb-1.5 text-label font-bold uppercase tracking-wider text-ink-500">
             This line compiles to
           </div>
           <div className="flex items-baseline gap-2">
@@ -929,13 +929,13 @@ export function ScheduleLineEditor({
             </span>
             <span className="text-sm text-ink-700">credits</span>
           </div>
-          <p className="mt-2 text-[13px] leading-snug text-ink-700">
+          <p className="mt-2 text-ui leading-snug text-ink-700">
             {demand.ok
               ? `${compiledDescription}${poolName || programName ? ` in ${poolName ?? programName}` : ""}.${partialCount > 0 ? ` ${pluralize(partialCount, "partial period")} counted at full quantity, never prorated.` : ""}`
               : demand.error}
           </p>
           {blockers.length > 0 && (
-            <div className="mt-3 rounded bg-warning-bg px-3 py-2 text-[13px] leading-snug text-warning-fg">
+            <div className="mt-3 rounded bg-warning-bg px-3 py-2 text-ui leading-snug text-warning-fg">
               <div className="font-semibold">Still needed before this line can be saved</div>
               <ul className="mt-1 list-disc pl-4">
                 {blockers.map((blocker) => (
@@ -945,12 +945,12 @@ export function ScheduleLineEditor({
             </div>
           )}
           {lineMatches && (
-            <p className="mt-3 text-[13px] font-semibold text-success-fg">
+            <p className="mt-3 text-ui font-semibold text-success-fg">
               ✓ Matches the order for this line
             </p>
           )}
           {lineOff && (
-            <p className="mt-3 text-[13px] font-semibold text-warning-fg">
+            <p className="mt-3 text-ui font-semibold text-warning-fg">
               The order says {statedN} for this line; this compiles to {compiledTotal} (
               {compiledTotal - statedN > 0 ? "+" : ""}
               {compiledTotal - statedN}). Saving is still allowed — the mismatch is kept as a
@@ -959,10 +959,10 @@ export function ScheduleLineEditor({
           )}
         </Card>
         <Card className="px-5 py-4">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+          <div className="mb-1 text-label font-bold uppercase tracking-wider text-ink-500">
             Contract total
           </div>
-          <dl className="text-[13px]">
+          <dl className="text-ui">
             {otherLines.map((line) => (
               <div
                 key={line.label}

@@ -8,6 +8,7 @@ import { useRightPanel } from "@/components/right-panel";
 import { helpContextForPath } from "@/lib/resources/screens";
 import { signOutAction } from "@/app/actions/auth";
 import type { Profile } from "@/lib/auth/session";
+import { colors } from "@/lib/design-tokens";
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -40,9 +41,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
           className="h-[22px] w-auto max-w-none sm:h-[26px]"
         />
         <span className="hidden h-[22px] w-px bg-line sm:block" />
-        <span className="hidden text-[13px] font-bold tracking-wide text-ink-700 sm:inline">
-          TOOLS
-        </span>
+        <span className="hidden text-ui font-bold tracking-wide text-ink-700 sm:inline">TOOLS</span>
       </Link>
       {/* On the narrowest phones (with Admin and Help both showing) the tabs
           can still outgrow the row; they scroll sideways rather than slide
@@ -69,7 +68,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
             aria-expanded={helpOpen}
             aria-label={helpOpen ? "Close help" : "Help"}
             className={cn(
-              "flex items-center gap-1.5 rounded p-1.5 text-[13px] font-semibold sm:px-2.5",
+              "flex items-center gap-1.5 rounded p-1.5 text-ui font-semibold sm:px-2.5",
               helpOpen ? "bg-brand-surface text-brand-link" : "text-ink-700 hover:bg-panel-50",
             )}
           >
@@ -97,7 +96,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-surface text-xs font-bold text-brand-link">
               {initialsFor(profile.display_name)}
             </span>
-            <span className="hidden text-[13px] font-semibold text-ink-700 md:inline">
+            <span className="hidden text-ui font-semibold text-ink-700 md:inline">
               {profile.display_name}
             </span>
             <svg
@@ -105,7 +104,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
               height="14"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#5A6068"
+              stroke={colors.ink[500]}
               strokeWidth="2"
               className="hidden sm:block"
             >
@@ -144,7 +143,7 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "flex h-full shrink-0 items-center whitespace-nowrap border-b-2 text-[13px] font-semibold sm:text-sm",
+        "flex h-full shrink-0 items-center whitespace-nowrap border-b-2 text-ui font-semibold sm:text-sm",
         active ? "border-brand-primary text-brand-link" : "border-transparent text-ink-700",
       )}
     >

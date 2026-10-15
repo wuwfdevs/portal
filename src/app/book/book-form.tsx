@@ -58,7 +58,7 @@ export function BookForm({
     return (
       <div>
         <PageHeader size="public" title="Request received" className="mb-3" />
-        <p className="text-[15px] leading-relaxed text-ink-700">{state.confirmationCopy}</p>
+        <p className="text-body leading-relaxed text-ink-700">{state.confirmationCopy}</p>
       </div>
     );
   }
@@ -102,7 +102,7 @@ export function BookForm({
       </p>
 
       {current === "about" && (
-        <p className="mb-5 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+        <p className="mb-5 whitespace-pre-wrap text-body leading-relaxed text-ink-700">
           {introCopy}
         </p>
       )}

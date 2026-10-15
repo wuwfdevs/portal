@@ -31,7 +31,7 @@ export const EDITOR_CONTENT_BASE_CLASS = cn(
   "px-3 py-2.5 text-ink-900 outline-none",
   MOBILE_SAFE_TEXT_SIZE,
   "[&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-5 [&_ol]:pl-5",
-  "[&_h2]:font-serif [&_h2]:text-[17px] [&_h2]:font-bold [&_h3]:text-[15px] [&_h3]:font-bold",
+  "[&_h2]:font-serif [&_h2]:text-section [&_h2]:font-bold [&_h3]:text-body [&_h3]:font-bold",
   "[&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-500",
   "[&_pre]:rounded [&_pre]:bg-panel-50 [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-xs",
   "[&_a]:text-brand-link [&_a]:underline",

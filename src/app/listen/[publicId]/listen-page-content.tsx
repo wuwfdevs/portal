@@ -55,7 +55,7 @@ export async function ListenPageContent({
     return (
       <ListenShell embedded={embedded}>
         <PageHeader size="public" title={query.public_title} className="mb-3" />
-        <p className="mb-4 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+        <p className="mb-4 whitespace-pre-wrap text-body leading-relaxed text-ink-700">
           {query.public_intro}
         </p>
         <Alert variant="note">
@@ -76,7 +76,7 @@ export async function ListenPageContent({
     return (
       <ListenShell embedded={embedded}>
         <PageHeader size="public" title={query.public_title} className="mb-3" />
-        <p className="mb-4 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+        <p className="mb-4 whitespace-pre-wrap text-body leading-relaxed text-ink-700">
           {query.public_intro}
         </p>
         <Alert variant="note">

@@ -74,7 +74,7 @@ export function Steps({
         const body = (
           <span
             className={cn(
-              "flex items-center gap-2.5 text-[13px] font-semibold",
+              "flex items-center gap-2.5 text-ui font-semibold",
               active ? "text-ink-900" : "text-ink-500",
             )}
           >

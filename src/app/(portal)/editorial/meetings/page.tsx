@@ -110,7 +110,7 @@ export default async function MeetingsPage({
                 className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-panel-50"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="font-serif text-[15px] font-bold text-ink-900">
+                  <div className="font-serif text-body font-bold text-ink-900">
                     {formatDate(meeting.meeting_date)}
                   </div>
                   <div className="mt-1 text-xs text-ink-400">

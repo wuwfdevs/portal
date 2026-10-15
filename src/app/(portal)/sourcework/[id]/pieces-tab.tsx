@@ -84,7 +84,7 @@ export function PiecesTab({
                       ? `${piece.madeWith.formatName} format${piece.madeWith.edited ? ", then edited" : ""}`
                       : "Written by hand"}
                   </Cell>
-                  <Cell stack="aside" className="font-mono text-[13px]">
+                  <Cell stack="aside" className="font-mono text-ui">
                     {formatClock(piece.lengthSeconds)}
                   </Cell>
                   <Cell label="Updated" className="whitespace-nowrap text-ink-500">
@@ -97,7 +97,7 @@ export function PiecesTab({
         </TableFrame>
       )}
 
-      <p className="mt-3.5 max-w-xl text-[13px] text-ink-500">
+      <p className="mt-3.5 max-w-xl text-ui text-ink-500">
         A new piece opens straight into the editor and starts blank. Choose its format there if you
         want one; you build it from narration and excerpts, and outlining with AI is optional.
       </p>

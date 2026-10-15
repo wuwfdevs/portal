@@ -120,7 +120,7 @@ export default async function DadLogPage({
             {day.events.length === 0 ? (
               <EmptyState>Nothing is placed in this day&apos;s automated breaks.</EmptyState>
             ) : showFile ? (
-              <pre className="overflow-x-auto rounded border border-line bg-panel-50 p-3 font-mono text-[11px] leading-5 text-ink-900">
+              <pre className="overflow-x-auto rounded border border-line bg-panel-50 p-3 font-mono text-label leading-5 text-ink-900">
                 {previewRowsFromEvents(day.events)
                   .map((row) => formatDadRow(row).trimEnd())
                   .join("\n")}
@@ -164,7 +164,7 @@ export default async function DadLogPage({
                 </Table>
               </TableFrame>
             )}
-            <p className="text-[13px] text-ink-500">Times are Central.</p>
+            <p className="text-ui text-ink-500">Times are Central.</p>
           </section>
         </div>
 
@@ -190,7 +190,7 @@ export default async function DadLogPage({
                   Release v{nextVersion}
                 </Button>
                 {hasBlockingIssues(day.issues) && (
-                  <span className="text-[13px] text-ink-500">
+                  <span className="text-ui text-ink-500">
                     Fix the {blocking.length === 1 ? "item" : `${blocking.length} items`} above
                     first.
                   </span>
@@ -208,7 +208,7 @@ export default async function DadLogPage({
                 >
                   Download v{latest.version}
                 </a>
-                <span className="text-[13px] text-ink-500">
+                <span className="text-ui text-ink-500">
                   {latest.file_name} · put it in DAD&apos;s import folder
                 </span>
               </div>
@@ -298,7 +298,7 @@ function DayStrip({
         {segments.map((segment) => (
           <span
             key={segment.startsAt}
-            className="absolute inset-y-0 border-x border-[#8A9099] bg-[#DCE1E6]"
+            className="absolute inset-y-0 border-x border-ink-400 bg-line"
             style={{
               left: `${at(segment.startsAt)}%`,
               width: `${at(segment.endsAt) - at(segment.startsAt)}%`,
@@ -306,7 +306,7 @@ function DayStrip({
           />
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-[11px] text-ink-500">
+      <div className="mt-1 flex justify-between text-label text-ink-500">
         <span>12 AM</span>
         <span>6 AM</span>
         <span>12 PM</span>

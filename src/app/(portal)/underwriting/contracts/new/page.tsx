@@ -194,8 +194,8 @@ export default async function NewContractPage({
           aria-label="About drafts"
           className="w-full shrink-0 rounded border border-line bg-panel-50 px-5 py-4 lg:w-80"
         >
-          <div className="text-[13px] font-bold text-ink-900">Saved as a draft as you go</div>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+          <div className="text-ui font-bold text-ink-900">Saved as a draft as you go</div>
+          <p className="mt-1 text-ui leading-relaxed text-ink-700">
             Nothing schedules until the contract is activated in step 4. You can leave and come back
             to it from the Contracts list; the traffic policy and copy come in step 3.
           </p>

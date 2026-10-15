@@ -49,13 +49,13 @@ const MONTH_NAMES = [
 /** A diagonal hatch — the mark for a window that is not available (On Air uses the same for closed hours). */
 export const BLACKOUT_HATCH =
   "bg-[repeating-linear-gradient(135deg,rgba(166,52,52,0.18)_0_4px,rgba(255,255,255,0.85)_4px_9px)]";
-export const BLOCK_CONFIRMED = "border border-[#2E6DA4] bg-[#DCEBF8] text-ink-900";
-export const BLOCK_TENTATIVE = "border border-dashed border-[#2E6DA4] bg-white text-ink-900";
-export const BLOCK_CORE = "border border-[#8A9099] bg-[#DCE1E6] text-ink-900";
+export const BLOCK_CONFIRMED = "border border-brand-link bg-brand-surface text-ink-900";
+export const BLOCK_TENTATIVE = "border border-dashed border-brand-link bg-white text-ink-900";
+export const BLOCK_CORE = "border border-ink-400 bg-line text-ink-900";
 export const BLOCK_MAINTENANCE =
   "border border-dashed border-warning-border bg-warning-bg text-warning-fg";
 /** A window an agreement holds for its partner (slice 5): a dotted frame, no fill, until it is booked or released. */
-export const BLOCK_RESERVED = "border border-dotted border-[#5A6B7D] bg-[#F4F6F8] text-ink-700";
+export const BLOCK_RESERVED = "border border-dotted border-ink-500 bg-panel-50 text-ink-700";
 
 export function Legend() {
   const items = [
@@ -64,15 +64,15 @@ export function Legend() {
     { label: "Core WUWF work", className: BLOCK_CORE },
     { label: "Maintenance", className: BLOCK_MAINTENANCE },
     { label: "Reserved under an agreement", className: BLOCK_RESERVED },
-    { label: "Blacked out", className: cn("border border-[#B45454]", BLACKOUT_HATCH) },
+    { label: "Blacked out", className: cn("border border-danger-border", BLACKOUT_HATCH) },
   ];
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-ui text-ink-700">
       {items.map((item) => (
         <span key={item.label}>
           <span
             aria-hidden="true"
-            className={cn("mr-1.5 inline-block size-3 rounded-[2px] align-[-1px]", item.className)}
+            className={cn("mr-1.5 inline-block size-3 rounded-sm align-[-1px]", item.className)}
           />
           {item.label}
         </span>
@@ -98,11 +98,11 @@ export function CalendarGrid(props: CalendarGridProps) {
 }
 
 const navLink =
-  "rounded border border-[#C9CED4] px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
+  "rounded border border-line-strong px-2.5 py-1.5 text-sm font-semibold text-ink-900 hover:bg-panel-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900";
 
 function Block({ className, title, detail }: { className: string; title: string; detail: string }) {
   return (
-    <div className={cn("rounded-[3px] px-1.5 py-1 text-[11px] leading-tight", className)}>
+    <div className={cn("rounded px-1.5 py-1 text-label leading-tight", className)}>
       <span className="block font-bold">{title}</span>
       <span className="block">{detail}</span>
     </div>
@@ -153,7 +153,7 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
     <section className="flex flex-col gap-3" aria-label="Week">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <WeekMonthLinks active="week" weekHref={weekHref(today)} monthHref={monthHref(date)} />
-        <h3 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+        <h3 className="text-body font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {formatWeekRange(monday)}
         </h3>
         <Link href={weekHref(shiftDateISO(monday, -7))} className={navLink}>
@@ -182,7 +182,7 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                   className={cn(
                     "border-b border-l border-line px-2 py-2 text-left text-xs font-bold uppercase tracking-wider",
                     d === today ? "text-brand-link" : "text-ink-500",
-                    !inPlan(d) && "bg-[#F4F5F7] text-ink-400",
+                    !inPlan(d) && "bg-panel-50 text-ink-400",
                   )}
                 >
                   {DAY_NAMES[index]} {Number(d.slice(8))}
@@ -199,11 +199,11 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                 <tr key={poolId} className="align-top">
                   <th
                     scope="row"
-                    className="border-b border-line px-3 py-2 text-left text-[13px] font-semibold text-ink-900"
+                    className="border-b border-line px-3 py-2 text-left text-ui font-semibold text-ink-900"
                   >
                     {poolName(poolId)}
                     {resource && (
-                      <span className="block text-[11px] font-normal text-ink-500">
+                      <span className="block text-label font-normal text-ink-500">
                         {trim(Number(resource.available_units))} {pool?.unit_label ?? "unit"}s this
                         term
                         {resource.concurrent_units > 1 &&
@@ -220,13 +220,13 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                         title={blackout ? `Blacked out: ${blackout.reason}` : undefined}
                         className={cn(
                           "border-b border-l border-line px-1.5 py-1.5",
-                          outside && "bg-[#F4F5F7]",
+                          outside && "bg-panel-50",
                           blackout && BLACKOUT_HATCH,
                         )}
                       >
                         <div className="flex min-h-[44px] flex-col gap-1">
                           {blackout && (
-                            <span className="text-[10px] font-bold uppercase tracking-wide text-[#8F3A3A]">
+                            <span className="text-badge font-bold uppercase tracking-wide text-danger-fg">
                               Blacked out
                             </span>
                           )}
@@ -260,7 +260,7 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                             holds.length === 0 &&
                             bookings.length === 0 &&
                             reserved.length === 0 &&
-                            !outside && <span className="text-[11px] text-ink-400">Open</span>}
+                            !outside && <span className="text-label text-ink-400">Open</span>}
                         </div>
                       </td>
                     );
@@ -275,10 +275,10 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                 <tr key={row.labor_class_id} className="bg-panel-50/60 align-top">
                   <th
                     scope="row"
-                    className="px-3 py-2 text-left text-[13px] font-semibold text-ink-900"
+                    className="px-3 py-2 text-left text-ui font-semibold text-ink-900"
                   >
                     {cls?.name ?? "Labor"}
-                    <span className="block text-[11px] font-normal text-ink-500">
+                    <span className="block text-label font-normal text-ink-500">
                       {row.headcount > 1
                         ? `${row.headcount} × ${trim(Number(row.hours_per_person_day))} h a day`
                         : `${trim(Number(row.hours_per_person_day))} h a day`}
@@ -304,23 +304,26 @@ function WeekGrid({ date, today, state, poolIds, weekHref, monthHref }: Calendar
                         key={d}
                         className={cn(
                           "border-l border-line px-2 py-2",
-                          !inPlan(d) && "bg-[#F4F5F7]",
+                          !inPlan(d) && "bg-panel-50",
                         )}
                       >
-                        <div className="text-[12px] font-semibold text-ink-900">
+                        <div className="text-meta font-semibold text-ink-900">
                           {trim(used)} / {trim(cap)} h
                         </div>
                         <div
                           aria-hidden="true"
-                          className="mt-1 h-1.5 w-full overflow-hidden rounded bg-[#E3E7EB]"
+                          className="mt-1 h-1.5 w-full overflow-hidden rounded bg-line"
                         >
                           <div
-                            className={cn("h-full", share >= 1 ? "bg-[#B45454]" : "bg-[#2E6DA4]")}
+                            className={cn(
+                              "h-full",
+                              share >= 1 ? "bg-danger-border" : "bg-brand-link",
+                            )}
                             style={{ width: `${share * 100}%` }}
                           />
                         </div>
                         {laborOnly.map((hold) => (
-                          <div key={hold.id} className="mt-1 text-[11px] text-ink-700">
+                          <div key={hold.id} className="mt-1 text-label text-ink-700">
                             {hold.label} · {trim(Number(hold.hours[row.labor_class_id] ?? 0))} h
                           </div>
                         ))}
@@ -375,7 +378,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
     <section className="flex flex-col gap-3" aria-label="Month">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <WeekMonthLinks active="month" weekHref={weekHref(today)} monthHref={monthHref(date)} />
-        <h3 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+        <h3 className="text-body font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {MONTH_NAMES[month - 1]} {year}
         </h3>
         <Link href={monthHref(previousMonth)} className={navLink}>
@@ -407,7 +410,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
               return (
                 <div
                   key={`empty-${index}`}
-                  className="min-h-[88px] border-b border-l border-line bg-[#F8F9FA]"
+                  className="min-h-[88px] border-b border-l border-line bg-panel-50"
                 />
               );
             }
@@ -417,8 +420,8 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
                 key={d}
                 href={weekHref(d)}
                 className={cn(
-                  "flex min-h-[88px] flex-col gap-0.5 border-b border-l border-line px-2 py-1.5 text-[12px] hover:bg-panel-50",
-                  !summary.inPlan && "bg-[#F4F5F7] text-ink-400",
+                  "flex min-h-[88px] flex-col gap-0.5 border-b border-l border-line px-2 py-1.5 text-meta hover:bg-panel-50",
+                  !summary.inPlan && "bg-panel-50 text-ink-400",
                   summary.blackout && BLACKOUT_HATCH,
                 )}
                 title={
@@ -429,7 +432,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
               >
                 <span
                   className={cn(
-                    "text-[13px] font-bold",
+                    "text-ui font-bold",
                     d === today
                       ? "text-brand-link"
                       : summary.inPlan
@@ -450,7 +453,7 @@ function MonthGrid({ date, today, state, poolIds, weekHref, monthHref }: Calenda
                   <span className="text-ink-500">{summary.reserved} reserved</span>
                 )}
                 {summary.blackout && (
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#8F3A3A]">
+                  <span className="text-badge font-bold uppercase tracking-wide text-danger-fg">
                     Blacked out
                   </span>
                 )}

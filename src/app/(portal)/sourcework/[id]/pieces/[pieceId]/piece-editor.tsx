@@ -570,7 +570,7 @@ function PieceEditor({
         <div className="min-w-0 flex-1">
           <label
             htmlFor="piece-title"
-            className="text-[11px] font-bold uppercase tracking-[0.05em] text-ink-400 lg:text-xs"
+            className="text-label font-bold uppercase tracking-[0.05em] text-ink-400 lg:text-xs"
           >
             {piece.origin.format ? (
               <>
@@ -715,7 +715,7 @@ function PieceEditor({
 
       {justDrafted && (
         <p
-          className="mt-2.5 rounded border border-line bg-panel-50 px-3 py-2 text-[13px] text-ink-700"
+          className="mt-2.5 rounded border border-line bg-panel-50 px-3 py-2 text-ui text-ink-700"
           role="status"
         >
           Written from the outline
@@ -844,7 +844,7 @@ function PieceEditor({
       )}
       {!isBlank && hasBeats(blocks) && !expanding && (
         <p
-          className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line bg-panel-50 px-3 py-2 text-[13px] text-ink-700"
+          className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line bg-panel-50 px-3 py-2 text-ui text-ink-700"
           role="status"
         >
           <span>
@@ -865,7 +865,7 @@ function PieceEditor({
       )}
       {isBlank && !outlining ? (
         <div className="mt-5 rounded border border-dashed border-line bg-panel-50 px-6 py-9 text-center max-lg:px-4 max-lg:py-6">
-          <p className="text-[15px] font-bold text-ink-700">Start your piece</p>
+          <p className="text-body font-bold text-ink-700">Start your piece</p>
           <p className="mx-auto mt-1 max-w-lg text-sm text-ink-500">
             <span className="max-lg:hidden">
               Write narration and add excerpts one block at a time. Or let AI outline the piece from

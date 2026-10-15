@@ -76,7 +76,7 @@ function NextStepBand({
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 sm:gap-y-3 sm:rounded sm:border sm:border-line sm:bg-panel-50 sm:px-5 sm:py-4">
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1 sm:basis-80 sm:gap-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-ink-400 max-sm:hidden">
+        <span className="text-label font-bold uppercase tracking-wider text-ink-400 max-sm:hidden">
           {nextStepEyebrow(next)}
         </span>
         <p className="text-base font-semibold leading-snug text-ink-900">

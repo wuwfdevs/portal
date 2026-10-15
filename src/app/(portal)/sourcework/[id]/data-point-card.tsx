@@ -109,7 +109,7 @@ export function DataPointCard({
         rejected && "opacity-70",
       )}
     >
-      <p title={tagTitle} className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+      <p title={tagTitle} className="text-label font-bold uppercase tracking-wide text-ink-500">
         {tag}
       </p>
 
@@ -156,13 +156,13 @@ export function DataPointCard({
             aria-label={openLabel ?? `Open ${time}`}
             className={cn(
               TAP_TARGET,
-              "mt-1 block font-mono text-[11px] text-ink-500 hover:text-brand-link hover:underline max-lg:text-xs",
+              "mt-1 block font-mono text-label text-ink-500 hover:text-brand-link hover:underline max-lg:text-xs",
             )}
           >
             {time}
           </button>
         ) : (
-          <p className="mt-1 font-mono text-[11px] text-ink-500">{time}</p>
+          <p className="mt-1 font-mono text-label text-ink-500">{time}</p>
         ))}
 
       {!editing && (

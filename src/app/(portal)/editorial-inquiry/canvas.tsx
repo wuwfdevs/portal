@@ -8,6 +8,7 @@ import {
   type TreeLayout,
 } from "@/lib/editorial-inquiry/tree";
 import { QuestionNode } from "./question-node";
+import { colors } from "@/lib/design-tokens";
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.8;
@@ -171,7 +172,7 @@ export function Canvas({
                 key={edge.id}
                 d={edge.d}
                 fill="none"
-                stroke={onPath ? "#3090D0" : "#8A9099"}
+                stroke={onPath ? colors.brand.primary : colors.ink[400]}
                 strokeWidth={onPath ? 2.5 : 1.5}
               />
             );
@@ -231,7 +232,7 @@ export function Canvas({
             e.stopPropagation();
             setView({ x: 40, y: 40, zoom: 1 });
           }}
-          className="flex h-8 w-8 items-center justify-center rounded border border-line bg-white text-[10px] font-bold text-ink-700 shadow-sm"
+          className="flex h-8 w-8 items-center justify-center rounded border border-line bg-white text-badge font-bold text-ink-700 shadow-sm"
         >
           RST
         </button>
@@ -241,7 +242,7 @@ export function Canvas({
         className="absolute right-4 bottom-4 z-10 w-[180px] rounded border border-line bg-white p-1.5 shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-1 text-[9px] font-semibold tracking-wider text-ink-400 uppercase">
+        <div className="mb-1 text-badge font-semibold tracking-wider text-ink-400 uppercase">
           Map — click to center
         </div>
         <div className="relative h-[92px] w-full">
@@ -255,7 +256,8 @@ export function Canvas({
               style={{
                 left: (node.x / layout.width) * MINIMAP_WIDTH,
                 top: (node.y / layout.height) * MINIMAP_HEIGHT,
-                background: node.status === "promoted" ? "#A8C830" : "#3090D0",
+                background:
+                  node.status === "promoted" ? colors.evidence.line : colors.brand.primary,
               }}
             />
           ))}

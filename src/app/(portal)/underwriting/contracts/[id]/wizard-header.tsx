@@ -46,7 +46,7 @@ export function WizardHeader({
             <h2 className="font-serif text-xl font-bold text-ink-900">
               {contract.underwriterName}
             </h2>
-            <span className="text-[13px] text-ink-500">
+            <span className="text-ui text-ink-500">
               {orderNumberLabel(contract.identifier)} · {contract.effectiveFrom}
               {contract.effectiveTo ? ` – ${contract.effectiveTo}` : ""}
             </span>

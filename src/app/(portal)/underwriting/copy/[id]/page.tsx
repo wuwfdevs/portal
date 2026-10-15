@@ -74,7 +74,7 @@ export default async function CopyDetailPage({
             <h3 id="in-dad" className="text-sm font-bold text-ink-900">
               In DAD
             </h3>
-            <TextLink href={`/underwriting/copy/${copy.id}/edit`} className="text-[13px]">
+            <TextLink href={`/underwriting/copy/${copy.id}/edit`} className="text-ui">
               {copy.dad_cut ? "Change cut" : "Pick a DAD spot"}
             </TextLink>
           </div>
@@ -83,7 +83,7 @@ export default async function CopyDetailPage({
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-ink-500">DAD cut</span>
                 <div className="flex items-center gap-2.5">
-                  <span className="font-mono text-[28px] font-bold leading-none text-ink-900">
+                  <span className="font-mono text-stat font-bold leading-none text-ink-900">
                     {copy.dad_cut}
                   </span>
                   <CopyCutButton cut={copy.dad_cut} />

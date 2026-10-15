@@ -44,6 +44,7 @@ import { safeGet, safeRemove, safeSet } from "@/lib/safe-storage";
 import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
 import { uploadObject } from "@/lib/upload-object";
 import { pluralize } from "@/lib/format";
+import { colors } from "@/lib/design-tokens";
 
 /**
  * The whole public participation flow, standalone and embedded alike.
@@ -587,7 +588,7 @@ export function Participate({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="mb-3 font-serif text-[22px] font-bold leading-snug text-ink-900 focus:outline-none"
+        className="mb-3 font-serif text-display font-bold leading-snug text-ink-900 focus:outline-none"
       >
         {stepLabel[screen]}
       </h1>
@@ -614,7 +615,7 @@ export function Participate({
 
       {screen === "intro" && (
         <div className="flex flex-col gap-4">
-          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+          <p className="whitespace-pre-wrap text-body leading-relaxed text-ink-700">
             {query.public_intro}
           </p>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">
@@ -650,7 +651,7 @@ export function Participate({
               instead of making someone fail first to find out. */}
           {micState === "idle" && skipToNewTab ? (
             <>
-              <p className="text-[15px] leading-relaxed text-ink-700">
+              <p className="text-body leading-relaxed text-ink-700">
                 Recording needs to happen in its own tab — this article doesn&apos;t allow it inside
                 the page. Nothing is lost by opening it; you&apos;ll start from here.
               </p>
@@ -661,7 +662,7 @@ export function Participate({
               </a>
             </>
           ) : (
-            <p className="text-[15px] leading-relaxed text-ink-700">
+            <p className="text-body leading-relaxed text-ink-700">
               WUWF needs access to your microphone. You&apos;ll only be asked once — recording
               starts when you press Start recording, and stops when you press Stop.
             </p>
@@ -732,7 +733,7 @@ export function Participate({
             </span>
           </div>
 
-          <p className="font-serif text-[19px] font-bold leading-snug text-ink-900">
+          <p className="font-serif text-title font-bold leading-snug text-ink-900">
             {currentQuestion.prompt}
           </p>
           {currentQuestion.guidance && (
@@ -757,7 +758,7 @@ export function Participate({
                   />
                 ))}
               </div>
-              <p role="timer" aria-live="off" className="font-mono text-[15px] text-ink-700">
+              <p role="timer" aria-live="off" className="font-mono text-body text-ink-700">
                 {formatStopwatch(elapsedMs / 1000)}
                 <span className="text-ink-400">
                   {" / "}
@@ -847,7 +848,7 @@ export function Participate({
                   onClick={startRecording}
                   disabled={micState !== "granted"}
                   aria-label="Start recording"
-                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white transition-colors hover:bg-[#2278B8] disabled:bg-panel-100 disabled:text-ink-400"
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white transition-colors hover:bg-brand-hover disabled:bg-panel-100 disabled:text-ink-400"
                 >
                   <svg
                     width="22"
@@ -1083,7 +1084,7 @@ export function Participate({
 
       {screen === "submitting" && (
         <div className="flex flex-col items-center gap-3 py-2 text-center">
-          <p className="text-[15px] leading-relaxed text-ink-700">
+          <p className="text-body leading-relaxed text-ink-700">
             Please keep this page open until this finishes.
           </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-panel-100" aria-hidden="true">
@@ -1106,13 +1107,13 @@ export function Participate({
               height="22"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#5D7A16"
+              stroke={colors.evidence.text}
               strokeWidth="2.5"
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <p className="text-[15px] leading-relaxed text-ink-700">
+          <p className="text-body leading-relaxed text-ink-700">
             {pluralize(submittedCount, "answer")} received. Thank you — you can close this page.
           </p>
           <Alert variant="note" className="text-left">

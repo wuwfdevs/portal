@@ -32,7 +32,7 @@ export function Badge({
       title={title}
       {...rest}
       className={cn(
-        "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+        "inline-flex w-fit items-center rounded-full px-2.5 py-1 text-badge font-bold uppercase tracking-wider",
         VARIANT_CLASSES[variant],
         className,
       )}

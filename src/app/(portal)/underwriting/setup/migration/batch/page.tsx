@@ -313,7 +313,7 @@ export default async function MigrationBatchPage({
           </Table>
         </TableFrame>
       )}
-      <p className="max-w-3xl text-[13px] text-ink-500">
+      <p className="max-w-3xl text-ui text-ink-500">
         “Ready to activate” means the import flagged nothing — each draft still needs someone to
         look it over and activate it on its contract page.
       </p>
@@ -376,7 +376,7 @@ function EntryDetails({
               </tbody>
             </Table>
           </TableFrame>
-          <p className="mt-2 text-[13px] text-ink-500">
+          <p className="mt-2 text-ui text-ink-500">
             If the spreadsheet is wrong, correct the draft’s order details. If the document is
             wrong, there’s nothing to do.
           </p>

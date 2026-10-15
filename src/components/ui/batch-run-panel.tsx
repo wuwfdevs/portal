@@ -39,10 +39,10 @@ export function BatchRunPanel({
   return (
     <div aria-live="polite" className="flex flex-col gap-3 rounded border border-line px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-[15px] font-bold text-ink-900">
+        <span className="text-body font-bold text-ink-900">
           {summary.done} of {summary.total} {noun} done
         </span>
-        <span className="text-[13px] text-ink-500">
+        <span className="text-ui text-ink-500">
           {[
             summary.running > 0 && `${summary.running} in progress`,
             summary.failed > 0 &&
@@ -67,7 +67,7 @@ export function BatchRunPanel({
       </ul>
 
       {(folded.hiddenQueued > 0 || folded.hiddenDone > 0) && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-500">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-ui text-ink-500">
           {folded.hiddenQueued > 0 && <span>{folded.hiddenQueued} waiting</span>}
           {folded.hiddenDone > 0 && (
             <button

@@ -140,7 +140,7 @@ export function LineCard({
               <Badge variant="danger">cancelled from {scheduleLine.cancelled_from}</Badge>
             )}
           </div>
-          <p className="mt-0.5 text-[13px] text-ink-700">
+          <p className="mt-0.5 text-ui text-ink-700">
             {scheduleLine.label ? `${view.description} · ` : ""}
             {scheduleLine.duration_seconds}s ·{" "}
             {formatDateRange(scheduleLine.start_date, scheduleLine.end_date)}
@@ -297,7 +297,7 @@ function LineDetails({
     <Card className="mr-4 mb-4 ml-[3.75rem] overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-panel-50 px-3.5 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+          <span className="text-label font-bold uppercase tracking-wider text-ink-500">
             {pluralize(rows.length, "period")}
           </span>
           {notes.length > 0 && <span className="text-xs text-ink-500">{notes.join(" · ")}</span>}
@@ -317,7 +317,7 @@ function LineDetails({
         <p className="px-3.5 py-3 text-xs text-ink-500">This line compiles to no demand.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="w-full text-ui">
             <thead>
               <tr className="text-left text-xs text-ink-500">
                 <th className={cn(cellClass, "font-semibold")}>Period</th>

@@ -212,7 +212,7 @@ export default async function AllSubmissionsPage({
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</span>
+      <span className="text-label font-bold uppercase tracking-wide text-ink-400">{label}</span>
       {children}
     </label>
   );

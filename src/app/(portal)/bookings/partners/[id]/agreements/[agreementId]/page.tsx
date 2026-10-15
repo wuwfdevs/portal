@@ -199,7 +199,7 @@ export default async function AgreementPage({
                         {total ? formatHours(total.reserve) : ""} reserve
                       </span>
                       <span
-                        className={`block text-xs ${draw.reserveOverdrawn ? "font-semibold text-[#8F3A3A]" : "text-ink-700"}`}
+                        className={`block text-xs ${draw.reserveOverdrawn ? "font-semibold text-danger-fg" : "text-ink-700"}`}
                       >
                         {draw.reserveOverdrawn
                           ? `Overdraws the reserve by ${formatHours(-(draw.reserveRemainingAfter ?? 0))} — the term cannot carry it as planned.`
@@ -220,7 +220,7 @@ export default async function AgreementPage({
                         {formatMinutes(envelope?.remainingMinutesPerWeek ?? 0)} still uncommitted
                       </span>
                       <span
-                        className={`block text-xs ${draw.airtimeOverdrawn ? "font-semibold text-[#8F3A3A]" : "text-ink-700"}`}
+                        className={`block text-xs ${draw.airtimeOverdrawn ? "font-semibold text-danger-fg" : "text-ink-700"}`}
                       >
                         {draw.airtimeOverdrawn
                           ? `Over the envelope by ${formatMinutes(-(draw.airtimeRemainingAfter ?? 0))} a week.`
@@ -718,7 +718,7 @@ function GaugeView({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-bold uppercase tracking-wide text-ink-400">{label}</span>
-        <span className={`text-xs ${over ? "font-semibold text-[#8F3A3A]" : "text-ink-500"}`}>
+        <span className={`text-xs ${over ? "font-semibold text-danger-fg" : "text-ink-500"}`}>
           {format(gauge.used)} of {format(gauge.allowed)}
         </span>
       </div>
@@ -729,7 +729,7 @@ function GaugeView({
         valueText={`${format(gauge.used)} of ${format(gauge.allowed)}`}
         size="sm"
       />
-      <span className="text-[11px] text-ink-500">
+      <span className="text-label text-ink-500">
         {over
           ? `Over by ${format(-gauge.remaining)}.`
           : gauge.allowed > 0

@@ -80,7 +80,7 @@ export function AgendaSection({
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/editorial/pitches/${pitch.id}`}
-                    className="text-[15px] font-semibold text-ink-900 hover:text-brand-link hover:underline"
+                    className="text-body font-semibold text-ink-900 hover:text-brand-link hover:underline"
                   >
                     {pitch.title}
                   </Link>
@@ -115,7 +115,7 @@ export function AgendaSection({
                 </div>
 
                 <details className="mt-2.5">
-                  <summary className="w-fit cursor-pointer list-none text-[11.5px] font-semibold text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                  <summary className="w-fit cursor-pointer list-none text-label font-semibold text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
                     Scores, recommendations &amp; comments
                   </summary>
                   <div className="mt-2.5 border-t border-line pt-2.5">
@@ -128,7 +128,7 @@ export function AgendaSection({
                             ([criterionId, mean]) => {
                               const criterion = criterionById.get(criterionId);
                               return (
-                                <li key={criterionId} className="text-[12.5px] text-ink-500">
+                                <li key={criterionId} className="text-meta text-ink-500">
                                   {criterion?.name ?? "Retired criterion"}
                                   {criterion?.criterion_type === "modifier" && (
                                     <span className="ml-1 text-ink-400">(modifier)</span>
@@ -144,10 +144,7 @@ export function AgendaSection({
                         </ul>
                         <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
                           {reviews.map(({ review, scores }) => (
-                            <li
-                              key={review.id}
-                              className="text-[12.5px] leading-relaxed text-ink-500"
-                            >
+                            <li key={review.id} className="text-meta leading-relaxed text-ink-500">
                               <span className="font-semibold text-ink-700">
                                 {names.get(review.reviewer_id) ?? "Reviewer"}
                               </span>{" "}
@@ -222,7 +219,7 @@ export function AgendaSection({
 /** The recorded decision, read as one line: badge, who/what, then rationale. */
 function OutcomeLine({ entry, names }: { entry: MeetingPitchRow; names: Map<string, string> }) {
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-2 text-[12.5px] text-ink-500">
+    <span className="flex min-w-0 flex-wrap items-center gap-2 text-meta text-ink-500">
       <OutcomeBadge outcome={entry.outcome} />
       <span>
         {entry.outcome === "assigned" && (
@@ -291,7 +288,7 @@ function DecisionForm({
         </div>
       </div>
       {entry.outcome !== null && (
-        <p className="mt-2 text-[11px] text-ink-400">
+        <p className="mt-2 text-label text-ink-400">
           Already decided — saving again replaces the recorded decision.
         </p>
       )}

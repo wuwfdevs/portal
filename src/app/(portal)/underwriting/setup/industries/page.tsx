@@ -40,7 +40,7 @@ export default async function IndustriesPage({
           </PrimaryLink>
         )}
       </div>
-      <p className="mb-4 max-w-[720px] text-[13px] text-ink-500">
+      <p className="mb-4 max-w-[720px] text-ui text-ink-500">
         The typed list the competitive-adjacency rule compares: two underwriters in the same
         industry never run back to back in one break, and a manual placement near one is warned
         about. Deactivate an industry rather than deleting it.

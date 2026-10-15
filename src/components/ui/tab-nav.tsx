@@ -23,7 +23,7 @@ function TabLabel({ tab }: { tab: TabNavItem }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       {tab.label}
-      <span className="rounded-full bg-[#0F2235] px-1.5 text-[11px] font-bold leading-4 text-white">
+      <span className="rounded-full bg-deep px-1.5 text-label font-bold leading-4 text-white">
         {tab.badge}
         <span className="sr-only"> waiting</span>
       </span>
@@ -32,7 +32,7 @@ function TabLabel({ tab }: { tab: TabNavItem }) {
 }
 
 const TAB_CLASS =
-  "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-[13px] font-semibold transition-colors";
+  "-mb-px shrink-0 whitespace-nowrap border-b-2 pb-2 text-ui font-semibold transition-colors";
 const TAB_ACTIVE = "border-brand-primary text-brand-link";
 const TAB_INACTIVE = "border-transparent text-ink-400 hover:border-line hover:text-ink-700";
 

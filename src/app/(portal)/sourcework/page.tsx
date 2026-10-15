@@ -141,7 +141,7 @@ export default async function TranscriptionListPage({
       {resumeRows.length > 0 && (
         <section aria-labelledby="resume" className="mb-8">
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 id="resume" className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+            <h2 id="resume" className="text-label font-bold uppercase tracking-wider text-ink-400">
               Pick up where you left off
             </h2>
             {(filterCounts?.attention ?? 0) > 0 && (
@@ -176,8 +176,8 @@ export default async function TranscriptionListPage({
                     <span
                       className={
                         failed
-                          ? "text-[10px] font-bold uppercase tracking-wider text-danger"
-                          : "text-[10px] font-bold uppercase tracking-wider text-brand-link"
+                          ? "text-badge font-bold uppercase tracking-wider text-danger"
+                          : "text-badge font-bold uppercase tracking-wider text-brand-link"
                       }
                     >
                       {failed

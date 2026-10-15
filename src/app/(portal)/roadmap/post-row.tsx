@@ -25,14 +25,14 @@ export function PostRow({ post, returnTo }: { post: PostSummary; returnTo: strin
       <div className="min-w-0 flex-1">
         <Link
           href={`/roadmap/${post.id}`}
-          className="font-serif text-[15px] font-bold text-ink-900 hover:text-brand-link"
+          className="font-serif text-body font-bold text-ink-900 hover:text-brand-link"
         >
           {post.title}
         </Link>
         {post.body_text && (
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-500">{excerpt(post.body_text)}</p>
+          <p className="mt-1 text-ui leading-relaxed text-ink-500">{excerpt(post.body_text)}</p>
         )}
-        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label text-ink-400">
           <StatusBadge map={POST_STATUS_BADGE} value={post.status} />
           <span>{POST_KIND_LABEL[post.kind]}</span>
           {target && (

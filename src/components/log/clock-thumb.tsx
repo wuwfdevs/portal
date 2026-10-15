@@ -1,6 +1,7 @@
 import { describeRingSegment, slotRenderWindow } from "@/lib/log/clock-face";
 import { SLOT_VISUAL_COLORS, slotVisualKind } from "@/lib/log/clock-view";
 import type { LogClockSlotRow } from "@/lib/log/queries";
+import { colors } from "@/lib/design-tokens";
 
 const CENTER = 50;
 const R_OUTER = 46;
@@ -65,7 +66,7 @@ export function ClockThumb({
           cy={CENTER}
           r={middle}
           fill="none"
-          stroke="#C9CED4"
+          stroke={colors.line.strong}
           strokeWidth={R_OUTER - R_INNER}
           strokeDasharray="3 3"
         />
@@ -75,13 +76,27 @@ export function ClockThumb({
             key={index}
             d={segment.pathD}
             fill={SLOT_VISUAL_COLORS[segment.kind].fill}
-            stroke="#FFFFFF"
+            stroke="white"
             strokeWidth={1}
           />
         ))
       )}
-      <circle cx={CENTER} cy={CENTER} r={R_OUTER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
-      <circle cx={CENTER} cy={CENTER} r={R_INNER} fill="none" stroke="#E2E5E9" strokeWidth={1} />
+      <circle
+        cx={CENTER}
+        cy={CENTER}
+        r={R_OUTER}
+        fill="none"
+        stroke={colors.line.DEFAULT}
+        strokeWidth={1}
+      />
+      <circle
+        cx={CENTER}
+        cy={CENTER}
+        r={R_INNER}
+        fill="none"
+        stroke={colors.line.DEFAULT}
+        strokeWidth={1}
+      />
     </svg>
   );
 }

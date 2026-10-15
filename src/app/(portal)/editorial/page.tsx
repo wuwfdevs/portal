@@ -161,13 +161,13 @@ function BacklogRow({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/editorial/pitches/${pitch.id}`}
-            className="text-[15px] font-semibold text-ink-900 hover:text-brand-link hover:underline"
+            className="text-body font-semibold text-ink-900 hover:text-brand-link hover:underline"
           >
             {pitch.title}
           </Link>
           {entry.stale && view === "open" && <Badge variant="danger">Stale</Badge>}
         </div>
-        <p className="mt-1 text-[13px] text-ink-500">
+        <p className="mt-1 text-ui text-ink-500">
           {entry.submitterName ?? "A former member"}
           <span aria-hidden="true"> · </span>
           {formatAgeLong(pitch.created_at)}

@@ -46,7 +46,7 @@ export function ChoiceCards<T extends string>({
             defaultChecked={value === undefined ? defaultValue === option.value : undefined}
             onChange={onChange ? () => onChange(option.value) : undefined}
           />
-          <span className="flex h-full flex-col gap-1 rounded border border-line bg-white px-3.5 py-3 peer-checked:border-brand-primary peer-checked:bg-[#F3F9FD] peer-checked:shadow-[inset_0_0_0_1px_#3090D0] peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+          <span className="flex h-full flex-col gap-1 rounded border border-line bg-white px-3.5 py-3 peer-checked:border-brand-primary peer-checked:bg-brand-tint peer-checked:shadow-[inset_0_0_0_1px_theme(colors.brand.primary)] peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
             <span className="text-sm font-bold text-ink-900">{option.title}</span>
             {option.description && (
               <span className="text-xs leading-snug text-ink-500">{option.description}</span>

@@ -110,15 +110,15 @@ function changeTouching<T extends { active: boolean; startsAt: string; endsAt: s
   );
 }
 
-const AUTOMATED_WEEKLY = "border border-[#8A9099] bg-[#DCE1E6]/95";
+const AUTOMATED_WEEKLY = "border border-ink-400 bg-line/95";
 const AUTOMATED_ONCE = "border border-dashed border-warning-border bg-warning-bg/95";
-const LIVE_ONCE = "border-2 border-dashed border-[#3090D0] bg-white";
+const LIVE_ONCE = "border-2 border-dashed border-brand-primary bg-white";
 /** A diagonal hatch, the clock diagram's own mark for a window that is not solid content. */
 const CLOSED_HATCH =
   "bg-[repeating-linear-gradient(135deg,rgba(166,52,52,0.22)_0_4px,rgba(255,255,255,0.9)_4px_9px)]";
-const CLOSED_WEEKLY = `border border-[#B45454] ${CLOSED_HATCH}`;
-const CLOSED_ONCE = `border border-dashed border-[#B45454] ${CLOSED_HATCH}`;
-const OPEN_ONCE = "border-2 border-dashed border-[#2E7D32] bg-white";
+const CLOSED_WEEKLY = `border border-danger-border ${CLOSED_HATCH}`;
+const CLOSED_ONCE = `border border-dashed border-danger-border ${CLOSED_HATCH}`;
+const OPEN_ONCE = "border-2 border-dashed border-success-fg bg-white";
 
 /** Automated hours as a layer (lib/log/automated-hours.ts). */
 export function automatedLayer(hours: {
@@ -157,19 +157,22 @@ export function automatedLayer(hours: {
       const change = changeTouching(dateISO, hours.changes);
       if (!change) return null;
       return change.mode === "live"
-        ? { label: "Live once", className: "text-[#185F95]" }
+        ? { label: "Live once", className: "text-brand-link" }
         : { label: "Automated once", className: "text-warning-fg" };
     },
     legend: [
-      { label: "Automated every week", swatchClassName: "border border-[#8A9099] bg-[#DCE1E6]" },
+      { label: "Automated every week", swatchClassName: "border border-ink-400 bg-line" },
       {
         label: "Automated once",
         swatchClassName: "border border-dashed border-warning-border bg-warning-bg",
       },
-      { label: "Live once", swatchClassName: "border-2 border-dashed border-[#3090D0] bg-white" },
+      {
+        label: "Live once",
+        swatchClassName: "border-2 border-dashed border-brand-primary bg-white",
+      },
     ],
     context: {
-      className: "bg-[#DCE1E6]/55",
+      className: "bg-line/55",
       label: "Automated",
       legendLabel: "Automated hours",
       editHint: "Edit under Automation",
@@ -214,8 +217,8 @@ export function underwritingLayer(hours: {
       const change = changeTouching(dateISO, hours.changes);
       if (!change) return null;
       return change.mode === "open"
-        ? { label: "Open once", className: "text-[#2E7D32]" }
-        : { label: "Closed once", className: "text-[#8F3A3A]" };
+        ? { label: "Open once", className: "text-success-fg" }
+        : { label: "Closed once", className: "text-danger-fg" };
     },
     legend: [
       { label: "Closed every week", swatchClassName: CLOSED_WEEKLY },
@@ -238,7 +241,7 @@ const navLink =
 
 function Legend({ primary, context }: { primary: HoursLayer; context: HoursLayer }) {
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-ui text-ink-700">
       {primary.legend.map((item) => (
         <span key={item.label}>
           <span
@@ -311,7 +314,7 @@ function WeekView({
     <section className="flex flex-col gap-3" aria-label="Week">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <WeekMonthLinks active="week" weekHref={weekHref(null)} monthHref={monthHref(date)} />
-        <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+        <h2 className="text-body font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {formatWeekRange(monday)}
         </h2>
         <Link href={weekHref(shiftDateISO(monday, -7))} className={navLink}>
@@ -343,7 +346,7 @@ function WeekView({
               {day.dateISO === today && (
                 <span className="normal-case tracking-normal"> · Today</span>
               )}
-              <span className="block text-[11px] font-semibold normal-case tracking-normal text-ink-500">
+              <span className="block text-label font-semibold normal-case tracking-normal text-ink-500">
                 {day.summary}
               </span>
             </Link>
@@ -357,7 +360,7 @@ function WeekView({
             {hourLabels.map((hour) => (
               <span
                 key={hour}
-                className="absolute right-2 text-[11px] text-ink-500"
+                className="absolute right-2 text-label text-ink-500"
                 style={{ top: Math.max(0, hour * PX_PER_HOUR - 6) }}
               >
                 {hour === 0
@@ -376,7 +379,7 @@ function WeekView({
                 <span
                   key={program.key}
                   aria-hidden="true"
-                  className="absolute inset-x-0 overflow-hidden border-t border-[#ECEFF2] pr-2 pt-0.5 text-right text-[10px] font-semibold text-[#8A9099]"
+                  className="absolute inset-x-0 overflow-hidden border-t border-panel-100 pr-2 pt-0.5 text-right text-badge font-semibold text-ink-400"
                   style={{ top: program.top, height: program.height }}
                 >
                   {program.name}
@@ -387,7 +390,7 @@ function WeekView({
                   key={band.key}
                   title={`${context.context.label} · ${band.detail}`}
                   className={cn(
-                    "absolute inset-x-0 flex items-end justify-end overflow-hidden px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-500",
+                    "absolute inset-x-0 flex items-end justify-end overflow-hidden px-1 pb-0.5 text-badge font-semibold uppercase tracking-wide text-ink-500",
                     context.context.className,
                   )}
                   style={{
@@ -406,7 +409,7 @@ function WeekView({
                   <div
                     key={block.key}
                     className={cn(
-                      "absolute inset-x-1.5 flex flex-col gap-px overflow-hidden rounded-[3px] px-1.5 py-0.5 text-[11px] leading-tight",
+                      "absolute inset-x-1.5 flex flex-col gap-px overflow-hidden rounded px-1.5 py-0.5 text-label leading-tight",
                       block.className,
                       block.raised && "z-[1]",
                     )}
@@ -493,7 +496,7 @@ function MonthView({ date, today, primary, context, weekHref, monthHref }: Hours
     <section className="flex flex-col gap-3" aria-label="Month">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <WeekMonthLinks active="month" weekHref={weekHref(date)} monthHref={monthHref(date)} />
-        <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+        <h2 className="text-body font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {MONTH_NAMES[month - 1]} {year}
         </h2>
         <Link href={monthHref(previousMonth)} className={navLink}>
@@ -539,18 +542,18 @@ function MonthView({ date, today, primary, context, weekHref, monthHref }: Hours
                 >
                   {cell.day}
                 </span>
-                <span className="text-[11px] text-ink-700 sm:text-xs">{cell.summary}</span>
+                <span className="text-label text-ink-700 sm:text-xs">{cell.summary}</span>
                 {cell.change && (
                   <span
                     className={cn(
-                      "truncate text-[11px] font-semibold sm:text-xs",
+                      "truncate text-label font-semibold sm:text-xs",
                       cell.change.className,
                     )}
                   >
                     {cell.change.label}
                   </span>
                 )}
-                <span className="truncate text-[10px] text-ink-400 max-sm:hidden sm:text-[11px]">
+                <span className="truncate text-badge text-ink-400 max-sm:hidden sm:text-label">
                   {cell.contextSummary}
                 </span>
               </Link>
@@ -558,7 +561,7 @@ function MonthView({ date, today, primary, context, weekHref, monthHref }: Hours
           )}
         </div>
       </div>
-      <p className="text-[13px] text-ink-500">{primary.monthNote}</p>
+      <p className="text-ui text-ink-500">{primary.monthNote}</p>
     </section>
   );
 }

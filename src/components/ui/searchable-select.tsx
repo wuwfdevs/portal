@@ -229,12 +229,12 @@ export function SearchableSelect({
           {filtered.map((option, index) => (
             <li key={option.id}>
               {groups && index === 0 && filteredPrimary.length > 0 && groups.primaryLabel && (
-                <div className="px-2 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                <div className="px-2 pt-1 pb-1.5 text-label font-bold uppercase tracking-wider text-ink-500">
                   {groups.primaryLabel}
                 </div>
               )}
               {groups && index === secondaryStart && filteredSecondary.length > 0 && (
-                <div className="mt-1 border-t border-line px-2 pt-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                <div className="mt-1 border-t border-line px-2 pt-2 pb-1.5 text-label font-bold uppercase tracking-wider text-ink-500">
                   {groups.secondaryLabel}
                 </div>
               )}

@@ -91,7 +91,7 @@ function SignInFailure({ reason }: { reason?: string }) {
       <p className="font-bold">We couldn&apos;t complete your sign-in</p>
       <p className="mt-1 leading-relaxed text-ink-700">{explanation}</p>
       <p className="mt-2 text-ink-500">Request a new link below to try again.</p>
-      {reason && <p className="mt-2 font-mono text-[11px] text-ink-400">Reference: {reason}</p>}
+      {reason && <p className="mt-2 font-mono text-label text-ink-400">Reference: {reason}</p>}
     </Alert>
   );
 }

@@ -158,7 +158,7 @@ export function DataPointRail({
             aria-pressed={filter === chip.value}
             onClick={() => setChosen(chip.value)}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold max-lg:h-11 max-lg:px-4",
+              "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-ui font-semibold max-lg:h-11 max-lg:px-4",
               filter === chip.value
                 ? "border-brand-surface bg-brand-surface text-brand-link"
                 : "border-line bg-white text-ink-700 hover:border-brand-primary",

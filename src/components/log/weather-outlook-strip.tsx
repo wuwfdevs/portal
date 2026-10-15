@@ -83,14 +83,14 @@ export function WeatherOutlookStrip({
                     : "border-transparent hover:bg-panel-100",
                 )}
               >
-                <span className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+                <span className="text-label font-bold uppercase tracking-wide text-ink-500">
                   {day.day_label}
                 </span>
                 <WeatherIcon code={day.icon} className="h-6 w-6 text-ink-700" />
                 <span className="font-mono text-xs font-semibold tabular-nums text-ink-900">
                   {day.high ?? "—"}°<span className="text-ink-400">/{day.low ?? "—"}°</span>
                 </span>
-                <span className="h-3 text-[10px] tabular-nums text-brand-link">
+                <span className="h-3 text-badge tabular-nums text-brand-link">
                   {day.precipitation_chance !== null && day.precipitation_chance > 0
                     ? `${day.precipitation_chance}%`
                     : ""}

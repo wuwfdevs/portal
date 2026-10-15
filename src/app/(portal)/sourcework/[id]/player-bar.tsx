@@ -148,7 +148,7 @@ export function PlayerBar({
         type="button"
         onClick={togglePlay}
         aria-label={isPlaying ? "Pause" : "Play"}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white hover:bg-[#2278B8] lg:h-8 lg:w-8"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white hover:bg-brand-hover lg:h-8 lg:w-8"
       >
         {isPlaying ? <PauseIcon className="h-3 w-3" /> : <PlayIcon className="ml-0.5 h-3 w-3" />}
       </button>
@@ -178,7 +178,7 @@ export function PlayerBar({
             if (el) el.currentTime = Number(e.target.value) / 1000;
           }}
           aria-label="Seek"
-          className="h-6 w-full cursor-pointer accent-[#2A8AD4] lg:h-1"
+          className="h-6 w-full cursor-pointer accent-brand-primary lg:h-1"
         />
         <ScrubberStrip
           marks={marks}
@@ -197,12 +197,12 @@ export function PlayerBar({
             if (el) el.currentTime = bin.startMs / 1000;
           }}
         />
-        <div className="flex justify-between font-mono text-[11px] tabular-nums text-ink-500 lg:hidden">
+        <div className="flex justify-between font-mono text-label tabular-nums text-ink-500 lg:hidden">
           <span>{formatDuration(currentMs)}</span>
           <span>{durationMs ? formatDuration(durationMs) : "—:—"}</span>
         </div>
         {zoom && (
-          <div className="flex items-center gap-2 text-[11px] text-ink-500">
+          <div className="flex items-center gap-2 text-label text-ink-500">
             <span>
               Showing {formatDuration(zoom.startMs)}–{formatDuration(zoom.endMs)}
             </span>
@@ -217,11 +217,11 @@ export function PlayerBar({
         )}
       </div>
 
-      <span className="hidden shrink-0 font-mono text-[11px] tabular-nums text-ink-500 lg:inline">
+      <span className="hidden shrink-0 font-mono text-label tabular-nums text-ink-500 lg:inline">
         {formatDuration(currentMs)} / {durationMs ? formatDuration(durationMs) : "—:—"}
       </span>
 
-      <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink-500 max-lg:hidden">
+      <label className="flex shrink-0 items-center gap-1 text-label text-ink-500 max-lg:hidden">
         <span className="sr-only">Playback speed</span>
         <Select
           compact
@@ -264,7 +264,7 @@ export function PlayerBar({
             : "Scroll the transcript back to the playhead and follow along"
         }
         className={cn(
-          "shrink-0 rounded border px-3 text-sm font-semibold transition-colors max-lg:hidden lg:px-2 lg:py-0.5 lg:text-[11px]",
+          "shrink-0 rounded border px-3 text-sm font-semibold transition-colors max-lg:hidden lg:px-2 lg:py-0.5 lg:text-label",
           follow
             ? "border-brand-primary bg-brand-surface text-brand-link"
             : "border-line text-ink-500 hover:bg-panel-50",
@@ -291,7 +291,7 @@ function TransportButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded border border-line px-1.5 py-1 font-mono text-[11px] font-semibold text-ink-700 hover:bg-panel-50"
+      className="rounded border border-line px-1.5 py-1 font-mono text-label font-semibold text-ink-700 hover:bg-panel-50"
     >
       {children}
     </button>

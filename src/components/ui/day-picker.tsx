@@ -34,7 +34,7 @@ export function DayPicker({
             defaultChecked={value === undefined ? defaultValue?.includes(day) : undefined}
             onChange={onToggle ? () => onToggle(day) : undefined}
           />
-          <span className="inline-flex h-9 w-11 items-center justify-center rounded border border-line bg-white text-[13px] font-semibold text-ink-700 peer-checked:border-brand-link peer-checked:bg-brand-link peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+          <span className="inline-flex h-9 w-11 items-center justify-center rounded border border-line bg-white text-ui font-semibold text-ink-700 peer-checked:border-brand-link peer-checked:bg-brand-link peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
             {label}
           </span>
         </label>

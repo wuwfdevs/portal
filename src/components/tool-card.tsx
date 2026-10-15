@@ -36,19 +36,19 @@ export function ToolCard({ tool, hasAccess }: ToolWithAccess) {
       </div>
       <div
         className={cn(
-          "font-serif text-[17px] font-bold",
+          "font-serif text-section font-bold",
           isOpenable ? "text-ink-900" : "text-ink-700",
         )}
       >
         {tool.name}
       </div>
-      <p className="flex-1 text-[13px] leading-relaxed text-ink-500">{tool.description}</p>
+      <p className="flex-1 text-ui leading-relaxed text-ink-500">{tool.description}</p>
       <Badge variant={isOpenable ? "accent" : "muted"}>{statusLabel}</Badge>
 
       {isOpenable && (
         <a
           href={tool.route}
-          className="mt-1 flex items-center justify-center gap-1.5 rounded bg-brand-primary py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]"
+          className="mt-1 flex items-center justify-center gap-1.5 rounded bg-brand-primary py-2.5 text-sm font-bold text-white hover:bg-brand-hover"
         >
           {actionLabel}
           <svg

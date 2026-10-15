@@ -34,7 +34,7 @@ export function CurationPanel({
 
   return (
     <div className="flex flex-col gap-4 rounded border border-brand-primary/40 bg-brand-surface/20 p-4">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-brand-link">Curation</p>
+      <p className="text-label font-bold uppercase tracking-wide text-brand-link">Curation</p>
 
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold text-ink-700">Move this request</span>

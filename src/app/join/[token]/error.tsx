@@ -19,7 +19,7 @@ export default function JoinError({
 }) {
   return (
     <GuestShell>
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">Something went wrong</h2>
+      <h2 className="font-serif text-section font-bold text-ink-900">Something went wrong</h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-700">
         This is a problem with the tool, not with anything you did.
       </p>

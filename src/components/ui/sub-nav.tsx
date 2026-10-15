@@ -48,7 +48,7 @@ export function SubNav({
           href={item.href}
           aria-current={item.active ? "page" : undefined}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded px-3 text-[13px] font-semibold transition-colors",
+            "inline-flex h-8 items-center gap-1.5 rounded px-3 text-ui font-semibold transition-colors",
             fill && "max-sm:h-10 max-sm:min-w-0 max-sm:flex-1 max-sm:justify-center max-sm:px-2",
             item.active
               ? cn(

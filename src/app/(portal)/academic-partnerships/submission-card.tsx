@@ -17,7 +17,7 @@ export function SubmissionCard({ submission }: { submission: SubmissionListItem 
       href={`/academic-partnerships/${submission.id}`}
       className="block rounded border border-line bg-white p-3 text-left shadow-sm hover:border-brand-primary"
     >
-      <p className="text-[13px] font-bold text-ink-900">{submission.faculty_name}</p>
+      <p className="text-ui font-bold text-ink-900">{submission.faculty_name}</p>
       <p className="text-xs text-ink-500">
         {submission.department}
         {submission.course_title ? ` · ${submission.course_title}` : ""}
@@ -30,12 +30,12 @@ export function SubmissionCard({ submission }: { submission: SubmissionListItem 
         ))}
         {submission.timeframe && <Badge variant="neutral">{submission.timeframe}</Badge>}
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-ink-400">
+      <div className="mt-2 flex items-center justify-between text-label text-ink-400">
         <span>{submission.ownerName ?? "Unassigned"}</span>
         <span>{formatDays(daysSince(submission.stage_changed_at))} in stage</span>
       </div>
       {submission.next_action_date && (
-        <p className="mt-1.5 text-[11px] font-semibold text-warning-fg">
+        <p className="mt-1.5 text-label font-semibold text-warning-fg">
           Next:{" "}
           {new Date(submission.next_action_date).toLocaleDateString("en-US", {
             month: "short",

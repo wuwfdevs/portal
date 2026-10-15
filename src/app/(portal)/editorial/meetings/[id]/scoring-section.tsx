@@ -87,8 +87,8 @@ export function ScoringSection({
             <span
               className={
                 allScored
-                  ? "text-[13px] font-semibold text-success-fg"
-                  : "text-[13px] font-semibold text-ink-500"
+                  ? "text-ui font-semibold text-success-fg"
+                  : "text-ui font-semibold text-ink-500"
               }
             >
               {allScored
@@ -138,7 +138,7 @@ export function ScoringSection({
                   >
                     ›
                   </span>
-                  <span className="min-w-0 flex-1 text-[14.5px] font-semibold text-ink-900">
+                  <span className="min-w-0 flex-1 text-body font-semibold text-ink-900">
                     {pitch.title}
                   </span>
                   {canReview && (
@@ -334,7 +334,7 @@ function ReviewForm({
       </div>
 
       <div className="mt-4 flex flex-col gap-3 border-t border-line pt-3.5">
-        <p className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-400">Wrap up</p>
+        <p className="text-label font-bold uppercase tracking-[0.06em] text-ink-400">Wrap up</p>
 
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
           <Select
@@ -367,7 +367,7 @@ function ReviewForm({
                   onChange={() => toggleFlag(flag)}
                   className="peer sr-only"
                 />
-                <span className="inline-flex rounded-full border border-line px-2.5 py-1.5 text-[11.5px] text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-danger peer-checked:bg-danger/[0.08] peer-checked:font-semibold peer-checked:text-danger peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+                <span className="inline-flex rounded-full border border-line px-2.5 py-1.5 text-label text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-danger peer-checked:bg-danger/[0.08] peer-checked:font-semibold peer-checked:text-danger peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
                   {CONCERN_FLAG_LABEL[flag]}
                 </span>
               </label>
@@ -385,7 +385,7 @@ function ReviewForm({
             defaultValue={own?.review.comment ?? ""}
           />
           {concernFlags.size > 0 && (
-            <p className="mt-1 text-[11px] text-ink-400">
+            <p className="mt-1 text-label text-ink-400">
               A concern is flagged — a sentence on why helps the room.
             </p>
           )}
@@ -431,7 +431,7 @@ function ScoreField({
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
         <span
           aria-hidden="true"
-          className="w-28 shrink-0 text-[13px] font-semibold text-ink-700"
+          className="w-28 shrink-0 text-ui font-semibold text-ink-700"
           title={criterion.guidance ?? undefined}
         >
           {criterion.name}
@@ -449,7 +449,7 @@ function ScoreField({
                 defaultChecked={defaultValue === undefined}
                 className="peer sr-only"
               />
-              <span className="flex h-[30px] items-center justify-center rounded border border-dashed border-line px-2.5 text-[11px] font-semibold text-ink-400 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+              <span className="flex h-[30px] items-center justify-center rounded border border-dashed border-line px-2.5 text-label font-semibold text-ink-400 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
                 N/A
               </span>
             </label>
@@ -468,7 +468,7 @@ function ScoreField({
                 defaultChecked={defaultValue === value}
                 className="peer sr-only"
               />
-              <span className="flex h-[30px] w-[30px] items-center justify-center rounded border border-line text-[12.5px] font-semibold text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+              <span className="flex h-[30px] w-[30px] items-center justify-center rounded border border-line text-meta font-semibold text-ink-500 transition-colors hover:border-brand-primary peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
                 {value}
               </span>
             </label>
@@ -476,7 +476,7 @@ function ScoreField({
         </div>
       </div>
       {criterion.guidance && (
-        <p className="ml-[7.875rem] mt-1 text-[11px] leading-snug text-ink-400">
+        <p className="ml-[7.875rem] mt-1 text-label leading-snug text-ink-400">
           {criterion.guidance}
         </p>
       )}

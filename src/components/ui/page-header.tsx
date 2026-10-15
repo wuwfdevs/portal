@@ -6,7 +6,7 @@ import { ControlRow } from "@/components/ui/control-row";
 const TITLE_SIZE = {
   page: "text-2xl",
   form: "text-xl",
-  public: "text-[20px]",
+  public: "text-title",
 } as const;
 
 /**

@@ -100,7 +100,7 @@ export function PlacementsByDate({
                   <td
                     colSpan={6}
                     data-stack="full"
-                    className="px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-500"
+                    className="px-4 py-1.5 text-label font-bold uppercase tracking-wide text-ink-500"
                   >
                     Week of {shortDate(week.weekStart)}
                   </td>

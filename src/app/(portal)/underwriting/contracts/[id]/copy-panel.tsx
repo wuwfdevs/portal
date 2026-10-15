@@ -266,7 +266,7 @@ export async function ContractCopyPanel({
             submitLabel="Save changes"
             cancelHref={pagePath}
             sections={
-              <div className="flex flex-wrap items-center gap-3 border-t border-line bg-panel-50 px-5 py-3 text-[13px] text-ink-700">
+              <div className="flex flex-wrap items-center gap-3 border-t border-line bg-panel-50 px-5 py-3 text-ui text-ink-700">
                 <span className="min-w-0 flex-1">
                   {(context.otherContractsByCopy.get(item.id) ?? []).length === 0 ? (
                     <>
@@ -538,19 +538,19 @@ function CopyCard({
           // it is set again it serves no line of the current revision.
           <Badge variant="warning">Line replaced — set it again</Badge>
         )}
-        <span className="text-[13px] text-ink-500">{meta}</span>
+        <span className="text-ui text-ink-500">{meta}</span>
         <span className="flex-1" />
-        <TextLink href={editHref} className="text-[13px]">
+        <TextLink href={editHref} className="text-ui">
           Edit
         </TextLink>
-        <TextLink href={`/underwriting/copy/${item.id}`} className="text-[13px]">
+        <TextLink href={`/underwriting/copy/${item.id}`} className="text-ui">
           Library
         </TextLink>
         <form action={unlinkCopyFromContract}>
           <input type="hidden" name="contract_id" value={contract.id} />
           <input type="hidden" name="copy_id" value={item.id} />
           <input type="hidden" name="return_to" value={returnTo} />
-          <Button type="submit" variant="ghost" className="text-[13px]">
+          <Button type="submit" variant="ghost" className="text-ui">
             Unlink
           </Button>
         </form>
@@ -565,7 +565,7 @@ function CopyCard({
       )}
       {isDraft && (
         <div className="flex flex-wrap items-center gap-3 border-t border-line bg-warning-bg px-5 py-3">
-          <span className="min-w-0 flex-1 text-[13px] text-warning-fg">
+          <span className="min-w-0 flex-1 text-ui text-warning-fg">
             Not yet approved — auto-fill and manual placement skip it until it is. Approve once the
             sponsor has signed off on the wording.
           </span>
@@ -574,7 +574,7 @@ function CopyCard({
             <input type="hidden" name="contract_id" value={contract.id} />
             <input type="hidden" name="return_to" value={returnTo} />
             <input type="hidden" name="approval_status" value="approved" />
-            <Button type="submit" className="px-3 py-2 text-[13px]">
+            <Button type="submit" className="px-3 py-2 text-ui">
               Approve
             </Button>
           </form>
