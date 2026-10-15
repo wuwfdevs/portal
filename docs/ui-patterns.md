@@ -354,8 +354,7 @@ Three primitives, used together. Pick by what is true about the wait:
   from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
   Give the list a `label` when "Steps" is too generic ("Import steps"). Below `sm` the strip is
   one line: markers and connectors for every step, a label only on the current one (the others
-  stay in the accessible name). A strip that only reports where a flow stands (the Sourcework
-  project's five stages) passes `phoneBar`: below `sm` it is one thin `ProgressBar` of steps done.
+  stay in the accessible name).
 - **A long server step with no honest percentage** (a model reading a PDF, a single-request
   upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
   take a minute") and a note saying what has and hasn't happened. Mark the current step

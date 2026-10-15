@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasNextStep,
   PROJECT_STEPS,
   projectProgress,
   nextStepHeadline,
@@ -64,6 +65,14 @@ describe("projectStage", () => {
     const stage = projectStage({ ...base, waitingReview: 0, hasSynthesis: true, pieceCount: 2 });
     expect(stage.current).toBe(PROJECT_STEPS.length);
     expect(stage.next).toEqual({ kind: "continue_piece", pieces: 2 });
+  });
+});
+
+describe("hasNextStep", () => {
+  it("is false only once a project has reached its pieces", () => {
+    expect(hasNextStep({ kind: "continue_piece", pieces: 1 })).toBe(false);
+    expect(hasNextStep({ kind: "start_piece" })).toBe(true);
+    expect(hasNextStep({ kind: "analyze", unanalyzed: 3 })).toBe(true);
   });
 });
 

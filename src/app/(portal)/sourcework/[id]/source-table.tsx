@@ -32,7 +32,9 @@ export interface SourceTableRow {
 /**
  * A project's sources as a list that scales: one scannable row each, the whole row a link, with a
  * failed source's reason under its title. Below `md` each row stacks into a card (docs/ui-patterns.md,
- * "Tables on narrow screens"). The same row shape the Source library's cards show, in a form that
+ * "Tables on narrow screens"). On a phone a card is the title, one line of kind, length and date,
+ * the status, and the analysis line when there is one: the length is folded into that line and the
+ * progress bar is left out, since status and analysis already say where the source is. The same row shape the Source library's cards show, in a form that
  * holds twenty sources as readably as three.
  */
 export function SourceTable({
@@ -72,14 +74,15 @@ export function SourceTable({
                   {row.title}
                 </Link>
                 <p className="mt-0.5 text-xs text-ink-400">
-                  {SOURCE_KIND_LABEL[row.kind] ?? row.kind} · {row.date}
+                  {SOURCE_KIND_LABEL[row.kind] ?? row.kind}
+                  {row.length && <span className="md:hidden"> · {row.length}</span>} · {row.date}
                 </p>
                 {row.footnote && <p className="mt-1 text-xs text-danger">{row.footnote}</p>}
               </Cell>
-              <Cell label="Length" className="whitespace-nowrap text-ink-500">
+              <Cell label="Length" stack="hide" className="whitespace-nowrap text-ink-500">
                 {row.length || "—"}
               </Cell>
-              <Cell label="Progress">
+              <Cell label="Progress" stack="hide">
                 <div className="flex w-32 flex-col gap-1 max-md:w-full">
                   <ProgressBar
                     size="md"
@@ -93,10 +96,14 @@ export function SourceTable({
                   <span className="text-xs text-ink-500">{row.progress.label}</span>
                 </div>
               </Cell>
-              <Cell label="Status">
+              <Cell label="Status" stack="full">
                 <StatusBadge map={projectStatusMap(row.kind)} value={row.status} />
               </Cell>
-              <Cell label="Analysis" className="text-ink-700">
+              <Cell
+                label="Analysis"
+                stack={row.analysis ? undefined : "hide"}
+                className="text-ink-700"
+              >
                 {row.analysis ? (
                   <>
                     {row.analysis.text}
