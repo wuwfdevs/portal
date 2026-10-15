@@ -12,6 +12,7 @@ import { DATA_SOURCE_STATE } from "@/lib/log/status-badges";
 import { formatStationTimestamp } from "@/lib/log/timezone";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
+import { RefreshIcon } from "@/components/ui/icons";
 
 // Weather's own page polls at this rate for the same reason — see log-poller.tsx.
 const POLL_INTERVAL_MS = 5 * 60_000;
@@ -87,9 +88,13 @@ export default async function SourcesPage({
               <div className={`${CONTROL_ROW} mt-auto`}>
                 <PrimaryLink href={source.href}>Open {source.label}</PrimaryLink>
                 {source.key === "weather" && (
-                  <form action={refreshWeatherAction}>
+                  <form action={refreshWeatherAction} data-row="fixed">
                     <input type="hidden" name="return_to" value="/log/sources" />
-                    <Button type="submit" variant="secondary">
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      phoneIcon={<RefreshIcon className="size-4" />}
+                    >
                       Refresh
                     </Button>
                   </form>

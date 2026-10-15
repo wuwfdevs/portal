@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { SESSION_STATUS } from "@/lib/remote-interview/track-status";
 import { formatShortDate } from "@/lib/format";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 function formatSessionDate(session: RiSession): string {
   const source = session.scheduled_at ?? session.created_at;
@@ -38,7 +39,11 @@ export default async function RemoteInterviewListPage({
         size="page"
         title="Remote Interview"
         description="Record a remote guest at full quality, straight from their own browser."
-        actions={<PrimaryLink href="/remote-interview/new">New session</PrimaryLink>}
+        actions={
+          <PrimaryLink href="/remote-interview/new" phoneIcon={<PlusIcon className="size-4" />}>
+            New session
+          </PrimaryLink>
+        }
         className="mb-8"
       />
 

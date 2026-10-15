@@ -41,6 +41,7 @@ import { CONTROL_ROW } from "@/components/ui/control-row";
 import { CONTRACT_STATUS, REVISION_STATUS } from "@/lib/underwriting/status";
 import { pluralize } from "@/lib/format";
 import { groupBy } from "@/lib/collections";
+import { EditIcon } from "@/components/ui/icons";
 
 const TABS = ["schedule", "copy", "agreement"] as const;
 type Tab = (typeof TABS)[number];
@@ -241,7 +242,9 @@ export default async function ContractDetailPage({
           </p>
         </div>
         <div className={CONTROL_ROW}>
-          <SecondaryLink href={`${base}/order`}>Edit order details</SecondaryLink>
+          <SecondaryLink href={`${base}/order`} phoneIcon={<EditIcon className="size-4" />}>
+            Edit order details
+          </SecondaryLink>
           {isDraft && (
             <form action={setContractStatus}>
               <input type="hidden" name="contract_id" value={contract.id} />

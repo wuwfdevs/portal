@@ -62,6 +62,7 @@ import { AirtimePanel, CapacityPanel } from "./envelope-panels";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ConfirmSubmit } from "@/components/ui/confirm-action";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 type Params = {
   plan?: string;
@@ -114,7 +115,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           title="No term plan yet."
           action={
             canDirect ? (
-              <PrimaryLink href={withQuery(PLAN_PATH, { new: "1" })}>+ Term plan</PrimaryLink>
+              <PrimaryLink
+                href={withQuery(PLAN_PATH, { new: "1" })}
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
+                + Term plan
+              </PrimaryLink>
             ) : (
               <p className="text-xs text-ink-500">The Director of Operations creates it.</p>
             )
@@ -318,7 +324,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             ]}
           />
           {canSchedule && resourcedPools.length > 0 && (
-            <PrimaryLink href={here({ new: "booking" })}>+ Booking</PrimaryLink>
+            <PrimaryLink
+              href={here({ new: "booking" })}
+              phoneIcon={<PlusIcon className="size-4" />}
+            >
+              + Booking
+            </PrimaryLink>
           )}
         </div>
 

@@ -53,6 +53,7 @@ import {
   updateWeeklyWindow,
 } from "./actions";
 import { ConfirmSubmit } from "@/components/ui/confirm-action";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const BASE_PATH = "/log/automated-hours";
 
@@ -161,7 +162,12 @@ export default async function AutomatedHoursPage({
             <SectionHeading>Every week</SectionHeading>
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
-              <PrimaryLink href={href({ new: "weekly" })}>+ Weekly hours</PrimaryLink>
+              <PrimaryLink
+                href={href({ new: "weekly" })}
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
+                + Weekly hours
+              </PrimaryLink>
             )}
           </div>
           {(creating === "weekly" || editingWeekly) && (
@@ -203,7 +209,10 @@ export default async function AutomatedHoursPage({
             />
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
-              <PrimaryLink href={href({ new: "once", changes: listParams.changes })}>
+              <PrimaryLink
+                href={href({ new: "once", changes: listParams.changes })}
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
                 + One-time change
               </PrimaryLink>
             )}

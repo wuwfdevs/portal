@@ -53,6 +53,7 @@ import {
   updateUnderwritingHourChange,
 } from "./actions";
 import { ConfirmSubmit } from "@/components/ui/confirm-action";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const BASE_PATH = "/log/underwriting-hours";
 
@@ -162,7 +163,12 @@ export default async function UnderwritingHoursPage({
             <SectionHeading>Closed every week</SectionHeading>
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
-              <PrimaryLink href={href({ new: "weekly" })}>+ Weekly hours</PrimaryLink>
+              <PrimaryLink
+                href={href({ new: "weekly" })}
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
+                + Weekly hours
+              </PrimaryLink>
             )}
           </div>
           {(creating === "weekly" || editingWeekly) && (
@@ -204,7 +210,10 @@ export default async function UnderwritingHoursPage({
             />
             <span className="flex-1" />
             {isProgramDirector && !cardOpen && (
-              <PrimaryLink href={href({ new: "once", changes: listParams.changes })}>
+              <PrimaryLink
+                href={href({ new: "once", changes: listParams.changes })}
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
                 + One-time change
               </PrimaryLink>
             )}

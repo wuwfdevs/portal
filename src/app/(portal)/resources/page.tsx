@@ -30,6 +30,7 @@ import {
   type SearchHit,
 } from "@/lib/resources/queries";
 import { pluralize } from "@/lib/format";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const KIND_LABELS = { procedure: "Procedure", guide: "Guide", release_note: "Release note" };
 /** Guide titles shown on a tool card, and procedure titles on an area card. */
@@ -368,7 +369,12 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
               All procedures
             </TextLink>
             {isEditor && (
-              <PrimaryLink href="/resources/procedures/new">+ New procedure</PrimaryLink>
+              <PrimaryLink
+                href="/resources/procedures/new"
+                phoneIcon={<PlusIcon className="size-4" />}
+              >
+                + New procedure
+              </PrimaryLink>
             )}
           </HomeSectionHeading>
           <p className="text-sm text-ink-500">How WUWF gets things done, by area.</p>

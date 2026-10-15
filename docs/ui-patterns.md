@@ -491,6 +491,25 @@ sources not analyzed" with the button on it) only while something is waiting.
 44px tall on a phone without a call site remembering to say so; don't force a smaller height
 (`h-9 py-0`, `px-3 py-2 text-[13px]`) or add `max-sm:min-h-*` to one.
 
+### Icons on a phone
+
+A boxed control whose verb has a picture everyone knows falls back to an icon square below `sm`, by
+`phoneIcon` on `Button`, `PrimaryLink` and `SecondaryLink` (44px, a fixed control in a control row, the
+label kept for screen readers). The set is in `components/ui/icons.tsx` plus `PlusIcon`: Add (a list's
+"+ New X" is `ListToolbar`'s `primary`, other create links pass `phoneIcon`), Edit, Download,
+Refresh, Print, and the Filter square. Use it where the control sits in a row with others, so the
+saved width is the point. Never for: a decision (Save, Submit, Confirm), a destructive action, an AI
+action (it keeps its label and the sparkles mark), or a verb that needs its noun to be understood
+("Edit order details" is fine because the page says whose order; "Remove" alone is not).
+
+### Destructive actions
+
+A delete or removal is a danger control with a consequence step, never a ghost or secondary "Remove"
+that acts on one click. `ConfirmAction` is the callback form; **`ConfirmSubmit`** is the same two
+steps for a plain `<form action>` (it takes `formAction`/`formNoValidate` through to the confirm
+button). Its message says what goes and what stays. A row action is the danger-link first step; a
+standalone one passes `trigger="button"`.
+
 ### Form footers
 
 Every create or edit form ends in `FormActions` (`components/ui/form-actions.tsx`): Cancel, then the
@@ -502,9 +521,9 @@ primary action last, on the right from `sm` up and sharing the row on a phone. C
 ### Controls audit, still open (2026-10-15)
 
 A sweep of the portal's buttons and controls fixed the mechanical cases and left these as decisions:
-(1) ~~Form footers~~ done: `FormActions`. (2) **Destructive actions** that are
-`ghost` or `secondary` with no confirm step (Log automated and underwriting hours, schedule-line
-removal, a partner agreement draft, Bookings calendar and estimate rows). (3) **List searches off
+(1) ~~Form footers~~ done: `FormActions`. (2) ~~Destructive actions~~ done:
+`ConfirmSubmit`; the review-state "Reject" buttons (Audience Listening, Editorial Inquiry) are decisions
+that hide rather than delete and stay as they are. (3) **List searches off
 `ListSearch`**: Academic Partnerships' all-submissions form and Roadmap's filter form. (4) **File-picker
 buttons** (`<label>` styled as a button, four in Underwriting migration) want a shared primitive.
 (5) **`<summary>` "Add …" triggers** (about ten) want a shared disclosure primitive with `TAP_TARGET`.

@@ -50,18 +50,37 @@ export function PrimaryLink({
 export function SecondaryLink({
   className,
   size = "md",
+  phoneIcon,
+  children,
   ...props
-}: ComponentProps<typeof Link> & { size?: "md" | "sm" }) {
+}: ComponentProps<typeof Link> & {
+  size?: "md" | "sm";
+  /** As on `PrimaryLink`: an icon square below `sm`, the label kept for screen readers. */
+  phoneIcon?: ReactNode;
+}) {
   return (
     <Link
       className={cn(
         "inline-flex items-center justify-center gap-1.5 rounded border border-brand-link bg-transparent font-bold text-brand-link hover:bg-brand-surface",
         TAP_TARGET,
         size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm",
+        phoneIcon ? "max-sm:min-h-11 max-sm:w-11 max-sm:flex-none max-sm:px-0" : undefined,
         className,
       )}
+      data-row={phoneIcon ? "fixed" : undefined}
       {...props}
-    />
+    >
+      {phoneIcon ? (
+        <>
+          <span aria-hidden="true" className="sm:hidden">
+            {phoneIcon}
+          </span>
+          <span className="max-sm:sr-only">{children}</span>
+        </>
+      ) : (
+        children
+      )}
+    </Link>
   );
 }
 

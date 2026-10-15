@@ -5,6 +5,7 @@ import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-li
 import { listIndustryCategories } from "@/lib/underwriting/queries";
 import { createIndustryCategory, setIndustryCategoryActive } from "../../contract-actions";
 import { Card } from "@/components/ui/card";
+import { PlusIcon } from "@/components/ui/plus-icon";
 
 const INDUSTRIES_PATH = "/underwriting/setup/industries";
 
@@ -30,7 +31,14 @@ export default async function IndustriesPage({
       </TextLink>
       <div className="mt-2 mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-serif text-xl font-bold text-ink-900">Industries</h2>
-        {!creating && <PrimaryLink href={`${INDUSTRIES_PATH}?new=1`}>+ New industry</PrimaryLink>}
+        {!creating && (
+          <PrimaryLink
+            href={`${INDUSTRIES_PATH}?new=1`}
+            phoneIcon={<PlusIcon className="size-4" />}
+          >
+            + New industry
+          </PrimaryLink>
+        )}
       </div>
       <p className="mb-4 max-w-[720px] text-[13px] text-ink-500">
         The typed list the competitive-adjacency rule compares: two underwriters in the same
