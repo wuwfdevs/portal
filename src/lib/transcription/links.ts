@@ -41,3 +41,8 @@ export function sourcePath(
   const query = params.toString();
   return `/sourcework/sources/${sourceId}${query ? `?${query}` : ""}`;
 }
+
+/** The home screen's Notebook tab: every source and every excerpt, with the archive search above them. */
+export function notebookPath(view?: "excerpts"): string {
+  return view ? `/sourcework?tab=notebook&view=${view}` : "/sourcework?tab=notebook";
+}

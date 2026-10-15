@@ -37,7 +37,7 @@ import {
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
-import { projectPath, sourcePath } from "@/lib/transcription/links";
+import { notebookPath, projectPath, sourcePath } from "@/lib/transcription/links";
 import { pluralize } from "@/lib/format";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -94,7 +94,7 @@ export default async function SourceDetailPage({
   const returnTo = sourcePath(id, { projectId: contextProject?.id });
   // Two views of one source. Opened from a project it is that project's source:
   // the back link is the way to the others and nothing lists projects. Opened on
-  // its own (the library) it gains a Projects tab beside Transcript / Excerpts /
+  // its own (the notebook) it gains a Projects tab beside Transcript / Excerpts /
   // Speakers — a real list, since a recording can be in dozens of projects.
   const projectsList = contextProject ? null : <SourceProjectsList projects={source.projects} />;
   const hasMedia = Boolean(source.originalStoragePath);
@@ -153,7 +153,7 @@ export default async function SourceDetailPage({
         back={
           contextProject
             ? { href: projectPath(contextProject.id), label: contextProject.title }
-            : { href: "/sourcework?tab=sources", label: "Back to sources" }
+            : { href: notebookPath(), label: "Back to notebook" }
         }
         eyebrow={SOURCE_KIND_LABEL[source.kind] ?? source.kind}
         title={source.title}

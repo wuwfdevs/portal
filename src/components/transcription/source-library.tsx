@@ -23,9 +23,10 @@ const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
  * The filter and the type chips are client-side: the source library is one
  * flat, RLS-scoped table read once, not worth a server round trip per
  * keystroke. This is a *filter* over this tab's already-loaded rows
- * (title only, plus kind), not the archive-wide *search* bar above the
- * tabs — same pattern as ProjectTable's and ClipLibrary's tab-local
- * filters. The kind chips were inert with the one source kind that existed
+ * (title only, plus kind), not the archive-wide *search* box above it. It stays
+ * because that search never matches a source's own title (tw_search ranks chunks,
+ * excerpts and projects) and drops sources no project uses, so this is the only way
+ * to find a source by name. The kind chips were inert with the one source kind that existed
  * before Phase 3b (docs/sourcework-design.md §8.10) — now real.
  */
 export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
