@@ -354,8 +354,7 @@ Three primitives, used together. Pick by what is true about the wait:
   from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
   Give the list a `label` when "Steps" is too generic ("Import steps"). Below `sm` the strip is
   one line: markers and connectors for every step, a label only on the current one (the others
-  stay in the accessible name). A strip that only reports where a flow stands (the Sourcework
-  project's five stages) passes `phoneBar`: below `sm` it is one thin `ProgressBar` of steps done.
+  stay in the accessible name).
 - **A long server step with no honest percentage** (a model reading a PDF, a single-request
   upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
   take a minute") and a note saying what has and hasn't happened. Mark the current step
@@ -476,6 +475,13 @@ title's line, which needs the title block to be `min-w-0 flex-1` (`PageHeader` i
 the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`max-w-`
 belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
 not control rows.
+
+**A list's "+ New X" is `ListToolbar`'s `primary` prop**, never a `PrimaryLink` in its children and never
+an abbreviation typed per screen (`+ New<span class="max-sm:sr-only"> program</span>`). Pass
+`primary={{ href, label: "New program" }}` (null when the viewer can't create): it reads
+"+ New program" from `sm` up and is a "+" square on the search row on a phone, with the label kept for
+screen readers. An action that has to be a form submit (Pieces' "+ New piece") is a `Button` with
+`phoneIcon` in a `form` marked `data-row="fixed"` and `max-sm:order-first`.
 
 A toolbar action that only matters sometimes does not hold a button on a phone: Sourcework's
 quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3

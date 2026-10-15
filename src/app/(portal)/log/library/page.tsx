@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { computeTotalDurationSeconds, CONTENT_TYPE_LABEL } from "@/lib/log/content-library";
@@ -118,15 +118,11 @@ export default async function ContentLibraryPage({
             ],
           },
         ]}
+        primary={{ href: "/log/library/new", label: "New content item" }}
       >
         <TextLink href="/log/library/import" className="hover:underline">
           Import from DAD
         </TextLink>
-        <PrimaryLink href="/log/library/new">
-          <span>
-            + New<span className="max-sm:sr-only"> content item</span>
-          </span>
-        </PrimaryLink>
       </ListToolbar>
 
       {rows.length === 0 ? (

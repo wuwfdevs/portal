@@ -216,15 +216,12 @@ export default async function ProgramsPage({
           }}
           chips={chips}
           chipsLabel="Status"
-        >
-          {isProgramDirector && !creating && (
-            <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
-              <span>
-                + New<span className="max-sm:sr-only"> program</span>
-              </span>
-            </PrimaryLink>
-          )}
-        </ListToolbar>
+          primary={
+            isProgramDirector && !creating
+              ? { href: `${PROGRAMS_PATH}?new=1`, label: "New program" }
+              : null
+          }
+        ></ListToolbar>
 
         {error && !creating && <Alert>{error}</Alert>}
 

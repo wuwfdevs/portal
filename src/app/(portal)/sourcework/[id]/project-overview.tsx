@@ -4,6 +4,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Steps } from "@/components/ui/steps";
 import {
   PROJECT_STEPS,
+  hasNextStep,
   nextStepEyebrow,
   nextStepHeadline,
   type NextStep,
@@ -18,9 +19,10 @@ import { AnalyzeButton } from "./extraction-controls";
  * existing Steps indicator (a done step links to its tab); the band under it holds a single
  * primary action and, while the next step is one a model could take, the sparkle-marked link that
  * hands the remaining steps over. It reports and suggests; every step stays reachable by hand from
- * its own tab (docs/sourcework-analysis-design.md, "Setup" standing). On a phone the strip is one
- * thin bar and the band loses its box and eyebrow, so the pair reads as one line: where it stands,
- * and the one thing to do.
+ * its own tab (docs/sourcework-analysis-design.md, "Setup" standing). It shows only while
+ * there is a next step (a project that has reached its pieces shows nothing: the Pieces tab says it).
+ * On a phone the strip is left out, since the tabs and the Review badge carry it, and the band loses
+ * its box and eyebrow so it reads as one line: what is next, and the one thing to do.
  */
 export function ProjectOverview({
   projectId,
@@ -35,6 +37,7 @@ export function ProjectOverview({
   /** The client link that opens the hand-over dialog; omitted when nothing is left to hand over. */
   handover: ReactNode;
 }) {
+  if (!hasNextStep(stage.next)) return null;
   return (
     <section
       aria-label="Where this project stands"
@@ -42,7 +45,7 @@ export function ProjectOverview({
     >
       <Steps
         label="Project steps"
-        phoneBar
+        className="max-sm:hidden"
         current={stage.current}
         steps={PROJECT_STEPS.map((step) => ({
           label: step.label,

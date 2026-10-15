@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import {
@@ -107,15 +107,8 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
             ],
           },
         ]}
-      >
-        {canWrite && (
-          <PrimaryLink href={`${RATES_PATH}/assets/new`}>
-            <span>
-              + New<span className="max-sm:sr-only"> asset</span>
-            </span>
-          </PrimaryLink>
-        )}
-      </ListToolbar>
+        primary={canWrite ? { href: `${RATES_PATH}/assets/new`, label: "New asset" } : null}
+      />
 
       {shown.length === 0 ? (
         <EmptyState>

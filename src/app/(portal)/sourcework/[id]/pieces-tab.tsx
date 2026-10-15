@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PlusIcon } from "@/components/ui/plus-icon";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Button } from "@/components/ui/button";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
@@ -41,9 +42,11 @@ export function PiecesTab({
             : undefined
         }
       >
-        <form action={createPiece}>
+        <form action={createPiece} className="max-sm:order-first" data-row="fixed">
           <input type="hidden" name="project_id" value={projectId} />
-          <Button type="submit">+ New piece</Button>
+          <Button type="submit" phoneIcon={<PlusIcon className="size-4" />}>
+            + New piece
+          </Button>
         </form>
       </ListToolbar>
 

@@ -1,5 +1,7 @@
 import { FilterChips, type FilterChip } from "@/components/ui/filter-chips";
 import { FilterMenu } from "@/components/ui/filter-menu";
+import { PlusIcon } from "@/components/ui/plus-icon";
+import { PrimaryLink } from "@/components/ui/primary-link";
 import { ListSearch } from "@/components/ui/list-search";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
@@ -37,6 +39,7 @@ export function ListToolbar({
   filters,
   chips,
   chipsLabel = "Filter",
+  primary,
   className,
   children,
 }: {
@@ -49,7 +52,14 @@ export function ListToolbar({
   chips?: FilterChip[];
   chipsLabel?: string;
   className?: string;
-  /** Right-aligned actions: secondary links first, then the PrimaryLink. */
+  /**
+   * The list's "+ New X" action, always last on the right. Give the label without the plus
+   * ("New program"): it reads "+ New program" from `sm` up and is a "+" square beside the search
+   * on a phone. Null (or omitted) for a list with no create action. An action that is not a
+   * link (a form's submit button) goes in `children` with `phoneIcon` and `max-sm:order-first`.
+   */
+  primary?: { label: string; href: string } | null;
+  /** Right-aligned actions: secondary links first (the primary follows them). */
   children?: ReactNode;
 }) {
   const groups = (filters ?? (chips ? [{ label: chipsLabel, chips }] : [])).filter(
@@ -83,6 +93,15 @@ export function ListToolbar({
         ))}
       <span className="flex-1" data-row="skip" />
       {children}
+      {primary && (
+        <PrimaryLink
+          href={primary.href}
+          phoneIcon={<PlusIcon className="size-4" />}
+          className="max-sm:order-first"
+        >
+          + {primary.label}
+        </PrimaryLink>
+      )}
     </div>
   );
 }

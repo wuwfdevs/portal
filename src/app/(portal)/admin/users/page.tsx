@@ -4,7 +4,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { denyAccessRequest, resendInvite, setAccountStatus } from "./actions";
@@ -89,9 +89,8 @@ export default async function AdminUsersPage({
           href: value === "all" ? "/admin/users" : `/admin/users?status=${value}`,
           active: (statusFilter ?? "all") === value,
         }))}
-      >
-        <PrimaryLink href="/admin/users/invite">+ Invite user</PrimaryLink>
-      </ListToolbar>
+        primary={{ href: "/admin/users/invite", label: "Invite user" }}
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
       {(invited || resent) && (

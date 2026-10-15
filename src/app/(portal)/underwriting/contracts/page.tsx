@@ -2,7 +2,7 @@ import { orderNumberLabel } from "@/lib/underwriting/contract-label";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
@@ -111,15 +111,11 @@ export default async function ContractsPage({
             active: filter === "attention",
           },
         ]}
+        primary={{ href: "/underwriting/contracts/new", label: "New contract" }}
       >
         {isAdministrator && (
           <TextLink href="/underwriting/setup/migration">Migrate legacy records</TextLink>
         )}
-        <PrimaryLink href="/underwriting/contracts/new">
-          <span>
-            + New<span className="max-sm:sr-only"> contract</span>
-          </span>
-        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (

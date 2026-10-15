@@ -75,6 +75,14 @@ export function projectStage(input: ProjectStageInput): ProjectStage {
   };
 }
 
+/**
+ * Whether the overview (step strip and "next" band) has anything to say. A project that has reached
+ * its pieces has every step done and a band that only repeats the Pieces tab, so it shows nothing.
+ */
+export function hasNextStep(next: NextStep): boolean {
+  return next.kind !== "continue_piece";
+}
+
 /** The "next" band's lead line. */
 export function nextStepHeadline(next: NextStep): string {
   switch (next.kind) {

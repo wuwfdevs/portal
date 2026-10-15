@@ -1,5 +1,5 @@
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import {
   listIndustryCategories,
@@ -91,13 +91,9 @@ export default async function UnderwritersPage({
             active: filter === "none",
           },
         ]}
+        primary={{ href: "/underwriting/underwriters/new", label: "New underwriter" }}
       >
         <TextLink href="/underwriting/setup/industries">Industries</TextLink>
-        <PrimaryLink href="/underwriting/underwriters/new">
-          <span>
-            + New<span className="max-sm:sr-only"> underwriter</span>
-          </span>
-        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (

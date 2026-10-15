@@ -4,7 +4,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatUpdatedDate } from "@/lib/resources/articles";
 import { requireResourcesAccess } from "@/lib/resources/access";
@@ -68,15 +67,8 @@ export default async function ProceduresListPage({
         ]}
         chipsLabel="Area"
         className="mb-4"
-      >
-        {isEditor && (
-          <PrimaryLink href="/resources/procedures/new">
-            <span>
-              + New<span className="max-sm:sr-only"> procedure</span>
-            </span>
-          </PrimaryLink>
-        )}
-      </ListToolbar>
+        primary={isEditor ? { href: "/resources/procedures/new", label: "New procedure" } : null}
+      />
 
       {rows.length === 0 ? (
         <EmptyState>

@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink } from "@/components/ui/primary-link";
 import { cn } from "@/lib/cn";
 
 type BacklogView = "open" | "stale" | "assigned" | "archived";
@@ -77,9 +76,8 @@ export default async function BacklogPage({
           active: v.key === view,
           count: countFor(v.key),
         }))}
-      >
-        <PrimaryLink href="/editorial/pitches/new">New pitch</PrimaryLink>
-      </ListToolbar>
+        primary={{ href: "/editorial/pitches/new", label: "New pitch" }}
+      />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 

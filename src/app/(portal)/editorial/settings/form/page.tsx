@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import { FIELD_TYPE_LABEL, PRIMARY_PILLAR_FIELD_KEY } from "@/lib/editorial/form";
@@ -42,9 +42,8 @@ export default async function FormSettingsPage({
             active: view === "retired",
           },
         ]}
-      >
-        {!creating && <PrimaryLink href={`${FORM_PATH}?new=1`}>+ Add field</PrimaryLink>}
-      </ListToolbar>
+        primary={!creating ? { href: `${FORM_PATH}?new=1`, label: "Add field" } : null}
+      />
 
       {error && !creating && <Alert>{error}</Alert>}
 

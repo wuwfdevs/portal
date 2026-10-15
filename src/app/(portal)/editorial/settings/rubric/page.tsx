@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { CardHeader } from "@/components/ui/section-heading";
 import { Field, Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
 import type { CriterionRow, RubricProfileRow } from "@/lib/editorial/data";
@@ -54,9 +54,8 @@ export default async function RubricSettingsPage({
             active: view === "retired",
           },
         ]}
-      >
-        {!creating && <PrimaryLink href={`${RUBRIC_PATH}?new=1`}>+ Add criterion</PrimaryLink>}
-      </ListToolbar>
+        primary={!creating ? { href: `${RUBRIC_PATH}?new=1`, label: "Add criterion" } : null}
+      />
 
       {error && !creating && <Alert>{error}</Alert>}
       <Alert variant="note">
