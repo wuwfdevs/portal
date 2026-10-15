@@ -124,6 +124,7 @@ export default async function TranscriptionListPage({
   const searchHref = (value: string) =>
     withQuery("/sourcework", {
       tab: "notebook",
+      view: notebookView === "excerpts" ? "excerpts" : null,
       q: query,
       kind: value === "all" ? null : value,
     });
@@ -214,6 +215,7 @@ export default async function TranscriptionListPage({
         <>
           <form method="get" role="search" className="mb-4 sm:max-w-xl" data-row="full">
             <input type="hidden" name="tab" value="notebook" />
+            {notebookView === "excerpts" && <input type="hidden" name="view" value="excerpts" />}
             <Input
               type="search"
               name="q"

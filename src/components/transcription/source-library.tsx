@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import { sourcePath } from "@/lib/transcription/links";
 import type { SourceLibraryRow } from "@/lib/transcription/projects";
 import { SourceCard, formatSourceMeta } from "./source-card";
@@ -22,17 +23,24 @@ const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
  * The filter and the type chips are client-side: the source library is one
  * flat, RLS-scoped table read once, not worth a server round trip per
  * keystroke. This is a *filter* over this tab's already-loaded rows
- * (title only, plus kind), not the archive-wide *search* bar above the
- * tabs — same pattern as ProjectTable's and ClipLibrary's tab-local
- * filters. The kind chips were inert with the one source kind that existed
+ * (title only, plus kind), not the archive-wide *search* box above it. It stays
+ * because that search never matches a source's own title (tw_search ranks chunks,
+ * excerpts and projects) and drops sources no project uses, so this is the only way
+ * to find a source by name. The kind chips were inert with the one source kind that existed
  * before Phase 3b (docs/sourcework-design.md §8.10) — now real.
  */
 export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
+  const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<SwSourceKind | "all">("all");
 
   const filtered = useMemo(() => {
-    return sources.filter((source) => kindFilter === "all" || source.kind === kindFilter);
-  }, [sources, kindFilter]);
+    const trimmed = query.trim().toLowerCase();
+    return sources.filter((source) => {
+      if (kindFilter !== "all" && source.kind !== kindFilter) return false;
+      if (trimmed && !source.title.toLowerCase().includes(trimmed)) return false;
+      return true;
+    });
+  }, [sources, query, kindFilter]);
 
   if (sources.length === 0) {
     return (
@@ -45,6 +53,13 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Input
+          type="search"
+          placeholder="Filter sources by title…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className="max-w-xs"
+        />
         <div className="flex gap-1.5">
           {KIND_FILTERS.map((filter) => (
             <button
@@ -65,7 +80,9 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-ink-500">No sources match this filter.</p>
+        <p className="text-sm text-ink-500">
+          {query ? `No sources match "${query}".` : "No sources match this filter."}
+        </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((source) => (
