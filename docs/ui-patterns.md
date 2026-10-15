@@ -452,8 +452,10 @@ the rule in `globals.css` (`.control-row`) takes over:
    is pinned to an edge with white space beside it.
 2. **An icon-only button keeps its square** (`data-row="fixed"`; `ActionMenu` marks its own ⋮)
    and the other control takes the rest.
-3. **A search box takes its own row** (`data-row="full"`; `ListSearch` marks itself), and a
-   control left alone on a row goes full width rather than left-aligned at its natural size.
+3. **A search box takes the first row** (`ListSearch` marks itself `full`, or `grow` when the
+   toolbar has filters). In `ListToolbar` the Filter is an icon-only square (`FilterMenu`, `fixed`,
+   its label kept for screen readers) beside it, so search and filter are one row, and the actions
+   pair up beneath. A control left alone on a row goes full width rather than left-aligned.
 4. **Three or more** pair up two to a row; with an odd count the last one — the primary action,
    by the convention that it comes last — takes the last row alone. Four make two pairs.
 

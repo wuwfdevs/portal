@@ -25,10 +25,11 @@ export interface ListToolbarSearch {
  * Filters are groups of query-string link chips (`filters`, or the older
  * single-group `chips`). One short group shows inline from `sm` up; more than
  * one group, a long group, or any filter on a phone sits behind one Filter
- * button (FilterMenu) that names what's applied. On a phone the search takes
- * the first row to itself and everything else is a control row beneath it
- * (`CONTROL_ROW`): the Filter button and the actions pair up at half width,
- * the spacer is gone, and a third control's primary takes a row of its own.
+ * button (FilterMenu) that names what's applied. On a phone the first row is the
+ * search with the Filter as an icon square beside it (a search with no filters
+ * takes the row alone), and the actions are a control row beneath it
+ * (`CONTROL_ROW`): they pair up at half width, the spacer is gone, and an odd
+ * third control's primary takes a row of its own.
  */
 export function ListToolbar({
   search,
@@ -59,7 +60,13 @@ export function ListToolbar({
   return (
     <div className={cn(CONTROL_ROW, "relative sm:gap-3", className)}>
       {leading && <div data-row="fixed">{leading}</div>}
-      {search && <ListSearch {...search} className="w-full max-sm:order-first sm:w-80" />}
+      {search && (
+        <ListSearch
+          {...search}
+          row={groups.length > 0 ? "grow" : "full"}
+          className="w-full max-sm:order-first sm:w-80"
+        />
+      )}
       {groups.length > 0 &&
         (inline ? (
           <>
@@ -69,10 +76,10 @@ export function ListToolbar({
               className="hidden sm:flex"
               data-row="skip"
             />
-            <FilterMenu groups={groups} className="sm:hidden" />
+            <FilterMenu groups={groups} className="max-sm:order-first sm:hidden" />
           </>
         ) : (
-          <FilterMenu groups={groups} />
+          <FilterMenu groups={groups} className="max-sm:order-first" />
         ))}
       <span className="flex-1" data-row="skip" />
       {children}

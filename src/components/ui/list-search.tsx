@@ -19,12 +19,18 @@ export function ListSearch({
   label,
   defaultValue,
   hidden,
+  row = "full",
   className,
 }: {
   placeholder: string;
   label: string;
   defaultValue?: string;
   hidden?: Record<string, string>;
+  /**
+   * Its place in a control row below `sm`: `full` takes a row to itself, `grow` takes the rest of
+   * the row beside a fixed control (`ListToolbar` uses it for the Filter icon button).
+   */
+  row?: "full" | "grow";
   className?: string;
 }) {
   const router = useRouter();
@@ -76,14 +82,7 @@ export function ListSearch({
   }
 
   return (
-    <form
-      method="get"
-      role="search"
-      onSubmit={onSubmit}
-      className={className}
-      // In a control row a search box always takes a row to itself.
-      data-row="full"
-    >
+    <form method="get" role="search" onSubmit={onSubmit} className={className} data-row={row}>
       {Object.entries(hidden ?? {}).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
