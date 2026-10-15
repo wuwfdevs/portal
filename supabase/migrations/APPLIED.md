@@ -299,6 +299,7 @@ repo and a project's history, not the version number.
 | `20261102120000_resources_sourcework_home_notebook_tab.sql`           | 2026-10-15 | 2026-10-15 |
 | `20261102130000_resources_sourcework_home_polish.sql`                 | 2026-10-15 | 2026-10-15 |
 | `20261103120000_resources_sourcework_guides_realigned.sql`            | 2026-10-15 | 2026-10-15 |
+| `20261103130000_resources_sourcework_guides_review_fixes.sql`         | 2026-10-15 | 2026-10-15 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
