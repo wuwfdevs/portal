@@ -28,7 +28,7 @@ import { SourceLibrary } from "@/components/transcription/source-library";
 import { ProjectTable } from "@/components/transcription/project-table";
 import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { FilterChips } from "@/components/ui/filter-chips";
-import { Input } from "@/components/ui/input";
+import { NotebookSearchForm } from "@/components/transcription/notebook-search";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SubNav } from "@/components/ui/sub-nav";
 import { PageHeader } from "@/components/ui/page-header";
@@ -131,18 +131,7 @@ export default async function TranscriptionListPage({
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
-      <PageHeader
-        size="page"
-        title="Sourcework"
-        className="mb-6"
-        actions={
-          <PrimaryLink href="/sourcework/new">
-            <span>
-              + New<span className="max-sm:sr-only"> project</span>
-            </span>
-          </PrimaryLink>
-        }
-      />
+      <PageHeader size="page" title="Sourcework" className="mb-6" />
 
       <DismissibleHint id="sourcework-shared" className="mb-6">
         Every interview here is shared with the rest of the team. Search the notebook to reuse a
@@ -161,7 +150,7 @@ export default async function TranscriptionListPage({
               </TextLink>
             )}
           </div>
-          <ul className="-mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 sm:-mx-10 sm:px-10 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
+          <ul className="-mx-6 flex snap-x snap-mandatory scroll-px-6 gap-3 overflow-x-auto px-6 pb-2 sm:-mx-10 sm:scroll-px-10 sm:px-10 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
             {resumeRows.map((row) => {
               const failed = row.failedCount > 0;
               const waiting = row.reviewCount > 0;
@@ -213,17 +202,48 @@ export default async function TranscriptionListPage({
 
       {activeTab === "notebook" ? (
         <>
-          <form method="get" role="search" className="mb-4 sm:max-w-xl" data-row="full">
-            <input type="hidden" name="tab" value="notebook" />
-            {notebookView === "excerpts" && <input type="hidden" name="view" value="excerpts" />}
-            <Input
-              type="search"
-              name="q"
-              placeholder="Search transcripts, excerpts and projects"
+          <SubNav
+            label="Notebook sections"
+            items={[
+              {
+                href: notebookPath(),
+                label: "Sources",
+                active: !query && notebookView === "sources",
+              },
+              {
+                href: notebookPath("excerpts"),
+                label: "Excerpts",
+                active: !query && notebookView === "excerpts",
+              },
+            ]}
+          />
+          {isSemanticSearchConfigured() ? (
+            <DismissibleHint id="sourcework-search" className="mb-4">
+              Search finds what was said and what it was about, so try a topic, not just the exact
+              words.
+            </DismissibleHint>
+          ) : (
+            // Whether topic search is on is an administrator's concern; a reporter just gets
+            // better results when it is. This line is a status, not a how-to, so it stays.
+            profile.platform_role === "administrator" && (
+              <p className="mb-4 text-xs text-ink-400">
+                Searches the words that were said. Topic search switches on once an embeddings key
+                is configured.
+              </p>
+            )
+          )}
+
+          {/* One search box. In Sources it is part of the list, which also narrows by title as
+              you type; everywhere else it stands alone above the results or the excerpts. */}
+          {!query && notebookView === "sources" ? (
+            <SourceLibrary sources={sources} />
+          ) : (
+            <NotebookSearchForm
+              className="mb-4"
+              view={notebookView === "excerpts" ? "excerpts" : undefined}
               defaultValue={query}
-              aria-label="Search the notebook"
             />
-          </form>
+          )}
 
           {query ? (
             <>
@@ -256,41 +276,9 @@ export default async function TranscriptionListPage({
               )}
               <GroupedSearchResults results={kindResults} query={query} />
             </>
-          ) : (
-            <>
-              {isSemanticSearchConfigured() ? (
-                <DismissibleHint id="sourcework-search" className="mb-4">
-                  Search finds what was said and what it was about, so try a topic, not just the
-                  exact words.
-                </DismissibleHint>
-              ) : (
-                // Whether topic search is on is an administrator's concern; a reporter just gets
-                // better results when it is. This line is a status, not a how-to, so it stays.
-                profile.platform_role === "administrator" && (
-                  <p className="mb-4 text-xs text-ink-400">
-                    Searches the words that were said. Topic search switches on once an embeddings
-                    key is configured.
-                  </p>
-                )
-              )}
-              <SubNav
-                label="Notebook sections"
-                items={[
-                  { href: notebookPath(), label: "Sources", active: notebookView === "sources" },
-                  {
-                    href: notebookPath("excerpts"),
-                    label: "Excerpts",
-                    active: notebookView === "excerpts",
-                  },
-                ]}
-              />
-              {notebookView === "excerpts" ? (
-                <ClipLibrary clips={clips} showFilter={false} />
-              ) : (
-                <SourceLibrary sources={sources} />
-              )}
-            </>
-          )}
+          ) : notebookView === "excerpts" ? (
+            <ClipLibrary clips={clips} showFilter={false} />
+          ) : null}
         </>
       ) : (
         projectPage &&
@@ -309,7 +297,11 @@ export default async function TranscriptionListPage({
                   })),
                 },
               ]}
-            />
+            >
+              <PrimaryLink href="/sourcework/new">
+                <span>+ New project</span>
+              </PrimaryLink>
+            </ListToolbar>
             <ProjectTable
               rows={projectPage.rows}
               currentUserId={profile.id}
