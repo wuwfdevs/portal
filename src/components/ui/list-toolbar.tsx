@@ -40,6 +40,7 @@ export function ListToolbar({
   chips,
   chipsLabel = "Filter",
   primary,
+  action,
   className,
   children,
 }: {
@@ -55,10 +56,15 @@ export function ListToolbar({
   /**
    * The list's "+ New X" action, always last on the right. Give the label without the plus
    * ("New program"): it reads "+ New program" from `sm` up and is a "+" square beside the search
-   * on a phone. Null (or omitted) for a list with no create action. An action that is not a
-   * link (a form's submit button) goes in `children` with `phoneIcon` and `max-sm:order-first`.
+   * on a phone. Null (or omitted) for a list with no create action.
    */
   primary?: { label: string; href: string } | null;
+  /**
+   * The same slot for a create action that is not a link (a form's submit `Button` with
+   * `phoneIcon`). It takes the primary's place, last on the right and beside the search on a phone,
+   * so a list never has to arrange that itself.
+   */
+  action?: ReactNode;
   /** Right-aligned actions: secondary links first (the primary follows them). */
   children?: ReactNode;
 }) {
@@ -73,7 +79,7 @@ export function ListToolbar({
       {search && (
         <ListSearch
           {...search}
-          row={groups.length > 0 || primary ? "grow" : "full"}
+          row={groups.length > 0 || primary || action ? "grow" : "full"}
           className="w-full max-sm:order-first sm:w-80"
         />
       )}
@@ -93,6 +99,11 @@ export function ListToolbar({
         ))}
       <span className="flex-1" data-row="skip" />
       {children}
+      {action && (
+        <div data-row="fixed" className="max-sm:order-first">
+          {action}
+        </div>
+      )}
       {primary && (
         <PrimaryLink
           href={primary.href}

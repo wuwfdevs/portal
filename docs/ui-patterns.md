@@ -480,8 +480,9 @@ not control rows.
 an abbreviation typed per screen (`+ New<span class="max-sm:sr-only"> program</span>`). Pass
 `primary={{ href, label: "New program" }}` (null when the viewer can't create): it reads
 "+ New program" from `sm` up and is a "+" square on the search row on a phone, with the label kept for
-screen readers. An action that has to be a form submit (Pieces' "+ New piece") is a `Button` with
-`phoneIcon` in a `form` marked `data-row="fixed"` and `max-sm:order-first`.
+screen readers. An action that has to be a form submit (Pieces' "+ New piece") goes in `action`: a
+`Button` with `phoneIcon` in a form. The toolbar places it last on the right and beside the search on a
+phone, so a list never arranges that itself.
 
 A toolbar action that only matters sometimes does not hold a button on a phone: Sourcework's
 quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3

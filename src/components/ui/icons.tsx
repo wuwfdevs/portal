@@ -45,3 +45,19 @@ export function PrintIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg {...STROKE} className={className}>
+      <path d="M10 3.5L5.5 8l4.5 4.5" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg {...STROKE} className={className}>
+      <path d="M6 3.5L10.5 8 6 12.5" />
+    </svg>
+  );
+}
