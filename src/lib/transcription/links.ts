@@ -42,7 +42,7 @@ export function sourcePath(
   return `/sourcework/sources/${sourceId}${query ? `?${query}` : ""}`;
 }
 
-/** The home screen's Library tab: every source and every excerpt, with the archive search above them. */
-export function libraryPath(view?: "excerpts"): string {
-  return view ? `/sourcework?tab=library&view=${view}` : "/sourcework?tab=library";
+/** The home screen's Notebook tab: every source and every excerpt, with the archive search above them. */
+export function notebookPath(view?: "excerpts"): string {
+  return view ? `/sourcework?tab=notebook&view=${view}` : "/sourcework?tab=notebook";
 }

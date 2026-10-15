@@ -1,7 +1,7 @@
 import { TabNav } from "@/components/ui/tab-nav";
-import { libraryPath } from "@/lib/transcription/links";
+import { notebookPath } from "@/lib/transcription/links";
 
-export type SourceworkSection = "projects" | "library" | "setup";
+export type SourceworkSection = "projects" | "notebook" | "setup";
 
 /**
  * Sourcework's top-level tabs. Setup (the research prompts and piece formats editors maintain)
@@ -23,7 +23,7 @@ export function SourceworkTabs({
       className={className}
       tabs={[
         { href: "/sourcework", label: "Projects", active: active === "projects" },
-        { href: libraryPath(), label: "Library", active: active === "library" },
+        { href: notebookPath(), label: "Notebook", active: active === "notebook" },
         ...(isEditor
           ? [{ href: "/sourcework/editors", label: "Setup", active: active === "setup", end: true }]
           : []),

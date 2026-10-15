@@ -36,10 +36,10 @@ import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { formatShortDate, pluralize } from "@/lib/format";
 import { withQuery } from "@/lib/paths";
-import { libraryPath, projectPath } from "@/lib/transcription/links";
+import { notebookPath, projectPath } from "@/lib/transcription/links";
 
-type Tab = "projects" | "library";
-type LibraryView = "sources" | "excerpts";
+type Tab = "projects" | "notebook";
+type NotebookView = "sources" | "excerpts";
 
 const FILTER_LABEL: Record<ProjectListFilter, string> = {
   all: "All",
@@ -71,12 +71,12 @@ export default async function TranscriptionListPage({
   const { profile, isEditor } = await requireSourceworkContext();
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
-  // `sources` and `clips` are the two tabs the Library replaced; old links and bookmarks still
-  // land on the right view. A query always belongs to the Library, wherever the link came from.
-  const legacyView: LibraryView | null =
+  // `sources` and `clips` are the two tabs the Notebook replaced; old links and bookmarks still
+  // land on the right view. A query always belongs to the Notebook, wherever the link came from.
+  const legacyView: NotebookView | null =
     params.tab === "clips" ? "excerpts" : params.tab === "sources" ? "sources" : null;
-  const activeTab: Tab = query || params.tab === "library" || legacyView ? "library" : "projects";
-  const libraryView: LibraryView =
+  const activeTab: Tab = query || params.tab === "notebook" || legacyView ? "notebook" : "projects";
+  const notebookView: NotebookView =
     params.view === "excerpts" || legacyView === "excerpts" ? "excerpts" : "sources";
   const filter = parseProjectListFilter(params.filter);
   const kind = parseSearchKind(params.kind);
@@ -97,10 +97,10 @@ export default async function TranscriptionListPage({
       ? listProjectsPage({ filter, userId: profile.id, page: pageNumber })
       : Promise.resolve(null),
     showProjects ? countProjectFilters(profile.id) : Promise.resolve(null),
-    !query && activeTab === "library" && libraryView === "sources"
+    !query && activeTab === "notebook" && notebookView === "sources"
       ? listSources()
       : Promise.resolve([]),
-    !query && activeTab === "library" && libraryView === "excerpts"
+    !query && activeTab === "notebook" && notebookView === "excerpts"
       ? listLibraryClips()
       : Promise.resolve([]),
     showAttention
@@ -123,7 +123,7 @@ export default async function TranscriptionListPage({
   const kindResults = filterResultsByKind(results, kind);
   const searchHref = (value: string) =>
     withQuery("/sourcework", {
-      tab: "library",
+      tab: "notebook",
       q: query,
       kind: value === "all" ? null : value,
     });
@@ -144,7 +144,7 @@ export default async function TranscriptionListPage({
       />
 
       <DismissibleHint id="sourcework-shared" className="mb-6">
-        Every interview here is shared with the rest of the team. Search the library to reuse a
+        Every interview here is shared with the rest of the team. Search the notebook to reuse a
         quote, or start a new project.
       </DismissibleHint>
 
@@ -210,16 +210,16 @@ export default async function TranscriptionListPage({
 
       <SourceworkTabs className="mb-5" active={activeTab} isEditor={isEditor} />
 
-      {activeTab === "library" ? (
+      {activeTab === "notebook" ? (
         <>
           <form method="get" role="search" className="mb-4 sm:max-w-xl" data-row="full">
-            <input type="hidden" name="tab" value="library" />
+            <input type="hidden" name="tab" value="notebook" />
             <Input
               type="search"
               name="q"
               placeholder="Search transcripts, excerpts and projects"
               defaultValue={query}
-              aria-label="Search the library"
+              aria-label="Search the notebook"
             />
           </form>
 
@@ -234,7 +234,7 @@ export default async function TranscriptionListPage({
                   {results.length >= SEARCH_RESULT_LIMIT &&
                     " — there may be more. Try a more specific search to narrow them."}
                 </span>
-                <TextLink href={libraryPath(libraryView === "excerpts" ? "excerpts" : undefined)}>
+                <TextLink href={notebookPath(notebookView === "excerpts" ? "excerpts" : undefined)}>
                   Clear search
                 </TextLink>
               </div>
@@ -272,17 +272,17 @@ export default async function TranscriptionListPage({
                 )
               )}
               <SubNav
-                label="Library sections"
+                label="Notebook sections"
                 items={[
-                  { href: libraryPath(), label: "Sources", active: libraryView === "sources" },
+                  { href: notebookPath(), label: "Sources", active: notebookView === "sources" },
                   {
-                    href: libraryPath("excerpts"),
+                    href: notebookPath("excerpts"),
                     label: "Excerpts",
-                    active: libraryView === "excerpts",
+                    active: notebookView === "excerpts",
                   },
                 ]}
               />
-              {libraryView === "excerpts" ? (
+              {notebookView === "excerpts" ? (
                 <ClipLibrary clips={clips} showFilter={false} />
               ) : (
                 <SourceLibrary sources={sources} />
