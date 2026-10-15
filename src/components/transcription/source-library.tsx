@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { sourcePath } from "@/lib/transcription/links";
 import type { SourceLibraryRow } from "@/lib/transcription/projects";
+import { NotebookSearchForm } from "./notebook-search";
 import { SourceCard, formatSourceMeta } from "./source-card";
 import type { SwSourceKind } from "@/lib/database.types";
 
@@ -42,70 +42,73 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
     });
   }, [sources, query, kindFilter]);
 
-  if (sources.length === 0) {
-    return (
-      <EmptyState>
-        No sources yet. Upload an interview or a PDF from a project to get started.
-      </EmptyState>
-    );
-  }
-
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input
-          type="search"
-          placeholder="Filter sources by title…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="max-w-xs"
-        />
-        <div className="flex gap-1.5">
-          {KIND_FILTERS.map((filter) => (
-            <button
-              key={filter.value}
-              type="button"
-              aria-pressed={kindFilter === filter.value}
-              onClick={() => setKindFilter(filter.value)}
-              className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                kindFilter === filter.value
-                  ? "border-brand-primary bg-brand-surface text-brand-link"
-                  : "border-line text-ink-400 hover:border-ink-300"
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="text-sm text-ink-500">
-          {query ? `No sources match "${query}".` : "No sources match this filter."}
-        </p>
+      <NotebookSearchForm
+        className="mb-4"
+        value={query}
+        onChange={setQuery}
+        hint={
+          query.trim()
+            ? "Narrowing sources by title. Press Enter to search every transcript and excerpt."
+            : undefined
+        }
+      />
+      {sources.length === 0 ? (
+        <EmptyState>
+          No sources yet. Upload an interview or a PDF from a project to get started.
+        </EmptyState>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((source) => (
-            <SourceCard
-              key={source.id}
-              href={sourcePath(source.id)}
-              kind={source.kind}
-              status={source.status}
-              title={source.title}
-              meta={formatSourceMeta({
-                kind: source.kind,
-                date: source.interviewDate ?? source.createdAt,
-                durationMs: source.durationMs,
-                pageCount: source.pageCount,
-              })}
-              footnote={
-                source.projectCount === 0
-                  ? "Not used in any project yet"
-                  : `Used in ${pluralize(source.projectCount, "project")}`
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="flex gap-1.5">
+              {KIND_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  aria-pressed={kindFilter === filter.value}
+                  onClick={() => setKindFilter(filter.value)}
+                  className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                    kindFilter === filter.value
+                      ? "border-brand-primary bg-brand-surface text-brand-link"
+                      : "border-line text-ink-400 hover:border-ink-300"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <p className="text-sm text-ink-500">
+              {query ? `No sources match "${query}".` : "No sources match this filter."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((source) => (
+                <SourceCard
+                  key={source.id}
+                  href={sourcePath(source.id)}
+                  kind={source.kind}
+                  status={source.status}
+                  title={source.title}
+                  meta={formatSourceMeta({
+                    kind: source.kind,
+                    date: source.interviewDate ?? source.createdAt,
+                    durationMs: source.durationMs,
+                    pageCount: source.pageCount,
+                  })}
+                  footnote={
+                    source.projectCount === 0
+                      ? "Not used in any project yet"
+                      : `Used in ${pluralize(source.projectCount, "project")}`
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
