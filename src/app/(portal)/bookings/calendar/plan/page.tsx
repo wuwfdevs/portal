@@ -40,6 +40,7 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { Card } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
 import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 type Params = { plan?: string; new?: string; edit?: string; capacity?: string; error?: string };
 
@@ -492,13 +493,11 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                 <form action={removeResource}>
                                   <input type="hidden" name="plan_id" value={plan.id} />
                                   <input type="hidden" name="id" value={resource.id} />
-                                  <Button
-                                    type="submit"
-                                    variant="ghost"
-                                    className="text-xs text-ink-500"
-                                  >
-                                    Remove
-                                  </Button>
+                                  <ConfirmSubmit
+                                    label="Remove"
+                                    confirmLabel="Yes, remove the resource"
+                                    message="This resource is removed from the term plan."
+                                  />
                                 </form>
                               )}
                             </span>

@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DayPicker } from "@/components/ui/day-picker";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
@@ -53,6 +52,7 @@ import {
   updateClosedWindow,
   updateUnderwritingHourChange,
 } from "./actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 const BASE_PATH = "/log/underwriting-hours";
 
@@ -389,9 +389,13 @@ function WeeklyCard({
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button type="submit" variant="ghost" formAction={removeClosedWindow} formNoValidate>
-              Remove these hours
-            </Button>
+            <ConfirmSubmit
+              label="Remove these hours"
+              confirmLabel="Yes, remove these hours"
+              message="Removing these hours opens the window to underwriting again."
+              formAction={removeClosedWindow}
+              formNoValidate
+            />
           </div>
         ) : undefined
       }
@@ -484,14 +488,13 @@ function ChangeCard({
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button
-              type="submit"
-              variant="ghost"
+            <ConfirmSubmit
+              label="Remove this change"
+              confirmLabel="Yes, remove this change"
+              message="Removing this change returns those hours to the weekly closed hours."
               formAction={removeUnderwritingHourChange}
               formNoValidate
-            >
-              Remove this change
-            </Button>
+            />
           </div>
         ) : undefined
       }

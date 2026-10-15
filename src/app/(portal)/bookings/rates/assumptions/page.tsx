@@ -37,6 +37,7 @@ import { ValidationBadge, ValidationControls } from "../validation-controls";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 type Params = { version?: string; edit?: string; new?: string; accept?: string; error?: string };
 
@@ -357,9 +358,11 @@ function AssumptionsTable({
                           <form action={deleteAssumption}>
                             <input type="hidden" name="id" value={row.id} />
                             <input type="hidden" name="version_id" value={versionId} />
-                            <Button type="submit" variant="ghost" className="text-xs text-ink-500">
-                              Remove
-                            </Button>
+                            <ConfirmSubmit
+                              label="Remove"
+                              confirmLabel="Yes, remove the assumption"
+                              message="This assumption is removed from this draft version. This can’t be undone."
+                            />
                           </form>
                         </div>
                       )}

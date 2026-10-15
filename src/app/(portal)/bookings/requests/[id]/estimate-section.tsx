@@ -34,6 +34,7 @@ import {
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const LINE_KINDS: readonly BkEstimateLineKind[] = ["package", "labor", "expense"];
@@ -286,9 +287,11 @@ export function EstimateSection({
                           <form action={removeEstimateLine} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="line_id" value={line.id} />
-                            <Button type="submit" variant="ghost">
-                              Remove
-                            </Button>
+                            <ConfirmSubmit
+                              label="Remove"
+                              confirmLabel="Yes, remove the line"
+                              message="This line is removed from the estimate and the price is worked out again."
+                            />
                           </form>
                         </span>
                       </Cell>

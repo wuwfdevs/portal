@@ -94,7 +94,7 @@ export function LineMenu({
                 cleared. Credits before it, and their history, stand.
               </FieldHint>
             </div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="danger">
               Cancel line
             </Button>
             <Button type="button" variant="ghost" onClick={() => setConfirm(null)}>
@@ -117,7 +117,7 @@ export function LineMenu({
             <span className="text-xs text-ink-700" data-row="full">
               Nothing has scheduled from this line, so it goes away with no history to keep.
             </span>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="danger">
               Remove line
             </Button>
             <Button type="button" variant="ghost" onClick={() => setConfirm(null)}>

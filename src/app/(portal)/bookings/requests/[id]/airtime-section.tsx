@@ -19,6 +19,7 @@ import { addCommitment, removeCommitment, updateCommitment } from "../actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormActions } from "@/components/ui/form-actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 /**
  * The project's airtime commitments (docs/bookings-design.md §2.5): airings
@@ -141,9 +142,11 @@ export function AirtimeSection({
                           <form action={removeCommitment} className="inline">
                             <input type="hidden" name="project_id" value={project.id} />
                             <input type="hidden" name="commitment_id" value={commitment.id} />
-                            <Button type="submit" variant="ghost">
-                              Remove
-                            </Button>
+                            <ConfirmSubmit
+                              label="Remove"
+                              confirmLabel="Yes, remove the commitment"
+                              message="This airtime commitment is removed from the request."
+                            />
                           </form>
                         </span>
                       </Cell>

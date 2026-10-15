@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DayPicker } from "@/components/ui/day-picker";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
@@ -53,6 +52,7 @@ import {
   updateOnAirChange,
   updateWeeklyWindow,
 } from "./actions";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 const BASE_PATH = "/log/automated-hours";
 
@@ -384,9 +384,13 @@ function WeeklyCard({
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button type="submit" variant="ghost" formAction={removeWeeklyWindow} formNoValidate>
-              Remove these hours
-            </Button>
+            <ConfirmSubmit
+              label="Remove these hours"
+              confirmLabel="Yes, remove these hours"
+              message="Removing these hours returns the window to hosted programming."
+              formAction={removeWeeklyWindow}
+              formNoValidate
+            />
           </div>
         ) : undefined
       }
@@ -479,9 +483,13 @@ function ChangeCard({
       sections={
         row ? (
           <div className="border-t border-line px-5 py-3">
-            <Button type="submit" variant="ghost" formAction={removeOnAirChange} formNoValidate>
-              Remove this change
-            </Button>
+            <ConfirmSubmit
+              label="Remove this change"
+              confirmLabel="Yes, remove this change"
+              message="Removing this change returns those hours to the weekly schedule."
+              formAction={removeOnAirChange}
+              formNoValidate
+            />
           </div>
         ) : undefined
       }

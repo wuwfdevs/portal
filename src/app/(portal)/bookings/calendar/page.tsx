@@ -61,6 +61,7 @@ import { CalendarGrid, type CalendarView } from "./calendar-grid";
 import { AirtimePanel, CapacityPanel } from "./envelope-panels";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { ConfirmSubmit } from "@/components/ui/confirm-action";
 
 type Params = {
   plan?: string;
@@ -700,9 +701,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         <form action={deleteBlackout}>
                           <input type="hidden" name="id" value={blackout.id} />
                           <input type="hidden" name="return_to" value={here()} />
-                          <Button type="submit" variant="ghost">
-                            Remove
-                          </Button>
+                          <ConfirmSubmit
+                            label="Remove"
+                            confirmLabel="Yes, remove the blackout"
+                            message="This blackout is removed and the window opens for bookings again."
+                          />
                         </form>
                       )}
                     </Cell>
@@ -731,9 +734,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         <form action={deleteHold}>
                           <input type="hidden" name="id" value={hold.id} />
                           <input type="hidden" name="return_to" value={here()} />
-                          <Button type="submit" variant="ghost">
-                            Remove
-                          </Button>
+                          <ConfirmSubmit
+                            label="Remove"
+                            confirmLabel="Yes, remove the hold"
+                            message="This hold is removed and its capacity is released."
+                          />
                         </form>
                       )}
                     </Cell>
