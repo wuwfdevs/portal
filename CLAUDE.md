@@ -4503,6 +4503,15 @@ So a schema change is done when, and only when:
 3. Its row is added to **`supabase/migrations/APPLIED.md`** with both dates.
 4. **`npm run db:check`** passes.
 
+**Migration version prefixes have run ahead of the calendar.** The files from `20261016…`
+through `20261103…` were written and applied between 2026-10-09 and 2026-10-15, so a prefix is
+a sequence number, not the date; the real dates are the two columns in `APPLIED.md`. A new
+migration still has to sort after every applied file (a fresh database runs them in prefix
+order), so continue the sequence rather than "correcting" it back to today. One consequence
+already bit once: `rc_release_note()`'s `p_released_on` was copied from the filename and What's
+new showed November dates in mid-October (fixed by `20261103120000`). Pass the day the change
+actually ships, never the prefix.
+
 `APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
 a migration file with no row, a row naming a missing file, or a row where either
 environment isn't a date. Read that file before touching migration history — it also

@@ -347,3 +347,4 @@ replacement file and applying it on top.
 
 Deliberately not in the table above: the table is keyed on files that exist, and
 `npm run db:check` treats a row naming a missing file as an error.
+| `20261103120000_resources_sourcework_guides_realigned.sql`           | 2026-10-15 | 2026-10-15 |
