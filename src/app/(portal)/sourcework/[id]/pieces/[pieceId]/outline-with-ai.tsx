@@ -167,7 +167,7 @@ export function OutlineWithAi({
           type="button"
           variant="link"
           touch
-          data-row="fixed"
+          row="fixed"
           onClick={onCancel}
           disabled={running}
         >

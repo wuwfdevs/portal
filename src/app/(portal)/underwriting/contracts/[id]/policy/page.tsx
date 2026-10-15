@@ -124,7 +124,7 @@ export default async function ContractPolicyPage({
                 <Button type="submit" variant="secondary">
                   Save policy
                 </Button>
-                <TextLink href={`/underwriting/contracts/${contract.id}/copy`} data-row="fixed">
+                <TextLink href={`/underwriting/contracts/${contract.id}/copy`} row="fixed">
                   ← Back to copy
                 </TextLink>
                 <span className="flex-1" data-row="skip" />

@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
@@ -1098,16 +1098,14 @@ function SlotPanel({
                     value={slot.local?.opportunityId ?? ""}
                   />
                   <input type="hidden" name="return_query" value={returnQuery} />
-                  <Button type="submit" variant="secondary" className="h-9 px-3.5 py-0">
+                  <Button type="submit" variant="secondary">
                     Remove
                   </Button>
                 </form>
               )}
             </>
           ) : (
-            <SecondaryLink href={actionHref("mark")} className="h-9 px-3.5 py-0">
-              Mark eligible for local content
-            </SecondaryLink>
+            <SecondaryLink href={actionHref("mark")}>Mark eligible for local content</SecondaryLink>
           )}
         </div>
       )}
@@ -1116,9 +1114,9 @@ function SlotPanel({
         <div className="border-t border-line bg-panel-50/60 px-5 py-4">
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-sm font-bold text-ink-900">{form.title}</h4>
-            <TextLink href={form.cancelHref} className="hover:underline">
+            <SecondaryLink size="sm" href={form.cancelHref}>
               Cancel
-            </TextLink>
+            </SecondaryLink>
           </div>
           {form.node}
         </div>

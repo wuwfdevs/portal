@@ -30,9 +30,7 @@ import {
 } from "@/lib/log/timezone";
 import { isValidDateISO } from "@/lib/dates";
 import { releaseDadLog } from "./actions";
-
-const NAV_LINK =
-  "inline-flex shrink-0 items-center justify-center rounded border border-line px-2.5 py-1.5 text-xs font-bold text-ink-700 hover:bg-panel-100";
+import { DateStepper } from "@/components/ui/date-stepper";
 
 /**
  * The DAD log for one day (lib/log/dad-export.ts): the credits DAD plays in
@@ -69,14 +67,11 @@ export default async function DadLogPage({
         title={<>DAD log · {formatStationDateLong(date)}</>}
         description="The credits DAD plays in automated hours. Nothing else is in the file."
         actions={
-          <>
-            <Link href={href({ date: shiftDateISO(date, -1) })} className={NAV_LINK}>
-              ← Prev day
-            </Link>
-            <Link href={href({ date: shiftDateISO(date, 1) })} className={NAV_LINK}>
-              Next day →
-            </Link>
-          </>
+          <DateStepper
+            date={date}
+            prevHref={href({ date: shiftDateISO(date, -1) })}
+            nextHref={href({ date: shiftDateISO(date, 1) })}
+          />
         }
       />
 

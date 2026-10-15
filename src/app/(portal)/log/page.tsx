@@ -2,13 +2,12 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ControlRow } from "@/components/ui/control-row";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { DateStepper } from "@/components/ui/date-stepper";
 import { pluralize } from "@/lib/format";
 import { isValidDateISO } from "@/lib/dates";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
@@ -92,40 +91,16 @@ export default async function LogTodayPage({
           {selectedDate === today && <Badge variant="accent">Today</Badge>}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          {/* Day navigation: the arrows are squares either side of the date on a phone. */}
-          <ControlRow className="sm:flex-nowrap">
-            <SecondaryLink
-              size="sm"
-              href={`/log?date=${shiftDateISO(selectedDate, -1)}`}
-              phoneIcon={<ChevronLeftIcon className="size-4" />}
-            >
-              ← Prev day
-            </SecondaryLink>
-            <form method="get" className="flex items-end gap-2 max-sm:flex-1" data-row="grow">
-              <Input
-                id="log-today-date"
-                type="date"
-                name="date"
-                aria-label="Jump to date"
-                defaultValue={selectedDate}
-                className="w-40 max-sm:w-full max-sm:min-w-0 max-sm:flex-1"
-              />
-              <Button type="submit" variant="secondary" className="shrink-0">
-                Go
-              </Button>
-            </form>
-            <SecondaryLink
-              size="sm"
-              href={`/log?date=${shiftDateISO(selectedDate, 1)}`}
-              phoneIcon={<ChevronRightIcon className="size-4" />}
-            >
-              Next day →
-            </SecondaryLink>
-          </ControlRow>
+          <DateStepper
+            date={selectedDate}
+            prevHref={`/log?date=${shiftDateISO(selectedDate, -1)}`}
+            nextHref={`/log?date=${shiftDateISO(selectedDate, 1)}`}
+            id="log-today-date"
+          />
           <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
-          <ControlRow className="justify-end sm:justify-start">
+          <ControlRow>
             {selectedDate !== today && (
-              <SecondaryLink size="sm" href="/log">
+              <SecondaryLink size="sm" href="/log" row="fixed">
                 Today
               </SecondaryLink>
             )}
@@ -134,11 +109,8 @@ export default async function LogTodayPage({
               size="sm"
               className="shrink-0"
               title="Import the traffic system's program log"
-              phoneIcon={<TransferIcon direction="in" size={16} />}
             >
-              <span className="max-sm:hidden">
-                <TransferIcon direction="in" />
-              </span>
+              <TransferIcon direction="in" />
               Import
             </SecondaryLink>
             <SecondaryLink
@@ -146,11 +118,8 @@ export default async function LogTodayPage({
               size="sm"
               className="shrink-0"
               title="Export the DAD log for automated hours"
-              phoneIcon={<TransferIcon direction="out" size={16} />}
             >
-              <span className="max-sm:hidden">
-                <TransferIcon direction="out" />
-              </span>
+              <TransferIcon direction="out" />
               Export
             </SecondaryLink>
           </ControlRow>

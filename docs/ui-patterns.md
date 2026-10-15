@@ -492,14 +492,31 @@ sources not analyzed" with the button on it) only while something is waiting.
 44px tall on a phone without a call site remembering to say so; don't force a smaller height
 (`h-9 py-0`, `px-3 py-2 text-[13px]`) or add `max-sm:min-h-*` to one.
 
+### Placing a control in a row: `row`
+
+`Button`, `PrimaryLink`, `SecondaryLink` and `TextLink` take `row="fixed" | "full" | "grow" | "skip"`
+(`ControlRowPlacement`, `components/ui/control-row.tsx`): how the control sits in a `ControlRow` below
+`sm`. Use the prop on those four; the raw `data-row` attribute is only for an element that isn't one of
+them (a `form`, a `span`, a `div`), and `ui-rules.test.ts` fails a `data-row` on one of the four.
+
+### Day navigation
+
+A screen that shows one day (On Air's Today, the DAD log) uses `DateStepper`
+(`components/ui/date-stepper.tsx`): Prev day, a date field, Next day, then Go. The arrows are squares
+either side of the field on a phone; Go sits to the right of Next day, outside the field's form and tied
+to it with `form=`, so the row reads ‹ date › Go everywhere. Don't hand-type a Prev/Next pair. The month
+arrows around a heading (Traffic's affidavits) are a different shape and stay as they are.
+
 ### Icons on a phone
 
 A boxed control whose verb has a picture everyone knows falls back to an icon square below `sm`, by
 `phoneIcon` on `Button`, `PrimaryLink` and `SecondaryLink` (44px, a fixed control in a control row, the
 label kept for screen readers). The set is in `components/ui/icons.tsx` plus `PlusIcon`: Add (a list's
 "+ New X" is `ListToolbar`'s `primary`, other create links pass `phoneIcon`), Edit, Download,
-Refresh, Print, and the Filter square. Use it where the control sits in a row with others, so the
-saved width is the point. Never for: a decision (Save, Submit, Confirm), a destructive action, an AI
+Refresh, Print, and the Filter square. An icon square is a **companion, never a row's only
+content**: it rides beside a stretching control (a search box, a date field, a title). The CSS enforces
+it: in a control row that holds nothing but fixed controls, the label comes back and the square is an
+ordinary button again (`.phone-icon` in `globals.css`). Use it where the saved width is the point. Never for: a decision (Save, Submit, Confirm), a destructive action, an AI
 action (it keeps its label and the sparkles mark), or a verb that needs its noun to be understood
 ("Edit order details" is fine because the page says whose order; "Remove" alone is not).
 
@@ -510,6 +527,20 @@ that acts on one click. `ConfirmAction` is the callback form; **`ConfirmSubmit`*
 steps for a plain `<form action>` (it takes `formAction`/`formNoValidate` through to the confirm
 button). Its message says what goes and what stays. A row action is the danger-link first step; a
 standalone one passes `trigger="button"`.
+
+### Rules that fail the build
+
+`src/lib/ui-rules.test.ts` scans the source for the patterns a sweep of every screen removed, so they
+can't come back unnoticed: a hand-abbreviated "+ New X", a `PrimaryLink` inside `ListToolbar`'s
+children, a `TextLink` Cancel, a ghost submit "Remove"/"Delete", a raw `data-row` on a `Button` or link,
+a forced `h-9`/`py-0` on a link-styled button, and a hand-typed Prev day / Next day pair. A real
+exception names its file in the test, with the reason.
+
+### The assistant's bubble
+
+Below `lg` the assistant's floating bubble steps aside while the page scrolls down and returns on
+scroll up (`useTuckOnScroll`, `lib/tuck-on-scroll.ts`), so it never covers a row's last button. The
+page keeps its bottom padding for the bubble at rest (`globals.css`).
 
 ### Form footers
 

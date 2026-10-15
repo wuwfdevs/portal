@@ -4,6 +4,7 @@ import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/cn";
 import { SparklesIcon } from "./sparkles-icon";
 import { TAP_TARGET } from "./tap-target";
+import type { ControlRowPlacement } from "./control-row";
 import type { ComponentProps, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link" | "danger-link";
@@ -21,6 +22,8 @@ interface ButtonProps extends ComponentProps<"button"> {
    * control in a control row, docs/ui-patterns.md) and the label stays for screen readers.
    */
   phoneIcon?: ReactNode;
+  /** Where it sits in a control row below `sm` (see `ControlRowPlacement`). */
+  row?: ControlRowPlacement;
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -67,6 +70,7 @@ export function Button({
   touch = false,
   ai = false,
   phoneIcon,
+  row,
   className,
   children,
   ...props
@@ -82,10 +86,10 @@ export function Button({
         variant !== "link" && variant !== "danger-link" && SIZE_CLASSES[size],
         (touch || BOXED_VARIANTS.has(variant)) && TAP_TARGET,
         VARIANT_CLASSES[variant],
-        phoneIcon ? "max-sm:w-11 max-sm:flex-none max-sm:px-0" : undefined,
+        phoneIcon ? "phone-icon" : undefined,
         className,
       )}
-      data-row={phoneIcon ? "fixed" : undefined}
+      data-row={row ?? (phoneIcon ? "fixed" : undefined)}
       {...props}
       disabled={isPendingSubmit || props.disabled}
     >
@@ -98,10 +102,10 @@ export function Button({
       {ai && !isPendingSubmit && <SparklesIcon className="h-3.5 w-3.5 shrink-0" />}
       {phoneIcon ? (
         <>
-          <span aria-hidden="true" className="sm:hidden">
+          <span aria-hidden="true" className="phone-icon__glyph">
             {phoneIcon}
           </span>
-          <span className="max-sm:sr-only">{children}</span>
+          <span className="phone-icon__label">{children}</span>
         </>
       ) : (
         children

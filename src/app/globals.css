@@ -136,3 +136,51 @@ main:has(~ [data-assistant-bubble="always"]) {
     flex-basis: 100%;
   }
 }
+
+/*
+ * A control with a `phoneIcon` (Button, PrimaryLink, SecondaryLink): the label from `sm` up, an icon
+ * square below it, the label kept for screen readers. An icon square is a companion, never a row's
+ * only content, so in a control row that holds nothing but fixed controls the label comes back and
+ * the square is a button again (docs/ui-patterns.md, "Icons on a phone").
+ */
+.phone-icon__glyph {
+  display: none;
+}
+@media (max-width: 639.98px) {
+  .phone-icon {
+    width: 2.75rem;
+    flex: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .phone-icon__glyph {
+    display: inline-flex;
+  }
+  .phone-icon__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .control-row:not(:has(> :not([data-row="fixed"], [data-row="skip"], [type="hidden"], [hidden])))
+    .phone-icon {
+    width: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .control-row:not(:has(> :not([data-row="fixed"], [data-row="skip"], [type="hidden"], [hidden])))
+    .phone-icon__glyph {
+    display: none;
+  }
+  .control-row:not(:has(> :not([data-row="fixed"], [data-row="skip"], [type="hidden"], [hidden])))
+    .phone-icon__label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+}
