@@ -73,7 +73,7 @@ export function ListToolbar({
       {search && (
         <ListSearch
           {...search}
-          row={groups.length > 0 ? "grow" : "full"}
+          row={groups.length > 0 || primary ? "grow" : "full"}
           className="w-full max-sm:order-first sm:w-80"
         />
       )}
