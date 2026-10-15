@@ -70,7 +70,7 @@ export function BreakPicker({ groups }: { groups: BreakPickerGroup[] }) {
       ) : (
         visible.map((group) => (
           <fieldset key={group.key} className="m-0 flex flex-col gap-1.5 border-0 p-0">
-            <legend className="mb-1.5 flex items-baseline gap-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+            <legend className="mb-1.5 flex items-baseline gap-2 text-label font-bold uppercase tracking-wider text-ink-500">
               {group.label}
               {group.needed && (
                 <span className="font-semibold normal-case tracking-normal text-warning-fg">
@@ -84,7 +84,7 @@ export function BreakPicker({ groups }: { groups: BreakPickerGroup[] }) {
                 <label
                   key={option.id}
                   className={cn(
-                    "flex items-center gap-3 rounded border px-3.5 py-2.5 text-[13px]",
+                    "flex items-center gap-3 rounded border px-3.5 py-2.5 text-ui",
                     disabled
                       ? "border-line bg-panel-50 text-ink-400"
                       : "cursor-pointer border-line bg-white text-ink-700 hover:border-brand-primary has-[:checked]:border-brand-primary has-[:checked]:bg-brand-surface/60",

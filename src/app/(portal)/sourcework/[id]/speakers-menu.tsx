@@ -81,7 +81,7 @@ export function SpeakersMenu({
         <span className="truncate">
           Speakers ({summary.count}){summary.text && ` · ${summary.text}`}
         </span>
-        <span aria-hidden="true" className="ml-1.5 text-[10px]">
+        <span aria-hidden="true" className="ml-1.5 text-badge">
           ▾
         </span>
       </Button>
@@ -407,7 +407,7 @@ function SpeakerEditRow({
           aria-label={`Name for ${row.label}`}
           className="w-full px-2.5 py-1.5 sm:w-44"
         />
-        <span className="font-mono text-[11px] text-ink-500">
+        <span className="font-mono text-label text-ink-500">
           {row.lines === 0
             ? "no lines"
             : `${formatDuration(row.talkMs)} · ${Math.round(row.share * 100)}%`}

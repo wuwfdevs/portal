@@ -21,11 +21,11 @@ export function BusyPanel({
   return (
     <div aria-live="polite" className="flex flex-col gap-2.5 rounded border border-line px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="text-[15px] font-bold text-ink-900">{title}</span>
-        {hint && <span className="text-[13px] text-ink-500">{hint}</span>}
+        <span className="text-body font-bold text-ink-900">{title}</span>
+        {hint && <span className="text-ui text-ink-500">{hint}</span>}
       </div>
       <ProgressBar indeterminate label={title} />
-      {note && <p className="text-[13px] leading-snug text-ink-700">{note}</p>}
+      {note && <p className="text-ui leading-snug text-ink-700">{note}</p>}
     </div>
   );
 }

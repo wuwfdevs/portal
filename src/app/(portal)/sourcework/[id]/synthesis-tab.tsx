@@ -551,7 +551,7 @@ function SynthesisBodyView({
                         <Badge variant="danger">No accepted finding behind it</Badge>
                       )}
                     </div>
-                    <p className="text-[15px] leading-snug text-ink-900">{statement.statement}</p>
+                    <p className="text-body leading-snug text-ink-900">{statement.statement}</p>
                   </EvidenceCard>
                 );
               })}
@@ -641,7 +641,7 @@ function SynthesisBodyView({
                     )}
                   </div>
                   <p className="text-sm font-bold text-ink-900">{theme.label}</p>
-                  <p className="mt-0.5 text-[15px] leading-snug text-ink-900">{theme.statement}</p>
+                  <p className="mt-0.5 text-body leading-snug text-ink-900">{theme.statement}</p>
                   {theme.passages.length > 0 && (
                     <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
                       <span className="text-ink-500">In the recordings:</span>
@@ -733,7 +733,7 @@ function SynthesisBodyView({
                     <Badge variant="danger">No accepted finding behind it</Badge>
                   )}
                 </div>
-                <p className="mb-3 text-[15px] leading-snug text-ink-900">{tension.statement}</p>
+                <p className="mb-3 text-body leading-snug text-ink-900">{tension.statement}</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {tension.sides.map((side, index) => {
                     const payload = evidence(`${tension.id}:${index}`, side.label, side.cites);
@@ -786,7 +786,7 @@ function NarrativeItem({
 }) {
   return (
     <li className="rounded border border-line bg-white p-4">
-      <p className="text-[15px] leading-snug text-ink-900">
+      <p className="text-body leading-snug text-ink-900">
         {note.note} <OriginBadge origin={note.origin} />
       </p>
       <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">

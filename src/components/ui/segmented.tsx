@@ -45,7 +45,7 @@ export function Segmented<T extends string>({
             defaultChecked={value === undefined ? defaultValue === option.value : undefined}
             onChange={onChange ? () => onChange(option.value) : undefined}
           />
-          <span className="inline-flex h-9 items-center border-r border-line bg-white px-3.5 text-[13px] font-semibold text-ink-700 last:border-r-0 peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
+          <span className="inline-flex h-9 items-center border-r border-line bg-white px-3.5 text-ui font-semibold text-ink-700 last:border-r-0 peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-surface">
             {option.label}
           </span>
         </label>
@@ -88,7 +88,7 @@ export function SegmentedLinks({
           href={option.href}
           aria-current={option.active ? "page" : undefined}
           className={cn(
-            "inline-flex h-9 items-center border-r border-line px-3.5 text-[13px] font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-surface",
+            "inline-flex h-9 items-center border-r border-line px-3.5 text-ui font-semibold last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-surface",
             option.active
               ? "bg-brand-surface text-brand-link"
               : "bg-white text-ink-700 hover:bg-panel-50",

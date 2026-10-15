@@ -25,7 +25,7 @@ function SetupCard({
     <Link href={href} className="group block">
       <Card className="flex h-full flex-col gap-1.5 px-5 py-4 group-hover:border-brand-primary">
         <span className="text-sm font-bold text-brand-link group-hover:underline">{title}</span>
-        <span className="text-[13px] text-ink-500">{description}</span>
+        <span className="text-ui text-ink-500">{description}</span>
         {status && (
           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-ink-400">
             {status}
@@ -85,7 +85,7 @@ export default async function UnderwritingSetupPage() {
     <div className="flex flex-col gap-7">
       <div>
         <h2 className="font-serif text-xl font-bold text-ink-900">Setup</h2>
-        <p className="mt-1 max-w-[720px] text-[13px] text-ink-500">
+        <p className="mt-1 max-w-[720px] text-ui text-ink-500">
           The lists the rest of the tool depends on, and the one-time imports from RadioTraffic.
         </p>
       </div>

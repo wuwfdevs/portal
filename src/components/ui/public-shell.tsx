@@ -18,7 +18,7 @@ export function PublicShell({
   maxWidth?: string;
 }) {
   const card = (
-    <div className="w-full overflow-hidden rounded-lg border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
+    <div className="w-full overflow-hidden rounded border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
       <div className="px-6 py-8 sm:px-8 sm:py-9">
         {children}
         <PublicPolicyNotice />

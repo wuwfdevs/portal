@@ -297,7 +297,7 @@ export function AgentChatWidget() {
           // hidden below lg (a piece's own bar is there instead).
           data-assistant-bubble={onPiece ? "desktop" : "always"}
           className={cn(
-            "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right,transform,opacity] duration-200 hover:scale-105 hover:bg-[#2278B8] motion-reduce:transition-none",
+            "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg transition-[right,transform,opacity] duration-200 hover:scale-105 hover:bg-brand-hover motion-reduce:transition-none",
             tuckedAway &&
               !open &&
               "max-lg:pointer-events-none max-lg:translate-y-24 max-lg:opacity-0",
@@ -436,7 +436,7 @@ export function AgentChatWidget() {
               </p>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">{pending.description}</p>
               {Object.keys(pending.input).length > 0 && (
-                <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-line bg-white px-2 py-1.5 text-[11px] leading-relaxed text-ink-500">
+                <pre className="mt-2 max-h-24 overflow-y-auto rounded border border-line bg-white px-2 py-1.5 text-label leading-relaxed text-ink-500">
                   {JSON.stringify(pending.input, null, 2)}
                 </pre>
               )}

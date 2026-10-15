@@ -34,7 +34,7 @@ export function ShortcutsHelp() {
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         title="Keyboard shortcuts"
-        className="flex h-5 w-5 items-center justify-center rounded-full border border-line text-[11px] font-bold text-ink-500 hover:bg-panel-50"
+        className="flex h-5 w-5 items-center justify-center rounded-full border border-line text-label font-bold text-ink-500 hover:bg-panel-50"
       >
         ?
       </button>
@@ -52,14 +52,14 @@ export function ShortcutsHelp() {
         <dl className="flex flex-col gap-1.5">
           {SHORTCUTS.map(([key, description]) => (
             <div key={key} className="flex items-baseline justify-between gap-3">
-              <dt className="shrink-0 rounded bg-panel-50 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
+              <dt className="shrink-0 rounded bg-panel-50 px-1.5 py-0.5 font-mono text-label text-ink-700">
                 {key}
               </dt>
-              <dd className="text-right text-[11px] text-ink-500">{description}</dd>
+              <dd className="text-right text-label text-ink-500">{description}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-2 border-t border-line pt-2 text-[11px] leading-snug text-ink-400">
+        <p className="mt-2 border-t border-line pt-2 text-label leading-snug text-ink-400">
           Shortcuts pause while you&apos;re typing in a line.
         </p>
       </FloatingPanel>

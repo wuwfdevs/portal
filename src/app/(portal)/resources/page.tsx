@@ -60,7 +60,7 @@ export default async function ResourcesHomePage({
       <section className="-mx-6 -mt-7 mb-9 border-b border-line bg-panel-50 px-6 pb-8 pt-9 sm:-mx-8 sm:px-8">
         <p className="text-xs font-bold tracking-[0.08em] text-brand-link">RESOURCES</p>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-serif text-[26px] font-bold leading-tight text-ink-900 sm:text-[32px]">
+          <h1 className="font-serif text-stat font-bold leading-tight text-ink-900 sm:text-hero">
             How the station runs, and how the tools work
           </h1>
           {deleted === "1" && <Badge variant="success">Deleted</Badge>}
@@ -102,7 +102,7 @@ export default async function ResourcesHomePage({
           </div>
           <fieldset className="mt-3 flex flex-wrap items-center gap-1.5">
             <legend className="sr-only">Search in</legend>
-            <span aria-hidden="true" className="mr-1 text-[13px] text-ink-500">
+            <span aria-hidden="true" className="mr-1 text-ui text-ink-500">
               Search in
             </span>
             {SEARCH_SCOPES.map((option) => (
@@ -114,12 +114,12 @@ export default async function ResourcesHomePage({
                   defaultChecked={scope === option.value}
                   className="peer sr-only"
                 />
-                <span className="block rounded-full border border-line bg-white px-3 py-1 text-[13px] font-semibold text-ink-700 peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary">
+                <span className="block rounded-full border border-line bg-white px-3 py-1 text-ui font-semibold text-ink-700 peer-checked:border-brand-primary peer-checked:bg-brand-surface peer-checked:text-brand-link peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary">
                   {option.label}
                 </span>
               </label>
             ))}
-            <span className="ml-2 text-[13px] text-ink-500">
+            <span className="ml-2 text-ui text-ink-500">
               The assistant answers from these same pages.
             </span>
           </fieldset>
@@ -213,10 +213,10 @@ function HomeSectionHeading({
 }) {
   return (
     <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
-      <h2 className="font-serif text-[22px] font-bold text-ink-900">
+      <h2 className="font-serif text-display font-bold text-ink-900">
         {title}
         {count !== undefined && (
-          <span className="ml-2 font-sans text-[15px] font-normal text-ink-500">{count}</span>
+          <span className="ml-2 font-sans text-body font-normal text-ink-500">{count}</span>
         )}
       </h2>
       {children && <div className="flex items-center gap-4">{children}</div>}
@@ -266,11 +266,11 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                     <div className="flex min-w-0 flex-col">
                       <Link
                         href={`/resources/tools/${entry.tool.key}/${entry.firstSlug}`}
-                        className="font-serif text-[17px] font-bold text-ink-900 hover:text-brand-link"
+                        className="font-serif text-section font-bold text-ink-900 hover:text-brand-link"
                       >
                         {entry.tool.name}
                       </Link>
-                      <span className="text-[13px] text-ink-500">
+                      <span className="text-ui text-ink-500">
                         {pluralize(entry.count, "guide")}
                       </span>
                     </div>
@@ -290,7 +290,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                   {extra > 0 && (
                     <Link
                       href={`/resources/tools/${entry.tool.key}`}
-                      className="text-[13px] font-semibold text-ink-500 hover:text-brand-link"
+                      className="text-ui font-semibold text-ink-500 hover:text-brand-link"
                     >
                       + {extra} more
                     </Link>
@@ -306,7 +306,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
         <Card className="px-6 py-5">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 className="font-serif text-xl font-bold text-ink-900">What&apos;s new</h2>
-            <Link href="/resources/whats-new" className="text-[13px] font-semibold text-brand-link">
+            <Link href="/resources/whats-new" className="text-ui font-semibold text-brand-link">
               All release notes
             </Link>
           </div>
@@ -331,7 +331,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                       )}
                       <Link
                         href={articleHref(note, note.tool)}
-                        className="text-[15px] font-semibold leading-snug text-ink-900 hover:text-brand-link"
+                        className="text-body font-semibold leading-snug text-ink-900 hover:text-brand-link"
                       >
                         {note.title}
                       </Link>
@@ -381,7 +381,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
         </div>
 
         {(pinned.length > 0 || isEditor) && (
-          <div className="flex flex-col gap-3.5 rounded bg-[#0F2235] px-6 py-5">
+          <div className="flex flex-col gap-3.5 rounded bg-deep px-6 py-5">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-xs font-bold tracking-[0.08em] text-success-border">
                 ON-AIR TROUBLE
@@ -391,7 +391,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
               </h3>
             </div>
             {pinned.length === 0 ? (
-              <p className="text-sm text-[#C9D3DE]">
+              <p className="text-sm text-deep-text">
                 Nothing is pinned. Open a procedure and choose &ldquo;Pin to home page&rdquo;.
               </p>
             ) : (
@@ -400,7 +400,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                   <li key={procedure.id}>
                     <Link
                       href={`/resources/procedures/${procedure.slug}`}
-                      className="flex min-h-11 items-center gap-2.5 rounded border border-[#2A3F55] px-3 py-2 text-[15px] font-semibold text-white hover:border-brand-primary hover:bg-[#16304A]"
+                      className="flex min-h-11 items-center gap-2.5 rounded border border-deep-line px-3 py-2 text-body font-semibold text-white hover:border-brand-primary hover:bg-deep-hover"
                     >
                       <svg
                         aria-hidden="true"
@@ -423,7 +423,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
               </ul>
             )}
             {isEditor && pinned.length > 0 && (
-              <p className="text-xs text-[#C9D3DE]">Pin or unpin a procedure from its own page.</p>
+              <p className="text-xs text-deep-text">Pin or unpin a procedure from its own page.</p>
             )}
           </div>
         )}
@@ -443,7 +443,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                     >
                       {group.area}
                     </Link>
-                    <span className="shrink-0 text-[13px] text-ink-500">{group.count}</span>
+                    <span className="shrink-0 text-ui text-ink-500">{group.count}</span>
                   </div>
                   <ul className="flex flex-col gap-1.5">
                     {group.preview.map((procedure) => (
@@ -460,7 +460,7 @@ async function Sections({ isEditor }: { isEditor: boolean }) {
                   {group.count > group.preview.length && (
                     <Link
                       href={areaHref}
-                      className="text-[13px] font-semibold text-ink-500 hover:text-brand-link"
+                      className="text-ui font-semibold text-ink-500 hover:text-brand-link"
                     >
                       All {group.count} in {group.area}
                     </Link>

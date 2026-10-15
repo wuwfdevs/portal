@@ -243,18 +243,18 @@ export default async function BookingsDashboard() {
           {total && total.net > 0 ? (
             <CapacityBar
               segments={[
-                { label: "Strategic", hours: total.strategicBooked, className: "bg-[#2E6DA4]" },
+                { label: "Strategic", hours: total.strategicBooked, className: "bg-brand-link" },
                 {
                   label: "Reserve to preserve",
                   hours: Math.max(0, total.reserveRemaining),
-                  className: "bg-[#9FC3E3]",
+                  className: "bg-brand-primary",
                 },
                 {
                   label: "Incremental and external",
                   hours: total.nonStrategicBooked,
-                  className: "bg-[#0F2235]",
+                  className: "bg-deep",
                 },
-                { label: "Held for WUWF", hours: total.held, className: "bg-[#8A9099]" },
+                { label: "Held for WUWF", hours: total.held, className: "bg-ink-400" },
                 { label: "Open", hours: Math.max(0, total.open), className: "bg-panel-100" },
               ]}
               net={total.net}
@@ -270,7 +270,7 @@ export default async function BookingsDashboard() {
               <span className="font-semibold text-ink-900">Airtime envelope:</span>{" "}
               {formatMinutes(airtime.contributedMinutesPerWeek)} a week contributed,{" "}
               {formatMinutes(airtime.committedMinutesPerWeek)} committed to requests,{" "}
-              <span className={airtime.exceeded ? "font-semibold text-[#8F3A3A]" : ""}>
+              <span className={airtime.exceeded ? "font-semibold text-danger-fg" : ""}>
                 {formatMinutes(airtime.remainingMinutesPerWeek)} left
               </span>
               {avails?.error
@@ -311,12 +311,12 @@ function CapacityBar({
           />
         ))}
       </Card>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-ui text-ink-700">
         {segments.map((s) => (
           <span key={s.label}>
             <span
               aria-hidden="true"
-              className={`mr-1.5 inline-block size-3 rounded-[2px] border border-line align-[-1px] ${s.className}`}
+              className={`mr-1.5 inline-block size-3 rounded-sm border border-line align-[-1px] ${s.className}`}
             />
             {s.label} · {formatHours(s.hours)}
           </span>

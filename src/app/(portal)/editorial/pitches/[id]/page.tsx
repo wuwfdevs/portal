@@ -280,7 +280,7 @@ export default async function PitchDetailPage({
                   </p>
                 )}
                 {round.rationale && (
-                  <p className="mt-3 text-[13px] leading-relaxed text-ink-500">{round.rationale}</p>
+                  <p className="mt-3 text-ui leading-relaxed text-ink-500">{round.rationale}</p>
                 )}
                 {roundReviews.some((review) => review.comment) && (
                   <ul className="mt-2 flex flex-col gap-1 border-t border-line pt-2">

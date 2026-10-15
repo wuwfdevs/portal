@@ -182,7 +182,7 @@ function FindExistingPanel({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-ink-900">
-                    <span className="mr-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-400">
+                    <span className="mr-1.5 text-badge font-bold uppercase tracking-wider text-ink-400">
                       {SOURCE_KIND_LABEL[source.kind]}
                     </span>
                     {source.title}

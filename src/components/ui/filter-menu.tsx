@@ -45,7 +45,7 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
         className={cn(
           // Below `sm` it is a square the search sits beside (list-toolbar.tsx); the label and
           // the chevron go, and the tint of an applied filter still shows.
-          "inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface max-sm:w-11 max-sm:justify-center max-sm:px-0 sm:max-w-[16rem] [&::-webkit-details-marker]:hidden",
+          "inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded border px-3 text-ui font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface max-sm:w-11 max-sm:justify-center max-sm:px-0 sm:max-w-[16rem] [&::-webkit-details-marker]:hidden",
           TAP_TARGET,
           applied.length > 0
             ? "border-brand-primary bg-brand-surface text-brand-link"
@@ -58,7 +58,7 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
         <span className="truncate max-sm:sr-only">
           {applied.length > 0 ? `Filter: ${applied.join(", ")}` : "Filter"}
         </span>
-        <span aria-hidden="true" className="text-[10px] group-open/filter:rotate-180 max-sm:hidden">
+        <span aria-hidden="true" className="text-badge group-open/filter:rotate-180 max-sm:hidden">
           ▾
         </span>
       </summary>
@@ -70,7 +70,7 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
       >
         {groups.map((group) => (
           <div key={group.label} className="flex flex-col gap-2">
-            <div className="text-[11px] font-bold uppercase tracking-wide text-ink-500">
+            <div className="text-label font-bold uppercase tracking-wide text-ink-500">
               {group.label}
             </div>
             <FilterChips label={group.label} chips={group.chips} />

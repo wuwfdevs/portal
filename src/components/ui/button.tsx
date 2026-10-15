@@ -28,7 +28,7 @@ interface ButtonProps extends ComponentProps<"button"> {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-primary text-white hover:bg-[#2278B8] disabled:bg-panel-100 disabled:text-ink-400",
+    "bg-brand-primary text-white hover:bg-brand-hover disabled:bg-panel-100 disabled:text-ink-400",
   secondary:
     "bg-transparent text-brand-link border border-brand-link hover:bg-brand-surface disabled:border-line disabled:text-ink-400",
   ghost: "bg-transparent text-brand-link px-1 hover:underline disabled:text-ink-400",

@@ -339,7 +339,7 @@ export function FormatEditor({
             <button
               type="button"
               onClick={() => setRenaming(true)}
-              className="min-h-11 text-[13px] font-bold text-brand-link lg:min-h-0"
+              className="min-h-11 text-ui font-bold text-brand-link lg:min-h-0"
             >
               Rename
             </button>
@@ -460,7 +460,7 @@ export function FormatEditor({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex items-center gap-2.5 max-lg:hidden">{actions}</div>
-        <span className="text-[13px] text-ink-400" aria-live="polite">
+        <span className="text-ui text-ink-400" aria-live="polite">
           {saveLabel}
         </span>
         {draftExists && differs && liveSpec && (
@@ -471,9 +471,9 @@ export function FormatEditor({
             onConfirm={discard}
           />
         )}
-        <span className="text-[13px] text-ink-500 lg:ml-auto max-lg:hidden">{liveLine}</span>
+        <span className="text-ui text-ink-500 lg:ml-auto max-lg:hidden">{liveLine}</span>
       </div>
-      <p className="text-[13px] text-ink-500 lg:hidden">{liveLine}</p>
+      <p className="text-ui text-ink-500 lg:hidden">{liveLine}</p>
       <p className="text-xs text-ink-400">
         Trying a format outlines a piece from a project&rsquo;s accepted findings and excerpts, with
         the draft and the live version side by side. Nothing is saved to the project.
@@ -494,7 +494,7 @@ export function FormatEditor({
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                     <span className="font-bold text-ink-900">v{version.version}</span>
                     {version.isLive && (
-                      <span className="rounded bg-brand-surface px-1.5 py-0.5 text-[11px] font-bold uppercase text-brand-link">
+                      <span className="rounded bg-brand-surface px-1.5 py-0.5 text-label font-bold uppercase text-brand-link">
                         Live
                       </span>
                     )}

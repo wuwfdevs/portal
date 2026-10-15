@@ -4583,6 +4583,14 @@ make explicitly, not by default.
   - Tone is the station's: factual, calm, sentence case, no exclamation points.
   - The migration goes through `APPLIED.md` like any other. Internal-only changes
     (refactors, fixes nobody sees, docs) don't need one.
+- **Colours and type sizes come from `src/lib/design-tokens.ts`, and a test checks it.** Use a token class
+  (`bg-brand-hover`, `text-danger-fg`, `border-line-strong`, `bg-deep`) or a named size (`text-badge` 10,
+  `text-label` 11, `text-meta` 12, `text-ui` 13, `text-body` 15, `text-section` 17, `text-title` 20,
+  `text-display` 22) — never a `#hex` or `text-[13px]`. Where a class can't be used (SVG attributes, inline
+  styles, the affidavit PDF), import `colors` from the same file. A colour with no token gets one there, and
+  an entry in the WUWF Design System's Portal layer. `src/lib/design-tokens.test.ts` fails the build on a
+  literal and on `rounded-md`/`rounded-lg`; `rounded-t-xl` is the bottom sheet's, and `shadow-sm/md/lg` are
+  the three elevations.
 - **Every control that starts a model run carries the sparkles mark** (`<Button ai>`, or `SparklesIcon`
   beside a link's label). See `docs/ui-patterns.md`, "AI actions carry the sparkles mark". Add it in the
   same change that adds the AI action.

@@ -28,7 +28,7 @@ export function StatTile({
 }) {
   const body = (
     <>
-      <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</div>
+      <div className="text-label font-bold uppercase tracking-wide text-ink-400">{label}</div>
       <div className={cn("mt-1 font-serif text-2xl font-bold tabular-nums", TONE[tone])}>
         {value}
       </div>

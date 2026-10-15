@@ -30,7 +30,7 @@ export function DescriptionList({
 }) {
   const stacked = columns !== 1;
   return (
-    <dl className={cn("grid gap-x-4 gap-y-2.5 text-[13px]", COLUMNS[columns], className)}>
+    <dl className={cn("grid gap-x-4 gap-y-2.5 text-ui", COLUMNS[columns], className)}>
       {items.map((item, i) => {
         const empty = item.value === null || item.value === undefined || item.value === "";
         const inner = (

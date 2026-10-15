@@ -52,16 +52,16 @@ export default async function ContractCopyPage({
 
         <aside aria-label="About this step" className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
           <div className="rounded border border-line bg-panel-50 px-5 py-4">
-            <div className="text-[13px] font-bold text-ink-900">What this contract airs</div>
-            <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+            <div className="text-ui font-bold text-ink-900">What this contract airs</div>
+            <p className="mt-1 text-ui leading-relaxed text-ink-700">
               A contract needs at least one approved message before anything places. Write it here,
               or reuse one from the underwriter&apos;s previous orders — one message can serve more
               than one contract, in rotation.
             </p>
           </div>
           <div className="rounded border border-line bg-panel-50 px-5 py-4">
-            <div className="text-[13px] font-bold text-ink-900">Approval is a one-click gate</div>
-            <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+            <div className="text-ui font-bold text-ink-900">Approval is a one-click gate</div>
+            <p className="mt-1 text-ui leading-relaxed text-ink-700">
               A new message starts as a draft unless you mark it approved. You can activate the
               contract before every message is approved; nothing places until one is. Approve here,
               or later from the contract page.
@@ -69,8 +69,8 @@ export default async function ContractCopyPage({
           </div>
           {context.onFile.total > 0 && (
             <Card className="px-5 py-4">
-              <div className="text-[13px] font-bold text-ink-900">From previous orders</div>
-              <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+              <div className="text-ui font-bold text-ink-900">From previous orders</div>
+              <p className="mt-1 text-ui leading-relaxed text-ink-700">
                 {contract.underwriter.name} has {context.onFile.total} message
                 {context.onFile.total === 1 ? "" : "s"} on file, {context.onFile.approved} approved
                 {context.onFile.lastContractIdentifier
@@ -79,7 +79,7 @@ export default async function ContractCopyPage({
                 .
               </p>
               {context.linkablePrimary.length > 0 && (
-                <TextLink href={`${base}/copy?link=1`} className="mt-2 inline-block text-[13px]">
+                <TextLink href={`${base}/copy?link=1`} className="mt-2 inline-block text-ui">
                   Link one of them →
                 </TextLink>
               )}

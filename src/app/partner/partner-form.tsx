@@ -68,7 +68,7 @@ export function PartnerForm({
     return (
       <div>
         <PageHeader size="public" title="Inquiry received" className="mb-3" />
-        <p className="text-[15px] leading-relaxed text-ink-700">{state.confirmationCopy}</p>
+        <p className="text-body leading-relaxed text-ink-700">{state.confirmationCopy}</p>
       </div>
     );
   }
@@ -124,7 +124,7 @@ export function PartnerForm({
       </p>
 
       {current.id === "about" && (
-        <p className="mb-5 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-700">
+        <p className="mb-5 whitespace-pre-wrap text-body leading-relaxed text-ink-700">
           {introCopy}
         </p>
       )}
@@ -190,7 +190,7 @@ export function PartnerForm({
           }}
           className={cn("flex-col gap-3", stepId === "tracks" ? "flex" : "hidden")}
         >
-          <p className="text-[13px] leading-relaxed text-ink-500">
+          <p className="text-ui leading-relaxed text-ink-500">
             Choose everything that fits — you can select more than one.
           </p>
           {enabledPartnershipTypes.map((type) => (

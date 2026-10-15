@@ -69,7 +69,7 @@ export default async function ProcedurePage({
               ) : undefined
             }
           />
-          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label text-ink-400">
             <Badge variant="accent">Procedure</Badge>
             <span>{procedure.area}</span>
             {procedure.owner_role && (
@@ -116,7 +116,7 @@ export default async function ProcedurePage({
                     {procedure.version} ·{" "}
                     <TextLink
                       href={showHistory ? basePath : `${basePath}?history=1#history`}
-                      className="px-0 text-[13px] font-semibold"
+                      className="px-0 text-ui font-semibold"
                     >
                       {showHistory ? "Hide history" : "History"}
                     </TextLink>
@@ -132,7 +132,7 @@ export default async function ProcedurePage({
               className="flex flex-col gap-2 rounded border border-line bg-white p-5"
             >
               <SectionHeading level="eyebrow">Resources home</SectionHeading>
-              <p className="text-[13px] text-ink-700">
+              <p className="text-ui text-ink-700">
                 {pinned
                   ? "Pinned under \u201cWhen something breaks on air\u201d."
                   : "Pin this procedure under \u201cWhen something breaks on air\u201d on the Resources home page."}
@@ -153,7 +153,7 @@ export default async function ProcedurePage({
               <ul className="flex flex-col gap-1.5">
                 {guides.map((guide) => (
                   <li key={guide.href}>
-                    <TextLink href={guide.href} className="px-0 text-[13px] font-semibold">
+                    <TextLink href={guide.href} className="px-0 text-ui font-semibold">
                       {guide.label}
                     </TextLink>
                   </li>

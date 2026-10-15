@@ -40,7 +40,7 @@ export function PitchValues({
     const lead = withValues[0];
     if (!lead) return <p className="text-sm text-ink-400">No details were provided.</p>;
     return (
-      <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-900">
+      <p className="whitespace-pre-wrap text-ui leading-relaxed text-ink-900">
         {renderValue(valueByFieldId.get(lead.id) as string | string[])}
       </p>
     );
@@ -57,7 +57,7 @@ export function PitchValues({
     <dl className="flex flex-col gap-5">
       {shown.map((field) => (
         <div key={field.id}>
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+          <dt className="text-label font-bold uppercase tracking-wider text-ink-500">
             {field.label}
           </dt>
           <dd className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-900">

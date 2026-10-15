@@ -92,7 +92,7 @@ export function QuestionNode({
         className={cn(
           "relative box-border w-full min-h-[92px] cursor-grab rounded p-3 text-left transition-shadow active:cursor-grabbing",
           isPromoted && "border-[1.5px] border-success-border bg-success-bg",
-          !isPromoted && isRoot && "border-none bg-[#0F2235]",
+          !isPromoted && isRoot && "border-none bg-deep",
           !isPromoted && !isRoot && "border border-line bg-white",
           selected && "ring-2 ring-brand-primary",
           pending !== null && "opacity-70",
@@ -101,7 +101,7 @@ export function QuestionNode({
         {showBadge && (
           <div
             className={cn(
-              "mb-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+              "mb-1.5 inline-block rounded-full px-2 py-0.5 text-badge font-bold uppercase tracking-wider",
               isPromoted && "bg-success-border text-ink-900",
               !isPromoted && isRoot && "bg-white/15 text-white",
               !isPromoted && !isRoot && "bg-brand-surface text-brand-link",
@@ -123,27 +123,21 @@ export function QuestionNode({
           {node.diagnosisKind && (
             <span
               title={labelForDiagnosis(node.diagnosisKind)}
-              className="flex h-4 w-4 items-center justify-center rounded-full bg-success-bg text-[11px] font-bold text-brand-link"
+              className="flex h-4 w-4 items-center justify-center rounded-full bg-success-bg text-label font-bold text-brand-link"
             >
               !
             </span>
           )}
           {contextCount > 0 && (
             <span
-              className={cn(
-                "text-[11px]",
-                isRoot && !isPromoted ? "text-white/70" : "text-ink-500",
-              )}
+              className={cn("text-label", isRoot && !isPromoted ? "text-white/70" : "text-ink-500")}
             >
               {pluralize(contextCount, "note")}
             </span>
           )}
           {pending && (
             <span
-              className={cn(
-                "text-[11px]",
-                isRoot && !isPromoted ? "text-white/70" : "text-ink-500",
-              )}
+              className={cn("text-label", isRoot && !isPromoted ? "text-white/70" : "text-ink-500")}
             >
               Thinking…
             </span>

@@ -30,7 +30,7 @@ export function ListenShell({
   children: ReactNode;
 }) {
   const card = (
-    <div className="w-full overflow-hidden rounded-lg border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
+    <div className="w-full overflow-hidden rounded border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
       {progressPct !== null && (
         <div className="h-[3px] bg-panel-100">
           <div

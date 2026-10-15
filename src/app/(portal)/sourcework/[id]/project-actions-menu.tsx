@@ -74,7 +74,7 @@ function DeleteMessage({ projectTitle, plan }: { projectTitle: string; plan: Del
         <p>It has no sources of its own, so nothing else goes.</p>
       ) : (
         <div className="rounded border border-danger/30 bg-danger/[0.06] px-3 py-2">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-danger">
+          <div className="mb-1 text-label font-bold uppercase tracking-wide text-danger">
             Removed
           </div>
           <ul className="list-disc pl-5">
@@ -90,7 +90,7 @@ function DeleteMessage({ projectTitle, plan }: { projectTitle: string; plan: Del
       )}
       {plan.kept.length > 0 && (
         <div className="rounded border border-line bg-panel-50 px-3 py-2">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-500">
+          <div className="mb-1 text-label font-bold uppercase tracking-wide text-ink-500">
             Stays in the library
           </div>
           <ul className="list-disc pl-5">

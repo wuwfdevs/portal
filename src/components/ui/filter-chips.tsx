@@ -30,7 +30,7 @@ export function FilterChips({
           href={chip.href}
           aria-pressed={chip.active}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold",
+            "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-ui font-semibold",
             chip.active
               ? "border-brand-surface bg-brand-surface text-brand-link"
               : "border-line bg-white text-ink-700 hover:border-brand-primary",

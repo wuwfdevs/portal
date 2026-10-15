@@ -67,7 +67,7 @@ export function AgreementTab({
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Agreement sections" className="flex flex-wrap gap-x-1.5 text-[13px]">
+      <nav aria-label="Agreement sections" className="flex flex-wrap gap-x-1.5 text-ui">
         {SECTIONS.map(([id, label], index) => (
           <span key={id} className="flex items-center gap-1.5">
             {index > 0 && (
@@ -96,10 +96,7 @@ export function AgreementTab({
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="text-sm font-bold text-ink-900">Traffic policy</h3>
           {!editingPolicy && (
-            <TextLink
-              href={`${base}?tab=agreement&edit=policy#traffic-policy`}
-              className="text-[13px]"
-            >
+            <TextLink href={`${base}?tab=agreement&edit=policy#traffic-policy`} className="text-ui">
               Edit
             </TextLink>
           )}
@@ -192,7 +189,7 @@ export function AgreementTab({
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h3 className="text-sm font-bold text-ink-900">Affidavits</h3>
           {newAffidavitHref && (
-            <TextLink href={newAffidavitHref} className="text-[13px]">
+            <TextLink href={newAffidavitHref} className="text-ui">
               Generate an affidavit
             </TextLink>
           )}
@@ -255,7 +252,7 @@ export function AgreementTab({
                     </span>
                   </span>
                   {revision.status === "draft" ? (
-                    <TextLink href={`${base}?activate=1`} className="text-[13px]">
+                    <TextLink href={`${base}?activate=1`} className="text-ui">
                       Review and activate
                     </TextLink>
                   ) : (

@@ -105,7 +105,7 @@ export function SelectionToolbar({
           {formatDuration(selection.endMs - selection.startMs)})
         </span>
       </div>
-      <p className="line-clamp-2 rounded bg-panel-50 px-2.5 py-2 text-[15px] leading-snug text-ink-700 lg:hidden">
+      <p className="line-clamp-2 rounded bg-panel-50 px-2.5 py-2 text-body leading-snug text-ink-700 lg:hidden">
         {selection.excerpt}
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -124,7 +124,7 @@ export function SelectionToolbar({
           placeholder="What is this quote?"
           className="w-full lg:w-auto lg:min-w-[14rem] lg:flex-1 lg:py-1.5"
         />
-        <span className="hidden font-mono text-[11px] text-ink-500 lg:inline">
+        <span className="hidden font-mono text-label text-ink-500 lg:inline">
           {formatDuration(selection.startMs)}–{formatDuration(selection.endMs)} (
           {formatDuration(selection.endMs - selection.startMs)})
         </span>

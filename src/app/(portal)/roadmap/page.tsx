@@ -141,7 +141,7 @@ export default async function RoadmapPage({
         </>
       ) : isCurator ? (
         <div className="flex flex-col gap-3">
-          <p className="text-[13px] text-ink-500">
+          <p className="text-ui text-ink-500">
             Every request, grouped by where it stands. Drag a card between columns to change its
             status, or use its “Move to…” menu.
           </p>
@@ -149,7 +149,7 @@ export default async function RoadmapPage({
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          <p className="text-[13px] text-ink-500">
+          <p className="text-ui text-ink-500">
             What has actually been decided. Requests nobody has ruled on yet live on the Requests
             tab.
           </p>
@@ -192,7 +192,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">{label}</span>
+      <span className="text-label font-bold uppercase tracking-wide text-ink-400">{label}</span>
       <Select name={name} defaultValue={value ?? ""} className="sm:w-auto sm:min-w-[9rem]">
         {allLabel !== null && <option value="">{allLabel}</option>}
         {children}

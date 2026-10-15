@@ -210,7 +210,7 @@ function ProfileRubric({
 
       {(modifiers.length > 0 || view === "active") && (
         <div className="mt-3">
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-500">
+          <div className="mb-1.5 text-label font-bold uppercase tracking-wide text-ink-500">
             Modifiers — scored separately, never part of the core average
           </div>
           <CriterionTable criteria={modifiers} view={view} emptyMessage="No modifiers here yet." />
@@ -259,14 +259,14 @@ function CriterionTable({
                 )}
                 {criterion.anchors && (
                   <details className="mt-1.5">
-                    <summary className="cursor-pointer text-[11px] font-semibold text-brand-link">
+                    <summary className="cursor-pointer text-label font-semibold text-brand-link">
                       Anchors
                     </summary>
                     <ul className="mt-1 flex flex-col gap-0.5">
                       {Object.entries(criterion.anchors)
                         .sort(([a], [b]) => Number(a) - Number(b))
                         .map(([value, text]) => (
-                          <li key={value} className="text-[11px] leading-snug text-ink-400">
+                          <li key={value} className="text-label leading-snug text-ink-400">
                             <span className="font-semibold text-ink-500">{value}</span> — {text}
                           </li>
                         ))}

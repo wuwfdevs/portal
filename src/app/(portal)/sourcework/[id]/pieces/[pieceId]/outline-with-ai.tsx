@@ -113,7 +113,7 @@ export function OutlineWithAi({
         {copy.heading}
       </h2>
       <div className="flex flex-col gap-[18px] px-5 py-[18px] max-lg:px-4">
-        <p className="text-[13px] text-ink-700">
+        <p className="text-ui text-ink-700">
           {formatName ? (
             <>
               Writing to the <strong>{formatName}</strong> format.

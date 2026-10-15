@@ -33,7 +33,7 @@ export function InquirySwitcher({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex max-w-[560px] items-center gap-1.5 rounded px-1.5 py-1 text-[13px] text-ink-500 hover:bg-panel-50"
+        className="flex max-w-[560px] items-center gap-1.5 rounded px-1.5 py-1 text-ui text-ink-500 hover:bg-panel-50"
       >
         <Badge variant="accent">{active?.pillarName}</Badge>
         <span className="max-w-[420px] overflow-hidden text-ellipsis whitespace-nowrap">
@@ -65,7 +65,7 @@ export function InquirySwitcher({
         offset={6}
         className="w-[440px] rounded border border-line bg-white p-2 shadow-lg"
       >
-        <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold tracking-wider text-ink-400 uppercase">
+        <div className="px-2 pt-1 pb-1.5 text-badge font-bold tracking-wider text-ink-400 uppercase">
           Switch inquiry
         </div>
         <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
@@ -76,11 +76,11 @@ export function InquirySwitcher({
               onClick={() => setOpen(false)}
               className={
                 inquiry.id === activeId
-                  ? "block rounded bg-brand-surface px-2 py-2 text-[13px] text-brand-link"
-                  : "block rounded px-2 py-2 text-[13px] text-ink-700 hover:bg-panel-50"
+                  ? "block rounded bg-brand-surface px-2 py-2 text-ui text-brand-link"
+                  : "block rounded px-2 py-2 text-ui text-ink-700 hover:bg-panel-50"
               }
             >
-              <span className="mr-1.5 text-[10px] font-bold tracking-wide text-ink-400 uppercase">
+              <span className="mr-1.5 text-badge font-bold tracking-wide text-ink-400 uppercase">
                 {inquiry.pillarName}
               </span>
               {truncate(inquiry.guidingQuestion, 60)}
@@ -88,7 +88,7 @@ export function InquirySwitcher({
           ))}
         </div>
         <div className="mt-2 flex flex-col gap-1.5 border-t border-line pt-2">
-          <div className="px-2 text-[10px] font-bold tracking-wider text-ink-400 uppercase">
+          <div className="px-2 text-badge font-bold tracking-wider text-ink-400 uppercase">
             New inquiry — choose a WUWF guiding question
           </div>
           {guidingQuestionOptions.length === 0 ? (
@@ -110,8 +110,8 @@ export function InquirySwitcher({
                     required
                     className="mt-1"
                   />
-                  <span className="text-[13px] leading-snug text-ink-900">
-                    <span className="mr-1.5 text-[10px] font-bold tracking-wide text-brand-link uppercase">
+                  <span className="text-ui leading-snug text-ink-900">
+                    <span className="mr-1.5 text-badge font-bold tracking-wide text-brand-link uppercase">
                       {option.name}
                     </span>
                     {option.guidingQuestion}

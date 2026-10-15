@@ -189,7 +189,7 @@ export default async function PlaceCreditPage({
 
               <section className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-[15px] font-bold text-ink-900">Open break</h3>
+                  <h3 className="text-body font-bold text-ink-900">Open break</h3>
                   <span className="text-xs text-ink-500">
                     {weekRow ? (
                       <>
@@ -219,7 +219,7 @@ export default async function PlaceCreditPage({
               </section>
 
               <section className="flex flex-col gap-3 border-t border-line pt-5">
-                <h3 className="text-[15px] font-bold text-ink-900">Message</h3>
+                <h3 className="text-body font-bold text-ink-900">Message</h3>
                 <MessageChoice suggested={suggested} options={messageOptions} />
               </section>
 
@@ -234,7 +234,7 @@ export default async function PlaceCreditPage({
 
         <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-72">
           <Card className="px-5 py-4">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+            <div className="mb-2 text-label font-bold uppercase tracking-wider text-ink-500">
               This line
             </div>
             <ProgressBar
@@ -244,7 +244,7 @@ export default async function PlaceCreditPage({
               total={summary.expected}
               complete={summary.status === "fulfilled"}
             />
-            <p className="mt-2 text-[13px] text-ink-700">
+            <p className="mt-2 text-ui text-ink-700">
               {summary.delivered} aired · {summary.scheduled} scheduled · {summary.freshShortfall}{" "}
               needed
             </p>
@@ -253,14 +253,14 @@ export default async function PlaceCreditPage({
           {stillNeeded.length > 0 && (
             <Card className="px-5 py-4">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                <span className="text-label font-bold uppercase tracking-wider text-ink-500">
                   Still needed
                 </span>
                 <TextLink href={backHref} className="text-xs">
                   All {rows.length} periods
                 </TextLink>
               </div>
-              <ul className="flex flex-col text-[13px]">
+              <ul className="flex flex-col text-ui">
                 {stillNeeded.slice(0, 6).map((row) => (
                   <li
                     key={row.bucketId}
@@ -293,14 +293,14 @@ export default async function PlaceCreditPage({
 
           {lineCopy.length > 0 && (
             <Card className="px-5 py-4">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+              <div className="mb-2 text-label font-bold uppercase tracking-wider text-ink-500">
                 Rotation
               </div>
               <p className="mb-2 text-xs text-ink-500">
                 One cycle across the whole contract, in broadcast order. Aired and pinned credits
                 stay put; the rest re-sequence after any change.
               </p>
-              <ol className="flex flex-col gap-1 pl-4 text-[13px] text-ink-700">
+              <ol className="flex flex-col gap-1 pl-4 text-ui text-ink-700">
                 {messageOptions.map((option) => (
                   <li
                     key={option.id}

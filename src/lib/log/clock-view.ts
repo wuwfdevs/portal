@@ -8,6 +8,7 @@
 import { parseTimeToMinutes } from "@/lib/time-of-day";
 import { categorizeSlot } from "@/lib/log/clock-face";
 import type { LogOpportunityRequirement, LogSlotTimingMode } from "@/lib/database.types";
+import { colors } from "@/lib/design-tokens";
 
 export const HOUR_SECONDS = 3600;
 
@@ -15,10 +16,10 @@ export const HOUR_SECONDS = 3600;
 export type SlotVisualKind = "segment" | "newscast" | "promo" | "silence";
 
 export const SLOT_VISUAL_COLORS: Record<SlotVisualKind, { fill: string; border: string }> = {
-  segment: { fill: "#E4E8ED", border: "#C2C9D1" },
-  newscast: { fill: "#0F2235", border: "#0F2235" },
-  promo: { fill: "#B8C4D0", border: "#9AA9B8" },
-  silence: { fill: "#F1F3F5", border: "#D5DAE0" },
+  segment: { fill: colors.panel[100], border: colors.line.strong },
+  newscast: { fill: colors.deep.DEFAULT, border: colors.deep.DEFAULT },
+  promo: { fill: colors.line.strong, border: colors.ink[400] },
+  silence: { fill: colors.panel[50], border: colors.line.DEFAULT },
 };
 
 export const SLOT_VISUAL_LABEL: Record<SlotVisualKind, string> = {

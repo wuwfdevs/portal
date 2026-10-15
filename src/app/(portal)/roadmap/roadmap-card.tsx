@@ -19,7 +19,7 @@ export function RoadmapCard({ post }: { post: PostSummary }) {
       href={`/roadmap/${post.id}`}
       className="block rounded border border-line bg-white p-3 text-left shadow-sm hover:border-brand-primary"
     >
-      <p className="text-[13px] font-bold text-ink-900">{post.title}</p>
+      <p className="text-ui font-bold text-ink-900">{post.title}</p>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         <Badge variant="neutral">{POST_KIND_LABEL[post.kind]}</Badge>
         {target && (
@@ -29,7 +29,7 @@ export function RoadmapCard({ post }: { post: PostSummary }) {
           </Badge>
         )}
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-ink-400">
+      <div className="mt-2 flex items-center justify-between text-label text-ink-400">
         <span>{post.authorName}</span>
         <span>
           {pluralize(post.voteCount, "vote")} · {pluralize(post.commentCount, "comment")}

@@ -25,7 +25,7 @@ export function Pagination({
   if (info.total === 0) return null;
   const href = (page: number) => pageHref(path, params, page);
   const link =
-    "inline-flex h-8 min-w-8 items-center justify-center rounded border px-2.5 text-[13px] font-semibold";
+    "inline-flex h-8 min-w-8 items-center justify-center rounded border px-2.5 text-ui font-semibold";
 
   return (
     <nav

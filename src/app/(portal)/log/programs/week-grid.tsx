@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { formatHourLabel, type WeekBand } from "@/lib/log/week-layout";
 import { useDismissable } from "@/lib/use-dismissable";
 import { useEventListener } from "@/lib/use-event-listener";
+import { colors } from "@/lib/design-tokens";
 
 /** Pixels per hour; a block's height is its minutes scaled by this. */
 const HOUR_PX = 34;
@@ -45,7 +46,7 @@ export interface WeekDay {
 
 /** The two schedule overlays' looks — the same marks the Automation and Underwriting pages use. */
 export const BAND_CLASS: Record<WeekBand["kind"], string> = {
-  automated: "bg-[#DCE1E6]/60",
+  automated: "bg-line/60",
   closed: "bg-[repeating-linear-gradient(135deg,rgba(166,52,52,0.16)_0_4px,transparent_4px_9px)]",
 };
 const BAND_LABEL: Record<WeekBand["kind"], string> = {
@@ -160,7 +161,7 @@ export function WeekGrid({
                 </span>
                 <span
                   className={cn(
-                    "ml-1.5 text-[15px] font-bold",
+                    "ml-1.5 text-body font-bold",
                     isToday ? "text-brand-link" : "text-ink-900",
                   )}
                 >
@@ -198,7 +199,7 @@ export function WeekGrid({
               )}
               style={{
                 height: bodyHeight,
-                backgroundImage: "linear-gradient(#EEF0F3 1px, transparent 1px)",
+                backgroundImage: `linear-gradient(${colors.panel[100]} 1px, transparent 1px)`,
                 backgroundSize: `100% ${HOUR_PX}px`,
               }}
             >
@@ -227,7 +228,7 @@ export function WeekGrid({
                     aria-label={`${block.programName}, ${day.name} ${block.timeText}, clock ${block.clockName}`}
                     onClick={(event) => onBlockClick(block, event.currentTarget)}
                     className={cn(
-                      "absolute box-border block overflow-hidden rounded-[3px] border px-2 py-1 text-left text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900",
+                      "absolute box-border block overflow-hidden rounded border px-2 py-1 text-left text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900",
                       block.isPlaceholder
                         ? "border-dashed border-warning-border bg-warning-bg"
                         : "border-brand-primary/60 bg-brand-surface",
@@ -264,16 +265,14 @@ export function WeekGrid({
               role="dialog"
               aria-label={selectedBlock.programName}
               tabIndex={-1}
-              className="absolute z-10 focus:outline-none rounded-md border border-line bg-white px-4 py-3.5 shadow-lg"
+              className="absolute z-10 focus:outline-none rounded border border-line bg-white px-4 py-3.5 shadow-lg"
               style={{ left: selected.left, top: selected.top, width: POPOVER_WIDTH }}
             >
               <div className="text-base font-bold text-ink-900">{selectedBlock.programName}</div>
-              <div className="mt-1 text-[15px] tabular-nums text-ink-900">
+              <div className="mt-1 text-body tabular-nums text-ink-900">
                 {selectedBlock.daysText} · {selectedBlock.timeText}
               </div>
-              <div className="mt-0.5 text-[13px] text-ink-500">
-                Clock: {selectedBlock.clockName}
-              </div>
+              <div className="mt-0.5 text-ui text-ink-500">Clock: {selectedBlock.clockName}</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {canEdit && (
                   <PrimaryLink

@@ -27,7 +27,7 @@ export function HeaderRow({ className, ...props }: HTMLAttributes<HTMLTableRowEl
   return (
     <tr
       className={cn(
-        "border-b border-line bg-panel-50 text-left text-[11px] font-bold uppercase tracking-wide text-ink-500",
+        "border-b border-line bg-panel-50 text-left text-label font-bold uppercase tracking-wide text-ink-500",
         className,
       )}
       {...props}

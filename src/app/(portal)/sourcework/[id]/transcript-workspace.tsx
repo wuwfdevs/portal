@@ -720,7 +720,7 @@ export function TranscriptWorkspace({
           )}
         >
           <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
-            <h2 className="mr-auto text-[11px] font-bold uppercase tracking-wider text-ink-400 max-lg:hidden">
+            <h2 className="mr-auto text-label font-bold uppercase tracking-wider text-ink-400 max-lg:hidden">
               Transcript
             </h2>
             <SpeakersMenu

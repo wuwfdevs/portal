@@ -29,7 +29,7 @@ export function SectionHeading({
       className={cn(
         level === "eyebrow"
           ? "text-xs font-bold uppercase tracking-wide text-ink-400"
-          : "font-serif text-[17px] font-bold text-ink-900",
+          : "font-serif text-section font-bold text-ink-900",
         !action && className,
       )}
     >

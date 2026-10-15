@@ -24,7 +24,7 @@ export function HistoryCard({
     <Card id="history">
       <CardHeader>History</CardHeader>
       {versions.length === 0 ? (
-        <p className="px-5 py-4 text-[13px] text-ink-500">No history recorded.</p>
+        <p className="px-5 py-4 text-ui text-ink-500">No history recorded.</p>
       ) : (
         <ol className="flex flex-col py-2">
           {versions.map((version) => {
@@ -45,7 +45,7 @@ export function HistoryCard({
                     Version {version.version} · {formatUpdatedDate(version.created_at)} ·{" "}
                     {version.source === "release" ? "release" : "editor"}
                   </span>
-                  <span className="block text-[13px] text-ink-700">
+                  <span className="block text-ui text-ink-700">
                     {version.note ?? `Version ${version.version}`}
                   </span>
                 </Link>

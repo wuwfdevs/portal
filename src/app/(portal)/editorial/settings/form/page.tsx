@@ -151,7 +151,7 @@ function FieldRow({
             )}
           </>
         )}
-        <code className="mt-1 block font-mono text-[11px] text-ink-400">{field.key}</code>
+        <code className="mt-1 block font-mono text-label text-ink-400">{field.key}</code>
       </Cell>
       <Cell label="Type" className="text-ink-500">
         {FIELD_TYPE_LABEL[field.field_type]}

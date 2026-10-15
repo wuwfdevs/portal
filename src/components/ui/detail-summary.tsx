@@ -38,7 +38,7 @@ export function DetailSummary({
           </Link>
         )}
       </div>
-      <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-5 py-4 text-[13px]">
+      <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-5 py-4 text-ui">
         {items.map((item) => {
           const empty = item.value === null || item.value === undefined || item.value === "";
           return (

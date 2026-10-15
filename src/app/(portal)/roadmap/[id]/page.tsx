@@ -59,7 +59,7 @@ export default async function RoadmapPostPage({
         />
         <div className="min-w-0 flex-1">
           <PageHeader title={post.title} />
-          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label text-ink-400">
             <StatusBadge map={POST_STATUS_BADGE} value={post.status} />
             <span>{POST_KIND_LABEL[post.kind]}</span>
             {target && (

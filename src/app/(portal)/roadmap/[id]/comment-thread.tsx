@@ -43,7 +43,7 @@ export function CommentThread({
 
         return (
           <Card key={comment.id} className="p-4">
-            <div className="mb-2 flex flex-wrap items-baseline gap-2 text-[11px] text-ink-400">
+            <div className="mb-2 flex flex-wrap items-baseline gap-2 text-label text-ink-400">
               <span className="font-semibold text-ink-700">{comment.authorName}</span>
               <span>{when(comment.created_at)}</span>
               {comment.updated_at !== comment.created_at && <span>· edited</span>}

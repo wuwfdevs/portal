@@ -165,7 +165,7 @@ export default async function ContractsPage({
                     </Cell>
                     <Cell label="Delivery">
                       {contract.status === "draft" ? (
-                        <span className="text-[13px] text-ink-500">Setup in progress</span>
+                        <span className="text-ui text-ink-500">Setup in progress</span>
                       ) : rollup && rollup.expected > 0 ? (
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <ProgressBar
@@ -176,14 +176,14 @@ export default async function ContractsPage({
                             complete={fulfilled}
                             className="w-36"
                           />
-                          <span className="whitespace-nowrap text-[13px] text-ink-700">
+                          <span className="whitespace-nowrap text-ui text-ink-700">
                             {fulfilled
                               ? `${rollup.delivered} aired of ${rollup.expected} · fulfilled`
                               : `${rollup.delivered} aired · ${rollup.scheduled} scheduled of ${rollup.expected}`}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[13px] text-ink-500">No demand</span>
+                        <span className="text-ui text-ink-500">No demand</span>
                       )}
                     </Cell>
                     <Cell label="Attention">
@@ -194,7 +194,7 @@ export default async function ContractsPage({
                       ) : contract.status === "draft" ? (
                         <Badge variant="warning">Finish setup</Badge>
                       ) : (
-                        <span className="text-[13px] text-ink-500">—</span>
+                        <span className="text-ui text-ink-500">—</span>
                       )}
                     </Cell>
                     <Cell stack="aside">

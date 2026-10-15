@@ -8,7 +8,7 @@ export function QuestionChip({ label, title }: { label: string | null; title?: s
   return (
     <span
       title={title}
-      className="inline-flex shrink-0 items-center rounded border border-line px-1.5 py-px font-mono text-[11px] font-semibold text-ink-500"
+      className="inline-flex shrink-0 items-center rounded border border-line px-1.5 py-px font-mono text-label font-semibold text-ink-500"
     >
       {label}
     </span>

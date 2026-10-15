@@ -30,7 +30,7 @@ export default async function AdminToolsPage({
     <div className="flex flex-col gap-4">
       {error && <Alert>{error}</Alert>}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-[13px] text-ink-500">
+        <p className="text-ui text-ink-500">
           Rows come from migrations. A <span className="font-semibold">proposed</span> tool is the
           exception: an idea created here so requests on the Roadmap have something to point at.
           Proposed tools stay off the dashboard and cannot be granted to anyone.

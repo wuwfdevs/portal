@@ -64,7 +64,7 @@ export function FormatGuide({
             type="button"
             onClick={() => setOpen(!open)}
             aria-expanded={open}
-            className={cn(TAP_TARGET, "text-[13px] font-bold text-brand-link")}
+            className={cn(TAP_TARGET, "text-ui font-bold text-brand-link")}
           >
             {open ? "Hide guide" : "Show guide"}
           </button>
@@ -73,7 +73,7 @@ export function FormatGuide({
       {current && open && (
         <section
           aria-label={`${current.name} guide`}
-          className="rounded border border-line bg-panel-50 px-3.5 py-3 text-[13px] text-ink-700"
+          className="rounded border border-line bg-panel-50 px-3.5 py-3 text-ui text-ink-700"
         >
           <p>
             <strong>{lengthRangeLabel(current.spec)}</strong> is on target

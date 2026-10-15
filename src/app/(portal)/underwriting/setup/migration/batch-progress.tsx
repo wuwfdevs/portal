@@ -61,7 +61,7 @@ export function BatchProgress({
           ) : null,
         )}
       </div>
-      <span className="text-[13px] text-ink-500">{text || "No entries"}</span>
+      <span className="text-ui text-ink-500">{text || "No entries"}</span>
     </div>
   );
 }

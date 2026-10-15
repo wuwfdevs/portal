@@ -16,7 +16,7 @@ export default function AcademicPartnershipsError({
 }) {
   return (
     <div className="max-w-xl rounded border border-danger/30 bg-danger/[0.04] p-6">
-      <h2 className="font-serif text-[17px] font-bold text-ink-900">
+      <h2 className="font-serif text-section font-bold text-ink-900">
         Academic Partnerships couldn&apos;t load
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-700">

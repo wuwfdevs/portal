@@ -28,7 +28,7 @@ export function PrimaryLink({
   return (
     <Link
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-[#2278B8]",
+        "inline-flex items-center justify-center gap-1.5 rounded bg-brand-primary px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-hover",
         TAP_TARGET,
         phoneIcon ? "phone-icon" : undefined,
         className,

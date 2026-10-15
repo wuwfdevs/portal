@@ -115,7 +115,7 @@ export default async function ContractSchedulePage({
                     <div className="text-sm font-bold text-ink-900">
                       {view.scheduleLine.label || view.description}
                     </div>
-                    <div className="mt-0.5 text-[13px] text-ink-700">
+                    <div className="mt-0.5 text-ui text-ink-700">
                       {view.description} · {view.scheduleLine.duration_seconds}s
                     </div>
                   </div>
@@ -132,7 +132,7 @@ export default async function ContractSchedulePage({
                     <div className="flex items-center gap-1">
                       <TextLink
                         href={`/underwriting/contracts/${contract.id}/lines/${view.scheduleLine.id}/edit?return_to=schedule`}
-                        className="text-[13px]"
+                        className="text-ui"
                       >
                         Edit
                       </TextLink>

@@ -379,7 +379,7 @@ export function DocumentsRun({
             total={Math.max(tasks.length, 1)}
             complete={phase === "done" && finished.length === tasks.length}
           />
-          <p className="text-[13px] text-ink-700">
+          <p className="text-ui text-ink-700">
             <strong>{clean}</strong> ready · <strong>{ok.length - clean}</strong> need a look ·{" "}
             <strong>{failed}</strong> failed · <strong>{queued.length + reading.length}</strong> to
             go
@@ -387,7 +387,7 @@ export function DocumentsRun({
         </section>
 
         {reading.length > 0 && (
-          <section className="flex flex-col gap-2 rounded border border-brand-surface bg-[#F3F9FD] px-5 py-4">
+          <section className="flex flex-col gap-2 rounded border border-brand-surface bg-brand-tint px-5 py-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-brand-link">
               Reading now
             </h3>
@@ -401,7 +401,7 @@ export function DocumentsRun({
                         {task.file.name}
                       </span>
                     </span>
-                    <span className="whitespace-nowrap text-[13px] text-ink-500">
+                    <span className="whitespace-nowrap text-ui text-ink-500">
                       {state.phase === "waiting"
                         ? "Waiting on the provider’s rate limit"
                         : state.phase === "reading"
@@ -443,7 +443,7 @@ export function DocumentsRun({
                         <span className="font-bold text-ink-900">{task.label}</span>
                         <span
                           className={cn(
-                            "block text-[13px]",
+                            "block text-ui",
                             result.ok ? "text-ink-500" : "text-danger",
                           )}
                         >
@@ -453,7 +453,7 @@ export function DocumentsRun({
                       {result.ok && (
                         <TextLink
                           href={`/underwriting/contracts/${result.contractId}/schedule`}
-                          className="whitespace-nowrap text-[13px]"
+                          className="whitespace-nowrap text-ui"
                         >
                           Open draft
                         </TextLink>
@@ -484,7 +484,7 @@ export function DocumentsRun({
                   </li>
                 ))}
                 {queued.length > 8 && (
-                  <li className="bg-panel-50 px-4 py-2.5 text-[13px] text-ink-500">
+                  <li className="bg-panel-50 px-4 py-2.5 text-ui text-ink-500">
                     and {queued.length - 8} more
                   </li>
                 )}
@@ -522,16 +522,16 @@ export function DocumentsRun({
       {notice && <Alert variant="success">{notice}</Alert>}
       {error && <Alert>{error}</Alert>}
 
-      <div className="flex flex-wrap items-center gap-4 rounded-md border-2 border-dashed border-[#9FB7CA] bg-[#F7FAFC] px-5 py-4">
+      <div className="flex flex-wrap items-center gap-4 rounded border-2 border-dashed border-line-strong bg-brand-tint px-5 py-4">
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-bold text-ink-900">
+          <div className="text-body font-bold text-ink-900">
             {files.length === 0
               ? documentsOnly
                 ? "Choose the documents to import"
                 : "Choose the signed agreements"
               : `${pluralize(files.length, "file", "files")} chosen`}
           </div>
-          <div className="text-[13px] text-ink-500">
+          <div className="text-ui text-ink-500">
             {documentsOnly
               ? "Each document becomes its own draft. PDF, PNG or JPEG, up to 10 MB each."
               : "Each entry is matched to its file by name. PDF, PNG or JPEG, up to 10 MB each. Choose again to add more."}
@@ -581,7 +581,7 @@ export function DocumentsRun({
               aria-pressed={filter === chip.value}
               onClick={() => setFilter(chip.value)}
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold",
+                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-ui font-semibold",
                 filter === chip.value
                   ? "border-brand-surface bg-brand-surface text-brand-link"
                   : "border-line bg-white text-ink-700 hover:border-brand-primary",
@@ -628,7 +628,7 @@ export function DocumentsRun({
       {(documentsOnly || filter === "extras" || filter === "attention") &&
         matching.extras.length > 0 && (
           <Card className="flex flex-col gap-2.5 px-5 py-4">
-            <h3 className="text-[15px] font-bold text-ink-900">
+            <h3 className="text-body font-bold text-ink-900">
               {documentsOnly
                 ? `${pluralize(matching.extras.length, "document", "documents")} to import`
                 : `${pluralize(matching.extras.length, "file isn’t", "files aren’t")} in the manifest`}
@@ -637,7 +637,7 @@ export function DocumentsRun({
               {matching.extras.map((file) => file.name).join(", ")}
             </p>
             {oversizedExtras.length > 0 && (
-              <p className="text-[13px] text-danger">
+              <p className="text-ui text-danger">
                 Over 10 MB, left out: {oversizedExtras.map((file) => file.name).join(", ")}
               </p>
             )}
@@ -662,7 +662,7 @@ export function DocumentsRun({
           {entries.length === 0 && documentsOnly ? "Cancel" : "Go to the batch"}
         </SecondaryLink>
         {!documentsOnly && matching.attention.length > 0 && runCount > 0 && (
-          <span className="text-[13px] text-ink-500" data-row="full">
+          <span className="text-ui text-ink-500" data-row="full">
             {pluralize(matching.attention.length, "entry", "entries")} still without a usable file
             stay as “Not run”. Add their files here any time.
           </span>
@@ -684,7 +684,7 @@ function EntryRow({
   onChoose: (file: File) => void;
 }) {
   const picker = (label: string) => (
-    <label className="inline-flex h-8 cursor-pointer items-center rounded border border-brand-link px-3 text-[13px] font-bold text-brand-link hover:bg-brand-surface">
+    <label className="inline-flex h-8 cursor-pointer items-center rounded border border-brand-link px-3 text-ui font-bold text-brand-link hover:bg-brand-surface">
       {label}
       <input
         type="file"
@@ -790,7 +790,7 @@ function EntryRow({
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
       </Cell>
-      <Cell className="text-[13px] text-ink-900">{action}</Cell>
+      <Cell className="text-ui text-ink-900">{action}</Cell>
     </Row>
   );
 }

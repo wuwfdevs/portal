@@ -137,7 +137,7 @@ export function ExcerptSheet({
 
         {!expanded && (
           <>
-            <p className="line-clamp-2 rounded bg-panel-50 px-2.5 py-2 text-[15px] leading-snug text-ink-700">
+            <p className="line-clamp-2 rounded bg-panel-50 px-2.5 py-2 text-body leading-snug text-ink-700">
               {clip.excerpt}
             </p>
             <div className={CONTROL_ROW}>

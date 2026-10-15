@@ -151,7 +151,7 @@ export function DatesSection({
                 All {planned.length} planned date{planned.length === 1 ? " is" : "s are"} available
               </span>
             ) : (
-              <span className="font-semibold text-[#8F3A3A]">
+              <span className="font-semibold text-danger-fg">
                 {planned.length - failing.length} of {planned.length} planned dates available —{" "}
                 {failing.length} would be refused
               </span>
@@ -178,7 +178,7 @@ export function DatesSection({
                     </span>
                   ) : (
                     <>
-                      <span className="text-[#8F3A3A]">{result.refusal.message}</span>
+                      <span className="text-danger-fg">{result.refusal.message}</span>
                       <span className="text-ink-500">
                         {result.alternatives.length > 0
                           ? `Nearest open: ${result.alternatives

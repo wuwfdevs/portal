@@ -17,7 +17,7 @@ export default function AudienceListeningError({
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <div className="max-w-xl rounded border border-danger/30 bg-danger/[0.04] p-6">
-        <h2 className="font-serif text-[17px] font-bold text-ink-900">
+        <h2 className="font-serif text-section font-bold text-ink-900">
           Audience Listening couldn&apos;t load
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-700">

@@ -231,7 +231,7 @@ export default async function ContractDetailPage({
               </Badge>
             )}
           </div>
-          <p className="mt-1 text-[13px] text-ink-500">
+          <p className="mt-1 text-ui text-ink-500">
             {orderNumberLabel(contract.contract_identifier)} · {contract.effective_from}
             {contract.effective_to ? ` – ${contract.effective_to}` : ""}
             {contract.sponsorship_category ? ` · ${contract.sponsorship_category}` : ""}
@@ -284,7 +284,7 @@ export default async function ContractDetailPage({
           {readiness && (
             <section aria-labelledby="ready" className="rounded border border-line">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-                <h3 id="ready" className="text-[15px] font-bold text-ink-900">
+                <h3 id="ready" className="text-body font-bold text-ink-900">
                   Ready to activate? {countReady(readiness).done} of {countReady(readiness).total}{" "}
                   complete
                 </h3>
@@ -310,9 +310,9 @@ export default async function ContractDetailPage({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-ink-900">{item.title}</div>
-                      <div className="text-[13px] text-ink-500">{item.detail}</div>
+                      <div className="text-ui text-ink-500">{item.detail}</div>
                     </div>
-                    <TextLink href={readinessHref[item.key]!} className="text-[13px]">
+                    <TextLink href={readinessHref[item.key]!} className="text-ui">
                       {item.state === "ok" ? "Edit" : "Fix"}
                     </TextLink>
                   </li>
@@ -365,7 +365,7 @@ export default async function ContractDetailPage({
                       <input type="hidden" name="contract_id" value={contract.id} />
                       <Button
                         type="submit"
-                        className="px-3 py-2 text-[13px]"
+                        className="px-3 py-2 text-ui"
                         disabled={contract.status !== "active"}
                       >
                         Auto-fill this contract
@@ -399,7 +399,7 @@ export default async function ContractDetailPage({
                     return (
                       <section key={revision.id} className="flex flex-col gap-3">
                         {showRevisionHeadings && (
-                          <h3 className="text-[15px] font-bold text-ink-900">
+                          <h3 className="text-body font-bold text-ink-900">
                             {revisionName(revision, index)}{" "}
                             <span className="font-normal text-ink-500">
                               · {revision.status} revision · effective {revision.effective_from}
@@ -433,7 +433,7 @@ export default async function ContractDetailPage({
                   )}
                   {olderRevisionsWithLines.length > 0 && (
                     <details className="rounded border border-line">
-                      <summary className="cursor-pointer px-5 py-3 text-[13px] font-semibold text-brand-link">
+                      <summary className="cursor-pointer px-5 py-3 text-ui font-semibold text-brand-link">
                         Earlier revisions&apos; lines
                       </summary>
                       {olderRevisionsWithLines.map((revision) => {
@@ -441,7 +441,7 @@ export default async function ContractDetailPage({
                         const index = contract.revisions.findIndex((r) => r.id === revision.id);
                         return (
                           <div key={revision.id} className="border-t border-line">
-                            <div className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-ink-700">
+                            <div className="flex items-center gap-2 px-5 py-2.5 text-ui font-semibold text-ink-700">
                               {revisionName(revision, index)}
                               <StatusBadge map={REVISION_STATUS} value={revision.status} />
                             </div>
@@ -509,7 +509,7 @@ export default async function ContractDetailPage({
 
           {!isDraft && expectedTotal > 0 && (
             <Card className="px-5 py-4">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+              <div className="mb-2 text-label font-bold uppercase tracking-wider text-ink-500">
                 Delivery
               </div>
               <ProgressBar
@@ -519,7 +519,7 @@ export default async function ContractDetailPage({
                 total={expectedTotal}
                 complete={contractStatus === "fulfilled"}
               />
-              <p className="mt-2 text-[13px] text-ink-700">
+              <p className="mt-2 text-ui text-ink-700">
                 {deliveredTotal} aired · {scheduledTotal} scheduled of {expectedTotal}
               </p>
             </Card>
@@ -527,15 +527,13 @@ export default async function ContractDetailPage({
 
           {!isDraft && (
             <Card className="px-5 py-4">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+              <div className="mb-2 text-label font-bold uppercase tracking-wider text-ink-500">
                 Missed credits
               </div>
               {openExceptionCount === 0 ? (
-                <p className="text-[13px] text-ink-700">
-                  No missed credit is waiting on a decision.
-                </p>
+                <p className="text-ui text-ink-700">No missed credit is waiting on a decision.</p>
               ) : (
-                <p className="text-[13px] text-ink-700">
+                <p className="text-ui text-ink-700">
                   {pluralize(openExceptionCount, "open exception")}.{" "}
                   <TextLink
                     href={`/underwriting/exceptions?q=${encodeURIComponent(contract.underwriter.name)}`}
@@ -564,12 +562,12 @@ export default async function ContractDetailPage({
           />
 
           <Card className="px-5 py-4">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-500">
+            <div className="mb-2 text-label font-bold uppercase tracking-wider text-ink-500">
               Status
             </div>
             {isDraft ? (
               <>
-                <p className="mb-3 text-[13px] leading-relaxed text-ink-700">
+                <p className="mb-3 text-ui leading-relaxed text-ink-700">
                   Draft. Activate when the order has been checked against the lines above. Expire or
                   terminate from here later.
                 </p>

@@ -147,7 +147,7 @@ export default async function SubmissionDetailPage({
             />
             {submission.participant_note && (
               <div className="mt-4">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
+                <div className="text-label font-bold uppercase tracking-wide text-ink-400">
                   Their note
                 </div>
                 <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
@@ -228,7 +228,7 @@ export default async function SubmissionDetailPage({
               >
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
+                    <p className="text-label font-bold uppercase tracking-wide text-ink-400">
                       Question {answer?.question_position ?? question.position}
                     </p>
                     {/* The wording as this participant was asked it, not as it reads now. */}

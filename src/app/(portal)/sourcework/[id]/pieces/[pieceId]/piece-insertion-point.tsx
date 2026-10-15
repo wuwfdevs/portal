@@ -75,7 +75,7 @@ export function PieceInsertionPoint({
           className="relative max-h-[85vh] overflow-y-auto rounded-t-xl bg-white px-4 pb-4 pt-2"
         >
           <div className="mx-auto mb-2.5 h-1 w-9 rounded-sm bg-line" />
-          {afterLabel && <p className="pb-2 text-[13px] text-ink-500">Add after {afterLabel}</p>}
+          {afterLabel && <p className="pb-2 text-ui text-ink-500">Add after {afterLabel}</p>}
           {mode === "narration" ? (
             <>
               <button

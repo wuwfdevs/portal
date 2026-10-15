@@ -21,6 +21,7 @@ import {
 } from "@react-pdf/renderer";
 import { STATION_TIME_ZONE } from "@/lib/log/timezone";
 import { STATION_LETTERHEAD, type AffidavitDocument } from "./affidavits";
+import { colors } from "@/lib/design-tokens";
 
 export interface AffidavitPdfProps {
   document: AffidavitDocument;
@@ -34,16 +35,16 @@ export interface AffidavitPdfProps {
   certifierTitle: string | null;
 }
 
-const INK = "#0F1419";
-const BODY = "#2B2F36";
-const MUTED = "#5A6068";
-const FAINT = "#8A9099";
-const RULE = "#E2E5E9";
-const BAND = "#F5F7F9";
-const BRAND = "#185F95";
-const BRAND_BRIGHT = "#3090D0";
+const INK = colors.ink[900];
+const BODY = colors.ink[700];
+const MUTED = colors.ink[500];
+const FAINT = colors.ink[400];
+const RULE = colors.line.DEFAULT;
+const BAND = colors.panel[50];
+const BRAND = colors.brand.link;
+const BRAND_BRIGHT = colors.brand.primary;
 // The green of the logo's "88.1".
-const ACCENT = "#8DC63F";
+const ACCENT = colors.brand.lime;
 
 const MARGIN_X = 54;
 
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 72,
     letterSpacing: 8,
-    color: "#D5DCE3",
+    color: colors.line.DEFAULT,
     opacity: 0.45,
     transform: "rotate(-30deg)",
   },

@@ -114,11 +114,11 @@ function Node({ node, figures }: { node: RichTextNode; figures: Figures }) {
       return <hr className="my-4 border-line" />;
     case "heading":
       return node.attrs.level === 2 ? (
-        <h2 className="mt-5 font-serif text-[17px] font-bold text-ink-900 first:mt-0">
+        <h2 className="mt-5 font-serif text-section font-bold text-ink-900 first:mt-0">
           <Nodes nodes={node.content} figures={figures} />
         </h2>
       ) : (
-        <h3 className="mt-4 text-[15px] font-bold text-ink-900 first:mt-0">
+        <h3 className="mt-4 text-body font-bold text-ink-900 first:mt-0">
           <Nodes nodes={node.content} figures={figures} />
         </h3>
       );

@@ -84,7 +84,7 @@ export async function PointsTab({
                   : null;
             return (
               <li key={row.id} className="px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
+                <p className="text-badge font-bold uppercase tracking-wider text-ink-400">
                   {KIND_LABEL[row.kind]}
                   {question ? ` · ${question}` : ""}
                   {row.status === "rejected" ? " · Rejected" : ""}

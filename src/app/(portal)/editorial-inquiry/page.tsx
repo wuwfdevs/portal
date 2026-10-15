@@ -90,7 +90,7 @@ function EmptyState({
                     className="mt-1"
                   />
                   <span className="text-sm leading-snug text-ink-900">
-                    <span className="mb-0.5 block text-[11px] font-bold tracking-wide text-brand-link uppercase">
+                    <span className="mb-0.5 block text-label font-bold tracking-wide text-brand-link uppercase">
                       {option.name}
                     </span>
                     {option.guidingQuestion}

@@ -192,7 +192,7 @@ export function ManifestForm({
                 <div className="flex items-center gap-3 rounded border border-line bg-panel-50 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-bold text-ink-900">{fileName}</div>
-                    <div className="text-[13px] text-ink-500">
+                    <div className="text-ui text-ink-500">
                       {check ? `${check.ready.length + check.problems.length} rows` : "No rows"}
                     </div>
                   </div>
@@ -218,11 +218,9 @@ export function ManifestForm({
                   }}
                 />
               ) : (
-                <label className="flex cursor-pointer flex-col items-center gap-1 rounded border-2 border-dashed border-[#9FB7CA] bg-[#F7FAFC] px-6 py-8 text-center hover:border-brand-primary">
-                  <span className="text-[15px] font-bold text-ink-900">
-                    Choose the manifest CSV
-                  </span>
-                  <span className="text-[13px] text-ink-500">
+                <label className="flex cursor-pointer flex-col items-center gap-1 rounded border-2 border-dashed border-line-strong bg-brand-tint px-6 py-8 text-center hover:border-brand-primary">
+                  <span className="text-body font-bold text-ink-900">Choose the manifest CSV</span>
+                  <span className="text-ui text-ink-500">
                     Save the spreadsheet as CSV. One row per agreement.
                   </span>
                   <input
@@ -234,7 +232,7 @@ export function ManifestForm({
                 </label>
               )}
               {fileError && <FieldError>{fileError}</FieldError>}
-              <p className="mt-2 text-[13px] text-ink-500">
+              <p className="mt-2 text-ui text-ink-500">
                 {pasting ? (
                   <button
                     type="button"
@@ -369,7 +367,7 @@ export function ManifestForm({
               </Button>
               <SecondaryLink href={MIGRATION_PATH}>Cancel</SecondaryLink>
               {check && check.problems.length > 0 && check.ready.length > 0 && (
-                <span className="text-[13px] text-ink-500" data-row="full">
+                <span className="text-ui text-ink-500" data-row="full">
                   The {pluralize(check.problems.length, "row", "rows")} that need a fix are left
                   out. Fix them and load the manifest again — nothing loads twice.
                 </span>

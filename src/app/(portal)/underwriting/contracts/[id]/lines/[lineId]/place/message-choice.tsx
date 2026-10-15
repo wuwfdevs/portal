@@ -54,7 +54,7 @@ export function MessageChoice({
           onChange={() => setMode("rotation")}
           className="mt-0.5 h-4 w-4 shrink-0 accent-brand-primary"
         />
-        <span className="flex flex-col gap-0.5 text-[13px]">
+        <span className="flex flex-col gap-0.5 text-ui">
           <span className="font-semibold text-ink-900">
             Next in rotation{suggested ? ` — ${suggested.label}` : ""}
           </span>
@@ -81,7 +81,7 @@ export function MessageChoice({
           onChange={() => setMode("specific")}
           className="mt-0.5 h-4 w-4 shrink-0 accent-brand-primary"
         />
-        <span className="flex min-w-0 flex-1 flex-col gap-2 text-[13px]">
+        <span className="flex min-w-0 flex-1 flex-col gap-2 text-ui">
           <span className="font-semibold text-ink-900">A specific message</span>
           {mode === "specific" && (
             <span className="flex flex-col gap-3">

@@ -242,7 +242,7 @@ export default async function UnderwritingHoursPage({
             }
           />
           <Pagination info={info} path={BASE_PATH} params={listParams} noun="changes" />
-          <p className="text-[13px] text-ink-500">
+          <p className="text-ui text-ink-500">
             A one-time change wins over the weekly hours. One-time changes can&apos;t overlap each
             other. Times are Central. Nothing already placed is moved when the hours change.
           </p>
@@ -437,7 +437,7 @@ function WeeklyCard({
             />
           </Field>
         </div>
-        <p className="-mt-2 text-[13px] text-ink-500">
+        <p className="-mt-2 text-ui text-ink-500">
           An end at or before the start runs past midnight into the next morning.
         </p>
         <div className="grid grid-cols-2 gap-4 sm:max-w-sm">
@@ -549,7 +549,7 @@ function ChangeCard({
             />
           </Field>
         </div>
-        <p className="-mt-2 text-[13px] text-ink-500">
+        <p className="-mt-2 text-ui text-ink-500">
           Midnight to midnight covers whole days. The change ends at the &ldquo;Until&rdquo; time.
         </p>
         <Field className="sm:max-w-md" label="Reason (optional)" htmlFor="reason">

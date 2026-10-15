@@ -3,12 +3,11 @@
 @tailwind utilities;
 
 body {
-  background: #ffffff;
-  color: #0f1419;
+  @apply bg-white text-ink-900;
 }
 
 ::selection {
-  background: #d5eaf6;
+  @apply bg-brand-surface;
 }
 
 /*
@@ -66,7 +65,7 @@ body {
   }
   .table-stack .table-stack-label {
     display: block;
-    @apply text-[11px] font-bold uppercase tracking-wide text-ink-500;
+    @apply text-label font-bold uppercase tracking-wide text-ink-500;
   }
 }
 

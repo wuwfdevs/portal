@@ -259,7 +259,7 @@ export function HandoverButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-link hover:underline max-lg:min-h-11"
+        className="inline-flex items-center gap-1.5 text-ui font-semibold text-brand-link hover:underline max-lg:min-h-11"
       >
         <SparklesIcon className="h-3.5 w-3.5" />
         {running ? "Running…" : "Run the remaining steps with AI…"}

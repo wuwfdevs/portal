@@ -70,8 +70,8 @@ export function FileDrop({
         className,
       )}
     >
-      <div className="text-[15px] font-bold text-ink-900">{title}</div>
-      {hint && <div className="max-w-md text-[13px] text-ink-500">{hint}</div>}
+      <div className="text-body font-bold text-ink-900">{title}</div>
+      {hint && <div className="max-w-md text-ui text-ink-500">{hint}</div>}
       <ControlRow className="mt-1 sm:justify-center">
         <Button type="button" disabled={disabled} onClick={() => inputRef.current?.click()}>
           {buttonLabel}

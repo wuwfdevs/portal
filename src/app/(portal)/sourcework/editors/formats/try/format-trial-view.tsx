@@ -52,7 +52,7 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
         <h3 className="text-sm font-bold text-ink-900">{side.label}</h3>
         <span
           className={cn(
-            "font-mono text-[13px]",
+            "font-mono text-ui",
             summary.clipsFit && summary.withinActualities ? "text-ink-500" : "text-warning-fg",
           )}
         >
@@ -74,7 +74,7 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
           <li key={index} className="px-4 py-2.5">
             <p
               className={cn(
-                "text-[11px] font-bold uppercase tracking-[0.05em]",
+                "text-label font-bold uppercase tracking-[0.05em]",
                 block.type === "actuality" ? "text-brand-link" : "text-ink-500",
               )}
             >
@@ -90,7 +90,7 @@ function TrialColumn({ side }: { side: FormatTrialSide }) {
                 <span className="font-normal normal-case tracking-normal"> · {block.speaker}</span>
               )}
             </p>
-            <p className="mt-0.5 font-serif text-[15px] leading-snug text-ink-900">
+            <p className="mt-0.5 font-serif text-body leading-snug text-ink-900">
               {block.type === "beat" ? block.text : `“${block.words || block.title}”`}
             </p>
           </li>

@@ -502,7 +502,7 @@ async function WeekView({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <ViewToggle active="week" />
-        <h2 className="text-[15px] font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
+        <h2 className="text-body font-semibold text-ink-900 max-sm:order-first max-sm:w-full">
           {formatWeekRange(monday)}
         </h2>
         <Link href={weekHref(shiftDateISO(monday, -7))} className={navLink}>
@@ -517,21 +517,21 @@ async function WeekView({
           Today
         </Link>
         <span className="flex-1" />
-        <span className="text-[13px] text-ink-700 max-md:hidden">
+        <span className="text-ui text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className="mr-1.5 inline-block size-3 border border-brand-primary/60 bg-brand-surface align-[-1px]"
           />
           Real clock
         </span>
-        <span className="text-[13px] text-ink-700 max-md:hidden">
+        <span className="text-ui text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className="mr-1.5 inline-block size-3 border border-dashed border-warning-border bg-warning-bg align-[-1px]"
           />
           Needs a clock
         </span>
-        <span className="text-[13px] text-ink-700 max-md:hidden">
+        <span className="text-ui text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className={cn(
@@ -541,7 +541,7 @@ async function WeekView({
           />
           Automated
         </span>
-        <span className="text-[13px] text-ink-700 max-md:hidden">
+        <span className="text-ui text-ink-700 max-md:hidden">
           <span
             aria-hidden="true"
             className={cn(
@@ -575,7 +575,7 @@ async function WeekView({
         Select a block to edit when it airs or open its program. Shading is edited under Automation
         and Underwriting.
       </DismissibleHint>
-      <p className="text-[13px] text-ink-500">Times are Central.</p>
+      <p className="text-ui text-ink-500">Times are Central.</p>
     </div>
   );
 }

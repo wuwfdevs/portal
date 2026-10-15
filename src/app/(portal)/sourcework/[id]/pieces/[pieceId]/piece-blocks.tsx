@@ -13,7 +13,7 @@ import type { ActualityBlock, BeatBlock, NarrationBlock } from "@/lib/sourcework
 import type { BeatContext, PieceExcerpt } from "@/lib/sourcework/piece-queries";
 
 const BLOCK_LABEL =
-  "text-[11px] font-bold uppercase tracking-[0.05em] max-lg:mb-0.5 lg:w-[72px] lg:flex-none lg:pt-3";
+  "text-label font-bold uppercase tracking-[0.05em] max-lg:mb-0.5 lg:w-[72px] lg:flex-none lg:pt-3";
 
 /**
  * The shell shared by both block kinds: a drag handle and a label column on a
@@ -171,7 +171,7 @@ export function NarrationRow({
               onBackspaceEmpty();
             }
           }}
-          className="block w-full resize-none overflow-hidden bg-transparent font-serif text-[17px] leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none"
+          className="block w-full resize-none overflow-hidden bg-transparent font-serif text-section leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none"
         />
         {assistantNote}
       </div>
@@ -258,7 +258,7 @@ export function BeatRow({
           aria-label={label}
           placeholder="What does this part of the story have to do?"
           onChange={(event) => onChange(event.target.value)}
-          className="block w-full resize-none overflow-hidden bg-transparent text-base leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none sm:text-[15px]"
+          className="block w-full resize-none overflow-hidden bg-transparent text-base leading-normal text-ink-900 placeholder:text-ink-400 focus:outline-none sm:text-body"
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
           <button

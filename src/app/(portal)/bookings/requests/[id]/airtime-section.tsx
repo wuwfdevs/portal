@@ -65,7 +65,7 @@ export function AirtimeSection({
 
       {envelope && commitments.length > 0 && (
         <p
-          className={`text-sm ${envelope.exceeded ? "font-semibold text-[#8F3A3A]" : "text-ink-700"}`}
+          className={`text-sm ${envelope.exceeded ? "font-semibold text-danger-fg" : "text-ink-700"}`}
         >
           This request asks for {formatMinutes(thisProject)} a week of contributed airtime; the
           term&apos;s envelope is {formatMinutes(envelope.contributedMinutesPerWeek)} a week with{" "}

@@ -59,7 +59,7 @@ export default async function GuidePage({
               ) : undefined
             }
           />
-          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[11px] text-ink-400">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label text-ink-400">
             <Badge variant="accent">Guide</Badge>
             <span>{tool.name}</span>
             {screen && (
@@ -133,7 +133,7 @@ export default async function GuidePage({
                         href={`/resources/tools/${tool.key}/${sibling.slug}`}
                         aria-current={current ? "page" : undefined}
                         className={cn(
-                          "block px-5 py-1.5 text-[13px]",
+                          "block px-5 py-1.5 text-ui",
                           current
                             ? "border-l-2 border-brand-primary bg-panel-50 pl-[18px] font-semibold text-brand-link"
                             : "text-ink-700 hover:text-brand-link",

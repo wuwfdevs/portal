@@ -48,7 +48,7 @@ export function ScoreStats({
           }
         />
       </div>
-      <p className="mt-2 text-[11px] text-ink-400">
+      <p className="mt-2 text-label text-ink-400">
         {spread !== null && (
           <>
             Spread <span className="tabular-nums">{formatScore(spread)}</span>

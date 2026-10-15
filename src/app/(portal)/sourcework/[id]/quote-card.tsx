@@ -74,8 +74,8 @@ export function QuoteCard({
         )}
       </div>
 
-      <p className="font-serif text-[17px] leading-snug text-ink-900 lg:text-lg">“{quote.text}”</p>
-      <p className="mt-1.5 font-mono text-[11px] text-ink-400 max-lg:hidden">
+      <p className="font-serif text-section leading-snug text-ink-900 lg:text-lg">“{quote.text}”</p>
+      <p className="mt-1.5 font-mono text-label text-ink-400 max-lg:hidden">
         {formatClipRange(range.startMs, range.endMs)}
       </p>
       {trimmed && (
@@ -84,7 +84,7 @@ export function QuoteCard({
         </p>
       )}
 
-      <p className="mt-2 text-[13px] text-ink-700">
+      <p className="mt-2 text-ui text-ink-700">
         <strong>Why it works.</strong> {quote.reason}
       </p>
 
@@ -139,7 +139,7 @@ export function QuoteCard({
           {(["in", "out"] as const).map((edge) => (
             <div key={edge} className="flex flex-wrap items-center gap-2">
               <span className="w-7">{edge === "in" ? "In" : "Out"}</span>
-              <span className="w-[52px] font-mono text-[11px]">
+              <span className="w-[52px] font-mono text-label">
                 {formatClipTime(edge === "in" ? range.startMs : range.endMs)}
               </span>
               {TRIM_STEPS_MS.map((step) => (
@@ -150,7 +150,7 @@ export function QuoteCard({
                   aria-label={`Move ${edge === "in" ? "the start" : "the end"} ${step > 0 ? "later" : "earlier"} by ${Math.abs(step)} milliseconds`}
                   className={cn(
                     TAP_TARGET,
-                    "rounded border border-line px-1.5 py-0.5 text-[11px] font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-w-11 max-lg:text-sm",
+                    "rounded border border-line px-1.5 py-0.5 text-label font-semibold text-ink-700 hover:bg-panel-50 max-lg:min-w-11 max-lg:text-sm",
                   )}
                 >
                   {step > 0 ? `+${step}` : `−${Math.abs(step)}`}

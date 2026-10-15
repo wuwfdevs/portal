@@ -53,7 +53,7 @@ export function DraftRevisionBanner({
         Draft revision &ldquo;{name}&rdquo; takes effect {effectiveFrom}
       </h3>
       {activation && (
-        <p className="mt-1 text-[13px] text-ink-700">
+        <p className="mt-1 text-ui text-ink-700">
           Activating it would clear{" "}
           {pluralize(activation.placementsToClear.length, "scheduled placement")} from that date and
           make its {pluralize(draftLineCount, "line")} the ones that schedule.
@@ -111,7 +111,7 @@ export function DraftRevisionBanner({
               <Button type="submit">Activate revision</Button>
             </form>
             {discardForm}
-            <TextLink href={base} className="text-[13px]">
+            <TextLink href={base} className="text-ui">
               Close
             </TextLink>
           </div>

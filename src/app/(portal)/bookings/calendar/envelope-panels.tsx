@@ -25,9 +25,9 @@ import { TextLink } from "@/components/ui/primary-link";
 function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500">{label}</span>
-      <span className="text-[15px] font-semibold text-ink-900">{value}</span>
-      {hint && <span className="text-[11px] text-ink-500">{hint}</span>}
+      <span className="text-label font-bold uppercase tracking-wider text-ink-500">{label}</span>
+      <span className="text-body font-semibold text-ink-900">{value}</span>
+      {hint && <span className="text-label text-ink-500">{hint}</span>}
     </div>
   );
 }
@@ -129,7 +129,7 @@ export function CapacityPanel({
                     </Cell>
                     <Cell
                       label="Open"
-                      className={`text-right font-semibold ${row.open < 0 ? "text-[#8F3A3A]" : ""}`}
+                      className={`text-right font-semibold ${row.open < 0 ? "text-danger-fg" : ""}`}
                     >
                       {formatHours(row.open)}
                     </Cell>
@@ -171,7 +171,7 @@ export function CapacityPanel({
                     </Cell>
                     <Cell
                       label="Left"
-                      className={`text-right ${month.openRemaining < 0 ? "text-[#8F3A3A]" : ""}`}
+                      className={`text-right ${month.openRemaining < 0 ? "text-danger-fg" : ""}`}
                     >
                       {formatHours(month.openRemaining)}
                     </Cell>

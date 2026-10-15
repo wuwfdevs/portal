@@ -60,12 +60,12 @@ export default async function WhatsNewPage({
                 {group.notes.map((note) => (
                   <Card key={note.id} id={note.slug} className="scroll-mt-20 px-5 py-4">
                     {note.tool && <Badge variant="neutral">{note.tool.name}</Badge>}
-                    <h3 className="mt-2 font-serif text-[15px] font-bold text-ink-900">
+                    <h3 className="mt-2 font-serif text-body font-bold text-ink-900">
                       {note.title}
                     </h3>
                     <RichText
                       body={note.body}
-                      className="mt-1.5 text-[13px] leading-relaxed text-ink-500"
+                      className="mt-1.5 text-ui leading-relaxed text-ink-500"
                     />
                     {note.guides.length > 0 && (
                       <p className="mt-2.5 text-xs text-ink-400">
