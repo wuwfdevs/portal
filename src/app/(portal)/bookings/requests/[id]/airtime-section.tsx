@@ -18,6 +18,7 @@ import { formatDateShort } from "@/lib/log/program-status";
 import { addCommitment, removeCommitment, updateCommitment } from "../actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * The project's airtime commitments (docs/bookings-design.md §2.5): airings
@@ -224,12 +225,11 @@ function CommitmentFields({
         project={{ id: project, event_starts_on: null, event_ends_on: null }}
         commitment={commitment}
       />
-      <div className="flex items-center gap-3">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit" variant="secondary">
           Save
         </Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

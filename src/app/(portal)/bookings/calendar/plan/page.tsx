@@ -39,6 +39,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Card } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
+import { FormActions } from "@/components/ui/form-actions";
 
 type Params = { plan?: string; new?: string; edit?: string; capacity?: string; error?: string };
 
@@ -260,12 +261,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                   />
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <FormActions cancelHref={withQuery(PLAN_PATH, { plan: plan.id })}>
                                 <Button type="submit">Save</Button>
-                                <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
-                                  Cancel
-                                </TextLink>
-                              </div>
+                              </FormActions>
                             </form>
                           </Cell>
                         </Row>
@@ -445,12 +443,9 @@ export default async function TermPlanPage({ searchParams }: { searchParams: Pro
                                   </FieldHint>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <FormActions cancelHref={withQuery(PLAN_PATH, { plan: plan.id })}>
                                 <Button type="submit">Save</Button>
-                                <TextLink href={withQuery(PLAN_PATH, { plan: plan.id })}>
-                                  Cancel
-                                </TextLink>
-                              </div>
+                              </FormActions>
                             </form>
                           </Cell>
                         </Row>
@@ -619,10 +614,9 @@ function PlanForm({
           track each class&apos;s capacity below.
         </FieldHint>
       )}
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

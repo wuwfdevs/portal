@@ -13,6 +13,7 @@ import { DescriptionList } from "@/components/ui/description-list";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { REVISION_STATUS } from "@/lib/underwriting/status";
 import { pluralize } from "@/lib/format";
+import { FormActions } from "@/components/ui/form-actions";
 
 /** How the contract's separation rule reads to a person. */
 export function separationSummary(contract: ContractDetail): string {
@@ -173,14 +174,11 @@ export function AgreementTab({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <FormActions cancelHref={`${base}?tab=agreement#traffic-policy`}>
               <Button type="submit" variant="secondary">
                 Save policy
               </Button>
-              <TextLink href={`${base}?tab=agreement#traffic-policy`} className="text-[13px]">
-                Cancel
-              </TextLink>
-            </div>
+            </FormActions>
           </form>
         ) : (
           <DescriptionList

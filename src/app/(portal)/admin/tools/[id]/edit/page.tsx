@@ -1,14 +1,13 @@
 import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
-import { SecondaryLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, Input, Select } from "@/components/ui/input";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateTool } from "../../actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditToolPage({
   params,
@@ -66,10 +65,9 @@ export default async function EditToolPage({
               <option value="open">Open</option>
             </Select>
           </Field>
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/admin/tools">Cancel</SecondaryLink>
+          <FormActions cancelHref={"/admin/tools"} className="border-t border-line pt-4">
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

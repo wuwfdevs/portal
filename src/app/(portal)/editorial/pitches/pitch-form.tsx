@@ -4,8 +4,6 @@ import { useActionState, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
-import { SecondaryLink } from "@/components/ui/primary-link";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { savePitch, type PitchFormState } from "./actions";
 import {
   NON_PILLAR_OPTIONS,
@@ -13,6 +11,7 @@ import {
   PRIMARY_PILLAR_FIELD_KEY,
 } from "@/lib/editorial/form";
 import type { EpFieldValue, EpFieldType } from "@/lib/database.types";
+import { FormActions } from "@/components/ui/form-actions";
 
 // The schema-driven renderer for the configurable pitch form: one flat,
 // ordered list of typed fields (see docs/editorial-planning-design.md §4.1).
@@ -149,12 +148,11 @@ export function PitchForm({
         );
       })}
 
-      <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-        <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
+      <FormActions cancelHref={cancelHref} className="border-t border-line pt-4">
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : pitchId ? "Save changes" : "Submit pitch"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

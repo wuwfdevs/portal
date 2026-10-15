@@ -895,12 +895,8 @@ export function ScheduleLineEditor({
         <div className={`${CONTROL_ROW} border-t border-line pt-5`}>
           {editing ? (
             <>
+              {cancelHref && <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>}
               <Button type="submit">Save line</Button>
-              {cancelHref && (
-                <TextLink href={cancelHref} data-row="fixed">
-                  Cancel
-                </TextLink>
-              )}
             </>
           ) : (
             <>

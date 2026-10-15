@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { listIndustryCategories } from "@/lib/underwriting/queries";
 import { createIndustryCategory, setIndustryCategoryActive } from "../../contract-actions";
 import { Card } from "@/components/ui/card";
@@ -60,10 +60,8 @@ export default async function IndustriesPage({
                 <Label htmlFor="industry_description">Description</Label>
                 <Input id="industry_description" name="description" maxLength={200} />
               </div>
+              <SecondaryLink href={INDUSTRIES_PATH}>Cancel</SecondaryLink>
               <Button type="submit">Add industry</Button>
-              <TextLink href={INDUSTRIES_PATH} className="py-2.5">
-                Cancel
-              </TextLink>
             </div>
             {error && <FieldError>{error}</FieldError>}
           </form>

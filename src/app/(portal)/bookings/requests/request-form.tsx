@@ -10,7 +10,7 @@ import {
   TITLE_MAX,
 } from "@/lib/bookings/projects";
 import type { BkPartnerRow, BkProjectRow } from "@/lib/bookings/queries";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * The request's scope, shared by `/requests/new` and `/requests/[id]/edit`
@@ -257,10 +257,9 @@ export function RequestForm({
         </div>
       </Card>
 
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{project ? "Save the request" : "Create the request"}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

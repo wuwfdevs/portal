@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { VALIDATION_STATE_LABEL } from "@/lib/bookings/labels";
 import type { BkValidationState } from "@/lib/database.types";
 import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export function ValidationBadge({ state }: { state: BkValidationState }) {
   const variant = state === "pending" ? "warning" : state === "validated" ? "success" : "accent";
@@ -49,12 +50,11 @@ export function ValidationControls({
         {extras}
         <input type="hidden" name="state" value="accepted_as_is" />
         <Input name="note" placeholder="Why it is accepted as it stands" required autoFocus />
-        <div className="flex items-center gap-3">
+        <FormActions cancelHref={closeHref}>
           <Button type="submit" variant="secondary">
             Accept as is
           </Button>
-          <TextLink href={closeHref}>Cancel</TextLink>
-        </div>
+        </FormActions>
       </form>
     );
   }

@@ -36,6 +36,7 @@ import { NoVersions, RatesHeader } from "../rates-header";
 import { ValidationBadge, ValidationControls } from "../validation-controls";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormActions } from "@/components/ui/form-actions";
 
 type Params = { version?: string; edit?: string; new?: string; accept?: string; error?: string };
 
@@ -204,12 +205,10 @@ function AssumptionEditRow({
               assets={assets}
             />
           )}
-          <div className="flex items-center gap-4">
+          <FormActions cancelHref={cancelHref}>
             <Button type="submit">Save</Button>
-            <TextLink href={cancelHref}>Cancel</TextLink>
-            <span className="flex-1" />
-            <FieldHint>A changed value goes back to awaiting validation.</FieldHint>
-          </div>
+          </FormActions>
+          <FieldHint>A changed value goes back to awaiting validation.</FieldHint>
         </form>
       </Cell>
     </Row>

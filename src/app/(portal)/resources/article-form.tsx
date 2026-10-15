@@ -1,8 +1,6 @@
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, FieldError, FieldHint, Input } from "@/components/ui/input";
-import { SecondaryLink } from "@/components/ui/primary-link";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import {
   AREA_MAX,
   SLUG_MAX,
@@ -14,6 +12,7 @@ import { screensForTool } from "@/lib/resources/screens";
 import type { ToolRef } from "@/lib/resources/queries";
 import { ArticleBodyField } from "./article-body-field";
 import { createArticle, updateArticle } from "./actions";
+import { FormActions } from "@/components/ui/form-actions";
 
 /** Fields that show their own error; any other error renders at the top of the form. */
 const FIELDS_WITH_OWN_ERROR = new Set([
@@ -241,10 +240,9 @@ export function ArticleForm({
         />
       </Field>
 
-      <div className={`${CONTROL_ROW} sm:justify-end`}>
-        <SecondaryLink href={cancelHref}>Cancel</SecondaryLink>
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{editing ? "Save changes" : `Create ${kind}`}</Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

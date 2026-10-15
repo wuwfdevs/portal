@@ -6,7 +6,7 @@ import type { UwCopyRow } from "@/lib/underwriting/queries";
 import { spotNumberFromScript } from "@/lib/underwriting/dad-cut";
 import { DadCutField } from "./dad-cut-field";
 import { ScriptField } from "./script-field";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 export type CopyFormDefaults = Pick<
   UwCopyRow,
@@ -153,10 +153,9 @@ export function CopyForm({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <CopyFormFields defaults={defaults} />
-      <div className="flex items-center gap-4 border-t border-line pt-5">
+      <FormActions cancelHref={cancelHref} className="border-t border-line pt-5">
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

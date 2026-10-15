@@ -491,12 +491,18 @@ sources not analyzed" with the button on it) only while something is waiting.
 44px tall on a phone without a call site remembering to say so; don't force a smaller height
 (`h-9 py-0`, `px-3 py-2 text-[13px]`) or add `max-sm:min-h-*` to one.
 
+### Form footers
+
+Every create or edit form ends in `FormActions` (`components/ui/form-actions.tsx`): Cancel, then the
+primary action last, on the right from `sm` up and sharing the row on a phone. Cancel is a
+`SecondaryLink` (`cancelHref`) or, when it must run code first, a secondary `Button` passed as
+`cancel`. Never a `TextLink` Cancel, and never the primary first. A hand-built `div` of
+`flex items-center gap-4` with a Save and a Cancel is the thing this retired.
+
 ### Controls audit, still open (2026-10-15)
 
 A sweep of the portal's buttons and controls fixed the mechanical cases and left these as decisions:
-(1) **Form footers**: Cancel is a `TextLink` in about 30 Underwriting, Bookings and Log forms and a
-`SecondaryLink`/secondary `Button` in Admin and Editorial settings; pick one footer shape
-(`CONTROL_ROW sm:justify-end`, Cancel then primary) and convert. (2) **Destructive actions** that are
+(1) ~~Form footers~~ done: `FormActions`. (2) **Destructive actions** that are
 `ghost` or `secondary` with no confirm step (Log automated and underwriting hours, schedule-line
 removal, a partner agreement draft, Bookings calendar and estimate rows). (3) **List searches off
 `ListSearch`**: Academic Partnerships' all-submissions form and Roadmap's filter form. (4) **File-picker

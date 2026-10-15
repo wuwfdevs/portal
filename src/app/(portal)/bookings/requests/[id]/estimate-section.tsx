@@ -33,6 +33,7 @@ import {
 } from "../actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormActions } from "@/components/ui/form-actions";
 
 const TREATMENTS: readonly BkPricingTreatment[] = ["strategic", "incremental", "external"];
 const LINE_KINDS: readonly BkEstimateLineKind[] = ["package", "labor", "expense"];
@@ -227,14 +228,11 @@ export function EstimateSection({
                             defaultValue={String(line.quantity)}
                           />
                         </div>
-                        <div className="flex items-end gap-3">
+                        <FormActions cancelHref={here}>
                           <Button type="submit" variant="secondary">
                             Save
                           </Button>
-                          <TextLink href={here} className="pb-2.5">
-                            Cancel
-                          </TextLink>
-                        </div>
+                        </FormActions>
                         <div className="col-span-2 sm:col-span-5">
                           <Label htmlFor="l_notes">Notes</Label>
                           <Input
@@ -570,10 +568,9 @@ function ScopeCard({
             placeholder="Two stages, so a second crew"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <FormActions cancelHref={cancelHref}>
           <Button type="submit">Adjust the scope</Button>
-          <TextLink href={cancelHref}>Cancel</TextLink>
-        </div>
+        </FormActions>
       </form>
       {line.adjustment_reason && (
         <form action={resetLineScope}>

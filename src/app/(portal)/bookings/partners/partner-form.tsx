@@ -4,7 +4,7 @@ import { FieldHint, Input, Label, Select, Textarea } from "@/components/ui/input
 import { PARTNER_NAME_MAX } from "@/lib/bookings/agreements";
 import { PARTNER_KIND_LABEL } from "@/lib/bookings/projects";
 import type { BkPartnerRow } from "@/lib/bookings/queries";
-import { TextLink } from "@/components/ui/primary-link";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * The one partner form, shared by /partners/new and /partners/[id]/edit
@@ -98,10 +98,9 @@ export function PartnerForm({
         <Label htmlFor="notes">Notes</Label>
         <Textarea id="notes" name="notes" rows={3} defaultValue={partner?.notes ?? ""} />
       </div>
-      <div className="flex items-center gap-4">
+      <FormActions cancelHref={cancelHref}>
         <Button type="submit">{submitLabel}</Button>
-        <TextLink href={cancelHref}>Cancel</TextLink>
-      </div>
+      </FormActions>
     </form>
   );
 }

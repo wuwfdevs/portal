@@ -1,13 +1,12 @@
-import { SecondaryLink } from "@/components/ui/primary-link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, Input, Label, Select } from "@/components/ui/input";
-import { CONTROL_ROW } from "@/components/ui/control-row";
 import { updateUserAccess } from "../../actions";
 import { ToolGrantRow } from "../../tool-grant-row";
+import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditUserAccessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -67,10 +66,9 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
               ))}
             </div>
           </div>
-          <div className={`${CONTROL_ROW} border-t border-line pt-4 sm:justify-end`}>
-            <SecondaryLink href="/admin/users">Cancel</SecondaryLink>
+          <FormActions cancelHref={"/admin/users"} className="border-t border-line pt-4">
             <Button type="submit">Save changes</Button>
-          </div>
+          </FormActions>
         </form>
       </Card>
     </div>

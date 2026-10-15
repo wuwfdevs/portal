@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { groupBy, indexBy } from "@/lib/collections";
+import { FormActions } from "@/components/ui/form-actions";
 
 /**
  * Place a credit by hand (docs/underwriting-traffic-redesign.md §11.7) —
@@ -222,14 +223,11 @@ export default async function PlaceCreditPage({
                 <MessageChoice suggested={suggested} options={messageOptions} />
               </section>
 
-              <div className="flex items-center justify-end gap-4">
-                <TextLink href={backHref} className="text-[13px]">
-                  Cancel
-                </TextLink>
+              <FormActions cancelHref={backHref}>
                 <Button type="submit" disabled={groups.length === 0}>
                   Place credit
                 </Button>
-              </div>
+              </FormActions>
             </form>
           )}
         </div>
