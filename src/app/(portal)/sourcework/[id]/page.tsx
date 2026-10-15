@@ -46,7 +46,12 @@ import {
 } from "@/lib/sourcework/source-list";
 import { formatShortDate } from "@/lib/format";
 import { listLiveFormats } from "@/lib/sourcework/piece-format-queries";
-import { AnalyzeButton, AnalyzeProgress, ExtractionProvider } from "./extraction-controls";
+import {
+  AnalyzeButton,
+  AnalyzeNotice,
+  AnalyzeProgress,
+  ExtractionProvider,
+} from "./extraction-controls";
 import { getSourceResearch, listResearchQuestions } from "@/lib/sourcework/research-queries";
 import { extractionLine } from "@/lib/sourcework/run-state";
 import { formatDuration } from "@/lib/transcription/media";
@@ -447,6 +452,7 @@ export default async function TranscriptionProjectPage({
             {stage.next.kind !== "analyze" && <AnalyzeButton />}
             <AddSourceButton projectId={project.id} hasSources />
           </ListToolbar>
+          {stage.next.kind !== "analyze" && <AnalyzeNotice className="mb-4" />}
           <SourceTable projectId={project.id} rows={tableRows} emptyMessage={emptyMessage} />
           <Pagination
             info={sourcePage}

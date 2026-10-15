@@ -451,7 +451,9 @@ the rule in `globals.css` (`.control-row`) takes over:
 1. **Two controls share one row** at half width each, with no spacer between them, so neither
    is pinned to an edge with white space beside it.
 2. **An icon-only button keeps its square** (`data-row="fixed"`; `ActionMenu` marks its own ⋮)
-   and the other control takes the rest.
+   and the other control takes the rest. A labelled `Button` can become one below `sm` with
+   `phoneIcon` (the list toolbar's "+ Add source" is a "+" square beside the search and Filter,
+   with `max-sm:order-first` to sit on the first row); its label stays for screen readers.
 3. **A search box takes the first row** (`ListSearch` marks itself `full`, or `grow` when the
    toolbar has filters). In `ListToolbar` the Filter is an icon-only square (`FilterMenu`, `fixed`,
    its label kept for screen readers) beside it, so search and filter are one row, and the actions
@@ -474,6 +476,10 @@ title's line, which needs the title block to be `min-w-0 flex-1` (`PageHeader` i
 the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`max-w-`
 belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
 not control rows.
+
+A toolbar action that only matters sometimes does not hold a button on a phone: Sourcework's
+quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3
+sources not analyzed" with the button on it) only while something is waiting.
 
 ## AI actions carry the sparkles mark (2026-10-14)
 

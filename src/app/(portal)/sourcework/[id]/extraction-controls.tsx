@@ -4,6 +4,9 @@ import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode }
 import { useRouter } from "next/navigation";
 import { BatchRunPanel } from "@/components/ui/batch-run-panel";
 import { Button } from "@/components/ui/button";
+import { SparklesIcon } from "@/components/ui/sparkles-icon";
+import { pluralize } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import { summarizeTasks } from "@/lib/task-queue";
 import { useRefreshPoller } from "@/lib/use-refresh-poller";
 import { useTaskQueue, type TaskResult } from "@/lib/use-task-queue";
@@ -130,12 +133,37 @@ export function AnalyzeButton({ emphasis = false }: { emphasis?: boolean }) {
       variant={emphasis ? "primary" : "secondary"}
       size={emphasis ? "md" : "sm"}
       ai
-      className="shrink-0"
+      // On a phone the toolbar's quiet Analyze is the notice's button instead (AnalyzeNotice).
+      className={emphasis ? "shrink-0" : "shrink-0 max-sm:hidden"}
       disabled={!canStart}
       onClick={start}
     >
       {analyzeButtonLabel(targetCount)}
     </Button>
+  );
+}
+
+/**
+ * The phone's version of the toolbar's quiet Analyze button: one line above the list saying how many
+ * sources are waiting, with the button on it, shown only while there is something to analyze. From
+ * `sm` the toolbar's own button does this, so the notice is hidden there.
+ */
+export function AnalyzeNotice({ className }: { className?: string }) {
+  const { targetCount, canStart, start } = useAnalyzeRun();
+  if (targetCount === 0) return null;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded bg-brand-surface py-1.5 pl-3 pr-1.5 text-sm text-ink-900 sm:hidden",
+        className,
+      )}
+    >
+      <SparklesIcon className="size-4 shrink-0 text-brand-link" />
+      <span className="flex-1">{pluralize(targetCount, "source")} not analyzed</span>
+      <Button type="button" variant="secondary" size="sm" ai disabled={!canStart} onClick={start}>
+        Analyze
+      </Button>
+    </div>
   );
 }
 
