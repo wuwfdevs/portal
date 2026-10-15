@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ActionMenu, type ActionMenuItem } from "@/components/ui/action-menu";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
+import { cn } from "@/lib/cn";
 import { FieldHint, Input, Label } from "@/components/ui/input";
 import { cancelScheduleLine, removeDraftScheduleLine } from "../../contract-actions";
 
@@ -71,11 +73,14 @@ export function LineMenu({
         <div className="basis-full">
           <form
             action={cancelScheduleLine}
-            className="flex flex-wrap items-end gap-3 rounded border border-danger/30 bg-danger/[0.04] p-3"
+            className={cn(
+              CONTROL_ROW,
+              "gap-3 rounded border border-danger/30 bg-danger/[0.04] p-3",
+            )}
           >
             <input type="hidden" name="contract_id" value={contractId} />
             <input type="hidden" name="schedule_line_id" value={lineId} />
-            <div className="min-w-[12rem]">
+            <div className="min-w-[12rem]" data-row="full">
               <Label htmlFor={`cancel_from_${lineId}`}>Cancel this line from</Label>
               <Input
                 id={`cancel_from_${lineId}`}
@@ -102,11 +107,14 @@ export function LineMenu({
         <div className="basis-full">
           <form
             action={removeDraftScheduleLine}
-            className="flex flex-wrap items-center gap-3 rounded border border-danger/30 bg-danger/[0.04] p-3"
+            className={cn(
+              CONTROL_ROW,
+              "gap-3 rounded border border-danger/30 bg-danger/[0.04] p-3",
+            )}
           >
             <input type="hidden" name="contract_id" value={contractId} />
             <input type="hidden" name="schedule_line_id" value={lineId} />
-            <span className="text-xs text-ink-700">
+            <span className="text-xs text-ink-700" data-row="full">
               Nothing has scheduled from this line, so it goes away with no history to keep.
             </span>
             <Button type="submit" variant="secondary">

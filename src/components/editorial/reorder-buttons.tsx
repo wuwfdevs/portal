@@ -1,5 +1,5 @@
 const BUTTON_CLASSES =
-  "flex h-7 w-7 items-center justify-center rounded border border-line text-ink-500 " +
+  "flex h-11 w-11 items-center lg:h-7 lg:w-7 justify-center rounded border border-line text-ink-500 " +
   "transition-colors hover:border-brand-primary hover:text-brand-link " +
   "focus:outline-none focus:ring-2 focus:ring-brand-surface " +
   "disabled:cursor-not-allowed disabled:border-line/60 disabled:text-ink-400/40 disabled:hover:border-line/60";

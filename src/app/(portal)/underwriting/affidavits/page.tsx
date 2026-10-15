@@ -60,7 +60,7 @@ export default async function AffidavitsPage({
           <Link
             href={monthHref(shiftMonth(month, -1))}
             aria-label="Previous month"
-            className="rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50"
+            className="inline-flex items-center justify-center rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-11"
           >
             ‹
           </Link>
@@ -71,7 +71,7 @@ export default async function AffidavitsPage({
             <Link
               href={monthHref(shiftMonth(month, 1))}
               aria-label="Next month"
-              className="rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50"
+              className="inline-flex items-center justify-center rounded px-2 py-1 text-lg font-bold text-brand-link hover:bg-panel-50 max-lg:min-h-11 max-lg:min-w-11"
             >
               ›
             </Link>

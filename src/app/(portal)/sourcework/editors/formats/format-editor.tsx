@@ -1,7 +1,7 @@
 "use client";
 
 import { SparklesIcon } from "@/components/ui/sparkles-icon";
-import Link from "next/link";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -29,7 +29,6 @@ import {
   renameFormat,
   saveFormatDraft,
 } from "./actions";
-import { TAP_TARGET } from "@/components/ui/tap-target";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 
 const AUTOSAVE_MS = 1200;
@@ -288,17 +287,14 @@ export function FormatEditor({
   const actions = (
     <>
       <PublishButton control={publish} disabled={!check.ok} className="max-lg:flex-1" />
-      <Link
+      <SecondaryLink
         href={`/sourcework/editors/formats/try?format=${formatId}`}
         onClick={goTry}
-        className={cn(
-          TAP_TARGET,
-          "inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-lg:flex-1",
-        )}
+        className="max-lg:flex-1"
       >
         <SparklesIcon className="mr-1.5 h-3.5 w-3.5" />
         Try this draft
-      </Link>
+      </SecondaryLink>
     </>
   );
 

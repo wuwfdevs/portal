@@ -487,6 +487,25 @@ A toolbar action that only matters sometimes does not hold a button on a phone: 
 quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3
 sources not analyzed" with the button on it) only while something is waiting.
 
+`PrimaryLink` and `SecondaryLink` carry `TAP_TARGET` like `Button` does, so a link-styled button is
+44px tall on a phone without a call site remembering to say so; don't force a smaller height
+(`h-9 py-0`, `px-3 py-2 text-[13px]`) or add `max-sm:min-h-*` to one.
+
+### Controls audit, still open (2026-10-15)
+
+A sweep of the portal's buttons and controls fixed the mechanical cases and left these as decisions:
+(1) **Form footers**: Cancel is a `TextLink` in about 30 Underwriting, Bookings and Log forms and a
+`SecondaryLink`/secondary `Button` in Admin and Editorial settings; pick one footer shape
+(`CONTROL_ROW sm:justify-end`, Cancel then primary) and convert. (2) **Destructive actions** that are
+`ghost` or `secondary` with no confirm step (Log automated and underwriting hours, schedule-line
+removal, a partner agreement draft, Bookings calendar and estimate rows). (3) **List searches off
+`ListSearch`**: Academic Partnerships' all-submissions form and Roadmap's filter form. (4) **File-picker
+buttons** (`<label>` styled as a button, four in Underwriting migration) want a shared primitive.
+(5) **`<summary>` "Add …" triggers** (about ten) want a shared disclosure primitive with `TAP_TARGET`.
+(6) **Create actions beside lists** outside a `ListToolbar` (Log automated hours, Resources home,
+Bookings calendar, Audience Listening and Remote Interview headers) should use `PrimaryLink phoneIcon`
+or `ListToolbar primary`.
+
 ## AI actions carry the sparkles mark (2026-10-14)
 
 Any button or link that starts a model run — Analyze, Synthesize, Outline, Write from outline, Drill down,

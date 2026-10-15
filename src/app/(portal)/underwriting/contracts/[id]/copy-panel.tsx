@@ -138,9 +138,7 @@ export async function ContractCopyPanel({
           <SecondaryLink size="sm" href={withQuery("link=1")}>
             Link existing…
           </SecondaryLink>
-          <PrimaryLink href={withQuery("new=1")} className="px-3 py-2 text-[13px]">
-            + New message
-          </PrimaryLink>
+          <PrimaryLink href={withQuery("new=1")}>+ New message</PrimaryLink>
         </div>
       </div>
 

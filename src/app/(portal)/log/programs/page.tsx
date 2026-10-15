@@ -3,6 +3,7 @@ import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { SegmentedLinks } from "@/components/ui/segmented";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { PlusIcon } from "@/components/ui/plus-icon";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -551,10 +552,8 @@ async function WeekView({
           Closed to underwriting
         </span>
         {isProgramDirector && (
-          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`}>
-            <span>
-              + New<span className="max-sm:sr-only"> program</span>
-            </span>
+          <PrimaryLink href={`${PROGRAMS_PATH}?new=1`} phoneIcon={<PlusIcon className="size-4" />}>
+            + New program
           </PrimaryLink>
         )}
       </div>

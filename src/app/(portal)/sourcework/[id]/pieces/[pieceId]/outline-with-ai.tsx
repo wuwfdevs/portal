@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { BusyPanel } from "@/components/ui/busy-panel";
 import { Button } from "@/components/ui/button";
+import { CONTROL_ROW } from "@/components/ui/control-row";
+import { cn } from "@/lib/cn";
 import { TextLink } from "@/components/ui/primary-link";
 import { Label, Textarea } from "@/components/ui/input";
 import { DIRECTION_MAX } from "@/lib/sourcework/piece-standards";
@@ -157,20 +159,23 @@ export function OutlineWithAi({
           />
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-3.5 border-t border-line px-5 py-3 max-lg:px-4">
-        <Button
-          type="button"
-          ai
-          onClick={() => void run()}
-          disabled={running}
-          className="max-lg:min-h-11"
-        >
+      <div className={cn(CONTROL_ROW, "gap-3.5 border-t border-line px-5 py-3 max-lg:px-4")}>
+        <Button type="button" ai onClick={() => void run()} disabled={running}>
           {running ? copy.running : copy.action}
         </Button>
-        <Button type="button" variant="link" touch onClick={onCancel} disabled={running}>
+        <Button
+          type="button"
+          variant="link"
+          touch
+          data-row="fixed"
+          onClick={onCancel}
+          disabled={running}
+        >
           Cancel
         </Button>
-        <span className="ml-auto text-xs text-ink-400 max-lg:hidden">{copy.footer}</span>
+        <span className="ml-auto text-xs text-ink-400 max-lg:hidden" data-row="skip">
+          {copy.footer}
+        </span>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SecondaryLink } from "@/components/ui/primary-link";
 import { validateFormatSpec, type FormatSpec } from "@/lib/sourcework/piece-formats";
 import { publishFormat } from "../actions";
 import { PublishButton, PublishNote, PublishStatus, usePublish } from "../../publish-control";
@@ -31,13 +32,8 @@ export function FormatTryActions({
         consequence="Shown in History. Publishing changes what every reporter's next draft follows; the previous version stays available to make live again."
       />
       <div className={CONTROL_ROW}>
-        <PublishButton control={publish} className="max-sm:min-h-12" />
-        <Link
-          href={editorHref}
-          className="inline-flex items-center justify-center rounded border border-brand-link px-4 py-2.5 text-sm font-bold text-brand-link hover:bg-brand-surface max-sm:min-h-12"
-        >
-          Back to editing
-        </Link>
+        <PublishButton control={publish} />
+        <SecondaryLink href={editorHref}>Back to editing</SecondaryLink>
       </div>
       <PublishStatus
         control={publish}
