@@ -101,18 +101,15 @@ export default async function LogTodayPage({
             >
               ← Prev day
             </SecondaryLink>
-            <form method="get" className="flex items-end gap-2 max-sm:flex-1" data-row="grow">
+            <form id="log-date-form" method="get" className="max-sm:flex-1" data-row="grow">
               <Input
                 id="log-today-date"
                 type="date"
                 name="date"
                 aria-label="Jump to date"
                 defaultValue={selectedDate}
-                className="w-40 max-sm:w-full max-sm:min-w-0 max-sm:flex-1"
+                className="w-40 max-sm:w-full max-sm:min-w-0"
               />
-              <Button type="submit" variant="secondary" className="shrink-0">
-                Go
-              </Button>
             </form>
             <SecondaryLink
               size="sm"
@@ -121,11 +118,20 @@ export default async function LogTodayPage({
             >
               Next day →
             </SecondaryLink>
+            <Button
+              type="submit"
+              form="log-date-form"
+              variant="secondary"
+              data-row="fixed"
+              className="shrink-0"
+            >
+              Go
+            </Button>
           </ControlRow>
           <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-line sm:block" />
-          <ControlRow className="justify-end sm:justify-start">
+          <ControlRow>
             {selectedDate !== today && (
-              <SecondaryLink size="sm" href="/log">
+              <SecondaryLink size="sm" href="/log" data-row="fixed">
                 Today
               </SecondaryLink>
             )}
@@ -134,11 +140,8 @@ export default async function LogTodayPage({
               size="sm"
               className="shrink-0"
               title="Import the traffic system's program log"
-              phoneIcon={<TransferIcon direction="in" size={16} />}
             >
-              <span className="max-sm:hidden">
-                <TransferIcon direction="in" />
-              </span>
+              <TransferIcon direction="in" />
               Import
             </SecondaryLink>
             <SecondaryLink
@@ -146,11 +149,8 @@ export default async function LogTodayPage({
               size="sm"
               className="shrink-0"
               title="Export the DAD log for automated hours"
-              phoneIcon={<TransferIcon direction="out" size={16} />}
             >
-              <span className="max-sm:hidden">
-                <TransferIcon direction="out" />
-              </span>
+              <TransferIcon direction="out" />
               Export
             </SecondaryLink>
           </ControlRow>
