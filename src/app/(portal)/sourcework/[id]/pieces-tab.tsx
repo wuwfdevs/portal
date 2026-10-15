@@ -41,14 +41,15 @@ export function PiecesTab({
               }
             : undefined
         }
-      >
-        <form action={createPiece} className="max-sm:order-first" data-row="fixed">
-          <input type="hidden" name="project_id" value={projectId} />
-          <Button type="submit" phoneIcon={<PlusIcon className="size-4" />}>
-            + New piece
-          </Button>
-        </form>
-      </ListToolbar>
+        action={
+          <form action={createPiece}>
+            <input type="hidden" name="project_id" value={projectId} />
+            <Button type="submit" phoneIcon={<PlusIcon className="size-4" />}>
+              + New piece
+            </Button>
+          </form>
+        }
+      />
 
       {pieces.length === 0 ? (
         <EmptyState>
