@@ -343,11 +343,11 @@ export default async function TranscriptionProjectPage({
 
   const header = (
     <>
-      <div className="mb-5">
+      <div className="mb-3 sm:mb-5">
         <TextLink href="/sourcework">← Back to projects</TextLink>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4 sm:mb-6">
         {/* flex-1 so the ⋮ shares the title's line on a phone instead of taking a row (control-row.tsx). */}
         <div className="min-w-0 max-w-3xl flex-1">
           <PageHeader title={project.title} />

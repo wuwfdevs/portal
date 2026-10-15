@@ -18,7 +18,9 @@ import { AnalyzeButton } from "./extraction-controls";
  * existing Steps indicator (a done step links to its tab); the band under it holds a single
  * primary action and, while the next step is one a model could take, the sparkle-marked link that
  * hands the remaining steps over. It reports and suggests; every step stays reachable by hand from
- * its own tab (docs/sourcework-analysis-design.md, "Setup" standing).
+ * its own tab (docs/sourcework-analysis-design.md, "Setup" standing). On a phone the strip is one
+ * thin bar and the band loses its box and eyebrow, so the pair reads as one line: where it stands,
+ * and the one thing to do.
  */
 export function ProjectOverview({
   projectId,
@@ -34,9 +36,13 @@ export function ProjectOverview({
   handover: ReactNode;
 }) {
   return (
-    <section aria-label="Where this project stands" className="mb-6 flex flex-col gap-4">
+    <section
+      aria-label="Where this project stands"
+      className="mb-4 flex flex-col gap-3 sm:mb-6 sm:gap-4"
+    >
       <Steps
         label="Project steps"
+        phoneBar
         current={stage.current}
         steps={PROJECT_STEPS.map((step) => ({
           label: step.label,
@@ -65,9 +71,9 @@ function NextStepBand({
   handover: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 rounded border border-line bg-panel-50 px-4 py-3 sm:gap-y-3 sm:px-5 sm:py-4">
-      <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1 sm:gap-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2.5 sm:gap-y-3 sm:rounded sm:border sm:border-line sm:bg-panel-50 sm:px-5 sm:py-4">
+      <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1 sm:basis-80 sm:gap-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-ink-400 max-sm:hidden">
           {nextStepEyebrow(next)}
         </span>
         <p className="text-base font-semibold leading-snug text-ink-900">

@@ -9,11 +9,18 @@ export interface SubNavItem {
   count?: number;
 }
 
+/** Up to this many pages share a phone's width equally; more flow and wrap as they always did. */
+const PHONE_FILL_MAX = 4;
+
 /**
  * The row of pages inside one top-level tab — a section's own navigation.
  * Deliberately not an underline (that is `TabNav`, where you are in the tool)
  * and not a pill (that is `FilterChips`, which narrows a list): a quiet grey
  * block marks the page you are on. See docs/ui-patterns.md, "Navigation shapes".
+ *
+ * Below `sm`, a row of up to four pages becomes one grey track the full width of the screen with
+ * the pages sharing it equally and the current one lifted onto white, so it reads as a switch and
+ * every page is a full-size tap target. A longer row keeps the flowing, wrapping layout.
  */
 export function SubNav({
   items,
@@ -25,8 +32,16 @@ export function SubNav({
   label: string;
   className?: string;
 }) {
+  const fill = items.length <= PHONE_FILL_MAX;
   return (
-    <nav aria-label={label} className={cn("mb-4 flex flex-wrap items-center gap-1", className)}>
+    <nav
+      aria-label={label}
+      className={cn(
+        "mb-4 flex flex-wrap items-center gap-1",
+        fill && "max-sm:flex-nowrap max-sm:rounded max-sm:bg-panel-50 max-sm:p-1",
+        className,
+      )}
+    >
       {items.map((item) => (
         <Link
           key={item.href}
@@ -34,8 +49,12 @@ export function SubNav({
           aria-current={item.active ? "page" : undefined}
           className={cn(
             "inline-flex h-8 items-center gap-1.5 rounded px-3 text-[13px] font-semibold transition-colors",
+            fill && "max-sm:h-10 max-sm:min-w-0 max-sm:flex-1 max-sm:justify-center max-sm:px-2",
             item.active
-              ? "bg-panel-100 font-bold text-ink-900"
+              ? cn(
+                  "bg-panel-100 font-bold text-ink-900",
+                  fill && "max-sm:bg-white max-sm:shadow-sm",
+                )
               : "text-ink-500 hover:bg-panel-50 hover:text-ink-700",
           )}
         >

@@ -177,6 +177,10 @@ Rules:
 6. A padded content card is `<Card className="p-4">`, not a hand-written
    `rounded border border-line bg-white p-4`.
 
+7. Below `sm`, a `SubNav` of up to four pages is one full-width grey track whose pages share it
+   equally, the current one lifted onto white (`PHONE_FILL_MAX` in `sub-nav.tsx`); a longer row
+   still flows and wraps. Don't hand-build a phone switch beside it.
+
 Traffic's row is the reference: Dashboard · Contracts · Needs attention (Exceptions, Affidavits) ·
 Library (Underwriters, Copy) · Setup (Overview, Pools, Industries, Migration), modelled in
 `lib/underwriting/nav.ts` (pure, tested).
@@ -350,7 +354,8 @@ Three primitives, used together. Pick by what is true about the wait:
   from state (`plan ? 1 : 0`) and a `current` past the last step marks every step done.
   Give the list a `label` when "Steps" is too generic ("Import steps"). Below `sm` the strip is
   one line: markers and connectors for every step, a label only on the current one (the others
-  stay in the accessible name).
+  stay in the accessible name). A strip that only reports where a flow stands (the Sourcework
+  project's five stages) passes `phoneBar`: below `sm` it is one thin `ProgressBar` of steps done.
 - **A long server step with no honest percentage** (a model reading a PDF, a single-request
   upload): `BusyPanel` — a title in the noun form ("Reading the log"), a soft hint ("This can
   take a minute") and a note saying what has and hasn't happened. Mark the current step
