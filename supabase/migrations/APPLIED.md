@@ -298,6 +298,7 @@ repo and a project's history, not the version number.
 | `20261101120000_resources_sourcework_phone_screens.sql`               | 2026-10-14 | 2026-10-14 |
 | `20261102120000_resources_sourcework_home_notebook_tab.sql`           | 2026-10-15 | 2026-10-15 |
 | `20261102130000_resources_sourcework_home_polish.sql`                 | 2026-10-15 | 2026-10-15 |
+| `20261103120000_resources_sourcework_guides_realigned.sql`            | 2026-10-15 | 2026-10-15 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
@@ -347,4 +348,3 @@ replacement file and applying it on top.
 
 Deliberately not in the table above: the table is keyed on files that exist, and
 `npm run db:check` treats a row naming a missing file as an error.
-| `20261103120000_resources_sourcework_guides_realigned.sql`           | 2026-10-15 | 2026-10-15 |

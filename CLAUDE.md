@@ -519,7 +519,7 @@ already decided on). Naming debt left alone: `extraction-units.ts`, `extract-str
 `ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
 
 **Sourcework: the Synthesis tab, reworked (2026-10-30).** A pointer; the code is the record. The tab is a header
-(version menu, the change since the previous *run*, the one action), a summary strip, a section list, the answer and
+(version menu, the change since the previous _run_, the one action), a summary strip, a section list, the answer and
 an evidence panel (`evidence-panel.tsx`, one open at a time; recordings play in place through
 `getEvidenceMediaUrl`, which signs only a source of the project). Four things are load-bearing: (1) **a person's
 choices live in the synthesis body, not in a table** — a pattern's `status` (`tracking`/`dismissed`) and `questionId`,
