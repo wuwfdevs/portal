@@ -23,7 +23,8 @@ describe("helpContextForPath", () => {
     expect(helpContextForPath("/sourcework/new")?.screenKey).toBe("sourcework.projects");
     expect(helpContextForPath("/sourcework/sources/abc")?.screenKey).toBe("sourcework.source");
     expect(helpContextForPath("/sourcework", "?tab=sources")?.screenKey).toBe("sourcework.sources");
-    expect(helpContextForPath("/sourcework", "?tab=clips")?.screenKey).toBe("sourcework.projects");
+    expect(helpContextForPath("/sourcework", "?tab=library")?.screenKey).toBe("sourcework.sources");
+    expect(helpContextForPath("/sourcework", "?tab=clips")?.screenKey).toBe("sourcework.sources");
     expect(helpContextForPath("/academic-partnerships/settings")?.screenKey).toBe(
       "academic-partnerships.settings",
     );

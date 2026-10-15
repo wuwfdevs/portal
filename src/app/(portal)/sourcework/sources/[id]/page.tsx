@@ -37,7 +37,7 @@ import {
 import type { SourceResearchView } from "../../[id]/data-point-rail";
 import { DocumentTabs } from "./document-tabs";
 import { SourceProjectsList } from "./source-projects-list";
-import { projectPath, sourcePath } from "@/lib/transcription/links";
+import { libraryPath, projectPath, sourcePath } from "@/lib/transcription/links";
 import { pluralize } from "@/lib/format";
 
 // See ../../new/page.tsx's comment on why this lives on the page rather
@@ -153,7 +153,7 @@ export default async function SourceDetailPage({
         back={
           contextProject
             ? { href: projectPath(contextProject.id), label: contextProject.title }
-            : { href: "/sourcework?tab=sources", label: "Back to sources" }
+            : { href: libraryPath(), label: "Back to library" }
         }
         eyebrow={SOURCE_KIND_LABEL[source.kind] ?? source.kind}
         title={source.title}

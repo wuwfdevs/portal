@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { sourcePath } from "@/lib/transcription/links";
 import type { SourceLibraryRow } from "@/lib/transcription/projects";
 import { SourceCard, formatSourceMeta } from "./source-card";
@@ -29,17 +28,11 @@ const KIND_FILTERS: { value: SwSourceKind | "all"; label: string }[] = [
  * before Phase 3b (docs/sourcework-design.md §8.10) — now real.
  */
 export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
-  const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<SwSourceKind | "all">("all");
 
   const filtered = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    return sources.filter((source) => {
-      if (kindFilter !== "all" && source.kind !== kindFilter) return false;
-      if (trimmed && !source.title.toLowerCase().includes(trimmed)) return false;
-      return true;
-    });
-  }, [sources, query, kindFilter]);
+    return sources.filter((source) => kindFilter === "all" || source.kind === kindFilter);
+  }, [sources, kindFilter]);
 
   if (sources.length === 0) {
     return (
@@ -52,13 +45,6 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input
-          type="search"
-          placeholder="Filter sources by title…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="max-w-xs"
-        />
         <div className="flex gap-1.5">
           {KIND_FILTERS.map((filter) => (
             <button
@@ -79,9 +65,7 @@ export function SourceLibrary({ sources }: { sources: SourceLibraryRow[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-ink-500">
-          {query ? `No sources match "${query}".` : "No sources match this filter."}
-        </p>
+        <p className="text-sm text-ink-500">No sources match this filter.</p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((source) => (

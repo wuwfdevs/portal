@@ -30,14 +30,16 @@ import { DismissibleHint } from "@/components/ui/dismissible-hint";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Input } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
+import { SubNav } from "@/components/ui/sub-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { formatShortDate, pluralize } from "@/lib/format";
 import { withQuery } from "@/lib/paths";
-import { projectPath } from "@/lib/transcription/links";
+import { libraryPath, projectPath } from "@/lib/transcription/links";
 
-type Tab = "projects" | "sources" | "clips";
+type Tab = "projects" | "library";
+type LibraryView = "sources" | "excerpts";
 
 const FILTER_LABEL: Record<ProjectListFilter, string> = {
   all: "All",
@@ -60,6 +62,7 @@ export default async function TranscriptionListPage({
   searchParams: Promise<{
     q?: string;
     tab?: string;
+    view?: string;
     filter?: string;
     kind?: string;
     page?: string;
@@ -68,12 +71,17 @@ export default async function TranscriptionListPage({
   const { profile, isEditor } = await requireSourceworkContext();
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
-  const activeTab: Tab =
-    params.tab === "clips" ? "clips" : params.tab === "sources" ? "sources" : "projects";
+  // `sources` and `clips` are the two tabs the Library replaced; old links and bookmarks still
+  // land on the right view. A query always belongs to the Library, wherever the link came from.
+  const legacyView: LibraryView | null =
+    params.tab === "clips" ? "excerpts" : params.tab === "sources" ? "sources" : null;
+  const activeTab: Tab = query || params.tab === "library" || legacyView ? "library" : "projects";
+  const libraryView: LibraryView =
+    params.view === "excerpts" || legacyView === "excerpts" ? "excerpts" : "sources";
   const filter = parseProjectListFilter(params.filter);
   const kind = parseSearchKind(params.kind);
   const pageNumber = parsePage(params.page);
-  const showProjects = !query && activeTab === "projects";
+  const showProjects = activeTab === "projects";
 
   // A query searches the whole archive at once — transcripts, clips, and
   // project metadata in one ranked list (design doc §3F) — so it replaces the
@@ -89,8 +97,12 @@ export default async function TranscriptionListPage({
       ? listProjectsPage({ filter, userId: profile.id, page: pageNumber })
       : Promise.resolve(null),
     showProjects ? countProjectFilters(profile.id) : Promise.resolve(null),
-    !query && activeTab === "sources" ? listSources() : Promise.resolve([]),
-    !query && activeTab === "clips" ? listLibraryClips() : Promise.resolve([]),
+    !query && activeTab === "library" && libraryView === "sources"
+      ? listSources()
+      : Promise.resolve([]),
+    !query && activeTab === "library" && libraryView === "excerpts"
+      ? listLibraryClips()
+      : Promise.resolve([]),
     showAttention
       ? listProjectsPage({ filter: "attention", userId: profile.id, page: 1 })
       : Promise.resolve(null),
@@ -110,7 +122,11 @@ export default async function TranscriptionListPage({
   const kindCounts = countResultsByKind(results);
   const kindResults = filterResultsByKind(results, kind);
   const searchHref = (value: string) =>
-    withQuery("/sourcework", { q: query, kind: value === "all" ? null : value });
+    withQuery("/sourcework", {
+      tab: "library",
+      q: query,
+      kind: value === "all" ? null : value,
+    });
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -119,179 +135,192 @@ export default async function TranscriptionListPage({
         title="Sourcework"
         className="mb-6"
         actions={
-          <>
-            <form method="get" role="search" className="sm:w-96" data-row="full">
-              <Input
-                type="search"
-                name="q"
-                placeholder="Search transcripts, excerpts and interviews"
-                defaultValue={query}
-                aria-label="Search the archive"
-              />
-            </form>
-            <PrimaryLink href="/sourcework/new">
-              <span>
-                + New<span className="max-sm:sr-only"> project</span>
-              </span>
-            </PrimaryLink>
-          </>
+          <PrimaryLink href="/sourcework/new">
+            <span>
+              + New<span className="max-sm:sr-only"> project</span>
+            </span>
+          </PrimaryLink>
         }
       />
 
-      <DismissibleHint id="sourcework-shared" className="mb-3">
-        Every interview here is shared with the rest of the team. Search past projects to reuse a
-        quote, or start a new one.
+      <DismissibleHint id="sourcework-shared" className="mb-6">
+        Every interview here is shared with the rest of the team. Search the library to reuse a
+        quote, or start a new project.
       </DismissibleHint>
-      {isSemanticSearchConfigured() ? (
-        <DismissibleHint id="sourcework-search" className="mb-6">
-          Search finds what was said and what it was about, so try a topic, not just the exact
-          words.
-        </DismissibleHint>
-      ) : (
-        // Whether topic search is on is an administrator's concern; a reporter just gets better
-        // results when it is. This line is a status, not a how-to, so it stays.
-        profile.platform_role === "administrator" && (
-          <p className="mb-6 text-xs text-ink-400">
-            Searches the words that were said. Topic search switches on once an embeddings key is
-            configured.
-          </p>
-        )
+
+      {resumeRows.length > 0 && (
+        <section aria-labelledby="resume" className="mb-8">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 id="resume" className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
+              Pick up where you left off
+            </h2>
+            {(filterCounts?.attention ?? 0) > 0 && (
+              <TextLink href={pageHref("/sourcework", { filter: "attention" }, 1)}>
+                {pluralize(filterCounts?.attention ?? 0, "project needs", "projects need")} you
+              </TextLink>
+            )}
+          </div>
+          <ul className="-mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 sm:-mx-10 sm:px-10 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
+            {resumeRows.map((row) => {
+              const failed = row.failedCount > 0;
+              const waiting = row.reviewCount > 0;
+              return (
+                <li
+                  key={row.id}
+                  className="w-[78%] max-w-sm shrink-0 snap-start md:w-auto md:max-w-none"
+                >
+                  <Link
+                    href={
+                      failed
+                        ? projectPath(row.id)
+                        : waiting
+                          ? projectPath(row.id, "review")
+                          : projectPath(row.id)
+                    }
+                    className={
+                      failed
+                        ? "flex h-full flex-col gap-1.5 rounded border border-danger/40 bg-danger/[0.04] p-4 hover:border-danger"
+                        : "flex h-full flex-col gap-1.5 rounded border border-line bg-white p-4 hover:border-brand-primary"
+                    }
+                  >
+                    <span
+                      className={
+                        failed
+                          ? "text-[10px] font-bold uppercase tracking-wider text-danger"
+                          : "text-[10px] font-bold uppercase tracking-wider text-brand-link"
+                      }
+                    >
+                      {failed
+                        ? `${pluralize(row.failedCount, "source")} failed to process`
+                        : waiting
+                          ? `Review · ${row.reviewCount} waiting`
+                          : "Recent"}
+                    </span>
+                    <span className="font-semibold text-ink-900">{row.title}</span>
+                    <span className="text-xs text-ink-500">
+                      Last activity {formatShortDate(row.lastActivity, { year: true })}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
-      {query ? (
+      <SourceworkTabs className="mb-5" active={activeTab} isEditor={isEditor} />
+
+      {activeTab === "library" ? (
         <>
-          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-500">
-            <span>
-              {results.length >= SEARCH_RESULT_LIMIT
-                ? `Top ${results.length} results`
-                : pluralize(results.length, "result")}{" "}
-              for &ldquo;{query}&rdquo;
-              {results.length >= SEARCH_RESULT_LIMIT &&
-                " — there may be more. Try a more specific search to narrow them."}
-            </span>
-            <TextLink href="/sourcework">Clear search</TextLink>
-          </div>
-          {results.length > 0 && (
-            <FilterChips
-              label="Kind of result"
-              className="mb-5"
-              chips={SEARCH_KIND_FILTERS.filter(
-                (entry) => entry.value === "all" || kindCounts[entry.value] > 0,
-              ).map((entry) => ({
-                label: entry.label,
-                count: kindCounts[entry.value],
-                href: searchHref(entry.value),
-                active: kind === entry.value,
-              }))}
+          <form method="get" role="search" className="mb-4 sm:max-w-xl" data-row="full">
+            <input type="hidden" name="tab" value="library" />
+            <Input
+              type="search"
+              name="q"
+              placeholder="Search transcripts, excerpts and projects"
+              defaultValue={query}
+              aria-label="Search the library"
             />
+          </form>
+
+          {query ? (
+            <>
+              <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-ink-500">
+                <span>
+                  {results.length >= SEARCH_RESULT_LIMIT
+                    ? `Top ${results.length} results`
+                    : pluralize(results.length, "result")}{" "}
+                  for &ldquo;{query}&rdquo;
+                  {results.length >= SEARCH_RESULT_LIMIT &&
+                    " — there may be more. Try a more specific search to narrow them."}
+                </span>
+                <TextLink href={libraryPath(libraryView === "excerpts" ? "excerpts" : undefined)}>
+                  Clear search
+                </TextLink>
+              </div>
+              {results.length > 0 && (
+                <FilterChips
+                  label="Kind of result"
+                  className="mb-5"
+                  chips={SEARCH_KIND_FILTERS.filter(
+                    (entry) => entry.value === "all" || kindCounts[entry.value] > 0,
+                  ).map((entry) => ({
+                    label: entry.label,
+                    count: kindCounts[entry.value],
+                    href: searchHref(entry.value),
+                    active: kind === entry.value,
+                  }))}
+                />
+              )}
+              <GroupedSearchResults results={kindResults} query={query} />
+            </>
+          ) : (
+            <>
+              {isSemanticSearchConfigured() ? (
+                <DismissibleHint id="sourcework-search" className="mb-4">
+                  Search finds what was said and what it was about, so try a topic, not just the
+                  exact words.
+                </DismissibleHint>
+              ) : (
+                // Whether topic search is on is an administrator's concern; a reporter just gets
+                // better results when it is. This line is a status, not a how-to, so it stays.
+                profile.platform_role === "administrator" && (
+                  <p className="mb-4 text-xs text-ink-400">
+                    Searches the words that were said. Topic search switches on once an embeddings
+                    key is configured.
+                  </p>
+                )
+              )}
+              <SubNav
+                label="Library sections"
+                items={[
+                  { href: libraryPath(), label: "Sources", active: libraryView === "sources" },
+                  {
+                    href: libraryPath("excerpts"),
+                    label: "Excerpts",
+                    active: libraryView === "excerpts",
+                  },
+                ]}
+              />
+              {libraryView === "excerpts" ? (
+                <ClipLibrary clips={clips} showFilter={false} />
+              ) : (
+                <SourceLibrary sources={sources} />
+              )}
+            </>
           )}
-          <GroupedSearchResults results={kindResults} query={query} />
         </>
       ) : (
-        <>
-          {resumeRows.length > 0 && (
-            <section aria-labelledby="resume" className="mb-8">
-              <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h2
-                  id="resume"
-                  className="text-[11px] font-bold uppercase tracking-wider text-ink-400"
-                >
-                  Pick up where you left off
-                </h2>
-                {(filterCounts?.attention ?? 0) > 0 && (
-                  <TextLink href={pageHref("/sourcework", { filter: "attention" }, 1)}>
-                    {pluralize(filterCounts?.attention ?? 0, "project needs", "projects need")} you
-                  </TextLink>
-                )}
-              </div>
-              <ul className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {resumeRows.map((row) => {
-                  const failed = row.failedCount > 0;
-                  const waiting = row.reviewCount > 0;
-                  return (
-                    <li key={row.id}>
-                      <Link
-                        href={
-                          failed
-                            ? projectPath(row.id)
-                            : waiting
-                              ? projectPath(row.id, "review")
-                              : projectPath(row.id)
-                        }
-                        className={
-                          failed
-                            ? "flex h-full flex-col gap-1.5 rounded border border-danger/40 bg-danger/[0.04] p-4 hover:border-danger"
-                            : "flex h-full flex-col gap-1.5 rounded border border-line bg-white p-4 hover:border-brand-primary"
-                        }
-                      >
-                        <span
-                          className={
-                            failed
-                              ? "text-[10px] font-bold uppercase tracking-wider text-danger"
-                              : "text-[10px] font-bold uppercase tracking-wider text-brand-link"
-                          }
-                        >
-                          {failed
-                            ? `${pluralize(row.failedCount, "source")} failed to process`
-                            : waiting
-                              ? `Review · ${row.reviewCount} waiting`
-                              : "Recent"}
-                        </span>
-                        <span className="font-semibold text-ink-900">{row.title}</span>
-                        <span className="text-xs text-ink-500">
-                          Last activity {formatShortDate(row.lastActivity, { year: true })}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
-
-          <SourceworkTabs className="mb-5" active={activeTab} isEditor={isEditor} />
-
-          {activeTab === "clips" ? (
-            <ClipLibrary clips={clips} />
-          ) : activeTab === "sources" ? (
-            <SourceLibrary sources={sources} />
-          ) : (
-            projectPage &&
-            filterCounts && (
-              <>
-                <ListToolbar
-                  className="mb-4"
-                  filters={[
-                    {
-                      label: "Show",
-                      chips: (Object.keys(FILTER_LABEL) as ProjectListFilter[]).map((value) => ({
-                        label: FILTER_LABEL[value],
-                        count: filterCounts[value],
-                        href: pageHref(
-                          "/sourcework",
-                          { filter: value === "all" ? null : value },
-                          1,
-                        ),
-                        active: filter === value,
-                      })),
-                    },
-                  ]}
-                />
-                <ProjectTable
-                  rows={projectPage.rows}
-                  currentUserId={profile.id}
-                  emptyMessage={EMPTY_MESSAGE[filter]}
-                />
-                <Pagination
-                  info={info}
-                  path="/sourcework"
-                  params={{ filter: filter === "all" ? null : filter }}
-                  noun="projects"
-                />
-              </>
-            )
-          )}
-        </>
+        projectPage &&
+        filterCounts && (
+          <>
+            <ListToolbar
+              className="mb-4"
+              filters={[
+                {
+                  label: "Show",
+                  chips: (Object.keys(FILTER_LABEL) as ProjectListFilter[]).map((value) => ({
+                    label: FILTER_LABEL[value],
+                    count: filterCounts[value],
+                    href: pageHref("/sourcework", { filter: value === "all" ? null : value }, 1),
+                    active: filter === value,
+                  })),
+                },
+              ]}
+            />
+            <ProjectTable
+              rows={projectPage.rows}
+              currentUserId={profile.id}
+              emptyMessage={EMPTY_MESSAGE[filter]}
+            />
+            <Pagination
+              info={info}
+              path="/sourcework"
+              params={{ filter: filter === "all" ? null : filter }}
+              noun="projects"
+            />
+          </>
+        )
       )}
     </div>
   );

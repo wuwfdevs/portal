@@ -107,7 +107,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
     key: "sourcework.sources",
     name: "Source Library",
     toolKey: "transcription",
-    paths: ["/sourcework?tab=sources"],
+    paths: ["/sourcework?tab=library", "/sourcework?tab=sources", "/sourcework?tab=clips"],
   },
   {
     key: "sourcework.source",

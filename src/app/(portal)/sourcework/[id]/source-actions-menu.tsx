@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { reindexProjectSearch } from "../actions";
 import { removeSourceFromProject, deleteSourceEntirely } from "./source-actions";
-import { projectPath } from "@/lib/transcription/links";
+import { libraryPath, projectPath } from "@/lib/transcription/links";
 import { pluralize } from "@/lib/format";
 
 /**
@@ -78,7 +78,7 @@ export function SourceActionsMenu({
   async function handleDeleteEntirely() {
     const result = await deleteSourceEntirely(sourceId);
     if (result.error) return { error: result.error };
-    router.push(projectId ? projectPath(projectId) : "/sourcework?tab=sources");
+    router.push(projectId ? projectPath(projectId) : libraryPath());
   }
 
   const others = otherProjectCount > 0 ? `${pluralize(otherProjectCount, "other project")}` : null;
