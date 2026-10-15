@@ -476,6 +476,13 @@ the row sizes it, and `TAP_TARGET` already gives it its height. A child's `w-`/`
 belongs under `sm:`. Rows of text-style links, tab rows, `FilterChips` and `Segmented` are
 not control rows.
 
+**A list's "+ New X" is `ListToolbar`'s `primary` prop**, never a `PrimaryLink` in its children and never
+an abbreviation typed per screen (`+ New<span class="max-sm:sr-only"> program</span>`). Pass
+`primary={{ href, label: "New program" }}` (null when the viewer can't create): it reads
+"+ New program" from `sm` up and is a "+" square on the search row on a phone, with the label kept for
+screen readers. An action that has to be a form submit (Pieces' "+ New piece") is a `Button` with
+`phoneIcon` in a `form` marked `data-row="fixed"` and `max-sm:order-first`.
+
 A toolbar action that only matters sometimes does not hold a button on a phone: Sourcework's
 quiet "Analyze (3)" is hidden below `sm` and `AnalyzeNotice` shows one line above the list ("3
 sources not analyzed" with the button on it) only while something is waiting.

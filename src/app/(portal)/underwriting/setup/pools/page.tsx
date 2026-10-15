@@ -6,7 +6,7 @@ import { DayPicker } from "@/components/ui/day-picker";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { listInventoryPools } from "@/lib/underwriting/queries";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { describeDays } from "@/lib/underwriting/demand";
@@ -83,9 +83,8 @@ export default async function InventoryPoolsPage({
           label: "Search pools",
           defaultValue: q,
         }}
-      >
-        {!creating && <PrimaryLink href={`${POOLS_PATH}?new=1`}>+ New pool</PrimaryLink>}
-      </ListToolbar>
+        primary={!creating ? { href: `${POOLS_PATH}?new=1`, label: "New pool" } : null}
+      />
 
       {generalError && <Alert>{generalError}</Alert>}
       <Alert variant="note">

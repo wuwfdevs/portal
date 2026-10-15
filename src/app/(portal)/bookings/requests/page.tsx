@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { BADGE_LABEL, BADGE_TITLE, badgesFor, projectBadgeFacts } from "@/lib/bookings/badges";
@@ -88,18 +88,12 @@ export default async function RequestsPage({
             })),
           },
         ]}
+        primary={canCreate ? { href: `${REQUESTS_PATH}/new`, label: "New request" } : null}
       >
         <ActionMenu
           label="More"
           items={[{ label: "Public request form settings", href: INTAKE_PATH }]}
         />
-        {canCreate && (
-          <PrimaryLink href={`${REQUESTS_PATH}/new`}>
-            <span>
-              + New<span className="max-sm:sr-only"> request</span>
-            </span>
-          </PrimaryLink>
-        )}
       </ListToolbar>
 
       {rows.length === 0 ? (

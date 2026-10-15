@@ -3,7 +3,7 @@ import { trimToNull } from "@/lib/validation";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { requireBookingsAccess } from "@/lib/bookings/access";
 import { PARTNERS_PATH, partnerHref } from "@/lib/bookings/paths";
@@ -62,15 +62,8 @@ export default async function PartnersPage({
             })),
           },
         ]}
-      >
-        {canCreate && (
-          <PrimaryLink href={`${PARTNERS_PATH}/new`}>
-            <span>
-              + New<span className="max-sm:sr-only"> partner</span>
-            </span>
-          </PrimaryLink>
-        )}
-      </ListToolbar>
+        primary={canCreate ? { href: `${PARTNERS_PATH}/new`, label: "New partner" } : null}
+      />
 
       {rows.length === 0 ? (
         <EmptyState title={q ? "No partners match." : "No partners yet."}>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ListToolbar } from "@/components/ui/list-toolbar";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy, type CopyListRow } from "@/lib/underwriting/queries";
 import { isPortalAssignedCut, needsRecording } from "@/lib/underwriting/dad-cut";
@@ -101,15 +101,11 @@ export default async function CopyLibraryPage({
             active: filter === "inactive",
           },
         ]}
+        primary={{ href: "/underwriting/copy/new", label: "New copy" }}
       >
         {isAdministrator && (
           <TextLink href="/underwriting/setup/migration/copy">Import from RadioTraffic</TextLink>
         )}
-        <PrimaryLink href="/underwriting/copy/new">
-          <span>
-            + New<span className="max-sm:sr-only"> copy</span>
-          </span>
-        </PrimaryLink>
       </ListToolbar>
 
       {shown.length === 0 ? (

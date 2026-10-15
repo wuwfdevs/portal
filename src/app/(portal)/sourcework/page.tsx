@@ -33,7 +33,7 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SubNav } from "@/components/ui/sub-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { TextLink } from "@/components/ui/primary-link";
 import { formatShortDate, pluralize } from "@/lib/format";
 import { withQuery } from "@/lib/paths";
 import { notebookPath, projectPath } from "@/lib/transcription/links";
@@ -297,11 +297,8 @@ export default async function TranscriptionListPage({
                   })),
                 },
               ]}
-            >
-              <PrimaryLink href="/sourcework/new">
-                <span>+ New project</span>
-              </PrimaryLink>
-            </ListToolbar>
+              primary={{ href: "/sourcework/new", label: "New project" }}
+            />
             <ProjectTable
               rows={projectPage.rows}
               currentUserId={profile.id}
