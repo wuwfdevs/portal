@@ -177,7 +177,6 @@ end $$;
 
 do $$
 declare
-  strategic_profile uuid := 'a1000000-0000-4000-8000-000000000001';
   dana_id uuid := '10000000-0000-0000-0000-000000000001';
   marcus_id uuid := '10000000-0000-0000-0000-000000000002';
   leo_id uuid := '10000000-0000-0000-0000-000000000006';
@@ -223,17 +222,17 @@ begin
   select id into f_urgency from public.ep_form_fields where key = 'urgency' and active;
   select id into f_sources_materials from public.ep_form_fields where key = 'sources_materials' and active;
 
-  select id into c_impact from public.ep_criteria where name = 'Public impact' and profile_id = strategic_profile;
-  select id into c_audience from public.ep_criteria where name = 'Audience and community relevance' and profile_id = strategic_profile;
-  select id into c_timeliness from public.ep_criteria where name = 'Timeliness and strategic moment' and profile_id = strategic_profile;
-  select id into c_accountability from public.ep_criteria where name = 'Accountability and civic significance' and profile_id = strategic_profile;
-  select id into c_originality from public.ep_criteria where name = 'Originality and discovery' and profile_id = strategic_profile;
-  select id into c_explanatory from public.ep_criteria where name = 'Explanatory and service value' and profile_id = strategic_profile;
-  select id into c_narrative from public.ep_criteria where name = 'Human and narrative potential' and profile_id = strategic_profile;
-  select id into c_breadth from public.ep_criteria where name = 'Breadth of perspective and community representation' and profile_id = strategic_profile;
-  select id into c_pillar from public.ep_criteria where name = 'Coverage-pillar contribution' and profile_id = strategic_profile;
-  select id into c_readiness from public.ep_criteria where name = 'Reporting opportunity and readiness' and profile_id = strategic_profile;
-  select id into c_modifier from public.ep_criteria where name = 'Institutional public-value alignment' and profile_id = strategic_profile;
+  select id into c_impact from public.ep_criteria where name = 'Public impact';
+  select id into c_audience from public.ep_criteria where name = 'Audience and community relevance';
+  select id into c_timeliness from public.ep_criteria where name = 'Timeliness and strategic moment';
+  select id into c_accountability from public.ep_criteria where name = 'Accountability and civic significance';
+  select id into c_originality from public.ep_criteria where name = 'Originality and discovery';
+  select id into c_explanatory from public.ep_criteria where name = 'Explanatory and service value';
+  select id into c_narrative from public.ep_criteria where name = 'Human and narrative potential';
+  select id into c_breadth from public.ep_criteria where name = 'Breadth of perspective and community representation';
+  select id into c_pillar from public.ep_criteria where name = 'Coverage-pillar contribution';
+  select id into c_readiness from public.ep_criteria where name = 'Reporting opportunity and readiness';
+  select id into c_modifier from public.ep_criteria where name = 'Institutional public-value alignment';
 
   insert into public.ep_pitches (id, title, status, submitted_by, assigned_to, archived_reason, archived_by, archived_at, created_at)
   values
@@ -281,10 +280,10 @@ begin
   on conflict do nothing;
 
   -- Last week's meeting: concluded, with a full review record.
-  insert into public.ep_meetings (id, meeting_date, status, notes, created_by, agenda_at, concluded_at, created_at, rubric_profile_id)
+  insert into public.ep_meetings (id, meeting_date, status, notes, created_by, agenda_at, concluded_at, created_at)
   values (m_last, (now() - interval '7 days')::date, 'concluded',
           'Short meeting; pushed shrimping to revisit once the season opens.',
-          dana_id, now() - interval '8 days', now() - interval '7 days', now() - interval '10 days', strategic_profile)
+          dana_id, now() - interval '8 days', now() - interval '7 days', now() - interval '10 days')
   on conflict (id) do nothing;
 
   insert into public.ep_meeting_pitches (id, meeting_id, pitch_id, added_by, outcome, assigned_to, rationale, decided_by, decided_at)
@@ -375,8 +374,8 @@ begin
 
   -- This week's meeting: open, slate picked, one review already in (hidden
   -- from the other reviewer until scoring closes).
-  insert into public.ep_meetings (id, meeting_date, status, created_by, created_at, rubric_profile_id)
-  values (m_next, (now() + interval '2 days')::date, 'open', dana_id, now() - interval '1 day', strategic_profile)
+  insert into public.ep_meetings (id, meeting_date, status, created_by, created_at)
+  values (m_next, (now() + interval '2 days')::date, 'open', dana_id, now() - interval '1 day')
   on conflict (id) do nothing;
 
   insert into public.ep_meeting_pitches (id, meeting_id, pitch_id, added_by)

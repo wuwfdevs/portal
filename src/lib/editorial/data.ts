@@ -23,7 +23,6 @@ export type MeetingRow = Database["public"]["Tables"]["ep_meetings"]["Row"];
 export type MeetingPitchRow = Database["public"]["Tables"]["ep_meeting_pitches"]["Row"];
 export type ReviewRow = Database["public"]["Tables"]["ep_reviews"]["Row"];
 export type ReviewScoreRow = Database["public"]["Tables"]["ep_review_scores"]["Row"];
-export type RubricProfileRow = Database["public"]["Tables"]["ep_rubric_profiles"]["Row"];
 export type PillarRow = Database["public"]["Tables"]["ep_pillars"]["Row"];
 
 export async function getSettings(): Promise<SettingsRow> {
@@ -67,34 +66,12 @@ export async function listPitchFormFields(): Promise<FormFieldRow[]> {
   return fields.map((field) => withPillarOptions(field, pillars));
 }
 
-export async function listCriteria(options?: {
-  activeOnly?: boolean;
-  profileId?: string;
-}): Promise<CriterionRow[]> {
+/** The one rubric: every criterion, or only the active ones a meeting scores against. */
+export async function listCriteria(options?: { activeOnly?: boolean }): Promise<CriterionRow[]> {
   const supabase = await createClient();
   let query = supabase.from("ep_criteria").select("*").order("sort_order").order("created_at");
   if (options?.activeOnly) query = query.eq("active", true);
-  if (options?.profileId) query = query.eq("profile_id", options.profileId);
   return unwrapRead(await query, "the rubric") ?? [];
-}
-
-export async function listRubricProfiles(options?: {
-  activeOnly?: boolean;
-}): Promise<RubricProfileRow[]> {
-  const supabase = await createClient();
-  let query = supabase
-    .from("ep_rubric_profiles")
-    .select("*")
-    .order("sort_order")
-    .order("created_at");
-  if (options?.activeOnly) query = query.eq("active", true);
-  return unwrapRead(await query, "the rubric profiles") ?? [];
-}
-
-/** The profile new meetings should default to: the is_default row, or the first active one. */
-export async function getDefaultRubricProfile(): Promise<RubricProfileRow | null> {
-  const profiles = await listRubricProfiles({ activeOnly: true });
-  return profiles.find((profile) => profile.is_default) ?? profiles[0] ?? null;
 }
 
 /** Display names for arbitrary profile ids (submitters, reviewers, assignees). */

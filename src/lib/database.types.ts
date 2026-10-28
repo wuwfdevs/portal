@@ -1431,12 +1431,10 @@ export interface Database {
           scale_min: number | null;
           scale_max: number | null;
           anchors: EpCriterionAnchors | null;
-          profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]> & {
           name: string;
           description: string;
-          profile_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]>;
         Relationships: [];
@@ -1451,25 +1449,6 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
-        Relationships: [];
-      };
-      ep_rubric_profiles: {
-        Row: {
-          id: string;
-          key: string;
-          name: string;
-          description: string | null;
-          is_default: boolean;
-          active: boolean;
-          sort_order: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]> & {
-          key: string;
-          name: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]>;
         Relationships: [];
       };
       ep_pitches: {
@@ -1511,7 +1490,6 @@ export interface Database {
           agenda_at: string | null;
           concluded_at: string | null;
           created_at: string;
-          rubric_profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_meetings"]["Row"]> & {
           meeting_date: string;

@@ -42,9 +42,9 @@ have one home: **Editorial Planning**.
   `guiding_question`. An inquiry in this tool is **associated with one selected
   pillar**, not an independently typed strategic framework — starting a new
   inquiry means picking a pillar, not writing a guiding question from scratch (§5).
-- **WUWF's editorial criteria live on `ep_criteria`**, grouped into rubric
-  profiles (`ep_rubric_profiles` — Strategic/Enterprise is the default). Editorial
-  Inquiry reads the default profile's active **core** criteria — name,
+- **WUWF's editorial criteria live on `ep_criteria`** (one rubric; the profile
+  table that once grouped them was retired on 2026-10-28). Editorial
+  Inquiry reads the active **core** criteria — name,
   description, guidance — as prose context for the model's judgment. It never
   reads weights, scales, or anchors (those exist to produce a numeric review
   score in Editorial Planning's own weekly meeting; Editorial Inquiry has no
@@ -62,8 +62,8 @@ not necessarily hold an `editorial-planning` grant — Editorial Planning's
 `contributor` role is separate membership, and requiring it just to see WUWF's own
 public-facing pillar list would make the "one source of truth" promise hollow for
 anyone without a second grant. The migration for this revision adds narrow,
-additive `select` policies on `ep_pillars`, `ep_criteria`, and `ep_rubric_profiles`
-admitting `private.has_editorial_inquiry_access(auth.uid())` alongside the existing
+additive `select` policies on `ep_pillars`, `ep_criteria`, and (until its retirement
+on 2026-10-28) `ep_rubric_profiles`, admitting `private.has_editorial_inquiry_access(auth.uid())` alongside the existing
 `ep_has_access` predicate — the same "one more `select` policy for a specific
 cross-tool read" shape as `tools_select_proposed_for_roadmap` and
 `log_broadcast_events_select_for_underwriting`. Nothing about who can _write_ those

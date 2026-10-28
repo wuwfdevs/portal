@@ -265,13 +265,12 @@ export async function createCriterion(formData: FormData): Promise<void> {
   const guidance = optionalField(formData, "guidance");
   const criterionType = parseCriterionType(formData);
   const weight = criterionType === "modifier" ? 1 : Number(formData.get("weight") ?? 1);
-  const profileId = field(formData, "profile_id");
   const scaleMin = parseOptionalScale(formData, "scale_min");
   const scaleMax = parseOptionalScale(formData, "scale_max");
   const { anchors, error: anchorsError } = parseAnchors(String(formData.get("anchors") ?? ""));
 
-  if (!name || !description || !profileId) {
-    failWith(NEW_CRITERION_PATH, "Name, description, and a rubric profile are required.");
+  if (!name || !description) {
+    failWith(NEW_CRITERION_PATH, "Name and description are required.");
   }
   if (criterionType === "core" && (!Number.isFinite(weight) || weight <= 0 || weight > 100)) {
     failWith(NEW_CRITERION_PATH, "Weight must be between 0 and 100.");
@@ -285,8 +284,7 @@ export async function createCriterion(formData: FormData): Promise<void> {
   if (anchorsError) failWith(NEW_CRITERION_PATH, anchorsError);
 
   const existing = await listCriteria();
-  const sortOrder =
-    Math.max(0, ...existing.filter((c) => c.profile_id === profileId).map((c) => c.sort_order)) + 1;
+  const sortOrder = Math.max(0, ...existing.map((c) => c.sort_order)) + 1;
 
   const supabase = await createClient();
   const { data: created, error } = await supabase
@@ -297,7 +295,6 @@ export async function createCriterion(formData: FormData): Promise<void> {
       guidance,
       weight,
       criterion_type: criterionType,
-      profile_id: profileId,
       scale_min: scaleMin,
       scale_max: scaleMax,
       anchors,
@@ -313,7 +310,7 @@ export async function createCriterion(formData: FormData): Promise<void> {
     action: "ep.criterion.created",
     targetType: "ep_criterion",
     targetId: created.id,
-    metadata: { name, weight, criterion_type: criterionType, profile_id: profileId },
+    metadata: { name, weight, criterion_type: criterionType },
   });
 
   redirect(RUBRIC_PATH);
@@ -407,17 +404,15 @@ export async function toggleCriterionActive(formData: FormData): Promise<void> {
   redirect(RUBRIC_PATH);
 }
 
-/** Reordering is scoped to the criterion's own profile — the rubric page groups by profile. */
 export async function moveCriterion(formData: FormData): Promise<void> {
   await assertEditorialRole("editor");
   const criterionId = field(formData, "criterion_id");
   const direction = field(formData, "direction") === "up" ? -1 : 1;
 
-  const all = await listCriteria();
-  const moving = all.find((criterion) => criterion.id === criterionId);
+  const criteria = await listCriteria();
+  const moving = criteria.find((criterion) => criterion.id === criterionId);
   if (!moving) redirect(RUBRIC_PATH);
 
-  const criteria = all.filter((criterion) => criterion.profile_id === moving.profile_id);
   const index = criteria.findIndex((criterion) => criterion.id === criterionId);
   const target = index + direction;
   const neighbor = criteria[target];

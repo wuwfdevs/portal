@@ -19,9 +19,8 @@ const MEETINGS_PATH = "/editorial/meetings";
 
 export async function createMeeting(formData: FormData): Promise<void> {
   const meetingDate = field(formData, "meeting_date");
-  const rubricProfileId = optionalField(formData, "rubric_profile_id") ?? undefined;
 
-  const result = await invokeCapability(createMeetingCapability, { meetingDate, rubricProfileId });
+  const result = await invokeCapability(createMeetingCapability, { meetingDate });
   if (!result.ok) failWith(MEETINGS_PATH, result.error);
 
   redirect(`${MEETINGS_PATH}/${result.meetingId}`);

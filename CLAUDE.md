@@ -42,6 +42,12 @@ removed before any plan existed in either environment
 (`20261104120000_editorial_retire_story_plans.sql`; `docs/editorial-planning-design.md`
 §10.5 is the record). Don't reintroduce production tracking, milestones or deadlines here;
 if the viewpoint-diversity rigor that phase carried needs a home, that is a new question.
+**Rubric profiles are retired too (2026-10-28, `20261104130000_editorial_single_rubric.sql`;
+design doc §10.6):** there is one rubric — `listCriteria({ activeOnly: true })` is the
+set a meeting scores against — and no `ep_rubric_profiles`, `ep_criteria.profile_id` or
+`ep_meetings.rubric_profile_id`. The never-used Immediate / Emerging News criteria were
+deleted (none had a score). A different rubric is a retire-and-add of criteria, not a
+second profile.
 
 **Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
 (Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)

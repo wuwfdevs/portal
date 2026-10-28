@@ -774,33 +774,24 @@ where that rigor should live instead is an open editorial question, not somethin
 answers. Nothing else referenced the two tables; the migration drops them, trims the
 criterion's guidance, and updates the two Resources guides that mentioned the plan.
 
-### 10.6 Rubric profiles
+### 10.6 Rubric profiles (retired 2026-10-28)
 
-`ep_rubric_profiles` (seeded with **Strategic / Enterprise**, the default, and
-**Immediate / Emerging News**) is the smallest sound extension for supporting more than
-one scoring profile without a rules engine: every `ep_criteria` row belongs to exactly
-one profile (`profile_id`, not null), and every `ep_meetings` row picks one profile to
-score its slate against (`rubric_profile_id`, editor-selectable at meeting creation,
-defaulting to Strategic / Enterprise). `listCriteria({ profileId })` filters by it; the
-scoring and agenda screens, and `submitReview`'s validation, only ever see the active
-meeting's profile's criteria. Nothing about the aggregation math changed — a profile is
-just a tag criteria carry and a meeting picks, using the exact same tables and
-`ep_review_scores` snapshot design as before.
+The refinement added `ep_rubric_profiles` so a meeting could be scored against one of
+two rubrics: **Strategic / Enterprise** (the default) and **Immediate / Emerging News**,
+reweighted toward urgency and readiness so urgent coverage would never be gated on pillar
+fit. Every criterion belonged to one profile and every meeting picked one.
 
-Immediate / Emerging News reweights toward urgency and readiness (Urgency and public
-safety impact 22, Public impact 15, Accountability and civic significance 12, Reporting
-readiness and source access right now 15, Explanatory and service value 10, Audience
-and community relevance 10, Breadth of perspective and fairness under deadline 8,
-Coverage-pillar contribution or emerging-issue signal 8) and, per this section's
-requirement, never gates urgent coverage on pillar fit — its pillar criterion explicitly
-credits an emerging-issue signal as an alternative to a defined-pillar connection. It
-carries its own copy of the institutional-alignment modifier, since a modifier is
-itself profile-scoped like any other criterion.
-
-Profiles are configuration data, editable the same way criteria are (the rubric
-settings screen groups criteria by profile and lets an editor assign a new criterion to
-either one); there is no profile-management UI beyond that; a third profile would be
-one more seeded row plus its criteria, not a schema change.
+Retired on 2026-10-28 (`20261104130000_editorial_single_rubric.sql`): one active rubric
+is simpler to run and to explain, and the second profile had never been used for a
+meeting in either environment. The concern it existed for is already covered without it:
+the pitch form's urgency field and "Immediate public need" pillar option carry the signal,
+and the Coverage-pillar criterion's own guidance says a pitch outside the pillars is not
+penalized there. The migration deleted the unused profile's criteria (none had a score),
+dropped `ep_criteria.profile_id`, `ep_meetings.rubric_profile_id` and the table, and the
+rubric settings page, meeting creation, the `editorial.meeting.create` capability and
+Editorial Inquiry's criteria read all now work from the one set of active criteria. The
+`ep_review_scores` snapshot design is unchanged, so a change of rubric is still a
+retire-and-add of criteria, never an edit.
 
 ### 10.7 Portfolio context and future analytics
 

@@ -8,14 +8,12 @@ import {
   listFormFields,
   listMembers,
   listPitchesWithActivity,
-  listRubricProfiles,
   getSettings,
 } from "@/lib/editorial/data";
 import { aggregateReviews, computeAdjustedScore, rankSlate } from "@/lib/editorial/scoring";
 import { formatDate } from "@/lib/editorial/format";
 import { MeetingStatusBadge } from "@/components/editorial/outcome-badge";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/input";
@@ -51,16 +49,14 @@ export default async function MeetingPage({
         )
       : [];
 
-  const [allCriteria, activeCriteria, settings, fields, members, profiles] = await Promise.all([
+  const [allCriteria, activeCriteria, settings, fields, members] = await Promise.all([
     listCriteria(),
-    listCriteria({ activeOnly: true, profileId: meeting.rubric_profile_id }),
+    listCriteria({ activeOnly: true }),
     getSettings(),
     listFormFields(),
     listMembers(),
-    listRubricProfiles(),
   ]);
   const criterionById = new Map(allCriteria.map((criterion) => [criterion.id, criterion]));
-  const rubricProfile = profiles.find((p) => p.id === meeting.rubric_profile_id);
   const valuesByPitch = await getPitchValues(slate.map(({ pitch }) => pitch.id));
 
   const allReviews = Array.from(reviewsByEntry.values()).flat();
@@ -109,12 +105,7 @@ export default async function MeetingPage({
         className="mb-4"
         back={{ href: "/editorial/meetings", label: "Back to meetings" }}
         title={formatDate(meeting.meeting_date)}
-        badge={
-          <>
-            <MeetingStatusBadge status={meeting.status} />
-            {rubricProfile && <Badge variant="neutral">{rubricProfile.name}</Badge>}
-          </>
-        }
+        badge={<MeetingStatusBadge status={meeting.status} />}
         actions={
           <>
             {isEditor && meeting.status === "open" && slate.length > 0 && (
