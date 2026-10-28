@@ -5,12 +5,10 @@ import {
   getPitchValues,
   getProfileNames,
   getSettings,
-  getStoryPlan,
   listCriteria,
   listFormFields,
   unwrapRead,
 } from "@/lib/editorial/data";
-import { STORY_PLAN_STATUS_LABEL } from "@/lib/editorial/story-plan";
 import { aggregateReviews, computeAdjustedScore } from "@/lib/editorial/scoring";
 import { formatDate } from "@/lib/editorial/format";
 import { PitchValues } from "@/components/editorial/pitch-values";
@@ -49,7 +47,7 @@ export default async function PitchDetailPage({
   );
   if (!pitch) notFound();
 
-  const [fields, valuesByPitch, rounds, criteria, settings, storyPlan] = await Promise.all([
+  const [fields, valuesByPitch, rounds, criteria, settings] = await Promise.all([
     listFormFields(),
     getPitchValues([pitch.id]),
     supabase
@@ -59,7 +57,6 @@ export default async function PitchDetailPage({
       .then((result) => unwrapRead(result, "the review history")),
     listCriteria(),
     getSettings(),
-    getStoryPlan(pitch.id),
   ]);
   const criterionById = new Map(criteria.map((criterion) => [criterion.id, criterion]));
 
@@ -163,28 +160,8 @@ export default async function PitchDetailPage({
         </div>
 
         {pitch.status === "assigned" && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-panel-50 px-5 py-3 text-sm text-ink-700">
-            <span>
-              Assigned to <strong>{names.get(pitch.assigned_to ?? "") ?? "—"}</strong>
-            </span>
-            <TextLink
-              href={`/editorial/pitches/${pitch.id}/story-plan`}
-              className="text-xs font-semibold"
-            >
-              {storyPlan
-                ? `Story plan · ${STORY_PLAN_STATUS_LABEL[storyPlan.status]}`
-                : "Start story plan"}
-            </TextLink>
-          </div>
-        )}
-        {pitch.status !== "assigned" && storyPlan && (
           <div className="border-t border-line bg-panel-50 px-5 py-3 text-sm text-ink-700">
-            <TextLink
-              href={`/editorial/pitches/${pitch.id}/story-plan`}
-              className="text-xs font-semibold"
-            >
-              Story plan · {STORY_PLAN_STATUS_LABEL[storyPlan.status]}
-            </TextLink>
+            Assigned to <strong>{names.get(pitch.assigned_to ?? "") ?? "—"}</strong>
           </div>
         )}
         {pitch.status === "archived" && (

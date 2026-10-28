@@ -32,7 +32,6 @@ export const SCREENS: readonly ScreenDefinition[] = [
       "/editorial/pitches/new",
       "/editorial/pitches/:id",
       "/editorial/pitches/:id/edit",
-      "/editorial/pitches/:id/story-plan",
     ],
   },
   {

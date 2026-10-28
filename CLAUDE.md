@@ -34,6 +34,15 @@ lives in `docs/editorial-planning-design.md` — read it before changing editori
 workflow or schema. (The guardrails against Remote Interview and Audience Listening have
 both been lifted — see below.)
 
+**Editorial Planning: story plans are retired (2026-10-28).** The post-selection
+story-planning phase the 2026-07-30 refinement added (`ep_story_plans`,
+`ep_story_plan_milestones`, `/editorial/pitches/[id]/story-plan`) contradicted the tool's
+own §1 scope — "the pipeline ends the moment a pitch is assigned or archived" — and was
+removed before any plan existed in either environment
+(`20261104120000_editorial_retire_story_plans.sql`; `docs/editorial-planning-design.md`
+§10.5 is the record). Don't reintroduce production tracking, milestones or deadlines here;
+if the viewpoint-diversity rigor that phase carried needs a home, that is a new question.
+
 **Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
 (Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)
 are done, and slice 5 (handoff — creating a `tw_projects` row from a track) is

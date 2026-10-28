@@ -24,8 +24,6 @@ export type MeetingPitchRow = Database["public"]["Tables"]["ep_meeting_pitches"]
 export type ReviewRow = Database["public"]["Tables"]["ep_reviews"]["Row"];
 export type ReviewScoreRow = Database["public"]["Tables"]["ep_review_scores"]["Row"];
 export type RubricProfileRow = Database["public"]["Tables"]["ep_rubric_profiles"]["Row"];
-export type StoryPlanRow = Database["public"]["Tables"]["ep_story_plans"]["Row"];
-export type StoryPlanMilestoneRow = Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"];
 export type PillarRow = Database["public"]["Tables"]["ep_pillars"]["Row"];
 
 export async function getSettings(): Promise<SettingsRow> {
@@ -342,32 +340,4 @@ export async function getMeetingBundle(meetingId: string): Promise<MeetingBundle
       ),
     reviewsByEntry,
   };
-}
-
-// Story planning ---------------------------------------------------------------
-// One plan per pitch (design §5A); reads mirror the rest of this module.
-
-export async function getStoryPlan(pitchId: string): Promise<StoryPlanRow | null> {
-  const supabase = await createClient();
-  return unwrapRead(
-    await supabase.from("ep_story_plans").select("*").eq("pitch_id", pitchId).maybeSingle(),
-    "the story plan",
-  );
-}
-
-export async function listStoryPlanMilestones(
-  storyPlanId: string,
-): Promise<StoryPlanMilestoneRow[]> {
-  const supabase = await createClient();
-  return (
-    unwrapRead(
-      await supabase
-        .from("ep_story_plan_milestones")
-        .select("*")
-        .eq("story_plan_id", storyPlanId)
-        .order("sort_order")
-        .order("created_at"),
-      "the story plan's milestones",
-    ) ?? []
-  );
 }
