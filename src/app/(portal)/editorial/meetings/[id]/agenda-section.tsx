@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { OutcomeBadge } from "@/components/editorial/outcome-badge";
-import { ScoreStats } from "@/components/editorial/score-stats";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input, Select } from "@/components/ui/input";
-import { CONTROL_ROW } from "@/components/ui/control-row";
+import { cn } from "@/lib/cn";
 import { formatScore } from "@/lib/editorial/format";
 import { weightedReviewScore, type PitchAggregate } from "@/lib/editorial/scoring";
 import { CONCERN_FLAG_LABEL, RECOMMENDATION_LABEL } from "@/lib/editorial/review";
+import { pluralize } from "@/lib/format";
 import type {
   CriterionRow,
   Member,
@@ -16,7 +14,7 @@ import type {
   PitchRow,
   ReviewWithScores,
 } from "@/lib/editorial/data";
-import { recordDecision } from "../actions";
+import { DecisionForm } from "./decision-form";
 
 export interface AgendaItem {
   entry: MeetingPitchRow;
@@ -25,19 +23,22 @@ export interface AgendaItem {
   aggregate: PitchAggregate;
   adjustedScore: number | null;
   modifierApplied: boolean;
+  /** "Pillar · Format · Submitter", from the pitch's answers. */
+  meta: string;
 }
+
+/** Reviewers' core scores this far apart, or more, mark a pitch Split — worth discussing. */
+export const SPLIT_SPREAD = 1.5;
 
 /**
  * The ranked agenda a meeting runs off once scoring closes. Ranking organizes
- * the conversation; the decision buttons don't care about rank order —
- * editorial discretion is the point. Core score, the institutional modifier,
- * and the adjusted priority score are shown as three distinct numbers — the
- * modifier never edits the core score, only adds to a separate total, and
- * only once it clears the configured threshold (design §4A).
- *
- * A decided item collapses to its outcome plus a "Change" disclosure: the room
- * works down the undecided ones, so those keep their decision row open inline
- * while the settled ones stop competing for the same vertical space.
+ * the conversation; the decision doesn't care about rank order — editorial
+ * discretion is the point. One number leads each row, the adjusted score the
+ * agenda is ranked by, with the core average and the institutional modifier
+ * as its breakdown underneath: the modifier never edits the core score, only
+ * adds to a separate total, and only once the core clears the configured
+ * threshold (design §4A). A decided item collapses to its outcome plus a
+ * "Change" disclosure: the room works down the undecided ones.
  */
 export function AgendaSection({
   meetingId,
@@ -46,6 +47,7 @@ export function AgendaSection({
   names,
   members,
   canDecide,
+  modifierMinCoreScore,
 }: {
   meetingId: string;
   items: AgendaItem[];
@@ -53,165 +55,187 @@ export function AgendaSection({
   names: Map<string, string>;
   members: Member[];
   canDecide: boolean;
+  modifierMinCoreScore: number;
 }) {
   const criterionById = new Map(criteria.map((criterion) => [criterion.id, criterion]));
+  const firstUndecided = items.find(({ entry }) => entry.outcome === null)?.entry.id ?? null;
+  const adjustedTitle = `Adjusted = core average + institutional modifier, added once the core clears ${formatScore(modifierMinCoreScore)}`;
 
   return (
-    <section className="flex flex-col gap-3">
-      {items.map(({ entry, pitch, reviews, aggregate, adjustedScore, modifierApplied }, index) => {
-        const contested = aggregate.spread !== null && aggregate.spread >= 1.5;
-        const decided = entry.outcome !== null;
-        const decisionForm = canDecide ? (
-          <DecisionForm
-            meetingId={meetingId}
-            entry={entry}
-            pitchTitle={pitch.title}
-            members={members}
-          />
-        ) : null;
+    <section className="flex flex-col gap-3" aria-label="Ranked agenda">
+      {items.map(
+        ({ entry, pitch, reviews, aggregate, adjustedScore, modifierApplied, meta }, index) => {
+          const contested = aggregate.spread !== null && aggregate.spread >= SPLIT_SPREAD;
+          const decided = entry.outcome !== null;
+          const current = canDecide && entry.id === firstUndecided;
+          const flags = Array.from(new Set(reviews.flatMap((r) => r.review.concern_flags)));
+          const decisionForm = canDecide ? (
+            <DecisionForm
+              meetingId={meetingId}
+              entry={entry}
+              pitchTitle={pitch.title}
+              members={members}
+            />
+          ) : null;
 
-        return (
-          <Card key={entry.id}>
-            <div className="flex gap-3.5 px-4 py-4">
-              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-panel-100 font-serif text-sm font-bold text-ink-500">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/editorial/pitches/${pitch.id}`}
-                    className="text-body font-semibold text-ink-900 hover:text-brand-link hover:underline"
-                  >
-                    {pitch.title}
-                  </Link>
-                  {contested && (
-                    <span title="Reviewers disagree — worth discussing">
-                      <Badge variant="danger">Split</Badge>
-                    </span>
+          return (
+            <Card
+              key={entry.id}
+              id={current ? "current" : undefined}
+              className={cn(current && "border-brand-primary ring-1 ring-brand-primary")}
+            >
+              <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3.5 gap-y-3 px-4 py-4 sm:grid-cols-[2rem_minmax(0,1fr)_auto]">
+                <span className="flex size-8 items-center justify-center rounded-full bg-panel-100 font-serif text-sm font-bold text-ink-700">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/editorial/pitches/${pitch.id}`}
+                      className="text-body font-semibold text-ink-900 hover:text-brand-link hover:underline"
+                    >
+                      {pitch.title}
+                    </Link>
+                    {contested && (
+                      <Badge
+                        variant="warning"
+                        title={`Reviewers' core scores are ${SPLIT_SPREAD} or more apart — worth discussing`}
+                      >
+                        Split
+                      </Badge>
+                    )}
+                  </div>
+                  {meta && <p className="text-ui text-ink-500">{meta}</p>}
+                  {flags.length > 0 && (
+                    <p className="text-ui text-ink-500">
+                      {pluralize(flags.length, "concern")}:{" "}
+                      {flags.map((flag) => CONCERN_FLAG_LABEL[flag]).join(" · ")}
+                    </p>
                   )}
-                </div>
 
-                {reviews.some((r) => r.review.concern_flags.length > 0) && (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {Array.from(new Set(reviews.flatMap((r) => r.review.concern_flags))).map(
-                      (flag) => (
-                        <Badge key={flag} variant="danger">
-                          {CONCERN_FLAG_LABEL[flag]}
-                        </Badge>
-                      ),
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  <ScoreStats
-                    core={aggregate.average}
-                    modifier={aggregate.modifierAverage}
-                    adjusted={adjustedScore}
-                    spread={aggregate.spread}
-                    reviewerCount={aggregate.reviewerCount}
-                    modifierApplied={modifierApplied}
-                  />
-                </div>
-
-                <details className="mt-2.5">
-                  <summary className="w-fit cursor-pointer list-none text-label font-semibold text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
-                    Scores, recommendations &amp; comments
-                  </summary>
-                  <div className="mt-2.5 border-t border-line pt-2.5">
-                    {reviews.length === 0 ? (
-                      <p className="text-xs text-ink-400">No reviews were submitted.</p>
-                    ) : (
-                      <>
-                        <ul className="flex flex-col gap-0.5">
-                          {Array.from(aggregate.criterionMeans.entries()).map(
-                            ([criterionId, mean]) => {
-                              const criterion = criterionById.get(criterionId);
-                              return (
-                                <li key={criterionId} className="text-meta text-ink-500">
-                                  {criterion?.name ?? "Retired criterion"}
-                                  {criterion?.criterion_type === "modifier" && (
-                                    <span className="ml-1 text-ink-400">(modifier)</span>
-                                  )}
-                                  {": "}
-                                  <span className="font-semibold text-ink-700">
-                                    {formatScore(mean)}
+                  <details className="mt-1">
+                    <summary className="w-fit cursor-pointer list-none text-xs font-bold text-brand-link hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                      Scores, recommendations and comments
+                    </summary>
+                    <div className="mt-2.5 flex flex-col gap-2.5 rounded bg-panel-50 px-3.5 py-3 text-ui">
+                      {reviews.length === 0 ? (
+                        <p className="text-ink-400">No reviews were submitted.</p>
+                      ) : (
+                        <>
+                          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-ink-700">
+                            {Array.from(aggregate.criterionMeans.entries()).map(
+                              ([criterionId, mean]) => {
+                                const criterion = criterionById.get(criterionId);
+                                return (
+                                  <li key={criterionId}>
+                                    {criterion?.name ?? "Retired criterion"}
+                                    {criterion?.criterion_type === "modifier" && (
+                                      <span className="ml-1 text-ink-400">(modifier)</span>
+                                    )}{" "}
+                                    <span className="font-semibold">{formatScore(mean)}</span>
+                                  </li>
+                                );
+                              },
+                            )}
+                          </ul>
+                          <ul className="flex flex-col gap-1.5 border-t border-line pt-2.5 text-ink-700">
+                            {reviews.map(({ review, scores }) => (
+                              <li key={review.id} className="leading-relaxed">
+                                <span className="font-semibold">
+                                  {names.get(review.reviewer_id) ?? "Reviewer"}
+                                </span>{" "}
+                                {formatScore(
+                                  weightedReviewScore(
+                                    scores.map((score) => ({
+                                      criterionId: score.criterion_id,
+                                      score: score.score,
+                                      weight: score.weight_snapshot,
+                                      criterionType:
+                                        criterionById.get(score.criterion_id)?.criterion_type ??
+                                        "core",
+                                    })),
+                                  ),
+                                )}
+                                {review.recommendation && (
+                                  <span className="mx-1.5">
+                                    <Badge variant="neutral">
+                                      {RECOMMENDATION_LABEL[review.recommendation]}
+                                    </Badge>
                                   </span>
-                                </li>
-                              );
-                            },
-                          )}
-                        </ul>
-                        <ul className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
-                          {reviews.map(({ review, scores }) => (
-                            <li key={review.id} className="text-meta leading-relaxed text-ink-500">
-                              <span className="font-semibold text-ink-700">
-                                {names.get(review.reviewer_id) ?? "Reviewer"}
-                              </span>{" "}
-                              —{" "}
-                              {formatScore(
-                                weightedReviewScore(
-                                  scores.map((score) => ({
-                                    criterionId: score.criterion_id,
-                                    score: score.score,
-                                    weight: score.weight_snapshot,
-                                    criterionType:
-                                      criterionById.get(score.criterion_id)?.criterion_type ??
-                                      "core",
-                                  })),
-                                ),
-                              )}
-                              {review.recommendation && (
-                                <span className="ml-1.5">
-                                  <Badge variant="neutral">
-                                    {RECOMMENDATION_LABEL[review.recommendation]}
-                                  </Badge>
-                                </span>
-                              )}
-                              {review.concern_flags.length > 0 && (
-                                <span className="ml-1.5 text-ink-400">
-                                  {review.concern_flags
-                                    .map((flag) => CONCERN_FLAG_LABEL[flag])
-                                    .join(", ")}
-                                </span>
-                              )}
-                              {review.comment && (
-                                <span className="text-ink-500"> · {review.comment}</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
-                </details>
-              </div>
-            </div>
+                                )}
+                                {review.concern_flags.length > 0 && (
+                                  <span className="text-warning-fg">
+                                    {review.concern_flags
+                                      .map((flag) => CONCERN_FLAG_LABEL[flag])
+                                      .join(" · ")}
+                                  </span>
+                                )}
+                                {review.comment && (
+                                  <span className="text-ink-500"> · {review.comment}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </details>
+                </div>
 
-            {decided ? (
-              decisionForm ? (
-                <details className="border-t border-line">
-                  <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2.5 bg-panel-50 px-4 py-3 hover:bg-panel-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                <div className="col-start-2 flex flex-col gap-0.5 sm:col-start-3 sm:items-end sm:text-right">
+                  <span
+                    className="font-serif text-display font-bold leading-none text-brand-link"
+                    title={adjustedTitle}
+                  >
+                    {formatScore(adjustedScore)}
+                  </span>
+                  <span className="text-ui text-ink-500">
+                    {aggregate.modifierAverage === null
+                      ? `Core ${formatScore(aggregate.average)} · no modifier`
+                      : modifierApplied
+                        ? `Core ${formatScore(aggregate.average)} + Modifier ${formatScore(aggregate.modifierAverage)}`
+                        : `Core ${formatScore(aggregate.average)} · modifier ${formatScore(aggregate.modifierAverage)} not applied`}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-ui",
+                      contested ? "font-semibold text-warning-fg" : "text-ink-500",
+                    )}
+                    title="Spread is the gap between the highest and lowest core score"
+                  >
+                    {aggregate.spread !== null && `Spread ${formatScore(aggregate.spread)} · `}
+                    {pluralize(aggregate.reviewerCount, "review")}
+                  </span>
+                </div>
+              </div>
+
+              {decided ? (
+                decisionForm ? (
+                  <details className="border-t border-line">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2.5 bg-panel-50 px-4 py-3 hover:bg-panel-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-surface [&::-webkit-details-marker]:hidden">
+                      <OutcomeLine entry={entry} names={names} />
+                      <span className="shrink-0 text-xs font-bold text-brand-link">Change</span>
+                    </summary>
+                    <div className="border-t border-line">{decisionForm}</div>
+                  </details>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line bg-panel-50 px-4 py-3">
                     <OutcomeLine entry={entry} names={names} />
-                    <span className="shrink-0 text-xs font-bold text-brand-link">Change</span>
-                  </summary>
-                  <div className="border-t border-line">{decisionForm}</div>
-                </details>
+                  </div>
+                )
               ) : (
-                <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line bg-panel-50 px-4 py-3">
-                  <OutcomeLine entry={entry} names={names} />
-                </div>
-              )
-            ) : (
-              (decisionForm ?? (
-                <div className="border-t border-line bg-panel-50 px-4 py-3">
-                  <OutcomeBadge outcome={null} />
-                </div>
-              ))
-            )}
-          </Card>
-        );
-      })}
+                ((decisionForm && (
+                  <div className="border-t border-line bg-panel-50">{decisionForm}</div>
+                )) ?? (
+                  <div className="border-t border-line bg-panel-50 px-4 py-3">
+                    <OutcomeBadge outcome={null} />
+                  </div>
+                ))
+              )}
+            </Card>
+          );
+        },
+      )}
     </section>
   );
 }
@@ -219,79 +243,21 @@ export function AgendaSection({
 /** The recorded decision, read as one line: badge, who/what, then rationale. */
 function OutcomeLine({ entry, names }: { entry: MeetingPitchRow; names: Map<string, string> }) {
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-2 text-meta text-ink-500">
+    <span className="flex min-w-0 flex-wrap items-center gap-2 text-ui text-ink-500">
       <OutcomeBadge outcome={entry.outcome} />
       <span>
         {entry.outcome === "assigned" && (
           <>
-            Assigned to{" "}
+            to{" "}
             <span className="font-semibold text-ink-700">
               {names.get(entry.assigned_to ?? "") ?? "—"}
             </span>
           </>
         )}
-        {entry.outcome === "deferred" && "Deferred — stays in the backlog"}
-        {entry.outcome === "archived" && "Archived"}
+        {entry.outcome === "deferred" && "Stays in the backlog"}
+        {entry.outcome === "archived" && "Parked, kept on the record"}
         {entry.rationale && ` · ${entry.rationale}`}
       </span>
     </span>
-  );
-}
-
-function DecisionForm({
-  meetingId,
-  entry,
-  pitchTitle,
-  members,
-}: {
-  meetingId: string;
-  entry: MeetingPitchRow;
-  pitchTitle: string;
-  members: Member[];
-}) {
-  return (
-    <form action={recordDecision} className="px-4 py-3.5">
-      <input type="hidden" name="meeting_id" value={meetingId} />
-      <input type="hidden" name="entry_id" value={entry.id} />
-      <div className={CONTROL_ROW}>
-        <Select
-          name="assigned_to"
-          defaultValue={entry.assigned_to ?? ""}
-          aria-label={`Assign ${pitchTitle} to`}
-          className="py-2 sm:w-auto sm:min-w-44"
-        >
-          <option value="">Assign to…</option>
-          {members.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.displayName}
-            </option>
-          ))}
-        </Select>
-        <Input
-          name="rationale"
-          defaultValue={entry.rationale ?? ""}
-          placeholder="Rationale (optional)"
-          aria-label={`Rationale for ${pitchTitle}`}
-          maxLength={300}
-          className="min-w-40 flex-1 py-2"
-        />
-        <div className={CONTROL_ROW}>
-          <Button type="submit" name="outcome" value="assigned" size="sm">
-            Assign
-          </Button>
-          <Button type="submit" name="outcome" value="deferred" variant="secondary" size="sm">
-            Defer
-          </Button>
-          <Button type="submit" name="outcome" value="archived" variant="secondary" size="sm">
-            Archive
-          </Button>
-        </div>
-      </div>
-      {entry.outcome !== null && (
-        <p className="mt-2 text-label text-ink-400">
-          Already decided — saving again replaces the recorded decision.
-        </p>
-      )}
-    </form>
   );
 }

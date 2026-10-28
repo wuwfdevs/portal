@@ -16,12 +16,7 @@ import { z } from "zod";
 import { defineCapability } from "@/lib/capabilities/define";
 import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertEditorialRole } from "./access";
-import {
-  listCriteria,
-  listPitchFormFields,
-  getSettings,
-  unwrapRead,
-} from "./data";
+import { listCriteria, listPitchFormFields, getSettings, unwrapRead } from "./data";
 import { validatePitchValues } from "./form";
 import { validateReviewScores, type CriterionDef } from "./scoring";
 import { CONCERN_FLAGS, RECOMMENDATIONS } from "./review";
@@ -38,11 +33,7 @@ async function getMeeting(
   meetingId: string,
 ): Promise<{ status: string } | null> {
   const data = unwrapRead(
-    await supabase
-      .from("ep_meetings")
-      .select("status")
-      .eq("id", meetingId)
-      .maybeSingle(),
+    await supabase.from("ep_meetings").select("status").eq("id", meetingId).maybeSingle(),
     "the meeting",
   );
   return data ?? null;

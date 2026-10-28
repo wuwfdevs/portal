@@ -14,6 +14,9 @@ import {
   updateMeetingNotes as updateMeetingNotesCapability,
 } from "@/lib/editorial/capabilities";
 import { field, optionalField } from "@/lib/form-fields";
+import { requireEditorialAccess } from "@/lib/editorial/access";
+import { getMeetingBundle } from "@/lib/editorial/data";
+import { nextUnscoredEntryId, slateOrder } from "@/lib/editorial/slate-navigation";
 
 const MEETINGS_PATH = "/editorial/meetings";
 
@@ -69,9 +72,29 @@ export async function submitReview(formData: FormData): Promise<void> {
     concernFlags: formData.getAll("concern_flags").map(String),
     comment: optionalField(formData, "comment") ?? undefined,
   });
-  if (!result.ok && result.reason === "error") failWith(meetingPath, result.error);
+  if (!result.ok && result.reason === "error")
+    failWith(`${meetingPath}?pitch=${entryId}`, result.error);
 
-  redirect(meetingPath);
+  // "Save and go to next unscored": land on the next pitch this reviewer has
+  // not scored, in the slate's display order; with none left, stay put.
+  if (optionalField(formData, "next") === "1") {
+    const { profile } = await requireEditorialAccess();
+    const bundle = await getMeetingBundle(meetingId);
+    if (bundle) {
+      const order = slateOrder(bundle.slate).map(({ entry }) => entry.id);
+      const scored = new Set(
+        order.filter((id) =>
+          (bundle.reviewsByEntry.get(id) ?? []).some(
+            ({ review }) => review.reviewer_id === profile.id,
+          ),
+        ),
+      );
+      const next = nextUnscoredEntryId(order, scored, entryId);
+      redirect(`${meetingPath}?pitch=${next ?? entryId}`);
+    }
+  }
+
+  redirect(`${meetingPath}?pitch=${entryId}`);
 }
 
 /** open -> agenda: scoring locks, scores unlock for everyone, ranking appears. */

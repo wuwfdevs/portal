@@ -28,10 +28,13 @@ export function PitchValues({
   fields,
   values,
   slice = "all",
+  columns = false,
 }: {
   fields: FormFieldRow[];
   values: PitchValueRow[];
   slice?: "all" | "lead" | "rest";
+  /** Lay the fields out two across from `sm` up (the pitch page's detail block). */
+  columns?: boolean;
 }) {
   const valueByFieldId = new Map(values.map((row) => [row.field_id, row.value]));
   const withValues = fieldsWithValues(fields, values);
@@ -54,9 +57,13 @@ export function PitchValues({
   }
 
   return (
-    <dl className="flex flex-col gap-5">
+    <dl
+      className={
+        columns ? "grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-x-8" : "flex flex-col gap-5"
+      }
+    >
       {shown.map((field) => (
-        <div key={field.id}>
+        <div key={field.id} className="min-w-0">
           <dt className="text-label font-bold uppercase tracking-wider text-ink-500">
             {field.label}
           </dt>

@@ -137,6 +137,8 @@ export interface PitchListEntry {
   deferralCount: number;
   lastReviewedAt: string | null;
   stale: boolean;
+  /** The open or agenda-stage meeting whose slate this pitch is on, if any. */
+  onSlateMeetingId: string | null;
 }
 
 /**
@@ -159,13 +161,23 @@ export async function listPitchesWithActivity(
   if (!pitches || pitches.length === 0) return [];
 
   const pitchIds = pitches.map((pitch) => pitch.id);
-  const rounds = unwrapRead(
-    await supabase
+  const [rounds, liveMeetings] = await Promise.all([
+    supabase
       .from("ep_meeting_pitches")
-      .select("pitch_id, outcome, decided_at")
-      .in("pitch_id", pitchIds),
-    "review history",
-  );
+      .select("pitch_id, outcome, decided_at, meeting_id")
+      .in("pitch_id", pitchIds)
+      .then((result) => unwrapRead(result, "review history")),
+    supabase
+      .from("ep_meetings")
+      .select("id")
+      .in("status", ["open", "agenda"])
+      .then((result) => unwrapRead(result, "the current meeting")),
+  ]);
+  const liveMeetingIds = new Set((liveMeetings ?? []).map((meeting) => meeting.id));
+  const onSlateByPitch = new Map<string, string>();
+  for (const round of rounds ?? []) {
+    if (liveMeetingIds.has(round.meeting_id)) onSlateByPitch.set(round.pitch_id, round.meeting_id);
+  }
 
   const statsByPitch = new Map<string, { deferralCount: number; lastReviewedAt: string | null }>();
   for (const round of rounds ?? []) {
@@ -200,6 +212,121 @@ export async function listPitchesWithActivity(
           },
           now,
         ),
+      onSlateMeetingId: onSlateByPitch.get(pitch.id) ?? null,
+    };
+  });
+}
+
+export interface CurrentMeetingSummary {
+  meeting: MeetingRow;
+  slateCount: number;
+  /** Slate items the caller has submitted a review for (RLS hides others' while open). */
+  scoredByMe: number;
+  decidedCount: number;
+}
+
+/**
+ * The meeting in progress — the latest one still open or on its agenda — with
+ * the counts the backlog's "This week" band needs. Null between meetings.
+ */
+export async function getCurrentMeeting(userId: string): Promise<CurrentMeetingSummary | null> {
+  const supabase = await createClient();
+  const meetings =
+    unwrapRead(
+      await supabase
+        .from("ep_meetings")
+        .select("*")
+        .in("status", ["open", "agenda"])
+        .order("meeting_date", { ascending: false })
+        .limit(1),
+      "the current meeting",
+    ) ?? [];
+  const meeting = meetings[0];
+  if (!meeting) return null;
+  const entries =
+    unwrapRead(
+      await supabase.from("ep_meeting_pitches").select("id, outcome").eq("meeting_id", meeting.id),
+      "the slate",
+    ) ?? [];
+  const reviews =
+    entries.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("ep_reviews")
+            .select("meeting_pitch_id")
+            .eq("reviewer_id", userId)
+            .in(
+              "meeting_pitch_id",
+              entries.map((entry) => entry.id),
+            ),
+          "your reviews",
+        ) ?? []);
+  return {
+    meeting,
+    slateCount: entries.length,
+    scoredByMe: reviews.length,
+    decidedCount: entries.filter((entry) => entry.outcome !== null).length,
+  };
+}
+
+export interface MeetingListEntry {
+  meeting: MeetingRow;
+  total: number;
+  decided: number;
+  assigned: number;
+  deferred: number;
+  archived: number;
+  /** Slate items the caller has reviewed — what an open meeting's row reports. */
+  scoredByMe: number;
+}
+
+/** Every meeting, newest first, with the slate counts its list row shows. */
+export async function listMeetingsWithStats(userId: string): Promise<MeetingListEntry[]> {
+  const supabase = await createClient();
+  const meetings =
+    unwrapRead(
+      await supabase.from("ep_meetings").select("*").order("meeting_date", { ascending: false }),
+      "meetings",
+    ) ?? [];
+  if (meetings.length === 0) return [];
+  const entries =
+    unwrapRead(
+      await supabase
+        .from("ep_meeting_pitches")
+        .select("id, meeting_id, outcome")
+        .in(
+          "meeting_id",
+          meetings.map((meeting) => meeting.id),
+        ),
+      "the slates",
+    ) ?? [];
+  const openEntryIds = entries
+    .filter((entry) => meetings.find((m) => m.id === entry.meeting_id)?.status === "open")
+    .map((entry) => entry.id);
+  const ownReviews =
+    openEntryIds.length === 0
+      ? []
+      : (unwrapRead(
+          await supabase
+            .from("ep_reviews")
+            .select("meeting_pitch_id")
+            .eq("reviewer_id", userId)
+            .in("meeting_pitch_id", openEntryIds),
+          "your reviews",
+        ) ?? []);
+  const reviewedEntryIds = new Set(ownReviews.map((review) => review.meeting_pitch_id));
+
+  return meetings.map((meeting) => {
+    const slate = entries.filter((entry) => entry.meeting_id === meeting.id);
+    return {
+      meeting,
+      total: slate.length,
+      decided: slate.filter((entry) => entry.outcome !== null).length,
+      assigned: slate.filter((entry) => entry.outcome === "assigned").length,
+      deferred: slate.filter((entry) => entry.outcome === "deferred").length,
+      archived: slate.filter((entry) => entry.outcome === "archived").length,
+      scoredByMe: slate.filter((entry) => reviewedEntryIds.has(entry.id)).length,
     };
   });
 }
