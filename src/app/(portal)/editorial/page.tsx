@@ -105,9 +105,14 @@ export default async function BacklogPage({
     formats: optionsOf(FORMAT_FIELD_KEY),
     urgencies: optionsOf(URGENCY_FIELD_KEY),
   });
+  // The search form carries the other filters as hidden fields. Never `q`
+  // itself: ListSearch's visible input is the one source of the term, and a
+  // hidden copy ahead of it would win FormData.get("q") on submit.
   const query = backlogQuery(params);
   const hidden = Object.fromEntries(
-    Object.entries(query).filter((pair): pair is [string, string] => pair[1] !== null),
+    Object.entries(backlogQuery({ ...params, q: "" })).filter(
+      (pair): pair is [string, string] => pair[1] !== null,
+    ),
   );
   const canBulkArchive = params.view === "stale" && role === "editor" && pageRows.length > 0;
 
