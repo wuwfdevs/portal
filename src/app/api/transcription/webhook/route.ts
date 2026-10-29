@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { bestEffort } from "@/lib/transcription/best-effort";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { reindexRepresentation } from "@/lib/transcription/indexing";
+import { splitUtteranceIntoParagraphs } from "@/lib/transcription/paragraphs";
 import { WEBHOOK_AUTH_HEADER_NAME } from "@/lib/transcription/providers/assemblyai";
 
 // Called by the ASR provider (never by a signed-in user) when a
@@ -60,7 +61,11 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const result = await getTranscriptionProvider().fetchResult(providerJobId);
-    const validUtterances = result.utterances.filter((u) => u.endMs > u.startMs);
+    // A speaker's long turn becomes paragraph-sized lines, so each has its own
+    // timestamp (on screen and in the exported text).
+    const validUtterances = result.utterances
+      .filter((u) => u.endMs > u.startMs)
+      .flatMap(splitUtteranceIntoParagraphs);
 
     // Clean slate for this representation's transcript. Acceptable for
     // Phase 2: a retry always means starting fresh, and nothing downstream
