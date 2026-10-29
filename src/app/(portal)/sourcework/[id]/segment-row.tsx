@@ -152,16 +152,19 @@ export function SegmentRow({
   }
 
   /**
-   * A plain click on a clipped word opens that clip in the rail. Safe to hang
-   * off the text because the click that ends a drag leaves a live selection
-   * behind, which is the one case this bails on — so making a clip and
-   * opening one stay separate gestures on the same words.
+   * A plain click on a word plays from it; on a clipped word it also opens
+   * that clip in the rail. Safe to hang off the text because the click that
+   * ends a drag leaves a live selection behind, which is the one case this
+   * bails on — so making a clip and playing from a word stay separate
+   * gestures on the same words.
    */
   function handleTextClick(event: React.MouseEvent<HTMLParagraphElement>) {
     const tokenEl = (event.target as HTMLElement).closest("[data-token-index]");
     if (!(tokenEl instanceof HTMLElement)) return;
     if (window.getSelection()?.isCollapsed === false) return;
     const tokenIndex = Number(tokenEl.dataset.tokenIndex);
+    const token = tokens[tokenIndex];
+    if (token) onSeek(token.startMs);
     onSelectClip(clipAtToken(clipSpans, tokenIndex), clipsAtToken(clipSpans, tokenIndex));
   }
 

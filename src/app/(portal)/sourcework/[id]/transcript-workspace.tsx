@@ -853,9 +853,9 @@ export function TranscriptWorkspace({
                           return;
                         }
                         setSelectedClip(clipId ? { id: clipId, origin: "transcript" } : null);
-                        // The sheet hides the player bar, the only control for whatever is playing,
-                        // so stop it as the sheet opens; the sheet's own Play starts the excerpt.
-                        if (coveringIds.length > 0) pausePreview();
+                        // The click that got here also started playback from the word (onSeek), so
+                        // this must not stop it. On a phone the sheet hides the player bar, so the
+                        // sheet's own button stands in for it: see playingClipId below.
                         setSheetClipIds(coveringIds);
                       }}
                       onMakeExcerpt={() => makeExcerptFromLine(index)}
@@ -876,7 +876,10 @@ export function TranscriptWorkspace({
                       setSheetClipIds([]);
                       setPane("excerpts");
                     }}
-                    playingClipId={isPlaying ? previewingClipId : null}
+                    // Playback started from a word is not an excerpt preview, but the sheet hides
+                    // the player bar, so its button must be able to stop it: while anything plays,
+                    // the active excerpt reads as playing.
+                    playingClipId={isPlaying ? (previewingClipId ?? sheetActiveId) : null}
                     onPreview={previewRange}
                     onPause={pausePreview}
                     onHover={setHoveredClipId}
