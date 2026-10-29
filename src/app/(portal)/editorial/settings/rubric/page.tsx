@@ -1,6 +1,5 @@
-import { getSettings, listCriteria, listRubricProfiles } from "@/lib/editorial/data";
+import { getSettings, listCriteria } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { Card } from "@/components/ui/card";
@@ -10,7 +9,7 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ReorderButtons } from "@/components/editorial/reorder-buttons";
-import type { CriterionRow, RubricProfileRow } from "@/lib/editorial/data";
+import type { CriterionRow } from "@/lib/editorial/data";
 import {
   createCriterion,
   moveCriterion,
@@ -23,7 +22,7 @@ import { CriterionFields } from "./criterion-form";
 const RUBRIC_PATH = "/editorial/settings/rubric";
 type CriterionView = "active" | "retired";
 
-/** The rubric (docs/ui-patterns.md): "+ Add criterion" opens an inline card above the profiles' criteria tables; the scale and threshold settings stay below them. */
+/** The rubric (docs/ui-patterns.md): "+ Add criterion" opens an inline card above the criteria tables; the scale and threshold settings stay below them. */
 export default async function RubricSettingsPage({
   searchParams,
 }: {
@@ -32,11 +31,7 @@ export default async function RubricSettingsPage({
   const { error, view: viewParam, new: newParam } = await searchParams;
   const view: CriterionView = viewParam === "retired" ? "retired" : "active";
   const creating = newParam === "1";
-  const [allCriteria, settings, profiles] = await Promise.all([
-    listCriteria(),
-    getSettings(),
-    listRubricProfiles(),
-  ]);
+  const [allCriteria, settings] = await Promise.all([listCriteria(), getSettings()]);
   const activeCount = allCriteria.filter((c) => c.active).length;
   const retiredCount = allCriteria.length - activeCount;
   const criteria = allCriteria.filter((c) => (view === "active" ? c.active : !c.active));
@@ -74,19 +69,12 @@ export default async function RubricSettingsPage({
           cancelHref={RUBRIC_PATH}
         >
           {error && <Alert className="mb-4">{error}</Alert>}
-          <CriterionFields profiles={profiles} />
+          <CriterionFields />
         </InlineCreateCard>
       )}
 
       <div>
-        {profiles.map((profile) => (
-          <ProfileRubric
-            key={profile.id}
-            profile={profile}
-            criteria={criteria.filter((c) => c.profile_id === profile.id)}
-            view={view}
-          />
-        ))}
+        <Rubric criteria={criteria} view={view} />
 
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <Card>
@@ -158,36 +146,16 @@ export default async function RubricSettingsPage({
   );
 }
 
-function ProfileRubric({
-  profile,
-  criteria,
-  view,
-}: {
-  profile: RubricProfileRow;
-  criteria: CriterionRow[];
-  view: CriterionView;
-}) {
+function Rubric({ criteria, view }: { criteria: CriterionRow[]; view: CriterionView }) {
   const core = criteria.filter((c) => c.criterion_type === "core");
   const modifiers = criteria.filter((c) => c.criterion_type === "modifier");
   const activeCoreWeight = core.reduce((sum, c) => sum + c.weight, 0);
-
-  if (view === "retired" && criteria.length === 0) return null;
 
   return (
     <div className="mb-6">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-bold text-ink-900">
-          {profile.name}
-          {profile.is_default && (
-            <span className="ml-2 align-middle">
-              <Badge variant="accent">Default</Badge>
-            </span>
-          )}
-          {!profile.active && (
-            <span className="ml-2 align-middle">
-              <Badge variant="muted">Retired</Badge>
-            </span>
-          )}
+          {view === "active" ? "Core criteria" : "Retired core criteria"}
         </h2>
         {view === "active" && (
           <span
@@ -202,11 +170,11 @@ function ProfileRubric({
           </span>
         )}
       </div>
-      {profile.description && (
-        <p className="mb-2.5 text-xs leading-relaxed text-ink-400">{profile.description}</p>
-      )}
-
-      <CriterionTable criteria={core} view={view} emptyMessage="No core criteria here yet." />
+      <CriterionTable
+        criteria={core}
+        view={view}
+        emptyMessage={view === "active" ? "No core criteria yet." : "No retired core criteria."}
+      />
 
       {(modifiers.length > 0 || view === "active") && (
         <div className="mt-3">

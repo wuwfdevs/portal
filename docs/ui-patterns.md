@@ -213,7 +213,11 @@ group's first chip is its reset ("All", "All types"). Where they show is one rul
   invisible. The content library (status + type) and What's new (one chip per tool) are
   the examples.
 
-Don't put a second `FilterChips` row under the toolbar; add a group instead. The panel is
+Don't put a second `FilterChips` row under the toolbar; add a group instead. A group whose
+options grow with the data (a pitch's pillar, format or urgency — whatever the form offers)
+is `control: "select"`: it always sits in the menu and renders as a `Select` whose options
+are the chips, so eight pillars do not become eight links. A group of a few fixed states
+(Open · Stale · Assigned · Archived, with counts) stays chips. The panel is
 a `<details>` of plain links, so it works without JavaScript; with it, it closes on an
 outside click, Escape, or picking a chip. On a phone the panel spans the toolbar.
 

@@ -16,14 +16,7 @@ import { z } from "zod";
 import { defineCapability } from "@/lib/capabilities/define";
 import type { CapabilityContext } from "@/lib/capabilities/define";
 import { assertEditorialRole } from "./access";
-import {
-  listCriteria,
-  listPitchFormFields,
-  listRubricProfiles,
-  getDefaultRubricProfile,
-  getSettings,
-  unwrapRead,
-} from "./data";
+import { listCriteria, listPitchFormFields, getSettings, unwrapRead } from "./data";
 import { validatePitchValues } from "./form";
 import { validateReviewScores, type CriterionDef } from "./scoring";
 import { CONCERN_FLAGS, RECOMMENDATIONS } from "./review";
@@ -38,13 +31,9 @@ import type {
 async function getMeeting(
   { supabase }: CapabilityContext,
   meetingId: string,
-): Promise<{ status: string; rubric_profile_id: string } | null> {
+): Promise<{ status: string } | null> {
   const data = unwrapRead(
-    await supabase
-      .from("ep_meetings")
-      .select("status, rubric_profile_id")
-      .eq("id", meetingId)
-      .maybeSingle(),
+    await supabase.from("ep_meetings").select("status").eq("id", meetingId).maybeSingle(),
     "the meeting",
   );
   return data ?? null;
@@ -339,8 +328,8 @@ export type CreateMeetingResult =
 
 export const createMeeting = defineCapability({
   id: "editorial.meeting.create",
-  summary: "Create a new weekly meeting against a rubric profile",
-  input: z.object({ meetingDate: z.string(), rubricProfileId: z.string().optional() }),
+  summary: "Create a new weekly planning meeting",
+  input: z.object({ meetingDate: z.string() }),
   requires: { tool: "editorial-planning", role: "editor" },
   confirmation: "none",
   async handler({ supabase }, input): Promise<CreateMeetingResult> {
@@ -349,19 +338,9 @@ export const createMeeting = defineCapability({
       return { ok: false, error: "Pick a meeting date." };
     }
 
-    const profiles = await listRubricProfiles({ activeOnly: true });
-    const profile = input.rubricProfileId
-      ? (profiles.find((p) => p.id === input.rubricProfileId) ?? null)
-      : await getDefaultRubricProfile();
-    if (!profile) return { ok: false, error: "No active rubric profile is configured." };
-
     const { data: meeting, error } = await supabase
       .from("ep_meetings")
-      .insert({
-        meeting_date: input.meetingDate,
-        created_by: editor.profile.id,
-        rubric_profile_id: profile.id,
-      })
+      .insert({ meeting_date: input.meetingDate, created_by: editor.profile.id })
       .select("id")
       .single();
     if (error) {
@@ -375,7 +354,7 @@ export const createMeeting = defineCapability({
       action: "ep.meeting.created",
       targetType: "ep_meeting",
       targetId: meeting.id,
-      metadata: { meeting_date: input.meetingDate, rubric_profile_id: profile.id },
+      metadata: { meeting_date: input.meetingDate },
     });
     return { ok: true, meetingId: meeting.id, url: `/editorial/meetings/${meeting.id}` };
   },
@@ -476,7 +455,7 @@ export const submitReview = defineCapability({
     if (meeting?.status !== "open") return { ok: false, reason: "not_open" };
 
     const [criteria, settings] = await Promise.all([
-      listCriteria({ activeOnly: true, profileId: meeting.rubric_profile_id }),
+      listCriteria({ activeOnly: true }),
       getSettings(),
     ]);
     const criterionDefs: CriterionDef[] = criteria.map((criterion) => ({

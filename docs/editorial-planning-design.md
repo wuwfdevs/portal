@@ -9,9 +9,9 @@ as the source of truth for details that have since evolved. §10 covers the
 refinement: a fuller pitch form organized around coverage pillars, a granular
 strategic/enterprise rubric, a true core/modifier split (institutional alignment kept
 visibly outside the editorial-merit score), reviewer recommendations and structured
-concern flags, rubric profiles (strategic vs. immediate/emerging-news), and a narrowly
-scoped post-selection story-planning phase. Everything in §1–§9 below still describes
-the foundation those additions build on.
+concern flags, and rubric profiles (strategic vs. immediate/emerging-news). A narrowly
+scoped post-selection story-planning phase shipped with it and was retired on 2026-10-28
+(§10.5). Everything in §1–§9 below still describes the foundation those additions build on.
 
 ---
 
@@ -754,65 +754,44 @@ with `advance`), the modifier is scored near its maximum, or any concern flag is
 raised. The scoring UI shows a one-line nudge under the comment box when this fires;
 submission is never blocked on it.
 
-### 10.5 Post-selection story planning
+### 10.5 Post-selection story planning (retired 2026-10-28)
 
-`ep_story_plans` (one row per pitch, `unique (pitch_id)`) and
-`ep_story_plan_milestones` extend the pipeline exactly one step past assignment,
-per this section's brief: **not** a production-tracking suite — no Kanban, no time
-tracking, no drafting/publishing workflow, no full calendar. A story plan is created on
-demand (never automatically) once a pitch is `assigned`, by the assigned reporter or an
-editor, from a "Start story plan" link on the pitch detail page.
+The refinement shipped a story-planning phase one step past assignment: one
+`ep_story_plans` row per assigned pitch with a `draft → ready_for_editor → approved`
+lifecycle, a field set built around viewpoint diversity (missing-perspective assessment,
+source-concentration risks, framing risks, opportunity-to-respond status, a small set of
+standards flags), reporter/editor assignment, a target publication window, and an ordered
+list of `ep_story_plan_milestones` with target dates. The rubric's "Breadth of perspective"
+criterion deferred the full viewpoint-diversity review to it, keeping the pitch-stage check
+light.
 
-Lifecycle: `draft → ready_for_editor → approved`
-(`canTransitionStoryPlanStatus` in `lib/editorial/story-plan.ts`, tested). The reporter
-can move a plan between `draft` and `ready_for_editor` in either direction; only an
-editor can approve it or reopen an approved plan for revision — enforced twice, once in
-the RLS update policy (whose `with check` clause never permits a non-editor to write
-`status = 'approved'`) and once in the app-level transition check, so the UI's
-affordances and the database's actual guarantee agree.
+It was retired on 2026-10-28 (`20261104120000_editorial_retire_story_plans.sql`), before any
+plan had been created in either environment, because it contradicted §1: "the pipeline ends
+the moment a pitch is assigned or archived," and story production tracking, calendars and
+deadlines are out of scope. Milestones with target dates are exactly that, whatever the
+label. The brief that asked for the viewpoint-diversity rigor is not in this repository, so
+where that rigor should live instead is an open editorial question, not something this tool
+answers. Nothing else referenced the two tables; the migration drops them, trims the
+criterion's guidance, and updates the two Resources guides that mentioned the plan.
 
-The field set foregrounds **viewpoint diversity** as the brief requires: alongside the
-confirmed central question, intended public-service value, working frame/scope,
-deliverables, and a reporting/evidence map, the plan has explicit fields for people
-directly affected, decision-makers, expert and experiential sources, the main credible
-interpretations or competing interests, a **missing-perspective assessment**,
-**source-concentration risks**, and **framing risks** — plus opportunity-to-respond
-requirements and status (`otr_status`: not applicable / not yet sought / in progress /
-declined / obtained), a small `standards_flags` set (ethics/harm, editorial
-independence, verification, framing), reporter/editor assignment, a target publication
-window, and a small ordered list of editorial milestones. The story-plan screen
-(`pitches/[id]/story-plan/`) states directly that breadth of perspective does not mean
-equal treatment of unequal evidence or artificial partisan symmetry — the
-missing-perspective field asks what's missing and why, not "did both sides get equal
-time."
+### 10.6 Rubric profiles (retired 2026-10-28)
 
-### 10.6 Rubric profiles
+The refinement added `ep_rubric_profiles` so a meeting could be scored against one of
+two rubrics: **Strategic / Enterprise** (the default) and **Immediate / Emerging News**,
+reweighted toward urgency and readiness so urgent coverage would never be gated on pillar
+fit. Every criterion belonged to one profile and every meeting picked one.
 
-`ep_rubric_profiles` (seeded with **Strategic / Enterprise**, the default, and
-**Immediate / Emerging News**) is the smallest sound extension for supporting more than
-one scoring profile without a rules engine: every `ep_criteria` row belongs to exactly
-one profile (`profile_id`, not null), and every `ep_meetings` row picks one profile to
-score its slate against (`rubric_profile_id`, editor-selectable at meeting creation,
-defaulting to Strategic / Enterprise). `listCriteria({ profileId })` filters by it; the
-scoring and agenda screens, and `submitReview`'s validation, only ever see the active
-meeting's profile's criteria. Nothing about the aggregation math changed — a profile is
-just a tag criteria carry and a meeting picks, using the exact same tables and
-`ep_review_scores` snapshot design as before.
-
-Immediate / Emerging News reweights toward urgency and readiness (Urgency and public
-safety impact 22, Public impact 15, Accountability and civic significance 12, Reporting
-readiness and source access right now 15, Explanatory and service value 10, Audience
-and community relevance 10, Breadth of perspective and fairness under deadline 8,
-Coverage-pillar contribution or emerging-issue signal 8) and, per this section's
-requirement, never gates urgent coverage on pillar fit — its pillar criterion explicitly
-credits an emerging-issue signal as an alternative to a defined-pillar connection. It
-carries its own copy of the institutional-alignment modifier, since a modifier is
-itself profile-scoped like any other criterion.
-
-Profiles are configuration data, editable the same way criteria are (the rubric
-settings screen groups criteria by profile and lets an editor assign a new criterion to
-either one); there is no profile-management UI beyond that; a third profile would be
-one more seeded row plus its criteria, not a schema change.
+Retired on 2026-10-28 (`20261104130000_editorial_single_rubric.sql`): one active rubric
+is simpler to run and to explain, and the second profile had never been used for a
+meeting in either environment. The concern it existed for is already covered without it:
+the pitch form's urgency field and "Immediate public need" pillar option carry the signal,
+and the Coverage-pillar criterion's own guidance says a pitch outside the pillars is not
+penalized there. The migration deleted the unused profile's criteria (none had a score),
+dropped `ep_criteria.profile_id`, `ep_meetings.rubric_profile_id` and the table, and the
+rubric settings page, meeting creation, the `editorial.meeting.create` capability and
+Editorial Inquiry's criteria read all now work from the one set of active criteria. The
+`ep_review_scores` snapshot design is unchanged, so a change of rubric is still a
+retire-and-add of criteria, never an edit.
 
 ### 10.7 Portfolio context and future analytics
 
@@ -824,8 +803,7 @@ join filtered to the three status options), repeated emerging issues (grouping
 `primary_pillar = 'Emerging issue / possible future priority'` pitches over time),
 deferrals and declines (`ep_meeting_pitches.outcome` plus `ep_reviews.recommendation`),
 reviewer disagreement (`PitchAggregate.spread`, already computed for the agenda),
-source/viewpoint planning patterns (`ep_story_plans`' missing-perspective and
-source-concentration fields), institutional-modifier use
+institutional-modifier use
 (`ep_review_scores` rows against a `criterion_type = 'modifier'` criterion, and how
 often `modifierApplied` actually fires), and allocation between strategic and immediate
 coverage (`ep_meetings.rubric_profile_id` over time). A read-only `/editorial/insights`

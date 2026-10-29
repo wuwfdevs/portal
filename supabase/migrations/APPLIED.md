@@ -300,6 +300,9 @@ repo and a project's history, not the version number.
 | `20261102130000_resources_sourcework_home_polish.sql`                 | 2026-10-15 | 2026-10-15 |
 | `20261103120000_resources_sourcework_guides_realigned.sql`            | 2026-10-15 | 2026-10-15 |
 | `20261103130000_resources_sourcework_guides_review_fixes.sql`         | 2026-10-15 | 2026-10-15 |
+| `20261104120000_editorial_retire_story_plans.sql`                     | 2026-10-29 | 2026-10-29 |
+| `20261104130000_editorial_single_rubric.sql`                          | 2026-10-29 | 2026-10-29 |
+| `20261104140000_resources_editorial_screens.sql`                      | 2026-10-29 | 2026-10-29 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

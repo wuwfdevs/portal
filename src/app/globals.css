@@ -183,3 +183,18 @@ main:has(~ [data-assistant-bubble="always"]) {
     white-space: normal;
   }
 }
+
+/*
+ * `.touch-only` shows only where there is no hover — a phone or tablet — for
+ * text a pointer device gets as a tooltip instead (the scoring screen's anchor
+ * for the chosen score). A `title` is unreachable without hover, so the touch
+ * version is inline and the pointer version stays out of the way.
+ */
+.touch-only {
+  display: none;
+}
+@media (hover: none) {
+  .touch-only {
+    display: block;
+  }
+}

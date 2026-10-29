@@ -1,7 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { FilterChips } from "@/components/ui/filter-chips";
+import { Select } from "@/components/ui/input";
 import { TAP_TARGET } from "@/components/ui/tap-target";
 import { cn } from "@/lib/cn";
 import { appliedFilterLabels, type FilterGroup } from "@/lib/filter-groups";
@@ -73,10 +75,46 @@ export function FilterMenu({ groups, className }: { groups: FilterGroup[]; class
             <div className="text-label font-bold uppercase tracking-wide text-ink-500">
               {group.label}
             </div>
-            <FilterChips label={group.label} chips={group.chips} />
+            {group.control === "select" ? (
+              <FilterSelect
+                group={group}
+                onPick={() => {
+                  if (ref.current) ref.current.open = false;
+                }}
+              />
+            ) : (
+              <FilterChips label={group.label} chips={group.chips} />
+            )}
           </div>
         ))}
       </div>
     </details>
+  );
+}
+
+/**
+ * A filter group drawn as one native select (`control: "select"`): the same
+ * query-string links as its chips, navigated to on change. For a dimension
+ * with many options, where a row of chips would wrap into several lines.
+ */
+function FilterSelect({ group, onPick }: { group: FilterGroup; onPick: () => void }) {
+  const router = useRouter();
+  const active = group.chips.find((chip) => chip.active) ?? group.chips[0];
+  return (
+    <Select
+      aria-label={group.label}
+      value={active?.href ?? ""}
+      onChange={(event) => {
+        onPick();
+        router.push(event.target.value);
+      }}
+    >
+      {group.chips.map((chip) => (
+        <option key={chip.href} value={chip.href}>
+          {chip.label}
+          {chip.count !== undefined ? ` (${chip.count})` : ""}
+        </option>
+      ))}
+    </Select>
   );
 }

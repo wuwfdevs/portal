@@ -319,9 +319,6 @@ export type EpConcernFlag =
   | "verification"
   | "ethics_harm"
   | "editorial_independence";
-export type EpStoryPlanStatus = "draft" | "ready_for_editor" | "approved";
-export type EpOtrStatus = "not_applicable" | "not_yet_sought" | "in_progress" | "declined" | "obtained";
-export type EpStandardsFlag = "ethics_harm" | "editorial_independence" | "verification" | "framing";
 
 // Remote Interview (ri_*) — see supabase/migrations/20260729120000_remote_interview_schema.sql.
 export type RiSessionStatus =
@@ -1434,12 +1431,10 @@ export interface Database {
           scale_min: number | null;
           scale_max: number | null;
           anchors: EpCriterionAnchors | null;
-          profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]> & {
           name: string;
           description: string;
-          profile_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["ep_criteria"]["Row"]>;
         Relationships: [];
@@ -1454,25 +1449,6 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["ep_settings"]["Row"]>;
-        Relationships: [];
-      };
-      ep_rubric_profiles: {
-        Row: {
-          id: string;
-          key: string;
-          name: string;
-          description: string | null;
-          is_default: boolean;
-          active: boolean;
-          sort_order: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]> & {
-          key: string;
-          name: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["ep_rubric_profiles"]["Row"]>;
         Relationships: [];
       };
       ep_pitches: {
@@ -1514,7 +1490,6 @@ export interface Database {
           agenda_at: string | null;
           concluded_at: string | null;
           created_at: string;
-          rubric_profile_id: string;
         };
         Insert: Partial<Database["public"]["Tables"]["ep_meetings"]["Row"]> & {
           meeting_date: string;
@@ -1569,58 +1544,6 @@ export interface Database {
         };
         Insert: Database["public"]["Tables"]["ep_review_scores"]["Row"];
         Update: Partial<Database["public"]["Tables"]["ep_review_scores"]["Row"]>;
-        Relationships: [];
-      };
-      ep_story_plans: {
-        Row: {
-          id: string;
-          pitch_id: string;
-          status: EpStoryPlanStatus;
-          central_question: string | null;
-          public_service_value: string | null;
-          frame_scope: string | null;
-          deliverables: string | null;
-          reporting_evidence_map: string | null;
-          people_affected: string | null;
-          decision_makers: string | null;
-          expert_experiential_sources: string | null;
-          main_interpretations: string | null;
-          missing_perspective_assessment: string | null;
-          source_concentration_risks: string | null;
-          framing_risks: string | null;
-          key_claims_to_verify: string | null;
-          records_data_needed: string | null;
-          otr_requirements: string | null;
-          otr_status: EpOtrStatus;
-          standards_flags: EpStandardsFlag[];
-          reporter_id: string | null;
-          editor_id: string | null;
-          target_window: string | null;
-          created_by: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["ep_story_plans"]["Row"]> & {
-          pitch_id: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["ep_story_plans"]["Row"]>;
-        Relationships: [];
-      };
-      ep_story_plan_milestones: {
-        Row: {
-          id: string;
-          story_plan_id: string;
-          label: string;
-          target_date: string | null;
-          completed: boolean;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"]> & {
-          story_plan_id: string;
-          label: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["ep_story_plan_milestones"]["Row"]>;
         Relationships: [];
       };
       ep_pillars: {

@@ -34,6 +34,41 @@ lives in `docs/editorial-planning-design.md` — read it before changing editori
 workflow or schema. (The guardrails against Remote Interview and Audience Listening have
 both been lifted — see below.)
 
+**Editorial Planning: story plans are retired (2026-10-28).** The post-selection
+story-planning phase the 2026-07-30 refinement added (`ep_story_plans`,
+`ep_story_plan_milestones`, `/editorial/pitches/[id]/story-plan`) contradicted the tool's
+own §1 scope — "the pipeline ends the moment a pitch is assigned or archived" — and was
+removed before any plan existed in either environment
+(`20261104120000_editorial_retire_story_plans.sql`; `docs/editorial-planning-design.md`
+§10.5 is the record). Don't reintroduce production tracking, milestones or deadlines here;
+if the viewpoint-diversity rigor that phase carried needs a home, that is a new question.
+**Rubric profiles are retired too (2026-10-28, `20261104130000_editorial_single_rubric.sql`;
+design doc §10.6):** there is one rubric — `listCriteria({ activeOnly: true })` is the
+set a meeting scores against — and no `ep_rubric_profiles`, `ep_criteria.profile_id` or
+`ep_meetings.rubric_profile_id`. The never-used Immediate / Emerging News criteria were
+deleted (none had a score). A different rubric is a retire-and-add of criteria, not a
+second profile.
+
+**Editorial Planning: the screens, reworked (2026-10-28).** A pointer; the code is the record
+(the reviewed Design canvas is the source). The Backlog (`editorial/page.tsx`) opens with a
+"This week" band (`this-week-band.tsx` over `data.ts`'s `getCurrentMeeting()`), a `ListToolbar`
+with search and one Filter menu — the status chips with counts, and pillar/format/urgency as
+`control: "select"` groups (`lib/filter-groups.ts`; the URL state and matching live in
+`lib/editorial/backlog-filters.ts`, pure, tested) — and a stacking table with On slate / Stale
+badges. Meetings is a table with an inline `?new=1` create card. The meeting page keeps one
+scoring surface: a slate rail (`hidden lg:flex`) that becomes a sticky previous/select/next
+strip on a phone, `?pitch=<entryId>` as the selection, "Save and go to next unscored"
+(`submitReview` with `next=1`, `lib/editorial/slate-navigation.ts` — `slateOrder()` is the one
+display order the page and the action share, since `ep_meeting_pitches` has no order column),
+score anchors as `title` tooltips on pointer devices and inline under the scale on touch
+(`.touch-only` in `globals.css`). The agenda records a decision through `decision-form.tsx`
+(one Decision select, conditional Assign to / Rationale, Record); Split is `SPLIT_SPREAD` (1.5)
+in amber; Conclude meeting is the header's primary link to `?conclude=1`, a confirm panel that
+names the undecided. The pitch page has a "Where it stands" `DetailSummary`, a compact review
+history and a ⋮ `PitchActionsMenu` (add to the open slate, archive with its reason inside the
+confirm step, restore) over hidden `<form action>`s submitted by id. Resources migration
+`20261104140000`. Not verified in a browser: this session had no running Supabase.
+
 **Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
 (Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)
 are done, and slice 5 (handoff — creating a `tw_projects` row from a track) is

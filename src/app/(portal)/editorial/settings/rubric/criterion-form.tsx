@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Field, FieldHint, Input, Select, Textarea } from "@/components/ui/input";
 import type { EpCriterionType } from "@/lib/database.types";
-import type { RubricProfileRow } from "@/lib/editorial/data";
 
 /**
  * The fields of the "Add a criterion" inline card. A client component purely
@@ -11,27 +10,12 @@ import type { RubricProfileRow } from "@/lib/editorial/data";
  * unused by the aggregation math — see design §4A); the surrounding
  * <form action={createCriterion}> is the server-rendered InlineCreateCard.
  */
-export function CriterionFields({ profiles }: { profiles: RubricProfileRow[] }) {
+export function CriterionFields() {
   const [criterionType, setCriterionType] = useState<EpCriterionType>("core");
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Rubric profile" htmlFor="profile_id">
-          <Select
-            id="profile_id"
-            name="profile_id"
-            required
-            defaultValue={profiles[0]?.id ?? ""}
-            autoFocus
-          >
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <Field
           label="Type"
           htmlFor="criterion_type"
@@ -42,6 +26,7 @@ export function CriterionFields({ profiles }: { profiles: RubricProfileRow[] }) 
             name="criterion_type"
             value={criterionType}
             onChange={(event) => setCriterionType(event.target.value as EpCriterionType)}
+            autoFocus
           >
             <option value="core">Core — part of the editorial-merit average</option>
             <option value="modifier">
@@ -92,7 +77,7 @@ export function CriterionFields({ profiles }: { profiles: RubricProfileRow[] }) 
         </Field>
       </div>
       <FieldHint>
-        {criterionType === "core" && "Active core weights within a profile should sum to 100. "}
+        {criterionType === "core" && "Active core weights should sum to 100. "}
         Leave the scale override blank to use the tool-wide scale. The seeded modifier uses 0–5
         since it isn&apos;t part of the core scale.
       </FieldHint>

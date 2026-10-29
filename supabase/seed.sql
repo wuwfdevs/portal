@@ -177,7 +177,6 @@ end $$;
 
 do $$
 declare
-  strategic_profile uuid := 'a1000000-0000-4000-8000-000000000001';
   dana_id uuid := '10000000-0000-0000-0000-000000000001';
   marcus_id uuid := '10000000-0000-0000-0000-000000000002';
   leo_id uuid := '10000000-0000-0000-0000-000000000006';
@@ -210,7 +209,6 @@ declare
   p_housing uuid := '20000000-0000-0000-0000-000000000005';
   m_last uuid := '30000000-0000-0000-0000-000000000001';
   m_next uuid := '30000000-0000-0000-0000-000000000002';
-  sp_hurricane uuid := '60000000-0000-0000-0000-000000000001';
 begin
   select id into f_summary from public.ep_form_fields where key = 'summary' and active;
   select id into f_central_question from public.ep_form_fields where key = 'central_question' and active;
@@ -224,17 +222,17 @@ begin
   select id into f_urgency from public.ep_form_fields where key = 'urgency' and active;
   select id into f_sources_materials from public.ep_form_fields where key = 'sources_materials' and active;
 
-  select id into c_impact from public.ep_criteria where name = 'Public impact' and profile_id = strategic_profile;
-  select id into c_audience from public.ep_criteria where name = 'Audience and community relevance' and profile_id = strategic_profile;
-  select id into c_timeliness from public.ep_criteria where name = 'Timeliness and strategic moment' and profile_id = strategic_profile;
-  select id into c_accountability from public.ep_criteria where name = 'Accountability and civic significance' and profile_id = strategic_profile;
-  select id into c_originality from public.ep_criteria where name = 'Originality and discovery' and profile_id = strategic_profile;
-  select id into c_explanatory from public.ep_criteria where name = 'Explanatory and service value' and profile_id = strategic_profile;
-  select id into c_narrative from public.ep_criteria where name = 'Human and narrative potential' and profile_id = strategic_profile;
-  select id into c_breadth from public.ep_criteria where name = 'Breadth of perspective and community representation' and profile_id = strategic_profile;
-  select id into c_pillar from public.ep_criteria where name = 'Coverage-pillar contribution' and profile_id = strategic_profile;
-  select id into c_readiness from public.ep_criteria where name = 'Reporting opportunity and readiness' and profile_id = strategic_profile;
-  select id into c_modifier from public.ep_criteria where name = 'Institutional public-value alignment' and profile_id = strategic_profile;
+  select id into c_impact from public.ep_criteria where name = 'Public impact';
+  select id into c_audience from public.ep_criteria where name = 'Audience and community relevance';
+  select id into c_timeliness from public.ep_criteria where name = 'Timeliness and strategic moment';
+  select id into c_accountability from public.ep_criteria where name = 'Accountability and civic significance';
+  select id into c_originality from public.ep_criteria where name = 'Originality and discovery';
+  select id into c_explanatory from public.ep_criteria where name = 'Explanatory and service value';
+  select id into c_narrative from public.ep_criteria where name = 'Human and narrative potential';
+  select id into c_breadth from public.ep_criteria where name = 'Breadth of perspective and community representation';
+  select id into c_pillar from public.ep_criteria where name = 'Coverage-pillar contribution';
+  select id into c_readiness from public.ep_criteria where name = 'Reporting opportunity and readiness';
+  select id into c_modifier from public.ep_criteria where name = 'Institutional public-value alignment';
 
   insert into public.ep_pitches (id, title, status, submitted_by, assigned_to, archived_reason, archived_by, archived_at, created_at)
   values
@@ -282,10 +280,10 @@ begin
   on conflict do nothing;
 
   -- Last week's meeting: concluded, with a full review record.
-  insert into public.ep_meetings (id, meeting_date, status, notes, created_by, agenda_at, concluded_at, created_at, rubric_profile_id)
+  insert into public.ep_meetings (id, meeting_date, status, notes, created_by, agenda_at, concluded_at, created_at)
   values (m_last, (now() - interval '7 days')::date, 'concluded',
           'Short meeting; pushed shrimping to revisit once the season opens.',
-          dana_id, now() - interval '8 days', now() - interval '7 days', now() - interval '10 days', strategic_profile)
+          dana_id, now() - interval '8 days', now() - interval '7 days', now() - interval '10 days')
   on conflict (id) do nothing;
 
   insert into public.ep_meeting_pitches (id, meeting_id, pitch_id, added_by, outcome, assigned_to, rationale, decided_by, decided_at)
@@ -374,48 +372,10 @@ begin
     ('50000000-0000-0000-0000-000000000005', c_readiness, 2, 5, 4, 0)
   on conflict do nothing;
 
-  -- A story plan for the assigned pitch, with viewpoint-diversity fields
-  -- filled in and one milestone — the post-selection planning phase.
-  insert into public.ep_story_plans (
-    id, pitch_id, status, central_question, public_service_value, frame_scope, deliverables,
-    reporting_evidence_map, people_affected, decision_makers, expert_experiential_sources,
-    main_interpretations, missing_perspective_assessment, source_concentration_risks, framing_risks,
-    key_claims_to_verify, records_data_needed, otr_requirements, otr_status, standards_flags,
-    reporter_id, editor_id, target_window, created_by
-  )
-  values (
-    sp_hurricane, p_hurricane, 'ready_for_editor',
-    'If a major storm hit this year, would the county actually have room to shelter everyone who needs it?',
-    'Lets residents in newly developed flood-prone areas find out, before hurricane season starts, whether they have a real evacuation plan.',
-    'A three-part series: the capacity gap, who''s affected, and what the county says it will do about it.',
-    'Three-part audio series plus a digital capacity map.',
-    'County shelter registry, emergency management''s May commission presentation, FEMA flood-zone overlays against recent development permits.',
-    'Residents of the Nine Mile Road-area developments, especially renters without their own transportation.',
-    'County emergency management director, the commissioners who approved the developments.',
-    'UWF Haas Center regional hazard-modeling researchers; a shelter operations volunteer from the last major storm.',
-    'County says capacity is adequate under current models; resident groups and some planners dispute the underlying assumptions.',
-    'Missing so far: a developer or building-industry perspective on why permitting outpaced shelter planning — being sought for part two.',
-    'Emergency management staff are currently the source for most capacity numbers; independent verification against FEMA data is planned before publication.',
-    'Risk of implying the county is negligent without also reporting the budget and land-use constraints it is working within — part three should carry that context.',
-    'Current shelter capacity figures; whether the May commission presentation reflects post-2024 development.',
-    'County shelter registry (public records request filed), FEMA flood-zone GIS layers.',
-    'County emergency management given advance notice of part one''s findings; developer perspective still being sought for part two.',
-    'in_progress', '{}',
-    marcus_id, dana_id, 'Airs ahead of June 1 hurricane season start', dana_id
-  )
-  on conflict (id) do nothing;
-
-  insert into public.ep_story_plan_milestones (story_plan_id, label, target_date, completed, sort_order)
-  values
-    (sp_hurricane, 'Public records request filed for shelter registry', (now() - interval '3 days')::date, true, 1),
-    (sp_hurricane, 'Emergency management interview', (now() + interval '5 days')::date, false, 2),
-    (sp_hurricane, 'Part one airs', (now() + interval '18 days')::date, false, 3)
-  on conflict do nothing;
-
   -- This week's meeting: open, slate picked, one review already in (hidden
   -- from the other reviewer until scoring closes).
-  insert into public.ep_meetings (id, meeting_date, status, created_by, created_at, rubric_profile_id)
-  values (m_next, (now() + interval '2 days')::date, 'open', dana_id, now() - interval '1 day', strategic_profile)
+  insert into public.ep_meetings (id, meeting_date, status, created_by, created_at)
+  values (m_next, (now() + interval '2 days')::date, 'open', dana_id, now() - interval '1 day')
   on conflict (id) do nothing;
 
   insert into public.ep_meeting_pitches (id, meeting_id, pitch_id, added_by)

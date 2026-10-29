@@ -15,6 +15,12 @@ export interface FilterChip {
 export interface FilterGroup {
   label: string;
   chips: FilterChip[];
+  /**
+   * How the group is drawn inside the Filter menu: a row of chips (the default), or one
+   * native select for a group with many options (a pillar, a format) that would wrap
+   * into several rows of chips. A select group never shows inline.
+   */
+  control?: "chips" | "select";
 }
 
 /**
@@ -25,7 +31,11 @@ export interface FilterGroup {
 export const INLINE_FILTER_CHIP_LIMIT = 5;
 
 export function filtersFitInline(groups: FilterGroup[]): boolean {
-  return groups.length === 1 && (groups[0]?.chips.length ?? 0) <= INLINE_FILTER_CHIP_LIMIT;
+  return (
+    groups.length === 1 &&
+    groups[0]?.control !== "select" &&
+    (groups[0]?.chips.length ?? 0) <= INLINE_FILTER_CHIP_LIMIT
+  );
 }
 
 /** The active chip's label for each group that isn't on its reset, in group order. */

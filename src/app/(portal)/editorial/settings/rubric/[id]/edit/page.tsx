@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { unwrapRead, listRubricProfiles } from "@/lib/editorial/data";
+import { unwrapRead } from "@/lib/editorial/data";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,7 @@ export default async function EditCriterionPage({
   const supabase = await createClient();
   const criterionResult = await supabase.from("ep_criteria").select("*").eq("id", id).maybeSingle();
   const criterion = unwrapRead(criterionResult, "the criterion");
-  const profiles = await listRubricProfiles();
   if (!criterion) notFound();
-  const profile = profiles.find((p) => p.id === criterion.profile_id);
   const anchorsText = criterion.anchors
     ? Object.entries(criterion.anchors)
         .sort(([a], [b]) => Number(a) - Number(b))
@@ -39,12 +37,9 @@ export default async function EditCriterionPage({
         back={{ href: "/editorial/settings/rubric", label: "Back to rubric" }}
         title={criterion.name}
         badge={
-          <>
-            <Badge variant={criterion.criterion_type === "modifier" ? "danger" : "neutral"}>
-              {criterion.criterion_type === "modifier" ? "Modifier" : "Core"}
-            </Badge>
-            {profile && <span className="text-xs text-ink-400">{profile.name}</span>}
-          </>
+          <Badge variant={criterion.criterion_type === "modifier" ? "danger" : "neutral"}>
+            {criterion.criterion_type === "modifier" ? "Modifier" : "Core"}
+          </Badge>
         }
       />
       <Card>
@@ -54,8 +49,7 @@ export default async function EditCriterionPage({
 
           <Alert variant="note">
             To change what this criterion <em>measures</em>, retire it and add a new one — past
-            scores were given against the wording below. Type and rubric profile are fixed after
-            creation.
+            scores were given against the wording below. Type is fixed after creation.
           </Alert>
 
           <Field label="Name" htmlFor="name">

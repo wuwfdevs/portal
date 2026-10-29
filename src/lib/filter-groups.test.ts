@@ -58,3 +58,15 @@ describe("appliedFilterLabels", () => {
     expect(appliedFilterLabels([group("Status", ["All", "Open"], -1)])).toEqual([]);
   });
 });
+
+describe("select groups", () => {
+  it("never shows a select group inline, however short", () => {
+    expect(filtersFitInline([{ ...group("Pillar", ["All", "A"]), control: "select" }])).toBe(false);
+  });
+
+  it("names a select group's pick like any other applied filter", () => {
+    expect(
+      appliedFilterLabels([{ ...group("Pillar", ["All", "Military"], 1), control: "select" }]),
+    ).toEqual(["Military"]);
+  });
+});
