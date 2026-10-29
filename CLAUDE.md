@@ -593,6 +593,17 @@ decided of all findings as a `ProgressBar` on the Review step, and each source r
 review boards: the tab counts and the board's one-line source title row. Migrations `20261028120000`
 (Resources) and `20261028130000` (the view) are applied to both projects through `execute_sql`.
 
+**Sourcework: transcript lines are paragraph-sized (2026-10-29).** A speaker's turn is no longer one segment
+with one timestamp. `lib/transcription/paragraphs.ts`'s `splitUtteranceIntoParagraphs()` (pure, tested) cuts it from the
+ASR's word timings when the webhook stores a transcript: at a sentence end once ~30 s have passed, earlier at a pause of
+1.5 s or more after ~10 s, and past 75 s at any short pause. Each piece is a real `tw_segments` row with the same speaker,
+so editing, splitting, merging, the active-line highlight and the exported text's per-line `[mm:ss]` all work unchanged.
+`20261105120000` applied the same rule to existing unedited lines (SQL twin of the function — keep them in step; an edited
+line is left whole because its word timings are no longer the ASR's); it marks search chunks stale, so run "Rebuild search
+index" on a source to refresh them. Nothing references a segment id, so a re-cut moves no excerpt or data point. A plain
+click on a word plays from it (`segment-row.tsx`'s `handleTextClick`); on a clipped word it also opens the clip. Not built:
+a moving highlight on the current word. Resources migration `20261105130000`.
+
 **Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
 pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
 (`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline
