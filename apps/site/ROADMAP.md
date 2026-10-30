@@ -45,9 +45,16 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Publish-candidates endpoint:** verify `verifyRequestSignature`; `parseContentDocument`; create a draft or add
-   a version for the same `pieceId`; return `PublishCandidateResponse`. Store provenance. Strip nothing at
-   write time; strip editor notes at render time with `toPublicDocument`.
+5. **Publish-candidates endpoint** (next). Verify with `verifyRequestSignature`, `parseContentDocument`, then create a
+   draft or add a version for the same `pieceId`; return `PublishCandidateResponse`; store provenance; render with
+   `toPublicDocument`. **Decide first, because it shapes the Posts schema:** a `ContentDocument` is a list of blocks
+   (text, narration, audio excerpt with transcript/speaker/source/timing, editor note), but `posts.content` is
+   Lexical rich text. Two options: (a) add an `audioExcerpt` block to the Lexical `BlocksFeature` and convert
+   text/narration to Lexical paragraphs on the way in; or (b) keep the received document as-is in a `blocks` JSON
+   field with its own renderer and use Lexical only for hand-written stories. (a) keeps one editing experience in
+   the admin; (b) is lossless and simpler to round-trip. Also needed: a table keyed on `pieceId` (to find the draft
+   for a later send), an `editorNotes` field the public never reads, and the status webhook back to the Portal.
+   Editor notes must be stored apart from public content so a rendering mistake cannot leak them.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`: wire the tokens into the site's CSS first
    (replace the starter's Header/Card/Theme provider, fixing their lint errors), then homepage, article,
    fellowship hub, giving. Every acknowledgment through `getAcknowledgments`, fetched inside a cache entry using
