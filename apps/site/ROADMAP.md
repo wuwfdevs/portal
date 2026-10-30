@@ -33,8 +33,9 @@ in them has been started.
 
 ## Next, in order
 
-1. **Node.** Run the toolchain on a Node Payload supports (`^22.23.4` or `>=24.22.1`); pin it for Vercel
-   (`.node-version` / project setting). Re-run the Portal and site checks on it.
+1. ~~**Node.**~~ Done: 22.23.4 (the Payload minimum) pinned in `.node-version`/`.nvmrc`, and `engine-strict`
+   in the root `.npmrc` makes an unsupported Node fail the install. Portal, site and packages all re-verified on it.
+   Still to do on Vercel: set the project's Node version to 22.x for both projects.
 2. **Portal migration** adding the `website` tool-registry row (`status = 'available'`,
    `default_access = 'invite_only'`, stacking roles `editor`, `publisher`, `administrator`, `sponsorship`,
    `membership` via `tool_access.tool_roles`, the shape On Air and Bookings use) plus a Resources release note.

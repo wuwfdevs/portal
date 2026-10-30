@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CLOCK_SKEW_SECONDS, CONTRACT_VERSION, MAX_TOKEN_LIFETIME_SECONDS, REQUEST_WINDOW_SECONDS, SIGNATURE_HEADER, TIMESTAMP_HEADER,
+  CLOCK_SKEW_SECONDS, CONTRACT_PATHS, CONTRACT_VERSION, MAX_TOKEN_LIFETIME_SECONDS, REQUEST_WINDOW_SECONDS, SIGNATURE_HEADER, TIMESTAMP_HEADER,
   can, fromBase64Url, mintIdentityToken, normalizeRoles, permissionsFor, signRequest, toBase64Url, verifyIdentityToken, verifyRequestSignature,
 } from "./index";
 
@@ -153,5 +153,13 @@ describe("request signing", () => {
     expect(await verifyRequestSignature({ ...req, ...h, timestamp: "soon" }, SECRET, NOW)).toEqual({ ok: false, reason: "bad_timestamp" });
     expect(await verifyRequestSignature({ ...req, ...h, signature: "***" }, SECRET, NOW)).toEqual({ ok: false, reason: "bad_signature" });
     expect(h.version).toBe(CONTRACT_VERSION);
+  });
+});
+
+describe("contract paths", () => {
+  it("are absolute, distinct, and under /api so they never collide with a page", () => {
+    const paths = Object.values(CONTRACT_PATHS);
+    expect(new Set(paths).size).toBe(paths.length);
+    for (const p of paths) expect(p).toMatch(/^\/api\/(portal|site)\/[a-z-]+$/);
   });
 });

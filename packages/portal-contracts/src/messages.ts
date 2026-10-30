@@ -5,6 +5,8 @@ import type { ContentDocument } from "@wuwf/content-blocks";
 
 /** Paths each app exposes for the contracts. Receivers mount exactly these. */
 export const CONTRACT_PATHS = {
+  /** Portal → site: the browser lands here carrying a short-lived identity token. */
+  identitySignIn: "/api/portal/sso",
   /** Portal → site: create or update a CMS draft from a piece. */
   publishCandidates: "/api/portal/publish-candidates",
   /** Site → Portal: tell the Portal the status of something it sent. */
