@@ -15,7 +15,7 @@ Product decisions are in `CLAUDE.md`; this file says how the parts fit together.
  │ Traffic (dayparts)       │ ◀── daypart names ───▶│ sponsorship rate card            │
  └──────────────────────────┘                       └─────────────────────────────────┘
           shared only through packages/ (pure TypeScript):
-          design-tokens · listening-core · content-blocks · portal-contracts
+          design-tokens · listening-core · portal-contracts
 ```
 
 The apps share **no database, deployment or dependency resolution** (each project has its own lockfile; see the
@@ -98,15 +98,11 @@ hash of the exact body; the window is 5 minutes.
 | Channel | Direction | Status |
 |---|---|---|
 | Identity token | Portal → site | package built; both routes specified |
-| Publish candidate (`ContentDocument`) | Portal → site | **Deferred** (no Sourcework export for now). Schema + strict parser exist as dormant, tested code; no endpoint |
-| Publish status webhook | site → Portal | **Deferred** with the above; message type only |
-| Transcription request / transcript delivery | site ↔ Portal | Milestone 2; message types only |
+| Transcription request | site → Portal | Milestone 2; request/response types only (the shape of the returned transcript is not designed yet) |
 | Traffic daypart names | shared vocabulary | specified |
 
-If the publish channel is ever built, a candidate creates a CMS draft and returns its id and admin URL, and a later
-send of the same piece adds a version and never overwrites. The dormant parser refuses rather than repairs and
-returns every problem, and **editor notes never publish**: blocks are rendered only through `publicBlocks` /
-`toPublicDocument`.
+There is **no Sourcework-to-CMS publish channel** (deferred by the owner, 2026-10-30; see `ROADMAP.md`). Its block schema
+and messages were designed, built and then removed rather than left as dead code.
 
 ## Audience listening (Specified; rules Built)
 

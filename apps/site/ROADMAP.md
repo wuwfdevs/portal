@@ -13,14 +13,14 @@ design canvas are described under *Sources* below.
 |---|---|
 | Workspace conversion (Portal to `apps/portal`, pnpm) | **Done**, verified identical to baseline |
 | Payload Website starter in `apps/site`, PostgreSQL | **Done**; boots, typechecks |
-| Shared packages (design-tokens, listening-core, content-blocks, portal-contracts) | **Done**, 167 tests |
+| Shared packages (design-tokens, listening-core, portal-contracts) | **Done**, tests in each |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
 | Initial production migration | **Done**; matches the dev push exactly |
 | Docs (README, ARCHITECTURE, ANALYTICS, this file) | **Done** |
 | Staff sign-in: Portal half (`website` registry row, access predicate, audit policy, `/website` token route, roles) | **Done**; migration applied to preview and production (2026-10-30). Tool is registered **disabled** |
 | Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
-| Publish-candidates endpoint (+ status webhook) | **Deferred** (owner decision, 2026-10-30); not in Milestone 1 |
+| Sourcework-to-CMS publish channel | **Deferred and removed** (owner decision, 2026-10-30); see *Deferred* below |
 | Homepage, article, fellowship hub, giving page (boards 1–4, 14) | Not started |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
@@ -45,13 +45,6 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. ~~**Publish-candidates endpoint**~~ **Deferred by the owner (2026-10-30):** no Sourcework-to-CMS export for now.
-   Not in Milestone 1. `packages/content-blocks` and the publish/transcription message types in
-   `packages/portal-contracts` stay as dormant, tested definitions (the project brief asked for them to exist
-   before any endpoint does); nothing uses them. If it returns, the open question was whether a piece's blocks
-   become Lexical rich text with an `audioExcerpt` block (one editing experience, some structure lost) or are kept
-   as received in a `blocks` field with their own renderer (lossless, edited differently). Editor notes must be
-   stored apart from public content either way. Do not build any of it without a new instruction.
 5. **Pages**, built to the boards with `@wuwf/design-tokens`: wire the tokens into the site's CSS first
    (replace the starter's Header/Card/Theme provider, fixing their lint errors), then homepage, article,
    fellowship hub, giving. Every acknowledgment through `getAcknowledgments`, fetched inside a cache entry using
@@ -61,6 +54,16 @@ in them has been started.
 7. **Analytics foundations** per `ANALYTICS.md`.
 8. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
 9. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
+
+## Deferred
+
+- **Sourcework-to-CMS publish channel** (owner decision, 2026-10-30). Designed and built, then removed: the
+  `packages/content-blocks` package (a strict block schema and parser, with editor notes that could never publish)
+  and the publish/status/transcript-delivery messages in `portal-contracts`. Nothing used them. The last commit that
+  contains them is `1936171`: `git show 1936171:packages/content-blocks/src/parse.ts`. Do not rebuild without a new
+  instruction. The open design question was whether a piece's blocks become Lexical rich text with an `audioExcerpt`
+  block (one editing experience, some structure lost) or are kept as received with their own renderer (lossless,
+  edited differently); editor notes must be stored apart from public content either way.
 
 ## Lessons (these cost real time)
 

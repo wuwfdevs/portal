@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@wuwf/content-blocks':
-        specifier: workspace:*
-        version: link:../content-blocks
     devDependencies:
       typescript:
         specifier: ^5.9.3

@@ -38,7 +38,6 @@
     "@radix-ui/react-label": "^2.0.2",
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
-    "@wuwf/content-blocks": "workspace:*",
     "@wuwf/design-tokens": "workspace:*",
     "@wuwf/listening-core": "workspace:*",
     "@wuwf/portal-contracts": "workspace:*",

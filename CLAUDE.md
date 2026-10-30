@@ -10,7 +10,6 @@ apps/portal                 WUWF Tools Portal (tools.wuwf.org) — internal staf
 apps/site                   WUWF.org — the public site and its CMS (Payload on Next.js). See apps/site/CLAUDE.md
 packages/design-tokens      WUWF Design System tokens, CSS-variable generation, contrast helpers
 packages/listening-core     audience-listening rules shared by both apps (ported from the Portal)
-packages/content-blocks     the block schema for content sent from the Portal to the site
 packages/portal-contracts   the signed contracts between the two apps (identity token, request signing, messages)
 .github/                    repo-wide: the PR template and the PR title/description check
 scripts/                    repo-wide: check-pr-text.mjs and its test
