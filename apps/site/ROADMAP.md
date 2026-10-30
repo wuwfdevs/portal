@@ -19,7 +19,7 @@ design canvas are described under *Sources* below.
 | Initial production migration | **Done**; matches the dev push exactly |
 | Docs (README, ARCHITECTURE, ANALYTICS, this file) | **Done** |
 | Staff sign-in: Portal half (`website` registry row, access predicate, audit policy, `/website` token route, roles) | **Done**; migration applied to preview and production (2026-10-30). Tool is registered **disabled** |
-| Staff sign-in: site half (verify, provision user, refuse reused `jti`, session) | Not started |
+| Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
 | Publish-candidates endpoint (+ status webhook) | Not started |
 | Homepage, article, fellowship hub, giving page (boards 1–4, 14) | Not started |
 | Audience listening: collections, flow, private storage, staff review | Not started |
@@ -43,9 +43,8 @@ in them has been started.
 3. ~~**Portal token route**~~ Done: `apps/portal/src/app/(portal)/website/route.ts`. Needs `WEBSITE_ORIGIN` and
    `WEBSITE_IDENTITY_SECRET` set in the Portal's environment (see its `.env.example`); unset, it answers that sign-in
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
-4. **Site sign-in route:** verify with `verifyIdentityToken`; store `jti` (a table with a unique constraint and
-   a short expiry sweep) and refuse a second use; upsert the Payload user by `portalUserId`; set `roles` from the
-   token; start a Payload session. Test: replay refused, expired refused, role escalation by edit refused.
+4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
+   Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
 5. **Publish-candidates endpoint:** verify `verifyRequestSignature`; `parseContentDocument`; create a draft or add
    a version for the same `pieceId`; return `PublishCandidateResponse`. Store provenance. Strip nothing at
    write time; strip editor notes at render time with `toPublicDocument`.

@@ -79,6 +79,7 @@ export interface Config {
     sponsors: Sponsor;
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
+    'portal-sign-ins': PortalSignIn;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -108,6 +109,7 @@ export interface Config {
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -997,6 +999,10 @@ export interface User {
    */
   roles?: ('editor' | 'publisher' | 'administrator' | 'sponsorship' | 'membership')[] | null;
   /**
+   * Portal sign-ins issued before this moment are dead. Set automatically on logout; set it to now to sign someone out everywhere.
+   */
+  sessionsValidAfter?: string | null;
+  /**
    * The Portal profile this user was provisioned from.
    */
   portalUserId?: string | null;
@@ -1019,6 +1025,18 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "portal-sign-ins".
+ */
+export interface PortalSignIn {
+  id: number;
+  jti: string;
+  portalUserId: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1257,6 +1275,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'portal-sign-ins';
+        value: number | PortalSignIn;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -1719,6 +1741,7 @@ export interface UnderwritingAgreementsSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
   roles?: T;
+  sessionsValidAfter?: T;
   portalUserId?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1737,6 +1760,17 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "portal-sign-ins_select".
+ */
+export interface PortalSignInsSelect<T extends boolean = true> {
+  jti?: T;
+  portalUserId?: T;
+  expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

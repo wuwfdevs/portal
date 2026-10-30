@@ -33,7 +33,8 @@ pnpm dev                       # http://localhost:3000, admin at /admin
 ```
 
 The first user you create at `/admin` becomes the **local break-glass administrator** and is given every role.
-Everyone else is provisioned from the Portal (not built yet; see `ROADMAP.md`).
+**Create it before anyone signs in from the Portal**: once any account exists, Payload no longer offers the
+"create first user" screen. Everyone else is provisioned when they open the Website tool in the Portal.
 
 No production credentials are needed. Without Docker, point `DATABASE_URL` at any local Postgres.
 
@@ -46,6 +47,7 @@ No production credentials are needed. Without Docker, point `DATABASE_URL` at an
 | `NEXT_PUBLIC_SERVER_URL` | Public origin, no trailing slash. Used for links, CORS and previews. |
 | `CRON_SECRET` | Authenticates scheduled-job requests. |
 | `PREVIEW_SECRET` | Validates draft preview requests. |
+| `PORTAL_IDENTITY_SECRET` | Verifies the Portal's staff sign-in token. Must equal the Portal's `WEBSITE_IDENTITY_SECRET`; at least 32 characters; used for this channel only. |
 | `TEST_DATABASE_URL` | Optional. Integration tests default to `wuwf_site_test` on localhost and **refuse any non-local host**. |
 
 Variables for the Portal contracts (signing secrets, one per channel and direction, each at least 32

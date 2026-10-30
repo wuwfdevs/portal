@@ -74,9 +74,20 @@ throwing outside a Next request.
   themselves a role. The first user created in Payload is the break-glass administrator.
 - **Built (package):** the identity token — HS256, algorithm fixed in code, issuer/audience/lifetime (≤120 s) and
   clock skew checked, a `jti` on every token.
-- **Specified:** the route that verifies a token, provisions or updates the Payload user from the Portal profile,
-  maps roles, **records the `jti` and refuses a second use**, and starts a Payload session. The Portal side
-  (a `website` tool-registry row with stacking roles, and a route that mints the token) is also specified.
+- **Built (both halves):** the Portal's `/website` route mints a 60-second token (audited as `website.sso.opened`) and
+  redirects to `/api/portal/sso` on the site. That route verifies it, **records the `jti` under a unique
+  constraint and refuses any second use** (including simultaneous ones), syncs the account, and sets a signed
+  HttpOnly session cookie (8 hours) that a custom Payload auth strategy accepts. Payload's own login stays for the
+  break-glass administrator.
+- **Linking rule:** a Portal identity is linked to a CMS account by the Portal's profile id, never by email. An
+  existing unlinked account with the same email is not taken over; the sign-in is refused (403) for an
+  administrator to resolve. Roles are replaced wholesale on every sign-in, so a role revoked in the Portal
+  disappears at the next one.
+- **Revocation:** a session issued before the user's `sessionsValidAfter` is dead. Logout sets it, and an
+  administrator can set it to sign someone out everywhere. Access the Portal revokes otherwise lasts at most the
+  8-hour session. An account with no roles cannot enter the admin.
+- **Not yet done:** the tool is registered but disabled in the Portal until launch; no browser-level check has been
+  made of the redirect between two real deployments.
 
 ## Contracts with the Portal
 

@@ -3,6 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { SITE_ROLES } from '@wuwf/portal-contracts'
 
 import { userCan } from '../../access/permissions'
+import { portalSessionStrategy } from '../../lib/portal/strategy'
 
 /**
  * Staff only. Almost every user is provisioned from the Portal when they open the website tool
@@ -13,18 +14,22 @@ import { userCan } from '../../access/permissions'
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
-    admin: ({ req }) => Boolean(req.user),
+    // Holding an account is not enough: a Portal grant with no roles opens nothing.
+    admin: ({ req }) => Boolean(req.user?.roles?.length),
     create: ({ req }) => userCan(req.user, 'users.manage'),
     delete: ({ req }) => userCan(req.user, 'users.manage'),
     // Staff can read the staff directory (to pick contributors, assign work); nobody outside can.
-    read: ({ req }) => Boolean(req.user),
+    read: ({ req }) => Boolean(req.user?.roles?.length),
     update: ({ req, id }) => userCan(req.user, 'users.manage') || req.user?.id === id,
   },
   admin: {
     defaultColumns: ['name', 'email', 'roles'],
     useAsTitle: 'name',
   },
-  auth: true,
+  auth: {
+    // Payload's own login stays for the break-glass administrator; the strategy accepts a verified Portal sign-in.
+    strategies: [portalSessionStrategy],
+  },
   fields: [
     { name: 'name', type: 'text' },
     {
@@ -42,6 +47,16 @@ export const Users: CollectionConfig = {
       admin: { description: 'Set by the Portal when this person opens the website tool.' },
     },
     {
+      name: 'sessionsValidAfter',
+      type: 'date',
+      access: { update: ({ req }) => userCan(req.user, 'users.manage'), create: () => false },
+      admin: {
+        position: 'sidebar',
+        date: { pickerAppearance: 'dayAndTime' },
+        description: 'Portal sign-ins issued before this moment are dead. Set automatically on logout; set it to now to sign someone out everywhere.',
+      },
+    },
+    {
       name: 'portalUserId',
       type: 'text',
       unique: true,
@@ -51,10 +66,22 @@ export const Users: CollectionConfig = {
     },
   ],
   hooks: {
+    // A Portal session is a signed cookie the browser keeps, so logging out also records "nothing issued
+    // before now is valid" on the user, which the strategy honours.
+    afterLogout: [
+      async ({ req }) => {
+        const id = req.user?.id
+        if (id === undefined) return
+        await req.payload.update({ collection: 'users', id, data: { sessionsValidAfter: new Date().toISOString() }, overrideAccess: true })
+      },
+    ],
     beforeValidate: [
       async ({ data, operation, req }) => {
         // The very first user is the local break-glass administrator.
         if (operation !== 'create' || !data) return data
+        // Only accounts made through Payload's own screen. A Portal sign-in on an empty database must never
+        // be handed every role just for being first.
+        if (data.portalUserId) return data
         const existing = await req.payload.count({ collection: 'users', overrideAccess: true, req })
         if (existing.totalDocs === 0) return { ...data, roles: [...SITE_ROLES] }
         return data
