@@ -1,15 +1,18 @@
-'use client'
-import { cn } from '@/utilities/ui'
-import useClickableCard from '@/utilities/useClickableCard'
 import Link from 'next/link'
-import React, { Fragment } from 'react'
+import React from 'react'
 
 import type { Post } from '@/payload-types'
 
 import { Media } from '@/components/Media'
+import { cn } from '@/utilities/ui'
 
 export type CardPostData = Pick<Post, 'slug' | 'categories' | 'meta' | 'title'>
 
+/**
+ * A story card. The whole card is clickable through one link whose box is stretched over it with CSS
+ * (`after:absolute after:inset-0`), so it needs no script, keyboard and screen-reader users get exactly one
+ * link, and text can still be selected.
+ */
 export const Card: React.FC<{
   alignItems?: 'center'
   className?: string
@@ -17,63 +20,40 @@ export const Card: React.FC<{
   relationTo?: 'posts'
   showCategories?: boolean
   title?: string
-}> = (props) => {
-  const { card, link } = useClickableCard({})
-  const { className, doc, relationTo, showCategories, title: titleFromProps } = props
-
+}> = ({ className, doc, relationTo, showCategories, title: titleFromProps }) => {
   const { slug, categories, meta, title } = doc || {}
   const { description, image: metaImage } = meta || {}
 
-  const hasCategories = categories && Array.isArray(categories) && categories.length > 0
+  const topics = (categories ?? [])
+    .map((c) => (typeof c === 'object' && c !== null ? c.title : null))
+    .filter((t): t is string => Boolean(t))
   const titleToUse = titleFromProps || title
-  const sanitizedDescription = description?.replace(/\s/g, ' ') // replace non-breaking space with white space
   const href = `/${relationTo}/${slug}`
 
   return (
     <article
       className={cn(
-        'border border-border rounded-lg overflow-hidden bg-card hover:cursor-pointer',
+        'relative flex flex-col overflow-hidden rounded-sm border border-rule bg-surface shadow-1 transition-shadow hover:shadow-2',
         className,
       )}
-      ref={card.ref}
     >
-      <div className="relative w-full ">
-        {!metaImage && <div className="">No image</div>}
-        {metaImage && typeof metaImage !== 'string' && <Media resource={metaImage} size="33vw" />}
-      </div>
-      <div className="p-4">
-        {showCategories && hasCategories && (
-          <div className="uppercase text-sm mb-4">
-            {categories?.map((category, index) => {
-              if (typeof category === 'object') {
-                const { title: titleFromCategory } = category
-
-                const categoryTitle = titleFromCategory || 'Untitled category'
-
-                const isLast = index === categories.length - 1
-
-                return (
-                  <Fragment key={index}>
-                    {categoryTitle}
-                    {!isLast && <Fragment>, &nbsp;</Fragment>}
-                  </Fragment>
-                )
-              }
-
-              return null
-            })}
-          </div>
+      {metaImage && typeof metaImage !== 'string' && (
+        <div className="relative w-full">
+          <Media resource={metaImage} size="33vw" />
+        </div>
+      )}
+      <div className="flex flex-col gap-2 p-4">
+        {showCategories && topics.length > 0 && (
+          <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{topics.join(', ')}</p>
         )}
         {titleToUse && (
-          <div className="prose">
-            <h3>
-              <Link className="not-prose" href={href} ref={link.ref}>
-                {titleToUse}
-              </Link>
-            </h3>
-          </div>
+          <h3 className="font-serif text-xl font-bold leading-snug">
+            <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={href}>
+              {titleToUse}
+            </Link>
+          </h3>
         )}
-        {description && <div className="mt-2">{description && <p>{sanitizedDescription}</p>}</div>}
+        {description && <p className="text-base text-ink-2">{description.replace(/\s/g, ' ')}</p>}
       </div>
     </article>
   )

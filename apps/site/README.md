@@ -63,6 +63,8 @@ characters), Supabase Auth and object storage are specified in `ARCHITECTURE.md`
 | `pnpm test:int` | Vitest: unit tests in `src/**/*.test.ts` and integration tests in `tests/int` |
 | `pnpm test:e2e` | Playwright (the starter's tests; ours are not written yet) |
 | `pnpm generate:types` | Regenerate `src/payload-types.ts` after changing a collection |
+| `pnpm generate:tokens` | Regenerate `src/app/(frontend)/tokens.css` from `@wuwf/design-tokens` (a test fails if it is stale) |
+| `pnpm seed:demo` | Load the Coastal Futures / Example Foundation demonstration into a **local** database (idempotent; refuses any other host) |
 | `pnpm generate:importmap` | Regenerate the admin import map after adding a custom component |
 | `pnpm payload migrate:create <name>` | Create a migration from the current config |
 | `pnpm payload migrate` | Apply committed migrations |

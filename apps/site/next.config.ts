@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
       {
         pathname: '/api/media/file/**',
       },
+      // The wordmark in the header and footer.
+      {
+        pathname: '/wuwf-logo.png',
+      },
     ],
     qualities: [100],
     remotePatterns: [

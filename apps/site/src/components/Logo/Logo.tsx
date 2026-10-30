@@ -1,29 +1,17 @@
-import clsx from 'clsx'
+import Image from 'next/image'
 import React from 'react'
 
-interface Props {
-  className?: string
-  loading?: 'lazy' | 'eager'
-  priority?: 'auto' | 'high' | 'low'
-}
+import { cn } from '@/utilities/ui'
 
-export const Logo = (props: Props) => {
-  const { loading: loadingFromProps, priority: priorityFromProps, className } = props
-
-  const loading = loadingFromProps || 'lazy'
-  const priority = priorityFromProps || 'low'
-
-  return (
-    /* eslint-disable @next/next/no-img-element */
-    <img
-      alt="Payload Logo"
-      width={193}
-      height={34}
-      loading={loading}
-      fetchPriority={priority}
-      decoding="async"
-      className={clsx('max-w-[9.375rem] w-full h-[34px]', className)}
-      src="https://raw.githubusercontent.com/payloadcms/payload/3.x/packages/ui/src/assets/payload-logo-light.svg"
-    />
-  )
-}
+/** The WUWF 88.1 wordmark. The file is 450×190; it is shown at the header's height. */
+export const Logo: React.FC<{ className?: string; priority?: boolean }> = ({ className, priority }) => (
+  <Image
+    alt="WUWF 88.1"
+    className={cn('h-9 w-auto', className)}
+    height={190}
+    priority={priority}
+    quality={100}
+    src="/wuwf-logo.png"
+    width={450}
+  />
+)

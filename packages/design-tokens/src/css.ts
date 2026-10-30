@@ -56,3 +56,17 @@ export function themeCss(selector: string, theme: ThemeOverrides): string {
   }
   return lines.length === 0 ? "" : block(selector, lines);
 }
+
+/**
+ * The same tokens as a Tailwind v4 `@theme` block, so utilities such as `bg-surface-dark`, `text-ink-3` and
+ * `border-rule` exist and read from one source. Colours, radii and shadows only: fonts come from the app (they
+ * are loaded with next/font and referenced by variable) and Tailwind's own spacing scale is already 4px-based.
+ */
+export function tailwindThemeCss(): string {
+  const lines = [
+    ...Object.entries(colors).map(([k, v]) => declare("color", k, v)),
+    ...Object.entries(radii).map(([k, v]) => declare("radius", k.replace(/^r-/, ""), v)),
+    ...Object.entries(shadows).map(([k, v]) => declare("shadow", k.replace(/^shadow-/, ""), v)),
+  ];
+  return block("@theme", lines);
+}

@@ -6,21 +6,23 @@
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
-    "postbuild": "next-sitemap --config next-sitemap.config.cjs",
+    "db:down": "docker compose down",
+    "db:up": "docker compose up -d db",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "dev:prod": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:tokens": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/generate-tokens-css.ts",
     "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
     "lint:fix": "cross-env NODE_OPTIONS=--no-deprecation eslint . --fix",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "postbuild": "next-sitemap --config next-sitemap.config.cjs",
+    "seed:demo": "cross-env NODE_OPTIONS=--no-deprecation tsx --tsconfig tsconfig.json scripts/seed-demo.ts",
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "test": "pnpm run test:int && pnpm run test:e2e",
     "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import=tsx/esm\" playwright test --config=playwright.config.ts",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
-    "typecheck": "tsc --noEmit",
-    "db:up": "docker compose up -d db",
-    "db:down": "docker compose down"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@payloadcms/admin-bar": "3.92.1",

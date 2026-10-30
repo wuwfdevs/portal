@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseCss, colors, contrastRatio, layout, themeCss, typeScale } from "./index";
+import { baseCss, tailwindThemeCss, colors, contrastRatio, layout, themeCss, typeScale } from "./index";
 
 describe("colors", () => {
   it("are all six-digit hex, so contrast and CSS generation can trust them", () => {
@@ -95,5 +95,20 @@ describe("typeScale", () => {
   });
   it("keeps body text at 16px or more, so a phone never zooms on a focused field", () => {
     expect(parseInt(typeScale.body.fontSize, 10)).toBeGreaterThanOrEqual(16);
+  });
+});
+
+describe("tailwindThemeCss", () => {
+  const css = tailwindThemeCss();
+  it("is a single @theme block with every colour, so each becomes a utility", () => {
+    expect(css.startsWith("@theme {")).toBe(true);
+    expect((css.match(/--color-/g) ?? []).length).toBe(Object.keys(colors).length);
+    expect(css).toContain("--color-surface-dark: #0F2235;");
+  });
+  it("carries radii and shadows, and no fonts or layout (the app owns those)", () => {
+    expect(css).toContain("--radius-pill: 999px;");
+    expect(css).toContain("--shadow-2:");
+    expect(css).not.toContain("--font-");
+    expect(css).not.toContain("--layout-");
   });
 });

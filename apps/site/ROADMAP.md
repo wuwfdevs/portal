@@ -14,6 +14,7 @@ design canvas are described under *Sources* below.
 | Workspace conversion (Portal to `apps/portal`, pnpm) | **Done**, verified identical to baseline |
 | Payload Website starter in `apps/site`, PostgreSQL | **Done**; boots, typechecks |
 | Shared packages (design-tokens, listening-core, portal-contracts) | **Done**, tests in each |
+| Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
 | Initial production migration | **Done**; matches the dev push exactly |
@@ -25,7 +26,7 @@ design canvas are described under *Sources* below.
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
-| Starter lint errors (Header, Card, Theme provider) | Known, to fix when rebuilt |
+| Starter lint errors (Header, Card, Theme provider) | **Fixed** (components replaced); 3 warnings remain in the starter's e2e tests |
 
 Milestones 2–4 are unchanged from the project brief (shows platform and Barefoot Mary, member feeds, the
 listening hub, short video, sponsorship section and measurement, membership sync, intelligent publishing). Nothing
@@ -65,6 +66,17 @@ in them has been started.
   block (one editing experience, some structure lost) or are kept as received with their own renderer (lossless,
   edited differently); editor notes must be stored apart from public content either way.
 
+## Known gaps in what exists
+
+- The article page still uses the starter's hero (white text over an image): unreadable with no image. It is replaced
+  by the board's layout in the next step.
+- **"Listen live"** is deliberately not in the header: it would be a button that does nothing until the persistent
+  player exists (Milestone 2). Do not add it as a link to nowhere.
+- The header links only to pages that exist. The boards' full navigation (Podcasts, Video, RadioLive, Unearthing
+  Florida, WUWF Listens, The Voyager) arrives with those pages, as header-global entries.
+- Dev-mode Payload pushes schema changes and can stop at an interactive prompt (a script then hangs silently with
+  its database session idle). Rebuild a dev database with `pnpm payload migrate` on an empty one instead.
+
 ## Lessons (these cost real time)
 
 - **Never use one shared pnpm lockfile.** It made pnpm resolve the Portal's optional peers from the site
@@ -83,6 +95,10 @@ in them has been started.
   `3.92.1` by hand.
 - **Starter lint:** `FlatCompat` crashes with eslint-config-next 16; the config uses its native flat exports.
 - **Don't dump package sourcemaps** when reading dependency code; grep the `.js`, not the `.map`.
+- **A script run outside Next does not load `.env.local`, and Payload reads its secret when the config module is
+  evaluated**, so load the environment, then `await import()` the config (see `scripts/seed-demo.ts`).
+- **`next/image` only serves what `images.localPatterns` allows** (the starter allows `/api/media/file/**`). A new
+  static image needs a pattern, or every page that renders it returns 500. Typecheck cannot catch it; a browser does.
 - **`pkill -f` can kill your own shell** if the pattern is in the command line.
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
