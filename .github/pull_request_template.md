@@ -8,7 +8,7 @@
 
 ## Database
 
-<!-- Delete this section if there is no migration. Otherwise: which migrations, whether they are applied to preview and production, and whether APPLIED.md and `npm run db:check` are done. -->
+<!-- Delete this section if there is no migration. Otherwise: which migrations, whether they are applied to preview and production, and whether APPLIED.md and `pnpm db:check` are done. -->
 
 ## Test plan
 

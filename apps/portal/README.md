@@ -61,11 +61,11 @@ Requires Node 20+, the [Supabase CLI](https://supabase.com/docs/guides/local-dev
 and Docker (for the local Supabase stack).
 
 ```bash
-npm install
+pnpm install           # run once from the repository root (pnpm workspace)
 supabase start          # starts local Postgres/Auth/Storage; prints the local publishable key + URL
 cp .env.example .env.local
 # paste the URL/publishable key `supabase start` printed into .env.local
-npm run dev
+pnpm dev
 ```
 
 Visit `http://localhost:3000`. The seed data (`supabase/seed.sql`, applied automatically
@@ -82,17 +82,17 @@ supabase db reset
 
 ### Common commands
 
-| Command              | What it does                                                                  |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `npm run dev`        | Start the Next.js dev server                                                  |
-| `npm run build`      | Production build                                                              |
-| `npm run lint`       | ESLint                                                                        |
-| `npm run typecheck`  | `tsc --noEmit`                                                                |
-| `npm test`           | Run the Vitest suite once                                                     |
-| `npm run test:watch` | Vitest in watch mode                                                          |
-| `npm run format`     | Prettier, write mode                                                          |
-| `npm run db:types`   | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
-| `npm run db:check`   | Verify every migration is recorded as applied to both Supabase projects       |
+| Command           | What it does                                                                  |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `pnpm dev`        | Start the Next.js dev server                                                  |
+| `pnpm build`      | Production build                                                              |
+| `pnpm lint`       | ESLint                                                                        |
+| `pnpm typecheck`  | `tsc --noEmit`                                                                |
+| `pnpm test`       | Run the Vitest suite once                                                     |
+| `pnpm test:watch` | Vitest in watch mode                                                          |
+| `pnpm format`     | Prettier, write mode                                                          |
+| `pnpm db:types`   | Regenerate `src/lib/database.types.ts` from a running local Supabase instance |
+| `pnpm db:check`   | Verify every migration is recorded as applied to both Supabase projects       |
 
 ## Database workflow
 
@@ -103,19 +103,19 @@ schema change:
 1. `supabase migration new <name>` (or add a new timestamped file by hand)
 2. Write the SQL, including any RLS policy changes the new table/column needs
 3. `supabase db reset` locally to verify it applies cleanly against a fresh database
-4. Regenerate types: `npm run db:types`
+4. Regenerate types: `pnpm db:types`
 5. Apply to `wuwf-tools-portal-preview`, and verify there
 6. Apply to `wuwf-tools-portal`, and verify there
 7. Record both dates in [`supabase/migrations/APPLIED.md`](supabase/migrations/APPLIED.md)
-8. `npm run db:check`
+8. `pnpm db:check`
 
 Never edit an already-applied migration file; add a new one.
 
 **Steps 5–8 are the ones that get skipped, and skipping them is invisible.** Nothing in
-`npm run build`, the test suite, or a Vercel deploy applies a migration — so a merged
+`pnpm build`, the test suite, or a Vercel deploy applies a migration — so a merged
 migration that was never run ships a feature whose tables don't exist, which looks like a
 UI bug rather than a missing deploy step. `APPLIED.md` is the record of what has actually
-been applied where, and `npm run db:check` fails on a migration with no row, a row naming
+been applied where, and `pnpm db:check` fails on a migration with no row, a row naming
 a file that doesn't exist, or a row where either environment isn't a date. It needs no
 credentials and no network: it checks that a human did the work and wrote it down, not
 that the database agrees. Reconciling the ledger against a project's live history is a
@@ -217,12 +217,12 @@ page/action. Privileged writes are logged to `audit_events` (viewable at
 
 ## Testing
 
-`npm test` runs Vitest against the pure logic modules (`src/lib/**/*.test.ts`) —
+`pnpm test` runs Vitest against the pure logic modules (`src/lib/**/*.test.ts`) —
 authorization predicates, tool-card state derivation, and email validation. These are
 unit tests of business logic, not a substitute for testing the real Supabase RLS
 policies; do that by exercising the app against the local Supabase stack.
 
-`npm run eval:program-log` is separate: it runs the Log program-log importer's live
+`pnpm eval:program-log` is separate: it runs the Log program-log importer's live
 model call against the real exports in `scripts/program-log-eval/fixtures/` and diffs
 the result against a reviewed plan. It needs `OPENAI_API_KEY` and a Supabase secret
 key, takes minutes, and skips without them — see that folder's README.

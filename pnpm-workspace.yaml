@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 skips dependency install scripts unless listed. npm ran these, and the
+# Portal needs them: ffmpeg-static downloads its platform binary here (clip export),
+# sharp and unrs-resolver fetch/verify native binaries (Next images, ESLint resolver).
+onlyBuiltDependencies:
+  - ffmpeg-static
+  - sharp
+  - unrs-resolver

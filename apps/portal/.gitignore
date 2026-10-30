@@ -1,0 +1,44 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# testing / coverage
+/coverage
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# supabase local
+/supabase/.branches
+/supabase/.temp
+
+# throwaway prototype (docs/remote-interview-technical-assessment.md Phase 3) —
+# its own package.json/node_modules, not part of the portal app
+/prototype/remote-interview-poc/node_modules
+/prototype/remote-interview-poc/dist
+/prototype/remote-interview-poc/data
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vscode/*
+!.vscode/extensions.json
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# program-log importer eval output (see scripts/program-log-eval/README.md)
+scripts/program-log-eval/actual/
+
+# agreement reader eval output (see scripts/agreement-eval/README.md)
+scripts/agreement-eval/actual/

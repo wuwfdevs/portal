@@ -1,0 +1,4696 @@
+# CLAUDE.md
+
+Guidance for Claude Code (and future human developers) working on the Portal. This file lives in
+`apps/portal` of a pnpm workspace; the workspace rules are in the root `CLAUDE.md`. Paths below
+(`src/`, `supabase/`, `docs/`, `scripts/`) are relative to `apps/portal`, except `.github/` and
+`scripts/check-pr-text.mjs`, which are repo-wide and stay at the repository root. Run commands from
+this directory (`pnpm test`, `pnpm lint`, …) or from the root with `pnpm --filter wuwf-tools-portal …`.
+
+## Product scope
+
+WUWF Tools Portal (`tools.wuwf.org`) is a shared access/administration layer for a small,
+fixed set of internal WUWF tools — not a general-purpose newsroom platform. It provides:
+authentication, invitation/approval-based access, role-based authorization, a tool
+registry, a dashboard, and admin screens for user/tool management.
+
+Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
+Listening, Roadmap, Academic Partnerships) is its own focused application area with its
+own schema. The portal's job ends at "Open Tool" — do not build cross-tool abstractions,
+a plugin framework, or speculative integrations. When in doubt, keep scope narrow.
+
+The registry also carries rows for tools that don't exist: `status = 'proposed'` means an
+idea somebody filed on the Roadmap, so requests can gather under it. That is **not** a
+plugin system or a way to register a tool without writing one — a proposed row has no
+route, no schema, and no access to grant. Real registry rows still come from a migration
+alongside the code that implements them.
+
+The registry once also carried a **Shared Clip Library** row. It has been retired: the
+Transcription Workspace absorbed it, since its cross-project clip and search views _are_
+the clip library (see `docs/transcription-workspace-design.md` §3F). Don't reintroduce it.
+
+## Current milestone: portal foundation + Editorial Planning
+
+This repo implements the portal foundation (app shell, auth, profiles, platform roles,
+tool registry, dashboard, admin, RLS) plus the first real tool: **Editorial Planning**
+(pitch backlog, configurable submission form and rubric, weekly meetings with
+independent scoring, ranked agendas, and recorded decisions). Its design rationale
+lives in `docs/editorial-planning-design.md` — read it before changing editorial
+workflow or schema. (The guardrails against Remote Interview and Audience Listening have
+both been lifted — see below.)
+
+**Editorial Planning: story plans are retired (2026-10-28).** The post-selection
+story-planning phase the 2026-07-30 refinement added (`ep_story_plans`,
+`ep_story_plan_milestones`, `/editorial/pitches/[id]/story-plan`) contradicted the tool's
+own §1 scope — "the pipeline ends the moment a pitch is assigned or archived" — and was
+removed before any plan existed in either environment
+(`20261104120000_editorial_retire_story_plans.sql`; `docs/editorial-planning-design.md`
+§10.5 is the record). Don't reintroduce production tracking, milestones or deadlines here;
+if the viewpoint-diversity rigor that phase carried needs a home, that is a new question.
+**Rubric profiles are retired too (2026-10-28, `20261104130000_editorial_single_rubric.sql`;
+design doc §10.6):** there is one rubric — `listCriteria({ activeOnly: true })` is the
+set a meeting scores against — and no `ep_rubric_profiles`, `ep_criteria.profile_id` or
+`ep_meetings.rubric_profile_id`. The never-used Immediate / Emerging News criteria were
+deleted (none had a score). A different rubric is a retire-and-add of criteria, not a
+second profile.
+
+**Editorial Planning: the screens, reworked (2026-10-28).** A pointer; the code is the record
+(the reviewed Design canvas is the source). The Backlog (`editorial/page.tsx`) opens with a
+"This week" band (`this-week-band.tsx` over `data.ts`'s `getCurrentMeeting()`), a `ListToolbar`
+with search and one Filter menu — the status chips with counts, and pillar/format/urgency as
+`control: "select"` groups (`lib/filter-groups.ts`; the URL state and matching live in
+`lib/editorial/backlog-filters.ts`, pure, tested) — and a stacking table with On slate / Stale
+badges. Meetings is a table with an inline `?new=1` create card. The meeting page keeps one
+scoring surface: a slate rail (`hidden lg:flex`) that becomes a sticky previous/select/next
+strip on a phone, `?pitch=<entryId>` as the selection, "Save and go to next unscored"
+(`submitReview` with `next=1`, `lib/editorial/slate-navigation.ts` — `slateOrder()` is the one
+display order the page and the action share, since `ep_meeting_pitches` has no order column),
+score anchors as `title` tooltips on pointer devices and inline under the scale on touch
+(`.touch-only` in `globals.css`). The agenda records a decision through `decision-form.tsx`
+(one Decision select, conditional Assign to / Rationale, Record); Split is `SPLIT_SPREAD` (1.5)
+in amber; Conclude meeting is the header's primary link to `?conclude=1`, a confirm panel that
+names the undecided. The pitch page has a "Where it stands" `DetailSummary`, a compact review
+history and a ⋮ `PitchActionsMenu` (add to the open slate, archive with its reason inside the
+confirm step, restore) over hidden `<form action>`s submitted by id. Resources migration
+`20261104140000`. Not verified in a browser: this session had no running Supabase.
+
+**Remote Interview: design is done, Phase 3 (prototype) is done, Phase 4 slices 1-4
+(Foundation; Preflight and guest join; the studio; completion, recovery, and delivery)
+are done, and slice 5 (handoff — creating a `tw_projects` row from a track) is
+next — proceed with it without asking again.**
+Two design documents: `docs/remote-interview-design.md` (the product — capture only:
+local lossless per-participant recording, a cloud backup of the call via Daily's
+raw-tracks recording, chunked upload with recovery, and handoff to the Transcription
+Workspace) and `docs/remote-interview-technical-assessment.md` (the existing-system
+inventory, building-block evaluation, deployment, and risks — including a vendor reversal
+from an earlier LiveKit recommendation to Daily, and Phase 3's results). Where they
+conflict, the assessment is newer. Read both before touching any of it — and note two
+findings there that contradict older docs: **there is no canonical audio-file table** in
+this database (media metadata is columns on `tw_projects`), and **there is no resumable
+upload infrastructure** (the Transcription Workspace uses a single-request `.upload()`,
+despite its design doc saying TUS). Neither tool has a job queue, notification layer, or
+error reporting.
+
+Phase 3's throwaway prototype (`prototype/remote-interview-poc/` — not product code, its
+own `package.json`, see its README) ran for real (Chromium's fake-audio-device flags let a
+headless browser record without hardware) and validated the two riskiest assumptions:
+chunked WAV assembly reassembles correctly, and the OPFS-buffer-then-upload-then-delete-
+on-ack sequence survives a crash/reload with neither data loss nor duplication. Full
+results, and what's still open (Daily's raw-tracks integration itself, a live two-person
+call, real network flakiness, and cross-machine clock alignment — the last of which needs
+two physical machines and can't be done in a sandboxed session), are in the assessment
+doc's "Phase 3 results" section.
+
+**Phase 4 slice 1 (Foundation) has landed** (`docs/remote-interview-design.md` §7): the
+`ri_*` migration + RLS + `private.has_remote_interview_access` (mirroring
+`private.has_transcription_access`), the `remote-interview-media` storage bucket +
+policies, the registry row narrowed per that doc's §2, the route segment
+(`src/app/(portal)/remote-interview/`) gated by `requireToolAccess("remote-interview")`,
+and the session list / create-session / join-link screens (`lib/remote-interview/`).
+The migration has been written but — like every migration in this repo — is not
+self-applying; confirm it's been applied to both Supabase projects before relying on the
+tables existing. Before touching the migration again, read the assessment doc's Finding 4
+(a real, already-characterized, non-blocking gap in this repo's own migration history,
+discovered during Phase 4 prep) so it isn't mistaken for something new or accidentally
+reapplied.
+
+**Phase 4 slice 2 (Preflight and guest join) has landed**: the `/join/[token]` guest
+route (`src/app/join/[token]/`, outside both `(portal)` and `(auth)` — see the design
+doc's "Fit with portal conventions"), anonymous-auth binding to
+`ri_participants.guest_user_id` via the security-definer `ri_bind_guest_participant()` and
+`ri_guest_join_waiting_room()` functions (added in
+`20260729180000_remote_interview_waiting_room.sql` — a plain RLS update policy on a
+guest's own row would also let them set their own `admitted_at`, which is exactly the
+self-admission bypass the design doc rules out), the preflight screen (device pick, level
+meter, test recording, and the warning set from §3B — pure derivation logic in
+`lib/remote-interview/preflight.ts`), the waiting room (short client-side poll for
+admission — there's still no notification layer), and host admission
+(`admitParticipant` in the portal route's `actions.ts`). **Anonymous sign-ins must be
+enabled in both Supabase projects' dashboards** (see README.md's one-time setup list) —
+without it, `signInAnonymously()` fails and no guest can join.
+
+**Phase 4 slice 3 (the studio) has landed**: `lib/remote-interview/daily.ts`, a thin
+server-only client for Daily's REST API (room creation, meeting tokens — recording
+start/stop deliberately goes through the client SDK instead, see below); the host's live
+screen (`src/app/(portal)/remote-interview/[id]/studio/`, host-only — no second staff
+member can join a session's Daily room in this slice); the guest's in-call view
+(`src/app/join/[token]/call.tsx`, replacing slice 2's "you're in" placeholder — a
+deliberately smaller version of the studio per §3D, no record button); and the local
+lossless capture pipeline (`lib/remote-interview/capture.ts` — `extendable-media-recorder`
+
+- OPFS, product code following Phase 3's validated prototype pattern, `write → upload →
+delete-on-ack`) shared between both via `lib/remote-interview/use-local-capture.ts`. The
+  call carries **audio only** — recorded video was deliberately dropped from this slice's
+  scope, consistent with §6's "must never be allowed to compromise audio reliability. If it
+  threatens to, it is deferred." Recording start/stop, mint by `studio/actions.ts`, drives
+  three things in lockstep: the database (session status, the reference clock, cloud-backup
+  `ri_tracks` rows — `20260729190000_remote_interview_studio_rls.sql` broadens `ri_tracks`
+  RLS so the host can write a guest's cloud-track row), Daily's raw-tracks recording via
+  `callObject.startRecording()`/`stopRecording()` **on the client**, not a guessed REST
+  endpoint (`docs.daily.co` returns 403 to automated fetches, confirmed again while building
+  this slice — the REST surface used here is limited to room/token creation, which could be
+  verified against the installed `@daily-co/daily-js` type definitions), and every
+  participant's local capture, via a `sendAppMessage` broadcast so a guest's browser starts
+  and stops in lockstep without its own record button (§3D: "Guests cannot start or stop
+  recording"). Cloud backup is opt-in via three `DAILY_RECORDINGS_BUCKET_*`/
+  `DAILY_RECORDINGS_ASSUME_ROLE_ARN` env vars (`.env.example`) — unset, it's skipped with a
+  visible "not configured" status rather than failing recording start; **this repo still has
+  no Daily account**, so the REST/SDK integration is unverified against a live one, and the
+  raw-tracks S3-destination question from the assessment doc remains open. Per-participant
+  status (`lib/remote-interview/call-status.ts`, pure and tested) derives from Daily
+  participant/recording events plus each guest's periodic status broadcast — deliberately
+  **not** connection status (§3D): a flaky network alone never marks a participant unsafe,
+  only a failed local recording with no working cloud backup does. This slice's OPFS
+  buffering retried a stalled upload with backoff for as long as the page stayed open, but
+  did not reconstruct an in-flight track from a fresh page load after a crash or navigation
+  away — slice 4 below closed that gap.
+
+**Phase 4 slice 4 (completion, recovery, and delivery) has landed**: assembly
+(`lib/remote-interview/assembly.ts`, server-only) concatenates a local track's uploaded
+parts via `ffmpeg-static`'s concat demuxer, rewrites the WAV header, verifies the result is
+readable (`lib/remote-interview/wav.ts`, pure and tested), and records size/duration/
+checksum — host-triggered from the session detail screen's "Assemble"/"Retry assembly"
+button (`assembleTrack` in the portal route's `actions.ts`), never automatic, since there's
+still no job queue. Cloud-backup tracks are **not** assembled here — Daily writes those
+straight to the S3 destination and this repo still has no webhook confirming delivery, so
+that half of the design doc's "raw-tracks S3-destination question" remains open; only local
+masters get the assemble/retry/download treatment. Resume-on-reopen
+(`resumeIncompleteTracks` in `capture.ts`) runs on every mount of `useLocalCapture`: it
+finds OPFS directories left over from a crash or reload, verifies each belongs to the
+current participant, and drains whatever wasn't acknowledged before the interruption using
+the same upload-with-retry path live capture uses — logged as a `local_track_resumed`
+session event so the detail screen can label the result "recovered" rather than a plain
+"complete" (`lib/remote-interview/track-status.ts`, pure and tested, also derives the
+session-level `ready`/`needs_recovery`/`failed` rollup and the guest completion screen's
+four exact messages from §3E). The session detail screen (`[id]/page.tsx`) now lists every
+track per participant with provenance, size, duration, a per-track download (signed URL)
+and a "Download all" zip (`/api/remote-interview/sessions/[id]/tracks.zip`, a route handler
+for the same file-vs-data reason as the Transcription Workspace's `clips.zip`, reusing its
+generic zip writer directly). One RLS migration
+(`20260730160000_remote_interview_assembly_rls.sql`, applied to both projects) was needed
+alongside this: assembly is host-triggered but writes into _the participant's_ storage
+prefix, so `ri_media_insert`/`update` needed the same host-of-session broadening slice 3
+already gave `ri_tracks`.
+
+**Phase 5 (cloud-backup video) is planned but not authorized — do not start it without an
+explicit instruction.** The design is recorded in
+`docs/remote-interview-design.md` §7: video would ride the existing Daily call and cloud
+backup only — deliberately **no local video capture**, which is a different and much larger
+engineering problem than the WAV pipeline slice 3 built. Slice 5 (handoff) above is still
+next.
+
+**Audience Listening: milestone 1 has landed** — the guardrail against building it is
+lifted. Read `docs/audience-listening-design.md` before touching any of it. A reporter
+creates a **query** (a public listening initiative), gives it one to five ordered
+questions, publishes it as a standalone page or a Grove iframe embed, and reviews the
+grouped **submissions** and their individual audio **answers** here; each answer can be
+handed individually to the Transcription Workspace. Tables are `al_*`
+(`20260730170000_audience_listening.sql`), the internal route segment is
+`src/app/(portal)/audience-listening/` gated by `requireToolAccess("audience-listening")`,
+and the public route is `src/app/listen/[publicId]/` (plus `/embed`), outside both
+`(portal)` and `(auth)` for the same reason `/join/[token]` is.
+
+Three things about it are load-bearing and easy to break by accident:
+
+1. **`al_*` table RLS is staff-only, and the public surface is seven `security definer`
+   functions** (`al_public_query`, `al_start_submission`, `al_participant_progress`,
+   `al_reserve_answer`, `al_complete_answer`, `al_save_participant_details`,
+   `al_finalize_submission`). RLS is row-level and these rows are half public, half
+   internal — the same `al_queries` row holds the public title and the internal notes, and
+   column-level grants can't help because an anonymous participant and a staff reporter are
+   both `authenticated`. Do **not** add a participant-facing RLS policy to an `al_*` table;
+   extend the function list instead. Storage is the one deliberate exception (uploads go
+   browser → Storage directly), scoped to the object prefix of an in-progress submission
+   the caller owns. That exception has to include `select`, not just `insert`/`update`:
+   this tool's upload always passes `upsert: true` (a redo overwrites the same fixed
+   object key rather than orphaning the first attempt), and `storage-js` requires `select`
+   on `storage.objects` to upsert at all — a staff-only `select` policy broke every
+   participant upload, including first-time ones, with "new row violates row-level
+   security policy for table 'objects'" (fixed by `al_media_select_own` in
+   `20260730180000_audience_listening_media_select.sql`).
+2. **Answers snapshot their question.** `question_prompt`/`question_position`/
+   `question_required` are copied onto `al_answers` by `al_reserve_answer()` from
+   `al_questions` — never supplied by the client. Wording stays editable after submissions
+   exist; removal and reordering do not.
+3. **"Automatic" transcription is automatic _eligibility_, not background processing.**
+   There is still no job queue in this repo, so finalizing a submission on an `automatic`
+   query marks its answers `queued` and a staff member drains them in one click. Don't
+   describe it as unattended.
+4. **The public flow's session lives in `localStorage`, not a cookie — deliberately, not
+   an oversight.** `lib/audience-listening/public-client.ts` and `participant-client.ts`
+   exist because a cookie set inside this route's cross-origin Grove iframe embed is a
+   third-party cookie and does not survive the round trip back to the server (confirmed in
+   production: the first authenticated call after `signInAnonymously()` succeeded, the next
+   one — a separate request — came back "permission denied" because the browser never sent
+   the cookie). Every write in the public flow goes through the browser directly with this
+   dedicated client; do not route a new one through a Server Action using the normal
+   cookie-based `lib/supabase/server.ts`/`client.ts` pair, or it will silently work in local
+   dev and preview (same-origin, no third-party cookie problem) and fail only in a real
+   embed.
+
+The handoff reuses `startTranscriptionForProject()`, which moved out of
+`src/app/(portal)/sourcework/actions.ts` into `src/lib/transcription/ingest.ts` so both
+tools call one place — there is no second ASR pipeline, webhook, or transcript table.
+Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
+Interview, now required by a second tool).
+
+**Exception: Sourcework** (`src/app/(portal)/sourcework/`,
+`tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
+foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
+product design and phased plan before extending it; check that plan's phase
+boundaries before building ahead of the current phase.
+
+**Sourcework (Phases 1–3b landed; Phases 4–6 are a roadmap, not authorized to
+start without their own design doc first — see below):** the Transcription
+Workspace's data model has been generalized underneath its unchanged UI. Read
+`docs/sourcework-design.md` before touching any of `sw_*` or the transcription
+tables it rekeyed. In short: **Source** (`sw_sources` — immutable original
+media, one recording per row) and **Project** (`tw_projects` — the work that
+references sources, many-to-many via `sw_project_sources`) are now different
+objects with different lifetimes, closing a real gap the old 1:1
+`tw_projects` model had (the same interview mattering to more than one story
+over time). The transcript generalized into **Representation**
+(`sw_representations`, kind=`transcript` today) — `tw_segments`/`tw_speakers`/
+`tw_chunks` are keyed by `representation_id`, not `project_id`. `tw_clips`
+was folded directly into `sw_source_excerpts` (adds `source_id`, nullable
+`representation_id`) — not kept as a parallel legacy table. `tw_projects`
+itself shrank to `title`/`description`/`created_by` — no `status` or
+`media_*` columns; `lib/transcription/projects.ts`'s `computeProjectStatus()`
+derives the same four UI states from a source's upload status and its
+transcript representation's status instead. `interview_date` moved to
+`sw_sources` (a fact about the recording, not the project). Two design calls
+worth knowing before extending this: transformations (OCR, translation) are
+**developer-authored pipelines a user invokes in sequence**, not a declarative
+type-checked composable graph — don't build a pipeline planner without a
+concrete need for one; and cross-tool project unification (Editorial
+Planning, Audience Listening) is deliberately deferred to Phase 6, a security
+review of those tools' RLS models, not a mechanical rename.
+
+**Phase 3a (Source Library and multi-source Project UI) has landed** — the
+design in `docs/sourcework-design.md` §7 is now built, not just proposed. A
+**Source Library** tab at `/sourcework?tab=sources` (`lib/transcription/
+projects.ts`'s `listSources()`, `components/transcription/source-library.tsx`)
+browses every `sw_sources` row independent of any project, and **Source
+Detail** (`/sourcework/sources/[id]`, `getSourceDetail()`) renders the same
+working surface (player/transcript/clip rail, or — since Phase 3b — a PDF
+viewer/text pane) the project workspace shows for that source, plus the
+projects that reference it — the first place any of that was reachable
+without going through a project. There is no representation-chain diagram;
+see `docs/sourcework-design.md` §7.2's correction and §8.5. The
+project workspace (`/sourcework/[id]`) gained a **source pill row**
+(`[id]/source-pill-row.tsx`) above the transcript: one pill per attached
+source (inert with the one source every project has today), a
+"+ Reference another source" picker (`[id]/attach-source-modal.tsx`,
+`[id]/source-actions.ts`'s `attachSourceToProject`/`listAttachableSources`,
+no confirmation step — a deliberate product call, not an oversight), and
+`?source=<id>` to switch which pill's transcript/media/excerpts the
+workspace shows. `sw_project_sources`'s Phase 1 RLS policy (`for all` for
+any tool member) already covered the new insert, so **no migration shipped
+with this phase**. Two correctness fixes rode along, both about acting on
+the _active_ source rather than always "the" project's primary one: clip
+creation now takes an explicit `sourceId`/`representationId`
+(`[id]/clip-actions.ts`'s `createClip`), and `startTranscriptionForProject`
+(`lib/transcription/ingest.ts`) now takes a `representationId` directly
+instead of re-deriving the primary source's — retrying a failed _second_
+source used to silently re-kick the first one instead. Project-wide actions
+that don't (yet) need per-source targeting — upload completion, reindex, the
+clips.zip export, project deletion's cascade check — were deliberately left
+on `getPrimarySourceForProject`, unchanged.
+
+**Phase 3b (PDF documents and a document-processing pipeline) has landed** —
+`docs/sourcework-design.md` §8 is the design, now built. A new source kind
+`document` (`sw_sources.kind`) and representation kind `document_text`
+(`sw_representations.kind` — deliberately not `ocr_text`, see §8.3) join the
+existing audio/video ones; PDFs upload to the same `transcription-media`
+bucket at the same `sourceObjectPath` convention as audio, no new bucket.
+Processing (`lib/transcription/document-ingest.ts`'s
+`startDocumentProcessing`) tries native PDF text extraction first
+(`lib/transcription/providers/native-pdf.ts`, via `pdfjs-dist`'s
+Node-compatible legacy build — no rendering, just the embedded text layer)
+and falls back to Mistral OCR (`lib/transcription/providers/mistral-ocr.ts`,
+via the official `@mistralai/mistralai` SDK) only when
+`isNativeTextAdequate()` (`lib/transcription/document-normalization.ts`)
+says the native text isn't usable prose — a reporter never picks between
+the two. Both paths write into the same normalized
+`sw_document_pages`/`sw_document_blocks` schema (one row per page, one
+ordered/typed row per text block, fractional `bbox` so a viewer maps it at
+any zoom — see §8.4), never the provider's raw response, which is retained
+separately in `sw_document_processing_runs` (an attempt-by-attempt audit
+log, not a job queue — its partial unique index is what makes a stuck
+in-flight run recoverable via `isStaleProcessingRun` rather than
+permanently blocking retry). **Mistral OCR runs inside Next's `after()`**
+(`next/server`), not the request that kicked it off — Mistral's OCR
+endpoint has no native webhook, so this is the closest equivalent to the
+AssemblyAI kickoff-then-webhook pattern available; `maxDuration` is raised
+to 300s on the three pages that can trigger it
+(`sourcework/new/page.tsx`, `sourcework/[id]/page.tsx`,
+`sourcework/sources/[id]/page.tsx`), **not** in `actions.ts` itself — a
+bare `export const maxDuration` inside that `"use server"` file broke
+Turbopack's Server Actions compilation outright, confirmed while building
+this. Document excerpts (`sw_source_excerpts.locator_kind = 'document'`,
+new `sw_excerpt_document_locations` table) exist alongside the unchanged
+temporal ones — `start_ms`/`end_ms` are now nullable but a check constraint
+still enforces exactly one locator shape per excerpt; `lib/transcription/
+clips.ts`'s audio-only `ProjectClip`/`listExcerptsForSource` are unchanged
+(now filtered to `locator_kind = 'temporal'`), and the document counterpart
+lives in `lib/transcription/document-excerpts.ts`. Search
+(`tw_search()`, fifth revision of that function) gained a `document`
+hit-kind and a `page_number` column alongside the existing
+`start_ms`/`end_ms`; `tw_chunks` gained nullable `page_start`/`page_end`/
+`anchor_block_id` rather than a parallel document-chunk table, and
+`lib/transcription/chunking.ts`'s `buildDocumentChunks()` windows blocks by
+character count (documents have no time axis) the way `buildChunks()`
+windows segments by duration. `computeProjectStatus()`/`processingLabel()`
+moved to `lib/transcription/status.ts` (pure, no `"server-only"`) so client
+components (source cards, project rows) can import the kind-aware
+`processingLabel()` without pulling in `projects.ts`'s server-only data
+access — that exact mistake broke the production build once, confirmed
+while building this phase. Translation, bundled into the original single
+Phase 3, is explicitly deferred — not part of 3b.
+
+**The tool's user-facing name is now "Sourcework"** (as of 2026-07-31) — the
+registry row's `name` (`supabase/migrations/20260731140000_sourcework_tool_rename.sql`)
+and the "Clip" → "Excerpt" copy throughout the transcription UI were updated to match
+the data model's framing, following mockups reviewed for a broader source/project UI
+direction (see `docs/sourcework-design.md`'s Phase 3 entry for what shipped as
+3a and what's still only scoped for 3b). **The route moved too** (as of the same date, once it was clear
+no bookmarks or real users depended on the old one): `/transcription` →
+`/sourcework`, meaning `src/app/(portal)/transcription/` is now
+`src/app/(portal)/sourcework/` (`supabase/migrations/20260731150000_sourcework_route_
+rename.sql` updated the registry row's `route`). The tool `key` (still `'transcription'`
+— it's the authorization identifier `requireToolAccess`/`assertToolAccess`/RLS
+predicates key off, not a URL) and every other directory/file/doc name deliberately did
+not move — same precedent as `docs/transcription-workspace-design.md` keeping its name
+through the Phase 1-2 data model rename. `src/lib/transcription/`, `src/components/
+transcription/`, and their imports are untouched; so are internal identifiers
+(`ClipRail`, `clip-actions.ts`, `listLibraryClips`, the `?tab=clips`/`?clip=` query
+params, the `kind = 'clip'` search-result value) — only strings a user actually reads,
+plus the URL they navigate to, changed.
+
+**Sourcework revision (2026-10-08) — projects without files, many uploads, a scalable workspace.**
+Read `docs/ui-patterns.md` "Uploads and batch runs" and "Controls that grow with the data" first; this
+is a pointer. (1) **A project exists before any source does**: `createEmptyProject` (and
+`createBareProject` in `lib/transcription/ingest.ts`) makes a `tw_projects` row alone; files become
+sources of it through `uploadSource()` (`lib/transcription/upload-source.ts`), the one create → probe
+duration → upload → finish sequence both the new-project form and the add-source dialog use
+(`useSourceUploads`, `staged-files.tsx`). `createProject`/`completeProjectUpload`/`failProjectUpload`
+are gone. Uploads report byte progress through XHR (`lib/storage-upload.ts`, the request storage-js
+makes), run three at a time through `lib/run-queue.ts` (moved out of Underwriting) via
+`useTaskQueue`/`BatchRunPanel`, and are **not resumable** — a retry restarts that file; Supabase's
+TUS endpoint is the open option and needs a client dependency. (2) **The project screen and the source
+screen are separate** (revised 2026-10-09, see the entry below); `SourceCardGrid` is deleted. (3) **The Projects list is
+paged in the database** through `sw_project_overview` (a `security_invoker` view,
+`20261010120000`), filters `?filter=` (all/mine/attention/empty); search results group by project
+and filter by `?kind=` (`lib/transcription/search-groups.ts`). (4) **Workspace**: the speaker panel
+is `SpeakersMenu` (sorted by talk time via `lib/transcription/speakers.ts`, filter past six, `mergeSpeakers`
+folds a split voice), every line has a quiet `ActionMenu` (`trigger="quiet"`), find-in-transcript is
+`lib/transcription/find.ts`, selecting words opens `SelectionToolbar` (title suggested by
+`excerpt-title.ts`), excerpt marks sit under the scrubber (`scrubber-marks.ts`, merging to a density
+strip past 30; selecting a stretch zooms the scrubber to it, `zoomWindowForBin`), and the rail orders/filters/pages (`clip-order.ts`). Off-screen lines use
+`content-visibility`, **not** true windowing, so selection across lines and scroll-to-line keep working;
+a multi-hour transcript is the case to watch. (5) Deleting a project is `DeleteProjectPanel`
+(`ConfirmAction`, `describeProjectDeletion`), and `deleteProject` no longer redirects. None of this was
+exercised against a running app in the session that built it (no Supabase egress); the view was
+verified with a rolled-back scenario on preview.
+
+**Sourcework: the project screen and the source screen are separate, and both work on a phone
+(2026-10-09).** Revises point (2) above. The project screen (`/sourcework/[id]`, `page.tsx`) is about
+the project only: its title and background, a **Sources** tab of `SourceCard`s (the same card the
+Source Library uses, `components/transcription/source-card.tsx`) and an **Excerpts** tab
+(`?view=excerpts`) holding the project-wide excerpts and **Export all**, plus the project's own Danger
+zone. It has no player, no transcript and no source switcher; `source-switcher.tsx` is deleted and
+`AddSourceButton` lives in `add-source-button.tsx`. A source is opened as its own screen
+(`/sourcework/sources/[id]`), which is the working surface; `?project=<id>` is only context (the back
+link, and the project "Remove from this project" detaches from) and `?t=`/`?clip=`/`?page=` land on a
+search hit. **A source has two views.** With `?project=` it is that project's source: the back link is
+the way to the other sources, nothing lists projects, and the menu offers "Remove from this project…".
+Without it (the Source Library) it stands alone: back to the library, a fourth **Projects** tab in the
+same tab row (`sources/[id]/source-projects-list.tsx` — title and background per project, a filter once
+there are eight), and only "Delete source…". The row (`[id]/pane-tabs.tsx`) is Transcript · Excerpts ·
+Speakers · Projects on a phone; from `lg` up Excerpts and Speakers are `phoneOnly` (the rail and the
+speakers menu are already beside the transcript) so it is Transcript · Projects. A PDF is Document ·
+Projects (`sources/[id]/document-tabs.tsx`). Opened from a project there is no row on desktop. A source in
+no project opens like any other: the workspace actions take a nullable `projectId` that only decides
+which page to revalidate.
+**Build every link to either screen with `lib/transcription/links.ts`'s
+`projectPath()`/`sourcePath()`** — `resultHref()` and the excerpt cards do; a hand-written
+`/sourcework/${id}?source=` no longer means anything. Below `lg` the workspace is three tabs
+(Transcript / Excerpts / Speakers) with the player docked to the bottom and the transcript scrolling
+with the page (see `transcript-workspace.tsx`, `player-bar.tsx`); every `ActionMenu` in the portal opens as
+a bottom sheet there (`useMediaQuery`; rows are one evenly divided list with no band between groups, and `triggerLabel` swaps the ⋮ for a labelled button when the menu is a list to pick from), and an item may carry `confirm` so a destructive choice reads its
+consequence inside the menu — `SourceActionsMenu`'s "Remove from this project…" and "Delete source…"
+do, and replace the panels that used to overflow the header. `ConfirmAction` (project delete) is
+full-width and larger on a phone. Storage refusals go through `lib/storage-upload-errors.ts`; "exceeded
+the maximum allowed size" is the **project-wide Storage limit** (a bucket can only be stricter —
+`transcription-media` allows 2 GB), which is raised in the Supabase dashboard, not in code.
+
+**Sourcework analysis, Phase D (pieces by hand) has landed (2026-10-11).** Read
+`docs/sourcework-analysis-design.md` §6 first (Phases A–C and E have since landed; see below); this is a
+pointer. A project's **Pieces** tab (`?view=pieces`, `[id]/pieces-tab.tsx`) lists `sw_pieces`; a
+piece opens blank at `/sourcework/[id]/pieces/[pieceId]`, a block editor of narration and
+actuality blocks (`pieces/[pieceId]/piece-editor.tsx`). Four things are load-bearing: (1) **the
+model is pure and shared** — `lib/sourcework/pieces.ts` (block shape, `parsePieceBody`, edits,
+length at 160 wpm) and `piece-text.ts` (an actuality's words are derived from the transcript for
+its range, never stored) run in the editor, the list and the server alike; SQL never computes a
+length. (2) **Content is insert-only versions** (`sw_piece_versions`, select + insert only); the
+one writer is `sw_save_piece_version()`, which checks the caller's base version (returns -1 on a
+conflict) and keeps `current_version`/`length_seconds`/`excerpt_ids` on the piece — the editor
+autosaves after 1.5 s and never overwrites someone else's save. (3) **A block references an
+excerpt by id only**, with no foreign key, so a deleted excerpt renders as a placeholder; a trim
+is the block's own `in_ms`/`out_ms` unless "Update the excerpt everywhere" is chosen, which goes
+through the existing `updateClipTrim`. (4) Only temporal excerpts can be actualities. Migrations
+`20261011120000` (schema) and `20261011130000` (Resources content) are applied to both projects. Phase E (formats, Draft with AI, the
+assistant) has since landed; see below.
+
+**Sourcework analysis, Phase A (questions, background, data points) has landed (2026-10-12).** Read
+`docs/sourcework-analysis-design.md` §14 first; this is a pointer. A project's **Setup** tab
+(`?view=setup`) holds its research questions, the web background notes the model gathered (background
+only, never evidence); its "Where this project stands" status was removed on 2026-10-14 as a duplicate of the
+Sources tab's overview strip, and "+ Add source" moved from the project header to the Sources toolbar. A source was
+**extracted** into data points (retired in slice 4; Analyze replaced it) and reviewed in the source
+workspace through an **Excerpts | Data points** switch (lime marks; dashed = unreviewed). Four things are
+load-bearing: (1) **the model returns numbered passage units, never text** — `extraction-units.ts` derives
+timestamps or page/block ids, and `parseExtractionOutput` drops anything it can't verify; (2) **a run
+replaces only `suggested` points** and never re-suggests onto a passage a person already decided on;
+(3) **prompts are editor-owned language over a fixed schema** — role `editor` on the `transcription` tool
+(`private.is_sourcework_editor`, a stacking role), `/sourcework/editors`, versions insert-only with a live
+pointer, publish via `sw_publish_prompt()` and audited; no published version means the built-in text in code;
+(4) **everything needs `OPENAI_API_KEY`** except building by hand. Migrations `20261012120000` (schema; it drops five legacy tables), `20261012130000` (Resources content) and
+`20261012140000` (the count views go through current `sw_project_sources` links, so a detached source's data points
+stop counting) are applied through the SQL editor, not the Supabase MCP tool, which hangs on statements containing
+`drop`; preview first, then production, then record both dates in `APPLIED.md`. Nothing here has run against a live
+Supabase or OpenAI.
+
+**Sourcework analysis, Phase B (themes) landed (2026-10-13) and was retired in slice 5 (2026-10-26).** Themes, their breadth views, merge suggestions and the Themes tab are gone from the schema and the code; the way from findings to an answer is Synthesis. See `docs/sourcework-analysis-design.md` §15 for what they were and §24 for why they went. `callStructuredModel` (in `openai-call.ts`) is the one structured-output call every research step shares.
+
+**Sourcework analysis, Phase C (suggested quotes) landed (2026-10-14); its per-theme runner and pages were retired in slice 4 and the theme link in slice 5.** What remains is the table, `sw_quote_suggestions`: a clip Analyze proposes for a source, with no theme and no tier. **A suggestion is not a `sw_source_excerpts` row** — it becomes one only on accept (`sw_accept_quote_suggestion()`), so none of the nine readers of the excerpts table needs a filter; do not move suggestions onto that table without fixing every one. The model returns sentence numbers, never text or times, and an accepted excerpt's words are re-derived from the transcript for the range actually accepted (after any trim). Clips are decided on the source's own page (`[id]/quote-card.tsx`).
+
+**Sourcework analysis, Phase E (formats, Draft with AI, the assistant in a piece) has landed (2026-10-15); Draft with AI was removed in slice 5 in favour of Outline and Write from outline.** Read
+`docs/sourcework-analysis-design.md` §17 first; this is a pointer. Editors maintain **piece formats** at
+`/sourcework/editors/formats` (`sw_piece_formats` + insert-only `sw_piece_format_versions`, a live pointer, drafts,
+private trials; `lib/sourcework/piece-formats.ts`). An empty piece used to offer **Draft with AI** (removed in slice 5; see §24). The **assistant** works in a piece through
+`lib/sourcework/piece-capabilities.ts` and page context (`RightPanelProvider.assistantContext`). Four things are
+load-bearing: (1) **the model places actualities by excerpt number, code maps them to ids** — never let it return
+excerpt text or ids; (2) **every content write goes through `piece-writes.ts`'s `savePieceBlocks`** (editor, restore,
+draft, assistant) so length and the project check are one implementation; (3) **assistant markers are derived** from
+versions (`diffAssistantChanges` against the last non-assistant version), not stored; (4) the piece editor is
+**keyed by version** — a `router.refresh()` that brings a new version remounts it, so don't refresh from inside the
+editor while a person may have unsaved edits (title rename no longer does). Capabilities may set `writes: true` so the
+widget refreshes after a turn. Migrations `20261015120000` (schema, seeds four formats) and `20261015130000`
+(Resources) are applied to both projects through `execute_sql`, not `apply_migration`.
+
+**Sourcework analysis, slice 2 (project synthesis) has landed (2026-10-23).** Read
+`docs/sourcework-analysis-design.md` §21 and `docs/sourcework-refinement-plan.md` first; this is a pointer. A
+project's **Synthesis** tab (`?view=synthesis`, shown once it has an accepted finding) holds one project-wide run's
+answer per research question: statements marked established, contested or uncertain, tensions between accounts, gaps
+and a few narrative moments, each opening onto the findings behind it. It replaces themes as the way to an answer;
+the Themes tab it replaced is gone (slice 5). Four things are load-bearing: (1) **the model returns numbers,
+never text, times or ids** — findings by number, passages only by a ref a tool gave out (`PassageLedger`), and
+`parseSynthesisOutput` drops what it can't verify; (2) **content is insert-only versions**
+(`sw_project_synthesis_versions`) written only by `sw_save_project_synthesis()`, which checks the base version; (3)
+**`carryPinned` keeps a person's statements across runs** — no screen writes one yet; (4) `tool-loop.ts` is the generic
+tool-using structured call, reused by the outline run. The migration `20261023120000` and its Resources content
+`20261023130000` are applied to both projects (2026-10-13, through `execute_sql`, with a rolled-back behavioural test on each). Slice 3 (outline as `beat` blocks) has landed (below), and slice 4 retired the old runners (below).
+
+**Sourcework analysis, slice 3 (outline as beats; Write from outline) has landed (2026-10-24).** Read
+`docs/sourcework-analysis-design.md` §22 first; this is a pointer. A piece body can hold a third block type, `beat`
+(`pieces.ts`): narration not yet written, citing accepted findings, optionally marked to check, optionally pointing at tape.
+**Outline with AI** (`piece-outline-run.ts`) fills an empty piece with beats and excerpts; **Write from outline**
+(`piece-expand-run.ts`) turns each beat into narration at the same place. Four things are load-bearing: (1) **a beat takes no
+time** and every function that switches on a block's type must handle `beat` explicitly — `pieces.ts`'s parser refuses an
+unknown type, so a missing branch makes the whole body unreadable; (2) **code keeps the structure when a beat is written out**
+(`expandBeats`): the model returns prose per beat number and cannot reorder the piece or touch a clip; (3) **the model returns
+numbers, never ids, times or quotations** — findings, excerpts and tape by number or ledger ref (`parseOutlineOutput`);
+(4) `WRITING_STANDARDS` (`piece-standards.ts`) is the one copy of the accuracy and writing standards the outline and the write-out share. No schema
+change; the Resources migration `20261024120000` is applied to both projects (2026-10-14, through `execute_sql`).
+
+**Sourcework: the earlier research steps are retired (slice 4, 2026-10-25).** Read
+`docs/sourcework-analysis-design.md` §23 first; this is a pointer. Gone: the extraction, background (context),
+theme-assignment, Review themes and per-theme Suggest quotes runners and their routes, the five prompt slots they
+used (`context`, `extraction`, `theme_assign`, `theme_review`, `quote_quality`; their `sw_prompt_*` rows stay), the
+prompt "Try this draft" screen (`/sourcework/editors/try`, `api/sourcework/editors/trial`), and accepting a data point
+no longer files it into themes in `after()`. Kept at the time: the Themes tab and theme/quote pages as decide-only surfaces and the old tables; slice 5 (below) removed them too. Shared helpers moved first: `source-units.ts`
+(`readSourceUnits`), `openai-call.ts` (the structured-call helper, formerly `extraction-ai.ts`), `noteKey` into
+`analyze-prompt.ts`, `collectSeenUrls`/`collectQueries` into `analyze-ai.ts`, `QuoteCard` into `[id]/quote-card.tsx`.
+The prompt slots are now `analyze`, `synthesis`, `outline`. The Resources migration `20261025120000` (rewrites the stale
+guides, one release note) is applied to both projects (2026-10-14, through `execute_sql`). Nothing here has run against a live OpenAI model.
+
+**Sourcework: themes and Draft with AI are gone (slice 5, 2026-10-26).** Read `docs/sourcework-analysis-design.md`
+§24 first; this is a pointer. The pipeline is **Analyze → Synthesize → Outline → Write from outline**, and nothing else
+writes findings or pieces with a model. Removed: the Themes tab, theme pages and the waiting-quotes page; `sw_themes`,
+`sw_data_point_themes`, `sw_theme_merge_suggestions`, `sw_prompt_trials`, the theme views and functions; the theme and tier
+columns on `sw_quote_suggestions`, `theme_id` on `sw_analysis_runs`, `quality_tier` on excerpts, and the data points'
+embedding columns; Draft with AI (`piece-draft-run.ts`, `/api/sourcework/pieces/draft`, `draft-with-ai.tsx`). Four things
+are load-bearing: (1) **`generateOutline` (`piece-outline-run.ts`) is the read-and-ask half of an outline and writes
+nothing**; `outlinePiece` saves it as a version, and the piece-format trial runs it for the live version and the editor's
+draft side by side (`TrialBlock` is a beat or an actuality now), so "Try this draft" for a format compares outlines. (2)
+**The assistant's capabilities are `sourcework.piece.outline` and `.writeFromOutline`**, each taking the piece's current
+version as `expectVersion`; `draftFromFormat` is gone. (3) **Run kinds are `analyze`, `synthesis`, `outline`, `expand`**
+(`RunKind`, the check constraint, and a one-running index on `expand` per piece); `expand` was `piece_draft`. (4)
+**`RETIRED_SCREENS` (`lib/resources/screens.ts`) keeps the three theme screen keys** because earlier release migrations
+still name them and `release-content.test.ts` checks every migration; Help never maps a path to one. Existing data of the
+retired kinds was deleted, not migrated. `20261026120000` (schema) and `20261026130000` (Resources content) are applied to
+both projects (verified 2026-10-14; the Supabase MCP tool holds `DROP` and `DELETE` statements for a confirmation that never
+arrives, so run this kind in the SQL editor, preview first). **Apply them before the code ships:** `expand` is only in the
+new `sw_analysis_runs_kind_check`, so Write from outline fails against a database without it. The schema migration dropped
+`sw_quote_suggestions.theme_id` without deleting the clips still waiting under a theme, and the source page lists every waiting
+suggestion, so `20261026140000` deletes the waiting ones with no run (decided ones stay: Analyze reads them as stretches
+already decided on). Naming debt left alone: `extraction-units.ts`, `extract-stream.ts`,
+`ExtractionState` and `sourcesToExtract` still say "extraction" for what is now Analyze.
+
+**Sourcework: the Synthesis tab, reworked (2026-10-30).** A pointer; the code is the record. The tab is a header
+(version menu, the change since the previous _run_, the one action), a summary strip, a section list, the answer and
+an evidence panel (`evidence-panel.tsx`, one open at a time; recordings play in place through
+`getEvidenceMediaUrl`, which signs only a source of the project). Four things are load-bearing: (1) **a person's
+choices live in the synthesis body, not in a table** — a pattern's `status` (`tracking`/`dismissed`) and `questionId`,
+and a gap's `questionId`, are saved as a `saved_via = 'person'` version by `synthesis-actions.ts` on top of the
+version the page showed (`expectVersion`; a conflict saves nothing), and setting one makes the item `origin:
+"person"` so `carryPinned` keeps it; **no schema change**. (2) **A model run gives every theme a new id**, so
+"the same pattern" is `sameTheme()` (normalized label, or mostly the same cited findings), which is how a decided
+pattern is not offered again and how "New" is worked out. (3) **"Since version N" compares runs, not versions**
+(`previousRunVersion`), because a person's edit is a version too; statements match by what they cite, never by id or
+wording. (4) Tracking creates the research question first and records it second; if the record fails the question
+still exists and the error says so. Not built: the "N new findings since" line on a tracked pattern, theme filter
+chips, and a "Pin this statement" action (`carryPinned` still has no screen that writes a statement). Unverified in a
+browser: this session had no running Supabase.
+
+**One-time hints, and the Sourcework project overview (2026-10-14).** Read `docs/ui-patterns.md` "One-time
+hints" before writing a paragraph of instruction above a working surface; this is a pointer. Instruction a
+person needs once ("select any stretch of text to make an excerpt") is a `DismissibleHint`
+(`components/ui/dismissible-hint.tsx`, remembered per browser in localStorage by `lib/dismissed-hints.ts`),
+not permanent text; text that stays useful (a field's format, an error, a status) is not. A project's Sources
+tab (`[id]/page.tsx`) now opens on the `Steps` strip and a "next" band (`[id]/project-overview.tsx`, the pure
+rule in `lib/sourcework/project-stage.ts`) with one primary action; the Analyze batch is one
+`ExtractionProvider` shared by the band's button, the toolbar's and the progress panel
+(`[id]/extraction-controls.tsx`); sources are a filterable, sortable `SourceTable` (URL state `?q=&show=&sort=`,
+`lib/sourcework/source-list.ts`); and the old Autopilot panel became **Run the remaining steps with AI**
+(`[id]/handover.tsx`), a dialog that hands control back after Analyze (the default, so Review stays the
+reporter's), Synthesis, Outline or a first draft (`AutopilotStop` in `lib/sourcework/autopilot.ts`; every stop
+past Analyze accepts suggestions unreviewed and the dialog says so). Delete project moved into the project's
+⋮ menu (`[id]/project-actions-menu.tsx`) instead of a Danger zone under every tab. The Sourcework home leads
+with a "Pick up where you left off" strip (projects with a failed source or findings waiting first, then the
+most recently active) and its tabs read Source library and All excerpts. The next-step band shows findings
+decided of all findings as a `ProgressBar` on the Review step, and each source row has a ⋮ menu
+(`[id]/source-row-menu.tsx`: open, remove from this project). The transcript scrolls with the page; only the excerpt rail keeps its own scroll. Each row of the Projects list shows a `ProgressBar` of steps done of five (`projectProgress()` in
+`lib/sourcework/project-stage.ts`, the same rule as the project page's strip), fed by columns appended to
+`sw_project_overview` (`20261028130000`: `ready_count`, `analyzed_count`, `clip_review_count`,
+`accepted_count`, `has_synthesis`, `piece_count`; the view computes no stage itself). Not built from the
+review boards: the tab counts and the board's one-line source title row. Migrations `20261028120000`
+(Resources) and `20261028130000` (the view) are applied to both projects through `execute_sql`.
+
+**Sourcework: transcript lines are paragraph-sized (2026-10-29).** A speaker's turn is no longer one segment
+with one timestamp. `lib/transcription/paragraphs.ts`'s `splitUtteranceIntoParagraphs()` (pure, tested) cuts it from the
+ASR's word timings when the webhook stores a transcript: at a sentence end once ~30 s have passed, earlier at a pause of
+1.5 s or more after ~10 s, and past 75 s at any short pause. Each piece is a real `tw_segments` row with the same speaker,
+so editing, splitting, merging, the active-line highlight and the exported text's per-line `[mm:ss]` all work unchanged.
+`20261105120000` applied the same rule to existing unedited lines (SQL twin of the function — keep them in step; an edited
+line is left whole because its word timings are no longer the ASR's); it marks search chunks stale, so run "Rebuild search
+index" on a source to refresh them. Nothing references a segment id, so a re-cut moves no excerpt or data point. A plain
+click on a word plays from it (`segment-row.tsx`'s `handleTextClick`); on a clipped word it also opens the clip. Not built:
+a moving highlight on the current word. Resources migration `20261105130000`.
+
+**Sourcework piece formats: five newsroom formats (2026-10-10).** Read `docs/sourcework-analysis-design.md` §18; this is a
+pointer. Reader / Voicer, Cut and Copy, Wrap, Super Spot and Feature replace the four seeded formats
+(`20261017120000`, `20261017130000` Resources). Four things are load-bearing: (1) a format is guardrails, not a block outline
+(§19 supersedes this: no `sections`; length, a usual actuality range that is never a quota, `anchorIntro`, and one
+free-text `style` the model reads, while it chooses the blocks itself); (2) a narration
+block may carry `role: "anchor"`, which `computePieceLength` keeps out of `totalSeconds`; (3) a piece can be written to a
+format by hand (`setPieceFormat`, New piece's format select) — that sets the target and shows a guide but never touches
+content, and only Write from outline sets `drafted_version`; (4) journalistic standards live in `WRITING_STANDARDS` (`piece-standards.ts`), not in
+each format's style. Formats became guardrails on 2026-10-10 (`20261018100000`, `20261018110000`, `20261018120000`).
+
+**Sourcework: Analyze source (2026-10-13, slice 1 of a refinement; not yet run against a live model).** Read
+`docs/sourcework-analysis-design.md` §20 first; this is a pointer. One run per source (`lib/sourcework/analyze-run.ts`,
+`/api/sourcework/analyze`) replaces Extract data points as the way in: the model reads the source with web search
+available and returns findings (each with a one-line `significance`), at most five candidate clips and the pages it
+relied on. Four things are load-bearing: (1) **a research question is not required**: findings with none are
+`relevance = 'general'`, and the old extraction runner (retired in slice 4) refused to run without one; (2) **structure is enforced in `analyze-prompt.ts`'s parser, not the prompt**: interviewer-only findings and clips,
+clips across speakers or outside 1.5–60 s, addresses the search never returned, and the five-clip ceiling are all dropped
+in code and counted; (3) **the model is shown the project's accepted findings** so a re-run adds rather than repeats,
+which is also why `loadAnalyzeContext` filters to the project's current `sw_project_sources`; (4) **a clip Analyze proposes
+has no theme and no tier** (both columns were dropped in slice 5). The Setup tab no longer gathers background on its own. The old `extraction`, `context`, theme and
+per-theme quote code was retired in slice 4. Migrations `20261022120000` (schema) and `20261022130000`
+(Resources) are applied to both projects (2026-10-13, through `execute_sql`, not `apply_migration`, because they drop constraints).
+
+**Sourcework: excerpt loudness (2026-10-12; standard changed 2026-10-12).** Actualities from different tape come
+in at very different levels, so every temporal excerpt is measured (BS.1770 integrated loudness, via ffmpeg's
+`ebur128`, `lib/transcription/loudness-measure.ts`) when it is created or trimmed, and played and exported at
+one **fixed gain** to **-18 LUFS**, followed by a **hard limiter with a -6 dBFS ceiling**
+(`lib/sourcework/loudness.ts`, pure, tested). Five things are load-bearing: (1) **why this standard:** it is
+the WUWF team's own Audition practice (normalize to 100%, then hard-limit at -6 dB, which measures about -14 to
+-21 LUFS). The first version targeted NPR/PRSS's -24 LUFS / -3 dBTP with no limiter, and that is a
+_distribution_ spec: it played noticeably quiet next to the team's work and on air. Don't go back to it, and
+don't reintroduce a peak-headroom hold-back on the gain — peaks are the limiter's job, so the gain is only ever
+reduced by the boost/cut caps (`MAX_AUTO_BOOST_DB` 45 — field tape commonly needs 35-42 dB —
+`MAX_AUTO_CUT_DB`) and the short-clip rule. A boost past `NOISY_BOOST_DB` (20) is allowed but the card says it
+raises the noise floor. The gain itself is still a single volume change; the limiter only touches peaks, so a
+speaker's whisper stays as far below their normal voice as it was on tape. (2) **Gain is derived from the stored
+measurement, never stored,** so changing the target needs no backfill. `gain_mode = 'off'` is the producer's
+"Original level": no gain, no limiter, no channel fix. (3) **Export** (`lib/transcription/export.ts`) renders
+`pan` (if one-sided) → `volume` → `alimiter=limit=0.5012:attack=5:release=50:level=false` (Audition's Hard
+Limiter defaults; `level=false` is required or alimiter adds its own makeup gain). Limiting lowers the
+loudness of peaky tape, so the render is measured with ebur128 and, if it is more than 0.3 LU from the loudness
+the gain intended (stored loudness + gain), rendered **once more** with the gain adjusted by the difference.
+Playback (`pieces/[pieceId]/use-piece-player.ts`) applies the same gain through a Web Audio `GainNode` into a
+`DynamicsCompressorNode` (threshold -6, knee 0, ratio 20, attack 0.003, release 0.05) — an _approximation_ of
+the limiter, not the same algorithm, so levels match the export closely, not exactly. The shared graph is `lib/sourcework/excerpt-playback.ts`; it needs the audio
+element's `crossOrigin="anonymous"`. It is applied by the piece editor's player and by the source workspace's
+preview of a _saved_ excerpt (the transcript element is routed through it only once one is previewed, and put back
+to neutral when playback stops); a selection not yet saved, a data point's preview, and the quote-suggestion
+players (suggestions have no measurement) still play as recorded. An export made before a level
+change keeps its old level until re-exported (the 2026-10-20 migration un-caches the existing ones).
+(4) **One-sided stereo:** some field clips arrive as stereo with the voice in one channel and a silent other.
+That measures about 3 dB low and drops about 6 dB summed to mono, so the measurement first reads per-channel RMS
+(`astats`); a channel more than 40 dB below the other sets `sw_source_excerpts.live_channel` (0 left, 1 right),
+and measuring, export and playback all go through `pan=stereo|c0=cX|c1=cX` with the live channel. **Existing
+excerpts need re-measuring for this column:** `20261020120000` clears `loudness_measured_at`, so the normal
+re-measure-on-read path (`queueLoudnessBackfill`, a few at a time in `after()`) and the inline measure at
+export pick them up; until then an excerpt keeps its stored loudness. (5) Measuring runs in `after()` and is
+best-effort; unmeasured excerpts are queued a few at a time as they are read and measured inline at export
+(`exportLevelFor`). Because that happens after the page is sent, the excerpt rail polls
+`getExcerptLoudnessStatus` and refreshes once a measurement lands (a refresh re-queues the still-unmeasured, and
+a trim can land mid-measure, so `measureAndStoreExcerptLoudness` runs through `lib/run-coalesced.ts` — one run
+per excerpt per instance, and a request arriving mid-run makes it go round again rather than being dropped);
+the card reads `loudnessState` — measuring, measured, or couldn't be measured. Loudness below `SILENCE_LUFS`
+(-60) counts as silence, so the largest boost reachable is 42 dB. Migrations `20261019120000` (schema),
+`20261019130000` (Resources), `20261020120000` (live_channel, re-measure, un-cache exports) and
+`20261020130000` (Resources) — apply them before the code ships, since the excerpt reads select the new columns.
+
+**AssemblyAI (`src/lib/transcription/providers/assemblyai.ts` and its ASR usage
+elsewhere):** the API changes over time — do not rely on memorized parameter names
+or model identifiers. Before writing or changing AssemblyAI-related code, check current
+behavior via the `assemblyai-docs` MCP server (project-scoped in `.mcp.json` — approve
+it once when prompted) or by fetching `https://www.assemblyai.com/docs/llms-full.txt`.
+Prefer the official `assemblyai` SDK over hand-rolled HTTP calls.
+
+**Search (`tw_search`, `tw_chunks`, `lib/transcription/{search,indexing,chunking,embeddings}.ts`):**
+hybrid keyword + semantic search lives entirely in Postgres — FTS and pgvector merged
+by reciprocal rank fusion in one `security invoker` RPC, so RLS is still the boundary.
+Two rules when touching it: the embeddings key (`OPENAI_API_KEY`) is **optional** and
+every path must keep working without it (chunks still build, keyword search still runs
+— never make an unset key an error), and embedding failures are never fatal to the
+write that triggered them. The `stale` / `embedding_stale` flags are maintained by
+database triggers, so a re-embed pass is always safe to re-run.
+
+**Roadmap: milestone 1 has landed** — the fifth tool, and the first one about the portal
+itself. Read `docs/roadmap-design.md` before touching any of it. Any active staff member
+files a **request** (rich text, one of four kinds), votes on other people's, and comments;
+a **curator** moves a request through six statuses whose grouped view is the roadmap tab.
+Tables are `rd_posts`/`rd_votes`/`rd_comments` (`20260801121000_roadmap.sql`), the route
+segment is `src/app/(portal)/roadmap/` gated by `requireRoadmapAccess()` from
+`lib/roadmap/access.ts`.
+
+Five things about it are load-bearing and easy to break by accident:
+
+1. **`tools.default_access = 'approved_staff'` now means something.** The column has
+   documented it as "any active user may open it" since the platform schema was written
+   with nothing enforcing it; Roadmap is the first row to use it, so
+   `requireToolAccess`/`assertToolAccess` and `listToolsForCurrentUser` now read it
+   through the pure `grantRequiredForTool()` in `src/lib/tool-access-rules.ts`, and
+   `private.has_roadmap_access` reads the same column in SQL. Every other tool is
+   `invite_only`, so nothing else changed. Don't hard-code "everyone" anywhere — reading
+   the column is what lets an administrator tighten the tool from the registry screen.
+2. **A `tool_access` grant on Roadmap is the _elevation_, not the ticket in.** Everyone
+   is already a member; a grant carrying `tool_role = 'curator'` adds curation
+   (`private.is_roadmap_curator`, `lib/roadmap/roles.ts`). Granting someone plain access
+   does nothing.
+3. **`tools.status = 'proposed'`** (`20260801120000_tool_status_proposed.sql`) is a
+   registry row for something nobody has built, so a request has something to point at.
+   It is excluded from the dashboard (`isListedOnDashboard()`), from the three admin
+   grant pickers, and from `getToolCardState` (a `hidden` mode); it is visible to Roadmap
+   members through one additive policy, `tools_select_proposed_for_roadmap`. Administrators
+   create these at **`/admin/tools/new`** — the only screen in the portal that creates a
+   `tools` row outside a migration, and it can only create proposed ones.
+4. **`rd_posts` has a `before update` guard trigger, and it is the boundary.** The update
+   policy admits the post's author so they can edit their own words; RLS is row-level and
+   cannot stop them setting their own `status` through PostgREST. `rd_guard_post_curation()`
+   raises unless a curator or administrator is the one changing `status`/`status_note`/
+   `kind`/`tool_id`. Hiding the curator panel is a courtesy on top of it.
+5. **Audit events are scoped to curation, and so is the policy.** `audit_events_insert_
+roadmap_curator` admits curators only — "member" here is every active staff member, and
+   a member-scoped policy would let anyone in the portal write audit rows. Filing a post
+   and commenting are ordinary writes and are deliberately not audited.
+
+Rich text (post and comment bodies) is this repository's first: Tiptap
+(`@tiptap/react`/`starter-kit`/`pm`) writing **ProseMirror JSON into `jsonb`, never
+HTML**. There is no sanitizer because there is no markup — `src/lib/rich-text.ts` (moved out of `lib/roadmap/` when Resources became its second user)
+holds the node/mark whitelist and validates on the way in, and
+`src/components/ui/rich-text.tsx` walks the document into React elements on the way out.
+Nothing in this codebase calls `dangerouslySetInnerHTML`; keep it that way. The editor
+(`components/ui/rich-text-editor.tsx`) is reached only through
+`components/ui/rich-text-field.tsx`'s `next/dynamic({ ssr: false })` wrapper so ProseMirror
+stays out of the server bundle, and it posts its document through a hidden input so the
+surrounding form stays the repo's ordinary `<form action={serverAction}>`. Screenshot/image
+attachments are deliberately **not** in milestone 1 (no bucket, no upload path) — see the
+design doc §7 before adding them.
+
+**Roadmap revision (2026-08-06):** the roadmap tab gained a real
+drag-and-drop kanban board for curators
+(`src/app/(portal)/roadmap/kanban-board.tsx`, `kanban-board-field.tsx`'s
+`next/dynamic({ ssr: false })` wrapper) — `@dnd-kit/core`'s second use in
+this repo, not a new dependency; see Academic Partnerships' kanban board
+below for why it's the one library this codebase reaches for here. Its
+columns are `KANBAN_STATUSES` — all six statuses, not just the four
+"decided" ones `ROADMAP_STATUSES` groups for the static view everyone else
+still sees: a curator is the one who moves a request out of `open` or
+`under_review`, and a board that can't show a card can't be dragged from
+(it briefly shipped scoped to the four decided statuses before this was
+caught and it was widened the same day — see `docs/roadmap-design.md`'s
+"Post-milestone-1 revision" for both steps). Unlike Academic Partnerships'
+board, Roadmap's status changes follow a real state machine
+(`availableStatusActions`), not free movement to any column, so dropping a
+card is validated against it directly and is a no-op if the target isn't a
+legal transition. Dropping onto Declined opens an inline reason prompt
+instead of moving the card immediately, since `rd_posts` and
+`validateStatusChange` both require one. `setPostStatus` (the detail
+page's form action) now delegates to a new non-redirecting
+`movePostStatus()`, mirroring `academic-partnerships/actions.ts`'s
+`setSubmissionStage`/`setStageForm` split, so the board can update
+optimistically and roll back on error. A non-curator still sees the
+original static grouped list (still just the four decided statuses) — the
+board and its drag affordances are curator-only, matching who
+`assertRoadmapCurator()` already let write a status.
+
+**Academic Partnerships: milestone 1 has landed.** Read
+`docs/academic-partnerships-design.md` before touching any of it. A public inquiry form
+at `/partner` (and `/partner/embed` for a Grove iframe) feeds a staff-run pipeline —
+New → Reviewing → Meeting Requested → Scoping → Approved → Active → Completed — at
+`src/app/(portal)/academic-partnerships/`, gated by
+`requireToolAccess("academic-partnerships")`. Tables are `ap_*`
+(`20260803140000_academic_partnerships.sql`).
+
+Four things about it are load-bearing and easy to break by accident:
+
+1. **The public form needs no session at all, not even an anonymous one** — the one real
+   architectural difference from Audience Listening, whose public surface this one is
+   otherwise modeled on. Because the whole interaction is a single page load and one
+   submit (no multi-step recording flow, no row ever read back by the public), a plain
+   `<form action={submitInquiry}>` Server Action calling the ordinary cookie-based
+   `lib/supabase/server.ts` client is enough — there is no later request that needs to
+   recover an earlier session from a cookie, which is specifically the failure mode that
+   forced Audience Listening off that client. `signInAnonymously()` is not called
+   anywhere in this tool, and it does not need "Anonymous sign-ins" enabled to work.
+2. **`ap_submissions` table RLS is staff-only, full stop**, same as Audience Listening's
+   `al_*` tables and for the same reason (design doc §3): the public surface is exactly
+   two enumerable `security definer` functions, `ap_public_form_config()` (read) and
+   `ap_submit_inquiry()` (the only way a row is ever written from outside the portal —
+   validates required fields, the enabled-type list, email shape, and per-submitter rate
+   limits in the same transaction as the insert). There is no participant-facing RLS
+   policy on any `ap_*` table; extend those two functions instead.
+3. **`stage` and `disposition` are separate columns, not one status enum.** Deferred /
+   Declined / Withdrawn / Archived are dispositions that take a submission out of the
+   active kanban board (`ap_submissions.disposition is null` is what the pipeline query
+   filters on) without erasing which of the seven primary stages it had reached — the
+   same shape `ep_pitches`' `archived_at`/`archived_reason`/`archived_by` uses, widened to
+   four values and renamed to the brief's own vocabulary.
+4. **`ap_submission_events` is this tool's own staff-visible activity log, not
+   `audit_events`.** `audit_events` is select-restricted to administrators only
+   (`audit_events_select_admin_only`), so it cannot serve as the per-submission timeline
+   the detail screen shows every tool member. Privileged actions still also call
+   `logAuditEvent()` per the usual convention (`ap.submission.stage_changed`, etc.), so
+   administrators keep their portal-wide view — the two are complementary, not
+   duplicative, and a new `audit_events_insert_academic_partnerships` policy admits this
+   tool's members the same way every other tool's does.
+
+The kanban board (`src/app/(portal)/academic-partnerships/kanban-board.tsx`) is the one
+new dependency this module adds: `@dnd-kit/core`. Nothing else in this repository does
+drag-and-drop — Editorial Planning's and Audience Listening's own reordering both use
+plain up/down `<button>` forms — but a real kanban board is the one part of this tool's
+UI a button-based alternative would make substantially worse, and `@dnd-kit/core` alone
+(no `@dnd-kit/sortable`) is enough because cards move _between_ columns, not to a
+position within one. Every card also carries a plain "Move to…" `<select>`, always
+present, never a fallback bolted on for compliance — it is how a keyboard or
+screen-reader user, or anyone on a touch device, moves a card at all. A `tool_access`
+grant carrying `tool_role = 'coordinator'` (mirroring Roadmap's `'curator'`) is the
+elevation that unlocks Settings' write actions (copy, email templates, enabled
+partnership types, open/closed, the Google Appointments URL); every other member can
+view Settings read-only. There is no file/attachment upload in this milestone — "supporting
+links or materials" on the research path is a plain text field — and no generic tagging
+system, since none existed elsewhere in the portal to reuse and the brief's own
+instruction was to skip tags rather than build a system for one tool's benefit. Email
+actions (Invite to Meet plus six other templates) prepare a `mailto:` draft and a
+copy-to-clipboard button — the manual fallback, still available today.
+
+**Academic Partnerships revision (2026-08-05) — see
+`docs/academic-partnerships-design.md` §9 for the full account:**
+`partnership_type` (one enum) became `partnership_types` (a non-empty array, migration
+`20260805120000_academic_partnerships_multi_track.sql`) so one inquiry can name more than
+one collaboration track, with the research-fields requirement and the enabled-type check
+in `ap_submit_inquiry()` updated to check array membership; `enrollment_estimate` was
+renamed `estimated_students_reached`, asked once up front rather than per course. The
+public form (`src/app/partner/partner-form.tsx`) became a guided multi-step wizard —
+conditional steps per chosen track, each step's `<div>` shown/hidden via a single
+conditional `className` (`cn("flex-col gap-4", stepId === "x" ? "flex" : "hidden")`, never
+mounted/unmounted) so Back/Next never lose a value, with a plain-language description next
+to each track's checkbox. **Never pair the native `hidden` attribute with a Tailwind
+`display` utility (`flex`, etc.) on the same element** — author-stylesheet rules always
+beat the UA stylesheet's `[hidden]{display:none}` regardless of specificity, so a step div
+with both `hidden={...}` and a static `className="flex ..."` rendered every step at once
+(confirmed with Playwright after a real bug report: the form showed every question,
+extended past the viewport, and Next appeared to do nothing). **Its "Next"/"Submit" button
+is deliberately always `type="button"`,
+never a conditionally-rendered `type="submit"` at the same position** — mutating a
+just-clicked, still-focused button's `type` live turned out to fire a real premature
+submission that wiped the form, confirmed by a stray POST under Playwright; the final
+step calls `formRef.current?.requestSubmit()` instead. The kanban board's cards are now
+draggable from anywhere on the card (not just a small handle), and load via
+`next/dynamic({ ssr: false })` (`kanban-board-field.tsx`, mirroring `rich-text-field.tsx`'s
+reason: `@dnd-kit` generates ids from a counter that isn't SSR/client-synchronized,
+producing a real hydration mismatch otherwise). `src/lib/email.ts` is this **portal's
+first real transactional email sender** (Resend; `RESEND_API_KEY`/`RESEND_FROM_EMAIL`,
+optional like `DAILY_API_KEY`/`MISTRAL_API_KEY` — unset, `sendEmail()` fails clearly
+rather than silently no-op'ing), used by this tool's `sendInquiryEmail()` action; the
+manual mailto:/copy path from milestone 1 stays available via an explicit toggle. A KPI
+dashboard (`/academic-partnerships/dashboard`, `lib/academic-partnerships/dashboard.ts`)
+aggregates `listAllSubmissions({})`'s existing read in application code — no new SQL
+aggregate function, appropriate at this tool's current scale. A follow-up migration
+(`20260805130000_academic_partnerships_field_trim.sql`) dropped four public-form fields
+that turned out to duplicate another field once the wizard made the overlap visible:
+`research_dates` (duplicated `relevant_dates`, now relabeled "Relevant dates, deadlines,
+or embargoes" and asked once regardless of track), `learning_objectives` (duplicated
+`student_experience`), `research_summary` (duplicated `description` — `research_topic`
+alone is now what `ap_submit_inquiry()` requires for the `faculty_research` track), and
+`research_links` (not duplicative, just lower-priority triage detail better collected
+during Reviewing). See design doc §9.7.
+
+**Academic Partnerships revision (2026-08-06) — inquiry deletion.** A
+submission can now be permanently deleted, coordinator-only
+(`assertAcademicPartnershipsCoordinator()`), from a "Danger zone" section on
+the submission detail screen (`[id]/delete-submission-control.tsx`, a
+two-step confirm mirroring Sourcework's `SourceActionsMenu`) — deliberately
+not on the kanban card itself, since this is rarer and, unlike a
+disposition, not reversible, so it stays off a surface built for quick
+drags. `deleteSubmission()` in `actions.ts` needed a new migration,
+`20260806120000_academic_partnerships_delete.sql`: `ap_submissions` had
+`select`/`update` policies but no `delete` one, and the existing
+member-level `assertAcademicPartnershipsAccess()` write actions (stage,
+owner, disposition) don't need one. `ap_submission_events` cascades with
+its parent row (`on delete cascade`), so a submission's activity log
+disappears with it — the deletion itself is recorded in `audit_events`
+instead (action `ap.submission.deleted`), the only durable trace once RLS
+and the cascade have both finished.
+
+**Log: milestone 1 slice 1 (Foundation) has landed — the guardrail against
+building it is lifted.** Log is the first of three tools splitting the WUWF
+Unified Broadcast Rundown and Traffic System spec; read
+`docs/broadcast-operations-strategy.md` (the three-tool split and schema
+ownership) and `docs/log-design.md` (this tool's own design, milestone 1 in
+full) before touching any of it. Milestone 1 is large — ten tables, eight
+user workflows, a live host console with offline resilience, a pure timing
+engine — so it's being built in slices, the same way Remote Interview was.
+**Slice 1 ships only what Workflows A (defining a clock) and B (scheduling
+programs) need**: `log_programs`/`log_clock_templates`/`log_clock_versions`/
+`log_clock_slots`/`log_schedule` (`20260806130000_log_foundation.sql`), the
+route segment (`src/app/(portal)/log/`) gated by `requireToolAccess("log")`,
+and producer-only create forms for templates/versions/slots/programs/
+schedule entries. **Slices 2 (content library) and 3 (NPR + weather), rundown
+generation with the timing engine, the host console with mid-broadcast
+actions, and rundown submission plus the three MCP capabilities have since
+landed too — see below.** That completes every workflow milestone 1 lists
+(§7); see `docs/log-design.md` §7 for what's deferred past milestone 1
+(Underwriting integration, the FCC taxonomy, automation-system confirmation,
+multi-editor concurrency) — none of it authorized to start without its own
+instruction.
+
+Two things about this slice are load-bearing:
+
+1. **Log is invite_only, like Academic Partnerships, not open like Roadmap.**
+   A `tool_access` grant is the ticket in, not an elevation on top of open
+   access. `private.has_log_access()` mirrors
+   `private.has_academic_partnerships_access()` exactly (a non-revoked grant
+   plus an active profile, no `default_access` branch). The elevation within
+   the tool — `private.is_log_producer()` — is the same member/coordinator
+   shape too: a grant carrying `tool_role = 'producer'`, OR'd with
+   `private.is_administrator()`. An administrator with no grant on Log can
+   therefore satisfy `is_log_producer()` but still can't open the tool at all
+   (`requireToolAccess` checks for an actual `tool_access` row, not this
+   predicate) — the same asymmetry Academic Partnerships already has, not a
+   new inconsistency introduced here.
+2. **`log_clock_versions` and `log_clock_slots` are insert-only, forever, by
+   design — not a gap to fill in later.** The design doc calls a clock
+   version immutable once created ("no update path on this table from the
+   application... a correction is a new version"), the same reasoning
+   Audience Listening's answers snapshot their question. RLS grants
+   producers `select`+`insert` only on both tables, no `update` policy at
+   all — confirmed directly against the preview database that an
+   `update` from a producer session silently matches zero rows (correct
+   Postgres RLS behavior for a command with no applicable policy), not a
+   permission error and not a successful write. A correction is always a new
+   version, never an edit to an old one.
+
+**Log: seeded with the 13 real NPR-syndicated programs WUWF currently
+carries** (`20260806140000_log_clock_slot_windows_and_schedule_times.sql` +
+`20260806150000_log_seed_npr_clocks.sql`), transcribed from the station's own
+NPR network clock diagrams and scheduled per the station's corrected weekly
+schedule — read the second migration's header before touching any of this
+seed data; it documents fidelity caveats (a few hour-internal junctions are
+structurally-sound approximations, not exact transcriptions) and the
+Fresh Air Weekend / TED Radio Hour / Here & Now / World Cafe schedule
+quirks. Seeding this surfaced two real schema gaps, both closed by the first
+migration before the second one could run: **`log_clock_slots` gained
+`earliest_start_offset_seconds`/`latest_start_offset_seconds`/
+`segment_label`** — a "floating break" (a local avail whose exact position
+within a window is the station's call, not the network's) is a real,
+current feature of five of these clocks, not a hypothetical one, and the
+single-value `start_offset_seconds` couldn't express a range; and
+**`log_schedule` gained `air_time` (not null) and `duration_minutes` (not
+null)** — the original design doc listed `start_date`/`end_date`/
+`days_of_week` but nothing saying what time of day a program airs or for how
+long, an oversight rather than a deferral, and not enough to ever generate a
+rundown from. Both columns are populated on every seeded schedule row, and
+the create-schedule-entry form/action in `src/app/(portal)/log/programs/
+page.tsx`/`program-actions.ts` (written before this gap was found) were
+updated in the same pass to collect them.
+
+**Log: schedule-completeness fixes (2026-08-06)** —
+`20260806170000_log_schedule_completeness_fixes.sql` closes three gaps found
+after the initial NPR seed, all discovered by cross-checking the seeded data
+against the actual 13 source clock PDFs and the station's real weekly
+schedule rather than only checking the seed script's own row counts for
+internal consistency (which is how the first gap shipped undetected in the
+first place): **Morning Edition's clock template/version/23 slots/program
+were missing entirely** — fully transcribed at the time but never added to
+the seed script's `CLOCKS` dict, so it silently never reached the SQL output;
+**`1A` and `Fresh Air` (weekday) had complete clock data but no
+`log_schedule` row** — both had templates/versions/slots/programs seeded
+correctly, but their `SCHEDULE` entries were left out of the same script, so
+neither would ever have appeared on the Today screen or a programs schedule
+list despite having a real clock behind them; and **every other program on
+the station's actual weekly schedule that this project hasn't yet been given
+a detailed clock PDF for now has a `log_programs` row and a `log_schedule`
+row anyway**, pointing at one new shared placeholder clock template ("Unspecified
+(awaiting network clock)", a single slot spanning the whole hour) rather than
+either 32 near-duplicate one-off templates or leaving those programs unable
+to be scheduled at all until their real clock arrives. Swapping a placeholder
+program onto its own real clock template later is a normal `log_schedule`
+update — that table, unlike `log_clock_versions`/`log_clock_slots`, is not
+insert-only — so no migration is required when the remaining clocks show up.
+
+**Log: clock version diagram.** The clock template detail screen
+(`/log/clocks/[id]`) now renders each version's slots as a circular ring
+diagram alongside the existing table, in the same visual spirit as the NPR
+network clock PDFs this data was transcribed from. `src/lib/log/clock-face.ts`
+is pure geometry/categorization (donut-segment SVG path construction,
+slot-to-visual-category mapping keyed off label text and
+`fill_mode`/`timing_mode` — there's no dedicated "kind of network element"
+column) with a colocated test file; `src/components/log/clock-face.tsx` is a
+plain server-rendered `<svg>` (no `"use client"` needed — each segment's
+native `<title>` tooltip is the only interactivity called for) consuming it.
+The diagram also fixed two real usability gaps found once it existed: slot
+boundaries had no minute labels (`buildBoundaryLabels`, rotated radially via
+`radialLabelOrientation` — a horizontal label collided with its neighbors
+wherever two boundaries fell only seconds apart, since a label's on-ring
+footprint is its full text width; rotating it to run along its own radius
+shrinks that footprint to the line's thickness), and a floating break
+rendered as an ordinary solid wedge at its nominal position instead of
+looking like a movable window — `slotRenderWindow` now draws it spanning its
+full earliest-start-to-latest-end range with a diagonal hatch fill and
+dashed border instead of a solid one.
+
+**Log: clock seed corrections (2026-08-06)** —
+`20260806180000_log_clock_seed_corrections.sql` fixes real transcription
+errors in 10 of the 13 seeded NPR clocks, found by re-checking each against
+its source PDF after a user report that some slot times looked wrong. Two
+bugs were systemic, not one-offs: nearly every clock's original transcription
+silently stopped short of the actual top of the hour, missing a final few
+seconds of "Silence" (and often a short "Music Bed" before it) that every one
+of these NPR house clocks reserves right before the next hour's Billboard —
+this alone affected Hidden Brain, TED Radio Hour, Wait Wait... Don't Tell
+Me!, 1A, both All Things Considered clocks, both Weekend Edition clocks, and
+World Cafe. Morning Edition additionally had a promo mislabeled onto the
+wrong position (swapped with a different promo fifteen minutes away) and a
+dropped 30-second Music slot that shifted two newscasts thirty seconds early
+and inflated one's duration past what the network newscast actually runs.
+All Things Considered (weekday) had a cluster of slots — a Return, a Music
+Bed, and a Cross-Promo — that don't exist at all in the source diagram, which
+shows Segment D starting immediately at that point instead. `log_clock_slots`
+is insert-only from the application (no update/delete RLS policy for
+producers — see below), which is a boundary on writes through the app, not a
+reason to leave a migration's own seeding mistake in place: each affected
+version's slots are deleted and re-inserted in this migration rather than
+left to accumulate as a confusing phantom "correction" version. Three clocks
+(Fresh Air, Fresh Air Weekend, Here & Now) were not yet re-verified against
+their source PDFs at the time — see the next entry for those.
+
+**Log: clock seed corrections, part 2 (2026-08-07)** —
+`20260807120000_log_clock_seed_corrections_2.sql` finishes the job the first
+corrections migration left open, re-checking Fresh Air, Fresh Air Weekend,
+and Here & Now against their source PDFs. Same missing-end-of-hour-tail bug
+in all three. Beyond that: Fresh Air had a wrong Segment B duration, a
+missing 35-second Funding Credit, and a floating break whose own duration
+undercounted its "adjacent funder" half (35s instead of the Music+Funding
+Credit combo's 65s the diagram's own label already named it for — the same
+combined-float-slot modeling Hidden Brain already used, not a new pattern).
+Fresh Air Weekend's floating break had the same undercounted-duration bug
+even more severely (41s instead of 101s), and — more seriously — the
+following Segment B was anchored to the floating window's _latest_ bound
+instead of right after the break's actual nominal placement, leaving a real
+379-second hole in the schedule that nothing in the schema catches (a
+`log_schedule` row covering a program doesn't validate that its clock's own
+slots are gapless). Here & Now turned out to have a real, unusual structural
+feature none of the other clocks do — a 10-second Funding Credit before
+Billboard, which then only runs 50 seconds instead of 60 — that the first
+transcription pass flattened into an ordinary 60-second Billboard, plus a
+swapped Promo/Music Bed label pair and a missing Funding Credit before
+Segment E. All three clocks now sum to exactly 3600 seconds (or 3599,
+within the same ~1s rounding noise every clock's own PDF shows).
+
+**Log: clock seed corrections, part 3 (2026-08-07) — a real, systemic
+mistranscription across nearly every clock, not just Morning Edition.** A
+user report ("the 5:40 break doesn't actually start until 6:00") led to
+re-rendering Morning Edition's source PDF at 6x resolution instead of 4x,
+which showed a genuine, separately-colored 20-second red "Funding Credit"
+wedge between Newscast 2 and the following Music Bed — previously read as
+decoration from the red double-headed "network newscast tolerance" arrow
+drawn over the same spot in every one of these clocks, because at lower
+resolution the thin wedge and the thick arrow on top of it were
+indistinguishable. `20260807180000_log_morning_edition_top_of_hour_fix.sql`
+fixes Morning Edition specifically: Newscast 2 ends at 5:40 as already
+recorded, but what follows is Funding Credit (5:40–6:00, 20s) _then_ Music
+Bed (6:00–7:30, 90s) — the two prior passes had merged both into one
+110-second "Music Bed" starting at 5:40, which is what prompted the report.
+Re-checking the same junction on a second clock at the same resolution
+confirmed the identical red wedge exists there too, and a query across all
+13 clocks' `log_clock_slots` showed **every other clock** (all but World
+Cafe, which has no Newscast 2 at this position) had the same two slots
+recorded in the wrong order — Music Bed then Funding Credit, rather than
+Funding Credit then Music Bed — meaning this specific mistake predates and
+survived both prior correction passes entirely, since it was assumed to be
+normal cross-clock transcription noise rather than checked at full zoom.
+`20260807190000_log_clock_seed_top_of_hour_swap.sql` fixes it everywhere
+else in one pass: a pure label swap keyed on `start_offset_seconds` (340
+and 360), since the offsets and durations were already correct and only
+which slot was which had been backwards. The lesson worth remembering
+before trusting a "not a real slot, just decoration" read on any of these
+diagrams again: render tight and zoom past where an annotation and the
+element underneath it look identical at a glance.
+
+**Log: milestone 1 slice 2 (Content library) has landed** —
+`20260806160000_log_content_library.sql` adds `log_content_items` (news,
+station/program promos, membership messages, university announcements,
+PSAs, legal IDs, interview/feature, host-created) and `log_content_components`
+(a timed part of one — live intro, recorded audio, live outro, optional
+tag), plus the `/log/library` route segment (browse/filter, create, detail
+with components and an approval-status control). One thing about this
+slice cuts the other way from Slice 1's producer gate: **content
+authorship is open to any tool member, not producer-only** — the design
+doc is explicit that newsroom/promotions staff "neither need a producer
+role to do it," so `log_content_items`/`log_content_components` RLS keys
+off `private.has_log_access()` alone, with no `is_log_producer()` branch at
+all (confirmed directly against preview: a plain member with no
+`tool_role` can insert a content item). Retiring stale content is an
+ordinary update (`approval_status` → `'retired'`), the same
+deactivate-don't-delete lifecycle `ep_criteria`/`ep_form_fields` use — no
+delete policy is granted on either table. Audio uploads (`log-media`
+storage bucket, added in the same migration) copy Sourcework's established
+pattern exactly: browser-direct-to-Storage via `supabase.storage.from(...).upload()`
+(`src/app/(portal)/log/audio-upload.tsx`), never a Server Action payload for
+the file itself, with `upsert: true` against a fixed per-entity object path
+(`lib/log/content-library.ts`'s `contentItemAudioObjectPath`/
+`contentComponentAudioObjectPath`) so a corrected re-upload overwrites
+cleanly rather than orphaning the previous file. `computeTotalDurationSeconds`
+(same file, pure and tested) implements the design doc's "a 30-second promo
+with a required 8-second outro is a 38-second commitment, never displayed
+as 30" rule — optional components never count toward the total.
+
+**Log: milestone 1 slice 3 (NPR + weather) has landed** — plus, the same
+day, its NPR half was corrected to the real API model (see the dated note
+below; this paragraph already describes the corrected state).
+`20260807130000_log_npr_weather.sql` adds `log_weather_reading`, and
+`20260807140000_log_npr_cds_correction.sql` adds `log_npr_episodes`/
+`log_npr_episode_items` and `log_programs.npr_collection_id`, plus the
+`/log/npr` and `/log/weather` route segments (Workflow D,
+`docs/log-design.md` §3). All three tables stay open to any tool member, no
+`is_log_producer()` branch, same reasoning as Slice 2's content library —
+reading and refreshing NPR/weather is an ordinary host duty. Both
+integrations are refreshed **lazily at read time, never on a schedule**
+(§6: this repo still has no job queue): `lib/log/npr.ts`'s
+`getNprEpisodeForProgramOnDate()` and `lib/log/weather.ts`'s
+`getCurrentWeatherReading()` check staleness against a pure, tested
+threshold check (`lib/log/staleness.ts`) on every read, refetch inline when
+stale, and — critically — never clear or block a previously cached result
+on a fetch failure; they return whatever's still cached, flagged stale,
+with the error attached for the screen to show (§5.2, §22's "a temporary
+API or network failure must not make the current rundown unreadable"). A
+short client poll (`log-poller.tsx`, the same
+`router.refresh()`-on-an-interval shape as Sourcework's `ProcessingPoller`
+and Remote Interview's waiting room) re-triggers that check periodically
+since there's still no notification layer. The two integrations' caches
+replace data differently per their own lifecycle: an NPR episode is deleted
+and reinserted wholesale **per (program, show_date)** on refresh ("not
+diffed... not a change history" — no update policy granted; see the
+correction note below for why it's scoped to a dated episode rather than a
+whole program), while `log_weather_reading` keeps every row as revision
+history and just flips `is_current` (a partial unique index enforces at
+most one current row; no delete policy granted). The provider layer
+(`lib/log/providers/`) treats the two integrations very differently because
+one has a confirmed API model and default and the other, as of this slice
+landing, didn't yet: weather hits the National Weather Service's free,
+keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
+(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+integration, though not necessarily WUWF's final vendor choice
+(`docs/log-design.md` §7). NPR now has a confirmed model too (NPR's
+Content Distribution Service — see the correction note), though WUWF's own
+production CDS token is still outstanding, so `providers/npr.ts` is
+unverified against a live account the same way
+`lib/remote-interview/daily.ts` shipped unverified before this repo had a
+live Daily account — every caller treats "not configured" as an ordinary,
+expected outcome, distinct from "this program has no CDS mapping" and from
+an actual CDS/network failure. `/log/npr` is a bridging standalone screen
+(a program+date picker plus that episode's ordered story items) not in
+`docs/log-design.md` §4's original screen list, which has NPR rendering
+only inline within the rundown builder — that screen doesn't exist yet
+(it's the next slice), and shipping Slice 3 with no way to see or manually
+refresh NPR data at all would leave it invisible and untestable until
+then; `/log/weather` matches §4 exactly.
+
+**Log: NPR integration corrected to the real CDS model (2026-08-07).**
+Slice 3 originally shipped its NPR half against a hypothetical, invented
+"rundown feed" contract (`NPR_RUNDOWNS_API_URL`, a generic
+`{ segments: [...] }` response, Log-invented fields like
+`forward_promo_copy` and a `draft`/`edited`/`revised`/`withdrawn` status,
+one undifferentiated "current rundown" per program with no date) — built
+before this repo had real information about NPR's actual API, deliberately
+labeled an open question at the time. It's since been given real API
+context for NPR's Content Distribution Service (CDS), so
+`20260807140000_log_npr_cds_correction.sql` replaces that prototype
+outright rather than leaving it as unsupported dead weight: NPR identifies
+a program as a CDS **collection** (a stable integer id — `log_programs`
+gained `npr_collection_id`, nullable, backfilled only for the 9 collection
+ids actually known, by exact program-name match, nothing guessed), and a
+rundown is a dated **program-episode** document containing an ordered
+`items` collection of stories — `log_npr_rundown_cache` (one row per
+program, no date, deleted in this migration) became `log_npr_episodes`
+(one row per **program + show_date**, `found`/`not_found`, a `raw jsonb`
+column preserving the CDS document verbatim for fields this schema didn't
+anticipate) and `log_npr_episode_items` (that episode's ordered story
+items, each with a stable `npr_item_id` — CDS's own document id, never
+derived from a title — plus `title`/`teaser`/`raw`). Date is part of a
+CDS episode's identity: a Log rundown for August 7 keeps referring to the
+August 7 NPR episode even if reopened on August 8, which is why the cache
+key changed from `program_id` alone to `(program_id, show_date)`.
+CDS-specific JSON parsing is concentrated in
+`lib/log/providers/npr-response.ts` — a pure, colocated-tested module
+(no fetch, no Supabase) isolated from `providers/npr.ts`'s actual `fetch`
+call so the important boundary cases (malformed response, no matching
+episode, missing/optional item fields, item order, stable ids surviving
+normalization) are unit-tested without live CDS credentials, which this
+repo still doesn't have. A new pure `lib/log/npr-access.ts` gates the two
+required short-circuits — no CDS mapping, no CDS token — before
+`lib/log/npr.ts`'s orchestration ever calls the provider, also
+unit-tested. Host-forward copy is explicitly **not** something NPR
+supplies or this correction models — CDS gives editorial metadata (title,
+teaser), and any on-air forward promotion a host wants is local/derived
+content composed from that, per `docs/log-design.md` §3D.
+
+**Log: station timezone fix (2026-08-07).** Slice 3 shipped a real bug,
+caught immediately by a user comparing the weather screen's "Last updated"
+against an actual clock: every wall-clock-facing display in Log had been
+built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
+the rendering process's own timezone — UTC on Vercel, five hours off
+Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+one place that knows the station is Central time, not Eastern, despite
+being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
+and every timestamp/date Log renders goes through it:
+`formatStationTimestamp` (weather's and NPR's "last updated"/"retrieved"),
+`formatStationDateLong` (the Today screen's header), and — the more
+consequential half of the same bug — `stationTodayISO()`, which replaced
+the Today screen's `new Date().toISOString().slice(0, 10)`. That one wasn't
+just a mislabeled timestamp: computing "today" from UTC meant the Today
+screen would silently show **tomorrow's** lineup for roughly 7pm–midnight
+Central, every single day, since UTC has already rolled over by then. Nothing
+elsewhere in the portal uses this helper or needs to — every other tool's
+timestamps (`created_at`, `submitted_at`, audit log entries, etc.) are
+ordinary multi-timezone-audience activity logs, not a live single-studio
+wall clock, and rendering those in the viewer's ambient timezone rather than
+a fixed one is a longstanding, separate characteristic of the rest of the
+codebase, not something this fix touched.
+
+**Log: rundown generation with the timing engine has landed** — Workflow E
+(docs/log-design.md, "Building the daily rundown"). `log_rundowns`/
+`log_rundown_items` (`20260807150000_log_rundowns.sql`, member-level RLS, no
+producer gate — generating and filling a rundown is an ordinary host/member
+action per the design doc). Generation (`generateRundown` in
+`rundown-actions.ts`) only creates a row for a clock slot a host actually
+decides something for (`fill_mode` `optional`/`host_fillable`) — the
+network-automatic majority of every real clock's slots never gets a row,
+since there's nothing for a host to pick and a row that can never be filled
+would just be noise in the builder. `lib/log/rundown-generation.ts` builds
+the draft items (repeating a clock's slots once per hour across a
+multi-hour shift), `lib/log/rundown-eligibility.ts` filters the content
+library to what a given slot actually permits, and `lib/log/timing.ts` is
+the pure, tested build-time fit engine (slot fit, rundown-level readiness) —
+never stored state, recomputed on every render per the design doc's
+"Timing is a pure, tested module." `log_rundowns` has a unique
+`(program_id, air_date)` constraint, not in the design doc's literal column
+list but needed to keep "generate" idempotent. The `/log/rundowns/[id]`
+builder screen lets a host fill, replace, or clear each host-fillable slot
+from the content library, with live fit feedback.
+
+**Log: the host console with mid-broadcast actions has landed** — Workflows
+F and G. `log_broadcast_events` (`20260807160000_log_broadcast_events.sql`,
+append-only RLS — select+insert only, no update/delete policy, matching
+`log_clock_versions`/`log_clock_slots`' immutability precedent) is the
+as-aired record. `lib/log/console-timing.ts` is the live, continuously
+recomputed wall-clock position (current break, the sidebar's rejoin/next-
+break countdown target, the poller's refresh instants) — pure and tested,
+following the same "not stored state" rule as build-time `timing.ts`. (It
+once also drove an on time / running long / at risk header badge off
+aired/missed confirmations; removed 2026-09-24, since hosts often confirm
+only at the end of a broadcast and the badge read "running long" after
+every filled break. A break's countdown also now moves on to the next break
+at its own network rejoin, not when the next break starts —
+`selectRejoinWidgetTarget`.)
+`lib/log/mid-broadcast.ts` is the pure, tested move-destination eligibility
+(empty, future, permitted content type — daypart/spacing/inventory
+eligibility the design doc also names have no modeled concepts yet in this
+schema). The `/log/rundowns/[id]/console` screen is the live view: current/
+next item, adjustable copy size, inline weather and NPR context, and the
+three mid-broadcast actions (`console-actions.ts`'s `markAired`/
+`markMissed`/`moveRundownItem`) always one tap away. "Moved" is modeled as
+filling a different open item with the same content and clearing the
+original, recorded as outcome `skipped` rather than a new column — see the
+migration's file header — which is what makes the console's "Undo" link
+just the same move run in reverse, with nothing to delete from an
+append-only table.
+
+**Log: rundown submission and the three MCP capabilities have landed** —
+Workflow H, and `docs/log-design.md`'s "Architecture" section naming
+exactly these three as "the operations useful to drive from the in-portal
+agent without a live console in front of you." No migration needed:
+`log_rundowns.status`/`submitted_at`/`submitted_by` already existed from the
+rundown-generation slice. `listUnresolvedItems()` (`lib/log/submission.ts`,
+pure, tested) is the review surface — a filled item with no recorded
+broadcast event, or a still-empty required slot — shown on the console
+screen's new "Wrap up" panel, but **submitting is never blocked by it**:
+per the design doc, "submission is a checkpoint, not a lock." `submitRundown`
+(`console-actions.ts`) sets `status = 'submitted'`; nothing about that status
+gates `markAired`/`markMissed`/`moveRundownItem`, which is what makes
+§15.3's "documented management corrections" after submission just work,
+unchanged, rather than needing a separate unlock path. The three
+capabilities (`lib/log/capabilities.ts`, registered in
+`src/lib/capabilities/registry.ts`): `log.rundown.buildItem` (fill/replace a
+slot's content, confirmation `none`), `log.rundownItem.recordOutcome` (one
+capability over aired/missed/moved, via a discriminated-union input, rather
+than three near-identical tools — confirmation `required`, since it writes
+the as-aired record Underwriting's exception queue and FCC Reporting will
+eventually read as ground truth), and `log.content.search` (mirrors
+`sourcework.project.search`). `fillRundownItem`, `markAired`, `markMissed`,
+and `moveRundownItem` are now thin adapters over these capabilities —
+`recordRundownItemOutcome`'s confirmation is satisfied with
+`confirmed: true` at the call site, same convention as
+`sendAnswerToSourcework`'s: the console button click is itself the human
+confirmation.
+
+**Log: NPR story times and break-scoped story surfaces (2026-08-21),
+calibrated the same day against the official NPR Rundowns App document for
+that morning's Morning Edition (supplied by WUWF after the first cut's
+times were visibly wrong).** CDS supplies no per-story air times — only
+each story's audio duration (its primary audio asset's `duration`, parsed
+by `providers/npr-response.ts` and stored as
+`log_npr_episode_items.duration_seconds`,
+`20260821130000_log_npr_item_durations.sql`) and the episode's item order
+(which the rundown document confirmed IS broadcast order, and whose
+durations track the official per-story timings within ~~5s).
+`lib/log/npr-story-times.ts` (pure, tested — its test file encodes the
+official rundown as a calibration fixture) derives **estimated** air times:
+it packs the stories, in order, into the program clock's lettered segment
+windows (`log_clock_slots.segment_label`) with a tolerant half-fit rule,
+then projects episode hours onto the shift's hours. Two corrections from
+the calibration, both of which had made every time wrong: (1)
+`excludeBlockLengthRollups()` drops a **digital-only block-length rollup**
+(ME's "Morning news brief", whose 11:13 audio is the sum of the three real
+A-block stories after it and which appears nowhere in the official
+rundown) — identified structurally (≥90% of the largest segment window,
+with a guard so Fresh Air's one long interview is never dropped), not by
+title; and (2) NPR's multi-hour magazines **alternate episode hours on the
+live feed anchored Eastern** (the rundown labels 7:00 AM ET "HR1", so
+WUWF's 5:00 AM CT hour carries HR2) —
+`log_programs.npr_feed_start_hour_et`
+(`20260821140000_log_npr_feed_start_hour.sql`, backfilled only for Morning
+Edition = 5, the one anchor the document confirms) feeds
+`episodeHourOffset()`, and null falls back to shift-aligned. With both
+fixes the derivation reproduces the official rundown segment-for-segment,
+within a minute everywhere. Estimates always render with "~~"
+(`formatStationTimeHM`). Three surfaces consume them: `/log/npr`'s Est.
+air/Length columns (anchored to that program+date's generated rundown —
+no rundown, no time column); the rundown screen's NPR sidebar (the next
+_story segment's_ stories by the station's wall clock — revised
+2026-08-24: it walks break-to-break windows forward from the upcoming
+break and shows the first non-empty one, because scoping to exactly the
+upcoming break's own window was usually empty mid-broadcast and read as
+the widget being broken); and the per-break "Create live read" look-ahead
+picker (only that break's stories — that one keeps its strict break-window
+scope), per direct product feedback. A clock with no `segment_label`ed
+slots produces no estimates and every surface degrades to the order-only
+behavior. Floating breaks get their own per-day estimate
+(`estimateFloatLanding`): a float's real position within its
+earliest/latest window is a story boundary, so the rundown screen shows
+where today's stories put it — or names the story it will interrupt when
+one runs through the whole window (the Fresh Air interview case), whose
+over-segment overflow the packer also chains through the following
+segments. If WUWF can get API/export access to the Rundowns App itself,
+ingesting real times should replace this estimation.
+
+**Log: program-log import (2026-08-21) — hosts build a day's rundowns by
+uploading the station's existing DAD/traffic-system Word export, before
+Underwriting & Traffic staff have adopted their tool.** Read
+`docs/log-design.md` §8 before touching any of it; this note is a pointer.
+The screen is `/log/import` (upload → preview → confirm, member-gated —
+nothing structural is producer-only here); the parser
+(`lib/log/program-log-import.ts`) and planner (`lib/log/program-log-plan.ts`)
+are pure, colocated-tested modules whose fixture is cut from a real export
+(including the credit-script row that lands in the following page-table —
+the format's one real parsing trap). `fflate` (small, zero-dependency) was
+added to unzip the `.docx`; the parser takes `word/document.xml` as a
+string. Four things are load-bearing: (1) **imported rundowns carry their
+breaks directly from the export, plus the clock's own local-opportunity
+breaks the export never mentions** — `log_rundowns.source = 'imported'`,
+`log_rundown_breaks.local_opportunity_id` is now nullable
+(`20260821180000_log_program_log_import.sql`). Revised 2026-08-24 after
+first real use: the import executor and `syncRundownBreaks` (whose
+imported-rundown skip is gone) both add clock-opportunity breaks to
+imported rundowns, deduplicated by **window overlap**
+(`selectNonOverlappingBreakDrafts`) rather than exact opportunity+instant
+match, since export avails carry no opportunity id and print a second or
+two off the clock's own offsets — see docs/log-design.md §8's revision
+note. A partial unique index on `(rundown_id, scheduled_at) where
+local_opportunity_id is null` is the imported counterpart of the generated
+path's dedup constraint. The same first use surfaced a cart-less live-read
+credit whose script prints inside the avail marker's own cell ("UW Credit
+(01:55) Support for WUWF comes from…") — the parser now captures that as
+the break's script (an "Underwriting live read" item), never a break
+label. (2) **Imported credits are real
+`uw_underwriters`/`uw_copy` rows** (never shell contracts — the export
+doesn't know contracts, and invented contract fields would poison
+fulfillment/affidavit math; never Log content items — that was considered
+and rejected, see the design doc) **placed as `item_kind =
+'underwriting_credit'` items with no `uw_scheduled_placements` row**, a
+state `uw_flag_exception_from_broadcast_event()` already tolerates by
+returning without raising. `uw_copy.underwriter_id` (new, nullable) is the
+contract-less attribution; traffic-era copy keeps attributing through
+`uw_contract_copy`. (3) **The `uw_*` boundary stays enumerable**: a Log
+session reaches Underwriting's tables only through four new
+security-definer functions (`log_import_list_underwriting_copy`,
+find-or-create `log_import_underwriter`/`log_import_underwriting_copy` —
+keyed on name and on (underwriter, cart, label) so re-imports never mint
+duplicates — and `log_delete_unplaced_credit_item`, which refuses any
+placement-backed credit; `removeRundownItem` routes credit items through
+it; a fifth, `log_underwriters_for_copy`
+(`20260824120000_log_underwriters_for_rundown_copy.sql`), resolves each
+referenced copy row's underwriter name — direct or contract attribution —
+so the rundown screen's credit cards can lead with who the credit is for). (4) The same migration adds **`audit_events_insert_log`** — Log's
+first member audit policy; without it the import's `logAuditEvent()`
+(`log.program_log.imported`) would have been silently dropped by RLS, the
+exact failure mode this file already warns about.
+
+**Underwriting & Traffic: milestone 1 slice 1 (Foundation) has landed — the
+guardrail against building it is lifted.** This is the second of three tools
+`docs/broadcast-operations-strategy.md` splits the WUWF Unified Broadcast
+Rundown and Traffic System spec into — Log is the first, and its milestone 1
+is complete (see above). Read `docs/broadcast-operations-strategy.md`, then
+`docs/underwriting-design.md` (design in full) before touching any of it.
+**Slice 1 ships only Workflows A (creating/maintaining a contract) and B
+(managing underwriting copy)** — `uw_contracts`/`uw_placement_obligations`/
+`uw_copy`/`uw_contract_copy` (`20260807200000_underwriting_foundation.sql`),
+the route segment (`src/app/(portal)/underwriting/`) gated by
+`requireToolAccess("underwriting")`, and a plain member-level dashboard,
+contract, and copy-library screens. **Slice 2 (manual credit placement,
+Workflow C), Slice 3 (the exception queue, Workflows D/E), Slice 4
+(makegoods, Workflow F), and Slice 5 (affidavits, Workflow G) have since
+landed too — see below.** That completes every workflow milestone 1 lists
+(§7) — nothing further is authorized to start without its own instruction.
+
+Two things about this slice are load-bearing:
+
+1. **This slice has no elevated role, unlike every other tool's Slice 1.**
+   `docs/underwriting-design.md` §6 is explicit: "Ordinary traffic staff do
+   everything else: contracts, copy, placement, exception triage up to but
+   not including a waive/certify decision" — and every action this slice
+   adds is on that "everything else" list. `private.is_underwriting_manager()`
+   (the elevation for waiving an obligation, certifying an affidavit, and
+   overriding expired/unapproved copy into a placement) is deliberately
+   **not defined yet** — there is nothing in this slice for it to gate.
+   Defining an authorization predicate before any policy needs it is the
+   same speculative-schema mistake CLAUDE.md warns against for columns; it
+   gets added in whichever later slice adds the first action that actually
+   needs it.
+2. **The eligible-programs field is still a plain UUID list, not a name
+   picker.** `uw_placement_obligations.eligible_program_ids` references
+   `log_programs`, but Slice 2's boundary work (below) only ever reads Log's
+   tables from inside a `security definer` function — it never granted this
+   tool's own client-side code a `select` policy on `log_programs`. A create-
+   time name picker would need one, which is still more RLS surface than the
+   obligation-creation screen alone justifies; the obligation form stays
+   comma-separated program IDs with a hint explaining why.
+
+**Underwriting & Traffic: Slice 2 (manual credit placement into Log's
+rundown) has landed** — Workflow C, the two-way Log boundary
+`docs/underwriting-design.md` §6 describes, built in one migration
+(`20260807210000_underwriting_placement.sql`) since it's one relationship
+with two directions. **Write into Log**: `log_rundown_items` gained
+`item_kind`/`underwriting_copy_id` (mirroring `sw_source_excerpts`' "exactly
+one of several possible references" shape), written only by
+`log_place_underwriting_credit()` — a `security definer` function, not a
+bare RLS-gated update, so the guard (an open, permitted slot; an active
+contract; program-eligible; copy linked to the contract and either approved-
+and-in-date or carrying a manager-checked override) lives in one place.
+`log_clear_underwriting_credit()` is the undo. **The read side of the same
+boundary, not named explicitly in the design doc but needed for Workflow
+C's own UI**: an underwriting-only caller has no RLS access to Log's
+rundown tables at all, so `log_list_placeable_rundown_items()` — also
+`security definer` — is how the contract page finds a given obligation's
+eligible open slots. **The reverse read Log needs from this tool**: a
+narrow additive `select` policy on `uw_placement_obligations` for Log
+members, scoped to obligations with an active placement — added per the
+design doc's instruction, though no Log-side code reads it yet (the
+console's existing move-destination check is content-type-based and already
+works for underwriting-credit items without it). This slice also defines
+`private.is_underwriting_manager()` for the first time — Slice 1 deliberately
+left it undefined; this is the slice with the first action (an override)
+that needs it. `uw_scheduled_placements` denormalizes `program_name`/
+`scheduled_at`/`clock_slot_label` at write time (captured by the security
+definer function, which can read Log's tables) specifically so this tool's
+own screens never need a live cross-tool read just to render a placement
+list — the same reasoning Audience Listening's answers snapshot their
+question. The capability layer gets `underwriting.credit.schedule`
+(`lib/underwriting/capabilities.ts`), confirmation-required, but
+deliberately **without** override support — the override path stays
+UI-only, the same judgment-call carve-out `lib/roadmap/capabilities.ts`
+already applies to curation. Two Log-side pure-logic bugs surfaced and were
+fixed while building this: `lib/log/mid-broadcast.ts`'s move-destination
+check and `lib/log/capabilities.ts`'s `recordRundownItemOutcome` "moved"
+branch both only checked `content_item_id` for "is this slot open," so
+either would have let a host move content on top of an underwriting credit
+and hit a raw constraint-violation error live on air; both now also check
+`underwriting_copy_id`. `clearRundownItem` (Log's own plain content-clear
+action) is now scoped to `item_kind = 'content'` for the same reason — an
+underwriting-credit item is only ever cleared through
+`log_clear_underwriting_credit()`.
+
+**Underwriting & Traffic: Slice 3 (the post-broadcast exception queue) has
+landed** — Workflow E, plus Workflow D (pre-broadcast conflict review) as a
+computed dashboard needing no schema of its own. One migration
+(`20260807220000_underwriting_exceptions.sql`, corrected the same day by
+`20260807230000_underwriting_exception_read_fix.sql` — see below) since,
+like Slice 2, it's one relationship: `uw_exceptions` (§5) is real, staff-
+triaged state (compliance judgment, resolution action, notes), never a
+derived view, but it also has **no insert grant to `authenticated`** — the
+only way a row is ever created is `uw_flag_exception_from_broadcast_event()`,
+an `after insert` trigger on Log's own `log_broadcast_events`. That trigger
+is this repo's stand-in for the job queue it doesn't have: the moment a host
+records an underwriting-credit item's outcome as anything but
+`aired_as_scheduled`, an open exception exists — nobody polls for it. Waiving
+an exception is one of the design doc's four manager-only privileged
+actions, enforced by `uw_guard_exception_resolution()`, a `before update`
+trigger mirroring `rd_guard_post_curation()`'s exact shape (Roadmap's own
+curation guard): RLS admits any member's update, and the trigger alone
+raises unless `private.is_underwriting_manager()` is the one setting
+`resolution_action = 'waive'`. **The corrected read boundary**: Slice 3
+originally scoped `log_broadcast_events_select_for_underwriting` (the read
+side named in Slice 2's own note) to the rundown item's _current_
+`item_kind = 'underwriting_credit'` — caught by a self-review before it
+shipped to production reliance: clearing a placement after its exception
+was already raised (an ordinary reassign) flips `item_kind` back to
+`content`, which retroactively hid that exception's own broadcast event and,
+through it, `getExceptionDetail()`'s placement lookup — silently blanking a
+still-open exception's context with no error. The fix keys the policy off
+`uw_exceptions` actually referencing the event instead, which is permanent
+once created and never needs a join through Log's own tables at all. Two
+more privileged-action bugs a self-review caught before commit, both about
+auditing a value rather than a transition into it: `resolveException()` and
+`setContractStatus()` (the latter's audit call was a **Slice 1 gap** dating
+back to that slice, since `docs/underwriting-design.md` §6 has required it
+from the start) both now read the prior value first and only call
+`logAuditEvent()` when the write is a genuine transition into `waive`/
+`terminated` — re-saving an already-waived exception or an already-
+terminated contract no longer logs a fresh privileged-action row credited to
+whoever happened to click Save. `placeCreditAction` (Slice 2) had the same
+gap for the override audit and is fixed the same way, by reading back
+`uw_scheduled_placements.override_reason` after a successful placement
+rather than trusting "the form had text in it." `lib/underwriting/
+conflicts.ts` is Workflow D's pure conflict check — scoped to what this
+schema can actually verify (an approved linked copy; enough already-placed
+or enough eligible open slots to meet `quantity_required`), not a real
+inventory/spacing engine. `listObligationPlacementContexts()` in
+`lib/underwriting/queries.ts` is shared by the dashboard and the contract
+detail screen so the two don't drift on how "existing placements plus
+currently-placeable slots" is combined — flagged as duplicated by the same
+self-review before being extracted.
+
+**Underwriting & Traffic: Slice 4 (scheduling and confirming makegoods) has
+landed** — Workflow F. One migration
+(`20260807240000_underwriting_makegoods.sql`) adds `uw_makegoods`, reusing
+every mechanism Slice 2 already built rather than adding new ones:
+scheduling a makegood's slot goes through the identical
+`log_place_underwriting_credit()`/`log_list_placeable_rundown_items()` pair
+the contract page's own "Place a credit" form already calls
+(`lib/underwriting/placement.ts`), and cancelling one that already has a
+slot reuses `log_clear_underwriting_credit()` too — nothing writes into
+`log_rundown_items` or `log_broadcast_events` directly, and
+`log_broadcast_events`' insert policy stays scoped to `has_log_access` only
+(hosts). §5's literal column list makes `uw_makegoods.status` a three-value
+enum (`scheduled` | `aired` | `cancelled`) with `scheduled_placement_id`
+nullable "until scheduled" — a makegood record can exist before a slot is
+chosen (status stays `scheduled`, `scheduled_placement_id` null) and after
+(`scheduled_placement_id` set once a slot is picked, status still
+`scheduled` until confirmed aired); the "awaiting a slot" vs "slot chosen"
+distinction is derived at read time (`lib/underwriting/makegoods.ts`,
+pure and tested), not a fourth stored status, the same "derived, not
+stored" discipline `uw_placement_obligations.status` already follows.
+`uw_update_makegood_from_broadcast_event()` (an `after insert` trigger on
+`log_broadcast_events`, security definer for the same reason Slice 3's
+`uw_flag_exception_from_broadcast_event()` is) flips a scheduled makegood to
+`aired` the moment its own placement's rundown item is confirmed aired as
+scheduled — the other half of "tracked through to its own broadcast event."
+If a makegood's own airing is itself missed or moved, this trigger leaves
+it alone and Slice 3's own trigger already raises a fresh `uw_exceptions`
+row against it, since that trigger doesn't distinguish an original
+placement's rundown item from a makegood's — the recursive resolution path
+the design doc implies, with no new code needed for it. Ordinary
+member-level RLS throughout, no manager gate — §3F lists this workflow
+under "traffic staff," not §6's four privileged actions. The exception
+detail screen gained a "Makegoods" panel (create a bare record against an
+exception) and a new `/underwriting/makegoods` screen (Workflow F's own
+screen per §4) is where a slot actually gets picked or a makegood gets
+cancelled.
+
+**Underwriting & Traffic: Slice 5 (generating affidavits) has landed** —
+Workflow G, the last of milestone 1's seven workflows. One migration
+(`20260807250000_underwriting_affidavits.sql`) adds
+`uw_affidavits`/`uw_affidavit_line_items` (§5's literal columns —
+`uw_affidavit_line_items` has no separate id, a composite
+`(affidavit_id, log_broadcast_event_id)` primary key, same shape as
+`uw_contract_copy`'s own join-table precedent) plus a broadened read policy
+on `log_broadcast_events`: Slice 3's own
+`log_broadcast_events_select_for_underwriting` is scoped to broadcast
+events an `uw_exceptions` row already references, correct for the exception
+queue but too narrow for affidavit generation, which needs every broadcast
+event behind a contract's placements in a period — including the compliant
+majority that never became an exception. The new
+`log_broadcast_events_select_for_underwriting_placements` policy is
+additive, not a replacement, and — like Slice 3's own
+`exception_read_fix` — keyed off a permanent reference
+(`uw_scheduled_placements` rows are never deleted or repointed, only marked
+superseded) rather than `log_rundown_items.item_kind`'s current,
+reassignable state, so it doesn't reintroduce that bug. Generating an
+affidavit is ordinary application-layer orchestration
+(`lib/underwriting/queries.ts`'s `findAffidavitEvidence()`,
+`affidavit-actions.ts`'s `generateAffidavit`) over existing reads, not a
+security definer function — unlike Slice 2's placement boundary, nothing
+here writes into a table this tool doesn't already own. Regenerating for
+the same contract/period is allowed and produces a new, separately
+versioned affidavit (`lib/underwriting/affidavits.ts`'s
+`buildReportIdentifier`, pure and tested) rather than overwriting the
+previous one. Certifying an affidavit (`status` → `certified`) is one of
+§6's four privileged, manager-only actions, enforced by
+`uw_guard_affidavit_certification()` — a before-update trigger in the exact
+shape of Slice 3's `uw_guard_exception_resolution()` — not the Server
+Action, so the boundary holds no matter how the table is ever written.
+Milestone 1's affidavit stays a structured on-screen record styled for
+browser print (`/underwriting/affidavits/[id]`, a `print-button.tsx` client
+component calling `window.print()`), per §6's "no PDF generation" — not a
+generated PDF.
+
+That completes every workflow `docs/underwriting-design.md` §7 lists for
+milestone 1. **Automatic rules-based scheduling has since been authorized
+and built — see the dated note below.** True PDF generation,
+automation-system export/reconciliation, and scheduled proof-of-performance
+delivery remain deferred, not authorized to start without their own
+instruction.
+
+**Underwriting & Traffic: weighted copy rotation (2026-10-08).** Read
+`docs/underwriting-traffic-redesign.md` §13.2, "Weights", before touching
+`rotation.ts`; this is a pointer. `uw_contract_copy.weight` (1–20, default 1,
+`20261008120000`) sets a message's share of its rotation group; equal weights
+are the unchanged plain cycle, unequal ones pick the message most owed
+(`weight/Σweights × (airings+1) − aired`), deterministically, so the rebalance
+still converges. Callers pass `historyInGroup()` to `nextInRotation()`, and
+`setCopyWeight` (the "Rotation weight…" menu item) audits and rebalances.
+
+**Underwriting & Traffic: fewer tabs (2026-10-01).** Read
+`docs/underwriting-traffic-redesign.md` §17 before touching the tab row,
+Exceptions, makegoods, Affidavits, the dashboard's tiles, or the contract
+page's tabs; this is a pointer. Tabs are Dashboard · Contracts ·
+Underwriters · Copy · Exceptions · Affidavits · Setup — Makegoods folded into
+Exceptions, and pools, industries and the imports live under
+`/underwriting/setup/`. An exception's step comes from
+`lib/underwriting/exception-filters.ts` alone (list chips, dashboard tiles and
+the exception page all read it), and an exception closes itself when its last
+makegood airs (a trigger, `20261001120000`). Affidavits are one list per month
+(`lib/underwriting/affidavit-month.ts`), and the signer's title is
+`profiles.title` (`20261001120100`). The contract page is Schedule (By line /
+By date, revisions, flights) · Copy · Agreement. All three migrations are
+applied to both projects.
+
+**Underwriting & Traffic: affidavits are a signed PDF (2026-09-28).** Read
+`docs/underwriting-design.md` §6, "Affidavits are a signed PDF", before
+touching affidavits; this is a pointer. `@react-pdf/renderer` (added for
+this; in `serverExternalPackages`) renders `lib/underwriting/affidavit-
+pdf.tsx` from `affidavits.ts`'s pure `buildAffidavitDocument`, which the
+affidavit page previews too — change the model, not the two renderings.
+Certifying stores the PDF in `underwriting-documents` with its SHA-256 and
+freezes the row (`20260928120000`, applied to both projects); a correction
+is a new affidavit. Only aired credits are listed, times in Central, no
+dollar amounts, and no email — reps send it themselves.
+
+**List pages, create, edit, and right columns — one rule for the whole portal
+(2026-09-27).** Read `docs/ui-patterns.md` before adding a list page, a
+create or edit form, or a right column; this note is a pointer. The old
+"list on the left, permanent New X form in a `lg:w-80`/`lg:w-96` right
+column" layout is retired: a list page is a `ListToolbar` (search, optional
+`FilterChips`, spacer, secondary links, `PrimaryLink` "+ New X") over a
+full-width table or card list; create is a dedicated `/x/new` page for a
+record of about five or more fields (Underwriters) or an `InlineCreateCard`
+opened by `?new=1` for a small one (Pools, Industries); edit reuses the
+create form (`/x/[id]/edit`, `underwriters/underwriter-form.tsx`); a
+secondary lookup gets its own view (`/underwriting/underwriters/industries`);
+a right column exists only on a detail page, for context and read-only
+summaries (`DetailSummary`). Errors render inside the form that caused them
+— `failWith` now appends `&error=` to a path that already carries `?new=1`.
+The Pools card creates a pool and its targets in one step through
+`uw_create_inventory_pool()` (`20260927120000_underwriting_create_inventory_
+pool.sql`, security invoker — atomicity only, RLS unchanged; the same
+migration makes pool names unique case-insensitively), with
+`lib/underwriting/pool-targets.ts` (pure, tested) parsing the keyed
+`target_<k>_*` rows both the card and the per-pool "Add a target" form
+submit. The same day's second pass moved the rest: `underwriting/copy`
+(`/copy/new`, `/copy/[id]/edit`, `copy/copy-form.tsx`; the detail page is
+read-only with the approval-status action kept in its aside), `log/programs`
+(inline create; a new `/log/programs/[id]` page whose "+ Schedule" leads to
+`/log/programs/[id]/schedule/new`, the old side form's new home),
+`log/clocks` (inline create), and the three Editorial settings lists (their
+Active/Retired tabs are now `FilterChips`, their "Add a …" side forms inline
+cards; `AddFieldFields`/`CriterionFields` render only fields, the card owns
+the form). The four detail asides the handoff named were reviewed and kept —
+each holds an action, which rule 5 allows. The doc's "Rollout" section is the
+record.
+
+**Navigation shapes — one meaning each (2026-10-09).** Read `docs/ui-patterns.md`
+"Navigation shapes" before adding a tab row, a view switch, or a second row under tabs; this is
+a pointer. Underline = `TabNav` (where in the tool), grey block = new `SubNav` (which page inside
+a tab), bordered pill = `FilterChips` (which rows), joined bar = `Segmented`/`SegmentedLinks`
+(how the data is drawn). A row under another tab row is always a `SubNav`. `TabNav` gained
+`badge`, `end`, and kept `forceMore`. Traffic is five tabs — Dashboard · Contracts · Needs
+attention (Exceptions, Affidavits, badged with decisions waiting plus unsigned affidavits) ·
+Library (Underwriters, Copy) · Setup, at the right edge — modelled in `lib/underwriting/nav.ts`;
+routes did not move. `20261009120000` is Resources content only.
+
+**Control rows on a phone — one rule for every row of controls (2026-10-14).** Read
+`docs/ui-patterns.md` "Control rows on a phone" before laying out two or more boxed controls side
+by side; this is a pointer. A row of buttons, button-styled links, selects or menu triggers is a
+`ControlRow` (`components/ui/control-row.tsx`, `CONTROL_ROW` for a `<form>`), never a flex
+container typed per screen. Below `sm` the rule in `globals.css` sizes the children: two share
+the row at half width, an icon-only button (`data-row="fixed"`) keeps its square, a search box
+(`data-row="full"`) takes its own row, and with an odd count of three or more the last — the
+primary — takes the last row alone. `ListToolbar` is one already, so its trailing children need nothing.
+
+**Filters and tables on a phone — one approach for every list (2026-09-30).** Read
+`docs/ui-patterns.md` "Filters" and "Tables on narrow screens" before adding a list page or
+a filter; this is a pointer. `ListToolbar` takes filter groups (`filters`); one short group
+shows inline from `sm` up, anything else — and every filter on a phone — sits behind one
+Filter button (`components/ui/filter-menu.tsx`, the rule in `lib/filter-groups.ts`). A list
+table is `<Table stack>`: below `md` each row becomes a card, with each `Cell` marked
+`stack="title"`/`"aside"`/`"full"`/`"hide"` or given a `label`, so no column scrolls out of
+view. Programs' week grid becomes a day-by-day agenda below `md`.
+
+**Progress, steps, and busy states — and the program-log import moves onto Today
+(2026-09-29).** Read `docs/ui-patterns.md` "Progress, steps, and busy states" before
+showing progress anywhere; this is a pointer. `ProgressBar` gained an accessible
+name, a screen-reader value that includes the pending share, sizes, and an
+indeterminate mode; `Steps` gained a `label` and a busy marker; `BusyPanel` is the
+title + time hint + sliding bar for a long server step with no honest percentage
+(both Log imports and Sourcework's upload use it). The Log import is started from
+the Today screen (`/log/import?date=`), warns when the log's date differs from the
+day the host came from, and returns to Today on a clean import; the Import tab is
+removed. `20260929150000` (applied to both projects) is Resources content only.
+
+**Pagination — one approach for every list that grows (2026-09-28).** Read
+`docs/ui-patterns.md` "Pagination" before adding or changing a list page; this is a
+pointer. `?page=N`, filtered and sorted in the query with `{ count: "exact" }` plus
+`.range()` (`src/lib/pagination.ts`, pure, tested), chip counts from head-count queries,
+and `components/ui/pagination.tsx` under the list. The Resources procedures list is the
+reference; the doc's rollout list names the lists still to move, `log/library` first.
+
+**Underwriting & Traffic: bulk migration of legacy agreements
+(2026-09-29).** Read `docs/underwriting-traffic-redesign.md` §14 before
+touching the agreement import or `/underwriting/migration`; this is a
+pointer. §12's import is now one service,
+`lib/underwriting/agreement-import-service.ts`'s `importAgreementAsDraft()`
+— the order step's "Create from the agreement" and the migration both call
+it; don't grow a second importer. The migration (administrators with
+Underwriting access) loads a CSV manifest into
+`uw_agreement_migration_items` (keyed on `source_key`), whose facts become
+the merge's typed side (`lib/underwriting/agreement-migration.ts`, pure,
+tested), and imports one entry per request from the client. Reruns are
+safe: `uw_contracts.import_source_key` is unique
+(`20260929200000_underwriting_agreement_migration.sql`), an imported entry
+never runs again, and deleting its draft frees the key. Documents the
+manifest missed can be imported alone (§14.3), keyed by their hash; no
+document is ever imported under two entries. Redesigned 2026-09-30 (§14.5):
+batches list → `/new` → `/batch/documents` → `/batch`, and entries run
+three at a time through a **route handler**
+(`/api/underwriting/migration/items/[id]/import`, logic in
+`lib/underwriting/migration-import.ts`), not a Server Action — Next.js runs
+a page's Server Actions one at a time, so parallel calls to one would still
+queue. `migration-queue.ts` backs off on the OpenAI rate limit. The reader maps an order's wording onto pools
+(§14.6): an either/or daypart is one line in the pool covering every
+choice (Drive Time, Weekend Edition), no pool named is Total Program
+Rotation, "rotating" is two every-other-week lines — never split an
+either/or quantity across lines, and never add multi-pool lines. Order
+numbers are nullable and never composed; a window ending 00:00 is stored
+as 24:00.
+
+**Underwriting & Traffic: seeding active copy from RadioTraffic
+(2026-09-30).** Read `docs/underwriting-traffic-redesign.md` §15 before
+touching `/underwriting/migration/copy` or `lib/underwriting/legacy-copy*.ts`;
+this is a pointer. An administrator's one-time import of RadioTraffic's
+"Active Copy by Underwriter" CSV: the pure planner (`legacy-copy.ts`,
+tested against the real export in `fixtures/`) runs in the browser for the
+review and again in the non-redirecting action for the write, with no
+schema change and no migration table. A message is identified by
+underwriter + normalised script, never by its cart — RadioTraffic's cart
+numbers are its own copy references (reused across messages, and not DAD
+cut numbers), so `execution_kind` comes from the script. Copy on file is
+reused (dates from RadioTraffic, a missing cart added); its wording changes
+only on an explicit answer. Contracts link only when exactly one agreement
+fits, through the existing `rebalanceContractRotation()`.
+
+**Underwriting & Traffic: copy dedicated to one line (2026-09-30).** Read
+`docs/underwriting-traffic-redesign.md` §16 before touching
+`uw_contract_copy.schedule_line_id`, rotation, or copy selection; this is a
+pointer. Copy scoped to a line serves only that line, a line with copy of its
+own takes only that copy, other lines take the unscoped copy — `rotation.ts`'s
+`servesLine()` and SQL's `uw_copy_serves_line()` are twins, and a trigger on
+`uw_scheduled_placements` (`copy_wrong_line`) enforces it for every writer
+(`20260930150000`, applied to both projects). Rotation cycles per group (one
+per dedicated line, one general), not contract-wide. End of Line Cafe's
+production contract was linked this way to match its order.
+
+**Underwriting & Traffic: the schedule tab's line rows, and placing a
+credit as its own page (2026-09-28).** Read
+`docs/underwriting-traffic-redesign.md` §11.7 and `docs/ui-patterns.md`
+"Row details and row actions" before touching the contract page's line
+card, its "⋮" menu, or manual placement; this is a pointer. A line is a
+summary row that expands (`?details=<lineId>`, URL state, never
+`useState`) into one table of periods and placements
+(`lib/underwriting/line-details.ts`, pure, tested) — the old "Demand by
+period" and "Placements" menu panels are gone, and so is the "Place a
+credit" panel: placing is `/contracts/[id]/lines/[lineId]/place`,
+mirroring the edit page, narrowed to a period by `?week=<bucketId>`. The
+"⋮" (`line-menu.tsx`) keeps auto-fill for the line, Edit, and the two
+destructive actions with a confirm step; a failed cancel, remove or clear
+renders inside the line's card (`?line=<id>`). `ActionMenu` items can now
+be links, form submits (`formId`), or greyed with a reason.
+
+**Underwriting & Traffic: copy on the contract, and copy rotation
+(2026-09-27).** Read `docs/underwriting-traffic-redesign.md` §13 before
+touching the copy step, the Copy tab, the planner's copy pass, or anything
+that writes `uw_scheduled_placements.copy_id`; this is a pointer. Setup is
+five steps (Copy at `/contracts/[id]/copy`, then Traffic policy); the step
+and the contract page's Copy tab share `contracts/[id]/copy-panel.tsx`
+(script in full, Edit/Approve/Unlink in place, `?new=1`/`?link=1`/
+`?edit=<id>` cards, an underwriter-first link picker). **Rotation is one
+contract-wide cycle in broadcast order** (`lib/underwriting/rotation.ts`,
+pure, tested) and is maintained automatically: the planner assigns copy in
+a final pass over the contract's merged timeline, and
+`rebalanceContractRotation()` (`rotation-rebalance.ts`) re-walks the
+contract after every write that changes the linked messages or the
+timeline, writing each change through
+`log_reassign_underwriting_credit_copy()`
+(`20260927160000_underwriting_copy_rotation.sql`, applied to both projects,
+which also adds the `update` policy `uw_contract_copy` never had). Aired,
+frozen, and manager-overridden placements are fixed points; there is no
+manual re-rotate action. Manual placement, the makegood slot form, and the
+`underwriting.credit.schedule` capability default to the rotation's pick.
+
+**Underwriting & Traffic: a draft contract can be deleted, and pickers
+that grow with the data are search-to-select (2026-09-27).** Read
+`docs/underwriting-traffic-redesign.md` §11.5 and `docs/ui-patterns.md`
+"Pickers"; this is a pointer. `uw_contracts` gained a delete policy scoped
+to drafts (`20260927150000`, applied to both projects), `deleteContract`
+checks the status server-side and removes the attached document, and the
+contract page's aside ends in a two-step "Delete this draft" for drafts
+only — a contract that ran is terminated, never deleted.
+`components/ui/searchable-select.tsx` is the rundown builder's
+insertion-point combobox as a primitive (hidden input for the id, so the
+form stays an ordinary `<form action>`); use it instead of a `<select>` for
+any field whose options grow with the data — it now backs every such
+picker in Underwriting (underwriter, program, contract, existing copy, open
+break); the fixed-option selects stay native.
+
+**Underwriting & Traffic: a contract can be created from its signed
+agreement (2026-09-27).** Read `docs/underwriting-traffic-redesign.md`
+§12; this is a pointer. The order step's form gained a second submit,
+"Create from the agreement": the uploaded PDF/PNG/JPEG goes through one
+strict-schema model call (`lib/underwriting/agreement-ai-import.ts`,
+server-only, native file input — signed originals are often scans), what
+the staffer typed wins over the reading (`mergeOrderFacts()`), the draft
+contract is created through `lib/underwriting/contract-writes.ts`'s
+`createDraftContractWithRevision()` (now shared with `createContract`), and
+every read line that compiles is saved as an ordinary draft line through
+`lib/underwriting/schedule-line-writes.ts`'s `insertScheduleLineWithBuckets()`
+(now shared with `addScheduleLine`) — reviewed, edited and removed on the
+schedule step like any other, with **no separate review UI**. Underwriters,
+pools and programs are enums of the names on file; a sponsor not on file is
+refused by name, never created from a document. The reading is kept on the
+contract (`uw_contracts.agreement_reading`, jsonb, applied to both projects)
+only so the schedule step can list the lines that could _not_ be saved,
+with "Enter" prefilling the editor from the reading (`?prefill=`). The eval
+(`npm run eval:agreement`, `scripts/agreement-eval/`) compares a reading to
+the insertion-order corpus's own transcription; its fixture PDFs are the
+Drive originals named in `fixtures/index.ts` and are not committed, so the
+reader has not yet run against a real document.
+
+**Underwriting & Traffic: a schedule line can be edited or removed while
+nothing has scheduled from it (2026-09-27).** Read
+`docs/underwriting-traffic-redesign.md` §11.4; this is a pointer. The setup
+wizard creates a contract's first revision as `current` while the contract
+itself is the draft, so the earlier "remove from a draft revision" gate
+(UI and the delete RLS policy alike) never applied during setup, and no
+edit action existed at all. `lib/underwriting/line-mutability.ts` is the
+one rule — draft contract or draft revision, no placement — mirrored by
+`20260927130000_underwriting_draft_contract_line_delete.sql`; edit is the
+same `ScheduleLineEditor` prefilled by `formValuesFromScheduleLine()` at
+`/contracts/[id]/lines/[lineId]/edit`, posting to `updateScheduleLine`. A
+line with placements is still cancelled from a date, never rewritten. The
+same pass split `parseScheduleLineForm()` into `compileScheduleLineDemand()`
+plus error-collecting eligibility checks so the editor's aside shows the
+count as the dates and days are typed and lists what still blocks a save.
+
+**Underwriting & Traffic: contract setup and the contract page, redesigned
+(2026-09-25).** Read `docs/underwriting-traffic-redesign.md` §11 before
+touching the contracts list, the contract page, or the schedule-line form;
+this note is a pointer. Built from reviewed Design boards on the design
+system the app already uses; no migration. The schedule-line form takes
+**structured entries only** — one row per explicit date, one quantity per
+Monday for a week grid (`week_quantity:<monday>`), laid out by the client
+editor (`underwriting/schedule-line-editor.tsx`) from the line's own dates —
+and `schedule-line-form.ts` refuses a field the chosen kind doesn't use
+rather than ignoring it; the editor compiles the line live with that same
+parser. Setup is four steps (`/contracts/new` → `[id]/schedule` →
+`[id]/policy` → the contract page; `[id]/order` edits the order later),
+each an existing action carrying `return_to`. The contract page leads with
+a readiness checklist for a draft (`lib/underwriting/readiness.ts`, pure)
+and splits into `?tab=` sections; a line is a card with a "⋮" menu. The
+copy reads "Spots on the order", never "order states". Six primitives in
+`components/ui` (`ChoiceCards`, `DayPicker`, `Segmented`, `Steps`,
+`ProgressBar`, `FilterChips`) came out of it — reuse them before styling a
+new radio group, day picker, step flow, bar, or filter row inline.
+
+**Underwriting & Traffic: fill order, frozen rundowns, bumping (2026-09-25,
+third pass).** Read `docs/underwriting-traffic-redesign.md` §10 before
+touching auto-fill, the placement guard, or anything that moves a credit;
+this note is a pointer. Found against RadioTraffic.com, WUWF's current
+system. `20260925190000_underwriting_frozen_rundowns_and_bumping.sql`:
+(1) **automation never writes into a live or submitted rundown or a
+started break** — `uw_automation_block()` in SQL, `lib/underwriting/
+freeze.ts` in TypeScript (keep them in step); `log_place_underwriting_
+credit()` and `log_clear_underwriting_credit()` take `p_automated`
+(auto-fill, provisioning and bumping pass true; a staffer's manual
+placement and every host action stay unrestricted); (2) **lines fill
+most-constrained first** (`fill-order.ts`: exact/opening/closing, window
+narrowest first, preferred, any; guaranteed before bonus; fewer candidates
+first) — no priority levels, no rate ranking; (3) **a fixed-position unit
+that finds every break full may bump one movable credit** (`bump-plan.ts`
+chooses, `log_bump_underwriting_credit()` executes clear + place in one
+subtransaction so every contractual check holds or nothing changes; one
+hop; never a makegood, an aired credit, or host content; audited as
+`underwriting.credit.bumped`), else it is a named capacity conflict on the
+notice and the dashboard. The host's `log_relocate_underwriting_credit()`
+is deliberately not the bump path: Log-gated, same-rundown, no contractual
+checks. Open policy question, not decided: whether a paid credit may
+displace host content. Contract activation is now audited
+(`underwriting.contract.activated`); the same person may create and
+activate.
+
+**Underwriting & Traffic: revisions, eligibility lines, demand buckets
+(2026-09-25, second pass — supersedes the entry below where they differ).**
+Read `docs/underwriting-traffic-redesign.md` §9 before touching contracts,
+schedule lines, buckets, placement, auto-fill, or Log's local
+opportunities. A deeper audit of the archive (1,001 orders, six sponsors
+across years) showed the four typed rule kinds were still the wrong
+primitive — the durable grammar is "a quantity owed within a period,
+subject to eligibility". `20260925150000_underwriting_demand_buckets.sql`
+(clean rewrite; both projects held zero contracts) moves the boundary to
+`contract -> revision -> eligibility line -> demand buckets -> placement`:
+`uw_contract_revisions` (one `current` per contract; a draft beside it;
+activation supersedes the current revision's buckets still open on the
+effective date, clears its placements from that date through
+`log_clear_underwriting_credit()`, and never touches aired history —
+`lib/underwriting/revisions.ts`, previewed on the contract page before the
+click); `uw_contract_schedule_lines` is eligibility only (program/pool,
+eligible days, `time_mode` any|window|preferred|exact|opening|closing, nullable
+`max_per_day`, `service_level` guaranteed|bonus) with `entry_kind`/
+`entry_spec` recording how it was entered; `uw_demand_buckets` is the
+quantity per period (a dark grid week is a real zero row);
+`uw_scheduled_placements.demand_bucket_id` replaces the period pair.
+`lib/underwriting/demand-compiler.ts` (pure) compiles fixed days, N a
+week, N a month, every N weeks, explicit dates, a week grid, or a range
+total into buckets; `eligibility.ts` is the TypeScript twin of the SQL
+guard's `uw_bucket_for_date()`/`uw_time_eligible()` — keep them in step.
+Six things are load-bearing:
+
+1. **An opening or closing credit is derived from the clock, never
+   labelled on it.** The first cut of this pass gave Log opportunities a
+   `traffic_key` a producer typed and retyped per clock version, and a
+   `slot` time mode matching it; reversed the same day
+   (`20260925180000_underwriting_opening_closing.sql`) once it was clear
+   every such credit in the archive means "the program's first / last
+   avail". The line says `opening` or `closing` (the order's own
+   instruction) and `uw_break_position_eligible()` resolves it against
+   the rundown's marked, underwriting-permitted breaks — nothing is
+   entered in Log, and a new clock version needs no upkeep. A named
+   mid-program feature (BirdNote at 7:42) is an `exact` line. Never use a
+   time as a proxy for a position, and don't reintroduce a key.
+2. **A per-day cap is data, not doctrine.** `max_per_day` null means
+   several a day are fine (New South's 10 a week M–F lands two a day);
+   the planner still spreads evenly, least-loaded day first. The old
+   global one-per-day collapse is gone.
+3. **`exact` is ± 3 minutes** (`uw_exact_time_tolerance()`,
+   `EXACT_TIME_TOLERANCE_MINUTES`) because breaks start at the clock's
+   own second; `preferred` only ranks.
+4. **A bonus line is never "behind"** and its miss is not owed a makegood
+   unless the order says so; exceptions still record the miss.
+5. **Only the current revision schedules**: `log_place_underwriting_credit()`
+   returns `revision_not_current` for a draft or superseded line, and the
+   dashboard/auto-fill read only current revisions' lines. A draft's lines
+   can be deleted (`20260925170000`, a delete policy scoped to drafts);
+   a current line is cancelled from a date, never deleted.
+6. **Industry is a typed table** (`uw_industry_categories`,
+   `uw_underwriters.category_id`, `20260925160000` — requested during this
+   pass); the adjacency rule compares category ids, never strings.
+
+Corpus: 27 orders in `fixtures/insertion-orders.ts`, all read from the
+originals; 1,015 tests. FPL Q1 2022 was not located in Drive. The
+TypeScript auto-fill and activation paths are still unexercised against a
+live session.
+
+**Underwriting & Traffic: insertion-order-grounded redesign (2026-09-25).**
+Read `docs/underwriting-traffic-redesign.md` before touching schedule lines,
+placement, auto-fill, or anything that writes `uw_scheduled_placements`;
+this note is a pointer. Checked against fourteen signed WUWF orders (read
+from the originals, transcribed into
+`src/lib/underwriting/fixtures/insertion-orders.ts` — the acceptance
+fixtures), the one-recurrence schedule line was wrong in four ways: "3 a
+week on any day", two credits a day, explicit date lists, and agency
+week-by-week grids. `20260925120000_underwriting_traffic_redesign.sql`
+(plus `20260925130000_underwriting_line_period_fix.sql`, two bugs the
+preview scenario run caught — a PL/pgSQL OUT-column/table-column name
+collision and an un-cast enum CASE in the exception trigger) rewrites
+`uw_contract_schedule_lines` in place around four typed `rule_kind`s
+(`fixed_days` / `weekly_quota` / `explicit_dates` / `week_grid`), adds
+`uw_inventory_pools`/`uw_inventory_pool_targets` (an order's "AM Drive" or
+"Carpool" mapped to Log programs/windows by staff on `/underwriting/pools`
+— never assumed to be a `log_programs` id), `uw_contract_flights` (an event
+grouping that scopes copy through `uw_contract_copy.flight_id`),
+`uw_schedule_allocations` (per-date / per-Monday-week quantities, zero
+weeks included), and records on every placement the demand unit it
+consumes (`demand_period_start/end`, `makegood_id`). Test data was reset
+(every `uw_contracts` row in both projects — underwriters and copy stay).
+
+Five things are load-bearing:
+
+1. **The SQL guard and the planner enforce the same rules, and the SQL is
+   the backstop.** `log_place_underwriting_credit()` now locks the schedule
+   line (`for update`), then checks date/day eligibility
+   (`uw_line_period_for_date()`, the twin of `demand.ts`'s
+   `periodForDate()` — keep them in step), program, pool and window, one
+   credit per contract per break, the period's quota, the day cap,
+   flight-scoped copy, and a makegood's agency approval. A manual placement
+   cannot bypass a quantity or date "unnoticed"; auto-fill plans with
+   `lib/underwriting/demand.ts` + `inventory-selection.ts` (pure, tested)
+   and then writes through the same RPC.
+2. **A makegood placement carries `p_makegood_id`**: exempt from the period
+   quota (it replaces a unit), not from the day cap, refused while its
+   exception's `makegood_approval` is pending/declined, and attributed to
+   the missed placement's period — so per-period fulfillment never counts a
+   missed unit and its replacement as two deliveries.
+3. **A missed fresh placement consumes its unit.** `freshShortfall` =
+   quantity − every fresh placement whatever its outcome; the replacement
+   comes only through the makegood queue. That is exactly the quota the SQL
+   counts.
+4. **`separation_source_text` is stored verbatim and never interpreted.**
+   FPM prints "3" with no unit; auto-fill skips a contract whose
+   `separation_policy` is still `unspecified` while source text exists.
+   `min_minutes` is the one enforced choice.
+5. **Cancel/revise = `cancelScheduleLineFrom()`**: `status = cancelled`,
+   `cancelled_from`, future active placements cleared through
+   `log_clear_underwriting_credit()`, awaiting-slot makegoods for void
+   demand cancelled. A revised instruction is a new line; a cancelled
+   flight cancels its lines.
+
+Deliberately not built: cross-break/cross-day competitive separation, an
+interpretation of "separation: 3", a document revision ledger, FPL's
+broadcast-month makegood preference (recorded as text, honoured by a
+human), prorated partial weeks (counted at full quota, flagged). Verified:
+979 tests (demand arithmetic against every order's stated totals;
+inventory selection for the contested Weekend-Sat-or-Sun, 3-a-week spread,
+2-a-day distinct-breaks, USF undersized-break and adjacency cases), and a
+rolled-back RLS-impersonated scenario on preview exercising every guard
+(`copy_wrong_flight`, `period_quota_met`, `pool_not_eligible`,
+`makegood_needs_approval`, `day_cap_met`, cancelled-line exclusion,
+zero-week exclusion). The TypeScript auto-fill orchestration has not yet
+run against a live session — sign-in is magic-link-only from a sandbox —
+so its first real click is its first end-to-end test.
+
+**Log and Underwriting & Traffic: domain redesign (2026-08-07/08), grounded
+in real WUWF operational detail — both tools' milestone-1 models were wrong
+in ways that only checking them against real clocks and a real contract
+exposed.** Read the "Status" line and the top of `docs/log-design.md` and
+`docs/underwriting-design.md` before touching either tool again — both docs
+describe the corrected model in full; this note is a pointer, not a
+duplicate.
+
+**Log's correction**: `log_clock_slots.fill_mode`
+(`required`/`optional`/`host_fillable`) conflated the network's own
+published structure with WUWF's local-substitution decisions. Every slot in
+every clock seeded so far was `fill_mode = 'required'`
+— there was never a real host-fillable _network slot_ in this data, because
+a WUWF local opportunity (a music-bed cover, a longer story substitution) is
+not a property of one network segment. It's WUWF's own overlay on an
+accurate network clock, and it routinely spans several segments — Morning
+Edition's real ~29:30–34:00 local-story window covers a cross-promo tail, a
+Music Bed, and both Newscast 3 and 4, four network slots for one WUWF
+opportunity. `20260808120000_log_local_opportunities.sql` splits this:
+`log_clock_slots` goes back to describing only network structure (every
+fillability column dropped, along with `log_slot_fill_mode`/
+`log_slot_assignment_mode`), and `log_local_opportunities` is new — WUWF's
+own overlay, versioned against a clock version but **editable in place**
+(unlike the network clock's insert-only immutability), carrying a
+`requirement` of `optional` (an avail WUWF may or may not use — unfilled is
+normal, "carrying network") or `required` (a genuine local obligation —
+unfilled is flagged unresolved). `20260808210000_log_morning_edition_
+opportunities.sql` seeds five real opportunities against Morning Edition's
+clock — the two real story windows above, two short optional music-bed
+covers, and one required local-ID window — and deliberately nothing for the
+other twelve seeded clocks, since inventing opportunities without WUWF
+confirmation would be exactly the mistake this correction fixes.
+`20260808130000_log_rundown_breaks.sql` follows the same split downstream:
+`log_rundown_items` (one row per fillable slot) became
+`log_rundown_breaks` (one row per local-opportunity occurrence, snapshotting
+the opportunity's label/requirement/permitted types the way Audience
+Listening's answers snapshot their question) containing zero or more
+`log_rundown_items` rows — because a break can now hold nothing (a normal
+resolved state for an optional one), one item, or several when
+`allow_multiple`. Rundown items also gained real per-airing overrides
+(`override_script`/`override_duration_seconds`/`override_live_intro_seconds`/
+`override_live_outro_seconds`/`override_tag_seconds`/`override_notes`,
+composed into an always-current `planned_duration_seconds` by
+`lib/log/content-library.ts`'s `computeEffectiveDurationSeconds`) that never
+write back to the master `log_content_items`/`log_content_components` row —
+the mechanism behind the same promo airing slightly differently at 6am
+versus 8am without a second copy existing, and also how a `weather`-kind
+item can override just this one airing's wording without touching the
+shared current `log_weather_reading`. `20260808140000_log_content_dad_and_
+media_removal.sql` is a separate, unrelated finding from the same
+inspection pass: `log_content_items`/`log_content_components`'s
+`audio_object_path` (backed by the `log-media` storage bucket) was
+write-only — read back in exactly two places, both as a boolean toggling
+upload-hint text, never a signed URL or an `<audio>` element. WUWF plays
+recorded material through ENCO/DAD, its real broadcast automation system,
+not the portal. Removed in favor of `dad_cart_number` (plain text, both
+tables) — the bucket's RLS policies were dropped (Supabase's
+`storage.protect_delete()` trigger blocks a direct `DELETE` against
+`storage.objects`/`storage.buckets` from a migration; dropping the policies
+alone fully locks it down via RLS-default-deny, and removing the now-inert
+bucket row itself is a follow-up via the dashboard or `supabase storage rm`,
+not a migration statement). The host console's "go to Underwriting &
+Traffic to read a credit's script" gap named in the original Log design doc
+is closed too (see the Underwriting paragraph below) — a rundown builder
+rebuild (`/log/clocks/[id]`, `/log/rundowns/[id]`, `/log/rundowns/[id]/
+console`) accompanied all of this: the clock detail screen's diagram grew
+materially larger (640px SVG, was 360px) to legibly show two concentric
+rings (network slots inner, local opportunities outer —
+`lib/log/clock-face.ts`'s `categorizeOpportunity`,
+`components/log/clock-face.tsx`), and the rundown builder became a vertical
+list of break cards instead of a table, so an empty optional break reads as
+"carrying network" at a glance rather than looking like a gap.
+
+**Underwriting's correction**, grounded in the real WUWF Autumn Beck
+Blackledge agreement (4 weekly recurring placements × 26 weeks = 104 spots,
+30-second credits, 2 rotating messages, "Affidavits Needed — NO," preemption
+= "rescheduled within the program originally sponsored"):
+`20260808200000_underwriting_redesign.sql` fixes eight problems the
+milestone-1 model had, none of them visible until checked against a real
+agreement — full list in `docs/underwriting-design.md` §1. The two
+structural ones: **underwriters are now first-class** (`uw_underwriters`,
+replacing free-text `underwriter_name`), and **`uw_placement_obligations`
+(a generic quantity/period ad-tech shape) became `uw_contract_schedule_
+lines`** — day(s) of week, target time, duration, program, date range, the
+literal shape of a real WUWF insertion order ("Monday ~7:49am × 26 weeks" is
+one line; "Wednesday and Thursday ~8:06am" is one line with
+`days_of_week = {3,4}`, not two). `lib/underwriting/schedule-lines.ts`'s
+`expectedOccurrenceCount()` is checked directly against the reference
+agreement — four weekly lines over a 182-day campaign sum to exactly 104
+(getting this right required using campaign end date `start_date + 181
+days`, not a date that happens to land on the same weekday as the start;
+the first version of the test undercounted by summing to 103). Also
+removed: `sponsorship_position` (opening/closing/mid — never grounded in a
+real agreement, no enforcement anywhere, no real UI); `uw_copy.production_
+status` (a universal pending/produced field that doesn't fit a live-read
+message — replaced by `execution_kind` of `live_read`/`recorded`, purely
+descriptive, no workflow gate); `uw_obligation_status` (manually set by
+staff despite the original design doc itself always saying fulfillment
+should derive from placements — now always computed by
+`lib/underwriting/fulfillment.ts`'s `computeFulfillment()`, which returns
+`behind` rather than `fulfilled` whenever an exception or makegood against a
+line is still open, even if the raw completed count already meets target).
+`uw_copy.audio_object_path` had the identical write-only finding as Log's
+own audio storage (same inspection pass, same fix — `cart_identifier`,
+which already existed, is the DAD reference; the bucket's policies were
+dropped the same way Log's were, with the same storage-protect-delete
+caveat). Two additive contract fields make real facts from the agreement
+explicit rather than implicit: `affidavit_required` (most WUWF agreements
+are `false`, per the reference agreement's own "NO") and
+`preemption_policy` (free text, holding the reference agreement's own
+"rescheduled within the program originally sponsored" language — read by
+staff, not enforced by the schema). `agreement_document_path` replaces the
+old bare `agreement_document_url` text field with a real Storage object in
+a new `underwriting-documents` bucket (`ContractDocumentUpload`,
+signed-URL download) — the executed agreement is now an authoritative
+attached reference, not a set of manually copied fields with the source
+discarded. A new, deliberately narrow **competitive-adjacency advisory**
+(`lib/underwriting/adjacency.ts`'s `checkCompetitiveAdjacency()`) flags —
+never blocks — when another underwriter sharing the current one's
+`category` already has a nearby placement, and never fires against the same
+underwriter's own other placements; this is advisory only, not a spacing
+rules engine, per the task's own explicit scope. Every program reference in
+the Underwriting UI (schedule lines, placement) is now a human-readable
+`<select>` via a new `log_list_programs()` security-definer function, never
+a raw UUID field, with one narrow exception noted in the design doc. The
+Log boundary functions (`log_place_underwriting_credit`,
+`log_clear_underwriting_credit`, `log_list_placeable_rundown_breaks`, all
+owned by this tool's migration per the original design) were rewritten
+against Log's new break/item shape, and a new `uw_copy_select_for_log` RLS
+policy closes the host-script gap from the Log paragraph above: the console
+now renders an underwriting credit's actual script inline, never "go to
+Underwriting & Traffic."
+
+Both migrations hit real Postgres ordering issues worth remembering:
+`DROP TABLE ... CASCADE` does not drop a dependent enum type used as a
+column's type on that table (`log_broadcast_outcome`/
+`log_confirmation_source`/`log_miss_reason` needed explicit `DROP TYPE`
+statements after the `CASCADE`), and a `DROP TYPE` fails if any column still
+depends on it even when that column is dropped later in the same script —
+`uw_copy_production_status` had to move to right after
+`uw_copy.production_status`'s own column drop, not grouped with the other
+type drops earlier in the file. Production also had one stray test contract
+row (`underwriter_name = 'Test UW'`) predating this redesign — not real
+production data per this tool's own no-production-data status, but the
+migration still had to backfill a placeholder `uw_underwriters` row for it
+before requiring `underwriter_id not null`, rather than assuming the table
+was empty.
+
+**Log: the live rundown screen works through a connectivity drop
+(2026-09-28), closing what was the known gap here.** Read
+`docs/log-design.md` §6, "Host live-view resilience," before touching the
+rundown screen's aired/missed/move actions, `LogPoller`, or anything that
+calls a Server Action from that screen; this is a pointer. Aired, missed,
+and both relocations go through one offline queue: written to IndexedDB
+(`lib/log/broadcast-queue-store.ts`), shown at once, sent in order by
+`broadcast-sync.tsx`'s provider through one non-redirecting action,
+`syncBroadcastAction` (`broadcast-actions.ts`), and removed only on ack.
+Replays are safe — an outcome's client-generated id becomes its
+`log_broadcast_events.id` (a duplicate is success), and a relocation states
+where an item ends up (`lib/log/broadcast-queue.ts`, pure and tested;
+relocation itself moved to `lib/log/rundown-relocation.ts`). Everything
+else on the screen (fill, edit, remove, attest, submit) is disabled while
+disconnected (`RequiresConnection`, a disabled `<fieldset>`), attest and
+submit also while anything is unsent. Three Next.js behaviours drove the
+shape and are easy to reintroduce: a `<form action>` whose request fails
+throws the whole screen into `error.tsx`; a failed or non-200
+`router.refresh()` falls back to a full browser navigation, offline the
+browser's "no internet" page — so `LogPoller` now skips a refresh when
+offline, when the queue is busy, or when `pingLog` doesn't answer; and a
+Server Action id from an older deploy is refused, so the queue reloads the
+page once (the queue survives in IndexedDB). A service worker
+(`public/log-offline-sw.js`, production only, in the middleware's
+`PUBLIC_PATHS`) keeps a copy of the rundown page and its build assets and
+serves it only when the network fails, so a reload during an outage still
+shows the rundown, labelled with when it was rendered. The capability
+`log.rundownItem.recordOutcome` gained optional `eventId`/`occurredAt` (a
+tap's device time, clamped). No migration. Verified in Chromium against a
+harness with a fake server, not against Supabase — this sandbox's egress
+blocks `supabase.co` — so its first real outage is its first end-to-end
+run.
+
+**Log: rundown-breaks duplication and ordering fixes (2026-08-07), both
+found from a user report against the deployed app right after the domain
+redesign above shipped.** Two separate real bugs, one migration
+(`20260808220000_log_rundown_breaks_dedup_and_unique.sql`):
+
+1. **`syncRundownBreaks()` (the redesign's own catch-up path for a rundown
+   generated before its clock's local opportunities existed) duplicated its
+   entire draft set on every single call, not just under a race.** Its
+   "does this break already exist?" check compared a freshly-built draft's
+   `scheduled_at` (always `Date.prototype.toISOString()`, e.g.
+   `"2026-08-07T10:06:00.000Z"`) against the same instant read back from
+   Postgres through supabase-js (no milliseconds, `+00:00` instead of `Z`,
+   e.g. `"2026-08-07T10:06:00+00:00"`) using plain string equality — two
+   different strings for the same instant, so nothing ever matched and
+   every click re-inserted the full set. Confirmed on production: one
+   rundown's 20 breaks (5 Morning Edition opportunities × 4 hours) had
+   grown to 60 from ordinary use. Fixed at both layers, deliberately not
+   just one: `lib/log/rundown-generation.ts`'s `selectMissingBreakDrafts`
+   now compares parsed instants (`new Date(...).getTime()`), and the
+   migration adds a real `unique (rundown_id, local_opportunity_id,
+scheduled_at)` constraint that both `generateRundown()`'s and
+   `syncRundownBreaks()`'s inserts now write through as
+   `upsert(..., { onConflict, ignoreDuplicates: true })` — so a duplicate
+   is impossible at the database level regardless of what application code
+   does or how two concurrent requests interleave, not just when the
+   JS-level check happens to get it right. The migration also deduplicates
+   whatever the bug had already produced (60 → 20 on production; preview
+   never hit the bug, since its own test rundown's clock had no
+   opportunities to sync in the first place).
+2. **Rundown breaks and local opportunities both rendered out of
+   chronological order.** `getRundownDetail`'s breaks query and
+   `listLocalOpportunitiesForVersion` both ordered by `position` — a
+   producer-assigned authoring/entry order, not a guarantee about actual
+   timing. The real Morning Edition seed itself has exactly this mismatch:
+   its required 42:30 local-ID opportunity was entered (and thus
+   numbered) after both story windows even though it airs between them
+   (position 4 = the ~49:35 window at offset 2975s; position 5 = the
+   42:30 ID at offset 2550s — numerically after but chronologically
+   before). Fixed at the query level, not just the data: both queries now
+   order by actual time (`scheduled_at` for breaks, `start_offset_seconds`
+   for opportunities — see each function's updated comment) rather than
+   trusting `position` to track it, so a future opportunity entered out of
+   time order can't reproduce this. The migration also corrects the
+   Morning Edition seed's own `position` values to match
+   `start_offset_seconds` order, so the raw data isn't misleading to a
+   future reader even though display no longer depends on it.
+
+**Log: weather couldn't be added to any Morning Edition break (2026-08-07)**
+— a third user report against the same seed, fixed by
+`20260808230000_log_morning_edition_weather.sql`. Not a code bug: the
+`item_kind = 'weather'` mechanism, `addWeatherItem()`, and the rundown
+builder's "Add today's weather" button (gated on a break's
+`permitted_content_types` including `'weather'`) all already worked — the
+Morning Edition seed's five opportunities simply never listed `'weather'`
+in any of their `permitted_content_types`, an oversight in that seed's own
+authorship rather than a missing feature. Fixed narrowly: the two short
+optional post-newscast music-bed covers (positions 1 and 2 — already
+generic local avails permitting a legal ID, PSA, promo, membership message,
+or underwriting credit) now also permit `weather`, since a quick weather
+update is exactly the kind of short generic local fill those windows exist
+for. The three story/ID-specific windows are deliberately unchanged — a
+weather update doesn't belong in a multi-minute local-story window or the
+required legal-ID window, and widening those would be inventing behavior
+WUWF hasn't confirmed. The migration also updates the one already-generated
+production rundown's existing breaks (which snapshot `permitted_content_types`
+at generation time, same as every other break field) directly, since
+`syncRundownBreaks()` only adds missing breaks — it doesn't refresh an
+existing one's snapshot when the opportunity behind it changes.
+
+**Log: the console can now fill an open break directly, not just execute a
+pre-built plan (2026-08-08)** — a real product-design correction, not a bug
+fix. The console originally shipped read-only against the plan: aired,
+missed, move, and nothing else, on the assumption that "building" happens
+in the builder and the console only "executes" what's already there. That
+assumption was wrong — a solo host at a small station is routinely deciding
+what fills an open avail _while on air_, not always executing a plan
+someone finished building ahead of time. Fixed by sharing the builder's own
+fill actions (`fillRundownItem`/`createLiveReadItem`/`addWeatherItem` in
+`rundown-actions.ts`) with the console instead of duplicating or rebuilding
+them: each now accepts an optional `return_to` field (`"console"` or the
+builder default) so a host filling a break from the live view stays on the
+live view afterward — `resolveReturnPath` is the one place that decides
+where a fill bounces back to. The console's Current panel shows these fill
+controls whenever there's room (empty, or `allow_multiple` with space); the
+Next panel shows them behind a "Fill ahead" disclosure, for prepping the
+next break without losing the live view. The Builder/Console split itself
+is unchanged and still deliberate (pre-air planning vs. the live in-studio
+view, per `docs/log-design.md` §1) — this correction is about what the
+console screen itself can do, not about merging the two screens or removing
+the split.
+
+**Log: builder and console merged into one screen (2026-08-08), superseding
+the note above.** The previous correction gave the console the builder's
+fill capability but kept the Builder/Console split itself, on the reasoning
+that pre-air planning and live execution are different moments needing
+different screens. Direct pushback on that reasoning — the vertical,
+always-visible break list is exactly what gives a host control during a
+live broadcast, not something to narrow away in favor of a minimal
+current/next view — was correct: once the console could fill breaks, there
+was no real remaining difference to justify a second route, only two
+lookalike-but-separate implementations of decreasing distinctness. Merged
+into `src/app/(portal)/log/rundowns/[id]/page.tsx`; the `/console` route is
+deleted outright, not redirected. Every break renders in chronological
+order at all times, live or not (`const live = rundown.status ===
+"in_progress" || rundown.status === "submitted"`). Once live: the current
+break gets a visual highlight plus a `#current-break` anchor ("Jump to
+now"), its items render through the same card layout as every other break
+(the sticky header's whole-screen Text size control is the one text-size
+system — the current break's separate larger-type CopyDisplay view was
+removed 2026-08-24), and the three
+mid-broadcast actions (aired/missed/move) appear on any unconfirmed item in
+_any_ break, not only the current one — the whole show being visible at
+once is what makes "full context and control," the actual goal, mean
+something. Before live, the sidebar's status panel shows a "Start
+broadcast" button; once live, it shows the wrap-up/submit panel. `console-
+actions.ts` was renamed `broadcast-actions.ts` and `startConsole` renamed
+`startBroadcast`, matching that there's no more separate console concept
+for either name to refer to; `console-timing.ts`/`ConsoleBreakLike` keep
+their names since renaming a working, tested pure module purely for label
+consistency wasn't worth the churn.
+
+**Log: weather folded into the same "add content" workflow (2026-08-08),
+not a separate button.** A second, related report: weather being its own
+button with its own form next to the ordinary content picker read as an
+arbitrary inconsistency to a host — "why isn't this just in the list?" It
+should be, and now is: `WEATHER_ITEM_SENTINEL`
+(`lib/log/content-library.ts`) is a plain string value included as an
+option in the _same_ `<select>` the eligible content items populate, and
+`fillRundownItem` (`rundown-actions.ts`) branches on that sentinel before
+falling through to the ordinary `buildRundownItem` capability call for a
+real content item. The underlying write still differs, because it has to —
+weather has no `log_content_items` row, only today's one current
+`log_weather_reading` — but that split is now entirely inside one Server
+Action, invisible to the host, who just picks "Today's weather" out of the
+same list as everything else. `addWeatherItem` as a separate exported
+action is gone. `buildRundownItem` itself was deliberately left alone
+rather than widened to also accept weather — its own MCP-facing contract
+("use `log.content.search` first to find an eligible item's id") never
+applies to weather, so the branch belongs in the thin Server Action layer,
+not in a capability meant to stay scoped to real library content.
+
+**Log: local opportunities gained an edit action (2026-08-09).**
+`log_local_opportunities` has allowed in-place `update` at the RLS layer
+since it was split from the network clock in the domain redesign (see
+above) — deliberately, unlike the network clock's own insert-only
+immutability, because it's WUWF's own policy overlay, not a fact about what
+the network published. No action or form ever exercised that grant until
+now: the clock detail screen only ever wired up add and deactivate.
+`updateLocalOpportunity` (`clock-actions.ts`), the same validation as
+`addLocalOpportunity` applied to an update instead of an insert, plus an
+inline per-row edit form (`clocks/[id]/page.tsx`) toggled by `?edit=<id>`,
+closes that gap. No migration — the schema already supported this.
+
+**Log: a long item can now cover the next break too, without a "merge" step
+(2026-08-09).** A real, recurring host scenario: an adjacent pair of
+breaks — say a short Music Bed cover and the programming segment right
+after it — where the host may cover just the first, or place one longer
+piece that runs across both. The first design considered for this was an
+explicit "merge two breaks" action; rejected as the wrong shape for
+something a host needs to do live, on air, without learning a new concept.
+The shipped version needs no new action at all: `lib/log/timing.ts`'s new
+`computeBreakStatuses` (whole-rundown, spillover-aware, superseding the old
+single-break-only `computeBreakStatus` as what `computeRundownSummary` and
+the builder/console screen actually call) treats a break that runs over its
+own `available_duration_seconds` as covering the _immediately following_
+break for free, as long as that next break is empty, `optional`, and starts
+exactly at the first break's `network_rejoin_at` (no gap) and its own
+`available_duration_seconds` is enough to absorb the overage. That covered
+break reads `covered_by_previous` — a `Badge` reading "Covered by
+`<label>`" instead of "Carrying network" or a false "Needs something" flag
+— rather than a stored flag or a second break-authoring concept; a host's
+only action is picking the longer piece of content. A required break, one
+that already has its own content, one separated by a real gap, or overage
+that exceeds even the next break's own window are all deliberately never
+covered this way — each is left with its honest `over`/`unresolved_required`
+status rather than silently absorbing or reaching past a second break. Only
+a single hop is absorbed by design (matches the concrete two-break case
+this was built for); chaining further is a straightforward follow-up to
+`computeBreakStatuses` if a real case needs it, not something to
+speculatively build now. No migration — purely a computed read, the same
+"pure, tested, not stored state" discipline the rest of the timing engine
+follows. _Superseded by the 2026-08-10 rework below; the current rules and
+a worked example (a four-minute story across Morning Edition's 29:30
+window) are in `docs/log-design.md` §6, "Overruns and content that spans
+several breaks"._
+
+**Underwriting & Traffic: the automatic rules-based scheduler has landed
+(2026-08-09)** — the one item milestone 1's §7 explicitly deferred pending
+more real contract patterns beyond the reference agreement; now authorized
+and built against that same one agreement, since no others have surfaced
+yet to check it against. No migration: the design doc's own §6 already
+committed to this shape — "manual placement and the eventual automatic
+scheduler produce the _same_ `uw_scheduled_placements`/`log_rundown_items`
+rows through the _same_ `log_place_underwriting_credit()` function" — so
+this is purely an application-layer planner sitting in front of the
+existing write path, never a new one.
+`lib/underwriting/auto-fill-plan.ts` (pure, tested) plans an assignment of
+a schedule line's currently-eligible open breaks to its current demand;
+`lib/underwriting/auto-fill.ts` (server-only) gathers that demand and
+executes the plan by calling `placeCredit()` once per item — the identical
+RPC wrapper the manual "Place a credit" form already calls, never with an
+override (auto-fill only ever selects approved, in-date linked copy, so
+`log_place_underwriting_credit()` never has a reason to ask for one — §6's
+override path stays the UI-only judgment call it always was).
+
+Two design decisions worth recording. **A makegood awaiting a slot is
+folded into the same fill queue as an ordinary not-yet-scheduled
+occurrence, and drains first.** A missed or preempted credit is exactly a
+schedule line's demand returning to the queue, not a separate scheduling
+problem — so `getScheduleLineAutoFillDemand()`
+(`lib/underwriting/queries.ts`) reports a schedule line's awaiting-slot
+makegood ids directly alongside its fresh-occurrence count, and
+`planAutoFill()` always assigns every makegood a break before it assigns
+any fresh occurrence one, oldest-created first. The Makegoods list page
+(Workflow F) still offers its own manual "pick a slot" form unchanged, for
+picking a specific break by hand; auto-fill is the normal path now, not a
+replacement for it. **"Fresh" demand is deliberately not just
+`expected − completed`.** An active (non-superseded) placement whose
+broadcast event hasn't happened yet is already a live claim on one of a
+line's expected occurrences and must not be double-scheduled, but one whose
+event already recorded a non-compliant outcome (left uncleared, per
+`uw_flag_exception_from_broadcast_event()`'s own design) is not — that
+occurrence's demand already resurfaces separately as its makegood. Getting
+this wrong either double-books a schedule line ahead of its real target or
+silently under-fills it while an uncleared missed placement masks the gap;
+`getScheduleLineAutoFillDemand()`'s own comment explains the distinction it
+draws between a pending, a completed, and a resolved-but-uncleared
+placement.
+
+**Revision the same day: a break can hold several underwriters at once, and
+same-underwriter/same-industry adjacency is enforced, not advisory.** The
+first cut of auto-fill placed at most one credit per break, reasoning that
+no real contract pattern had exercised packing several into one — WUWF
+corrected that directly: multiple underwriter credits in a single break is
+routine when a contract calls for it, and the one hard rule is that the
+same underwriter never runs back to back. WUWF also pointed at the
+reference Autumn Beck Blackledge agreement's own language — "WUWF will
+make appropriate changes in scheduling to insure that your sponsorship
+message does not run adjacent to a business with similar services or
+products," with a real conflict category of "Lawyers" — as a rule that
+should already be enforced here if it wasn't. It wasn't: the existing
+competitive-adjacency check (`lib/underwriting/adjacency.ts`) is a
+program-wide _advisory_ a human sees on the manual placement form and
+decides what to do with (design doc §6: "never a block"); auto-fill has no
+human in the loop at the moment it places a credit, so the same concern
+needed to be an enforced rule there instead. "Back to back" is scoped to
+within one break only (confirmed with WUWF directly) — cross-break
+adjacency is out of scope.
+`20260809140000_underwriting_break_adjacency.sql` widens
+`log_list_placeable_rundown_breaks()` to return each candidate break's
+`last_item_id` (whichever item currently holds its highest position, since
+`log_place_underwriting_credit()` always appends at the end — the only item
+a new one could ever be adjacent to); `lib/underwriting/queries.ts`'s
+`resolveLastItemAdjacency()` resolves that id to an underwriter/category
+through this tool's own `uw_scheduled_placements` (a copy row alone can't
+identify the underwriter, since `uw_contract_copy` is many-to-many — a
+specific _placement_ is what pins one). `planAutoFill()` now takes each
+break's last-item underwriter/category plus the current schedule line's
+own, and skips (tries the next break for the same demand) rather than
+placing whenever either would run back to back. One schedule line's own
+demand still never books two of its own items into the same break, since
+every item on one line shares that line's underwriter — the same-underwriter
+rule already rules that out without special-case logic.
+
+Reachable from three places, all sequential (never parallel) for the same
+reason: two schedule lines racing for the same open break within one click
+is a real possibility (two underwriters both eligible for one generic
+local avail — exactly the case the adjacency rule exists for), and
+`log_list_placeable_rundown_breaks()` reads live occupancy at call time.
+The per-schedule-line "Auto-fill remaining" button on the contract detail
+page (`contracts/[id]/page.tsx`) came first; a contract-wide "Auto-fill
+this contract" button on the same page (added the same day, once a real
+multi-line contract made the gap obvious — a traffic staffer working one
+renewal shouldn't have to click "Auto-fill remaining" once per line) and
+the dashboard-wide "Auto-fill everything" button (`page.tsx`, every active
+contract's every schedule line) both just call the same per-line
+`autoFillScheduleLine()` in a loop
+(`lib/underwriting/auto-fill.ts`'s shared `runAutoFillOverLines()`), scoped
+to that button's own contract or to every active contract respectively.
+Each schedule line that placed at least one credit gets an
+`underwriting.schedule_line.auto_filled` audit event — not one of §6's four
+privileged actions (any tool member can run this, same as manual
+placement), but worth a durable trace of an automated bulk write the same
+way MCP-originated writes always get one. Deliberately not exposed as a
+capability (no `underwriting.creditLine.autoFill` MCP tool) — nothing asked
+for that yet, and `underwriting.credit.schedule` already covers one
+placement at a time for an agent caller.
+
+**Bug found and fixed the same day, live in production, before this had run
+against more than one real contract:** the scheduler had no concept of "one
+credit per calendar day" at all. `target_time` (e.g. "Monday ~7:49am") had
+only ever been a display label, never used to constrain anything — and a
+program's local opportunities can recur every hour (Morning Edition's
+generic post-newscast avails do), so a single Monday's rundown legitimately
+offers several eligible breaks, not one. The first cut of auto-fill treated
+each of those as separate demand and filled every one of them in a single
+run against the real Autumn Beck Blackledge contract — 8 credits into one
+Monday for a line that calls for exactly one a week — confirmed directly
+against production data (`created_at` timestamps ~35ms apart across all 8
+rows, one straightforward `for` loop's worth of sequential RPC calls).
+Fixed by `lib/underwriting/auto-fill-plan.ts`'s new `collapseToOnePerDay()`:
+before demand is ever assigned to a break, the eligible-breaks list is
+reduced to at most one candidate per `air_date` — whichever is closest to
+the schedule line's own `target_time` (converted to station-local minutes
+via `lib/log/timezone.ts`, since `target_time` is a plain wall-clock value
+and `scheduled_at` is UTC) — and any day the line already has an active
+placement on is dropped outright, so a makegood or a later run's fresh
+occurrence always lands on a _different_ day rather than stacking a second
+credit onto one already spoken for. No migration; this is app-layer demand
+shaping in front of the same unchanged write path. The 8 wrongly-placed
+credits this produced against the real contract were cleared from preview
+(the incorrect placement + its `log_rundown_items` row deleted, matching
+exactly what `log_clear_underwriting_credit()` itself does) once the fix
+landed; production was never touched by this bug specifically. Three older,
+unrelated stray placements against the same contract (present in both
+projects, predating this feature by a day, one of them carrying a live open
+exception and resolved exception history from separately testing Log's
+mid-broadcast "mark missed" flow) were cleared the same way once confirmed
+this environment carries no real production data yet — cascading away
+their `log_broadcast_events`/`uw_exceptions`/`uw_makegoods` rows too, none
+of which anything else referenced.
+
+**Underwriting & Traffic: auto-fill now provisions its own Log rundowns
+(2026-08-09)** — a real architectural gap, not a follow-up polish item:
+every placement path up to this point, manual and auto-fill alike, could
+only ever fill into a rundown a Log producer had already generated by
+hand, so a 26-week campaign could never actually get scheduled ahead of
+whatever few days happened to exist. `20260809150000_underwriting_
+rundown_provisioning.sql` adds the same two-way, security-definer boundary
+shape as every other Log crossing in this tool's own migrations
+(`log_place_underwriting_credit`, `log_list_placeable_rundown_breaks`):
+`log_get_program_schedule_context()` reads a program's schedule entries,
+clock versions, and active local opportunities (all `has_log_access`-gated,
+unreachable to an underwriting-only session otherwise) plus which air
+dates it already has a rundown for; `log_generate_rundown_for_underwriting()`
+inserts exactly what `generateRundown()` itself inserts, idempotent on the
+same `(program_id, air_date)` constraint. Nothing about "what a rundown
+should contain" is reimplemented in SQL — `lib/underwriting/rundown-
+provisioning.ts` calls Log's own pure, dependency-free generation logic
+directly (`buildRundownBreakDrafts`, `resolveCurrentVersion`,
+`isScheduleEntryActiveOn`; this is one monolith, so importing them here
+duplicates nothing), computes the break drafts itself, and only crosses
+the RLS boundary for the read and the write. `lib/underwriting/schedule-
+lines.ts`'s new `remainingOccurrenceDates()` (pure, tested) is the pure
+day-of-week/date-range walk this correction below still uses, just no
+longer as its own independent sizing pass.
+
+**Revision the same day: generation must be driven by the same planning
+pass that fills, not sized by a second, independent computation.** The
+first cut of provisioning ran as a separate pre-pass — walk every
+remaining matching day through the line's own `end_date`, generate a
+rundown for each missing one, _then_ run the ordinary fill planner against
+the result. Direct pushback caught the real flaw: "rundowns should be
+created as underwriting credits are scheduled against them," and this
+shape wasn't that — "how much inventory to create" and "how much demand
+to fill" were two separately-reasoned numbers expected to just happen to
+agree, exactly the category of bug this feature had already shipped twice
+the same day (a per-break-vs-per-day mismatch, then an ignored
+`target_time`). Corrected in `20260809160000_underwriting_rundown_
+provisioning_returns_breaks.sql` (widens `log_generate_rundown_for_
+underwriting()` to return the breaks it just inserted, avoiding a second
+read) and a restructured `autoFillScheduleLine()`
+(`lib/underwriting/auto-fill.ts`): it now calls `planAutoFill()` _twice_ —
+a cheap, in-memory **probe** against whatever inventory already exists,
+which sizes exactly how many requests it's still short
+(`remaining = totalRequests - probePlan.items.length`); then, only if
+`remaining > 0` and the line has a bounded campaign and at least one
+approved copy (no point generating inventory nothing could ever fill),
+`lib/underwriting/rundown-provisioning.ts`'s renamed
+`provisionRundownsForDates()` generates _exactly_ `remaining` additional
+days (stopping the moment it reaches that count, skipping an unschedulable
+date without counting it) walking `remainingOccurrenceDates()`'s own
+output, excluding dates the probe already had inventory for; a second,
+**final** `planAutoFill()` call against the combined candidate set is the
+plan that actually executes. One computation drives both what gets
+generated and what gets filled — never two. This still fills an entire
+remaining campaign in one click on a fresh contract (the probe finds
+nothing, `remaining` is the full expected count, provisioning generates
+that many days), it just gets there by generation exactly tracking real
+shortfall instead of a parallel guess. The per-line, per-contract, and
+dashboard-wide auto-fill buttons all pick this up for free, since all
+three already funnel through the same `autoFillScheduleLine()`. The
+contract page's "Auto-fill remaining" button no longer hides itself when a
+line currently has zero eligible breaks — that used to mean "nothing to
+do," and now means "click it and it'll make some."
+
+**Bug found the same day, running auto-fill against the real Autumn Beck
+Blackledge contract for the first time with provisioning live: a program
+with no local opportunities at all wasted 25 rundowns before saying so.**
+The Tuesday schedule line targets All Things Considered — a real gap
+already on record (CLAUDE.md's Log domain redesign note: only Morning
+Edition ever got real local-opportunity data seeded; "deliberately nothing
+for the other twelve seeded clocks, since inventing opportunities without
+WUWF confirmation would be exactly the mistake this correction fixes").
+ATC's clock genuinely has zero `log_local_opportunities` rows, so there is
+no slot anywhere on it a credit could ever occupy — correct, expected
+behavior given the data. What wasn't correct: `provisionRundownsForDates()`
+still generated a rundown for all 25 remaining Tuesdays before discovering
+each one was useless, producing "generated 99 rundowns... placed 75
+credits... more are still needed" with no explanation, and leaving 25
+empty rundowns behind as clutter. Fixed by checking, before generating,
+whether the resolved clock version has _any_ local opportunity permitting
+`underwriting_credit` — if not, the date is reported as unschedulable
+immediately, the same bucket as "no schedule entry" or "no clock version
+in effect," and no rundown is written. The 25 empty ATC rundowns this
+produced were deleted from preview (production was never touched — it has
+no ATC rundowns at all). Tuesday genuinely can't be auto-filled until a
+Log producer adds a local opportunity to All Things Considered's own clock
+— ATC airs 3:00–5:00pm and the contract wants ~4:48pm, so an avail around
+the 108-minute mark would match, the same mechanism Morning Edition's own
+opportunities already use.
+
+**Log: local opportunities redesigned to be slot-keyed, not an
+independently-authored time range (2026-08-10)** — a direct product
+correction, not a bug fix, requested directly after the domain redesign
+above had already shipped. `20260809170000_log_local_opportunities_slot_
+based.sql`: `log_local_opportunities` dropped every fillability column it
+carried alongside its own offsets (`position`/`label`/`timing_mode`/
+`start_offset_seconds`/`duration_seconds`/`earliest_`/`latest_start_offset_
+seconds`) in favor of a single `slot_id` reference (unique — one opportunity
+per slot). Offset, duration, timing mode, and label are now always the
+referenced network slot's own immutable values, so an opportunity can never
+drift out of sync with the clock it describes the way a hand-typed offset
+could — the exact bug class three separate clock-seed correction migrations
+already had to fix. A real local opportunity that spans more than one
+network element (the Morning Edition story window that covers a cross-promo
+tail, a Music Bed, and both Newscast 3 and 4 — see the domain redesign note
+above) is now several separate slot-keyed rows, one per slot, rather than
+one row with a custom range; `20260809180000_log_morning_edition_
+opportunities_slot_based.sql` re-seeds Morning Edition's 5 real
+opportunities under this shape (the 4-slot story window becoming 4 rows),
+resolving each slot by `(clock_version_id, start_offset_seconds)` rather
+than a hardcoded id — `log_clock_slots.id` is `gen_random_uuid()`-assigned
+per environment, confirmed directly when a first attempt hardcoding
+preview's own slot ids failed its FK constraint immediately against
+production's different ids for the identical clock. Confirmed directly with
+WUWF: any slot marked eligible this way — including a required one, like a
+newscast — can always be filled independently on its own; there is no "only
+as part of a group" mode, which is what makes per-slot rows a strictly more
+expressive replacement for the custom-range model, not a lossy one.
+
+The same migration also drops `allow_multiple` entirely, from both
+`log_local_opportunities` and `log_rundown_breaks` — direct product
+correction again: "there is never a scenario in which we need to restrain a
+slot to a single item." The only real limit on how many items occupy a
+break is remaining duration, already computed by `lib/log/timing.ts`, never
+an authored flag. This also simplified `lib/log/mid-broadcast.ts` (its
+capacity checks are gone, not just their `allow_multiple` branch) and the
+Underwriting boundary functions that inherited the same gate
+(`log_place_underwriting_credit`, `log_list_placeable_rundown_breaks`,
+`log_relocate_underwriting_credit`) — all `create or replace`'d in the same
+migration, alongside `log_get_program_schedule_context`, which needed a
+join to `log_clock_slots` to keep reading opportunity offset/duration/label/
+timing at all once those columns moved off `log_local_opportunities`.
+
+Spillover (`lib/log/timing.ts`'s `computeBreakStatuses`) was reworked at the
+same time, correcting a polarity mistake caught mid-design: silent
+absorption belongs on a **required** target, not an optional one —
+`requirement = 'required'` means local content is mandatory in that window,
+full stop, so an overrunning item's spillover (itself local content)
+satisfies that silently (`covered_by_previous`). `requirement = 'optional'`
+usually sits over real network content (a newscast, a segment) nobody chose
+to preempt this time, so spillover reaching it is still absorbed but now
+flagged (`preempted_by_previous`, a new status, surfaced as a distinct
+warning-colored badge and tallied in `computeRundownSummary`'s new
+`preemptedBreaks` count) rather than silently hidden — nothing blocks the
+overrun, per the standing "human control during live radio" principle, it's
+just not disguised as a non-event. Spillover also now chains through as
+many contiguous, empty breaks as it takes (previously capped at one hop) and
+partially consumes a break's capacity rather than an all-or-nothing "does
+the whole overage fit in the very next break" check — a break that absorbs
+only part of an overrun still has its own remaining capacity open for
+something else. A source break's own overrun reads `filled` only once the
+chain fully accounts for it; if the chain runs out of eligible neighbors
+first, the source stays honestly `over`, independent of whatever partial
+credit a downstream break still gets for what it did absorb. `docs/log-design.md` §6 ("Overruns
+and content that spans several breaks") is the design-doc account of these
+rules, with the 29:30 story window as its worked example — added
+2026-09-24, after this behavior had gone undocumented there.
+
+The station's legal ID is now auto-placed at rundown-generation time
+instead of being one more required opportunity a host has to remember:
+`lib/log/rundown-generation.ts`'s `selectLegalIdBreakDraftsPerHour` picks,
+for each hour a rundown spans, whichever local-opportunity break ends
+latest — the network's own trailing Silence/Music Bed slot right before the
+next hour's Billboard, which every seeded clock already has (see the
+clock-seed correction history) — and `rundown-actions.ts`'s
+`placeLegalIdIfApplicable` inserts the single canonical "house" legal ID
+content item (`lib/log/queries.ts`'s `getCanonicalLegalIdContentItem`, the
+most-recently-approved `log_content_items` row with `content_type =
+'legal_id'`) into it, best-effort — a failure never fails the rundown
+generation that triggered it, matching this repo's "an embedding failure is
+never fatal to the write that triggered it" precedent for a secondary
+enhancement layered on an already-succeeded primary write. Requires a
+producer to have separately marked that final slot locally eligible, same
+as any other opportunity — there's no special-cased "always insert a break
+here" path.
+
+The clock template detail screen's local-opportunity authoring UI moved
+from a freestanding "add an opportunity" form with typed offsets to an
+inline "mark eligible" action per row of the network-structure table
+(`src/app/(portal)/log/clocks/[id]/page.tsx`) — picking a slot is now
+selecting a table row, not retyping its offset/duration by hand, which is
+also what makes the offset-drift bug class structurally impossible rather
+than just less likely. `permitted_content_types` also became a checkbox
+group (`PERMITTED_CONTENT_TYPE_OPTIONS` in `clock-actions.ts` — every
+`LogContentType` plus the two sentinel values the column also has to accept,
+`underwriting_credit` and `weather`) instead of a free-text comma-separated
+input, closing a real typo-silently-permits-nothing gap the old form had.
+
+Both migrations found real preview and production data that needed
+explicit handling, not silent overwriting: preview carried 77 generated
+rundowns/1520 breaks/86 `uw_scheduled_placements` from exercising auto-fill
+against the real Autumn Beck Blackledge contract, and production carried a
+smaller version of the same (4 rundowns, 3 placements, 2
+`log_broadcast_events` from earlier mid-broadcast testing) — all cleared
+before the `ALTER TABLE`, since every `log_rundown_breaks` row's
+`scheduled_at`/`available_duration_seconds`/`network_rejoin_at` had been
+computed from opportunity columns about to be dropped, and zero broadcast
+events existed in preview (two harmless test rows in production) — the same
+"no real production data yet" status this exact tool's `uw_scheduled_
+placements` table has already been cleared under twice before.
+
+**Log: legal-ID auto-placement generalized into content assignments
+(2026-08-10), superseding the note above.** The previous mechanism
+(`selectLegalIdBreakDraftsPerHour`/`placeLegalIdIfApplicable`/
+`getCanonicalLegalIdContentItem`, all now deleted) had two real bugs, both
+found by comparing preview data against what the app claimed rather than by
+inspection: it only ever ran from the Log route's own `generateRundown`/
+`syncRundownBreaks` — never from Underwriting's own auto-fill rundown
+provisioning (`lib/underwriting/rundown-provisioning.ts` →
+`log_generate_rundown_for_underwriting()`), so **0 of the 75 Morning
+Edition rundowns auto-fill had generated in preview ever got a legal ID
+placed**; and its "whichever marked opportunity has the latest
+`network_rejoin_at` is the trailing pre-Billboard slot" heuristic assumed a
+producer had marked that exact slot eligible, which for Morning Edition
+nobody had — it would have targeted the ~49:35 story window instead (whose
+`permitted_content_types` didn't even include `legal_id`), ignoring the
+purpose-built `required` 42:30 opportunity that already existed for this.
+
+The fix generalizes rather than patches: `log_opportunity_assignments`
+(`20260810120000_log_opportunity_assignments.sql`) pins a specific
+content-library item to a specific local opportunity, with an optional
+`hour_index` (which repetition of the opportunity within a multi-hour
+shift — null means every hour) and `days_of_week` (empty means every day,
+same convention as `log_schedule.days_of_week`) — the same shape that
+covers Unearthing Florida ("Fridays during the second Morning Edition
+hour") and BirdNote ("daily during the second Morning Edition hour"), two
+real content items that had sat in the library since Phase 2 unused by
+anything. RLS is producer-gated select/insert/update, same shape as
+`log_local_opportunities`; no delete, deactivate via `active` instead.
+Legal ID is now just one assignment row, not a special case — the
+migration conditionally backfills it (pins whichever `log_content_items`
+row is the most-recently-approved `legal_id` to whatever `required`
+opportunity currently permits `legal_id`) only where both pieces already
+exist, which turned out to be true on production (a real approved legal ID
+item already existed there) but not on preview, where earlier ad hoc
+testing had edited the 42:30 opportunity's `permitted_content_types` away
+from `legal_id` entirely — preview's pin was created by hand afterward,
+pointed at the clock's real top-of-hour trailing Music Bed slot instead
+(the same slot the old heuristic could never reliably find), verified via
+a full generate-and-place round trip against the live preview database
+before being kept.
+
+`lib/log/opportunity-assignments.ts` (pure, tested, no Supabase import) is
+the shared logic both placement paths call directly rather than duplicate
+or reimplement in SQL: `selectApplicableAssignments` matches an
+assignment against a break's opportunity/hour/day, and
+`planAssignedContentPlacements` turns a freshly-generated set of breaks
+into the `log_rundown_items` rows to insert, given assignments and content
+items (with components, for `computeTotalDurationSeconds`) supplied by the
+caller. `lib/log/opportunity-assignment-placement.ts`'s `placeAssignedContent`
+is the thin Log-access-session wrapper (ordinary RLS-scoped reads/write) used
+by `rundown-actions.ts`. Underwriting's own auto-fill provisioning needed a
+real two-way RLS boundary instead, the same shape as every other Log/
+Underwriting crossing: `log_get_program_schedule_context()` was widened to
+also return active opportunity assignments and the content items they
+reference (`20260810130000_log_opportunity_assignment_placement_boundary.sql`),
+and a new `log_insert_rundown_items_for_underwriting()` writes whatever
+`planAssignedContentPlacements` computes in TS past RLS — nothing about
+_what_ to place is decided in SQL, only the read and the write cross the
+boundary. That same migration's first version of the widened
+`log_get_program_schedule_context()` shipped a real regression, caught
+immediately while verifying the feature end to end against preview before
+it reached production: it was based on the function's shape from before
+`20260809170000_log_local_opportunities_slot_based.sql` had already
+rewritten its `local_opportunities` query to join `log_clock_slots` (that
+migration's own comment on the function said as much), so every call
+started erroring with "column o.position does not exist." Fixed the same
+day by `20260810140000_log_get_program_schedule_context_slot_join_fix.sql`,
+applied to both projects before the broken version ever reached production.
+
+The clock detail screen (`/log/clocks/[id]`) gained a "Pin content" action
+per eligible slot — a content-item picker plus the same hour/day scoping —
+alongside the existing "Mark eligible"/"Edit" actions, with pinned items
+listed inline and individually removable.
+
+**Log: content library field trim (2026-08-10).** A direct review of
+`log_content_items`/`log_content_components`, prompted by a user question
+about what several of its fields were actually for, found seven columns
+that were captured on the create/edit form and echoed back on the library
+detail page's `<dl>` but never read by any filter, sort, or eligibility
+decision anywhere in the app or in a SQL function:
+`priority`/`frequency_guidance`/`reusable`/`geography_tags`/`subject_tags`/
+`reporter_or_editor`, plus `dad_cart_number` (on both tables) — which was,
+if anything, worse off than the rest, since it was never even surfaced on
+the rundown/console screen where a host would actually need to look up
+what to cue in ENCO/DAD. `eligible_program_ids` was the one field of the
+seven actually load-bearing — `lib/log/rundown-eligibility.ts` used it to
+restrict a content item to specific programs — but it was cut too, on
+review: there is no real WUWF content that is only eligible on specific
+programs, so modeling that restriction was a mistaken assumption from when
+the content library was first built, not a real requirement.
+`20260810150000_log_content_library_field_trim.sql` drops all eight
+columns; `isContentItemEligibleForSlot`/`filterEligibleContent` lost the
+program-matching check and its `programId` parameter along with it, and
+the content-item form, library detail page, and component form all lost
+the corresponding fields. `community_issue_tags` is untouched — not part
+of this review, and still free text pending FCC Reporting's taxonomy per
+docs/log-design.md §6.
+
+**Log: importing WUWF's existing DAD cut library (2026-08-26).** Producers
+can now bring the station's existing DAD cut library into the content
+library at `/log/library/import`, rather than re-entering ~1,000 items by
+hand — upload DAD's Library screen → Generate Reports → "Standard Library"
+export (a fixed-width text report of cut/title/length/group) and,
+optionally, its companion Groups report, preview the plan, confirm.
+`dad_cart_number` — dropped from `log_content_items`/`log_content_components`
+in the field-trim note above for being captured-but-unused — is back
+(`20260826120000_log_content_library_dad_import.sql`), this time because the
+importer actually needs it, as its reuse-on-reimport key: a cart already
+imported is updated in place, never duplicated. `log_content_items` also
+gained `dad_group`, tagging every imported/synthesized row with the DAD
+group(s) it came from.
+
+Per-group routing was worked out with WUWF directly against the real
+library (977 cuts across 16 groups actually in use — `ALL`/`COMMANDS`/
+`FUTURE` from the groups database carry none), not guessed from group names:
+`UNEARTH`/`ECO` (WUWF's own produced features) → `interview_feature`;
+`CARS`/`EVENTS` → `station_promo`; `FALL`/`SPRING` (pledge-drive spots) →
+`membership_message`; `PPA` (audio spots — prospecting and
+underwriter-informational alike) → `psa`, imported as ordinary content
+items, deliberately **not** routed through Underwriting & Traffic's
+`uw_copy`/`uw_underwriters` tables — there is no copy to maintain, and doing
+so would have meant guessing real underwriter attribution from title text
+alone (this library export carries no separate underwriter/agency field,
+unlike the program-log export the existing importer already handles);
+`NPRTHEME` → `program_promo`, one item per cut, unchanged. `FLNEWS`/`TEMP`/
+`TEST`/`SONGS`/`ACOUSTIC` are skipped outright (dated news actualities,
+scratch files, test tones, and filler music aren't durable library
+content) — `SONGS` in particular has real cuts in the library but no row in
+WUWF's own groups database export, worth checking on WUWF's end. A group
+this table has never seen is skipped too, with a warning, rather than
+silently guessed at.
+
+`GENERIC`/`DAILY`/`WEEKLY` needed a different treatment: these hold
+per-date or per-episode-numbered program promos ("Fresh Air Wed Aug 26",
+"Sci Fri Gen 1-3"), not durable content on their own. `lib/log/dad-library-
+plan.ts`'s `buildDadLibraryPlan` matches each cut's title against
+`log_programs` (reusing `program-log-plan.ts`'s existing `matchProgram`,
+plus a curated abbreviation-prefix table for titles that don't contain a
+program's full name, e.g. "atc" → All Things Considered, "1a" → 1A) and
+collapses every matched cut into **one evergreen `program_promo` per
+program** — a `recorded_audio` component referencing one representative
+DAD cart plus a required `live_outro` component whose script is synthesized
+from that program's real `log_schedule` entry (`describeScheduleTiming`,
+e.g. "Join us for Science Friday, Friday afternoon at 1:00 PM") — static,
+editable text, not a live template. A cut that matches no Log program
+(generic station messaging like "Smart Speaker", or a name with no program
+at all, like "Thistle", or a genuinely ambiguous one like bare "Weekend
+Edition" with no Sat/Sun qualifier) still gets imported, just as an
+ordinary one-per-cut `station_promo` rather than folded into a canonical
+promo — verified end to end against the real export (977 cuts → 33
+canonical promos consuming 71 cuts, 856 direct items including 30 sensible
+fallbacks, every count reconciling) before this shipped.
+
+**Log: relocating an underwriting credit could fail outright — two separate
+bugs, both found from one real user report (2026-08-27).**
+
+The report was "moving a credit to an earlier break doesn't work." The
+first hypothesis — `lib/log/mid-broadcast.ts`'s
+`isValidCreditRelocationDestination()` carrying the same "reject a
+destination already in the past, when live" gate `isValidMoveDestination()`
+applies to ordinary content moves — was real (see below) but turned out not
+to be what the user hit: they saw the failure _before_ clicking "Start
+broadcast," when the rundown isn't live and that gate is never even
+evaluated. Reproducing the exact case directly against production (`select
+log_relocate_underwriting_credit(...)` inside a rolled-back transaction,
+impersonating the reporting host's own `auth.uid()`) found the real cause:
+the credit lived on a program-log-_imported_ rundown
+(`log_rundowns.source = 'imported'`), and every one of its
+`underwriting_credit` items had **no `uw_scheduled_placements` row at all** —
+exactly the placement-less state the program-log import's own design
+document already describes (see that milestone's CLAUDE.md entry and
+`log_delete_unplaced_credit_item()`, which already treats it as normal).
+`log_relocate_underwriting_credit()` (`20260809130000_underwriting_credit_
+relocation.sql`, last replaced by `20260809170000_log_local_opportunities_
+slot_based.sql`) never accounted for that state: it required a placement
+row unconditionally and returned `unknown_placement` otherwise — before
+ever even looking at the destination break. That made relocation fail for
+_every_ imported credit, on _every_ destination, live or not — matching the
+report exactly once the "before Start broadcast" detail ruled out the live
+gate. Fixed by `20260827120000_log_relocate_unplaced_underwriting_credit.sql`:
+the `uw_scheduled_placements` lookup is now optional — a credit with no
+placement just skips the placement-row update (nothing to update) and
+returns a null `placement_id`, mirroring `log_delete_unplaced_credit_item()`'s
+own treatment of the same state. Verified directly against production in a
+rolled-back transaction before and after the fix (`unknown_placement` →
+success, item's `break_id` actually changed) — applied to both projects,
+recorded in `APPLIED.md`, `db:check` passes.
+
+The first hypothesis was still worth fixing in its own right, since it's a
+real, separate bug for the _live_-broadcast case: `isValidCreditRelocationDestination()`'s
+"already in the past, when live" gate is self-defeating for a credit —
+this relocation path exists specifically so a host can recover from a
+missed credit or fix an exception mid-broadcast (see the 2026-08-09
+migration's own header), and by the time that's needed, the nearby breaks
+worth moving into are routinely already behind "now," including nearly
+every "earlier" break, once the rundown is actually live.
+`log_relocate_underwriting_credit()` itself never enforced a time check at
+all (only same-rundown, permitted-content-type, and duration-fit), so this
+was purely a client-side restriction with nothing backing it. Fixed by
+dropping the gate from `isValidCreditRelocationDestination()` entirely —
+ordinary content's own `isValidMoveDestination()` gate is untouched. No
+migration; this half was never enforced in SQL.
+
+**Log: program-log import rebuilt around structured-output AI parsing
+(2026-08-28), superseding the previous entry's parser.** A real DAD export
+had two live-read credits printed back to back with no separating marker
+("Support for WUWF comes from Juan's Flying Burrito... Support for WUWF
+comes from Autumn Beck Blackledge..."), which the deterministic parser
+imported as one merged, misattributed credit. A first fix added a regex
+flag (`CREDIT_INTRO_RE`) plus an optional narrow LLM split behind it — but
+the regex-gated detection meant the AI step could never see a bundle using
+different phrasing than the two patterns already on file (this codebase's
+own fixtures already had two: "Support for WUWF comes from…" and
+"…support for WUWF is provided by…"), so it was never going to generalize.
+Rebuilt from the ground up instead: `program-log-import.ts`'s entire
+row/avail/credit/note classifier is gone, along with the narrow
+`credit-script-splitter.ts` bolt-on.
+
+The replacement splits the job by risk, not by convenience. **Text
+extraction stays deterministic and format-specific** —
+`program-log-docx-text.ts` (plain-text-from-docx-XML, no row
+classification — a real, separate word-gluing bug in the inherited
+`<w:br/>`-handling logic, caught only because this rewrite's own tests
+asserted on literal script text for the first time, is fixed here too) and
+`program-log-pdf-text.ts` (server-only, reusing Sourcework's existing
+native-PDF text extraction — `lib/transcription/providers/native-pdf.ts` —
+rather than building a second way to read a PDF in this codebase;
+deliberately no Mistral OCR fallback, since a DAD export is a born-digital
+printout, not a scan, and standing up a Storage round trip to maybe-OCR a
+case that shouldn't occur isn't worth it yet). Getting characters out of a
+container format is low-risk and mechanical regardless of who reads the
+result afterward, so there was no reason to keep two different bespoke
+per-format row-parsers when the _interpretation_ step was moving to AI
+anyway. **Interpretation — which row is a program start vs. an ordinary
+fill vs. an avail marker, how many credits are bundled into one script, who
+each one is for — is real judgment a fixed pattern can't reliably make**,
+so `program-log-ai-parse.ts` (server-only, reusing the same `gpt-5.6-terra`
+model this repo already pins for structured-output calls in
+`editorial-inquiry/ai.ts`) hands the model the extracted text plus the
+existing underwriter list, once per import, and gets back the day's full
+event list — not just credits.
+
+Two things make this safe to trust despite handing more to the model, not
+less: **verbatim scripts** and **closed-set underwriter matching**. The
+model is never asked to retype a credit's script — only to copy a short
+opening and closing phrase from the source text, which
+`program-log-verification.ts`'s `extractVerifiedSpan` (pure, tested) then
+locates with plain substring search and slices from the _original_ text;
+an unlocatable phrase drops that credit with a warning rather than being
+trusted. Underwriter attribution is a JSON-schema enum of the existing
+underwriter names plus a literal `"NEW"` escape hatch, not free-text
+matched after the fact — the model can recognize "Autumn Beck Blackledge,
+Attorneys of Divorce and Family Law" as the known underwriter "Autumn Beck
+Blackledge" without this code needing its own fuzzy-matching heuristic, and
+without the risk of a wording-drift duplicate that matching two
+independently-extracted free-text names would carry. Every other
+structural claim (a row's printed time, its printed length, a credit's
+cart number) is checked against the extracted text too
+(`verifyAndResolveEvents`, also pure and tested) — a claim that can't be
+verified is dropped (just that field, or the whole credit, or the whole
+row, depending on what's unverifiable), never guessed at. Air date/weekday
+extraction stays a plain deterministic regex
+(`program-log-air-date.ts`) — the title row's pattern is simple and
+consistent, no reason to trade a reliable match for a model's read of the
+same fixed phrase.
+
+Cart-bearing and cart-less credits are no longer two different mechanisms
+in `program-log-plan.ts` (the old parser's real "credit" row vs. an
+avail's ad hoc, unattributed "live_read" script): every credit the AI-parse
+step resolves, whichever kind of row it came from, already carries a
+verified script and a resolved underwriter, so both become the same
+"credit" `ItemPlan` — a DAD cart number is just one more field on it when
+present, not a fork in the logic. This is a real behavior change: a
+cart-less credit now gets full `uw_underwriters`/`uw_copy` attribution the
+same as a cart-bearing one, where it previously became an unattributed
+generic "Underwriting live read" item.
+
+The importer now accepts a Word (.docx) or PDF (.pdf) export
+(`import-actions.ts`'s `extractSourceText`, dispatching on the uploaded
+file's name) — the two formats DAD is expected to produce this report in;
+a scanned/photographed printout is explicitly out of scope (see
+`program-log-pdf-text.ts`'s own comment). The import screen's preview/
+confirm flow, and `import-actions.ts`'s `executeProgramLogImport` (the
+write path), are both unchanged — `ProgramLogPlan`'s shape never changed,
+only how it gets built. **This importer now hard-depends on
+`OPENAI_API_KEY`** — unlike the previous entry's optional bolt-on, there is
+no deterministic fallback path left; an unconfigured key fails the upload
+outright with a clear message rather than silently degrading.
+
+**Log: program-log import — a same-timestamp verification bug, found
+against a live import the same day.** A real day's export failed to
+verify 12 legitimate avail markers ("A row claiming the time 06:06:00
+could not be found in the source text and was skipped"), while the
+credits scheduled inside those same breaks mostly still came through.
+Root cause: `program-log-verification.ts`'s `verifyAndResolveEvents`
+originally located every row with one search position shared across the
+_entire_ array, advancing monotonically as each row verified — which only
+works if the model reports rows in exact document order. An avail marker
+and the credit that fills it print the _identical_ timestamp on adjacent
+lines, and the model doesn't reliably preserve document order for that
+pair (describing "this credit airs in this break" before the break itself
+is a very natural thing for it to do). Reporting the credit first let the
+shared cursor consume both textual occurrences of that timestamp while
+confirming the credit, leaving nothing for the avail to find afterward.
+This was a real design mistake, not a probabilistic model failure to shrug
+off: nothing about JSON Schema (or `strict: true` structured outputs)
+constrains cross-item array order — that's a plain-language prompt
+request the model can and does deviate from — so treating the array's
+emitted order as reliable positional ground truth was never sound.
+
+Fixed by making every row resolve independently of array order and of any
+other row: `findRowIndex` finds _every_ occurrence of a row's printed
+time, then — only when the time repeats — disambiguates using that row's
+own printed description, checked against the same line the time occurred
+on (both text extractors put one row on one line). This has to be
+line-scoped rather than "within N characters": an avail marker and its
+same-time credit sit only a few dozen characters apart, so a merely-nearby
+window is wide enough to match either row's description against the
+_other_ row's timestamp, defeating the disambiguation in exactly the case
+it exists for. A softer nearest-match-within-window fallback covers text
+that isn't cleanly one-row-per-line (real for the PDF path). The returned
+event list is also now explicitly sorted by time before being handed to
+`program-log-plan.ts` — restoring a final sort the pre-AI parser always
+did and this rebuild had dropped — so the planner's own segmentation and
+break-grouping never has to trust the model's emitted order either.
+
+**Log: the rundown screen no longer polls every 15 seconds (2026-09-14).**
+Found while diagnosing a week of "Gateway Timeout" errors: those were the
+production Supabase project (still free-plan Nano compute) stalling under
+load, and the single biggest source of that load was `LogPoller` on
+`/log/rundowns/[id]` — `router.refresh()` every 15s while live (60s
+otherwise), each refresh re-running the page's ~15 Supabase reads, about
+3,000 requests an hour from one open tab. Nothing on that screen needs a
+15-second tick: NPR and weather are allowed to be 15/30 minutes old by
+their own thresholds, a host's own aired/missed taps re-render immediately
+through the action, and a _second_ viewer's taps can lag minutes. The one
+thing the short tick genuinely did was advance the server-computed live
+state (current-break highlight, timing badge, the "coming up" NPR window),
+and that changes only at knowable instants — a break's start, the
+threshold crossings around its rejoin, the shift's end.
+`lib/log/console-timing.ts`'s `liveRefreshInstants()` (pure, tested — one
+test samples both sides of every instant to prove the state is constant
+between them) lists exactly those, and `LogPoller` now takes them as
+`refreshAtISO`, arming a one-shot timer for the next one
+(`nextRefreshDelayMs`, with a grace period past the boundary and a floor so
+a skewed clock can't tight-loop) under a 5-minute fallback interval — so the
+highlight moves _at_ the boundary instead of up to 15s late, at a fraction
+of the requests. `/log/npr` (was 20s) and `/log/weather` (was 60s) got the
+same 5-minute fallback. The countdowns and station clock were already
+client-side ticks and are unchanged. The compute-tier problem itself is a
+Supabase plan decision (upgrade the org and move production off Nano),
+not a code change.
+
+**RLS policies now evaluate `auth.uid()` and the `private.*` access
+predicates once per statement, not once per row (2026-09-14).** Supabase's
+performance advisor had flagged all 207 public policies (`auth_rls_initplan`):
+`using (private.has_log_access(auth.uid()))` is an ordinary function call to
+the planner, so it ran per candidate row — confirmed on production, a plain
+`select id from log_content_items` called that security-definer lookup 925
+times, ~51 ms, for an answer the caller's identity fully determines once.
+Two migrations, generated from `pg_policies` on production and reviewed
+expression by expression rather than retyped (no policy's command, roles, or
+meaning changed; the 16 `storage.objects` bucket policies this repo owns were
+included too, since they have the same shape and the advisor just doesn't
+lint storage): `20260914130000_rls_initplan_wrapping.sql` wraps each
+caller-only predicate in a scalar subquery so it becomes an InitPlan
+(`EXPLAIN ANALYZE` after: `InitPlan 1`, ~2 ms for the same 923 rows), and
+`20260914140000_rls_initplan_wrapping_advisor_form.sql` re-alters the ones
+the advisor still flagged afterward — its check is textual, clearing a
+policy only if the literal `( SELECT auth.uid()` appears, so a whole-call
+wrap still "contained a bare `auth.uid()`" to it. **The convention for any
+new policy**: `(select private.<predicate>((select auth.uid())))` for a
+caller-only predicate and `col = (select auth.uid())` for a column
+comparison; a predicate that genuinely takes a row column
+(`private.ri_is_own_track(track_id, (select auth.uid()))`) stays a per-row
+call with only its `auth.uid()` hoisted. A policy written the old way still
+works, just per-row, and will reappear in the advisor. Both were applied to
+production directly after a full rolled-back dry run there — preview was
+auto-paused and couldn't be unpaused from that session, and caught up on
+2026-09-24 (see `APPLIED.md`). The advisor's other RLS warning, `multiple_permissive_policies` (16
+tables where a `for all` write policy also serves `select` alongside a
+dedicated select policy), is a separate, smaller item and was not touched.
+
+**Log: NPR cache write race fixed, and the lookahead now refreshes before
+air, not just once a rundown is live (2026-09-01).** Two separate gaps, both
+found from a user report of a stale NPR lookahead that only cleared after a
+manual refresh. First, a real race in the cache write itself:
+`lib/log/npr.ts`'s `replaceEpisodeCache()` issued a delete and a separate
+insert as two independent REST round trips, not one transaction, leaving a
+real reader-visible window where this program+date had no cached episode at
+all — two clients polling the same rundown could both cross the 15-minute
+staleness threshold at once and call it concurrently, widening that window.
+`20260901120000_log_npr_episode_cache_atomic.sql` adds
+`log_replace_npr_episode_cache()`, a single `security invoker` function
+(nothing here crosses an RLS boundary — `log_npr_episodes`/
+`log_npr_episode_items` RLS is already member-level) doing the delete,
+insert, and items insert as one atomic call; `replaceEpisodeCache()` now
+calls it via `supabase.rpc(...)` instead of three separate `.from()` calls.
+Second, and the actual root cause of the report: `getNprEpisodeForProgramOnDate`
+always ran its staleness check on every render regardless of broadcast
+status, but `<LogPoller>` — the only thing that forces a re-render on this
+screen — was mounted only `{live && ...}`, i.e. only once a rundown was
+`in_progress`/`submitted`. A producer reviewing or building a rundown
+before air had no mechanism to ever re-render the page and re-trigger that
+check, so a 15-minute-stale NPR cache stayed stale indefinitely until a
+manual page reload. `LogPoller` is now mounted unconditionally on
+`/log/rundowns/[id]`, at its existing 15s interval while live and a lighter
+60s interval otherwise. `src/lib/log/providers/npr.ts`'s header comment,
+which claimed "no live CDS token to verify against yet," was also corrected
+— WUWF's production CDS token is confirmed live (real cached episode data
+checked directly against production), so this integration is no longer
+unverified the way `lib/remote-interview/daily.ts`'s still is.
+
+**Log: program-log import — every underwriting credit in an imported shift
+came through doubled, a third distinct bug in this same area
+(2026-09-03).** Confirmed directly against production: a fresh import of
+that day's DAD export left every break holding two identical
+`log_rundown_items` rows per credit — same `underwriting_copy_id`, same
+position pattern repeated (`item1, item2, item1, item2` for a two-credit
+break; the same single item twice for a one-credit break) — 16 duplicate
+pairs across one day's rundowns, none yet referenced by a placement or
+broadcast event, so all were safe to delete directly (both projects
+checked; only production had any). Root cause, traced back to
+`program-log-verification.ts`'s `verifyAndResolveEvents`: the model
+reported the same real credit twice for one window — once bundled inline
+on the avail row's own `credits` array, and again as a separate,
+independently-emitted "credit" row a moment later — and **both readings
+verified successfully**, because the DAD export's own script-in-two-places
+quirk (the "credit-script row that lands in the following page-table" this
+importer's history already names as this format's one real parsing trap)
+means the text each one points at is, in fact, genuinely there twice nearby
+in the source document. Nothing before this fix ever cross-checked one
+credit against another — every prior verification step (`extractVerifiedSpan`,
+`findRowIndex`) is deliberately scoped to confirming one row against the
+source text, never against a sibling row.
+
+Fixed by a new final pass, `dropDuplicateCredits`, run once after every
+event has resolved and the list is sorted: two credits sharing the exact
+same `timeSeconds` **and** a byte-identical (whitespace-normalized) script
+are treated as one credit described twice, keeping the first and dropping
+the rest with a warning. This is deliberately narrower than deduping by
+underwriter+label+cart — `script` is always a verbatim excerpt of the
+source (never model-generated), so an exact match at the same instant can
+only mean the same words were located twice, not two different credits
+that happen to share attribution; a _later_ re-airing of the identical
+copy at a _different_ time is untouched, since that's real repeated demand
+across the day that `program-log-plan.ts`'s own airings count still needs
+to see. A "credit"-kind row emptied entirely by this drop is removed
+outright (it has nothing left to contribute, and its own warning already
+explains why) — but only when the drop is what emptied it; a row already
+empty from an earlier, unrelated verification failure (an unrecognized
+underwriter, an unverifiable phrase) is untouched, keeping its
+already-established "kept with zero credits, warned separately" shape. No
+migration; this is a pure parsing-layer fix,
+`program-log-verification.test.ts` covers both the dedup itself and the
+adjacent case it must not break (a genuine same-copy re-airing later the
+same day).
+
+**Log: rundown builder — keyboard nav on the fill dropdown (2026-09-03).**
+A direct report against the builder's insertion-point content picker
+(`insertion-point.tsx`), a `<ul>` of `<button>`s over a search box rather
+than a native `<select>` (see this file's own header comment on why — a
+break's eligible content can run to hundreds of items). Nothing wired the
+arrow keys or Enter to it at all, so a host had to reach for the mouse for
+every pick; it's now a proper combobox (`role="combobox"`/`"listbox"`/
+`"option"`, `aria-activedescendant`) with a `highlightedIndex` moved by
+ArrowUp/ArrowDown (wrapping), Enter picks the highlighted result (or the
+first one, with nothing highlighted yet), and the highlighted row scrolls
+into view in the `max-h-48` scrolling list.
+`log.rundown.buildItem`'s capability handler (`lib/log/capabilities.ts`)
+also had three independent reads (the break, its existing items, the
+content item — none depends on either of the others) running as three
+sequential round trips instead of one `Promise.all`, now parallelized.
+
+**Log couldn't load, again — the exact bug `996fbc2` (2026-08-26) already
+fixed, reintroduced the same day as the note above and reverted the next
+(2026-09-04).** The 2026-09-03 "latency fix" work above originally also
+"scoped" `listContentItemsWithComponents()`'s `log_content_components`
+read to `.in("content_item_id", items.map(...))`, reasoning that an
+unconditional fetch was wasteful now that the DAD import had grown the
+library to ~900 items — without reading that function's own docstring
+first, which already explained, in so many words, that this exact change
+breaks the screen: an `.in()` list built from an unpaginated 900+-row item
+set is a query string long enough for Supabase/PostgREST to reject
+outright with a bare "Bad Request," and that's precisely the failure
+`996fbc2` fixed by going unconditional on purpose. Confirmed by a live user
+report ("Log couldn't load") the next day, and by
+`mcp__Vercel__get_runtime_errors` showing the identical error signature
+first seen 2026-08-26 and again immediately after this branch reached
+production. Reverted back to the unconditional fetch `996fbc2` already
+established — `log_content_components` has on the order of 70 rows total
+(a handful of items ever have more than one component), so fetching it
+whole and matching client-side is the correct shape, not a stopgap, and is
+immune to how large the item list grows. The lesson this cost a production
+outage to relearn: read a function's own docstring — especially one that
+already names a specific past failure by shape — before "optimizing"
+anything about it, and check `git log -p` on a file before assuming an
+existing pattern is naive rather than a scar. This branch had already been
+merged (PR #166) by the time this was caught, so the fix landed as a fresh
+commit reusing the same branch name per this repo's own already-merged-PR
+protocol, not a re-opened PR.
+
+**Log: the per-break NPR look-ahead picker now falls forward to the next
+non-empty window, superseding this file's own 2026-08-24 note that it
+"keeps its strict break-window scope, per direct product feedback"
+(2026-09-03).** Reported and confirmed against a live rundown: the break
+right before Segment B showed no look-ahead chips at all. Root cause,
+traced with the real clock and break data: `storiesAfterBreak(index)`
+windows a break's own look-ahead to `[this break's start, the *very next*
+rundown break's start)` — and Morning Edition's own clock routinely sits
+several short, story-unrelated breaks (`FA Promo`, `ATC Promo`) between one
+avail and the next. The break just before Segment B was one of these: its
+own next break, 90 seconds later, was `ATC Promo`, itself well before
+Segment B's real window even opened — so the strict window was correctly
+computed, just structurally too narrow to ever contain anything. The
+sidebar's own "coming up" widget hit the identical problem in
+2026-08-24 and was fixed by walking break-to-break windows forward to the
+first non-empty one; the per-break picker was deliberately left on its
+strict scope at the time, per direct product feedback, with no rationale
+recorded for why. A later, more specific report is that a host expects a
+break's own look-ahead to reflect what's actually coming up next, not go
+blank because of an intervening promo — so `storiesAfterBreakOrNext()`
+(`rundowns/[id]/page.tsx`) now applies the sidebar's exact same forward-walk
+to `buildInsertConfig`'s `nprItems`, anchored to one specific break instead
+of "whichever break is current." No migration; a pure read-side change.
+
+**Log: a mid-broadcast addition can now be kept in the library
+(2026-09-22).** A host adding content from the rundown screen during a
+broadcast often wants it to outlive the day, and neither existing path did
+that: a one-off live read is a `log_rundown_items` row with its title/
+script/duration inline (`item_kind = 'live_read'`) that vanishes with its
+rundown, and a library item edited for one airing keeps that wording only
+on the override columns. Two actions in `rundown-actions.ts` close both
+halves, no migration: `saveLiveReadToLibrary` writes the read to
+`log_content_items` (as `approved`, not the table's `draft` default —
+`rundown-eligibility.ts` only offers approved items, so a draft would
+silently never appear in tomorrow's picker; content authorship is already
+open to every member, so this widens nothing) and **converts the rundown
+item in place** to `item_kind = 'content'` pointing at it, rather than
+copying — `log_broadcast_events` references the item id, so an airing
+already marked aired counts as the library item's own history instead of
+forking the read into two things. `createLiveReadItem`'s new "Keep in
+library" checkbox reaches the same end state up front. Both file the read
+as `host_created` unless the host picks another type, and both refuse an
+NPR look-ahead (`source_npr_item_id` set), which is dated by nature.
+`applyOverridesToLibraryItem` is the mirror image for a library item: it
+writes `override_script` back onto the master `script` and clears the
+override; `override_duration_seconds` is written back to
+`expected_duration_seconds` only when the item has no components, since
+`computeTotalDurationSeconds` ignores that column once components exist —
+for such an item the duration override stays on the airing and only the
+script is applied. Both live in the item card's existing ⋮ menu
+(`rundown-item-card.tsx`), "Save to library…" as a third swap-the-panel
+view with a content-type picker, alongside Edit / Move to… / Remove.
+
+**Log: program-log import rebuilt as a single model call, with no
+deterministic parsing, verification, or dedup layer (2026-09-22),
+superseding the three entries above.** Six more imports (2026-09-10 through
+2026-09-22) had doubled credits: the same-second dedup only ever matched a
+break's first credit row, since the second prints thirty seconds after the
+avail marker. That made three of this importer's four post-rebuild bugs
+bugs in the layer that existed to guard the model, with none of them the
+model fabricating anything — so the layer is gone rather than patched
+again. Read `docs/log-design.md` §8's 2026-09-22 revision before touching
+any of it; this note is a pointer. The shape: `program-log-ai-import.ts`
+(server-only) sends the uploaded **PDF as a native file input** — Word
+exports are no longer accepted, `fflate` is removed — and gets back the
+plan itself (rundowns → breaks → items, every reference resolved) as one
+strict JSON schema, `program-log-plan.ts`'s `buildPlanOutputSchema`. An
+item exists in exactly one break by construction, which is what makes the
+double-report impossible. Context is the instructions plus the underwriter
+names as the schema's enum; the schedule, an underwriter's copy, and
+content-library candidates arrive through three function tools in
+`program-log-lookups.ts` (pure, tested), so the model sees what the
+document mentions, not the whole library, and rounds chain through
+`previous_response_id` so the PDF goes once. `assembleProgramLogPlan`
+(pure, tested) only resolves the ids the model named against the lists the
+tools served — the foreign-key check, done early — groups credits into copy
+plans, and counts airings from placed items; the executor and the
+security-definer find-or-create functions are unchanged and remain the
+idempotency boundary. The preview now lists every break and item and shows
+a new copy's whole script: with nothing checking the model's reading, that
+review is the check. `matchProgram` moved to `dad-library-plan.ts`, its
+only remaining user. Six duplicate items were deleted from production
+directly (none had a broadcast event or placement); preview could not be
+reached (Postgres password authentication failed), so check it separately.
+No migration. The on-demand eval (`npm run eval:program-log`,
+`scripts/program-log-eval/` — two real exports as PDF, a reviewed
+expected-plan digest per export once recorded, skipped without
+`OPENAI_API_KEY` and a Supabase secret key) is how this importer's quality
+is measured; its README says how to record an expected plan. Neither the
+model call nor the eval has been run from a sandbox yet — the first run is
+the first real test.
+
+**Log: program-log import — the export's script prevails, and the preview
+is laid out by what needs review (2026-09-22, from the first real preview
+of the rebuilt importer).** Every "script differs from the library's" flag
+on that preview turned out to be the _library_ being wrong — copy rows
+carrying text glued across line breaks by the pre-2026-08-28 Word
+extractor, and one holding two credits merged by the pre-AI parser — while
+the import reused those rows untouched and hosts read the damaged text on
+air. The design doc's "the export is not where copy gets edited from"
+assumed Underwriting staff maintaining copy in their tool, which isn't yet
+how WUWF works; DAD is the source of truth for wording, and the export is
+how it reaches this database.
+`20260922120000_log_import_copy_script_updates.sql` (applied to production;
+preview was unreachable — Postgres password authentication failing — until
+2026-09-24, when it was applied there too) makes the
+find-or-create function update a matched row's script and adds
+`log_import_update_underwriting_copy()` for copy the model resolved by id;
+`executeProgramLogImport` calls it for every reused copy marked
+`scriptChanged`, and reports `copyUpdated`. Only the script changes — never
+label, cart, attribution, or approval — and there is no version history.
+The preview (`import/import-client.tsx`) now leads with a summary strip and
+the unresolved rows, shows only filled breaks per program with empty
+windows folded away, expands new copy and library updates (old and new
+text side by side), and folds unchanged reuse and operational notes. See
+`docs/log-design.md` §8's second 2026-09-22 revision.
+
+**Log: read-aloud items plan at an estimated read time (2026-09-24).** The
+export prints every credit at its booked length — `00:30` for a 33-word
+script and a 69-word one alike — so planning breaks from it overstated how
+full they were. `lib/log/read-time.ts` (pure, tested, 160 words per minute)
+estimates from word count, and the import plans every read-aloud credit and
+live read at that estimate; the model flags `plays_recording` for text that
+is instructions to play a recorded spot, which keeps its printed length.
+The estimate is also the copy's own duration: `uw_copy.duration_seconds`
+holds it for new imported copy, an import that changes a copy row's script
+replaces its duration with the new estimate
+(`20260924120000_log_import_copy_duration_estimates.sql`), the Underwriting
+copy form uses it when a live read's duration is left blank, and existing
+copy was backfilled in production on 2026-09-24 — except the two
+recorded-spot instructions (Dauphin Island Sea Lab, TLC Caregiver).
+OsteoStrong's "Wed Carpool" copy, which still held Autumn Beck
+Blackledge's Copy 1 glued onto its end from the pre-AI parser, was trimmed
+to its own credit (text as the 2026-09-23 export prints it) the same day.
+Parenthesized host directions aren't counted as read words. Credit cards on the rundown
+screen are now editable for duration only (the script stays the copy's), so
+a host can replace the estimate with a timed length; clearing the override
+returns to the estimate. A hand-added live read with the duration left
+blank uses the estimate too. Placement from Underwriting
+(`log_place_underwriting_credit()`) plans at the copy's stored length, which
+is now that estimate.
+The same pass joined the PDF's column line wraps in imported scripts
+(`cleanScript`), which had been stored as literal newlines.
+
+**Log: program-log import — breaks come from the clock, content from the
+export (2026-09-24), superseding the 2026-08-21 entry's point (1).** An
+imported rundown used to carry the export's printed windows as breaks plus
+the clock's opportunity breaks deduplicated by window overlap, so its
+breaks didn't correspond to the clock. `lib/log/program-log-clock-
+alignment.ts` (pure, tested) now aligns the model's breaks onto the
+program's clock at preview time: every marked opportunity gets its normal
+break; an export break starting at a slot goes into that slot's break —
+the opportunity's if marked, otherwise a break with the slot's own clock
+times (the export prevails on _whether_ something airs there, never on
+the window); the export's own window is used only where the clock has no
+avail-sized slot; empty export avails create nothing. The executor writes
+exactly the aligned breaks and refuses a clock version that changed since
+the preview. `matchDraftsToCoveringBreaks` and its placement wrapper are
+gone. No migration. See `docs/log-design.md` §8's 2026-09-24 revision.
+Superseded the same day by the next entry.
+
+**Log: rundown breaks are keyed to clock slots (2026-09-24).** Read
+`docs/log-slot-keyed-breaks-design.md` before touching break identity, the
+import's alignment, or anything that writes `log_rundown_breaks`; this is a
+pointer. A break is one occurrence of one clock slot: `(rundown_id,
+clock_slot_id, hour_index)` is its unique key
+(`20260924140000_log_slot_keyed_breaks.sql`), and
+`log_derive_rundown_break_times()`, a `before insert or update` trigger,
+derives `scheduled_at`/`available_duration_seconds`/`network_rejoin_at`/
+`label`/`position` from the slot on every write — so **never compute break
+times in application code and expect them to stick**; insert through
+`rundown-generation.ts`'s `breakInsertRow()` (identity plus the
+opportunity's snapshot) and upsert on `BREAK_OCCURRENCE_CONFLICT`. Only a
+floating slot carries a per-day time, `landing_offset_seconds`.
+`local_opportunity_id` is null only for a slot nobody marked where an
+import placed what DAD scheduled; `log_list_placeable_rundown_breaks()`
+skips those, so auto-fill and manual placement fill marked opportunities
+only. The time-based dedup (`selectNonOverlappingBreakDrafts`, the instant
+comparison) is gone; `selectMissingBreakDrafts` compares the key. The
+import reports a row that lands inside a long slot (a placeholder clock)
+as unresolved rather than inventing a window. The rundown screen's "over"
+badge names the network slot the unabsorbed overrun runs into
+(`timing.ts`'s `overrunSeconds`/`overrunStartsAt`/`networkSlotLabelAt`).
+The migration deleted every rundown dated before 2026-09-24 (decided, not
+migrated) and merged or dropped the rest's breaks onto slot occurrences.
+
+**Log: Programs is the one entry point; clocks have no tab (2026-09-29).**
+Nobody starts from a clock — every workflow (scheduling, changing a clock, a
+rundown, a network revision) starts from the program that airs on it — so the
+Clocks tab and list are gone. `/log/clocks` redirects to `/log/programs`; a
+clock's own page (`/log/clocks/[id]`) stays, reached from a program
+(`?from=<programId>` makes its back link read "← Weekend Edition") and keeps
+the Programs tab lit (`nav-tabs.tsx`). The records stay separate — a clock can
+serve several programs and a program several clocks (the shared placeholder
+"Unspecified (awaiting network clock)" serves ~32) — only the navigation
+merged. The Programs list is a table (air time, days, clock thumbnail + link,
+status chip; `lib/log/program-status.ts`, pure and tested, derives
+On a real clock / Needs a clock / Not scheduled from the schedule and matches
+the placeholder **by name**, `PLACEHOLDER_CLOCK_NAME`) with status filter
+chips, `?page=` pagination, and an "Unused clocks" view under it. The program
+page shows each entry's clock face (`components/log/clock-thumb.tsx`, network
+slots only), version in effect, next airing and a This-week strip, a callout
+for a placeholder clock, and — producers — Change clock / Edit entry
+(`schedule/[entryId]/edit`, sharing `schedule-entry-form.tsx` with the create
+page; `updateScheduleEntry` leaves `effective_from` alone and already-generated
+rundowns keep the clock they were built from), and Edit program
+(`updateProgram`). The clock page gained a
+"Used by" panel (`listScheduleEntriesForClock`), a Versions panel, and
+"Schedule a program with this clock" (`clocks/[id]/schedule`, a program picker
+that hands off to the program's own schedule form). Clocks are created from a
+program's page at `clocks/new?from=<programId>`. No schema change.
+
+**Log: the week view, the schedule editor, and the clock page's timeline and ring
+(2026-09-29, second pass, from reviewed Design boards).** Read
+`lib/log/clock-view.ts` before touching the clock diagram; this is a pointer.
+_Programs_ gained a **Week | List** toggle (`?view=week&week=`; the list stays the
+default): a Monday–Sunday grid built from `listScheduleEntries()`
+(`lib/log/week-layout.ts`, pure and tested — concurrent programs share a day in
+lanes, a block running past midnight is clipped, not wrapped), each block a button
+whose popover offers Edit schedule / Open program (`programs/week-grid.tsx`).
+_Editing a schedule_ is now the obvious action on a program's page (an Edit button
+on every "When it airs" card, plus "Edit schedule" when there is exactly one live
+entry) and opens `schedule/schedule-editor.tsx`, shared by the new and edit pages:
+day buttons, start, length, dates, clock, and a live preview with the next airing
+and an **advisory** overlap check (`lib/log/schedule-overlap.ts`, pure and tested;
+it warns, never blocks). _The clock page_ is `components/log/clock-viewer.tsx`
+(client) over the pure model in `lib/log/clock-view.ts`: one hour drawn as a
+**Timeline** (a Network lane over a WUWF-local lane) or a **Ring**, the same
+hover/focus-to-read, click-to-select behaviour in both (labels are not printed on
+the shapes), the slot list, and a side panel; view, hour and slot are mirrored into
+`?view=&hour=&slot=` with `history.replaceState`. The palette is deliberately small
+— four neutrals for the network (`SLOT_VISUAL_COLORS`, also used by `ClockThumb`)
+and one accent blue for anything local (dashed = optional, solid = required); the old
+eight-colour double ring is gone. A **multi-hour shift** gets an hour stepper
+(`shiftInfoFromEntries()` takes the longest live schedule entry on the clock): the
+network structure repeats each hour but a pin's `hour_index` scopes it, so the
+panel and the count badge on a local slot follow the chosen hour. A **floating
+break** is a shaded window (`FloatWindow`): a dashed edge can move, a solid edge is
+fixed, the darker area is always part of the break. **Schema limit, not yet
+addressed:** `log_clock_slots` stores a start window plus one fixed duration, so
+today both edges move together; the model already allows "the end stays put while the
+start floats" (an interview segment running long), but expressing it needs
+earliest/latest end on a slot and a corrections migration for the existing floating
+clocks, each checked against its source PDF. Slot forms (Edit eligibility, Pin
+content, Mark eligible) still post the existing `clock-actions.ts` actions; they
+now return to the page with the version/hour/slot preserved through a validated
+`return_query` field (`returnPath()`). `/log/clocks` still redirects to
+`/log/programs`; the standalone Clocks list, `ClockFace` and its two-ring
+component are gone. No schema change.
+
+**Log: the program page, simplified (2026-09-29, third pass).** One edit per
+thing: each schedule entry's **Edit** (which also changes the clock — the
+separate "Change clock" and the header's "Edit schedule" are gone), and
+**Edit** on the Details panel, which now edits the program in place
+(`?edit=1`; `/log/programs/[id]/edit` only redirects there). The "This week"
+strip is gone (it duplicated the entry cards; its "See the full week" link
+moved to the "When it airs" heading, and `buildWeekStrip` went with it); a
+one-time change or holiday shows its dates (`formatEntryDates`) instead of
+seven lit days. **Producers can now edit `npr_collection_id` and
+`npr_feed_start_hour_et`** in that Details edit (`lib/log/program-npr.ts`,
+pure and tested — a blank collection clears the feed hour too), and
+`updateProgram` deletes the program's `log_npr_episodes` from today on when
+the collection changes, so the old collection's stories aren't served until
+they go stale; earlier dates keep theirs. Everyone sees "NPR rundown:
+Connected / Not connected"; producers also see the raw values and a warning
+when another program shares the collection. No schema change.
+
+**Log: one-time clock changes and superseding a rundown (2026-10-09).** Read
+`docs/log-design.md` §3B "One-time clock changes" before touching schedule entries
+or rundown generation; this is a pointer. FPREN Phase I storm coverage is a planned
+schedule change (decided days ahead, whole program airings), not a live switch. The
+existing `log_schedule` override entry carries it; `holiday` is no longer an entry
+type (`log_schedule_entry_type_check`; the enum value stays but may not be stored).
+Which entry is in force is decided only by `resolveEntryInForce` /
+`entriesInForceOn` (`lib/log/schedule.ts`) — don't filter with
+`isScheduleEntryActiveOn` alone. A rundown already generated for those dates is
+switched, not edited or deleted: `log_supersede_rundown()` marks it
+`log_rundowns.superseded_at` (the one-live-rundown-per-date rule is now a partial
+unique index), records each placed credit as missed with the new `special_coverage`
+reason so Traffic's exception and makegood flow reviews it, and a replacement is
+generated (`switchProgramRundowns`, offered on the program page from
+`lib/log/clock-sync.ts`). Any new reader of `log_rundowns` must exclude superseded
+rows (the readers are listed in the design doc). Migrations `20261009160000`,
+`20261009160100` and `20261009160200` are applied to both projects. Not verified
+against FPREN's live page (blocked from the sandbox); the three Phase I clocks still
+have to be entered from FPREN's diagrams.
+
+**Log: NPR and weather live under one Sources tab (2026-09-29).** The NPR and
+Weather tabs are replaced by **Sources** (`/log/sources`): an overview with one
+card per outside feed (state, last updated, what's saved, a link), and each
+feed's existing page moved beneath it (`/log/sources/npr`,
+`/log/sources/weather`, each with a "← Sources" link). `/log/npr` and
+`/log/weather` redirect. `lib/log/data-sources.ts` (pure, tested) is the list of
+sources and the one state rule (`fresh`/`stale`/`never_fetched`/
+`not_configured`); `lib/log/data-source-status.ts` loads each card's status.
+Deliberately only that: each source keeps its own fetching, cache tables, and
+page — NPR is cached per program and show date, weather as one current reading,
+and no shared cache shape fits both. The NPR card reports the most recently
+retrieved episode and never refreshes (there is no single NPR feed to refresh);
+the weather card goes through weather's ordinary lazy-refresh read. A new source
+is an entry in `DATA_SOURCES`, a loader, and a page under `/log/sources/`. No
+schema change.
+
+**Unattended hours: DAD cuts, automated hours, and the DAD log (2026-10-02).**
+Three parts, built in order; this is a pointer. (1) **Every `uw_copy` row has a
+`dad_cut`** (`20261002120000`): a Portal-assigned `NNNNNA` from
+`uw_dad_cut_seq` (never reused; existing copy adopted its RadioTraffic cart
+where unique), or a plain `NNNNN` existing DAD spot picked from the library
+(`log_search_dad_cuts()`) for copy whose script says "please play". A trigger
+assigns the next cut on insert; `execution_kind` comes from the script
+(`private.uw_script_plays_recording()`), never from having a cart — a live
+read airs in automated hours as its recorded version. RadioTraffic is never
+named in the UI; `cart_identifier` stays only for the two transitional
+importers. (2) **Automated hours** (`20261002130000`, `/log/automated-hours`,
+now its own "Automation" tab): hosted is the norm and has no record; only
+exceptions are kept — `log_automated_weekly` (may overlap; union counts) and
+`log_on_air_changes` (automated or live, wins over weekly, never overlap —
+an exclusion constraint). `lib/log/automated-hours.ts`'s `isAutomated()` and
+`private.log_is_automated()` are twins — keep them in step. A trigger on
+`uw_scheduled_placements` refuses cut-less copy in automated time
+(`copy_needs_dad_cut`), and the planner/rotation skip it there
+(`rotation.ts`'s `servesBreak()`); Underwriting members can read both tables
+(`20261002130100`). (3) **The DAD log** (`20261002140000`, `/log/dad-log?date=`,
+reached from Today): `lib/log/dad-export.ts` (pure; its golden test
+round-trips RadioTraffic's real export, `fixtures/100126tWUWF.log`, byte for
+byte — `.gitattributes` keeps its CRLF) builds play rows for automated breaks
+only, blocks a release on anything DAD can't play, and writes the
+fixed-width file. A release is a new version in `log_dad_exports` (append-only)
+with its file in the private `log-exports` bucket; spot numbers are minted
+once per rundown item (`log_assign_dad_spot_numbers()`, from 400000000001)
+and the GUID is the item id. Download is `/api/log/dad-export/[date]`. Not
+yet verified against DAD itself: whether it accepts lettered cuts, ListGen's
+folder, and whether a re-dropped file replaces or merges the day.
+
+**Broadcast roles stack (2026-10-02).** Read `docs/broadcast-roles.md` before
+gating anything in Log or Underwriting & Traffic; this is a pointer. A grant
+now carries a list, `tool_access.tool_roles` (`20261002150000`, applied to
+both projects); `tool_role` is kept equal to its first element by a trigger,
+so the single-role tools read it unchanged. Log's `producer` became
+`program_director` (clocks, schedule, programs, automated hours —
+`private.is_log_producer()` keeps its name and now means this; TypeScript is
+`isProgramDirector`/`assertProgramDirector()`) plus `traffic` (station ID
+pins, with the program director, and the DAD log release —
+`private.is_log_traffic()`, `assertLogTraffic()`). Underwriting gained
+`production` beside `manager`. `private.has_tool_role()` is the one check;
+the admin grant screen shows checkboxes for tools in `lib/tool-roles.ts`'s
+`STACKING_TOOLS`, and `parseToolGrants()` reads both shapes.
+Production's **To record** list: `uw_copy.dad_recorded_at`/`_by`
+(`20261002160000`), set only by production through the
+`uw_copy_dad_recording()` trigger, which also clears it when the cut or a
+Portal cut's script changes; `dad-cut.ts`'s `isRecordedInDad()`/
+`needsRecording()` are the rule, and the DAD log blocks an unrecorded credit
+(`not_recorded`). **Station IDs** are ordinary `log_opportunity_assignments`
+pinned on the clock page, which the program director or traffic may write
+(the clock viewer's `canPin`, separate from `canEdit`); the clock page warns
+when an hour has no legal ID (`lib/log/station-ids.ts`, pure, tested). The
+separate `/log/station-ids` page was removed 2026-10-05 and now redirects to
+Programs; don't rebuild a second screen for the same pins. Automated hours
+became the "Automation" tab the same day (now a page under the Schedule tab —
+see the 2026-10-05 Schedule entry below). Traffic's dashboard shows the next
+three days' DAD log
+releases to anyone who can open Log.
+
+**On Air: the Schedule tab, and hours closed to underwriting (2026-10-05).**
+Read `docs/underwriting-traffic-redesign.md` §18 and `docs/broadcast-roles.md`
+§3/§5 before touching auto-fill's eligibility, the Programs/Automation/
+Underwriting pages, or On Air's tabs; this is a pointer. Nothing before this
+said which hours Traffic's automation could sell into — "credits only after
+5 PM" was an accident of which lines and pool targets existed — and automated
+hours are the wrong lever (they only change which copy qualifies). Now:
+(1) **Programs is the Schedule tab**: Today · Schedule · Library · Sources,
+with a second-level row (`log/schedule-tabs.tsx`, the `MigrationTabs` shape)
+Programs · Automation · Underwriting; routes unchanged. The other session's
+top-level Automation tab (same day) was folded into this. (2) **Hours
+closed to underwriting** — `log_underwriting_closed_weekly` /
+`log_underwriting_hour_changes` (`20261005130000`), the program director's,
+Traffic reads through additive select policies. `lib/log/underwriting-hours.ts`'s
+`isClosedToUnderwriting()` and `private.log_is_closed_to_underwriting()` are
+twins; the window and day-segment logic is shared with `automated-hours.ts`
+(`coverageSegments`, a generic `changeAt`), and the two actions files share
+`lib/log/hour-window-form.ts`. (3) **Automation only**: `freeze.ts`'s
+`automationPlacementBlockFor()` (freeze result or `hours_closed`) filters the
+planner, the bump planner and the dashboard counts; `automationBlockFor()` is
+deliberately unchanged, so rotation still swaps copy on a hand-placed credit
+in closed hours; the SQL check is in `log_place_underwriting_credit()`, **not**
+`uw_automation_block()`, so automation can still _clear_ such a credit.
+Provisioning skips a day whose eligible breaks are all closed
+(`closedAirDates`), conflicts gain `hours_closed`, and the manual and
+makegood pickers label a closed break rather than refuse it. (4) **One
+picture**: `components/log/hours-calendar.tsx` is the week/month view both
+pages share, the page's own layer drawn as blocks and the other as a faint
+band; the Programs week grid shades both (`week-layout.ts`'s `shadingBands`).
+Not built: per-line exemptions, moving already-placed credits when the hours
+change.
+
+**Log: imported rundowns can be switched too (2026-10-09).** Revises the entry above:
+`clock-sync.ts` no longer excludes `source = 'imported'` (`log_supersede_rundown()` never
+did); the guards are unchanged — `generated`, not started, no events, not superseded. A
+credit with no Traffic placement (all imported ones) can't raise an exception, so
+`switchProgramRundowns` reports how many were displaced, and the dates that already have a
+released DAD log. `20261009170000` is Resources content only.
+
+**Log: Florida News Exchange is a third Sources feed (2026-10-09).** Read
+`lib/log/fne.ts`'s header before touching it; this is a pointer. PRX's public RSS
+feed of stories other Florida stations share (`FNE_FEED_URL` overrides the default),
+shown at `/log/sources/fne` for the **last 24 hours only**. Parsed by a pure, tested
+`providers/fne-response.ts` (no XML dependency); read lazily with a 15-minute
+staleness check and kept **in memory per server instance**, not in the database —
+the feed is a rolling window and its audio links are signed S3 URLs that expire
+after an hour, so never store one. The feed has no duration, byline or station, and
+its description is often only a summary (the real script is frequently on the PRX
+item page, which this repo cannot read), so **"Add to library" is a link, not a
+write**: `fne-handoff.ts` opens the library's ordinary New content item form with
+title, type News and a summary (description, hold note, PRX link) prefilled, script
+left blank — the Editorial Inquiry pitch hand-off shape. There is no schema, no
+draft state and no record of which stories were added (so a story can be added
+twice), by decision. Components are added on the saved item's page like any other.
+Separately, the rundown screen's **Wrap up panel shows only after the shift has
+ended** (or once submitted): `submission.ts`'s `isWrapUpVisible()`.
+
+**Log is "On Air", Underwriting & Traffic is "Traffic" (2026-10-02).** Display
+names only (`20261002180000`, applied to both projects): the registry rows'
+`name`/`description`, page headings, and user-facing strings. The keys (`log`,
+`underwriting`), routes (`/log`, `/underwriting`), directories, identifiers, and
+the older notes in this file keep the old names, the same precedent as
+Sourcework's `transcription` key. Write new user-facing copy with the new names.
+
+**Bookings: milestone 1, slice 1 (the rate model) has landed (2026-10-05) —
+the guardrail against building it is lifted for that slice.** Read
+`docs/bookings-design.md` before touching any of it; this is a pointer. The
+tool is university production work — capacity, rates, cost recovery — built
+from the reviewed "Bookings Tool" Design canvas and its two sources (the
+University Production Partnerships framework, revised, and
+`WUWF_Production_Rate_Model_v0.1.xlsx`). Registry key `bookings`, **route
+`/bookings`** (the public intake, slice 4, is `/book`), invite_only; roles
+**stack** like the broadcast roles (`production` · `director` · `finance` ·
+`executive`, `lib/bookings/roles.ts`, `private.is_bookings_<role>()` over
+`private.has_tool_role()` — `production` was `lead` until slice 2b, see
+below); a member with no role reads everything. Slice 1
+ships the Rates tab (`/bookings/rates`, with Assumptions · Labor · Resource
+pools · Service packages · Rate card · Assets · Setup · Change log under it;
+`/bookings` redirects there until the dashboard exists). Five things are
+load-bearing:
+
+1. **SQL never computes a price.** `lib/bookings/rates.ts` is the model, pure,
+   with the v0.1 workbook as its test fixture — every cost and card figure
+   must reproduce. The one rounding rule: every rate rounds **up** to the next
+   $25, and external is the higher of the grossed-up incremental cost
+   (÷ (1 − margin − assessment)) and the package's market floor. **Labor
+   classes and pools are data, not schema** (slice 2b, 2026-10-05,
+   `20261005160000_bookings_labor_and_pools.sql`, a clean rewrite —
+   `docs/bookings-design.md` §14): `bk_labor_classes`/`bk_pools` are
+   unversioned catalogs (kept on `/bookings/rates/setup`), their figures per
+   version live in `bk_labor_rates`/`bk_resource_pools`, and a package's
+   parts are `bk_package_labor`/`bk_package_resources` rows. A class says
+   whether its hours are `charged_in_strategic`; a pool is costed `allocated`
+   (a share of the shared pool) or from its `own_lines` (webcasting is just
+   such a pool, not a special case). Never add a column per pool or per
+   person again — a second producer or a third kit is a catalog row.
+2. **An adopted or superseded version is frozen** by `bk_guard_frozen_version()`
+   on its assumptions, labor rates, pools and packages; a correction is a new version
+   (`/bookings/rates/versions/new`, a copy). `bk_rate_card_lines` is a
+   snapshot TypeScript writes when a version is put in use or adopted, so an
+   estimate keeps the rate it was priced at.
+3. **"In use" and "adopted" are separate.** Exactly one version is in use
+   (partial unique index); v0.1 is seeded in use but not adopted, the
+   workbook's own provisional posture, and every figure from a non-adopted
+   version is labelled provisional on screen.
+4. **The adoption gate is enforced where the write happens.**
+   `bk_guard_version_transition()` refuses to submit a version with any
+   assumption or pool still `pending`, and refuses adoption (or superseding)
+   unless `private.is_bookings_executive()` — the `rd_guard_post_curation()`
+   shape. Changing a value on a draft sends that row back to `pending`.
+5. **Assets are an inventory, not a model**: unversioned, kept by finance or
+   the director, out of service rather than deleted; they change a rate only
+   through a later version.
+
+**Bookings slice 2 (the term plan and the calendar) has landed too
+(2026-10-05)** — `20261005150000_bookings_term_plan.sql`, the Calendar tab
+(`/bookings/calendar`, week or month, `?view=&date=&pool=`) and the term
+plan page (`/bookings/calendar/plan`). Read `docs/bookings-design.md` §6.4,
+§6.5 and §8 first; this is a pointer. Four things are load-bearing:
+
+1. **The booking rule runs in triggers, and the TypeScript is its twin.**
+   `bk_booking_allowed()` (before insert or update on `bk_bookings`) refuses,
+   in §6.4's order: blacked out or held, window taken (holds plus live
+   bookings against the resource's `concurrent_units`; a tentative booking
+   counts until `expires_at`); `bk_check_booking_labor()` (from a trigger on
+   `bk_booking_labor`, and again per class on a booking update) refuses a
+   class's day full (`headcount × hours_per_person_day`) or no capacity for
+   the treatment in that class (strategic draws the reserve; incremental and
+   external draw open = net − reserve − held − non-strategic). Write a
+   booking or hold through `bk_create_booking()`/`bk_create_hold()`, which
+   take the parent and its hours per class in one transaction.
+   `lib/bookings/scheduling.ts` explains the same refusals and proposes
+   alternatives — keep them in step. An update that leaves a booking where
+   it is (confirming, a label) is not re-checked, so a later hold never
+   blocks confirming an estimate's hold. An `exception_reason` skips the
+   rule, only for `is_bookings_executive()`, and is audited
+   (`bookings.booking.exception`). Step 2 (reserved blocks) waits for
+   slice 5.
+2. **Nothing deletes a booking; it is released.** `status = 'released'`
+   frees the window and stamps `released_at`. Blackouts and holds are the
+   director's and may be deleted.
+3. **Capacity is hours per labor class, never units.** `bk_term_resources.
+available_units`, `concurrent_units` and `windows` (jsonb, `parseWindows()`;
+   a new plan seeds them from each active pool's `default_windows`) are
+   calendar constraints; the guardrail reads `bk_term_capacity` (`net_hours`,
+   `headcount`, `hours_per_person_day` per class — a class with no row is
+   not checked that term), the plan's `reserve_share`, and each booking's
+   `bk_booking_labor` rows. The rate model carries no copy of capacity.
+4. **The airtime read is one security-definer function and places nothing.**
+   `bk_university_avails_per_week(plan)` counts marked opportunities whose
+   `permitted_content_types` include `university_announcement` across the
+   recurring schedule on the plan's reference date, plus pinned minutes;
+   `lib/bookings/airtime.ts` nets the plan's contributed minutes off it. The
+   second read the doc names, `bk_institutional_airtime_honored()`, keys off
+   project airtime commitments and ships with them in slice 3.
+
+**Bookings slice 3 (projects) has landed too (2026-10-06)** —
+`20261006120000_bookings_projects.sql`, the Dashboard (`/bookings`), the
+Requests tab (`/bookings/requests`, `/new`, `/[id]`, `/[id]/edit`). Read
+`docs/bookings-design.md` §2.2–§2.5 and §15 first; this is a pointer. A
+request is a `bk_projects` row through five stages with Academic
+Partnerships' stage + disposition shape; `bk_partners` came forward from
+slice 5 because every project names one (the Partners tab and agreements
+still wait). Four things are load-bearing:
+
+1. **Pricing is derived, never picked, and SQL never computes it.**
+   `lib/bookings/pricing.ts` is §2.2's table plus a line's rate from the
+   card snapshot (`bk_rate_card_lines`) by treatment; `lib/bookings/
+estimate.ts`'s `repriceProject()` re-derives and rewrites every line after
+   any write that can change either. A hand override records
+   `pricing_overridden_by`; `bk_guard_project()` refuses an override **to**
+   strategic for anyone but the executive, and every override is audited.
+2. **A project's date before its estimate is sent is a `planned` booking**
+   (`bk_booking_status` gained the value): not live, takes nothing, not
+   checked when written, deletable. `bk_send_estimate()` flips planned →
+   tentative and the rule's triggers check every date, all or none;
+   `bk_booking_allowed()` now re-checks any update unless the booking **was
+   live** and stays in place, so a lapsed hold is checked again when
+   re-sent or confirmed. `bookingIsLive()` and `bk_booking_is_live()` are
+   twins — keep them in step.
+3. **An estimate line snapshots its package's hours per class and units per
+   pool** (`labor_hours`/`resource_units`, jsonb, per unit) the way the card
+   snapshots the rate; the dates draw on them.
+4. **`bk_institutional_airtime_honored()`** is the second §6.5 read: what
+   Traffic has scheduled and On Air pins for a commitment's `external_ref`.
+   Nothing here places airtime.
+
+**Bookings slice 4 (the public intake) has landed too (2026-10-06)** —
+`20261006130000_bookings_public_intake.sql`, `/book` and `/book/embed`
+(`src/app/book/`), and the settings page `/bookings/intake` (under Requests).
+Read `docs/bookings-design.md` §6.3 and §16 first; this is a pointer. The
+`/partner` shape exactly: in the middleware's `PUBLIC_PATHS`, framed by
+`next.config.ts`, **no session at all**, and the whole public surface is two
+security-definer functions — `bk_public_form_config()` and
+`bk_submit_request()` — never a participant-facing policy on a `bk_*` table.
+Three things are load-bearing: (1) **a public submission finds or creates
+its partner by name** and never changes an existing one; the submitter's
+details go on the project's `contact_*`. (2) **`bk_settings.offered_packages`
+and `bk_projects.requested_packages` are names, not package ids** — packages
+are versioned with the rate model; staff turn the names into estimate lines.
+(3) **An airtime commitment is written only when the form gave airings, a
+length and a first date**; otherwise the ask stays in the description.
+`lib/bookings/intake.ts` (pure, tested) is the wizard's steps, the
+client-side validation, the payload and the error sentences; the function
+re-checks everything. The settings are the director's or the executive's
+(`assertBookingsIntakeEditor()`, `bk_settings_update`).
+
+**Bookings slice 5 (partners and agreements) has landed too (2026-10-06)** —
+`20261006140000_bookings_partners_agreements.sql`, the Partners tab
+(`/bookings/partners`, `/[id]`, `/[id]/agreements/[agreementId]`). Read
+`docs/bookings-design.md` §5 "Partners", §6.4 step 2 and §17 first; this is
+a pointer. Four things are load-bearing:
+
+1. **Release-at-read, no job.** A reserved block with no project past
+   `date − release_deadline_days` reads as released unless the director
+   kept it: `bk_reserved_block_reserves()` in SQL and
+   `lib/bookings/agreements.ts`'s `reservedBlockState()` are twins. Only an
+   **active** agreement's blocks reserve anything; a draft's are the
+   proposal.
+2. **Step 2 of the booking rule counts a reserving block as one concurrent
+   unit**, in `bk_booking_allowed()` and `scheduling.ts`'s `findRefusal()`
+   alike — keep them in step — and never against the partner it is held
+   for (`BookingRequest.partnerId`). Attach a block through
+   `bk_attach_reserved_block()`, which writes the booking in the stage's
+   state; releasing that date or closing the request hands the block back.
+3. **Approval is the executive's, in `bk_guard_agreement()`**, which also
+   freezes an approved agreement's numeric terms to the executive; ending
+   is the director's or the executive's; `kept_by` is the director's
+   (`bk_guard_reserved_block()`). A project's agreement must be its
+   partner's (`bk_guard_project()`).
+4. **Under an agreement, pricing reads the agreement's reserve share**
+   (`derivedPricingFor()` → `agreementReserveCovers()`), incremental beyond
+   it; the term's reserve is still the triggers' check. A package with
+   `agreement_id` is offered only to requests under that agreement.
+
+**Bookings refinement pass (2026-10-06, slices A–C) and slice 6 (settlement,
+2026-10-07) have landed — milestone 1 is complete.** Read
+`docs/bookings-design.md` §18–§21 before touching pricing, the project page, the
+term report, or settlement; this is a pointer. Slice A made a request and its
+estimate one pass (`/bookings/requests/new` takes partner, packages and date and
+produces the priced, capacity-checked estimate); slice B stores cost
+transparency on every estimate (`lib/bookings/economics.ts`: full economic cost,
+partner recovery, `WUWF contribution = max(0, cost − recovery)`, external
+margin/assessment apart) and added the term report (`/bookings/report`); slice C
+corrected the model (practical capacity, overhead, capital and maintenance from
+the asset register, market ceiling, project-level Adjust scope, review status on
+package hours and floors, and the assumed-versus-observed view fed by
+`bk_hours_used`). Slice 6 added the last piece, **settlement at actual cost**
+(`20261007150000_bookings_settlement.sql`, applied to both projects):
+`lib/bookings/settlements.ts` (pure, tested) drafts it from the approved
+estimate's price with each direct expense at its actual cost, and costs the hours
+and units production confirmed at the card snapshot's unit costs
+(`bk_rate_card_unit_costs`) — so the hours change what the work cost WUWF, never
+what the partner is charged, and a later rate version never rewrites a delivered
+project. A UWF unit is **recharged** to a funding index, an outside partner
+**invoiced**. Three things are load-bearing: (1) **only Finance drafts and posts**
+(`assertBookingsFinance()`, `bk_settlements` RLS), and posting is
+`bk_post_settlement()`, which records the journal entry number (keyed by hand —
+no Banner/journal integration) and sets the project `settled` in one
+transaction; (2) **a posted settlement is frozen** by `bk_guard_settlement()` and
+the stage can't reach `settled` without one (`bk_guard_project_settled()`, a
+separate trigger so `bk_guard_project()` isn't restated); (3) drafting needs
+every planned class and pool confirmed (`hoursConfirmed()`), and the term report
+totals only posted settlements, actual against estimated. Settlement actions live
+in `requests/settlement-actions.ts`; the panel is
+`requests/[id]/settlement-section.tsx`; Finance's dashboard action item is
+`settle`. Airtime is read across the Traffic/On Air boundary and never placed
+from this tool, in every slice. PDF invoices and journal-entry integration remain
+deliberately not built (§6.6).
+
+**Bookings capacity corrections (2026-10-07) — read `docs/bookings-design.md` §22 before
+touching the reserve, the term plan, or `scheduling.ts`'s capacity rule; this is a pointer.**
+A review of the capacity model kept it and fixed three things: the **reserve share is per
+labor class** (`bk_term_capacity.reserve_share`, nullable — a class with none, such as the
+student crew, has no reserve and every booking of it draws open capacity; none is not 0%);
+**plans are resolved by date** (several may be active if their dates don't overlap, a booking
+uses the active plan containing its date — `lib/bookings/plans.ts`, `getCurrentPlan()`/
+`getPlanForDate()`, never "the one active plan"; a blackout across two terms is stored once
+per term); and **a closed plan is final** (`bk_guard_term_plan()` and the closed-plan
+guards). `net_hours` means hours available before dated holds, with undated core work
+already left out. A larger redesign (effective-dated capacity revisions, an explicit core
+percentage) was set aside — §22.5. `20261007160000` adds a column and drops a column and an
+index, so the Supabase tool holds it for a confirmation that never arrives: run it in the SQL
+editor, preview first, then record both dates in `APPLIED.md`.
+
+**FCC Reporting: design is done, not yet authorized to build.** The third of
+the three tools, depending on a real backlog of tagged `log_broadcast_events`
+existing before quarterly aggregation is worth building against, so it stays
+last regardless of when its design doc was written. `docs/fcc-reporting-design.md`
+was written the same day as the strategy doc and the other two tools' design
+docs, but had no CLAUDE.md entry until now — same staleness this section's
+Underwriting entry above already explains, and now fixed in the strategy
+doc's §8 too. Read it before starting any of it.
+
+**Editorial Inquiry: milestone 1 has landed — the guardrail against building
+it is lifted.** An editorial workspace that turns one broad guiding question
+into concrete, reportable story questions through iterative collaboration
+with an AI model, built from a Claude Design concept mockup
+(`docs/editorial-inquiry-design.md` records the full product/architecture
+rationale; read it before touching any of it). The core object is a
+**question tree**, not a chat log: a reporter starts from a seed guiding
+question and grows it outward — Explore (a sibling angle), Drill down (a
+narrower child), Reject (hides a node and its descendants from the canvas,
+never deletes — `visibleQuestions()` in `lib/editorial-inquiry/tree.ts`),
+Promote (marks a validated story question, requires depth ≥ 2 — a "line of
+inquiry" at depth 1 is a thematic frame, not yet reportable), Add context
+(a note/link/excerpt that inherits down the branch it's attached to — the
+root's own context is how a reporter covers the whole inquiry, no separate
+bucket), and Discuss (a persisted thread scoped to one question, where the
+model can reply plainly or propose a reframe the reporter applies with a
+click, spin off a sibling, or attach context — the latter two execute
+immediately). Tables are `ei_*` (`20260820120000_editorial_inquiry.sql`),
+the route segment is `src/app/(portal)/editorial-inquiry/` gated by
+`requireToolAccess("editorial-inquiry")`, invite-only with **no elevated
+role** — every action here is ordinary membership, unlike most recent
+tools' producer/coordinator split. The interactive canvas (infinite
+pan/zoom, draggable nodes whose manual offset persists via
+`ei_questions.manual_dx/manual_dy`, a from-scratch tree-layout pass, a
+minimap, a hover-revealed radial quick-menu) is built with **no new
+dependency** — ported directly from the concept mockup's own plain
+state/DOM logic, since this repo has no canvas/pan-zoom library and none
+was needed. `lib/editorial-inquiry/ai.ts` is this repo's first use of the
+Responses API's JSON-schema structured output (`text.format.type:
+"json_schema"`) rather than free-text parsing, reusing the `openai`
+dependency the in-portal agent chat already brought in but calling it
+synchronously (not streamed) for three narrow operations: generate a
+sibling, generate a child, take one discuss turn. Same optional-key
+posture as every other integration: absent `OPENAI_API_KEY`, an AI-backed
+action fails clearly rather than silently no-opping, and a reporter can
+still build the tree by hand (`addQuestionManually` in the route's
+`actions.ts` — the "type your own" fallback in the inspector panel).
+Canvas mutations are plain async Server Actions returning
+`{ok, data} | {ok: false, error}`, called directly from the client and
+merged into local state optimistically — never `redirect()`/`FormData`,
+the same non-redirecting shape Roadmap's kanban board established, since a
+canvas reloading the page on every action would drop pan/zoom/selection
+state. The capability layer is deliberately not part of this milestone,
+matching every other tool's own sequencing (see below). Verified against
+the preview database directly by simulating RLS as both a granted and a
+non-granted user (`set local role authenticated` plus a forged
+`request.jwt.claims`) rather than a full browser click-through, which this
+sandbox couldn't complete — sign-in here is magic-link-only with no email
+inbox available; both the tree/RLS/constraint behavior and the full test
+suite (814 tests, `lib/editorial-inquiry/tree.test.ts` covers the pure
+layout/ancestry/status-rule logic) passed.
+
+**Editorial Inquiry: grounded-reasoning revision (2026-08-20), superseding
+several of the paragraph above's own claims — read
+`docs/editorial-inquiry-design.md` in full before touching this tool again;
+it was rewritten, not patched, and this note is a pointer, not a duplicate.**
+Milestone 1's editorial model was too thin: a freely typed seed question, a
+model that invented progressively narrower questions with nothing grounding
+them, and no way to decline. This revision keeps the interaction shell
+(canvas, docked panel, six actions) and replaces the reasoning underneath it,
+directly on the strength of an explicit instruction to do so — not a
+self-initiated redesign. Four things matter most:
+
+1. **Editorial Planning is now the source of truth for guiding questions and
+   editorial criteria — Editorial Inquiry duplicates neither.** An inquiry is
+   associated with a selected WUWF coverage pillar
+   (`ei_inquiries.pillar_id` → `ep_pillars`, plus `pillar_name_snapshot`/
+   `guiding_question_text` snapshotting the pillar at creation time so a later
+   edit in Editorial Planning can't retroactively change what an inquiry has
+   been reasoning about); `seed_question` is gone. `ei_create_inquiry()`'s
+   signature changed from `p_seed_question text` to `p_pillar_id uuid`.
+   `lib/editorial-inquiry/editorial-planning.ts` is the one place this tool
+   reaches into Editorial Planning's data (`listGuidingQuestionOptions()`,
+   `listCurrentCoreCriteria()`, `getActivePillarName()`), calling
+   `lib/editorial/data.ts`'s existing `listPillars`/`listCriteria`/
+   `getDefaultRubricProfile` directly rather than re-implementing the reads.
+   Those functions assert nothing beyond RLS, so
+   `20260820130000_editorial_inquiry_grounded_reasoning.sql` adds narrow,
+   additive `select` policies on `ep_pillars`/`ep_criteria`/
+   `ep_rubric_profiles` admitting `private.has_editorial_inquiry_access`
+   alongside Editorial Planning's own `ep_has_access` — the same shape as
+   `tools_select_proposed_for_roadmap`. Only core criteria (name/description/
+   guidance) are ever read — never weight, scale, or anchors, and the model
+   is explicitly instructed never to emit a score: "the rubric informs
+   critique, it does not become a target to reverse-engineer" (design doc §2).
+2. **Grounding, not invention.** Every reasoning call now follows a fixed
+   order — real-world signal (reporter-supplied or web-found) plus the
+   guiding question, then what's known, what's unresolved, lines of inquiry,
+   story questions, evaluation — instead of jumping straight from the guiding
+   question to a plausible-sounding invented one (design doc §3). Context
+   notes carry an **evidentiary status** (`ei_context_notes.evidentiary_status`
+   — hunch/source_claim/established_fact/web_finding/inference/open_question,
+   default `hunch`, plus `source_title`/`source_url` for web finds) so an
+   unverified reporter aside can never silently read as an established fact
+   three branches downstream (design doc §4). The model has OpenAI's built-in
+   `web_search` tool available on every turn, resolved entirely server-side —
+   nothing in this repo executes a search or holds a search-provider key —
+   with citations landing as `url_citation` annotations, stored on
+   `ei_chat_messages.citations` and rendered as a sources list.
+3. **The reasoning engine is now one function, not two.** Milestone 1's
+   separate strict-JSON-schema generator and discuss turn are gone;
+   `lib/editorial-inquiry/ai.ts`'s `runEditorialTurn()` handles Branch (was
+   Explore), Drill down, the new **Evaluate** action, and every ordinary
+   Discuss turn — a strict-schema generator can't cleanly produce natural
+   prose with inline citations alongside an optional action, so this uses the
+   Responses API's ordinary tool-calling shape instead (a built-in
+   `web_search` tool plus one custom `propose_editorial_action` function
+   tool), the same general mechanism `src/lib/agent/chat.ts` already uses for
+   the in-portal agent. **The model can decline** — calling no action at all
+   is a normal outcome by construction, not a special case (design doc §7).
+   When it does propose something, the action vocabulary widened from
+   `sibling`/`context`/`reframe` to `branch`/`drilldown`/`context`/`reframe`/
+   `diagnosis`/`assessment` — `diagnosis` writes directly onto the acted-on
+   question's new `diagnosis_kind`/`diagnosis_note` columns (ten reasons a
+   question isn't yet a strong story question — design doc §5 — replacing the
+   old boolean `has_assumption`/`assumption_text`, `unverified_premise` is
+   its direct successor) and `assessment` is the Evaluate action's qualitative
+   editorial-value discussion, deliberately prose-only, never a score.
+4. **Tree depth no longer gates promotion.** Milestone 1's "depth ≥ 2 to
+   promote" check constraint is gone, replaced by one shared rule — neither
+   reject nor promote can ever apply to the root, full stop — because depth
+   describes structure, not editorial quality (design doc §5, §8); a shallow
+   question a reporter has genuinely narrowed through conversation can be
+   ready sooner than a deep one reached by reflexively clicking Drill down.
+   `canPromote`/`canReject` in `lib/editorial-inquiry/tree.ts` are now the
+   same predicate. A promoted question gets a **Develop into pitch** action
+   (design doc §8) — deliberately not a direct `ep_pitches` insert:
+   `lib/editorial-inquiry/pitch-handoff.ts` (pure, tested) builds a URL to
+   Editorial Planning's own `/editorial/pitches/new`, which gained a small,
+   additive `searchParams` prefill (`initialTitle`/`initialValues`, already
+   plumbed through to `<PitchForm>` for its edit path — this just supplies
+   them from a query string too) rather than Editorial Inquiry duplicating
+   any part of that form or its field definitions. Never automatic on
+   promotion — always a reporter-initiated click that lands them on
+   Editorial Planning's real form to review and submit.
+
+Verified the same way as milestone 1 — RLS simulation as both a granted and
+non-granted user, plus this time a direct check that a user with only an
+`editorial-inquiry` grant (no `editorial-planning` grant at all) can read
+pillars/criteria/rubric profiles through the new policies and create an
+inquiry via `ei_create_inquiry()` — rather than a full browser click-through,
+which this sandbox still can't complete. Full test suite (821 tests) and
+`db:check` both pass.
+
+**Editorial Inquiry: streaming turns and panel clarity (2026-08-20, same
+day, from direct user reports against the deployed revision).** Four
+connected fixes, no migration: (1) **editorial turns now stream** —
+`ai.ts`'s `streamEditorialTurn()` (an async generator over
+`responses.stream()`, the same ResponseStream pattern as
+`lib/agent/chat.ts`) is reached through a new SSE route,
+`src/app/api/editorial-inquiry/turn/` + `lib/editorial-inquiry/turn.ts`,
+replacing the four turn Server Actions outright (an action can't stream,
+and a web-search + medium-reasoning turn ran long enough that the silent
+wait read as a hang); nothing persists until the model's terminal result,
+so a dropped stream writes nothing and a retry can't duplicate half a
+turn. The canned Branch/Drill down/Evaluate directives moved to
+`lib/editorial-inquiry/directives.ts` (pure, tested) because the route
+resolves them server-side and the panel recognizes stored directive
+messages by exact body match, rendering them as a muted "you asked for…"
+line instead of a fake user bubble. (2) **Assistant replies render as
+markdown** via this repo's first markdown renderer — `src/lib/markdown.ts`
+(pure parser, tested, deliberately small subset, no underscore emphasis so
+snake_case survives) + `src/components/ui/markdown.tsx` (AST → React
+elements, no `dangerouslySetInnerHTML`, unsafe link schemes degrade to
+plain text) — the same parse-then-walk split as Roadmap's rich text. Do
+not swap it for a markdown dependency without a concrete need. (3) **The
+inspector panel was restructured for clarity**: grouped compact actions
+("Ask the model" / "Your call") that render only when structurally
+possible, an always-visible discussion with the composer pinned to the
+panel's bottom edge (the Discuss toggle is gone), chips/helper text only
+on an empty thread, and empty assistant bubbles fixed at the source —
+`turn.ts` falls back to a diagnosis/assessment action's own `text`
+argument when the model writes no prose, and the prompt now demands a
+prose reply outright. Search is framed as part of Branch/Drill down by
+default (not a fallback), the prompt knows WUWF serves Pensacola/Northwest
+Florida, and the root guiding question is never diagnosed as
+still_thematic/too_broad — being thematic is its nature, and a fresh
+inquiry's first drill-down reliably dead-ended on exactly that before.
+(4) **The portal agent bubble no longer renders on `/editorial-inquiry`**
+(`usePathname` check in `agent-chat-widget.tsx`) — its fixed bottom-right
+position sat directly on the panel's composer, and this screen has its own
+AI surface; the widget stays mounted so an already-open panel keeps state.
+
+**Editorial Inquiry: calibration revision (2026-08-20), from auditing a real
+production inquiry's turns — see `docs/editorial-inquiry-design.md` §14 for
+the full account; this note is a pointer.** Four reliable failure modes, all
+structural: Branch turns were handed the departing sibling's own context
+chain (which the new node never inherits), anchoring every "different angle"
+to the sibling's topic — Branch now reasons from the **parent's** chain,
+keeps the selected sibling on the do-not-duplicate list, and searches fresh
+by default; Drill down paraphrased story-level questions rather than
+declining (no level exists below a story question) — it now checks the
+story-question bar first and nominates promotion instead of descending; the
+model could never promote because no promote action existed in its
+vocabulary — `ei_chat_messages.action_kind` gains `'promote'`
+(`20260820140000_editorial_inquiry_reasoning_calibration.sql`), a
+nomination the reporter confirms via `applyPromotion` (applied_at-null until
+then, same pending shape as reframe — promotion stays the reporter's click);
+and the diagnosis taxonomy couldn't name over-narrowing —
+`ei_questions.diagnosis_kind` gains `too_narrow_process_step` (a reporting
+task, not a story; the fix direction is up). Cross-cutting: `turn.ts`'s
+`fallbackAssistantBody()` now covers every action kind, since the model
+regularly wrote no prose alongside a tool call (8 of 10 audited turns stored
+an empty assistant body) and the old fallback only covered
+diagnosis/assessment.
+
+**Editorial Inquiry: Branch consolidated into Drill down, and the canvas
+node redesigned (2026-08-20) — see `docs/editorial-inquiry-design.md` §15;
+this note is a pointer.** Branch is no longer a turn mode, directive, or
+button anywhere: a sibling is grown by running Drill down on the parent,
+whose framing absorbed Branch's §14 distinctness calibration (mandatory
+fresh search when children already exist, the model's own earlier proposals
+named as taken territory) — prompted by a real drill-down producing a
+near-duplicate of an existing child through exactly the path that
+calibration never covered. `branch` survives only as a discuss-turn action
+kind (and in the DB enum), and old stored Branch directives still render as
+their muted directive line. The node's radial quick-menu is gone too,
+replaced by mindmap-style hover affordances: a right-edge fork on leaf
+nodes (child), a bottom-edge fork on non-root nodes (sibling — the same
+drilldown turn run on the parent), reject as a corner ×, and no Discuss
+icon — clicking the node opens the inspector panel itself (the same pass
+fixed the canvas background's deselect handler swallowing every node
+click, which is why plain node clicks had never opened the panel at all).
+The manual "write your own" fallback now always writes a child
+(`addQuestionManually` lost its sibling kind). No migration.
+
+**Editorial Inquiry: anchor-breaking calibration (2026-08-20) — see
+`docs/editorial-inquiry-design.md` §16; this note is a pointer.** A real
+inquiry's drill-downs all mined one news event, drifted off-pillar, and one
+turn stored a completely blank exchange. Fixes: generation turns no longer
+replay earlier canned-directive exchanges (the thread anchor); the
+drilldown framing demands a different domain of the guiding question when
+existing children share a topic (search queries must not contain the
+covered topic's terms) and a grounding that states how the proposal probes
+the guiding question; the model moved `gpt-5.4-mini` → `gpt-5.6-terra`;
+diagnosis `text` is now schema-required with a label-based fallback so a
+blank bubble is impossible; and the root can never be diagnosed — enforced
+in `turn.ts`, not just the prompt, after a real turn wrote `already_known`
+onto a root and poisoned its later prompts (that row was cleaned up in
+production directly). No migration.
+
+**Resources: slice 1 (Foundation) has landed (2026-09-28).** Read
+`docs/resources-design.md` before touching any of it; this is a pointer. A top-level
+area at `/resources` (its own nav tab) holding station procedures, tool guides, and
+release notes in one table, `rc_articles`, discriminated by `kind` and upserted on
+`slug` — never on id (`20260928140000_resources.sql`, with `rc_article_versions`,
+insert-only and holding every version including the current one, and
+`rc_release_note_guides`). Access is Roadmap's shape: `approved_staff`, with a
+`tool_role = 'editor'` grant (or administrator) as the elevation
+(`lib/resources/access.ts`, `private.is_resources_editor`). Reading is scoped by
+audience — derived from `profiles.platform_role` by `private.resources_audience_for` —
+and, for an article about a tool, by `private.can_open_tool`, the SQL twin of
+`canOpenTool`. Bodies are ProseMirror JSON through the shared whitelist, never HTML.
+The migration seeds real release notes and guides but **no procedures** — the
+handoff's were placeholders; `supabase/seed.sql` has labeled samples for local and
+preview only. **Slice 2 (editing and screenshots) has landed too**: editors create
+and edit procedures and guides (`/resources/procedures/new`, `/resources/guides/new`,
+`…/edit`, one shared `article-form.tsx`; the slug is fixed once a page exists, since
+release migrations match on it), read any past version (`?version=N`), and delete
+from the edit page. The whitelist moved to `src/lib/rich-text.ts` and gained one
+opt-in node, `figure`, admitted only with `{ allowFigures: true }` — Roadmap never
+passes it. A figure stores an `rc_media` id, never a URL; `lib/resources/media.ts`
+signs URLs from the private `resources-media` bucket
+(`20260928160000_resources_media.sql`) and a missing image renders its alt text.
+Editors upload browser → Storage (`article-body-field.tsx`). Automatically captured
+screenshots were dropped (2026-09-29): the capture script needed preview's and
+production's keys at once, which no deployment has, so it never ran and its guides only
+ever showed placeholders — `20260929120000_resources_remove_captured_shots.sql` removed
+those figures and rows. Don't reintroduce captured shots without a way to run them on
+the deployment's own settings. **Slice 3 (the in-tool Help panel) has landed**: a Help button in the header on tool
+pages opens a right-hand panel of the guides for the current screen
+(`components/help-panel.tsx`, `lib/resources/screens.ts`'s `helpContextForPath()` maps
+the URL; add a route pattern there when a screen gains a route). The assistant and Help
+share the right edge through `components/right-panel.tsx`'s `RightPanelProvider` — only
+one is open at a time; use it rather than a local `open` state for anything else that
+docks there. The panel reads through a Server Action (`resources/help-actions.ts`), not a
+route handler. **Slice 4 (the assistant capability) has landed**: `resources.search`
+(`lib/resources/capabilities.ts`), which the assistant is told to use first for "how do
+I…" questions. Search is hybrid keyword + semantic like `tw_search`, with embeddings in
+`rc_article_embeddings` (written only by editor sessions, via `after()`) and the same
+optional-`OPENAI_API_KEY` rule. **Slice 5 has landed**: the "Resources stay in step with
+the code" rule under "Rules for making changes", the two `private.rc_release_*` helpers it
+calls, the migration test that checks their bodies, and guides for the tools that had
+none.
+
+**Resources: home page reordered, and procedures split onto their own list page
+(2026-09-28).** Two related fixes, no migration. First, the home page's three sections
+now read Tool guides, What's new, Station procedures (was procedures first) — a direct
+ordering request. Second, the full procedures table (with its area `FilterChips` and
+`Pagination`) moved off the home page to a new `/resources/procedures`
+(`resources/procedures/page.tsx`); the home page's own "Station procedures" section is
+now a short preview (a count, area chips, the `RECENT_PROCEDURES_LIMIT` (5) most
+recently updated procedures, and an "All procedures" link) — the same
+preview-plus-link-to-a-full-list shape the "What's new" section already used, and the
+right one now that the procedures table was the single heaviest thing on the home page.
+
+The area chips uncovered a real bug reported directly: clicking most of them "didn't
+seem to link to anywhere." Root cause — `PROCEDURE_AREAS`, a hardcoded five-value list
+(`"On air"`, `"News"`, `"Engineering"`, `"Emergency"`, `"Development"`), was used both to
+build the Area filter chips and, via `validateArticleForm()`, to constrain what a
+procedure's `area` could be saved as. But every real procedure already in production
+(24 rows, checked directly against the database) carries an area outside that list
+entirely (`"Digital & Audience"`, `"Engineering & Broadcast"`, `"Events & RadioLive"`,
+`"Membership & Development"`, `"Underwriting"`, `"Using the portal"`) — since the
+validation has rejected anything outside `PROCEDURE_AREAS` since this form was built,
+those rows can only have been written directly against the database, never through the
+app. The practical effect: nearly every Area chip filtered to a real, non-empty area the
+list had never offered, so it always showed "No procedures in ... yet." — indistinguishable
+from a dead link — and opening any of those 24 procedures' edit page reset the Area field
+to blank, since no `<option>` matched its real value.
+
+Fixed by treating `area` as the free text it already is at the database level, everywhere
+that touches it. `PROCEDURE_AREAS` is gone. `listProcedureAreaCounts()`
+(`lib/resources/queries.ts`) derives the Area chips from the real distinct areas among
+readable procedures, the same way the What's new screen's own Tool filter is derived from
+its notes rather than a fixed list — every chip now goes somewhere, and a newly-introduced
+area is reachable immediately, with no code change. The create/edit form's Area field is
+now a plain text `Input` with a `<datalist>` of the areas already in use
+(`existingAreas`, passed in by `procedures/new/page.tsx` and
+`procedures/[slug]/edit/page.tsx`) instead of a closed `<select>` — an editor can reuse
+an existing area or type a new one, and `validateArticleForm()` only requires it be
+non-empty (`AREA_MAX` = 60 characters), matching how every other free-text field here is
+validated.
+
+**Resources: home page redesigned, with pinned procedures (2026-09-28).** The home
+page (`resources/page.tsx`) leads with a search band whose "Search in" radios scope
+results by kind (`articles.ts`'s `SEARCH_SCOPES`/`hitsInScope`, filtered after
+ranking); tool guide cards list their guide titles; procedures are area cards
+(`groupProceduresByArea`, pure, tested); What's new is a right column. Its procedures
+section opens with "When something breaks on air", the procedures an editor pinned
+from a procedure's own page (`setProcedurePinned`). Pins live in their own table,
+`rc_pinned_procedures` (`20260928270000_resources_pinned_procedures.sql`), not a
+column on `rc_articles`, because an `rc_articles` update runs the versioning triggers
+and moves `updated_at` — a pin isn't an edit. Select follows the parent row; insert
+and delete are editor-only; a trigger refuses anything but a procedure.
+
+**Resources: the audience/platform-role visibility split is gone
+(2026-09-28).** `rc_articles.audience` (`staff`/`students`/`partners`, derived from
+`profiles.platform_role` by `private.resources_audience_for()`) never had a real effect:
+`private.rc_release_guide()`/`rc_release_note()` default `p_audience` to
+`{staff,students,partners}` and no migration has ever passed anything else, so every
+article a real release ever wrote was already visible to all three; no `student` or
+`faculty_partner` profile has ever existed in this portal (checked directly against
+production — one profile total, the administrator); and an editor or administrator
+already bypasses the audience check entirely. Only the three local/preview-only samples
+in `supabase/seed.sql` ever used a narrower combination. `20260928260000_resources_
+audience_removal.sql` drops the column, the `rc_audience` enum, `resources_audience_
+for()`, and the `p_audience` parameter from both release helpers (a drop-and-recreate,
+since the parameter list changes — `create or replace` can't do that), and simplifies
+`rc_articles_select`'s RLS policy to drop the audience clause: every active profile with
+Resources access now reads every article it's otherwise allowed to see. The create/edit
+form's "Visible to" checkboxes are gone with it. Restricting a procedure to a role or
+function — the actual next want — is deferred to a real model built for that, not a
+revival of this one; `area` (now free text, itself only just corrected above) is the
+closest existing candidate but isn't wired to access at all yet.
+
+**Capability layer and MCP server (Phases A–C landed; D–E not started — see
+`docs/agent-capabilities-design.md`):** important write paths are being pulled out of
+Server Actions into reusable `defineCapability()`s (`src/lib/capabilities/define.ts`),
+aggregated in `src/lib/capabilities/registry.ts`, so they're callable identically from a
+`<form action>` adapter, an MCP tool handler, or a test — never `redirect()`, never
+`FormData`. Phase A extracted Editorial Planning's; Phase B added one capability per
+remaining tool (`sourcework.project.search`, `remote-interview.session.create`,
+`audience-listening.answer.sendToSourcework`) so the registry has real entries from all
+four tools. **Phase C has landed**: `src/app/api/mcp/route.ts` stands up the official
+`@modelcontextprotocol/sdk`'s Streamable HTTP transport over that registry
+(`src/lib/mcp/server.ts` — one capability = one MCP tool, named after the capability's
+own id), authenticated by the same cookie-based Supabase session every page/action
+uses — this phase is the in-portal case only (design doc §7/§8), no external-client
+token story yet. A `confirmation: "required"` capability's MCP tool gets an added
+`confirmed` boolean field (`src/lib/mcp/tool-schema.ts`), not part of the capability's
+own domain schema. Every MCP invocation — success or failure, gated or not — logs
+exactly one `audit_events` row under the `mcp.<capability.id>` action namespace
+(`src/lib/mcp/audit.ts`'s `buildMcpAuditEvent`), independent of whatever tool-specific
+audit event the capability's own handler additionally logs, so agent-originated writes
+stay distinguishable from UI-originated ones (design doc §11 risk 3). That required a
+migration (`20260731160000_mcp_server_audit_rls.sql`, applied to both projects): the
+existing `audit_events` insert policies are scoped to administrators, Editorial Planning
+editors, and Audience Listening members only, and an MCP call from a Sourcework- or
+Remote-Interview-only user would otherwise have its audit insert silently dropped by RLS
+— the new `audit_events_insert_mcp` policy is scoped to the `mcp.` action prefix
+specifically, so it doesn't become a general bypass of the per-tool policies. **Phase D
+(the in-portal agent) has landed**: `src/components/agent-chat-widget.tsx` renders a chat
+panel mounted in the portal layout (`src/app/(portal)/layout.tsx`) for every signed-in
+user, backed by `src/app/api/agent/chat/route.ts` and `src/lib/agent/chat.ts`'s
+`streamAgentTurn()`, driven by OpenAI's Responses API (`OPENAI_API_KEY`, the same key
+already configured for Sourcework's embeddings) and streamed over SSE so replies render
+as the model generates them rather than only after a whole tool-calling turn finishes.
+The agent is deliberately "just another MCP client": `src/lib/agent/mcp-client.ts`
+connects to a fresh in-process instance of the same `buildMcpServer()` Phase C built, over
+a linked in-memory transport, instead of calling `registry.invoke()` directly — same tool
+set, same confirmation gating, same `mcp.*` audit event per call an external MCP client
+would get. A `confirmation: "required"` capability's `confirmed` field is stripped from
+what the model ever sees (`src/lib/agent/tool-bridge.ts`) and is only ever set after an
+explicit approve/decline round-trip with the signed-in user in the widget — never trusted
+from the model's own output. There is still no chat-history table or job queue: the full
+conversation round-trips through the client on every request. **Phase E (external
+Claude/ChatGPT clients) is next — do not start it without an explicit instruction**, and
+still needs its own auth design first (design doc §8) — Phase D's cookie-based session
+auth doesn't extend to a client with no browser session.
+
+**Logic patterns — one implementation per piece of logic (2026-10-09).** Read
+`docs/logic-patterns.md` before writing a Server Action, a list query, a gate, or a client
+component that polls, copies, listens or uploads; this note is a pointer. A 2026-10-09 audit found
+the same helpers pasted into dozens of files — and copies that had drifted into different
+behavior — so they now live in tested modules under `src/lib/` (`form-fields`, `action-fields`,
+`dates`, `time-of-day`, `money`, `text`, `collections`, `list-search`'s `likeTerm`/`orIlike`,
+`pagination-read`'s `readPage`, `profile-names`, `storage-sign`/`storage-paths`, `safe-path`,
+`role-keys`, `auth/tool-grant`, `auth/route-guard`, and the client hooks). The rules that matter
+most: a delete runs through `deleteOrFail` (zero rows matched is not an error to Postgres); a
+`return_to`/`next` path goes through `safeLocalPath`; a storage path from the browser is checked
+with `pathIsUnder`; user text enters an `ilike`/`or()` only through `likeTerm`/`orIlike`; a ranged
+list read goes through `readPage`; dates validate strictly (`2026-02-30` is not a date); and
+ESLint now fails `const { data } = await …` without `error`. Same audit fixed an open redirect in
+`/auth/callback`, a contract-document download that never used its `contractId`, and admin
+writes that reported success without checking the result.
+
+## Architecture
+
+- **Modular monolith.** One Next.js app (`apps/portal`), in a repository that also holds the
+  public site (`apps/site`) — separate app, database and deployment, sharing only pure TypeScript
+  packages. Route groups
+  (`src/app/(auth)`, `src/app/(portal)`) separate concerns; individual tools get their own
+  route segment and, eventually, their own schema/migrations — not a separate service.
+- **Supabase is the backend.** Postgres + Auth + (later) Storage. No custom API layer —
+  Server Components/Server Actions talk to Supabase directly. The handful of route
+  handlers under `src/app/api/` are the deliberate exceptions, for requests an action
+  can't serve: an external webhook with no user session, or a response that is a _file_
+  rather than data (the transcription clip archive streams; an action would have to
+  base64 it through the RSC payload). Reach for a Server Action first.
+- **Row Level Security is not optional.** Every table has RLS enabled and is the real
+  enforcement boundary, not a convenience layer behind app-level checks. See
+  `supabase/migrations/20260722120001_rls_policies.sql`. The predicates those policies
+  call (`private.is_administrator`, `private.ep_*`) live in the `private` schema so they
+  are not reachable as REST endpoints — see "Authorization expectations".
+- **Two Supabase clients, used deliberately:**
+  - `src/lib/supabase/server.ts` — publishable key + the signed-in user's session. RLS
+    applies. Use this for essentially everything.
+  - `src/lib/supabase/admin.ts` — secret key, bypasses RLS. `import "server-only"`
+    guards it. Use it **only** for `auth.admin.*` calls (inviting users) and verified
+    external webhook handlers with no signed-in user session to act as (e.g. the
+    transcription ASR webhook — see that file's comment) — nothing else. Never import it
+    into a Client Component.
+- **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
+  `requireAdministrator`, `assertAdministrator`, `hasToolAccess`) is the only place
+  platform-role/account-status checks should be written. Don't re-implement these checks
+  inline in a page or action.
+- **Privileged writes are server-only and audited.** Every admin action (invite, disable,
+  grant/revoke tool access, edit the tool registry) is a Server Action that calls
+  `logAuditEvent()` (`src/lib/audit.ts`) after it succeeds. If you add a new privileged
+  action, log it the same way.
+
+## Directory conventions
+
+```
+src/app/(auth)/            sign-in, request-access, /auth/callback — public routes
+src/app/(portal)/          everything behind requireActiveProfile() (portal shell + nav)
+src/app/(portal)/admin/    everything behind requireAdministrator()
+src/app/(portal)/editorial/  the Editorial Planning tool (backlog, meetings, settings),
+                           gated by requireEditorialAccess() from lib/editorial/access.ts
+src/app/(portal)/tools/[slug]/   generic "coming soon" placeholder driven by the tools table
+src/app/(portal)/sourcework/  Sourcework (route: /sourcework) — its own route segment,
+                            gated by requireToolAccess("transcription"); data access
+                            lives in lib/transcription/ (name kept, see "Sourcework"
+                            above) and components in components/transcription/
+src/app/(portal)/remote-interview/  Remote Interview — its own route segment, gated by
+                            requireToolAccess("remote-interview")
+src/app/(portal)/audience-listening/  Audience Listening — its own route segment, gated by
+                            requireToolAccess("audience-listening")
+src/app/(portal)/roadmap/  Roadmap (wishlist + product roadmap) — its own route segment,
+                            gated by requireRoadmapAccess() from lib/roadmap/access.ts.
+                            Open to every active staff member, not to grant holders
+                            (tools.default_access = 'approved_staff')
+src/app/(portal)/academic-partnerships/  Academic Partnerships (pipeline, all submissions,
+                            settings) — its own route segment, gated by
+                            requireToolAccess("academic-partnerships")
+src/app/(portal)/log/     Log (clocks, programs — slice 1 of its milestone 1; see above) —
+                            its own route segment, gated by requireToolAccess("log")
+src/app/(portal)/editorial-inquiry/  Editorial Inquiry (the question-tree canvas) — its own
+                            route segment, gated by requireToolAccess("editorial-inquiry"),
+                            with its own full-bleed layout.tsx (no page padding — the canvas
+                            needs the space, unlike every other tool)
+src/app/(portal)/bookings/  Bookings (route: /bookings; key `bookings`) — its own route
+                            segment, gated by requireBookingsAccess() from lib/bookings/access.ts;
+                            the Rates section under bookings/rates/, the Calendar under
+                            bookings/calendar/, Requests under bookings/requests/ and Partners
+                            (agreements, reserved blocks) under bookings/partners/ (see "Bookings")
+src/app/(portal)/resources/  Resources (procedures, tool guides, what's new) — its own route
+                            segment and nav tab, gated by requireResourcesAccess() from
+                            lib/resources/access.ts; open to every active user
+                            (tools.default_access = 'approved_staff')
+src/app/join/[token]/      Remote Interview's guest-facing join link — deliberately
+                            outside both (portal) and (auth), since a guest has no
+                            profile — see docs/remote-interview-design.md, "Fit with
+                            portal conventions"
+src/app/listen/[publicId]/ Audience Listening's public participation page, and /embed for
+                            the Grove iframe. Outside (portal)/(auth) for the same reason
+                            as /join, and listed in the middleware's PUBLIC_PATHS
+src/app/book/              Bookings' public request form, and /embed for the Grove iframe.
+                            The /partner shape exactly: outside (portal)/(auth), in the
+                            middleware's PUBLIC_PATHS, no session at all, two security-
+                            definer functions as the whole surface (docs/bookings-design.md
+                            §6.3, §16)
+src/app/partner/           Academic Partnerships' public inquiry form, and /embed for the
+                            Grove iframe. Outside (portal)/(auth) for the same reason as
+                            /join and /listen, and listed in the middleware's
+                            PUBLIC_PATHS — but unlike those two, needs no session at all,
+                            not even an anonymous one (see the milestone note above)
+src/app/api/mcp/           the internal MCP server's route handler (Phase C, see above) —
+                            in middleware's default-gated set (not PUBLIC_PATHS), same
+                            cookie session as everything else
+src/components/ui/         small shared primitives (Button, Badge, Input/Select/Textarea, Card,
+                           Alert, Table) — keep generic; use these rather than re-typing
+                           control/table class strings inline. The list-page set —
+                           ListToolbar, PrimaryLink, InlineCreateCard, DetailSummary — is
+                           how every list/create/edit/detail screen is laid out; read
+                           docs/ui-patterns.md before adding one. Also the rich-text trio:
+                           rich-text.tsx (server renderer), rich-text-editor.tsx (Tiptap,
+                           client), rich-text-field.tsx (the ssr:false wrapper every caller
+                           uses) — see "Roadmap" above before importing the editor directly
+src/components/            portal-specific components (nav, tool card, etc.)
+src/components/editorial/  Editorial Planning display components
+src/lib/supabase/          the two Supabase client factories — see above
+src/lib/auth/              session lookup + authorization checks
+src/lib/transcription/     Transcription Workspace's data access + pure logic (not portal-schema),
+                           now also the home of Sourcework's sw_* data access (see
+                           docs/sourcework-design.md) — Source/Representation/Excerpt
+                           access lives alongside the transcript/clip code it generalized
+src/lib/remote-interview/  Remote Interview's data access + pure logic (tokens, storage
+                           prefixes) — not portal-schema
+src/lib/audience-listening/  Audience Listening's data access + pure logic (public ids,
+                           query/participation state, embed code, provenance).
+                           participant.ts (server) and participant-client.ts +
+                           public-client.ts (browser) are the only paths a member
+                           of the public reaches — see public-client.ts's comment
+                           for why the public flow gets its own, non-cookie
+                           Supabase client
+src/lib/roadmap/           Roadmap's access gate + role (access.ts, roles.ts), data reads
+                           (queries.ts), capabilities.ts, plus pure, tested modules — the
+                           status machine and validation (posts.ts). The rich-text
+                           whitelist it introduced now lives at src/lib/rich-text.ts, shared
+                           with Resources — the security boundary for every stored body
+src/lib/academic-partnerships/  Academic Partnerships' access gate + role (access.ts,
+                           roles.ts), staff data reads (queries.ts), the domain activity
+                           log (activity.ts), the public route's read (public.ts) and
+                           IP-hash rate-limit helper (rate-limit.ts, server-only), plus
+                           pure, tested modules — pipeline/disposition state (pipeline.ts),
+                           partnership types + public-form validation
+                           (partnership-types.ts), embed code (embed.ts), and email
+                           template interpolation (email.ts)
+src/lib/log/               Log's access gate + role (access.ts, roles.ts), staff data reads
+                           (queries.ts), plus pure, tested modules — clock-version
+                           resolution (clock-versions.ts) and schedule-entry-active-on-a-date
+                           logic (schedule.ts). Slice 1 only (see "Log" above); later slices'
+                           timing engine, content-eligibility filtering, etc. land here too
+src/lib/bookings/          Bookings' access gate + stacking roles (access.ts, roles.ts), data reads
+                           (queries.ts), the rate-card snapshot writer and change log (server-only),
+                           plus pure, tested modules — rates.ts (the rate math, the v0.1 workbook as
+                           its fixture), version-card.ts (rows → card), economics.ts, settlements.ts
+                           (settlement at actual cost), labels.ts, paths.ts
+src/lib/editorial-inquiry/  Editorial Inquiry's data access (queries.ts) and the reasoning
+                           engine (ai.ts, "server-only" — web_search + a custom function tool,
+                           streamed; see the tool's own CLAUDE.md entries) with its
+                           persistence half (turn.ts, called only by the SSE route
+                           src/app/api/editorial-inquiry/turn/), plus pure, tested modules:
+                           tree.ts (layout, ancestry, context inheritance, the
+                           reject/promote rules), directives.ts (the canned Branch/Drill
+                           down/Evaluate turn directives), and pitch-handoff.ts (the
+                           Develop-into-pitch URL builder). editorial-planning.ts is the one
+                           place this tool reads Editorial Planning's guiding
+                           questions/criteria — never a duplicate definition of either. No
+                           access.ts/roles.ts — this tool has no elevated role, so its route's
+                           actions.ts calls requireToolAccess("editorial-inquiry")/
+                           assertToolAccess(...) directly, the same flat shape Sourcework and
+                           Audience Listening already use
+src/lib/editorial/         Editorial Planning logic: access gates (server-only), data reads
+                           (data.ts), the action failure helper (action-result.ts), plus pure,
+                           tested modules (roles, scoring, staleness, form validation)
+src/lib/capabilities/      the capability layer: define.ts's defineCapability() shape,
+                           registry.ts's cross-tool aggregation + invoke() (see above and
+                           docs/agent-capabilities-design.md) — each tool's own
+                           capabilities.ts lives beside its other lib/<tool>/ code, not here
+src/lib/mcp/               the MCP server's tool-building logic (server.ts, "server-only"),
+                           plus its pure, tested pieces (tool-schema.ts, audit.ts) — the
+                           route handler at src/app/api/mcp/ is the thin part
+src/lib/*.test.ts          pure-logic unit tests, colocated with the module they test
+supabase/migrations/       schema + RLS + functions, source of truth, never edit in place
+supabase/seed.sql          local/preview-only sample data — never run against production
+```
+
+A future tool follows the Editorial Planning pattern: its own route segment, its own
+migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
+`tool_access`/`profiles` for authorization — it should not need portal-schema changes
+beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
+migration.
+
+**Fonts are self-hosted, not fetched from Google at build time (2026-09-28).**
+Production deploys had repeatedly failed in Turbopack (`Module not found:
+Can't resolve '@vercel/turbopack-next/internal/font/google/font'`) because
+`next/font/google` resolves each font over the network during the build —
+five of the prior six failed deployments, across four different branches,
+carried this exact signature. `src/app/layout.tsx` now uses `next/font/local`
+against `.woff2` files committed under `src/app/fonts/` (Source Sans 3
+400/600/700, Source Serif 4 400/600/700, JetBrains Mono 400/500 — the same
+families/weights/variable names as before, all open-license and
+redistributable), so the build has no live dependency on Google's font CDN.
+If a font family or weight is ever added, download it once into
+`src/app/fonts/` rather than reaching for `next/font/google` again.
+
+## Common commands
+
+`npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test` ·
+`npm run format` · `npm run db:types` · `npm run db:check`. Run lint, typecheck, and test
+before considering a change done — and `db:check` too if the change touched
+`supabase/migrations/`.
+
+## Database workflow
+
+New migration file per schema change (`supabase/migrations/<timestamp>_<name>.sql`),
+never edit a migration that's already been applied. Include RLS policies for any new
+table in the same or an immediately-following migration — a table without RLS enabled is
+a bug, not an oversight to fix later. Regenerate `src/lib/database.types.ts` after schema
+changes (`npm run db:types` against a local instance, or hand-update it consistently with
+the migration if no local instance is running — see the note at the top of that file).
+
+**Writing the migration is not finishing it.** Nothing in a build, a test run, or a
+Vercel deploy applies migrations, so a merged migration that was never run ships a tool
+that silently does nothing — or half-does something, which is worse. That has already
+happened here: Audience Listening's registry row was flipped to `available` while its
+route still pointed at the generic placeholder, because the migration that repoints it
+hadn't been run, and `/tools/audience-listening` redirected to itself forever.
+
+So a schema change is done when, and only when:
+
+1. It is applied to **`wuwf-tools-portal-preview`**, and verified there.
+2. It is applied to **`wuwf-tools-portal`**, and verified there.
+3. Its row is added to **`supabase/migrations/APPLIED.md`** with both dates.
+4. **`npm run db:check`** passes.
+
+**Migration version prefixes have run ahead of the calendar.** The files from `20261016…`
+through `20261103…` were written and applied between 2026-10-09 and 2026-10-15, so a prefix is
+a sequence number, not the date; the real dates are the two columns in `APPLIED.md`. A new
+migration still has to sort after every applied file (a fresh database runs them in prefix
+order), so continue the sequence rather than "correcting" it back to today. One consequence
+already bit once: `rc_release_note()`'s `p_released_on` was copied from the filename and What's
+new showed November dates in mid-October (fixed by `20261103120000`). Pass the day the change
+actually ships, never the prefix.
+
+`APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
+a migration file with no row, a row naming a missing file, or a row where either
+environment isn't a date. Read that file before touching migration history — it also
+records the one known discrepancy between this directory and the hosted projects
+(`harden_functions`), so nobody tries to "fix" it by reapplying it.
+
+## Authorization expectations
+
+- New pages: gate with `requireActiveProfile()` or `requireAdministrator()` from
+  `lib/auth/authz.ts`, not a hand-rolled check.
+- New Server Actions: call `assertAdministrator()` (or the relevant check) as the first
+  line, before touching any data.
+- New tables: RLS enabled, policies scoped to `auth.uid()` /
+  `private.is_administrator(auth.uid())` — follow the existing pattern in
+  `20260722120001_rls_policies.sql` rather than inventing a new one.
+- Authorization helper functions live in the `private` schema, never `public`. They are
+  `security definer` (they read `profiles`/`tool_access` past RLS) and must stay
+  `execute`-able by `authenticated`, because a policy expression runs as the querying
+  user — revoking that permission makes every policy calling it fail outright. `private`
+  is not in PostgREST's exposed schemas, so placement, not permission, is what keeps them
+  off the API. See `20260724120000_private_authz_functions.sql`.
+- Tool-specific roles (e.g. "Editor" for Editorial Planning) are free-text on
+  `tool_access.tool_role` and interpreted by that tool alone — the portal does not
+  understand or enforce them.
+
+## Security requirements
+
+- Never expose `SUPABASE_SECRET_KEY` to client code. It's only ever read inside
+  `lib/supabase/admin.ts`.
+- Never bypass RLS for convenience — if a query needs data RLS is blocking, that's a sign
+  the policy is wrong or the check belongs in a Server Action, not a reason to reach for
+  the admin client.
+- Don't rely on hiding a button/link as the only access control — the RLS policy or
+  server-side check is the actual boundary; UI hiding is a courtesy on top of it.
+- Disabling a user sets `account_status = 'disabled'`; nothing about access ever deletes
+  a `profiles` row.
+
+## Testing expectations
+
+Pure logic (authorization predicates, validation, state-derivation helpers like
+`getToolCardState`) gets a colocated `*.test.ts` and should stay dependency-free enough to
+run under Vitest without mocking Supabase. Don't add heavier test infrastructure
+(Playwright, a test Supabase container, etc.) without a concrete need — that's a call to
+make explicitly, not by default.
+
+## Rules for making changes
+
+- **Every pull request gets a written title and description — and a PR you did not write the text for is the usual
+  way this goes wrong.** The Claude Code UI opens a PR from your branch push on its own, with a title and body
+  generated from commit messages: truncated, in no template shape, and sometimes wrong about the change (it once named
+  a table that does not exist). So the moment you push a branch, or a system message says a PR was created, **your next
+  action — before the summary, before anything else — is to read that PR and rewrite its title and body**, with
+  `update_pull_request`. Do not wait to be asked, and do not treat the generated text as a draft to leave. Write it
+  from the diff, not from memory: check every table, file and function name you cite, and every claim about what was
+  applied or tested, against the code and the database as they are now.
+  - Title: what the change does, in sentence case, a full sentence fragment, never the branch name, a merge or commit
+    message, or cut off.
+  - Body: follow `.github/pull_request_template.md` — Summary (why it matters, one or two sentences), What changed
+    (grouped by area), Database (only with a migration: which, applied where, `APPLIED.md`, `db:check`), Test plan,
+    Not included. Say plainly what was **not** tested; do not imply a screen was used if it was only type-checked.
+  - After every later push to the branch, re-read the PR and update the body if it no longer matches (new migrations
+    applied, scope added or dropped). Re-read it on GitHub after writing it; do not assume the update took.
+  - `.github/workflows/pr-text.yml` runs `scripts/check-pr-text.mjs` and fails a PR with a branch-name or
+    merge-commit title, a truncated title, an empty description, or a description missing the template's Summary,
+    What changed or Test plan sections. The check is a backstop, not a substitute for writing it.
+- **Resources stay in step with the code.** Any change a user would notice ships a
+  migration that writes its Resources content through
+  `private.rc_release_note()` and `private.rc_release_guide()`
+  (`20260928200000_resources_release_helpers.sql`). That means one release note (tool,
+  `released_on`, sentence-case title, a one-paragraph body), plus an updated or new guide
+  for each screen it changes, linked through `p_guide_slugs`. Use named arguments, with
+  `$body$`-quoted ProseMirror JSON as the last one. `release-content.test.ts` finds every call by that shape
+  and fails on a body the rich-text whitelist would alter, on a screen key missing from
+  `lib/resources/screens.ts`, and on a link to a guide that doesn't exist. Slugs are the
+  identity; never match on id. A guide an editor has changed since the last release is not
+  overwritten: the helper flags it `needs_review` and the release note still ships.
+  - A new route that has a guide needs its pattern in `screens.ts`, or Help won't find it.
+  - Tone is the station's: factual, calm, sentence case, no exclamation points.
+  - The migration goes through `APPLIED.md` like any other. Internal-only changes
+    (refactors, fixes nobody sees, docs) don't need one.
+- **Colours and type sizes come from `src/lib/design-tokens.ts`, and a test checks it.** Use a token class
+  (`bg-brand-hover`, `text-danger-fg`, `border-line-strong`, `bg-deep`) or a named size (`text-badge` 10,
+  `text-label` 11, `text-meta` 12, `text-ui` 13, `text-body` 15, `text-section` 17, `text-title` 20,
+  `text-display` 22) — never a `#hex` or `text-[13px]`. Where a class can't be used (SVG attributes, inline
+  styles, the affidavit PDF), import `colors` from the same file. A colour with no token gets one there, and
+  an entry in the WUWF Design System's Portal layer. `src/lib/design-tokens.test.ts` fails the build on a
+  literal and on `rounded-md`/`rounded-lg`; `rounded-t-xl` is the bottom sheet's, and `shadow-sm/md/lg` are
+  the three elevations.
+- **Every control that starts a model run carries the sparkles mark** (`<Button ai>`, or `SparklesIcon`
+  beside a link's label). See `docs/ui-patterns.md`, "AI actions carry the sparkles mark". Add it in the
+  same change that adds the AI action.
+- **Controls come from the shared primitives, and a test checks it** (`docs/ui-patterns.md`, "Rules that
+  fail the build"). A form ends in `FormActions`; a removal in a plain form is `ConfirmSubmit`; a list's
+  "+ New X" is `ListToolbar`'s `primary` (a link) or `action` (a form button); a control that falls back to
+  an icon on a phone takes `phoneIcon`; its place in a `ControlRow` is the `row` prop; day navigation is
+  `DateStepper`. `src/lib/ui-rules.test.ts` fails the build on the hand-built versions.
+- Inspect the relevant existing file(s) before editing; match existing patterns rather
+  than introducing a new one for the same problem.
+- Keep changes narrowly scoped to what was asked. Don't refactor unrelated code, rename
+  things "while you're in there," or add abstractions for a single current use.
+- Reuse the shared logic modules (`docs/logic-patterns.md`) instead of writing a local `field()`,
+  `isValidDateISO`, `round2`, `withQuery`, display-name lookup, or popover/clipboard/poller hook.
+- Never discard a Supabase `error`. A read that falls back to `[]` and a write that
+  redirects as though it succeeded both render exactly like a healthy screen, so a real
+  outage looks like a UI bug — that is how an unapplied migration once passed for "the
+  settings aren't configurable". Reads go through `unwrapRead()` (throws, caught by the
+  route's `error.tsx`); writes go through `failIfError()` / `failWith()` from
+  `lib/editorial/action-result.ts`, which bounce back with `?error=` for the screen to show.
+- Any new focusable text surface (input, textarea, select, or a custom `contenteditable`/
+  rich-text editor) must resolve to at least 16px font-size on mobile — iOS Safari
+  auto-zooms the viewport on focus below that. Use `controlClasses` from
+  `components/ui/input.tsx` for native `Input`/`Select`/`Textarea`; for anything else, use
+  the exported `MOBILE_SAFE_TEXT_SIZE` constant from the same file — never hand-type
+  `text-sm` on a focusable surface. This exact bug has recurred five times now, each time
+  on a different _kind_ of control than the last fix covered (`30464b3`, `90747aa`,
+  `af42f2b`, `f9fe609`, and `rich-text-editor.tsx`) — check this before adding any new one.
+- Migrations in `supabase/migrations/` are not self-applying, and no build or deploy will
+  apply them. Adding one is not the end of the job: apply it to preview, then production,
+  confirm the tables exist, record both dates in `supabase/migrations/APPLIED.md`, and run
+  `npm run db:check`. See "Database workflow" above — this is the step most often skipped,
+  and skipping it ships a tool that silently does nothing.
+- Run `npm run lint`, `npm run typecheck`, and `npm test` before calling a change done —
+  plus `npm run db:check` when the change touched `supabase/migrations/`.
+- Update this file and/or README.md when you change architecture, directory conventions,
+  or the local/deploy workflow — not for routine feature work.
+- Don't add a major dependency without a specific reason it's needed (and note that
+  reason in the commit/PR description) — this project deliberately runs on a small
+  dependency set.
+- End each implementation task with a short summary of what changed and anything left
+  unresolved.
