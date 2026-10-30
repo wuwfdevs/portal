@@ -44,6 +44,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.29.2
         version: 3.29.2
+      '@wuwf/portal-contracts':
+        specifier: workspace:*
+        version: link:../../packages/portal-contracts
       assemblyai:
         specifier: ^4.36.4
         version: 4.36.4

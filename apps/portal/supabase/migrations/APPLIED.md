@@ -305,6 +305,7 @@ repo and a project's history, not the version number.
 | `20261104140000_resources_editorial_screens.sql`                      | 2026-10-29 | 2026-10-29 |
 | `20261105120000_sourcework_split_long_segments.sql`                   | 2026-10-29 | 2026-10-29 |
 | `20261105130000_resources_sourcework_transcript_paragraphs.sql`       | 2026-10-29 | 2026-10-29 |
+| `20261105140000_website_tool_registry.sql`                            | 2026-10-30 | 2026-10-30 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

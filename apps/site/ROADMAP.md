@@ -18,7 +18,7 @@ design canvas are described under *Sources* below.
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
 | Initial production migration | **Done**; matches the dev push exactly |
 | Docs (README, ARCHITECTURE, ANALYTICS, this file) | **Done** |
-| Staff sign-in from the Portal: Portal half (`website` registry row + token route) | Not started |
+| Staff sign-in: Portal half (`website` registry row, access predicate, audit policy, `/website` token route, roles) | **Done**; migration applied to preview and production (2026-10-30). Tool is registered **disabled** |
 | Staff sign-in: site half (verify, provision user, refuse reused `jti`, session) | Not started |
 | Publish-candidates endpoint (+ status webhook) | Not started |
 | Homepage, article, fellowship hub, giving page (boards 1–4, 14) | Not started |
@@ -36,13 +36,13 @@ in them has been started.
 1. ~~**Node.**~~ Done: 22.23.4 (the Payload minimum) pinned in `.node-version`/`.nvmrc`, and `engine-strict`
    in the root `.npmrc` makes an unsupported Node fail the install. Portal, site and packages all re-verified on it.
    Still to do on Vercel: set the project's Node version to 22.x for both projects.
-2. **Portal migration** adding the `website` tool-registry row (`status = 'available'`,
-   `default_access = 'invite_only'`, stacking roles `editor`, `publisher`, `administrator`, `sponsorship`,
-   `membership` via `tool_access.tool_roles`, the shape On Air and Bookings use) plus a Resources release note.
-   Write it, apply to **preview first**, verify, then production; record both dates in
-   `apps/portal/supabase/migrations/APPLIED.md`; `pnpm db:check`. The owner has approved applying it.
-3. **Portal token route** (`apps/portal`): authorizes via the existing tool-access check, mints
-   `mintIdentityToken` for the signed-in profile, redirects to the site. Audited. Follow the Portal's rules.
+2. ~~**Portal migration**~~ Done and applied to both projects (`20261105140000_website_tool_registry.sql`). The tool
+   is registered `available` but `enabled = false`, so the dashboard card reads "Unavailable". **At launch:** an
+   administrator enables it at `/admin/tools`, and the Resources release note ships in the same step (it was
+   deliberately not written yet: announcing a tool nobody can open adds noise to "What's new").
+3. ~~**Portal token route**~~ Done: `apps/portal/src/app/(portal)/website/route.ts`. Needs `WEBSITE_ORIGIN` and
+   `WEBSITE_IDENTITY_SECRET` set in the Portal's environment (see its `.env.example`); unset, it answers that sign-in
+   "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. **Site sign-in route:** verify with `verifyIdentityToken`; store `jti` (a table with a unique constraint and
    a short expiry sweep) and refuse a second use; upsert the Payload user by `portalUserId`; set `roles` from the
    token; start a Payload session. Test: replay refused, expired refused, role escalation by edit refused.

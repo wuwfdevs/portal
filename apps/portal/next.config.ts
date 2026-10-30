@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Shared workspace packages ship TypeScript source (they have no build step).
+  transpilePackages: ["@wuwf/portal-contracts"],
   // ffmpeg-static ships a platform binary alongside its JS — Next's
   // dependency tracer only reliably includes that binary in the deployment
   // bundle (Vercel) when the package is marked external rather than bundled.
