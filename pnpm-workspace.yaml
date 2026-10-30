@@ -2,10 +2,18 @@ packages:
   - apps/*
   - packages/*
 
-# pnpm 10 skips dependency install scripts unless listed. npm ran these, and the
-# Portal needs them: ffmpeg-static downloads its platform binary here (clip export),
-# sharp and unrs-resolver fetch/verify native binaries (Next images, ESLint resolver).
+# One lockfile per project, not one for the workspace. With a shared lockfile pnpm resolved the
+# Portal's optional peers (esbuild, sass, tsx, @playwright/test) from the site's packages, which
+# changed how the Portal's own tests are transpiled and broke six of them. The apps must not share
+# a dependency resolution any more than they share a database.
+sharedWorkspaceLockfile: false
+
+# pnpm 10 skips dependency install scripts unless listed. npm ran these, and the apps need them:
+# ffmpeg-static downloads its platform binary here (Portal clip export); sharp and
+# unrs-resolver fetch/verify native binaries (Next images, ESLint resolver); esbuild is run by
+# Payload's CLI tooling.
 onlyBuiltDependencies:
+  - esbuild
   - ffmpeg-static
   - sharp
   - unrs-resolver

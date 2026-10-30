@@ -6,13 +6,20 @@
     "node": ">=20"
   },
   "scripts": {
-    "portal": "pnpm --filter wuwf-tools-portal",
-    "dev:portal": "pnpm --filter wuwf-tools-portal dev",
     "build:portal": "pnpm --filter wuwf-tools-portal build",
-    "lint:portal": "pnpm --filter wuwf-tools-portal lint",
-    "typecheck:portal": "pnpm --filter wuwf-tools-portal typecheck",
-    "test:portal": "pnpm --filter wuwf-tools-portal test",
+    "build:site": "pnpm --filter wuwf-site build",
     "db:check:portal": "pnpm --filter wuwf-tools-portal db:check",
-    "test:pr-text": "node --test scripts/check-pr-text.test.mjs"
+    "dev:portal": "pnpm --filter wuwf-tools-portal dev",
+    "dev:site": "pnpm --filter wuwf-site dev",
+    "lint:portal": "pnpm --filter wuwf-tools-portal lint",
+    "lint:site": "pnpm --filter wuwf-site lint",
+    "portal": "pnpm --filter wuwf-tools-portal",
+    "test:packages": "pnpm --filter \"./packages/*\" test",
+    "test:portal": "pnpm --filter wuwf-tools-portal test",
+    "test:pr-text": "node --test scripts/check-pr-text.test.mjs",
+    "test:site": "pnpm --filter wuwf-site test:int",
+    "typecheck:packages": "pnpm --filter \"./packages/*\" typecheck",
+    "typecheck:portal": "pnpm --filter wuwf-tools-portal typecheck",
+    "typecheck:site": "pnpm --filter wuwf-site typecheck"
   }
 }

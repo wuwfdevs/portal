@@ -6,13 +6,24 @@ read the one for the app you are changing before editing it.
 ## Layout
 
 ```
-apps/portal      WUWF Tools Portal (tools.wuwf.org) — internal staff tools. See apps/portal/CLAUDE.md
-packages/        shared pure TypeScript (none yet)
-.github/         repo-wide: the PR template and the PR title/description check
-scripts/         repo-wide: check-pr-text.mjs and its test
+apps/portal                 WUWF Tools Portal (tools.wuwf.org) — internal staff tools. See apps/portal/CLAUDE.md
+apps/site                   WUWF.org — the public site and its CMS (Payload on Next.js). See apps/site/CLAUDE.md
+packages/design-tokens      WUWF Design System tokens, CSS-variable generation, contrast helpers
+packages/listening-core     audience-listening rules shared by both apps (ported from the Portal)
+packages/content-blocks     the block schema for content sent from the Portal to the site
+packages/portal-contracts   the signed contracts between the two apps (identity token, request signing, messages)
+.github/                    repo-wide: the PR template and the PR title/description check
+scripts/                    repo-wide: check-pr-text.mjs and its test
 ```
 
-This is a pnpm workspace (`pnpm-workspace.yaml`: `apps/*`, `packages/*`), one lockfile at the root.
+This is a pnpm workspace (`pnpm-workspace.yaml`: `apps/*`, `packages/*`).
+
+**Every project has its own `pnpm-lock.yaml`** (`sharedWorkspaceLockfile: false`). Do not switch to one
+shared lockfile. With one, pnpm resolved the Portal's optional peers from the site's packages (esbuild,
+sass, tsx, `@playwright/test`), which changed how the Portal's own tests were transpiled and broke six
+of them, with no resolved version changing. Separate lockfiles are what keep "the apps share no
+dependencies" true. Never run `pnpm install` with a different lockfile setting, and check the Portal's
+`pnpm test` after any change to `pnpm-workspace.yaml`.
 
 ## Rules
 
