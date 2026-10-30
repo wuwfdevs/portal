@@ -71,6 +71,13 @@ export interface Config {
     posts: Post;
     media: Media;
     categories: Category;
+    contributors: Contributor;
+    'publishing-identities': PublishingIdentity;
+    fellowships: Fellowship;
+    series: Series;
+    productions: Production;
+    sponsors: Sponsor;
+    'underwriting-agreements': UnderwritingAgreement;
     users: User;
     redirects: Redirect;
     forms: Form;
@@ -93,6 +100,13 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    contributors: ContributorsSelect<false> | ContributorsSelect<true>;
+    'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
+    fellowships: FellowshipsSelect<false> | FellowshipsSelect<true>;
+    series: SeriesSelect<false> | SeriesSelect<true>;
+    productions: ProductionsSelect<false> | ProductionsSelect<true>;
+    sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
+    'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
@@ -254,13 +268,25 @@ export interface Post {
     description?: string | null;
   };
   publishedAt?: string | null;
-  authors?: (number | User)[] | null;
-  populatedAuthors?:
-    | {
-        id?: string | null;
-        name?: string | null;
-      }[]
-    | null;
+  /**
+   * The byline.
+   */
+  contributors?: (number | Contributor)[] | null;
+  format: 'web' | 'audio' | 'video';
+  /**
+   * The sentence or two under the headline.
+   */
+  dek?: string | null;
+  /**
+   * The brand this appears under (WUWF News, The Voyager…).
+   */
+  publishingIdentity?: (number | null) | PublishingIdentity;
+  /**
+   * Attach, don't paste: funder acknowledgments follow from this.
+   */
+  fellowship?: (number | null) | Fellowship;
+  series?: (number | null) | Series;
+  production?: (number | null) | Production;
   /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
@@ -415,30 +441,216 @@ export interface Category {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
+ * via the `definition` "contributors".
  */
-export interface User {
+export interface Contributor {
   id: number;
-  name?: string | null;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * For example "Coastal Futures Fellow".
+   */
+  title?: string | null;
+  bio?: string | null;
+  photo?: (number | null) | Media;
+  /**
+   * Shown when there is no photo. Defaults to the name's initials.
+   */
+  initials?: string | null;
   updatedAt: string;
   createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  resetPasswordRequestedAt?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-identities".
+ */
+export interface PublishingIdentity {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  kind: 'newsroom' | 'partner' | 'production' | 'show';
+  tagline?: string | null;
+  description?: string | null;
+  /**
+   * Where a partner identity's cards link. Empty for WUWF-run identities.
+   */
+  homeUrl?: string | null;
+  logo?: (number | null) | Media;
+  /**
+   * Color token overrides for this identity, e.g. {"surface-dark": "#000000"}. Applied through @wuwf/design-tokens.
+   */
+  themeColors?:
     | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
     | null;
-  password?: string | null;
-  collection: 'users';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * A year of reporting on one subject, usually funded. Its hub page lists everything made through it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "fellowships".
+ */
+export interface Fellowship {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences, shown on cards and hubs.
+   */
+  summary?: string | null;
+  heroImage?: (number | null) | Media;
+  mission?: string | null;
+  fellow?: (number | null) | Contributor;
+  termStartsOn?: string | null;
+  termEndsOn?: string | null;
+  /**
+   * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
+   */
+  agreements?: (number | UnderwritingAgreement)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Changing the wording here changes every page the agreement reaches.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "underwriting-agreements".
+ */
+export interface UnderwritingAgreement {
+  id: number;
+  /**
+   * For staff, e.g. "Example Foundation — Coastal Futures, 2026–27".
+   */
+  label: string;
+  sponsor: number | Sponsor;
+  kind: 'recognition' | 'campaign';
+  /**
+   * The approved acknowledgment, exactly as it should appear.
+   */
+  text: string;
+  /**
+   * Optional short form for promo cards. If empty: "Supported in part by <sponsor>".
+   */
+  shortText?: string | null;
+  /**
+   * Increases each time the wording changes.
+   */
+  textVersion?: number | null;
+  startsOn: string;
+  /**
+   * Leave empty for an open-ended term.
+   */
+  endsOn?: string | null;
+  active?: boolean | null;
+  /**
+   * Empty means every format.
+   */
+  formats?: ('web' | 'audio' | 'video')[] | null;
+  /**
+   * Empty means every placement.
+   */
+  placements?: ('article' | 'card' | 'episode' | 'video' | 'hub')[] | null;
+  /**
+   * Internal. The editorial-independence terms agreed with the funder.
+   */
+  independenceTerms?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsors".
+ */
+export interface Sponsor {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * The sponsor's website, if it may be linked.
+   */
+  url?: string | null;
+  logo?: (number | null) | Media;
+  /**
+   * Internal. Never shown to the public.
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * An editorial series such as "After Isaias". May carry an agreement; many do not.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "series".
+ */
+export interface Series {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences, shown on cards and hubs.
+   */
+  summary?: string | null;
+  heroImage?: (number | null) | Media;
+  /**
+   * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
+   */
+  agreements?: (number | UnderwritingAgreement)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * An ongoing WUWF production, such as a podcast or live-music series.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "productions".
+ */
+export interface Production {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences, shown on cards and hubs.
+   */
+  summary?: string | null;
+  heroImage?: (number | null) | Media;
+  /**
+   * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
+   */
+  agreements?: (number | UnderwritingAgreement)[] | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -775,6 +987,41 @@ export interface Form {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  name?: string | null;
+  /**
+   * Set by the Portal when this person opens the website tool.
+   */
+  roles?: ('editor' | 'publisher' | 'administrator' | 'sponsorship' | 'membership')[] | null;
+  /**
+   * The Portal profile this user was provisioned from.
+   */
+  portalUserId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  resetPasswordRequestedAt?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
 export interface Redirect {
@@ -978,6 +1225,34 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'categories';
         value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'contributors';
+        value: number | Contributor;
+      } | null)
+    | ({
+        relationTo: 'publishing-identities';
+        value: number | PublishingIdentity;
+      } | null)
+    | ({
+        relationTo: 'fellowships';
+        value: number | Fellowship;
+      } | null)
+    | ({
+        relationTo: 'series';
+        value: number | Series;
+      } | null)
+    | ({
+        relationTo: 'productions';
+        value: number | Production;
+      } | null)
+    | ({
+        relationTo: 'sponsors';
+        value: number | Sponsor;
+      } | null)
+    | ({
+        relationTo: 'underwriting-agreements';
+        value: number | UnderwritingAgreement;
       } | null)
     | ({
         relationTo: 'users';
@@ -1198,13 +1473,13 @@ export interface PostsSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
-  authors?: T;
-  populatedAuthors?:
-    | T
-    | {
-        id?: T;
-        name?: T;
-      };
+  contributors?: T;
+  format?: T;
+  dek?: T;
+  publishingIdentity?: T;
+  fellowship?: T;
+  series?: T;
+  production?: T;
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -1327,10 +1602,124 @@ export interface CategoriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contributors_select".
+ */
+export interface ContributorsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  title?: T;
+  bio?: T;
+  photo?: T;
+  initials?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-identities_select".
+ */
+export interface PublishingIdentitiesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  kind?: T;
+  tagline?: T;
+  description?: T;
+  homeUrl?: T;
+  logo?: T;
+  themeColors?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "fellowships_select".
+ */
+export interface FellowshipsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  summary?: T;
+  heroImage?: T;
+  mission?: T;
+  fellow?: T;
+  termStartsOn?: T;
+  termEndsOn?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "series_select".
+ */
+export interface SeriesSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  summary?: T;
+  heroImage?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "productions_select".
+ */
+export interface ProductionsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  summary?: T;
+  heroImage?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsors_select".
+ */
+export interface SponsorsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  url?: T;
+  logo?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "underwriting-agreements_select".
+ */
+export interface UnderwritingAgreementsSelect<T extends boolean = true> {
+  label?: T;
+  sponsor?: T;
+  kind?: T;
+  text?: T;
+  shortText?: T;
+  textVersion?: T;
+  startsOn?: T;
+  endsOn?: T;
+  active?: T;
+  formats?: T;
+  placements?: T;
+  independenceTerms?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  roles?: T;
+  portalUserId?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

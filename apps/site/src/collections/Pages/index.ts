@@ -1,3 +1,4 @@
+import { ensureSlug } from '../../hooks/ensureSlug'
 import type { CollectionConfig } from 'payload'
 
 import { authenticated } from '../../access/authenticated'
@@ -120,6 +121,7 @@ export const Pages: CollectionConfig<'pages'> = {
     slugField(),
   ],
   hooks: {
+    beforeValidate: [ensureSlug('title')],
     afterChange: [revalidatePage],
     beforeChange: [populatePublishedAt],
     afterDelete: [revalidateDelete],

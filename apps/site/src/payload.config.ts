@@ -9,6 +9,15 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Users } from './collections/Users'
+import { Contributors } from './collections/Contributors'
+import { PublishingIdentities } from './collections/PublishingIdentities'
+import {
+  Fellowships,
+  Productions,
+  Series,
+  Sponsors,
+  UnderwritingAgreements,
+} from './collections/Underwriting'
 import { Footer } from './Footer/config'
 import { Header } from './Header/config'
 import { plugins } from './plugins'
@@ -24,9 +33,6 @@ export default buildConfig({
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeLogin: ['@/components/BeforeLogin'],
-      // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
-      // Feel free to delete this at any time. Simply remove the line below.
-      beforeDashboard: ['@/components/BeforeDashboard'],
     },
     importMap: {
       baseDir: path.resolve(dirname),
@@ -62,7 +68,20 @@ export default buildConfig({
     // Dev pushes schema changes; production only runs committed migrations (src/migrations).
     migrationDir: path.resolve(dirname, 'migrations'),
   }),
-  collections: [Pages, Posts, Media, Categories, Users],
+  collections: [
+    Pages,
+    Posts,
+    Media,
+    Categories,
+    Contributors,
+    PublishingIdentities,
+    Fellowships,
+    Series,
+    Productions,
+    Sponsors,
+    UnderwritingAgreements,
+    Users,
+  ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer],
   plugins,

@@ -14,8 +14,8 @@ import { authenticatedOrPublished } from '../../access/authenticatedOrPublished'
 import { Banner } from '../../blocks/Banner/config'
 import { Code } from '../../blocks/Code/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
+import { ensureSlug } from '../../hooks/ensureSlug'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
-import { populateAuthors } from './hooks/populateAuthors'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
 import {
@@ -182,43 +182,48 @@ export const Posts: CollectionConfig<'posts'> = {
       },
     },
     {
-      name: 'authors',
+      name: 'contributors',
       type: 'relationship',
-      admin: {
-        position: 'sidebar',
-      },
+      admin: { position: 'sidebar', description: 'The byline.' },
       hasMany: true,
-      relationTo: 'users',
+      relationTo: 'contributors',
     },
-    // This field is only used to populate the user data via the `populateAuthors` hook
-    // This is because the `user` collection has access control locked to protect user privacy
-    // GraphQL will also not return mutated user data that differs from the underlying schema
     {
-      name: 'populatedAuthors',
-      type: 'array',
-      access: {
-        update: () => false,
-      },
-      admin: {
-        disabled: true,
-        readOnly: true,
-      },
-      fields: [
-        {
-          name: 'id',
-          type: 'text',
-        },
-        {
-          name: 'name',
-          type: 'text',
-        },
+      name: 'format',
+      type: 'select',
+      required: true,
+      defaultValue: 'web',
+      options: [
+        { label: 'Story', value: 'web' },
+        { label: 'Audio story', value: 'audio' },
+        { label: 'Video story', value: 'video' },
       ],
+      admin: { position: 'sidebar' },
     },
+    {
+      name: 'dek',
+      type: 'textarea',
+      admin: { description: 'The sentence or two under the headline.', position: 'sidebar' },
+    },
+    {
+      name: 'publishingIdentity',
+      type: 'relationship',
+      relationTo: 'publishing-identities',
+      admin: { position: 'sidebar', description: 'The brand this appears under (WUWF News, The Voyager…).' },
+    },
+    {
+      name: 'fellowship',
+      type: 'relationship',
+      relationTo: 'fellowships',
+      admin: { position: 'sidebar', description: 'Attach, don\'t paste: funder acknowledgments follow from this.' },
+    },
+    { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
+    { name: 'production', type: 'relationship', relationTo: 'productions', admin: { position: 'sidebar' } },
     slugField(),
   ],
   hooks: {
+    beforeValidate: [ensureSlug('title')],
     afterChange: [revalidatePost],
-    afterRead: [populateAuthors],
     afterDelete: [revalidateDelete],
   },
   versions: {

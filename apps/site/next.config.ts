@@ -12,6 +12,8 @@ const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
   : process.env.__NEXT_PRIVATE_ORIGIN || 'http://localhost:3000'
 
 const nextConfig: NextConfig = {
+  // The shared packages ship TypeScript source (they have no build step).
+  transpilePackages: ['@wuwf/design-tokens', '@wuwf/listening-core', '@wuwf/content-blocks', '@wuwf/portal-contracts'],
   // Temporarily required on Windows until Next.js fixes Turbopack Sass resolution.
   // See: https://github.com/vercel/next.js/issues/86431
   sassOptions: {

@@ -9,10 +9,12 @@ import { formatAuthors } from '@/utilities/formatAuthors'
 export const PostHero: React.FC<{
   post: Post
 }> = ({ post }) => {
-  const { categories, heroImage, populatedAuthors, publishedAt, title } = post
+  const { categories, heroImage, contributors, publishedAt, title } = post
 
-  const hasAuthors =
-    populatedAuthors && populatedAuthors.length > 0 && formatAuthors(populatedAuthors) !== ''
+  const byline = (contributors ?? []).filter(
+    (c): c is Exclude<typeof c, string | number> => typeof c === 'object' && c !== null,
+  )
+  const hasAuthors = byline.length > 0 && formatAuthors(byline) !== ''
 
   return (
     <div className="relative -mt-[10.4rem] flex items-end">
@@ -48,7 +50,7 @@ export const PostHero: React.FC<{
                 <div className="flex flex-col gap-1">
                   <p className="text-sm">Author</p>
 
-                  <p>{formatAuthors(populatedAuthors)}</p>
+                  <p>{formatAuthors(byline)}</p>
                 </div>
               </div>
             )}

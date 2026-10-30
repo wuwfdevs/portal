@@ -53,6 +53,18 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.0.2
         version: 1.5.0(@types/react@19.2.14)(react@19.2.6)
+      '@wuwf/content-blocks':
+        specifier: workspace:*
+        version: link:../../packages/content-blocks
+      '@wuwf/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
+      '@wuwf/listening-core':
+        specifier: workspace:*
+        version: link:../../packages/listening-core
+      '@wuwf/portal-contracts':
+        specifier: workspace:*
+        version: link:../../packages/portal-contracts
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
