@@ -1,0 +1,21 @@
+{
+  "name": "@wuwf/portal-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The documented, versioned contracts between the Portal and the site: staff identity token, signed server-to-server requests, publish and transcription messages, role mapping. Types and signing only.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@wuwf/content-blocks": "workspace:*"
+  }
+}

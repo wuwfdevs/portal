@@ -1,0 +1,18 @@
+{
+  "name": "@wuwf/content-blocks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The shared block schema for content that travels between the Portal and the site (a Sourcework piece becomes a CMS draft): types, a strict parser, and the rules for what may be published.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}
