@@ -98,14 +98,15 @@ hash of the exact body; the window is 5 minutes.
 | Channel | Direction | Status |
 |---|---|---|
 | Identity token | Portal → site | package built; both routes specified |
-| Publish candidate (`ContentDocument`) | Portal → site | schema + strict parser built; endpoint specified |
-| Publish status webhook | site → Portal | message type built; endpoint specified |
-| Transcription request / transcript delivery | site ↔ Portal | message types built; endpoints specified |
+| Publish candidate (`ContentDocument`) | Portal → site | **Deferred** (no Sourcework export for now). Schema + strict parser exist as dormant, tested code; no endpoint |
+| Publish status webhook | site → Portal | **Deferred** with the above; message type only |
+| Transcription request / transcript delivery | site ↔ Portal | Milestone 2; message types only |
 | Traffic daypart names | shared vocabulary | specified |
 
-A publish candidate creates a CMS draft and returns its id and admin URL. A later send of the same piece adds a
-version and never overwrites. The parser refuses rather than repairs and returns every problem. **Editor notes
-never publish:** the only way to render blocks is through `publicBlocks` / `toPublicDocument`.
+If the publish channel is ever built, a candidate creates a CMS draft and returns its id and admin URL, and a later
+send of the same piece adds a version and never overwrites. The dormant parser refuses rather than repairs and
+returns every problem, and **editor notes never publish**: blocks are rendered only through `publicBlocks` /
+`toPublicDocument`.
 
 ## Audience listening (Specified; rules Built)
 

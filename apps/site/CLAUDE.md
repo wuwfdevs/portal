@@ -58,10 +58,11 @@ Portal's tables. Both halves live in this repository.
 - **Identity** (Portal → site): a short-lived signed token (`mintIdentityToken` / `verifyIdentityToken`),
   verified here, mapped to Payload users and roles. The site must record each token's `jti` and refuse a
   second use.
-- **Publish candidates** (Portal → site): a `ContentDocument` (`packages/content-blocks`) creates a CMS
-  draft; a later send of the same piece adds a version, never overwrites. **Editor notes never publish**:
-  go through `toPublicDocument`/`publicBlocks`.
-- **Transcription** (site → Portal): signed request; transcripts return through the publish channel.
+- **Publish candidates** (Portal → site): **deferred; there is no Sourcework-to-CMS export for now** (owner
+  decision, 2026-10-30). `packages/content-blocks` and the message types exist as dormant, tested definitions.
+  Do not build an endpoint without a new instruction. If it is built: a draft per piece, later sends add
+  versions, and **editor notes never publish** (go through `toPublicDocument`/`publicBlocks`).
+- **Transcription** (site → Portal): Milestone 2; a signed request. Message types exist, no endpoint.
 - **Traffic**: on-air sponsorship uses Traffic's daypart names (Morning Drive, Afternoon Drive, Midday,
   Weekend, Total Program Rotation, Carpool).
 

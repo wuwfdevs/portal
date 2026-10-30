@@ -20,7 +20,7 @@ design canvas are described under *Sources* below.
 | Docs (README, ARCHITECTURE, ANALYTICS, this file) | **Done** |
 | Staff sign-in: Portal half (`website` registry row, access predicate, audit policy, `/website` token route, roles) | **Done**; migration applied to preview and production (2026-10-30). Tool is registered **disabled** |
 | Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
-| Publish-candidates endpoint (+ status webhook) | Not started |
+| Publish-candidates endpoint (+ status webhook) | **Deferred** (owner decision, 2026-10-30); not in Milestone 1 |
 | Homepage, article, fellowship hub, giving page (boards 1–4, 14) | Not started |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
@@ -45,25 +45,22 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Publish-candidates endpoint** (next). Verify with `verifyRequestSignature`, `parseContentDocument`, then create a
-   draft or add a version for the same `pieceId`; return `PublishCandidateResponse`; store provenance; render with
-   `toPublicDocument`. **Decide first, because it shapes the Posts schema:** a `ContentDocument` is a list of blocks
-   (text, narration, audio excerpt with transcript/speaker/source/timing, editor note), but `posts.content` is
-   Lexical rich text. Two options: (a) add an `audioExcerpt` block to the Lexical `BlocksFeature` and convert
-   text/narration to Lexical paragraphs on the way in; or (b) keep the received document as-is in a `blocks` JSON
-   field with its own renderer and use Lexical only for hand-written stories. (a) keeps one editing experience in
-   the admin; (b) is lossless and simpler to round-trip. Also needed: a table keyed on `pieceId` (to find the draft
-   for a later send), an `editorNotes` field the public never reads, and the status webhook back to the Portal.
-   Editor notes must be stored apart from public content so a rendering mistake cannot leak them.
-6. **Pages**, built to the boards with `@wuwf/design-tokens`: wire the tokens into the site's CSS first
+5. ~~**Publish-candidates endpoint**~~ **Deferred by the owner (2026-10-30):** no Sourcework-to-CMS export for now.
+   Not in Milestone 1. `packages/content-blocks` and the publish/transcription message types in
+   `packages/portal-contracts` stay as dormant, tested definitions (the project brief asked for them to exist
+   before any endpoint does); nothing uses them. If it returns, the open question was whether a piece's blocks
+   become Lexical rich text with an `audioExcerpt` block (one editing experience, some structure lost) or are kept
+   as received in a `blocks` field with their own renderer (lossless, edited differently). Editor notes must be
+   stored apart from public content either way. Do not build any of it without a new instruction.
+5. **Pages**, built to the boards with `@wuwf/design-tokens`: wire the tokens into the site's CSS first
    (replace the starter's Header/Card/Theme provider, fixing their lint errors), then homepage, article,
    fellowship hub, giving. Every acknowledgment through `getAcknowledgments`, fetched inside a cache entry using
    `resolveUnderwriting(...).tags`.
-7. **Listening:** collections (no public read), server actions with Local API writes, signed upload URLs to a
+6. **Listening:** collections (no public read), server actions with Local API writes, signed upload URLs to a
    private bucket, the Inline ask then the full flow, staff review in Payload.
-8. **Analytics foundations** per `ANALYTICS.md`.
-9. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
-10. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
+7. **Analytics foundations** per `ANALYTICS.md`.
+8. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
+9. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
 
 ## Lessons (these cost real time)
 
