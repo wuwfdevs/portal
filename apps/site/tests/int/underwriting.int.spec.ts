@@ -2,6 +2,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { pathsAffectedByAgreement } from '@/lib/underwriting/invalidate'
 import { getAcknowledgments } from '@/lib/underwriting/load'
 
 const EXAMPLE_FOUNDATION =
@@ -61,6 +62,9 @@ describe('the content model, through Payload', () => {
   let agreement: { id: string | number }
   let fellowship: { id: string | number }
   let draftStory: { id: string | number }
+  let unrelated: { id: string | number; slug?: string }
+  let storySlug = ''
+  let fellowshipSlug = ''
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
@@ -99,6 +103,26 @@ describe('the content model, through Payload', () => {
       publishedAt: '2026-10-28T12:00:00.000Z',
       fellowship: fellowship.id,
     })
+    const otherFellowship = await make('fellowships', { title: `Unfunded Fellowship ${run}` })
+    unrelated = await make('posts', {
+      title: `Unrelated story ${run}`,
+      content: lexical,
+      _status: 'published',
+      publishedAt: '2026-10-28T12:00:00.000Z',
+      fellowship: otherFellowship.id,
+    })
+    storySlug = (
+      (await payload.findByID({ collection: 'posts', id: story.id, overrideAccess: true })) as {
+        slug: string
+      }
+    ).slug
+    fellowshipSlug = (
+      (await payload.findByID({
+        collection: 'fellowships',
+        id: fellowship.id,
+        overrideAccess: true,
+      })) as { slug: string }
+    ).slug
   }, 60_000)
 
   afterAll(async () => {
@@ -140,6 +164,16 @@ describe('the content model, through Payload', () => {
     })
   })
 
+  it('an agreement edit refreshes the story and the hub it reaches, and nothing else', async () => {
+    const paths = await pathsAffectedByAgreement(payload, agreement.id)
+    expect(paths).toContain(`/posts/${storySlug}`)
+    expect(paths).toContain(`/fellowships/${fellowshipSlug}`)
+    expect(paths.some((p) => p.includes(String(unrelated.slug ?? 'unrelated-story')))).toBe(false)
+    expect(
+      paths.every((p) => !p.includes('unfunded-fellowship') && !p.includes('unrelated-story')),
+    ).toBe(true)
+  })
+
   it('after the term ends, the story published during it still carries the line', async () => {
     const r = await getAcknowledgments(payload, story.id, 'article', '2031-01-01T00:00:00Z')
     expect(r.lines).toHaveLength(1)
@@ -162,6 +196,19 @@ describe('the content model, through Payload', () => {
       collection: 'users' as const,
       roles,
       email: 'x@wuwf.org',
+    })
+
+    it("as the public, a story's fellowship carries only agreement ids, so pages must resolve acknowledgments server-side", async () => {
+      const r = await payload.find({
+        collection: 'posts',
+        depth: 3,
+        draft: false,
+        overrideAccess: false,
+        limit: 1,
+        where: { title: { like: run }, _status: { equals: 'published' } },
+      })
+      const f = r.docs[0]?.fellowship as { agreements?: unknown[] } | undefined
+      expect(typeof f?.agreements?.[0]).not.toBe('object')
     })
 
     it('the public cannot read agreements, sponsors or users', async () => {

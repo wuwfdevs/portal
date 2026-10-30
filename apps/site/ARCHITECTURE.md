@@ -61,11 +61,18 @@ overflow, and cache tags.
 
 `load.ts` maps populated Payload documents onto this and treats an unpopulated relationship as absent.
 
-**Cache invalidation (Built):** every result carries tags (`agreement:<id>`, `collection:<id>`, `content:<id>`).
-Hooks on agreements and funded collections call `revalidateTag` for them, so one edit refreshes every page that
-resolved through it. Pages that render an acknowledgment must fetch through a cache entry using those tags
-(*Planned*: no public page does yet). Revalidation goes through `src/lib/revalidate.ts`, which logs instead of
-throwing outside a Next request.
+**Cache invalidation (Built, verified against a production build):** articles are pre-rendered and refreshed by *path*. An
+edit to an agreement, or to what a fellowship/series/production points at, runs `lib/underwriting/invalidate.ts` to
+find every story and hub page it reaches (through the funded collections that carry the agreement) and
+revalidates exactly those paths, so one edit updates every affected page and nothing else. The article page also
+revalidates hourly (a campaign agreement starts and stops by date, and a *deleted* agreement can no longer name the
+pages it reached). Hooks go through `src/lib/revalidate.ts`, which logs instead of throwing outside a Next request.
+`pnpm smoke:agreement` runs the whole loop against a running production build.
+
+**Pages must resolve acknowledgments server-side.** Agreements are not readable by the public, so a public read of a
+story returns a fellowship whose `agreements` are bare ids. The article page therefore calls `getAcknowledgments`
+(which reads with server access and returns only the approved line); a page that resolved from its own public read
+would silently show no acknowledgment. An integration test pins that boundary.
 
 ## Staff identity and access (Partly built)
 

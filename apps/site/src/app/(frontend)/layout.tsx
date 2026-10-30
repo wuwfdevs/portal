@@ -53,9 +53,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <AdminBar adminBarProps={{ preview: isEnabled }} />
         <Header />
-        <div id="main" tabIndex={-1}>
+        <main id="main" tabIndex={-1}>
           {children}
-        </div>
+        </main>
         <Footer />
       </body>
     </html>
