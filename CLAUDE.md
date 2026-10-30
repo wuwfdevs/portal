@@ -18,6 +18,9 @@ scripts/                    repo-wide: check-pr-text.mjs and its test
 
 This is a pnpm workspace (`pnpm-workspace.yaml`: `apps/*`, `packages/*`).
 
+Starting work on the site? Read `apps/site/ROADMAP.md` first: it holds the current state, the order of work,
+and the mistakes already made. `apps/site/README.md`, `ARCHITECTURE.md` and `ANALYTICS.md` sit beside it.
+
 **Every project has its own `pnpm-lock.yaml`** (`sharedWorkspaceLockfile: false`). Do not switch to one
 shared lockfile. With one, pnpm resolved the Portal's optional peers from the site's packages (esbuild,
 sass, tsx, `@playwright/test`), which changed how the Portal's own tests were transpiled and broke six
