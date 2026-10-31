@@ -118,6 +118,28 @@ export const Pages: CollectionConfig<'pages'> = {
         position: 'sidebar',
       },
     },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new work.' },
+      fields: [
+        {
+          name: 'legacyPath',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.' },
+        },
+        {
+          name: 'nprId',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'NPR\'s identifier for this item, when it has one.' },
+        },
+      ],
+    },
     slugField(),
   ],
   hooks: {

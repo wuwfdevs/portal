@@ -230,6 +230,19 @@ export interface Page {
   };
   publishedAt?: string | null;
   /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.
+     */
+    legacyPath?: string | null;
+    /**
+     * NPR's identifier for this item, when it has one.
+     */
+    nprId?: string | null;
+  };
+  /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
   generateSlug?: boolean | null;
@@ -272,6 +285,23 @@ export interface Post {
     description?: string | null;
   };
   publishedAt?: string | null;
+  /**
+   * NPR and wire stories are not WUWF's to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.
+   */
+  source: 'wuwf' | 'npr' | 'wire';
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.
+     */
+    legacyPath?: string | null;
+    /**
+     * NPR's identifier for this item, when it has one.
+     */
+    nprId?: string | null;
+  };
   /**
    * The byline.
    */
@@ -1389,6 +1419,12 @@ export interface PagesSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        nprId?: T;
+      };
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -1497,6 +1533,13 @@ export interface PostsSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
+  source?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        nprId?: T;
+      };
   contributors?: T;
   format?: T;
   dek?: T;

@@ -142,6 +142,44 @@ generator, scoped per-show theme overrides (values validated so a theme cannot b
 contrast helper whose tests pin the design system's own accessibility notes. The values must stay equal to the
 Portal's `src/lib/design-tokens.ts`. The site's Tailwind/CSS is not yet wired to it.
 
+## Migrating from Grove, and body-block flexibility (Partly built; mostly Specified)
+
+Source: the owner's memo *Grove to Payload: Archive Portability and Migration Feasibility* (2026-10-16). It
+recommends **not committing to a replacement until a read-only proof of concept passes four gates** (completeness,
+media, fidelity at 95% of sampled bodies, and NPR's written permission), and treating the new site as a pilot beside
+Grove until then. This section is what the site does so it can take Grove's content without loss when that
+happens. It is *not* a migration; none has been run.
+
+**The memo's own rank-8 risk is the one this site has to design for:** body fidelity loss (embeds, galleries, pull
+quotes, inline images dropped in HTML conversion), likelihood High. Its mitigation is custom block mapping, and
+**unmapped content preserved, never dropped**.
+
+| | State |
+|---|---|
+| Story and page bodies are Lexical, which takes custom blocks (`BlocksFeature`); starter blocks Banner, Code, Media | Built |
+| `legacy.legacyPath` and `legacy.nprId` on posts and pages, unique and indexed (stable identity; a re-run cannot duplicate) | Built, tested |
+| `source` on posts (`wuwf`, `npr`, `wire`): NPR and wire stories are not WUWF's to archive separately or alter | Field built; **read-only enforcement not built** |
+| Redirects plugin (from, to) in the starter, for the Grove-path redirect map | Built (starter); the import is not |
+| Block inventory from a real sample of Grove pages | **Not done**; needs wuwf.org access (blocked in the build sandbox) |
+| Gallery, structured Embed, Pull quote, Audio clip, Raw-HTML (preserve) blocks | **Not built**; defined only after the inventory |
+| Importer: snapshot → upload media → `convertHTMLToLexical` with per-block converters → render diff | **Not built** |
+| Timestamps preserved from the source, never import time; podcast feed URLs, GUIDs and enclosures preserved | Specified |
+| CDS sync for NPR content (poll inbound, PUT outbound; NPR items read-only, re-pulled, never archived separately) | Specified (Milestone 3) |
+
+**Decisions the block set needs (open):**
+
+1. *Inventory first.* Which Grove components actually occur, in what share (memo §G samples about 100 items:
+   10 with embeds or galleries, 10 podcast episodes, 10 events, 10 NPR-sourced, 10 older, 10 from the 2022 migration
+   window, 10 with redirects). Building blocks before this is guessing.
+2. *Raw-HTML fallback.* Preserved HTML must never be rendered raw. Either sanitize through an allowlist or isolate
+   it (sandboxed frame). It is editable by administrators only, and imports never produce `<script>`.
+3. *Embeds are structured, not free HTML:* a URL plus a host allowlist taken from the inventory (video, audio and
+   social providers), rendered responsively and without autoplay.
+4. *URL scheme.* `/posts/[slug]` is a placeholder. The memo advises keeping Grove's path pattern so most redirects
+   are identity; the Content Report's `path` column shows what that pattern is. Either way every Grove path gets a
+   redirect from `legacyPath`.
+5. *Pilot beside Grove vs. replace* is the owner's call, per the memo's gates. The site is built to run in parallel.
+
 ## Platform (Specified)
 
 Vercel (own project, root `apps/site`), Supabase (own project) for Postgres, Auth and Storage; Payload's storage

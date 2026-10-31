@@ -182,6 +182,44 @@ export const Posts: CollectionConfig<'posts'> = {
       },
     },
     {
+      name: 'source',
+      type: 'select',
+      required: true,
+      defaultValue: 'wuwf',
+      options: [
+        { label: 'WUWF', value: 'wuwf' },
+        { label: 'NPR (not ours to alter)', value: 'npr' },
+        { label: 'Wire or partner', value: 'wire' },
+      ],
+      admin: {
+        position: 'sidebar',
+        description:
+          'NPR and wire stories are not WUWF\'s to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.',
+      },
+    },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new work.' },
+      fields: [
+        {
+          name: 'legacyPath',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.' },
+        },
+        {
+          name: 'nprId',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'NPR\'s identifier for this item, when it has one.' },
+        },
+      ],
+    },
+    {
       name: 'contributors',
       type: 'relationship',
       admin: { position: 'sidebar', description: 'The byline.' },

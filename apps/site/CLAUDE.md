@@ -100,12 +100,28 @@ sponsors receive aggregates, never personal data. Public pages that collect info
 policy notice. Service-role credentials stay server-side; privileged Local API operations enforce
 authorization themselves rather than relying on RLS.
 
+## Migrating from Grove
+
+Content will move from NPR's Grove platform (owner's memo, 2026-10-16). Until its proof-of-concept gates pass this site
+runs beside Grove, not instead of it. Rules for anything touching bodies or identity:
+
+- **Never drop content you cannot map.** Preserve it (as a preserved-HTML block, rendered safely) and flag it. Never
+  render imported HTML raw, and never import `<script>`.
+- **Stable identity:** every migrated record keeps `legacy.legacyPath` (and `legacy.nprId` when it has one). Preserve
+  the source's published and modified dates; never use import time.
+- **NPR and wire stories (`source` ≠ `wuwf`) are not WUWF's to archive separately or alter** beyond headline, teaser
+  and description. They are re-pulled from NPR, not migrated as our own.
+- **Do not invent a block set.** Galleries, embeds, pull quotes and audio blocks are designed from a real inventory of
+  Grove components (see `ARCHITECTURE.md`). Embeds are a URL plus a host allowlist, not free HTML.
+- Every Grove path gets a redirect; the canonical URL scheme is decided from the Content Report's `path` column.
+
 ## Database
 
 PostgreSQL, **this app's own** Supabase project in hosted environments — never the Portal's two projects.
 Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
 Payload pushes schema changes; **production runs only committed migrations** (`src/migrations`, created
-with `pnpm payload migrate:create`). Never run a destructive database operation without being asked.
+with `pnpm payload migrate:create`). Never run a destructive database operation without being asked. **After any schema change, run `pnpm verify:migrations`**
+(dev and test databases push schema on their own, so tests pass even when a migration was never written).
 
 ## Commands
 

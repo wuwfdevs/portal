@@ -64,6 +64,7 @@ characters), Supabase Auth and object storage are specified in `ARCHITECTURE.md`
 | `pnpm test:e2e` | Playwright (the starter's tests; ours are not written yet) |
 | `pnpm generate:types` | Regenerate `src/payload-types.ts` after changing a collection |
 | `pnpm generate:tokens` | Regenerate `src/app/(frontend)/tokens.css` from `@wuwf/design-tokens` (a test fails if it is stale) |
+| `pnpm verify:migrations` | Fails if the committed migrations do not produce the schema the config describes (builds a scratch DB; local only) |
 | `pnpm smoke:agreement` | Against a running **production build**: sign in through the real Portal route, edit the agreement, confirm the cached story updates (localhost only) |
 | `pnpm seed:demo` | Load the Coastal Futures / Example Foundation demonstration into a **local** database (idempotent; refuses any other host) |
 | `pnpm generate:importmap` | Regenerate the admin import map after adding a custom component |
