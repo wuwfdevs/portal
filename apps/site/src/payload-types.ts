@@ -2215,6 +2215,15 @@ export interface Footer {
 export interface SiteSetting {
   id: number;
   /**
+   * Sites (other than YouTube, Vimeo, Spotify, Apple Podcasts and SoundCloud, which are built in) that editors may embed in a story. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
+   */
+  embedHosts?:
+    | {
+        host: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
    */
   independencePolicy?: (number | null) | Page;
@@ -2306,6 +2315,12 @@ export interface FooterSelect<T extends boolean = true> {
  * via the `definition` "site-settings_select".
  */
 export interface SiteSettingsSelect<T extends boolean = true> {
+  embedHosts?:
+    | T
+    | {
+        host?: T;
+        id?: T;
+      };
   independencePolicy?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2381,6 +2396,107 @@ export interface CodeBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'code';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock".
+ */
+export interface GalleryBlock {
+  /**
+   * Optional heading above the gallery.
+   */
+  title?: string | null;
+  layout: 'grid' | 'list';
+  images: {
+    image: number | Media;
+    caption?: string | null;
+    credit?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'gallery';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PullQuoteBlock".
+ */
+export interface PullQuoteBlock {
+  text: string;
+  /**
+   * Who said it, e.g. "Dana Whitlock, Warrington".
+   */
+  attribution?: string | null;
+  image?: (number | null) | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'pullQuote';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock".
+ */
+export interface EmbedBlock {
+  /**
+   * The address of a specific video, episode or track (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud), or a page on an approved site.
+   */
+  url: string;
+  /**
+   * What the embed is, for people using a screen reader. Not shown on the page.
+   */
+  title: string;
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'embed';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "PromoBlock".
+ */
+export interface PromoBlock {
+  target:
+    | {
+        relationTo: 'posts';
+        value: number | Post;
+      }
+    | {
+        relationTo: 'pages';
+        value: number | Page;
+      }
+    | {
+        relationTo: 'fellowships';
+        value: number | Fellowship;
+      };
+  /**
+   * Leave empty to use the item's own title.
+   */
+  headline?: string | null;
+  /**
+   * Leave empty to use the item's summary.
+   */
+  description?: string | null;
+  image?: (number | null) | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'promo';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LegacyHtmlBlock".
+ */
+export interface LegacyHtmlBlock {
+  /**
+   * Sanitized on save: scripts, styles, frames, forms, event handlers and non-https links and images are removed.
+   */
+  html: string;
+  /**
+   * Why this was preserved, e.g. "interactive map from 2019".
+   */
+  note?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'legacyHtml';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

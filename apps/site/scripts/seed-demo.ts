@@ -59,7 +59,7 @@ const series = await ensure(payload, 'series', { title: { equals: 'After Isaias'
 const topic = await ensure(payload, 'categories', { title: { equals: 'Growth & Development' } }, { title: 'Growth & Development' })
 await ensure(payload, 'publishing-identities', { name: { equals: 'WUWF News' } }, { name: 'WUWF News', kind: 'newsroom', tagline: "NPR for Florida's Great Northwest" })
 
-await ensure(payload, 'posts', { title: { equals: 'Rebuild, raise or leave? After Isaias, Escambia homeowners face the choice the next storm will test' } }, {
+const story = await ensure(payload, 'posts', { title: { equals: 'Rebuild, raise or leave? After Isaias, Escambia homeowners face the choice the next storm will test' } }, {
   title: 'Rebuild, raise or leave? After Isaias, Escambia homeowners face the choice the next storm will test',
   dek: "For families on Perdido Key and in Warrington, the question isn't whether to fix the roof. It's whether the house, and the street, will still make sense in ten years.",
   format: 'web', _status: 'published', publishedAt: '2026-10-28T12:00:00.000Z',
@@ -69,6 +69,26 @@ await ensure(payload, 'posts', { title: { equals: 'Rebuild, raise or leave? Afte
     "The first contractor who walked Dana Whitlock's roof after Isaias quoted her a repair. The second one asked a different question: how many more of these did she plan to pay for?",
     "It's the question hanging over hundreds of households in southern Escambia County this month. Isaias didn't flatten their homes. It did enough damage to force a decision that a lot of families had been putting off.",
   ),
+})
+
+// A second illustrative story that uses every body block, for checking them in a browser. It includes deliberately
+// hostile preserved HTML; only the sanitized result may ever reach a page.
+const block = (blockType: string, fields: Record<string, unknown>) => ({ type: 'block', version: 2, format: '' as const, fields: { id: `seed-${blockType}`, blockType, ...fields } })
+const logo = await ensure<{ id: string | number }>(payload, 'media', { filename: { equals: 'wuwf-logo.png' } }, { alt: 'WUWF 88.1 wordmark' }).catch(async () =>
+  payload.create({ collection: 'media', data: { alt: 'WUWF 88.1 wordmark' }, filePath: 'public/wuwf-logo.png', overrideAccess: true }),
+)
+await ensure(payload, 'posts', { title: { equals: 'Block parity sampler (illustrative)' } }, {
+  title: 'Block parity sampler (illustrative)', format: 'web', _status: 'published', publishedAt: '2026-10-30T12:00:00.000Z',
+  fellowship: fellowship.id, contributors: [leigh.id],
+  content: { root: { type: 'root', version: 1, direction: 'ltr' as const, format: '' as const, indent: 0, children: [
+    para('This story exists to show each body block. It is illustrative, not reporting.'),
+    block('pullQuote', { text: "It's not a roof. It's a vote on whether my kids grow up here.", attribution: 'Illustrative quote' }),
+    block('embed', { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'An illustrative video', caption: 'An embedded video. Frames load only for approved hosts.' }),
+    block('gallery', { title: 'A gallery', layout: 'grid', images: [1, 2, 3].map((n) => ({ image: logo.id, caption: `Image ${n}`, credit: 'WUWF' })) }),
+    block('promo', { target: { relationTo: 'posts', value: story.id } }),
+    para('Below is preserved HTML from an imaginary old page, including a script, an inline handler and a javascript: link. Only the safe part should appear.'),
+    block('legacyHtml', { note: 'Illustrative', html: '<h3>Preserved heading</h3><p onclick="alert(1)">Kept paragraph with <a href="javascript:alert(1)">a bad link</a> and <a href="https://wuwf.org">a good one</a>.</p><script>alert(1)</script><iframe src="https://evil.example"></iframe>' }),
+  ] } },
 })
 
 // Navigation: only pages that exist today.

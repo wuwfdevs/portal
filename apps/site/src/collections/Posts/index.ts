@@ -11,10 +11,10 @@ import {
 
 import { authenticated } from '../../access/authenticated'
 import { authenticatedOrPublished } from '../../access/authenticatedOrPublished'
-import { Banner } from '../../blocks/Banner/config'
-import { Code } from '../../blocks/Code/config'
-import { MediaBlock } from '../../blocks/MediaBlock/config'
+import { bodyBlocks } from '../../blocks/body'
+import { userCan } from '../../access/permissions'
 import { ensureSlug } from '../../hooks/ensureSlug'
+import { changedLegacyHtml } from '../../lib/legacy-html-guard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -25,7 +25,7 @@ import {
   OverviewField,
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
-import { slugField } from 'payload'
+import { APIError, slugField } from 'payload'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
@@ -89,7 +89,7 @@ export const Posts: CollectionConfig<'posts'> = {
                   return [
                     ...rootFeatures,
                     HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-                    BlocksFeature({ blocks: [Banner, Code, MediaBlock] }),
+                    BlocksFeature({ blocks: bodyBlocks }),
                     FixedToolbarFeature(),
                     InlineToolbarFeature(),
                     HorizontalRuleFeature(),
@@ -261,6 +261,17 @@ export const Posts: CollectionConfig<'posts'> = {
   ],
   hooks: {
     beforeValidate: [ensureSlug('title')],
+    beforeChange: [
+      ({ data, originalDoc, req }) => {
+        // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
+        // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.
+        if (!req.user || userCan(req.user, 'settings.manage') || data?.content === undefined) return data
+        if (changedLegacyHtml(data.content, originalDoc?.content).length > 0) {
+          throw new APIError('Only an administrator can add or change preserved HTML.', 403, undefined, true)
+        }
+        return data
+      },
+    ],
     afterChange: [revalidatePost],
     afterDelete: [revalidateDelete],
   },

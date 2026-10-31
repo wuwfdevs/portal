@@ -16,15 +16,35 @@ import { CodeBlock, CodeBlockProps } from '@/blocks/Code/Component'
 import type {
   BannerBlock as BannerBlockProps,
   CallToActionBlock as CTABlockProps,
+  EmbedBlock as EmbedBlockProps,
+  GalleryBlock as GalleryBlockProps,
+  LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
+  PromoBlock as PromoBlockProps,
+  PullQuoteBlock as PullQuoteBlockProps,
 } from '@/payload-types'
 import { BannerBlock } from '@/blocks/Banner/Component'
 import { CallToActionBlock } from '@/blocks/CallToAction/Component'
+import { EmbedBlock } from '@/blocks/Embed/Component'
+import { GalleryBlock } from '@/blocks/Gallery/Component'
+import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
+import { PromoBlock } from '@/blocks/Promo/Component'
+import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
 import { cn } from '@/utilities/ui'
 
 type NodeTypes =
   | DefaultNodeTypes
-  | SerializedBlockNode<CTABlockProps | MediaBlockProps | BannerBlockProps | CodeBlockProps>
+  | SerializedBlockNode<
+      | CTABlockProps
+      | MediaBlockProps
+      | BannerBlockProps
+      | CodeBlockProps
+      | GalleryBlockProps
+      | PullQuoteBlockProps
+      | EmbedBlockProps
+      | PromoBlockProps
+      | LegacyHtmlBlockProps
+    >
 
 const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
   const { value, relationTo } = linkNode.fields.doc!
@@ -52,6 +72,11 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     ),
     code: ({ node }) => <CodeBlock className="col-start-2" {...node.fields} />,
     cta: ({ node }) => <CallToActionBlock {...node.fields} />,
+    gallery: ({ node }) => <GalleryBlock {...node.fields} />,
+    pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
+    embed: ({ node }) => <EmbedBlock {...node.fields} />,
+    promo: ({ node }) => <PromoBlock {...node.fields} />,
+    legacyHtml: ({ node }) => <LegacyHtmlBlock {...node.fields} />,
   },
 })
 

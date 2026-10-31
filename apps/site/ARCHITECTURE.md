@@ -161,20 +161,47 @@ quotes, inline images dropped in HTML conversion), likelihood High. Its mitigati
 | `source` on posts (`wuwf`, `npr`, `wire`): NPR and wire stories are not WUWF's to archive separately or alter | Field built; **read-only enforcement not built** |
 | Redirects plugin (from, to) in the starter, for the Grove-path redirect map | Built (starter); the import is not |
 | Block inventory from a real sample of Grove pages | **Not done**; needs wuwf.org access (blocked in the build sandbox) |
-| Gallery, structured Embed, Pull quote, Audio clip, Raw-HTML (preserve) blocks | **Not built**; defined only after the inventory |
+| Body blocks for parity with Brightspot's documented rich-text elements: Gallery, Pull quote, Embed, Promo, Preserved HTML (see the table below) | **Built and tested**; tuned against the real archive later |
 | Importer: snapshot → upload media → `convertHTMLToLexical` with per-block converters → render diff | **Not built** |
 | Timestamps preserved from the source, never import time; podcast feed URLs, GUIDs and enclosures preserved | Specified |
 | CDS sync for NPR content (poll inbound, PUT outbound; NPR items read-only, re-pulled, never archived separately) | Specified (Milestone 3) |
 
-**Decisions the block set needs (open):**
+**Body blocks (built).** Parity target: the rich-text elements Brightspot documents. Brightspot's docs could be read
+only through search summaries (the pages themselves are blocked from the build sandbox), and Grove is a customised
+instance whose Studio is behind a login, so this is a *documented-capability* inventory, not yet a *Grove-actually-uses*
+inventory. Checking it takes about five minutes in Grove: open any story in the editor and list the large toolbar
+buttons and the module picker.
+
+| Brightspot element | Here | Notes |
+|---|---|---|
+| Image | Media block (starter), with caption and credit on the media | |
+| Gallery (basic, advanced; list or grid) | **Gallery** block: title, grid or list, images with caption and credit | Dynamic galleries (by tag, date, site) not built |
+| Pull quote (text, attribution, image) | **Pull quote** block | |
+| Video | **Embed** block (YouTube, Vimeo); hosted video later | Grove video is embed-only (memo §C) |
+| HTML embed, Iframe | **Embed** block: a URL plus an allowlist, never free HTML | Spotify, Apple Podcasts, SoundCloud built in; any other host must be approved in Site settings; https only; checked on save and on render |
+| Promo | **Promo card** block: points at a story, page or fellowship, showing its current headline | |
+| List, Video playlist | Not built | Lexical lists exist; a playlist is several embeds |
+| Ad | **Deliberately not migrated** | No ads inside story text (site rule) |
+| Table, audio player, social posts | Not built / unknown | Needs the Grove inventory |
+| Anything unmappable | **Preserved HTML** block | Sanitized on save and on render; administrators only; see below |
+
+**Preserved HTML is the one place the site renders HTML from a string.** `lib/sanitize.ts` keeps typographic structure
+(paragraphs, headings, lists, quotes, tables, https images, links) and removes scripts, styles, frames, forms, handlers,
+inline styles and any non-https image or `javascript:`/`data:` link. Verified in a browser against deliberately
+hostile input: no script, frame, handler or `javascript:` link reached the page and no alert opened. Because
+Payload does not apply a block's field-level access inside a rich-text field (found by test: an editor could write
+it), the administrators-only rule is a document-level hook comparing the incoming body with the stored one
+(`lib/legacy-html-guard.ts`); a save with no signed-in user (the importer) is allowed.
+
+**Decisions the block set still needs (open):**
 
 1. *Inventory first.* Which Grove components actually occur, in what share (memo §G samples about 100 items:
    10 with embeds or galleries, 10 podcast episodes, 10 events, 10 NPR-sourced, 10 older, 10 from the 2022 migration
    window, 10 with redirects). Building blocks before this is guessing.
-2. *Raw-HTML fallback.* Preserved HTML must never be rendered raw. Either sanitize through an allowlist or isolate
-   it (sandboxed frame). It is editable by administrators only, and imports never produce `<script>`.
-3. *Embeds are structured, not free HTML:* a URL plus a host allowlist taken from the inventory (video, audio and
-   social providers), rendered responsively and without autoplay.
+2. *Raw-HTML fallback:* **decided and built** (sanitize allowlist, administrators only). What remains is how much of a
+   typical old body falls into it; the fidelity gate measures that.
+3. *Embeds:* **decided and built** (URL plus allowlist). What remains is which other hosts the archive actually uses,
+   so they can be approved up front.
 4. *URL scheme.* `/posts/[slug]` is a placeholder. The memo advises keeping Grove's path pattern so most redirects
    are identity; the Content Report's `path` column shows what that pattern is. Either way every Grove path gets a
    redirect from `legacyPath`.

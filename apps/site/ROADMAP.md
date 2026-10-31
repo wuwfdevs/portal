@@ -16,6 +16,7 @@ design canvas are described under *Sources* below.
 | Shared packages (design-tokens, listening-core, portal-contracts) | **Done**, tests in each |
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
+| Body blocks for parity with Brightspot's documented elements (gallery, pull quote, embed, promo, preserved HTML); hostile-HTML and embed-allowlist behaviour tested and checked in a browser | **Done**; dynamic galleries, tables, audio player, video playlist and anything Grove-specific are **not** |
 | Grove-ready identity: `legacy.legacyPath`, `legacy.nprId`, `source` on posts; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
@@ -72,8 +73,8 @@ in them has been started.
 ## Grove migration: what is and is not planned for
 
 Read `ARCHITECTURE.md` → *Migrating from Grove*. In short: the body model can take custom blocks and every record can
-carry its Grove identity, but **the block set (galleries, embeds, pull quotes, audio, preserve-as-HTML) is not built**
-and cannot be designed well without a real inventory of Grove components. wuwf.org is blocked from the build
+carry its Grove identity, but **a first block set is built** (gallery, pull quote, embed, promo, preserved HTML) from Brightspot's documented
+elements, but it has not been checked against what WUWF's archive actually uses. wuwf.org is blocked from the build
 sandbox (network policy), so that inventory needs either the owner's Content Report and a sample of pages, or
 `www.wuwf.org` (and `npr.brightspotcdn.com` for images) allowed under the environment's Network access. Until then:
 do not invent blocks, and do not let any importer drop content it cannot map.
@@ -114,6 +115,8 @@ do not invent blocks, and do not let any importer drop content it cannot map.
 - **A public read of a story cannot populate agreements** (they are staff-only), so a page that resolves its
   own acknowledgment shows none, silently. Caught in a browser, not by a type or a unit test; the page now uses
   `getAcknowledgments` and a test pins the boundary.
+- **Payload does not enforce a block's field-level access inside a rich-text field.** A block field marked
+  administrators-only was writable by an editor until a test caught it. Enforce such rules in a collection hook.
 - **A migration can be missing while every test passes**, because dev and test databases push schema on their own
   and production does not. Two commits (header/footer globals, Site settings) shipped without one. Run
   `pnpm verify:migrations` after any schema change: it builds a scratch database from the committed migrations
