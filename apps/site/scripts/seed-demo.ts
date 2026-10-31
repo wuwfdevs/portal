@@ -101,5 +101,32 @@ await payload.updateGlobal({ slug: 'footer', overrideAccess: true, context: { di
   navItems: [],
 } })
 
+// The giving page (board 14). Copy is the board's; the button addresses are example.org because the real donation
+// form is not wired in yet. The [N] audience figures on the board are left out until WUWF can source them.
+const give = (path: string) => 'https://give.example.org/' + path
+await payload.updateGlobal({ slug: 'support-page', overrideAccess: true, context: { disableRevalidate: true }, data: {
+  heading: 'Public service journalism for Northwest Florida, paid for by the people and businesses who live here.',
+  figures: [{ value: '1981', label: 'on the air since' }],
+  levels: [
+    { name: 'Member', amount: 'From $5/mo', description: 'Support the newsroom and the stations. Direct it where you like.', ctaLabel: 'Join', ctaUrl: give('member'), emphasis: 'standard' },
+    { name: 'Sustaining Member', amount: '$8+/mo', description: 'Members-only episodes of every WUWF original, in your own feed, plus the NPR+ Podcast Bundle. Renews automatically.', ctaLabel: 'Sustain', ctaUrl: give('sustaining'), emphasis: 'featured' },
+    { name: 'Day Sponsor', amount: '$15+/mo', description: 'Everything above, plus a day sponsor message on 88.1, aired five times on a day you choose.', ctaLabel: 'Choose a day', ctaUrl: give('day-sponsor'), emphasis: 'standard' },
+    { name: 'Crystal Circle', amount: '$100+/mo', description: 'Leadership giving, invitations and recognition. No cap.', ctaLabel: 'Learn more', ctaUrl: give('crystal-circle'), emphasis: 'leadership' },
+    { name: 'Leave a Legacy', amount: 'In your will', description: 'A planned gift keeps public media here for the next generation.', ctaLabel: 'Talk with us', ctaUrl: give('legacy'), emphasis: 'standard' },
+  ],
+  otherWays: 'Also: vehicle and property donation · Combined Federal Campaign #33728 · gifts directed to RadioLive, the newsroom or a fellowship.',
+  businessesBody: 'On-air credits, digital sponsor messages, newsletters, podcasts, RadioLive and reporting fellowships, built into one campaign around what you need to happen.',
+  fellowshipsBody: 'Underwrite a year of coverage on an issue the region needs. Your support is acknowledged on every story, episode and video the fellowship produces — automatically, and consistently.',
+  fellowshipsLinkLabel: 'See an example: Coastal Futures',
+  fellowshipsLinkUrl: '/fellowships/coastal-futures',
+  commitments: [
+    { heading: 'WUWF decides', text: 'Topics, assignments, editing, publication.' },
+    { heading: "You're acknowledged", text: 'On every piece, the hub page and on air.' },
+    { heading: 'No review', text: "Funders don't see work before it's published." },
+    { heading: 'Reporting back', text: 'Reach and impact reports each quarter.' },
+  ],
+  giftNotice: 'WUWF Public Media is a service of the University of West Florida. Gifts are tax-deductible as allowed by law.',
+} })
+
 console.log('Seeded the Coastal Futures demonstration.')
 process.exit(0)

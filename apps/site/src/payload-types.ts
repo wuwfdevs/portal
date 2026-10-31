@@ -129,11 +129,13 @@ export interface Config {
     header: Header;
     footer: Footer;
     'site-settings': SiteSetting;
+    'support-page': SupportPage;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2232,6 +2234,102 @@ export interface SiteSetting {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-page".
+ */
+export interface SupportPage {
+  id: number;
+  eyebrow?: string | null;
+  /**
+   * The opening statement. Leave empty to show the page without one.
+   */
+  heading?: string | null;
+  /**
+   * Up to four true, current numbers (listeners, readers, years on air). Only add one WUWF can source; an empty list shows none.
+   */
+  figures?:
+    | {
+        /**
+         * For example 1981 or 48,000.
+         */
+        value: string;
+        /**
+         * For example on the air since.
+         */
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  levelsEyebrow?: string | null;
+  levelsHeading?: string | null;
+  /**
+   * Member, Sustaining, Day Sponsor, Crystal Circle, Legacy. Shown left to right in this order. Perks are thanks for a gift, never the thing being bought, so describe them that way.
+   */
+  levels?:
+    | {
+        name: string;
+        /**
+         * As shown above the name: From $5/mo, $8+/mo, In your will.
+         */
+        amount?: string | null;
+        description: string;
+        /**
+         * Join, Sustain, Talk with us.
+         */
+        ctaLabel?: string | null;
+        /**
+         * Where the button goes: WUWF's donation form (with the right fund), or a contact address for planned gifts. Empty hides the button.
+         */
+        ctaUrl?: string | null;
+        emphasis?: ('standard' | 'featured' | 'leadership') | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * One short line under the levels (vehicle and property gifts, the Combined Federal Campaign number).
+   */
+  otherWays?: string | null;
+  showBusinesses?: boolean | null;
+  businessesEyebrow?: string | null;
+  businessesHeading?: string | null;
+  businessesBody?: string | null;
+  businessesPrimaryLabel?: string | null;
+  /**
+   * A page on this site (/shows/barefoot-mary), a secure https:// address, or mailto:. Leave empty and the button is not shown.
+   */
+  businessesPrimaryUrl?: string | null;
+  businessesSecondaryLabel?: string | null;
+  /**
+   * A page on this site (/shows/barefoot-mary), a secure https:// address, or mailto:. Leave empty and the button is not shown.
+   */
+  businessesSecondaryUrl?: string | null;
+  showFellowships?: boolean | null;
+  fellowshipsEyebrow?: string | null;
+  fellowshipsHeading?: string | null;
+  fellowshipsBody?: string | null;
+  fellowshipsLinkLabel?: string | null;
+  /**
+   * Usually an example fellowship, such as /fellowships/coastal-futures.
+   */
+  fellowshipsLinkUrl?: string | null;
+  /**
+   * What a funder can rely on (WUWF decides, you are acknowledged, no review, reporting back). Only promise what WUWF does.
+   */
+  commitments?:
+    | {
+        heading: string;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The line at the foot of the page, for example that the station is a service of the University of West Florida and that gifts are tax-deductible as allowed by law. Have it reviewed before it is published.
+   */
+  giftNotice?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -2322,6 +2420,60 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         id?: T;
       };
   independencePolicy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-page_select".
+ */
+export interface SupportPageSelect<T extends boolean = true> {
+  eyebrow?: T;
+  heading?: T;
+  figures?:
+    | T
+    | {
+        value?: T;
+        label?: T;
+        id?: T;
+      };
+  levelsEyebrow?: T;
+  levelsHeading?: T;
+  levels?:
+    | T
+    | {
+        name?: T;
+        amount?: T;
+        description?: T;
+        ctaLabel?: T;
+        ctaUrl?: T;
+        emphasis?: T;
+        id?: T;
+      };
+  otherWays?: T;
+  showBusinesses?: T;
+  businessesEyebrow?: T;
+  businessesHeading?: T;
+  businessesBody?: T;
+  businessesPrimaryLabel?: T;
+  businessesPrimaryUrl?: T;
+  businessesSecondaryLabel?: T;
+  businessesSecondaryUrl?: T;
+  showFellowships?: T;
+  fellowshipsEyebrow?: T;
+  fellowshipsHeading?: T;
+  fellowshipsBody?: T;
+  fellowshipsLinkLabel?: T;
+  fellowshipsLinkUrl?: T;
+  commitments?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        id?: T;
+      };
+  giftNotice?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

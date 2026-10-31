@@ -25,7 +25,8 @@ design canvas are described under *Sources* below.
 | Staff sign-in: Portal half (`website` registry row, access predicate, audit policy, `/website` token route, roles) | **Done**; migration applied to preview and production (2026-10-30). Tool is registered **disabled** |
 | Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
 | Sourcework-to-CMS publish channel | **Deferred and removed** (owner decision, 2026-10-30); see *Deferred* below |
-| Homepage, article, fellowship hub, giving page (boards 1–4, 14) | Not started |
+| Giving page `/support` (board 14): levels, figures, calls to action edited in the admin (`Support page` global) | **Done**, checked in a browser at 1440 and 390 px; button addresses and the audience figures are for WUWF to supply (see below) |
+| Homepage, fellowship hub (boards 1, 2, 4) | Not started (the article, board 3, is done) |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
@@ -51,8 +52,7 @@ in them has been started.
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
 5. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
-   links already point at it), then **giving** (`/support`, board 14: the header's Donate and the article's
-   appeal point at it), then the **homepage** (boards 1-2, editor-curated placements, no hard-coded arrays, and
+   links already point at it), then the **homepage** (boards 1-2, editor-curated placements, no hard-coded arrays, and
    emergency coverage as a first-class state). Every acknowledgment through `getAcknowledgments`.
 6. **Listening:** collections (no public read), server actions with Local API writes, signed upload URLs to a
    private bucket, the Inline ask then the full flow, staff review in Payload.
@@ -156,7 +156,14 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
 - **Not yet confirmed:** that Vercel's install handles one lockfile per project in a pnpm workspace. Check the
   first preview build.
 - **A Supabase project for the site** (separate from the Portal's two) and its keys.
-- WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`.
+- WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
+  page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
+  WUWF can source them; staff add them under Support page → Top of page.
+- **Giving page content, entered in the admin (Support page global):** the real address of WUWF's donation form for
+  each level (with the right fund and the attribution code), the Sponsor WUWF and fellowship button addresses once
+  those pages exist, the legal footer line, and a review of the level descriptions (tax-deductibility wording).
+  Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
+  administrators.
 - Legal and university review (IT-04 notice, privacy, retention) before production.
 
 ## Sources
