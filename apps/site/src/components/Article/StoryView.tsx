@@ -1,7 +1,4 @@
-import type { Metadata } from 'next'
-
 import configPromise from '@payload-config'
-import { draftMode } from 'next/headers'
 import Link from 'next/link'
 import { getPayload } from 'payload'
 import React, { cache } from 'react'
@@ -18,40 +15,13 @@ import RichText from '@/components/RichText'
 import { formatLongDate } from '@/lib/format'
 import { readingMinutes } from '@/lib/reading'
 import { getAcknowledgments } from '@/lib/underwriting/load'
-import { generateMeta } from '@/utilities/generateMeta'
 import { getCachedGlobal } from '@/utilities/getGlobals'
-
-// A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
-// reached, so articles also refresh on a schedule.
-export const revalidate = 3600
-
-export async function generateStaticParams() {
-  const payload = await getPayload({ config: configPromise })
-  const posts = await payload.find({
-    collection: 'posts',
-    draft: false,
-    limit: 1000,
-    overrideAccess: false,
-    pagination: false,
-    select: { slug: true },
-  })
-  return posts.docs.map(({ slug }) => ({ slug }))
-}
-
-type Args = { params: Promise<{ slug?: string }> }
 
 const named = <T extends object>(value: T | string | number | null | undefined): T | null =>
   value && typeof value === 'object' ? value : null
 
-export default async function PostPage({ params: paramsPromise }: Args) {
-  const { isEnabled: draft } = await draftMode()
-  const { slug = '' } = await paramsPromise
-  const decodedSlug = decodeURIComponent(slug)
-  const url = '/posts/' + decodedSlug
-  const post = await queryPostBySlug({ slug: decodedSlug })
-
-  if (!post) return <PayloadRedirects url={url} />
-
+/** The story page (board 3). Rendered by the catch-all route for any path that belongs to a story. */
+export async function StoryView({ post, draft, url }: { post: Post; draft: boolean; url: string }) {
   const fellowship = named(post.fellowship)
   const series = named(post.series)
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
@@ -153,7 +123,7 @@ export default async function PostPage({ params: paramsPromise }: Args) {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {more.map((doc) => (
-              <Card doc={doc} key={doc.id} relationTo="posts" showCategories />
+              <Card doc={doc} key={doc.id} showCategories />
             ))}
           </div>
         </section>
@@ -161,28 +131,6 @@ export default async function PostPage({ params: paramsPromise }: Args) {
     </article>
   )
 }
-
-export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
-  const { slug = '' } = await paramsPromise
-  const post = await queryPostBySlug({ slug: decodeURIComponent(slug) })
-  return generateMeta({ doc: post })
-}
-
-const queryPostBySlug = cache(async ({ slug }: { slug: string }): Promise<Post | null> => {
-  const { isEnabled: draft } = await draftMode()
-  const payload = await getPayload({ config: configPromise })
-
-  const result = await payload.find({
-    collection: 'posts',
-    depth: 1,
-    draft,
-    limit: 1,
-    overrideAccess: draft,
-    pagination: false,
-    where: { slug: { equals: slug } },
-  })
-  return result.docs?.[0] || null
-})
 
 const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: string | number) => {
   const payload = await getPayload({ config: configPromise })
@@ -194,7 +142,7 @@ const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: stri
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, slug: true, categories: true, meta: true },
+    select: { title: true, slug: true, path: true, categories: true, meta: true },
     where: { and: [{ fellowship: { equals: fellowshipId } }, { id: { not_equals: exceptId } }] },
   })
   return result.docs

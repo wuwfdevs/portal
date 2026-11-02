@@ -59,10 +59,12 @@ const series = await ensure(payload, 'series', { title: { equals: 'After Isaias'
 const topic = await ensure(payload, 'categories', { title: { equals: 'Growth & Development' } }, { title: 'Growth & Development' })
 await ensure(payload, 'publishing-identities', { name: { equals: 'WUWF News' } }, { name: 'WUWF News', kind: 'newsroom', tagline: "NPR for Florida's Great Northwest" })
 
+const section = await ensure(payload, 'sections', { slug: { equals: 'local-news' } }, { title: 'Local News' })
+
 const story = await ensure(payload, 'posts', { title: { equals: 'Rebuild, raise or leave? After Isaias, Escambia homeowners face the choice the next storm will test' } }, {
   title: 'Rebuild, raise or leave? After Isaias, Escambia homeowners face the choice the next storm will test',
   dek: "For families on Perdido Key and in Warrington, the question isn't whether to fix the roof. It's whether the house, and the street, will still make sense in ten years.",
-  format: 'web', _status: 'published', publishedAt: '2026-10-28T12:00:00.000Z',
+  format: 'web', _status: 'published', publishedAt: '2026-10-28T12:00:00.000Z', section: section.id,
   fellowship: fellowship.id, series: series.id, categories: [topic.id], contributors: [leigh.id],
   content: lexical(
     "Illustrative text for the demonstration; this is not reporting.",
@@ -78,7 +80,7 @@ const logo = await ensure<{ id: string | number }>(payload, 'media', { filename:
   payload.create({ collection: 'media', data: { alt: 'WUWF 88.1 wordmark' }, filePath: 'public/wuwf-logo.png', overrideAccess: true }),
 )
 await ensure(payload, 'posts', { title: { equals: 'Block parity sampler (illustrative)' } }, {
-  title: 'Block parity sampler (illustrative)', format: 'web', _status: 'published', publishedAt: '2026-10-30T12:00:00.000Z',
+  title: 'Block parity sampler (illustrative)', format: 'web', _status: 'published', publishedAt: '2026-10-30T12:00:00.000Z', section: section.id,
   fellowship: fellowship.id, contributors: [leigh.id],
   content: { root: { type: 'root', version: 1, direction: 'ltr' as const, format: '' as const, indent: 0, children: [
     para('This story exists to show each body block. It is illustrative, not reporting.'),

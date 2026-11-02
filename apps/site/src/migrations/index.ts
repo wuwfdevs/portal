@@ -3,6 +3,8 @@ import * as migration_20261030_213831_portal_sign_in from './20261030_213831_por
 import * as migration_20261031_002113_site_globals_and_legacy_identity from './20261031_002113_site_globals_and_legacy_identity';
 import * as migration_20261031_010109_site_settings_embed_hosts from './20261031_010109_site_settings_embed_hosts';
 import * as migration_20261031_010737_support_page from './20261031_010737_support_page';
+import * as migration_20261102_180610_paths_and_sections from './20261102_180610_paths_and_sections';
+import * as migration_20261102_183024_legacy_grove_id_and_modified_at from './20261102_183024_legacy_grove_id_and_modified_at';
 
 export const migrations = [
   {
@@ -28,6 +30,16 @@ export const migrations = [
   {
     up: migration_20261031_010737_support_page.up,
     down: migration_20261031_010737_support_page.down,
-    name: '20261031_010737_support_page'
+    name: '20261031_010737_support_page',
+  },
+  {
+    up: migration_20261102_180610_paths_and_sections.up,
+    down: migration_20261102_180610_paths_and_sections.down,
+    name: '20261102_180610_paths_and_sections',
+  },
+  {
+    up: migration_20261102_183024_legacy_grove_id_and_modified_at.up,
+    down: migration_20261102_183024_legacy_grove_id_and_modified_at.down,
+    name: '20261102_183024_legacy_grove_id_and_modified_at'
   },
 ];

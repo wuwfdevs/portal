@@ -20,7 +20,7 @@ export default async function Page() {
     overrideAccess: false,
     select: {
       title: true,
-      slug: true,
+      path: true,
       categories: true,
       meta: true,
     },

@@ -4,7 +4,7 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: `claude/new-session-x1z9so` in `wuwfdevs/portal`. The brief this follows (the "project brief") and the
+Branch: work after PR 320 (merged 2026-11-02) is on `claude/elegant-dirac-1y89or` in `wuwfdevs/portal`. The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
 ## Where things stand (Milestone 1)
@@ -17,7 +17,7 @@ design canvas are described under *Sources* below.
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
 | Body blocks for parity with Brightspot's documented elements (gallery, pull quote, embed, promo, preserved HTML); hostile-HTML and embed-allowlist behaviour tested and checked in a browser | **Done**; dynamic galleries, tables, audio player, video playlist and anything Grove-specific are **not** |
-| Grove-ready identity: `legacy.legacyPath`, `legacy.nprId`, `source` on posts; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
+| Grove-ready identity: `legacy.legacyPath`, `legacy.groveId` (contentId), `legacy.modifiedAt`, `legacy.nprId`, `source` on posts and pages; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
 | Initial production migration | **Done**; matches the dev push exactly |
@@ -26,6 +26,8 @@ design canvas are described under *Sources* below.
 | Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
 | Sourcework-to-CMS publish channel | **Deferred and removed** (owner decision, 2026-10-30); see *Deferred* below |
 | Giving page `/support` (board 14): levels, figures, calls to action edited in the admin (`Support page` global) | **Done**, checked in a browser at 1440 and 390 px; button addresses and the audience figures are for WUWF to supply (see below) |
+| URL scheme: unique `path` on stories and pages, `sections`, one catch-all route, permanent redirects on address change, trailing slash 308 (2026-11-02) | **Done**; 27 integration + 38 unit tests, mutation-checked; production build and `pnpm smoke:paths` pass. Contributors, shows and events get a `path` when their routes exist (one line in the resolver's registry) |
+| Production build (`pnpm build`) | **Passes again** (2026-11-02). It had failed since 2026-10-31 without anyone noticing; see *Lessons* |
 | Homepage, fellowship hub (boards 1, 2, 4) | Not started (the article, board 3, is done) |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
@@ -50,7 +52,7 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Before any more body work: the census and the `path` resolver** (see *Grove migration*).
+5. **Before any more body work: the census** (see *Grove migration*; the `path` resolver is done).
    Nothing else in this list depends on it, so the pages below may proceed if the owner asks.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
@@ -117,8 +119,8 @@ wire stories); the same date and slug under another section, or none, is a 404; 
 - Every record has one unique, indexed **`path`**. Migrated records copy it verbatim and never recompute it. New stories
   generate it once, at first publish, as `/{section}/{YYYY-MM-DD}/{slug}`, and it does not change when the section is
   edited. Pages keep their shapes: `/people/…`, `/show/…`, `/community-calendar/event/…`, standalone paths.
-- One catch-all route resolves a path to a story, author, show, event or page. It replaces `/posts/[slug]`, which was a
-  placeholder. A trailing slash redirects (308) to the path without one; the canonical is the path itself.
+- One catch-all route resolves a path to a story, author, show, event or page. It replaced `/posts/[slug]`, which was a
+  placeholder (done; today it resolves stories and pages). A trailing slash redirects (308) to the path without one; the canonical is the path itself.
 - Redirects exist only for a path an editor deliberately changes (automatic) and for justified syndicated exceptions.
   Changing the URL structure for tidiness would need redirects across the archive and gain nothing for search.
 - For syndicated pages, the JSON's `canonicalLink` is the exact publisher URL, so exact redirects can be derived rather
@@ -210,7 +212,70 @@ standalone pages, one event. Paths:
    metadata manifest, not the raw JSON. Where the real archive will live durably is a decision for before the actual
    migration fetch. Coordination with NPR on volume is the owner's to arrange (the plan's Phase 0); ask before anything
    beyond this census.
-4. The `path` field and catch-all resolver (approved).
+   **Decisions and state (owner, 2026-11-02, after the plan was cross-checked against the final Migration Plan):**
+   the census is the **stratified sample only** (about 1,500 pages, seeded, year x section, weighted to 2013-2016; the
+   order is a prefix of the whole set, so extending later wastes nothing); the owner approved re-reading the monthly
+   sitemaps (2013 on, plus two seeded months a year for 2004-2012 only to find legacy-probe candidates), about 10
+   `?_renderer=styleguide` pages (the Migration Plan §3 says to compare the two renderers), a **legacy probe** of about
+   135 pages outside local news (wire-style 2004-2012 and 2013 on, standalone pages, show episodes, show pages, events,
+   people), and checkpoint commits of `census/manifest.jsonl` and `census/tally.json`. **Raw JSON is kept**, not
+   discarded (the plan wants an immutable source archive): outside the repository, for WUWF-originated and ambiguous
+   pages only, and delivered to the owner as zips (`pnpm census archive`; the Drive connector cannot take files from
+   disk, so it was ruled out). The owner does **not** want NPR contacted about a template list for now. Tooling:
+   `src/lib/census/` (pure, 87 tests, mutation-checked), `scripts/census/cli.ts`, `census/README.md`.
+   **Result (2026-11-02): the main sample is complete and the owner stopped it at 1,500 pages** (of the 1,819 planned;
+   the other 319, and the rest of the 5,086-story local set, were declined as adding little). 1,500 `?_renderer=json`
+   pages and 10 `?_renderer=styleguide` pages, all HTTP 200, no retries, nothing blocked. Data: `census/manifest.jsonl`,
+   `census/tally.json`, `census/plan.json`; the raw JSON is **not** in the repository (the owner holds
+   `census-raw-001..003.zip`, 1,498 files: WUWF-originated pages only, gzipped, named by sha256 as in the manifest).
+   - One `_template` only: `/core/article/ArticlePage.hbs` (every page). Each page is about 50 KB, most of it page
+     chrome (navigation, tracking, share buttons), so the tally tags every typed object with its top-level region;
+     read the `articleBody` region for story content.
+   - **25 typed objects occur in `articleBody`** (23 real, plus 2 MIME strings, `audio/mpeg` and `audio/x-wav`, that the walker mislabels). Pages out of 1,500:
+     Link 1,500; Image 1,500; Figure 1,454; HTML5AudioPlayer 1,341; InlineEnhancement 641; Enhancement 542;
+     Carousel + GallerySlide 94 (**galleries exist**); IframeModule + ModuleType 32; AudioEnhancement 31; YouTubeUrl 29;
+     TweetUrl 23; QuoteEnhancement 20; PymInteractive 15; RichTextHeading 13; VideoEnhancement 7 (+ HTML5VideoPlayer 4);
+     YouTubeVideoPlayer 2; VimeoVideoPlayer, FacebookUrl and ExternalContent 1 each. Body HTML tags beyond p/br/b/i/sup:
+     `a`, `iframe` 44, `ul`/`li`, `blockquote` 23, **`script` 25**, `u`, `img`, `font`, `ol`, one `table`, and a custom
+     `brightspot-cms-external-content` element 6. Classes: `cms-textAlign-center` 50, `twitter-tweet` 23,
+     `fullattribution` 9, `fb-post`, `pi_assets-image`. **No table block and no story-body promo type appeared** (the one `<table>` is plain HTML inside a rich-text chunk).
+   - **Discovery has flattened**: new body types per 100 pages were 17, 4, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0; none in
+     the last 495 pages. The three types seen once (ExternalContent, FacebookUrl, VimeoVideoPlayer) put the chance that
+     the next page has an unseen type near 0.2%, so perhaps 7 of the ~3,600 unsampled stories carry one.
+   - **Origin**: 1,488 WUWF-originated (canonical host `www.wuwf.org`), 12 not (WFSU 3, WUSF 3, FPREN 3, NPR 3), 0
+     ambiguous. Local sections do contain a few partner and NPR stories, so origin must be read per page.
+   - **Path dates**: 1,338 pages agree with both Central time and UTC, 157 only with **America/Chicago**, none only with
+     UTC, 5 with neither (re-dated stories, 0.3%). Central time is right for new story paths. Primary section agrees
+     with the path section on 1,407 pages, contradicts it on none, and is unreadable on 93.
+   - Host and region detail, shapes (field combinations) and examples are in `tally.json`; `urlHosts` is the asset-host
+     inventory the Migration Plan asks for.
+   **Legacy probe (135 pages outside local news, all HTTP 200; owner-approved, 2026-11-02):**
+   - **No WUWF-originated story hides under a bare `/DATE/slug` URL: 0 of 70** (40 from 2004-2012, 30 from 2013 on): 67
+     are NPR, Fresh Air, WBEZ, WSHU or KFF Health News by organization and canonical host. **3 are ambiguous**: canonical
+     on `www.wuwf.org` but another organization named, i.e. WUWF-hosted syndicated copy (`/2005-10-19/active-liberty-...`,
+     `/2015-07-25/at-sandra-blands-...`, `/2017-11-03/house-republicans-...`). The Migration Plan's warning is real; the
+     classifier calls them ambiguous and keeps their raw JSON for review. 70 is a small sample, not proof for 185,000 URLs.
+   - **Six more templates** beyond `ArticlePage`: `/core/page/ContentPage.hbs` (24 of 25 standalone pages),
+     `/core/gallery/GalleryPage.hbs` (1 standalone: `/gallery-one-abc`), `/media/episode/audio/RadioShowEpisodePage.hbs`
+     (15 of 15 show episodes), `/media/show/audio/RadioShowPage.hbs` (5 of 5), `/event/EventPage.hbs` (10 of 10),
+     `/core/author/AuthorPage.hbs` (10 of 10). Every probe page has a `contentId`. These templates were sampled only
+     lightly (5 to 25 pages each): their field shapes are in `tally.json` (group `probe`) but **their inventory is not
+     complete**; a census of them is a separate approval.
+   - Body types in the probe's stories were all already seen in the 1,500; its body HTML adds `<em>` and `<hr>`.
+   - Raw JSON for these is `census-raw-004.zip` (68 files: 65 WUWF-originated + 3 ambiguous).
+4. ~~The `path` field and catch-all resolver~~ **Done (2026-11-02).** `path` (text, unique, indexed) on `posts` and
+   `pages`; the rule is in `src/lib/paths.ts` (pure), the hooks in `src/hooks/pathHooks.ts`, the lookup in
+   `src/utilities/resolvePath.ts`. Made once at first publish (stories: section + date in **America/Chicago** + slug;
+   pages: `/slug`; the home page has none) and then fixed. A migrated record is saved with Grove's path as given.
+   Only a publisher may set or change one; changing a live one writes a permanent redirect, repoints redirects that
+   pointed at the old address (no chains) and removes one sitting on the new (no loop). Unique across both collections
+   (checked in a hook: Postgres cannot do it across two tables, so two simultaneous saves of different kinds could
+   race, which a staff-only editor and a single-writer importer make unlikely). `legacy.legacyPath` is write-once for
+   staff and is no longer used for routing; `legacy.groveId` (Grove's `contentId`, unique) and `legacy.modifiedAt` were
+   added beside it (second migration) so a re-run matches on the id and the source's modified date survives. A never-published draft previews at `/_draft/{collection}/{id}`, which
+   works only with the preview cookie. Sections are a collection (`Local News`, ...): primary section only; secondary
+   sections wait for the census. The time zone is consistent with the first 5 real pages (4 agree in either zone; one evening
+   story is dated in Central time, not UTC); the census tally (`dates.pathDateMatches`) is the real test.
 5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).
 
@@ -222,7 +287,14 @@ guess.
 
 ## Known gaps in what exists
 
-- Stories are served at `/posts/[slug]`, a placeholder. They move to their Grove-style `path` (see *URL scheme*).
+- `posts-sitemap.xml` and `pages-sitemap.xml` read at most 1,000 records each; the archive is larger. Paginate (a sitemap
+  index) before the migration.
+- A redirect rendered inside a cached page is sent with the `Location` header **twice** (Next 16.3.3). Chromium, Node's
+  `fetch` and curl follow it; the spec makes `Location` a single value. Fixing it means doing redirects in `proxy.ts`,
+  which runs in front of the cache and would invoke a function for every page view on Vercel: the owner's call.
+- Malformed percent-encoding (`/a/%E0%A4%A`) is answered 500 by Next in production (400 in development) before any
+  of our code runs. Garbage URLs also each try to become an ISR cache entry (a disk write when self-hosting).
+- The header's "News" link points at no page yet (a 404 on prefetch).
 - The article page is built to board 3 except: the "This story started with your answers" strip, the audio player
   button and the inline listening ask (listening and the player are later work), the sponsor message unit
   (Milestone 3), and the pull quote and inline audio excerpt (they have no editor block yet).
@@ -267,6 +339,15 @@ guess.
   `getAcknowledgments` and a test pins the boundary.
 - **Payload does not enforce a block's field-level access inside a rich-text field.** A block field marked
   administrators-only was writable by an editor until a test caught it. Enforce such rules in a collection hook.
+- **The production build had been broken for two days and nothing said so.** The client-side Form block imports
+  `RichText`, and `RichText` renders the Promo and Embed blocks, which read Payload; that put Payload and `next/cache`
+  in the browser bundle. `pnpm dev` and every test were green, because story pages lived in their own route and never
+  touched the Form. Merging stories and pages into one catch-all route exposed it in dev too. A client component must
+  use `components/RichText/Plain`, never `RichText`. Run `pnpm build` before calling any change done.
+- **`connection()` cannot be used in a route that has `revalidate`** (it throws `DYNAMIC_SERVER_USAGE`, a 500 in
+  production with the message hidden). Do not try to make a miss uncached that way.
+- **`pgrep -f` and `pkill -f` kill your own shell when the pattern is anywhere in the same command line**, even with
+  the `[n]` trick, because the whole command is one `bash -c` string. Put the kill in its own command or a script file.
 - **A migration can be missing while every test passes**, because dev and test databases push schema on their own
   and production does not. Two commits (header/footer globals, Site settings) shipped without one. Run
   `pnpm verify:migrations` after any schema change: it builds a scratch database from the committed migrations

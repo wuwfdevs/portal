@@ -10,8 +10,8 @@ import { cn } from '@/utilities/ui'
 
 type Target = { relationTo: 'posts' | 'pages' | 'fellowships'; value: string | number | { id: string | number } }
 
-const pathFor = (relationTo: Target['relationTo'], slug: string) =>
-  relationTo === 'posts' ? `/posts/${slug}` : relationTo === 'fellowships' ? `/fellowships/${slug}` : `/${slug}`
+const pathFor = (relationTo: Target['relationTo'], doc: { slug: string; path?: string | null }): string | null =>
+  relationTo === 'fellowships' ? `/fellowships/${doc.slug}` : relationTo === 'pages' && doc.slug === 'home' ? '/' : (doc.path ?? null)
 
 export const PromoBlock: React.FC<PromoBlockProps & { className?: string }> = async ({ target, headline, description, image, className }) => {
   const t = target as Target | null
@@ -25,7 +25,10 @@ export const PromoBlock: React.FC<PromoBlockProps & { className?: string }> = as
     .catch(() => null)
   if (!doc || !('slug' in doc) || !doc.slug) return null
 
-  const d = doc as { slug: string; title?: string; summary?: string | null; meta?: { description?: string | null; image?: unknown } | null }
+  const d = doc as { slug: string; path?: string | null; title?: string; summary?: string | null; meta?: { description?: string | null; image?: unknown } | null }
+  // A target with no address (it was never published) has nowhere to link to, so it renders nothing.
+  const href = pathFor(t.relationTo, d)
+  if (!href) return null
   const title = headline || d.title
   const text = description || d.summary || d.meta?.description || null
   const picture = (image && typeof image === 'object' ? image : null) ?? (d.meta?.image && typeof d.meta.image === 'object' ? d.meta.image : null)
@@ -39,7 +42,7 @@ export const PromoBlock: React.FC<PromoBlockProps & { className?: string }> = as
       )}
       <div className="flex flex-col gap-2 p-4">
         <h3 className="font-serif text-xl font-bold leading-snug">
-          <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={pathFor(t.relationTo, d.slug)}>
+          <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={href}>
             {title}
           </Link>
         </h3>

@@ -70,6 +70,7 @@ export interface Config {
     pages: Page;
     posts: Post;
     media: Media;
+    sections: Section;
     categories: Category;
     contributors: Contributor;
     'publishing-identities': PublishingIdentity;
@@ -100,6 +101,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
     'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
@@ -236,14 +238,26 @@ export interface Page {
    */
   legacy?: {
     /**
-     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.
+     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field.
      */
     legacyPath?: string | null;
+    /**
+     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
+     */
+    modifiedAt?: string | null;
     /**
      * NPR's identifier for this item, when it has one.
      */
     nprId?: string | null;
   };
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
   /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
@@ -288,6 +302,14 @@ export interface Post {
   };
   publishedAt?: string | null;
   /**
+   * Local News, Commentary... The first part of the story's address, made at first publish and then fixed.
+   */
+  section?: (number | null) | Section;
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
+  /**
    * NPR and wire stories are not WUWF's to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.
    */
   source: 'wuwf' | 'npr' | 'wire';
@@ -296,9 +318,17 @@ export interface Post {
    */
   legacy?: {
     /**
-     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.
+     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field above.
      */
     legacyPath?: string | null;
+    /**
+     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
+     */
+    modifiedAt?: string | null;
     /**
      * NPR's identifier for this item, when it has one.
      */
@@ -472,6 +502,25 @@ export interface Category {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sections".
+ */
+export interface Section {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * For the section page, when there is one.
+   */
+  description?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1130,6 +1179,7 @@ export interface Search {
     value: number | Post;
   };
   slug?: string | null;
+  path?: string | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -1273,6 +1323,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'sections';
+        value: number | Section;
       } | null)
     | ({
         relationTo: 'categories';
@@ -1425,8 +1479,11 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
         nprId?: T;
       };
+  path?: T;
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -1535,11 +1592,15 @@ export interface PostsSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
+  section?: T;
+  path?: T;
   source?: T;
   legacy?:
     | T
     | {
         legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
         nprId?: T;
       };
   contributors?: T;
@@ -1648,6 +1709,18 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sections_select".
+ */
+export interface SectionsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1993,6 +2066,7 @@ export interface SearchSelect<T extends boolean = true> {
   priority?: T;
   doc?: T;
   slug?: T;
+  path?: T;
   meta?:
     | T
     | {

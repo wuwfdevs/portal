@@ -15,7 +15,8 @@ const POST_FIELD: Record<FundableSlug, 'fellowship' | 'series' | 'production'> =
   productions: 'production',
 }
 
-export const postPath = (slug: string): string => `/posts/${slug}`
+/** A story's address is its stored path; a story that has none yet (never published) has no page to refresh. */
+export const postPath = (path: string | null | undefined): string | null => (path ? path : null)
 export const hubPath = (collection: FundableSlug, slug: string): string => `${HUB_PREFIX[collection]}/${slug}`
 
 /** Sorted and de-duplicated, so the same change always revalidates the same list. */
@@ -30,7 +31,7 @@ export async function pathsAffectedByCollection(payload: Payload, collection: Fu
     payload.find({
       collection: 'posts',
       where: { [POST_FIELD[collection]]: { equals: id } },
-      select: { slug: true },
+      select: { path: true },
       limit: 1000,
       pagination: false,
       depth: 0,
@@ -39,7 +40,7 @@ export async function pathsAffectedByCollection(payload: Payload, collection: Fu
     }),
   ])
   return uniquePaths(
-    posts.docs.map((p) => postPath(p.slug as string)).filter((p) => p !== '/posts/undefined'),
+    posts.docs.map((p) => postPath(p.path)).filter((p): p is string => p !== null),
     hub?.slug ? [hubPath(collection, hub.slug as string)] : [],
   )
 }

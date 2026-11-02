@@ -107,7 +107,8 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
 
 - **Never drop content you cannot map.** Preserve it (as a preserved-HTML block, rendered safely) and flag it. Never
   render imported HTML raw, and never import `<script>`.
-- **Stable identity:** every migrated record keeps `legacy.legacyPath` (and `legacy.nprId` when it has one). Preserve
+- **Stable identity:** every migrated record keeps `legacy.legacyPath` and `legacy.groveId` (Grove's `contentId`), and
+  `legacy.nprId` when it has one. Preserve
   the source's published and modified dates; never use import time.
 - **NPR and wire stories (`source` ≠ `wuwf`) are not WUWF's to archive separately or alter** beyond headline, teaser
   and description. They are re-pulled from NPR, not migrated as our own.
@@ -121,7 +122,8 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
 - **`dangerouslySetInnerHTML` is allowed in exactly one place**: `blocks/LegacyHtml/Component.tsx`, on the output of
   `lib/sanitize.ts`. Nowhere else.
 - **URLs keep Grove's exact paths** (`/{section}/{YYYY-MM-DD}/{slug}`), stored once as a unique `path` and resolved by one
-  catch-all route; never recompute a migrated path. Do not fetch from `wuwf.org` beyond what the owner has approved:
+  catch-all route (`app/(frontend)/[...path]`); never recompute a migrated path. Only a publisher sets or changes a path;
+  `legacy.legacyPath` is write-once provenance, not routing. Do not fetch from `wuwf.org` beyond what the owner has approved:
   honour robots.txt, space requests at least 3 s apart, send a neutral User-Agent with no contact information of any kind, keep raw responses out of the repository.
 
 ## Database
@@ -143,6 +145,9 @@ Run typecheck, lint and tests before calling a change done.
 
 - Strict TypeScript and generated CMS types. Loading, empty and error states on every data screen.
 - Server-side validation of all public input. Access control on every collection and every route.
+- **A client component never imports `components/RichText`.** It renders the story blocks (Promo, Embed...), which are
+  server components that read Payload, and the production build fails. Use `components/RichText/Plain`. Run `pnpm build`
+  before calling a change done: dev and the tests cannot see this.
 - **Access is by permission, never by "is signed in".** Staff roles are defined in `@wuwf/portal-contracts`; use
   `requirePermission(...)` (and `publishedOrContentStaff` for reads), not `authenticated`. Saving drafts is
   `content.write`; making work live (publish, edit a live document, delete, redirects) is `content.publish`,

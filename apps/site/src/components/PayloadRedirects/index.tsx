@@ -1,16 +1,16 @@
 import type React from 'react'
 import type { Page, Post } from '@/payload-types'
 
-import { getCachedDocument } from '@/utilities/getDocument'
 import { getCachedRedirects } from '@/utilities/getRedirects'
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 
 interface Props {
   disableNotFound?: boolean
   url: string
 }
 
-/* This component helps us with SSR based dynamic redirects */
+/* This component helps us with SSR based dynamic redirects. They are permanent (308): an editor makes one when a live
+   address moves, and the migration plan asks for one-to-one permanent redirects, not temporary ones. */
 export const PayloadRedirects: React.FC<Props> = async ({ disableNotFound, url }) => {
   const redirects = await getCachedRedirects()()
 
@@ -18,28 +18,16 @@ export const PayloadRedirects: React.FC<Props> = async ({ disableNotFound, url }
 
   if (redirectItem) {
     if (redirectItem.to?.url) {
-      redirect(redirectItem.to.url)
+      permanentRedirect(redirectItem.to.url)
     }
 
-    let redirectUrl: string
+    // A reference points at a story or page and is served at that record's stored path. Redirects are read at depth 1,
+    // so a target the public can read arrives populated; one they cannot (unpublished) stays an id and does not redirect.
+    const ref = redirectItem.to?.reference
+    const target = ref && typeof ref.value === 'object' ? (ref.value as Page | Post) : null
+    const redirectUrl = target?.path ?? (ref?.relationTo === 'pages' && target?.slug === 'home' ? '/' : null)
 
-    if (typeof redirectItem.to?.reference?.value === 'string') {
-      const collection = redirectItem.to?.reference?.relationTo
-      const id = redirectItem.to?.reference?.value
-
-      const document = (await getCachedDocument(collection, id)()) as Page | Post
-      redirectUrl = `${redirectItem.to?.reference?.relationTo !== 'pages' ? `/${redirectItem.to?.reference?.relationTo}` : ''}/${
-        document?.slug
-      }`
-    } else {
-      redirectUrl = `${redirectItem.to?.reference?.relationTo !== 'pages' ? `/${redirectItem.to?.reference?.relationTo}` : ''}/${
-        typeof redirectItem.to?.reference?.value === 'object'
-          ? redirectItem.to?.reference?.value?.slug
-          : ''
-      }`
-    }
-
-    if (redirectUrl) redirect(redirectUrl)
+    if (redirectUrl) permanentRedirect(redirectUrl)
   }
 
   if (disableNotFound) return null
