@@ -10,6 +10,7 @@
 // helper, which is where it is actually enforced.
 
 import { singleRole } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type RoadmapRole = "member" | "curator";
 
@@ -30,3 +31,14 @@ export const ROLE_OPTIONS: { value: RoadmapRole; label: string; description: str
     description: "Additionally moves posts through the roadmap statuses and writes decision notes",
   },
 ];
+
+/**
+ * The admin access screen's view of this tool. Everyone is already a member, so only the
+ * elevation is grantable.
+ */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "roadmap",
+  kind: "stacking",
+  baseAccess: "Every active staff member can post, vote, and comment.",
+  roles: ROLE_OPTIONS.filter((option) => option.value !== "member"),
+};

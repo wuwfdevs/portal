@@ -11,6 +11,7 @@
 
 import { SITE_ROLES, type SiteRole } from "@wuwf/portal-contracts";
 import { parseRoleSet } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type WebsiteRole = SiteRole;
 
@@ -27,3 +28,11 @@ export const ROLE_OPTIONS: { value: WebsiteRole; label: string; description: str
   { value: "membership", label: "Membership", description: "Manages member entitlements and private feeds" },
   { value: "administrator", label: "Administrator", description: "Everything on WUWF.org, including its staff accounts and settings" },
 ];
+
+/** The admin access screen's view of this tool. */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "website",
+  kind: "stacking",
+  baseAccess: "Signs this person in to the WUWF.org editor.",
+  roles: ROLE_OPTIONS,
+};

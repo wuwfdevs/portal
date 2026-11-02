@@ -19,6 +19,7 @@
 // The SQL predicates are the boundary; this only shapes the screens.
 
 import { parseRoleSet } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type BookingsRole = "production" | "director" | "finance" | "executive";
 
@@ -55,3 +56,11 @@ export const ROLE_OPTIONS: { value: BookingsRole; label: string; description: st
     description: "Adopts a rate card version, approves agreements, and records booking exceptions",
   },
 ];
+
+/** The admin access screen's view of this tool. */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "bookings",
+  kind: "stacking",
+  baseAccess: "With no role: reads everything.",
+  roles: ROLE_OPTIONS,
+};

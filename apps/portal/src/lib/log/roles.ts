@@ -11,6 +11,7 @@
 // The SQL predicates are the boundary; this only shapes the screens.
 
 import { normalizeRoleKey, parseRoleSet } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type LogRole = "program_director" | "traffic";
 
@@ -41,3 +42,11 @@ export const ROLE_OPTIONS: { value: LogRole; label: string; description: string 
     description: "Pins station IDs and other required content, and releases the DAD log",
   },
 ];
+
+/** The admin access screen's view of this tool. */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "log",
+  kind: "stacking",
+  baseAccess: "With no role: on-air staff. Fills breaks, runs the rundown, records what aired.",
+  roles: ROLE_OPTIONS,
+};

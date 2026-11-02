@@ -6,6 +6,7 @@
 // as the base 'contributor' role. Matching mirrors the ep_role() SQL helper.
 
 import { normalizeRoleKey } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type EditorialRole = "contributor" | "reviewer" | "editor";
 
@@ -34,3 +35,11 @@ export const ROLE_OPTIONS: { value: EditorialRole; label: string; description: s
     description: "Decide pitches, edit the rubric and submission form",
   },
 ];
+
+/** The admin access screen's view of this tool: one level per person, each including the one before. */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "editorial-planning",
+  kind: "ranked",
+  baseAccess: "With no level chosen: Contributor.",
+  roles: ROLE_OPTIONS,
+};
