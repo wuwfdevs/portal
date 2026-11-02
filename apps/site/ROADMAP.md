@@ -124,6 +124,68 @@ wire stories); the same date and slug under another section, or none, is a 404; 
 - For syndicated pages, the JSON's `canonicalLink` is the exact publisher URL, so exact redirects can be derived rather
   than guessed. Whether to redirect, serve or let 404 is decided by the URL census and, later, Search Console.
 
+### URL census (2026-11-02): what the sitemaps list
+
+All 276 monthly sitemaps (2004-01 to 2026-11) fetched once, no story pages: **200,897 unique URLs**. Shapes: wire-style
+`/DATE/slug` 185,332; `/section/DATE/slug` 11,041; community-calendar events 1,474; people 1,148; tags 905; show
+episodes `/show/X/DATE/slug` 501; standalone pages about 450. The first section-prefixed URLs appear in 2013 and the
+volume ramps in October 2013 (a platform change); everything 2004-2012 is wire-style and small (626 URLs in all of
+2010), so **sitemap completeness before 2013 is unverified** (the plan already flags it).
+
+Section prefixes (counts): `florida-news` 4,807, `local-news` 4,662, `music-arts` 614, `news` 385, `commentary` 106,
+`uwf-news` 77, `local-arts` 65, `unearthing-florida` 59, `local-politics` 51, then a long tail. **A prefix does not
+give origin**: in the sample `florida-news` was a statewide partner and `music-arts` was NPR. So the WUWF-originated
+count is "some thousands", not 11,000, and only a classification pass (`sourceOrganizationName` plus `canonicalLink`
+host) can say. Whether any bare `/DATE/slug` story is WUWF-originated is unknown (none of 11 sampled was).
+
+The raw sitemaps and sample responses were kept in the session's scratch space, not the repository, and are gone with
+the sandbox. To regenerate: read `https://www.wuwf.org/sitemap.xml` (an index of `sitemap-YYYYMM.xml` files), fetch each
+with a User-Agent that identifies the project and at least 3 s between requests (robots.txt allows all), and tally by
+path shape. Re-fetch the sample below the same way with `?_renderer=json`.
+
+### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
+
+Two stories each from 2004 and 2010 (wire), two 2016 wire, `/local-news`, `/local-arts`, `/commentary`, `/people`, four
+standalone pages (2016), two 2021 wire, `/florida-news`, `/local-news`, a community event, three `/show/…/DATE/…`
+episodes, a section page, then 2026: two wire, `/florida-news`, `/local-news`, `/music-arts`, a show page, two
+standalone pages, one event. Paths:
+
+```
+/2004-06-02/powell-iraq-wont-have-veto-power-over-u-s-troops
+/2004-06-15/janus-adams-commentary-the-men-in-my-family
+/2010-03-10/a-grim-eclipse-deb-amos-on-iraqs-sunni-exiles
+/2010-03-15/u-s-mexico-vow-action-on-slain-americans
+/2016-05-20/do-democrats-want-what-bernie-wants-or-just-what-bernie-has
+/2016-05-25/sports-commentary-russia-clinches-gold-medal-for-cheating
+/local-news/2016-05-02/what-is-a-hospitalist
+/local-news/2016-05-19/florida-wildlife-conservation-urges-floridians-to-become-bear-aware
+/local-arts/2016-05-01/pensacola-childrens-chorus-founders-to-be-honored-after-retirement
+/commentary/2016-05-10/moving-downsizing-chickens
+/people/ana-tintocalis
+/wuwf-tv-grid
+/uwf-bot-june-2016
+/german-mba-graduation-2016
+/creativity-and-innovation
+/2021-10-16/high-schoolers-are-training-to-drive-18-wheelers-amid-a-shortage-of-truck-drivers
+/2021-10-01/new-rule-shields-daca-from-being-challenged-in-court
+/florida-news/2021-10-05/desantis-pushes-back-against-feds-on-threats-to-educators
+/local-news/2021-10-04/uwf-symposium-probes-communication-in-the-21st-century
+/community-calendar/event/runge-strings-orchestra-concert
+/show/acoustic-interlude/2021-10-07/october-10-2021
+/show/14-59/2021-10-05/october-8th-2021
+/show/make-believe/2021-10-04/the-first-one
+/wake-up
+/2026-06-02/trump-signs-ai-safety-order-seeking-voluntary-review-of-new-models
+/2026-06-17/scientists-warn-godzilla-el-nino-could-intensify-climate-impacts-worldwide
+/florida-news/2026-06-08/florida-passes-emergency-rules-to-prevent-these-parasitic-flies-from-entering-state
+/local-news/2026-06-12/photo-exhibit-honors-the-service-of-female-veterans
+/music-arts/2026-05-28/cure-for-paranoia-tiny-desk-concert
+/show/five-corners
+/spring-2026
+/q1232
+/community-calendar/event/emerald-coast-quilt-show-2027-how-does-your-garden-grow-31-05-2026-09-41-44
+```
+
 ### Grove migration: next steps
 
 1. **URL census** from the 276 monthly sitemaps (no story pages): shapes and counts per year.
@@ -202,8 +264,13 @@ guess.
 
 ## Running things in a fresh sandbox
 
-The sandbox is ephemeral; nothing below survives. Postgres 16 is installed but not running, and it will not run
-as root:
+The sandbox is ephemeral; nothing below survives.
+
+**Node.** The default is 22.22.0, one patch below the pinned 22.23.4, and `engine-strict` makes pnpm refuse it. Get
+22.23.4 from the `node-linux-x64` npm package (`npm pack node-linux-x64@22.23.4`, unpack, put its `bin` first on
+`PATH`), then check `node -v`. Do not loosen the pin.
+
+**Postgres.** Postgres 16 is installed but not running, and it will not run as root:
 
 ```bash
 D=/var/tmp/wuwf-site-pg; PGBIN=/usr/lib/postgresql/16/bin
@@ -219,8 +286,12 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
 
 ## Needs the owner (cannot be done from the repository)
 
-- **Vercel, Portal project:** set Root Directory to `apps/portal` **at merge time**, not before (the default branch
-  still has the old layout). Until then this branch's Portal preview build fails.
+- **Pull request:** [wuwfdevs/portal#320](https://github.com/wuwfdevs/portal/pull/320) (`claude/new-session-x1z9so` into
+  `claude/main`, the only default-like branch) is open and awaiting the owner's merge.
+- **Vercel, Portal project:** set Root Directory to `apps/portal` (with "Include source files outside of the Root
+  Directory" on, and Node 22.x). Until it is set, a build of this layout fails with `NEXT_NO_VERSION`; once it is set,
+  builds of old-layout branches fail instead (previews only; the live deployment is never replaced by a failed build).
+  The first preview build of this branch showed that the install step works with one lockfile per project.
 - **Vercel, new project for the site:** Root Directory `apps/site`, Node pinned, own env vars.
 - **Not yet confirmed:** that Vercel's install handles one lockfile per project in a pnpm workspace. Check the
   first preview build.
