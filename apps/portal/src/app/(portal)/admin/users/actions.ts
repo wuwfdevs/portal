@@ -9,11 +9,26 @@ import { getSiteUrl } from "@/lib/site-url";
 import { isValidEmail } from "@/lib/validation";
 import type { PlatformRole, AccountStatus } from "@/lib/database.types";
 import { parseToolGrants, sameRoles } from "@/lib/tool-roles";
+import { grantRequiredForTool } from "@/lib/tool-access-rules";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 
 const USERS_PATH = "/admin/users";
 const INVITE_PATH = "/admin/users/invite";
 const PLATFORM_ROLES: PlatformRole[] = ["administrator", "staff", "student", "faculty_partner"];
+
+/**
+ * The tools every active user can already open (Roadmap, Resources). Their access form has no
+ * checkbox, so a grant on one exists exactly when a role is chosen. Read from the registry, never
+ * from the form, so it follows `tools.default_access` the way the access gate does.
+ */
+async function loadOpenToolIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  failPath: string,
+): Promise<Set<string>> {
+  const { data, error } = await supabase.from("tools").select("id, status, default_access");
+  failIfError(error, failPath, "Could not load the tool registry");
+  return new Set((data ?? []).filter((tool) => !grantRequiredForTool(tool)).map((tool) => tool.id));
+}
 
 export async function inviteUser(formData: FormData): Promise<void> {
   const admin = await assertAdministrator();
@@ -26,11 +41,15 @@ export async function inviteUser(formData: FormData): Promise<void> {
   const platformRole = PLATFORM_ROLES.includes(platformRoleRaw as PlatformRole)
     ? (platformRoleRaw as PlatformRole)
     : "staff";
-  const toolGrants = parseToolGrants(formData);
 
   if (!isValidEmail(email) || !displayName) {
     failWith(INVITE_PATH, "Enter a name and a valid email address.");
   }
+
+  const supabase = await createClient();
+  const toolGrants = parseToolGrants(formData, {
+    openToolIds: await loadOpenToolIds(supabase, INVITE_PATH),
+  });
 
   const adminClient = createAdminClient();
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
@@ -42,7 +61,6 @@ export async function inviteUser(formData: FormData): Promise<void> {
     failWith(INVITE_PATH, error?.message ?? "Could not send invitation.");
   }
 
-  const supabase = await createClient();
   const newUserId = data.user.id;
 
   // The invitation email is already out: record it before the writes below, which may bounce.
@@ -152,10 +170,11 @@ export async function updateUserAccess(formData: FormData): Promise<void> {
   const platformRole = PLATFORM_ROLES.includes(platformRoleRaw as PlatformRole)
     ? (platformRoleRaw as PlatformRole)
     : "staff";
-  const toolGrants = parseToolGrants(formData);
-  const grantedToolIds = new Set(toolGrants.map((g) => g.toolId));
-
   const supabase = await createClient();
+  const toolGrants = parseToolGrants(formData, {
+    openToolIds: await loadOpenToolIds(supabase, USERS_PATH),
+  });
+  const grantedToolIds = new Set(toolGrants.map((g) => g.toolId));
 
   const title =
     String(formData.get("title") ?? "")

@@ -9,6 +9,7 @@
 // private.is_sourcework_editor().
 
 import { parseRoleSet } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type SourceworkRole = "editor";
 
@@ -30,3 +31,11 @@ export const ROLE_OPTIONS: { value: SourceworkRole; label: string; description: 
       "Additionally maintains the research prompts and piece formats every project uses: edits the wording, tries a draft, publishes and rolls back",
   },
 ];
+
+/** The admin access screen's view of this tool (registry key `transcription`). */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "transcription",
+  kind: "stacking",
+  baseAccess: "With no role: runs research, reviews findings and makes pieces.",
+  roles: ROLE_OPTIONS,
+};

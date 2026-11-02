@@ -4,9 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Field, Input, Label, Select } from "@/components/ui/input";
+import { Field, Input, Select } from "@/components/ui/input";
 import { inviteUser } from "../actions";
-import { ToolGrantRow } from "../tool-grant-row";
+import { ToolGrantList } from "../tool-grant-list";
 import { FormActions } from "@/components/ui/form-actions";
 
 export default async function InviteUserPage({
@@ -23,7 +23,7 @@ export default async function InviteUserPage({
   );
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-3xl">
       <PageHeader
         className="mb-5"
         back={{ href: "/admin/users", label: "Back to users" }}
@@ -59,14 +59,7 @@ export default async function InviteUserPage({
               <option value="administrator">Administrator</option>
             </Select>
           </Field>
-          <div>
-            <Label>Authorized tools</Label>
-            <div className="flex flex-col gap-2.5">
-              {(tools ?? []).map((tool) => (
-                <ToolGrantRow key={tool.id} tool={tool} hasAccess={false} roles={[]} />
-              ))}
-            </div>
-          </div>
+          <ToolGrantList tools={tools ?? []} rolesByToolId={new Map()} />
           <FormActions cancelHref={"/admin/users"} className="border-t border-line pt-4">
             <Button type="submit">Send invitation</Button>
           </FormActions>

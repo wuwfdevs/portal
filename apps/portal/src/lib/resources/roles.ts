@@ -8,6 +8,7 @@
 // is_resources_editor() SQL helper, which is where it is enforced.
 
 import { singleRole } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type ResourcesRole = "reader" | "editor";
 
@@ -28,3 +29,14 @@ export const ROLE_OPTIONS: { value: ResourcesRole; label: string; description: s
     description: "Additionally writes and edits station procedures and tool guides",
   },
 ];
+
+/**
+ * The admin access screen's view of this tool. Everyone is already a reader, so only the
+ * elevation is grantable.
+ */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "resources",
+  kind: "stacking",
+  baseAccess: "Every active user can read what is addressed to them.",
+  roles: ROLE_OPTIONS.filter((option) => option.value !== "reader"),
+};

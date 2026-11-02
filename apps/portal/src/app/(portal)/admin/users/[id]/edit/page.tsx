@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Field, Input, Label, Select } from "@/components/ui/input";
+import { Field, Input, Select } from "@/components/ui/input";
 import { updateUserAccess } from "../../actions";
-import { ToolGrantRow } from "../../tool-grant-row";
+import { ToolGrantList } from "../../tool-grant-list";
 import { FormActions } from "@/components/ui/form-actions";
 
 export default async function EditUserAccessPage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +28,7 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
   const grantByToolId = new Map((grants ?? []).map((g) => [g.tool_id, g.tool_roles]));
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-3xl">
       <PageHeader
         className="mb-5"
         back={{ href: "/admin/users", label: "Back to users" }}
@@ -53,19 +53,7 @@ export default async function EditUserAccessPage({ params }: { params: Promise<{
           >
             <Input id="title" name="title" maxLength={120} defaultValue={profile.title ?? ""} />
           </Field>
-          <div>
-            <Label>Authorized tools</Label>
-            <div className="flex flex-col gap-2.5">
-              {(tools ?? []).map((tool) => (
-                <ToolGrantRow
-                  key={tool.id}
-                  tool={tool}
-                  hasAccess={grantByToolId.has(tool.id)}
-                  roles={grantByToolId.get(tool.id) ?? []}
-                />
-              ))}
-            </div>
-          </div>
+          <ToolGrantList tools={tools ?? []} rolesByToolId={grantByToolId} />
           <FormActions cancelHref={"/admin/users"} className="border-t border-line pt-4">
             <Button type="submit">Save changes</Button>
           </FormActions>

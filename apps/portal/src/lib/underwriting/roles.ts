@@ -13,6 +13,7 @@
 //     (private.is_underwriting_production()).
 
 import { parseRoleSet } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type UnderwritingRole = "manager" | "production";
 
@@ -39,3 +40,11 @@ export const ROLE_OPTIONS: { value: UnderwritingRole; label: string; description
     description: "Records messages into DAD and marks them recorded",
   },
 ];
+
+/** The admin access screen's view of this tool. */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "underwriting",
+  kind: "stacking",
+  baseAccess: "With no role: ordinary traffic staff. Contracts, copy, placement, exception triage.",
+  roles: ROLE_OPTIONS,
+};

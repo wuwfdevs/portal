@@ -8,6 +8,7 @@
 // is where this is actually enforced.
 
 import { singleRole } from "@/lib/role-keys";
+import type { ToolRoleSpec } from "@/lib/tool-role-spec";
 
 export type AcademicPartnershipsRole = "member" | "coordinator";
 
@@ -32,3 +33,15 @@ export const ROLE_OPTIONS: {
     description: "Additionally edits the public form, copy, templates, and the appointments URL",
   },
 ];
+
+/**
+ * The admin access screen's view of this tool. A grant is the ticket in, and only the
+ * elevation is a role to choose. This was missing from the screen's catalog, so no one could
+ * be made a coordinator from it.
+ */
+export const ROLE_SPEC: ToolRoleSpec = {
+  toolKey: "academic-partnerships",
+  kind: "stacking",
+  baseAccess: "With no role: views and works submissions through the pipeline.",
+  roles: ROLE_OPTIONS.filter((option) => option.value !== "member"),
+};
