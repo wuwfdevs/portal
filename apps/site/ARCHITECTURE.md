@@ -157,7 +157,7 @@ quotes, inline images dropped in HTML conversion), likelihood High. Its mitigati
 | | State |
 |---|---|
 | Story and page bodies are Lexical, which takes custom blocks (`BlocksFeature`); starter blocks Banner, Code, Media | Built |
-| `legacy.legacyPath` and `legacy.nprId` on posts and pages, unique and indexed (stable identity; a re-run cannot duplicate) | Built, tested |
+| `legacy.legacyPath`, `legacy.groveId` (Grove's `contentId`, a UUID, distinct on all 305 real pages checked) and `legacy.nprId` on posts and pages, unique and indexed (stable identity; a re-run cannot duplicate); `legacy.modifiedAt` keeps Grove's modified date apart from this record's own `updatedAt`. Path and Grove id are write-once for staff | Built, tested |
 | `source` on posts (`wuwf`, `npr`, `wire`): NPR and wire stories are not WUWF's to archive separately or alter | Field built; **read-only enforcement not built** |
 | One unique, indexed `path` on stories and pages, resolved by one catch-all route (`app/(frontend)/[...path]`); a `sections` collection; a live address change leaves a permanent redirect | **Built, tested** (unit, integration, production-build smoke: `pnpm smoke:paths`) |
 | Redirects plugin (from, to): editor-made redirects and the ones an address change leaves; the Grove import of exceptions is not built | Built (plugin); import not |

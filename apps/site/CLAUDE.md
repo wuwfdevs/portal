@@ -107,7 +107,8 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
 
 - **Never drop content you cannot map.** Preserve it (as a preserved-HTML block, rendered safely) and flag it. Never
   render imported HTML raw, and never import `<script>`.
-- **Stable identity:** every migrated record keeps `legacy.legacyPath` (and `legacy.nprId` when it has one). Preserve
+- **Stable identity:** every migrated record keeps `legacy.legacyPath` and `legacy.groveId` (Grove's `contentId`), and
+  `legacy.nprId` when it has one. Preserve
   the source's published and modified dates; never use import time.
 - **NPR and wire stories (`source` ≠ `wuwf`) are not WUWF's to archive separately or alter** beyond headline, teaser
   and description. They are re-pulled from NPR, not migrated as our own.

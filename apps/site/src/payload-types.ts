@@ -242,6 +242,14 @@ export interface Page {
      */
     legacyPath?: string | null;
     /**
+     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
+     */
+    modifiedAt?: string | null;
+    /**
      * NPR's identifier for this item, when it has one.
      */
     nprId?: string | null;
@@ -313,6 +321,14 @@ export interface Post {
      * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field above.
      */
     legacyPath?: string | null;
+    /**
+     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
+     */
+    modifiedAt?: string | null;
     /**
      * NPR's identifier for this item, when it has one.
      */
@@ -1463,6 +1479,8 @@ export interface PagesSelect<T extends boolean = true> {
     | T
     | {
         legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
         nprId?: T;
       };
   path?: T;
@@ -1581,6 +1599,8 @@ export interface PostsSelect<T extends boolean = true> {
     | T
     | {
         legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
         nprId?: T;
       };
   contributors?: T;

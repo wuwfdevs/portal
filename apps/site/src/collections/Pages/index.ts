@@ -1,5 +1,5 @@
 import { ensureSlug } from '../../hooks/ensureSlug'
-import { legacyPathWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
+import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
 import type { CollectionConfig } from 'payload'
 
@@ -125,6 +125,18 @@ export const Pages: CollectionConfig<'pages'> = {
           admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field.' },
         },
         {
+          name: 'groveId',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'Grove\'s contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.' },
+        },
+        {
+          name: 'modifiedAt',
+          type: 'date',
+          admin: { description: 'When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.' },
+        },
+        {
           name: 'nprId',
           type: 'text',
           unique: true,
@@ -139,7 +151,7 @@ export const Pages: CollectionConfig<'pages'> = {
   hooks: {
     beforeValidate: [ensureSlug('title')],
     afterChange: [redirectOnPathChange, revalidatePage],
-    beforeChange: [enforcePublishPermission, pathBeforeChange('pages'), legacyPathWriteOnce, populatePublishedAt],
+    beforeChange: [enforcePublishPermission, pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {

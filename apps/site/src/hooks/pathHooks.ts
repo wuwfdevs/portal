@@ -113,14 +113,25 @@ export const redirectOnPathChange: CollectionAfterChangeHook = async ({ doc, pre
 }
 
 /**
- * The Grove path a record came from is provenance: set by the migration, then fixed. (The live address is `path`,
- * which an editor may change with a redirect; this one is what the importer matches a re-run against.)
+ * Where a record came from in Grove (its path and its contentId) is provenance: set by the migration, then fixed. The
+ * live address is `path`, which a publisher may change with a redirect; these two are what a re-run matches against.
+ * A script or the importer, with no signed-in user, may still set them.
  */
-export const legacyPathWriteOnce: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
-  const before = blank(originalDoc?.legacy?.legacyPath)
-  const next = data?.legacy?.legacyPath
-  if (before && next !== undefined && blank(next) !== before && req.user) {
-    throw new APIError('The Grove path is fixed once set. To move the live address, change the address field.', 403, undefined, true)
+export const legacyIdentityWriteOnce: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  if (!req.user) return data
+  for (const field of ['legacyPath', 'groveId'] as const) {
+    const before = blank(originalDoc?.legacy?.[field])
+    const next = data?.legacy?.[field]
+    if (before && next !== undefined && blank(next) !== before) {
+      throw new APIError(
+        field === 'legacyPath'
+          ? 'The Grove path is fixed once set. To move the live address, change the address field.'
+          : 'The Grove id is fixed once set.',
+        403,
+        undefined,
+        true,
+      )
+    }
   }
   return data
 }

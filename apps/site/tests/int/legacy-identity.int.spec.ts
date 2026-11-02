@@ -64,4 +64,30 @@ describe('stable identity for migrated content', () => {
     const found = await payload.find({ collection: 'posts', where: { 'legacy.legacyPath': { equals: `/arts/f-${run}` } }, overrideAccess: true, limit: 1 })
     expect(found.docs[0]?.id).toBe(p.id)
   })
+
+  it('keeps Grove\'s contentId and modified date, finds a story by the id, and refuses a second story with the same id', async () => {
+    const groveId = `00000170-20c2-d6af-af72-${run.padEnd(12, '0').slice(0, 12)}`
+    const modifiedAt = '2019-03-04T17:05:06.000Z'
+    const p = await post(`Grove id ${run}`, { legacy: { legacyPath: `/local-news/2019-03-01/grove-id-${run}`, groveId, modifiedAt } })
+    created.push(p.id)
+    expect(p.legacy?.groveId).toBe(groveId)
+    // the source's modified date is its own field, not the time this record was saved here
+    expect(new Date(p.legacy?.modifiedAt as string).toISOString()).toBe(modifiedAt)
+    expect(new Date(p.updatedAt).getTime()).toBeGreaterThan(new Date(modifiedAt).getTime())
+    const found = await payload.find({ collection: 'posts', where: { 'legacy.groveId': { equals: groveId } }, overrideAccess: true, limit: 1 })
+    expect(found.docs[0]?.id).toBe(p.id)
+    await expect(post(`Same id ${run}`, { legacy: { legacyPath: `/local-news/2019-03-01/same-id-${run}`, groveId } })).rejects.toThrow()
+  })
+
+  it('the Grove id is fixed once set for staff, and a re-run by the system can restate it', async () => {
+    const groveId = `00000170-20c3-df2b-ab7b-${run.padEnd(12, '1').slice(0, 12)}`
+    const p = await post(`Fixed id ${run}`, { legacy: { legacyPath: `/local-news/2019-03-02/fixed-id-${run}`, groveId } })
+    created.push(p.id)
+    const staff = { id: 1, collection: 'users', email: 'publisher@wuwf.org', roles: ['publisher'] } as never
+    await expect(
+      payload.update({ collection: 'posts', id: p.id, user: staff, overrideAccess: false, data: { legacy: { groveId: `${groveId}-x` } } as never }),
+    ).rejects.toThrow(/Grove id is fixed/)
+    const again = await payload.update({ collection: 'posts', id: p.id, overrideAccess: true, context: { disableRevalidate: true }, data: { legacy: { groveId, modifiedAt: '2020-01-01T00:00:00.000Z' } } as never })
+    expect(again.legacy?.groveId).toBe(groveId)
+  })
 })

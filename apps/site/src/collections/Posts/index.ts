@@ -14,7 +14,7 @@ import { bodyBlocks } from '../../blocks/body'
 import { userCan } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
-import { legacyPathWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
+import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
 import { changedLegacyHtml } from '../../lib/legacy-html-guard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -214,6 +214,18 @@ export const Posts: CollectionConfig<'posts'> = {
           admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field above.' },
         },
         {
+          name: 'groveId',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'Grove\'s contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.' },
+        },
+        {
+          name: 'modifiedAt',
+          type: 'date',
+          admin: { description: 'When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.' },
+        },
+        {
           name: 'nprId',
           type: 'text',
           unique: true,
@@ -267,7 +279,7 @@ export const Posts: CollectionConfig<'posts'> = {
     beforeChange: [
       enforcePublishPermission,
       pathBeforeChange('posts'),
-      legacyPathWriteOnce,
+      legacyIdentityWriteOnce,
       ({ data, originalDoc, req }) => {
         // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
         // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.

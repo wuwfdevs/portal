@@ -17,7 +17,7 @@ design canvas are described under *Sources* below.
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
 | Body blocks for parity with Brightspot's documented elements (gallery, pull quote, embed, promo, preserved HTML); hostile-HTML and embed-allowlist behaviour tested and checked in a browser | **Done**; dynamic galleries, tables, audio player, video playlist and anything Grove-specific are **not** |
-| Grove-ready identity: `legacy.legacyPath`, `legacy.nprId`, `source` on posts; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
+| Grove-ready identity: `legacy.legacyPath`, `legacy.groveId` (contentId), `legacy.modifiedAt`, `legacy.nprId`, `source` on posts and pages; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
 | Initial production migration | **Done**; matches the dev push exactly |
@@ -231,7 +231,8 @@ standalone pages, one event. Paths:
    pointed at the old address (no chains) and removes one sitting on the new (no loop). Unique across both collections
    (checked in a hook: Postgres cannot do it across two tables, so two simultaneous saves of different kinds could
    race, which a staff-only editor and a single-writer importer make unlikely). `legacy.legacyPath` is write-once for
-   staff and is no longer used for routing. A never-published draft previews at `/_draft/{collection}/{id}`, which
+   staff and is no longer used for routing; `legacy.groveId` (Grove's `contentId`, unique) and `legacy.modifiedAt` were
+   added beside it (second migration) so a re-run matches on the id and the source's modified date survives. A never-published draft previews at `/_draft/{collection}/{id}`, which
    works only with the preview cookie. Sections are a collection (`Local News`, ...): primary section only; secondary
    sections wait for the census. The time zone is consistent with the first 5 real pages (4 agree in either zone; one evening
    story is dated in Central time, not UTC); the census tally (`dates.pathDateMatches`) is the real test.
