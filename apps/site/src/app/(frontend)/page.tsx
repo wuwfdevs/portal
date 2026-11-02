@@ -1,5 +1,6 @@
-import PageTemplate, { generateMetadata } from './[slug]/page'
+import CatchAllPage, { generateMetadata } from './[...path]/page'
 
-export default PageTemplate
+// "/" is the home page: the catch-all route with no segments.
+export default CatchAllPage
 
 export { generateMetadata }

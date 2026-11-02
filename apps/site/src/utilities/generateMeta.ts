@@ -42,8 +42,10 @@ export const generateMeta = async (args: {
           ]
         : undefined,
       title,
-      url: Array.isArray(doc?.slug) ? doc?.slug.join('/') : '/',
+      url: doc?.path ?? '/',
     }),
+    // The canonical address is the path itself (a trailing slash redirects to it; ROADMAP → URL scheme).
+    ...(doc?.path ? { alternates: { canonical: doc.path } } : {}),
     title,
   }
 }

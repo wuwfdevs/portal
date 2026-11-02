@@ -14,14 +14,14 @@ dotenv.config({ path: '.env.local' })
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000'
 if (!['localhost', '127.0.0.1'].includes(new URL(BASE).hostname)) throw new Error(`Refusing to run against ${BASE}: localhost only.`)
-const first = (await (await fetch(`${BASE}/api/posts?limit=1&depth=0&where[_status][equals]=published`)).json()) as { docs?: { slug: string }[] }
-const slug = first.docs?.[0]?.slug
-if (!slug) throw new Error('No published story found. Run `pnpm seed:demo` first.')
+const first = (await (await fetch(`${BASE}/api/posts?limit=1&depth=0&where[_status][equals]=published`)).json()) as { docs?: { path?: string }[] }
+const storyPath = first.docs?.[0]?.path
+if (!storyPath) throw new Error('No published story found. Run `pnpm seed:demo` first.')
 const ORIGINAL = "Reporting through WUWF's Coastal Futures Fellowship is made possible in part by support from Example Foundation."
 const EDITED = 'Coastal Futures is supported in part by Example Foundation (edited through the live API).'
 
 const panel = async () => {
-  const html = await (await fetch(`${BASE}/posts/${slug}`)).text()
+  const html = await (await fetch(`${BASE}${storyPath}`)).text()
   const m = html.match(/Support for this reporting<\/h2>\s*<div[^>]*>\s*<p[^>]*>([^<]*)</)
   return m?.[1]?.replace(/&#x27;|&apos;/g, "'").replace(/&amp;/g, '&') ?? '(no panel found)'
 }

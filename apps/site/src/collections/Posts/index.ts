@@ -14,6 +14,8 @@ import { bodyBlocks } from '../../blocks/body'
 import { userCan } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
+import { legacyPathWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
+import { pathField } from '../../fields/path'
 import { changedLegacyHtml } from '../../lib/legacy-html-guard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
@@ -41,6 +43,7 @@ export const Posts: CollectionConfig<'posts'> = {
   defaultPopulate: {
     title: true,
     slug: true,
+    path: true,
     categories: true,
     meta: {
       image: true,
@@ -48,21 +51,11 @@ export const Posts: CollectionConfig<'posts'> = {
     },
   },
   admin: {
-    defaultColumns: ['title', 'slug', 'updatedAt'],
+    defaultColumns: ['title', 'path', 'updatedAt'],
     livePreview: {
-      url: ({ data, req }) =>
-        generatePreviewPath({
-          slug: data?.slug,
-          collection: 'posts',
-          req,
-        }),
+      url: ({ data, req }) => generatePreviewPath({ collection: 'posts', data, req }),
     },
-    preview: (data, { req }) =>
-      generatePreviewPath({
-        slug: data?.slug as string,
-        collection: 'posts',
-        req,
-      }),
+    preview: (data, { req }) => generatePreviewPath({ collection: 'posts', data, req }),
     useAsTitle: 'title',
   },
   fields: [
@@ -182,6 +175,16 @@ export const Posts: CollectionConfig<'posts'> = {
       },
     },
     {
+      name: 'section',
+      type: 'relationship',
+      relationTo: 'sections',
+      admin: {
+        position: 'sidebar',
+        description: 'Local News, Commentary... The first part of the story\'s address, made at first publish and then fixed.',
+      },
+    },
+    pathField,
+    {
       name: 'source',
       type: 'select',
       required: true,
@@ -208,7 +211,7 @@ export const Posts: CollectionConfig<'posts'> = {
           type: 'text',
           unique: true,
           index: true,
-          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.' },
+          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field above.' },
         },
         {
           name: 'nprId',
@@ -263,6 +266,8 @@ export const Posts: CollectionConfig<'posts'> = {
     beforeValidate: [ensureSlug('title')],
     beforeChange: [
       enforcePublishPermission,
+      pathBeforeChange('posts'),
+      legacyPathWriteOnce,
       ({ data, originalDoc, req }) => {
         // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
         // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.
@@ -273,7 +278,7 @@ export const Posts: CollectionConfig<'posts'> = {
         return data
       },
     ],
-    afterChange: [revalidatePost],
+    afterChange: [redirectOnPathChange, revalidatePost],
     afterDelete: [revalidateDelete],
   },
   versions: {

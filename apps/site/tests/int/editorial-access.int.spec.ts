@@ -2,6 +2,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ensureTestSection } from '../helpers/section'
+
 // Roles must mean something on the editorial collections: only content staff change stories and pages, only a
 // publisher makes work live, and the public (and an archive block) never see a draft.
 
@@ -30,7 +32,7 @@ async function makePost(title: string, status: 'draft' | 'published', topic?: nu
     draft: status === 'draft',
     overrideAccess: true,
     context: { disableRevalidate: true },
-    data: { title: `${title} ${run}`, content: lexical, _status: status, ...(topic ? { categories: [topic] } : {}) } as never,
+    data: { title: `${title} ${run}`, content: lexical, _status: status, section: await ensureTestSection(payload), ...(topic ? { categories: [topic] } : {}) } as never,
   })
   created.push({ collection: 'posts', id: p.id })
   return p
@@ -83,7 +85,7 @@ describe('editorial permissions', () => {
       const draft = await makePost('To delete', 'draft')
       await expect(payload.delete({ collection: 'posts', id: draft.id, ...asUser(editor) })).rejects.toThrow()
       for (const user of [publisher, admin]) {
-        const p = await payload.create({ collection: 'posts', ...asUser(user), data: { title: `Published by role ${run}`, content: lexical, _status: 'published' } as never })
+        const p = await payload.create({ collection: 'posts', ...asUser(user), data: { title: `Published by role ${run}`, content: lexical, _status: 'published', section: await ensureTestSection(payload) } as never })
         expect(p._status).toBe('published')
         await payload.delete({ collection: 'posts', id: p.id, ...asUser(user) })
       }

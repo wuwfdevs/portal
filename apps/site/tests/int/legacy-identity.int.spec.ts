@@ -2,6 +2,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ensureTestSection } from '../helpers/section'
+
 // The migration from Grove keys every record on its Grove path and NPR id (stable identity), and marks NPR-owned
 // stories so they are never treated as ours. These are the properties it relies on.
 
@@ -12,8 +14,12 @@ const created: (string | number)[] = []
 const lexical = {
   root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', version: 1, text: 'Body.', format: 0, mode: 'normal', style: '', detail: 0 }] }] },
 }
-const post = (title: string, extra: Record<string, unknown> = {}) =>
-  payload.create({ collection: 'posts', overrideAccess: true, context: { disableRevalidate: true }, data: { title, content: lexical, _status: 'published', ...extra } as never })
+// A migrated story is published at its Grove path; a native one gets its path from its section.
+const post = async (title: string, extra: Record<string, unknown> = {}) => {
+  const legacyPath = (extra.legacy as { legacyPath?: string } | undefined)?.legacyPath
+  const where = legacyPath ? { path: legacyPath } : { section: await ensureTestSection(payload) }
+  return payload.create({ collection: 'posts', overrideAccess: true, context: { disableRevalidate: true }, data: { title, content: lexical, _status: 'published', ...where, ...extra } as never })
+}
 
 describe('stable identity for migrated content', () => {
   beforeAll(async () => {

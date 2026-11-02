@@ -8,6 +8,7 @@ import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
+import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
 import { Contributors } from './collections/Contributors'
 import { PortalSignIns } from './collections/PortalSignIns'
@@ -75,6 +76,7 @@ export default buildConfig({
     Pages,
     Posts,
     Media,
+    Sections,
     Categories,
     Contributors,
     PublishingIdentities,

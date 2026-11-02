@@ -159,7 +159,8 @@ quotes, inline images dropped in HTML conversion), likelihood High. Its mitigati
 | Story and page bodies are Lexical, which takes custom blocks (`BlocksFeature`); starter blocks Banner, Code, Media | Built |
 | `legacy.legacyPath` and `legacy.nprId` on posts and pages, unique and indexed (stable identity; a re-run cannot duplicate) | Built, tested |
 | `source` on posts (`wuwf`, `npr`, `wire`): NPR and wire stories are not WUWF's to archive separately or alter | Field built; **read-only enforcement not built** |
-| Redirects plugin (from, to) in the starter, for the Grove-path redirect map | Built (starter); the import is not |
+| One unique, indexed `path` on stories and pages, resolved by one catch-all route (`app/(frontend)/[...path]`); a `sections` collection; a live address change leaves a permanent redirect | **Built, tested** (unit, integration, production-build smoke: `pnpm smoke:paths`) |
+| Redirects plugin (from, to): editor-made redirects and the ones an address change leaves; the Grove import of exceptions is not built | Built (plugin); import not |
 | Block inventory, tallied from Grove's JSON renderer output | **Not done; next** |
 | Body blocks Gallery, Pull quote, Embed, Promo, Preserved HTML, from Brightspot's documentation (see the table below) | **Built and tested, but provisional**: a guess until the inventory exists |
 | Converter: Grove renderer JSON → Payload (media upload, per-block converters, fidelity report), then migrate | **Not built**; designed from the inventory |
@@ -202,9 +203,11 @@ it), the administrators-only rule is a document-level hook comparing the incomin
    typical old body falls into it; the fidelity gate measures that.
 3. *Embeds:* **decided and built** (URL plus allowlist). What remains is which other hosts the archive actually uses,
    so they can be approved up front.
-4. *URL scheme.* `/posts/[slug]` is a placeholder. The memo advises keeping Grove's path pattern so most redirects
-   are identity; the Content Report's `path` column shows what that pattern is. Either way every Grove path gets a
-   redirect from `legacyPath`.
+4. *URL scheme.* **Decided and built** (ROADMAP → *URL scheme*): Grove's exact path is stored once as `path` and
+   never recomputed; new stories get `/{section}/{YYYY-MM-DD}/{slug}` (Central time) at first publish and keep it; a
+   path is unique across stories and pages; a trailing slash 308s to the path. `legacy.legacyPath` is provenance and
+   importer idempotency, not routing. Redirects exist only for an address a publisher deliberately changes and for
+   justified syndicated exceptions.
 5. *Pilot beside Grove vs. replace* is the owner's call, per the memo's gates. The site is built to run in parallel.
 
 ## Platform (Specified)

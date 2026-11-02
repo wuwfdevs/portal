@@ -6,7 +6,8 @@ import type { Post } from '@/payload-types'
 import { Media } from '@/components/Media'
 import { cn } from '@/utilities/ui'
 
-export type CardPostData = Pick<Post, 'slug' | 'categories' | 'meta' | 'title'>
+/** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
+export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'>
 
 /**
  * A story card. The whole card is clickable through one link whose box is stretched over it with CSS
@@ -17,18 +18,17 @@ export const Card: React.FC<{
   alignItems?: 'center'
   className?: string
   doc?: CardPostData
-  relationTo?: 'posts'
   showCategories?: boolean
   title?: string
-}> = ({ className, doc, relationTo, showCategories, title: titleFromProps }) => {
-  const { slug, categories, meta, title } = doc || {}
+}> = ({ className, doc, showCategories, title: titleFromProps }) => {
+  const { path, categories, meta, title } = doc || {}
   const { description, image: metaImage } = meta || {}
 
   const topics = (categories ?? [])
     .map((c) => (typeof c === 'object' && c !== null ? c.title : null))
     .filter((t): t is string => Boolean(t))
   const titleToUse = titleFromProps || title
-  const href = `/${relationTo}/${slug}`
+  const href = path || null
 
   return (
     <article
@@ -48,9 +48,13 @@ export const Card: React.FC<{
         )}
         {titleToUse && (
           <h3 className="font-serif text-xl font-bold leading-snug">
-            <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={href}>
-              {titleToUse}
-            </Link>
+            {href ? (
+              <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={href}>
+                {titleToUse}
+              </Link>
+            ) : (
+              titleToUse
+            )}
           </h3>
         )}
         {description && <p className="text-base text-ink-2">{description.replace(/\s/g, ' ')}</p>}

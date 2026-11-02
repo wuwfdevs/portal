@@ -50,6 +50,8 @@ const nextConfig: NextConfig = {
 
     return webpackConfig
   },
+  // A trailing slash redirects (308) to the path without one: the canonical address is the path itself.
+  trailingSlash: false,
   reactStrictMode: true,
   redirects,
   turbopack: {

@@ -1,4 +1,6 @@
 import { ensureSlug } from '../../hooks/ensureSlug'
+import { legacyPathWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
+import { pathField } from '../../fields/path'
 import type { CollectionConfig } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
@@ -36,23 +38,14 @@ export const Pages: CollectionConfig<'pages'> = {
   defaultPopulate: {
     title: true,
     slug: true,
+    path: true,
   },
   admin: {
-    defaultColumns: ['title', 'slug', 'updatedAt'],
+    defaultColumns: ['title', 'path', 'updatedAt'],
     livePreview: {
-      url: ({ data, req }) =>
-        generatePreviewPath({
-          slug: data?.slug,
-          collection: 'pages',
-          req,
-        }),
+      url: ({ data, req }) => generatePreviewPath({ collection: 'pages', data, req }),
     },
-    preview: (data, { req }) =>
-      generatePreviewPath({
-        slug: data?.slug as string,
-        collection: 'pages',
-        req,
-      }),
+    preview: (data, { req }) => generatePreviewPath({ collection: 'pages', data, req }),
     useAsTitle: 'title',
   },
   fields: [
@@ -129,7 +122,7 @@ export const Pages: CollectionConfig<'pages'> = {
           type: 'text',
           unique: true,
           index: true,
-          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.' },
+          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field.' },
         },
         {
           name: 'nprId',
@@ -140,12 +133,13 @@ export const Pages: CollectionConfig<'pages'> = {
         },
       ],
     },
+    pathField,
     slugField(),
   ],
   hooks: {
     beforeValidate: [ensureSlug('title')],
-    afterChange: [revalidatePage],
-    beforeChange: [enforcePublishPermission, populatePublishedAt],
+    afterChange: [redirectOnPathChange, revalidatePage],
+    beforeChange: [enforcePublishPermission, pathBeforeChange('pages'), legacyPathWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {

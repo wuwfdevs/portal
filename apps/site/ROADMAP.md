@@ -4,7 +4,7 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: `claude/new-session-x1z9so` in `wuwfdevs/portal`. The brief this follows (the "project brief") and the
+Branch: work after PR 320 (merged 2026-11-02) is on `claude/elegant-dirac-1y89or` in `wuwfdevs/portal`. The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
 ## Where things stand (Milestone 1)
@@ -26,6 +26,8 @@ design canvas are described under *Sources* below.
 | Staff sign-in: site half (verify, refuse reused `jti`, sync account, session cookie + strategy, revocation) | **Done**, 27 tests incl. replay, race, takeover, tampering |
 | Sourcework-to-CMS publish channel | **Deferred and removed** (owner decision, 2026-10-30); see *Deferred* below |
 | Giving page `/support` (board 14): levels, figures, calls to action edited in the admin (`Support page` global) | **Done**, checked in a browser at 1440 and 390 px; button addresses and the audience figures are for WUWF to supply (see below) |
+| URL scheme: unique `path` on stories and pages, `sections`, one catch-all route, permanent redirects on address change, trailing slash 308 (2026-11-02) | **Done**; 27 integration + 38 unit tests, mutation-checked; production build and `pnpm smoke:paths` pass. Contributors, shows and events get a `path` when their routes exist (one line in the resolver's registry) |
+| Production build (`pnpm build`) | **Passes again** (2026-11-02). It had failed since 2026-10-31 without anyone noticing; see *Lessons* |
 | Homepage, fellowship hub (boards 1, 2, 4) | Not started (the article, board 3, is done) |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
@@ -50,7 +52,7 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Before any more body work: the census and the `path` resolver** (see *Grove migration*).
+5. **Before any more body work: the census** (see *Grove migration*; the `path` resolver is done).
    Nothing else in this list depends on it, so the pages below may proceed if the owner asks.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
@@ -117,8 +119,8 @@ wire stories); the same date and slug under another section, or none, is a 404; 
 - Every record has one unique, indexed **`path`**. Migrated records copy it verbatim and never recompute it. New stories
   generate it once, at first publish, as `/{section}/{YYYY-MM-DD}/{slug}`, and it does not change when the section is
   edited. Pages keep their shapes: `/people/…`, `/show/…`, `/community-calendar/event/…`, standalone paths.
-- One catch-all route resolves a path to a story, author, show, event or page. It replaces `/posts/[slug]`, which was a
-  placeholder. A trailing slash redirects (308) to the path without one; the canonical is the path itself.
+- One catch-all route resolves a path to a story, author, show, event or page. It replaced `/posts/[slug]`, which was a
+  placeholder (done; today it resolves stories and pages). A trailing slash redirects (308) to the path without one; the canonical is the path itself.
 - Redirects exist only for a path an editor deliberately changes (automatic) and for justified syndicated exceptions.
   Changing the URL structure for tidiness would need redirects across the archive and gain nothing for search.
 - For syndicated pages, the JSON's `canonicalLink` is the exact publisher URL, so exact redirects can be derived rather
@@ -221,7 +223,18 @@ standalone pages, one event. Paths:
    pages only, and delivered to the owner as zips (`pnpm census archive`; the Drive connector cannot take files from
    disk, so it was ruled out). The owner does **not** want NPR contacted about a template list for now. Tooling:
    `src/lib/census/` (pure, 87 tests, mutation-checked), `scripts/census/cli.ts`, `census/README.md`.
-4. The `path` field and catch-all resolver (approved).
+4. ~~The `path` field and catch-all resolver~~ **Done (2026-11-02).** `path` (text, unique, indexed) on `posts` and
+   `pages`; the rule is in `src/lib/paths.ts` (pure), the hooks in `src/hooks/pathHooks.ts`, the lookup in
+   `src/utilities/resolvePath.ts`. Made once at first publish (stories: section + date in **America/Chicago** + slug;
+   pages: `/slug`; the home page has none) and then fixed. A migrated record is saved with Grove's path as given.
+   Only a publisher may set or change one; changing a live one writes a permanent redirect, repoints redirects that
+   pointed at the old address (no chains) and removes one sitting on the new (no loop). Unique across both collections
+   (checked in a hook: Postgres cannot do it across two tables, so two simultaneous saves of different kinds could
+   race, which a staff-only editor and a single-writer importer make unlikely). `legacy.legacyPath` is write-once for
+   staff and is no longer used for routing. A never-published draft previews at `/_draft/{collection}/{id}`, which
+   works only with the preview cookie. Sections are a collection (`Local News`, ...): primary section only; secondary
+   sections wait for the census. The time zone is consistent with the first 5 real pages (4 agree in either zone; one evening
+   story is dated in Central time, not UTC); the census tally (`dates.pathDateMatches`) is the real test.
 5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).
 
@@ -233,7 +246,14 @@ guess.
 
 ## Known gaps in what exists
 
-- Stories are served at `/posts/[slug]`, a placeholder. They move to their Grove-style `path` (see *URL scheme*).
+- `posts-sitemap.xml` and `pages-sitemap.xml` read at most 1,000 records each; the archive is larger. Paginate (a sitemap
+  index) before the migration.
+- A redirect rendered inside a cached page is sent with the `Location` header **twice** (Next 16.3.3). Chromium, Node's
+  `fetch` and curl follow it; the spec makes `Location` a single value. Fixing it means doing redirects in `proxy.ts`,
+  which runs in front of the cache and would invoke a function for every page view on Vercel: the owner's call.
+- Malformed percent-encoding (`/a/%E0%A4%A`) is answered 500 by Next in production (400 in development) before any
+  of our code runs. Garbage URLs also each try to become an ISR cache entry (a disk write when self-hosting).
+- The header's "News" link points at no page yet (a 404 on prefetch).
 - The article page is built to board 3 except: the "This story started with your answers" strip, the audio player
   button and the inline listening ask (listening and the player are later work), the sponsor message unit
   (Milestone 3), and the pull quote and inline audio excerpt (they have no editor block yet).
@@ -278,6 +298,15 @@ guess.
   `getAcknowledgments` and a test pins the boundary.
 - **Payload does not enforce a block's field-level access inside a rich-text field.** A block field marked
   administrators-only was writable by an editor until a test caught it. Enforce such rules in a collection hook.
+- **The production build had been broken for two days and nothing said so.** The client-side Form block imports
+  `RichText`, and `RichText` renders the Promo and Embed blocks, which read Payload; that put Payload and `next/cache`
+  in the browser bundle. `pnpm dev` and every test were green, because story pages lived in their own route and never
+  touched the Form. Merging stories and pages into one catch-all route exposed it in dev too. A client component must
+  use `components/RichText/Plain`, never `RichText`. Run `pnpm build` before calling any change done.
+- **`connection()` cannot be used in a route that has `revalidate`** (it throws `DYNAMIC_SERVER_USAGE`, a 500 in
+  production with the message hidden). Do not try to make a miss uncached that way.
+- **`pgrep -f` and `pkill -f` kill your own shell when the pattern is anywhere in the same command line**, even with
+  the `[n]` trick, because the whole command is one `bash -c` string. Put the kill in its own command or a script file.
 - **A migration can be missing while every test passes**, because dev and test databases push schema on their own
   and production does not. Two commits (header/footer globals, Site settings) shipped without one. Run
   `pnpm verify:migrations` after any schema change: it builds a scratch database from the committed migrations

@@ -2,6 +2,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ensureTestSection } from '../helpers/section'
+
 // The body blocks that give parity with Brightspot's rich-text elements. The safety claims about Embed and Preserved
 // HTML only hold if Payload really runs validators and hooks inside rich-text blocks, so they are tested here.
 
@@ -42,7 +44,7 @@ async function story(title: string, content: unknown, user?: unknown) {
     draft: false,
     context: { disableRevalidate: true },
     ...(user ? { overrideAccess: false, user: user as never } : { overrideAccess: true }),
-    data: { title: `${title} ${run}`, content, _status: 'published' } as never,
+    data: { title: `${title} ${run}`, content, _status: 'published', section: await ensureTestSection(payload) } as never,
   })
   created.push(p.id)
   return p

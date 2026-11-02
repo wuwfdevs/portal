@@ -25,6 +25,7 @@ const getPagesSitemap = unstable_cache(
       },
       select: {
         slug: true,
+        path: true,
         updatedAt: true,
       },
     })
@@ -44,10 +45,10 @@ const getPagesSitemap = unstable_cache(
 
     const sitemap = results.docs
       ? results.docs
-          .filter((page) => Boolean(page?.slug))
+          .filter((page) => page?.slug === 'home' || Boolean(page?.path))
           .map((page) => {
             return {
-              loc: page?.slug === 'home' ? `${SITE_URL}/` : `${SITE_URL}/${page?.slug}`,
+              loc: page?.slug === 'home' ? `${SITE_URL}/` : `${SITE_URL}${page.path}`,
               lastmod: page.updatedAt || dateFallback,
             }
           })

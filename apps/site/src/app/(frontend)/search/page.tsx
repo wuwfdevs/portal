@@ -23,7 +23,7 @@ export default async function Page({ searchParams: searchParamsPromise }: Args) 
     limit: 12,
     select: {
       title: true,
-      slug: true,
+      path: true,
       categories: true,
       meta: true,
     },

@@ -2,6 +2,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ensureTestSection } from '../helpers/section'
+
 import { pathsAffectedByAgreement } from '@/lib/underwriting/invalidate'
 import { getAcknowledgments } from '@/lib/underwriting/load'
 
@@ -63,7 +65,7 @@ describe('the content model, through Payload', () => {
   let fellowship: { id: string | number }
   let draftStory: { id: string | number }
   let unrelated: { id: string | number; slug?: string }
-  let storySlug = ''
+  let storyAddress = ''
   let fellowshipSlug = ''
 
   beforeAll(async () => {
@@ -90,6 +92,7 @@ describe('the content model, through Payload', () => {
       title: `Rebuild, raise or leave? ${run}`,
       content: lexical,
       _status: 'published',
+      section: await ensureTestSection(payload),
       publishedAt: '2026-10-28T12:00:00.000Z',
       fellowship: fellowship.id,
       series: series.id,
@@ -108,14 +111,15 @@ describe('the content model, through Payload', () => {
       title: `Unrelated story ${run}`,
       content: lexical,
       _status: 'published',
+      section: await ensureTestSection(payload),
       publishedAt: '2026-10-28T12:00:00.000Z',
       fellowship: otherFellowship.id,
     })
-    storySlug = (
+    storyAddress = (
       (await payload.findByID({ collection: 'posts', id: story.id, overrideAccess: true })) as {
-        slug: string
+        path: string
       }
-    ).slug
+    ).path
     fellowshipSlug = (
       (await payload.findByID({
         collection: 'fellowships',
@@ -166,7 +170,8 @@ describe('the content model, through Payload', () => {
 
   it('an agreement edit refreshes the story and the hub it reaches, and nothing else', async () => {
     const paths = await pathsAffectedByAgreement(payload, agreement.id)
-    expect(paths).toContain(`/posts/${storySlug}`)
+    expect(storyAddress).toMatch(/^\/tests\/2026-10-28\//) // made from the section and the published date
+    expect(paths).toContain(storyAddress)
     expect(paths).toContain(`/fellowships/${fellowshipSlug}`)
     expect(paths.some((p) => p.includes(String(unrelated.slug ?? 'unrelated-story')))).toBe(false)
     expect(
