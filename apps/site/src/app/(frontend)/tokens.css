@@ -1,0 +1,39 @@
+/* Generated from @wuwf/design-tokens by scripts/generate-tokens-css.ts. Do not edit; run `pnpm generate:tokens`. */
+@theme {
+  --color-wuwf-blue: #3090D0;
+  --color-wuwf-blue-600: #2278B8;
+  --color-wuwf-blue-700: #185F95;
+  --color-wuwf-blue-100: #D5EAF6;
+  --color-wuwf-teal: #204A5A;
+  --color-wuwf-lime: #C0E040;
+  --color-wuwf-lime-600: #A8C830;
+  --color-wuwf-lime-100: #EEF6CC;
+  --color-on-air-red: #D63E2D;
+  --color-ink: #0F1419;
+  --color-ink-2: #2B2F36;
+  --color-ink-3: #5A6068;
+  --color-ink-4: #8A9099;
+  --color-rule: #E2E5E9;
+  --color-rule-strong: #C9CED4;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F5F7F9;
+  --color-surface-3: #ECEFF2;
+  --color-surface-dark: #0F2235;
+  --color-surface-dark-line: #2A3F55;
+  --color-surface-dark-hover: #16304A;
+  --color-surface-dark-text: #C9D3DE;
+  --color-success-bg: #EEF6CC;
+  --color-success-border: #C0E040;
+  --color-success-fg: #5D7A16;
+  --color-warning-bg: #FCEFD3;
+  --color-warning-border: #E3A63D;
+  --color-warning-fg: #8A5A12;
+  --radius-0: 0;
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --radius-3: 8px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(15,20,25,0.06), 0 1px 1px rgba(15,20,25,0.04);
+  --shadow-2: 0 2px 8px rgba(15,20,25,0.08), 0 1px 2px rgba(15,20,25,0.04);
+  --shadow-3: 0 8px 24px rgba(15,20,25,0.10), 0 2px 6px rgba(15,20,25,0.06);
+}

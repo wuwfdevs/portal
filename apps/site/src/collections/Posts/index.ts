@@ -1,0 +1,288 @@
+import type { CollectionConfig } from 'payload'
+
+import {
+  BlocksFeature,
+  FixedToolbarFeature,
+  HeadingFeature,
+  HorizontalRuleFeature,
+  InlineToolbarFeature,
+  lexicalEditor,
+} from '@payloadcms/richtext-lexical'
+
+import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
+import { bodyBlocks } from '../../blocks/body'
+import { userCan } from '../../access/permissions'
+import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
+import { ensureSlug } from '../../hooks/ensureSlug'
+import { changedLegacyHtml } from '../../lib/legacy-html-guard'
+import { generatePreviewPath } from '../../utilities/generatePreviewPath'
+import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
+
+import {
+  MetaDescriptionField,
+  MetaImageField,
+  MetaTitleField,
+  OverviewField,
+  PreviewField,
+} from '@payloadcms/plugin-seo/fields'
+import { APIError, slugField } from 'payload'
+
+export const Posts: CollectionConfig<'posts'> = {
+  slug: 'posts',
+  access: {
+    create: requirePermission('content.write'),
+    delete: requirePermission('content.publish'),
+    read: publishedOrContentStaff,
+    update: requirePermission('content.write'),
+  },
+  // This config controls what's populated by default when a post is referenced
+  // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property
+  // Type safe if the collection slug generic is passed to `CollectionConfig` - `CollectionConfig<'posts'>
+  defaultPopulate: {
+    title: true,
+    slug: true,
+    categories: true,
+    meta: {
+      image: true,
+      description: true,
+    },
+  },
+  admin: {
+    defaultColumns: ['title', 'slug', 'updatedAt'],
+    livePreview: {
+      url: ({ data, req }) =>
+        generatePreviewPath({
+          slug: data?.slug,
+          collection: 'posts',
+          req,
+        }),
+    },
+    preview: (data, { req }) =>
+      generatePreviewPath({
+        slug: data?.slug as string,
+        collection: 'posts',
+        req,
+      }),
+    useAsTitle: 'title',
+  },
+  fields: [
+    {
+      name: 'title',
+      type: 'text',
+      required: true,
+    },
+    {
+      type: 'tabs',
+      tabs: [
+        {
+          fields: [
+            {
+              name: 'heroImage',
+              type: 'upload',
+              relationTo: 'media',
+            },
+            {
+              name: 'content',
+              type: 'richText',
+              editor: lexicalEditor({
+                features: ({ rootFeatures }) => {
+                  return [
+                    ...rootFeatures,
+                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
+                    BlocksFeature({ blocks: bodyBlocks }),
+                    FixedToolbarFeature(),
+                    InlineToolbarFeature(),
+                    HorizontalRuleFeature(),
+                  ]
+                },
+              }),
+              label: false,
+              required: true,
+            },
+          ],
+          label: 'Content',
+        },
+        {
+          fields: [
+            {
+              name: 'relatedPosts',
+              type: 'relationship',
+              admin: {
+                position: 'sidebar',
+              },
+              filterOptions: ({ id }) => {
+                return {
+                  id: {
+                    not_in: [id],
+                  },
+                }
+              },
+              hasMany: true,
+              relationTo: 'posts',
+            },
+            {
+              name: 'categories',
+              type: 'relationship',
+              admin: {
+                position: 'sidebar',
+              },
+              hasMany: true,
+              relationTo: 'categories',
+            },
+          ],
+          label: 'Meta',
+        },
+        {
+          name: 'meta',
+          label: 'SEO',
+          fields: [
+            OverviewField({
+              titlePath: 'meta.title',
+              descriptionPath: 'meta.description',
+              imagePath: 'meta.image',
+            }),
+            MetaTitleField({
+              hasGenerateFn: true,
+            }),
+            MetaImageField({
+              relationTo: 'media',
+            }),
+
+            MetaDescriptionField({}),
+            PreviewField({
+              // if the `generateUrl` function is configured
+              hasGenerateFn: true,
+
+              // field paths to match the target field for data
+              titlePath: 'meta.title',
+              descriptionPath: 'meta.description',
+            }),
+          ],
+        },
+      ],
+    },
+    {
+      name: 'publishedAt',
+      type: 'date',
+      admin: {
+        date: {
+          pickerAppearance: 'dayAndTime',
+        },
+        position: 'sidebar',
+      },
+      hooks: {
+        beforeChange: [
+          ({ siblingData, value }) => {
+            if (siblingData._status === 'published' && !value) {
+              return new Date()
+            }
+            return value
+          },
+        ],
+      },
+    },
+    {
+      name: 'source',
+      type: 'select',
+      required: true,
+      defaultValue: 'wuwf',
+      options: [
+        { label: 'WUWF', value: 'wuwf' },
+        { label: 'NPR (not ours to alter)', value: 'npr' },
+        { label: 'Wire or partner', value: 'wire' },
+      ],
+      admin: {
+        position: 'sidebar',
+        description:
+          'NPR and wire stories are not WUWF\'s to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.',
+      },
+    },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new work.' },
+      fields: [
+        {
+          name: 'legacyPath',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Drives the redirect map.' },
+        },
+        {
+          name: 'nprId',
+          type: 'text',
+          unique: true,
+          index: true,
+          admin: { description: 'NPR\'s identifier for this item, when it has one.' },
+        },
+      ],
+    },
+    {
+      name: 'contributors',
+      type: 'relationship',
+      admin: { position: 'sidebar', description: 'The byline.' },
+      hasMany: true,
+      relationTo: 'contributors',
+    },
+    {
+      name: 'format',
+      type: 'select',
+      required: true,
+      defaultValue: 'web',
+      options: [
+        { label: 'Story', value: 'web' },
+        { label: 'Audio story', value: 'audio' },
+        { label: 'Video story', value: 'video' },
+      ],
+      admin: { position: 'sidebar' },
+    },
+    {
+      name: 'dek',
+      type: 'textarea',
+      admin: { description: 'The sentence or two under the headline.', position: 'sidebar' },
+    },
+    {
+      name: 'publishingIdentity',
+      type: 'relationship',
+      relationTo: 'publishing-identities',
+      admin: { position: 'sidebar', description: 'The brand this appears under (WUWF News, The Voyager…).' },
+    },
+    {
+      name: 'fellowship',
+      type: 'relationship',
+      relationTo: 'fellowships',
+      admin: { position: 'sidebar', description: 'Attach, don\'t paste: funder acknowledgments follow from this.' },
+    },
+    { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
+    { name: 'production', type: 'relationship', relationTo: 'productions', admin: { position: 'sidebar' } },
+    slugField(),
+  ],
+  hooks: {
+    beforeValidate: [ensureSlug('title')],
+    beforeChange: [
+      enforcePublishPermission,
+      ({ data, originalDoc, req }) => {
+        // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
+        // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.
+        if (!req.user || userCan(req.user, 'settings.manage') || data?.content === undefined) return data
+        if (changedLegacyHtml(data.content, originalDoc?.content).length > 0) {
+          throw new APIError('Only an administrator can add or change preserved HTML.', 403, undefined, true)
+        }
+        return data
+      },
+    ],
+    afterChange: [revalidatePost],
+    afterDelete: [revalidateDelete],
+  },
+  versions: {
+    drafts: {
+      autosave: {
+        interval: 100, // We set this interval for optimal live preview
+      },
+      schedulePublish: true,
+    },
+    maxPerDoc: 50,
+  },
+}

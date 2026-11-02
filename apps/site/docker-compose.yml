@@ -1,0 +1,15 @@
+# Local development database only. The app itself runs with `pnpm dev`.
+services:
+  db:
+    image: postgres:17-alpine
+    ports:
+      - '5433:5432' # 5433 so it never collides with a local Supabase (54322) or system Postgres
+    environment:
+      POSTGRES_USER: wuwf
+      POSTGRES_PASSWORD: wuwf
+      POSTGRES_DB: wuwf_site
+    volumes:
+      - site-db:/var/lib/postgresql/data
+
+volumes:
+  site-db:
