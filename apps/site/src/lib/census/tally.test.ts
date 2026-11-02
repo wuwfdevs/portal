@@ -45,10 +45,10 @@ describe('addPage', () => {
     addPage(t, 'main', '/a', page())
     const g = t.groups['main']!
     expect(Object.keys(g.htmlTags).sort()).toEqual(['b', 'img', 'p'])
-    expect(g.htmlClasses).toEqual({ 'cms-textAlign-center': 1 })
-    expect(g.urlHosts['npr.brightspotcdn.com']).toBe(1)
-    expect(g.urlHosts['cpa.ds.npr.org']).toBe(1)
-    expect(g.urlHosts['www.wuwf.org']).toBe(1)
+    expect(g.htmlClasses).toEqual({ 'cms-textAlign-center': { count: 1, regions: { articleBody: 1 } } })
+    expect(g.urlHosts['npr.brightspotcdn.com']).toEqual({ count: 1, regions: { articleBody: 1 } })
+    expect(g.urlHosts['cpa.ds.npr.org']?.count).toBe(1)
+    expect(g.urlHosts['www.wuwf.org']).toEqual({ count: 1, regions: { canonicalLink: 1 } })
   })
 
   it('records key paths with array indices removed', () => {
@@ -149,5 +149,39 @@ describe('discoveryCurve', () => {
     expect(curve[0]).toMatchObject({ templates: 1, labels: 1 }) // ArticlePage, Figure
     expect(curve[1]).toMatchObject({ templates: 0, labels: 1 }) // Gallery
     expect(curve[2]).toMatchObject({ templates: 1, labels: 0 }) // EventPage
+  })
+})
+
+describe('regions: story content apart from page chrome', () => {
+  const withChrome = () => ({
+    _template: '/core/article/ArticlePage.hbs',
+    navigation: [{ _template: '/core/navigation/NavigationItem.hbs', href: 'https://www.facebook.com/wuwf' }],
+    footerContent: [{ _template: '/core/navigation/NavigationItem.hbs', href: 'https://www.facebook.com/wuwf' }],
+    articleBody: [{ _template: '/core/figure/Figure.hbs', src: 'https://cpa.ds.npr.org/a.jpg' }, '<p class="x">hi</p>'],
+  })
+
+  it('records where a typed object appeared, once per page per region', () => {
+    const t = emptyTally()
+    addPage(t, 'main', '/a', withChrome())
+    const g = t.groups['main']!
+    expect(g.typeLabels['/core/navigation/NavigationItem.hbs']).toMatchObject({ count: 1, regions: { navigation: 1, footerContent: 1 } })
+    expect(g.typeLabels['/core/figure/Figure.hbs']).toMatchObject({ count: 1, regions: { articleBody: 1 } })
+    expect(g.urlHosts['www.facebook.com']).toEqual({ count: 1, regions: { footerContent: 1, navigation: 1 } })
+    expect(g.urlHosts['cpa.ds.npr.org']?.regions).toEqual({ articleBody: 1 })
+    expect(Object.values(g.shapes).find((s) => s.label === '/core/figure/Figure.hbs')?.regions).toEqual({ articleBody: 1 })
+    expect(g.htmlTags['p']?.regions).toEqual({ articleBody: 1 })
+  })
+
+  it('keeps a separate discovery curve for labels first seen in the story body', () => {
+    const t = emptyTally()
+    for (let i = 1; i <= 150; i++) {
+      const page = withChrome() as Record<string, unknown>
+      page['navigation'] = [{ _template: `/core/navigation/Variant${i <= 100 ? 0 : 1}.hbs` }] // chrome keeps changing...
+      if (i === 120) (page['articleBody'] as unknown[]).push({ _template: '/core/gallery/Gallery.hbs' }) // ...but one new body type
+      addPage(t, 'main', `/p${i}`, page)
+    }
+    const curve = discoveryCurve(t.groups['main']!)
+    expect(curve[0]).toMatchObject({ bodyLabels: 1 }) // Figure
+    expect(curve[1]).toMatchObject({ bodyLabels: 1, labels: 2 }) // Gallery; plus the new nav variant and Gallery
   })
 })

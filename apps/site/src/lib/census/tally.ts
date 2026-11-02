@@ -17,20 +17,31 @@ export interface Counted {
   examples: string[]
 }
 
+/** How many pages showed a thing, and in which top-level region of the page (`articleBody`, `navigation`...). */
+export interface Tagged {
+  count: number
+  regions: Record<string, number>
+}
+
+export interface LabelEntry extends Counted {
+  regions: Record<string, number>
+}
+
 export interface ShapeEntry extends Counted {
   label: string
   keys: Record<string, Kind>
+  regions: Record<string, number>
 }
 
 export interface GroupTally {
   pages: number
   templates: Record<string, Counted>
-  typeLabels: Record<string, Counted>
+  typeLabels: Record<string, LabelEntry>
   shapes: Record<string, ShapeEntry>
   keyPaths: Record<string, Counted>
-  htmlTags: Record<string, number>
-  htmlClasses: Record<string, number>
-  urlHosts: Record<string, number>
+  htmlTags: Record<string, Tagged>
+  htmlClasses: Record<string, Tagged>
+  urlHosts: Record<string, Tagged>
   origin: {
     byClass: Record<string, number>
     canonicalHosts: Record<string, number>
@@ -47,7 +58,7 @@ export interface GroupTally {
     primaryKeys: Record<string, number>
     pathSectionInPrimary: Record<'yes' | 'no' | 'unknown', number>
   }
-  /** "category:name" -> the 1-based index (within this group) of the page that first showed it. */
+  /** "category:name" -> the 1-based index (within this group) of the page that first showed it. `bodyLabel` is a label first seen inside `articleBody`. */
   firstSeen: Record<string, number>
   overflow: { shapes: number; keyPaths: number }
 }
@@ -127,11 +138,30 @@ function shapeId(label: string, keys: Record<string, Kind>): string {
   return `${label}#${createHash('sha1').update(sig).digest('hex').slice(0, 8)}`
 }
 
+/** "name\0region" entries to name -> the regions it appeared in (sorted, each once). */
+function groupByName(entries: ReadonlySet<string>): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  for (const entry of [...entries].sort()) {
+    const [name, region] = entry.split('\u0000') as [string, string]
+    out.set(name, [...(out.get(name) ?? []), region])
+  }
+  return out
+}
+
+function tagAll(map: Record<string, Tagged>, entries: ReadonlySet<string>): void {
+  for (const [name, regions] of groupByName(entries)) {
+    const e = (map[name] ??= { count: 0, regions: {} })
+    e.count++
+    for (const r of regions) bump(e.regions, r)
+  }
+}
+
 function noteFirst(g: GroupTally, category: string, name: string): void {
   const k = `${category}:${name}`
   if (g.firstSeen[k] === undefined) g.firstSeen[k] = g.pages
 }
 
+/** Each entry is "name\0region": a name can appear in several regions of one page. */
 interface Seen {
   keyPaths: Set<string>
   htmlTags: Set<string>
@@ -141,23 +171,27 @@ interface Seen {
   shapes: Set<string>
 }
 
-function scanHtml(s: string, seen: Seen): void {
+const ROOT_REGION = '(root)'
+const BODY_REGION = 'articleBody'
+const at = (name: string, region: string): string => `${name}\u0000${region}`
+
+function scanHtml(s: string, region: string, seen: Seen): void {
   if (!/<[a-zA-Z][^>]*>/.test(s)) return
-  for (const m of s.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9-]*)/g)) seen.htmlTags.add((m[1] as string).toLowerCase())
-  for (const m of s.matchAll(/class\s*=\s*"([^"]*)"/g)) for (const c of (m[1] as string).split(/\s+/)) if (c) seen.htmlClasses.add(c)
-  for (const m of s.matchAll(/\bsrc\s*=\s*"(https?:\/\/([^"/\s]+))/gi)) seen.hosts.add((m[2] as string).toLowerCase())
+  for (const m of s.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9-]*)/g)) seen.htmlTags.add(at((m[1] as string).toLowerCase(), region))
+  for (const m of s.matchAll(/class\s*=\s*"([^"]*)"/g)) for (const c of (m[1] as string).split(/\s+/)) if (c) seen.htmlClasses.add(at(c, region))
+  for (const m of s.matchAll(/\bsrc\s*=\s*"(https?:\/\/([^"/\s]+))/gi)) seen.hosts.add(at((m[2] as string).toLowerCase(), region))
 }
 
-function walk(node: unknown, path: string, depth: number, seen: Seen): void {
+function walk(node: unknown, path: string, depth: number, region: string, seen: Seen): void {
   if (depth > MAX_DEPTH) return
   if (typeof node === 'string') {
     const m = /^https?:\/\/([^/\s]+)\S*$/i.exec(node)
-    if (m) seen.hosts.add((m[1] as string).toLowerCase())
-    else scanHtml(node, seen)
+    if (m) seen.hosts.add(at((m[1] as string).toLowerCase(), region))
+    else scanHtml(node, region, seen)
     return
   }
   if (Array.isArray(node)) {
-    for (const item of node) walk(item, `${path}[]`, depth + 1, seen)
+    for (const item of node) walk(item, `${path}[]`, depth + 1, region, seen)
     return
   }
   if (node === null || typeof node !== 'object') return
@@ -166,16 +200,16 @@ function walk(node: unknown, path: string, depth: number, seen: Seen): void {
   const label = labelOf(obj)
   if (label !== null) {
     // The page's own template is counted as a template; counting it again as a label would double every new template.
-    if (!(depth === 0 && obj['_template'] === label)) seen.labels.add(label)
+    if (!(depth === 0 && obj['_template'] === label)) seen.labels.add(at(label, region))
     const kinds: Record<string, Kind> = {}
     if (keys.length > MAX_WIDE_KEYS) kinds['(wide object)'] = 'object'
     else for (const k of keys) kinds[k] = kindOf(obj[k])
-    seen.shapes.add(`${label}\u0000${JSON.stringify(kinds)}`)
+    seen.shapes.add(`${label}\u0000${JSON.stringify(kinds)}\u0000${region}`)
   }
   for (const k of keys) {
     const p = path ? `${path}.${k}` : k
     seen.keyPaths.add(p)
-    walk(obj[k], p, depth + 1, seen)
+    walk(obj[k], p, depth + 1, depth === 0 ? k : region, seen)
   }
 }
 
@@ -244,7 +278,7 @@ export function addPage(tally: Tally, group: string, pagePath: string, json: unk
   g.pages++
 
   const seen: Seen = { keyPaths: new Set(), htmlTags: new Set(), htmlClasses: new Set(), hosts: new Set(), labels: new Set(), shapes: new Set() }
-  walk(json, '', 0, seen)
+  walk(json, '', 0, ROOT_REGION, seen)
 
   const root = json && typeof json === 'object' && !Array.isArray(json) ? (json as Record<string, unknown>) : {}
   const template = typeof root['_template'] === 'string' ? (root['_template'] as string) : null
@@ -255,21 +289,32 @@ export function addPage(tally: Tally, group: string, pagePath: string, json: unk
     bumpCounted(g.templates, '(no _template)', pagePath)
   }
 
-  for (const label of [...seen.labels].sort()) {
-    bumpCounted(g.typeLabels, label, pagePath)
+  for (const [label, regions] of groupByName(seen.labels)) {
+    const e = (g.typeLabels[label] ??= { count: 0, examples: [], regions: {} })
+    e.count++
+    if (e.examples.length < MAX_EXAMPLES && !e.examples.includes(pagePath)) e.examples.push(pagePath)
+    for (const r of regions) bump(e.regions, r)
     noteFirst(g, 'label', label)
+    if (regions.includes(BODY_REGION)) noteFirst(g, 'bodyLabel', label)
   }
-  for (const s of [...seen.shapes].sort()) {
-    const [label, kindsJson] = s.split('\u0000') as [string, string]
+  const shapeRegions = new Map<string, { label: string; keys: Record<string, Kind>; regions: string[] }>()
+  for (const entry of [...seen.shapes].sort()) {
+    const [label, kindsJson, region] = entry.split('\u0000') as [string, string, string]
     const keys = JSON.parse(kindsJson) as Record<string, Kind>
     const id = shapeId(label, keys)
+    const cur = shapeRegions.get(id) ?? { label, keys, regions: [] }
+    cur.regions.push(region)
+    shapeRegions.set(id, cur)
+  }
+  for (const [id, { label, keys, regions }] of shapeRegions) {
     if (!g.shapes[id] && Object.keys(g.shapes).length >= MAX_SHAPES) {
       g.overflow.shapes++
       continue
     }
-    const e = (g.shapes[id] ??= { label, keys, count: 0, examples: [] })
+    const e = (g.shapes[id] ??= { label, keys, count: 0, examples: [], regions: {} })
     e.count++
     if (e.examples.length < MAX_EXAMPLES && !e.examples.includes(pagePath)) e.examples.push(pagePath)
+    for (const r of regions) bump(e.regions, r)
     noteFirst(g, 'shape', id)
   }
   for (const p of [...seen.keyPaths].sort()) {
@@ -279,9 +324,9 @@ export function addPage(tally: Tally, group: string, pagePath: string, json: unk
     }
     bumpCounted(g.keyPaths, p, pagePath)
   }
-  for (const t of seen.htmlTags) bump(g.htmlTags, t)
-  for (const c of seen.htmlClasses) bump(g.htmlClasses, c)
-  for (const h of seen.hosts) bump(g.urlHosts, h)
+  tagAll(g.htmlTags, seen.htmlTags)
+  tagAll(g.htmlClasses, seen.htmlClasses)
+  tagAll(g.urlHosts, seen.hosts)
 
   // Origin: several signals, never the path (the plan, section 3).
   const canonical = findFirst(json, (k) => k === 'canonicalLink')
@@ -334,18 +379,19 @@ export function addPage(tally: Tally, group: string, pagePath: string, json: unk
 }
 
 /** How many new templates / type labels / shapes each further `step` pages found. */
-export function discoveryCurve(g: GroupTally, step = 100): Array<{ upToPage: number; templates: number; labels: number; shapes: number }> {
-  const buckets = new Map<number, { templates: number; labels: number; shapes: number }>()
+export function discoveryCurve(g: GroupTally, step = 100): Array<{ upToPage: number; templates: number; labels: number; bodyLabels: number; shapes: number }> {
+  const buckets = new Map<number, { templates: number; labels: number; bodyLabels: number; shapes: number }>()
   for (const [key, page] of Object.entries(g.firstSeen)) {
     const b = Math.ceil(page / step)
-    const e = buckets.get(b) ?? { templates: 0, labels: 0, shapes: 0 }
+    const e = buckets.get(b) ?? { templates: 0, labels: 0, bodyLabels: 0, shapes: 0 }
     if (key.startsWith('template:')) e.templates++
     else if (key.startsWith('label:')) e.labels++
+    else if (key.startsWith('bodyLabel:')) e.bodyLabels++
     else if (key.startsWith('shape:')) e.shapes++
     buckets.set(b, e)
   }
   const last = Math.ceil(g.pages / step)
   const out = []
-  for (let b = 1; b <= last; b++) out.push({ upToPage: Math.min(b * step, g.pages), ...(buckets.get(b) ?? { templates: 0, labels: 0, shapes: 0 }) })
+  for (let b = 1; b <= last; b++) out.push({ upToPage: Math.min(b * step, g.pages), ...(buckets.get(b) ?? { templates: 0, labels: 0, bodyLabels: 0, shapes: 0 }) })
   return out
 }

@@ -6,6 +6,7 @@
 //   run --stage <s>              s = pilot (5 pages) | styleguide (10) | main | probe;  --max-pages N  --max-minutes M
 //   export | import              write / rebuild the committed files (census/manifest.jsonl, census/tally.json)
 //   archive                      zip raw responses not yet archived (work/archives/census-raw-NNN.zip)
+//   retally                      rebuild the tally from the raw files kept on disk (after the tally code changes); no requests
 //   status                       counts so far
 //
 // Rules this enforces (owner, 2026-11-02): neutral User-Agent with no contact information, robots.txt honoured,
@@ -14,13 +15,14 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 
 import { parseRobots, type RobotsPolicy } from '../../src/lib/census/robots'
 import { seededShuffle } from '../../src/lib/census/rng'
-import { runCensus, ThrottledClient, USER_AGENT, type CensusState, type RunItem } from '../../src/lib/census/runner'
+import { runCensus, tallyGroupOf, ThrottledClient, USER_AGENT, type CensusState, type RunItem } from '../../src/lib/census/runner'
 import { assertOutsideRepo, exportArtifacts, importArtifacts, loadState, saveRaw, saveState, writeAtomic } from '../../src/lib/census/state-io'
-import { discoveryCurve } from '../../src/lib/census/tally'
-import { DEFAULT_RATES, extractLocs, orderUniverse, pickProbe, sitemapMonths, toPath } from '../../src/lib/census/universe'
+import { addPage, discoveryCurve, emptyTally } from '../../src/lib/census/tally'
+import { classifyPath, DEFAULT_RATES, extractLocs, orderUniverse, pickProbe, sitemapMonths, toPath } from '../../src/lib/census/universe'
 
 // CENSUS_OUT exists so a test run against a fixture server can write somewhere other than the committed folder.
 const REPO_CENSUS = process.env.CENSUS_OUT ? resolve(process.env.CENSUS_OUT) : resolve(import.meta.dirname, '../../census')
@@ -224,6 +226,27 @@ function archive(): void {
   }
 }
 
+/** Rebuild the tally from retained raw responses, in fetch order. Makes no request. */
+function retally(): void {
+  const state = loadWorkState()
+  const tally = emptyTally()
+  let n = 0
+  for (const r of state.rows) {
+    if (!r.tallied) continue
+    const file = join(RAW, `${r.sha256}.json.gz`)
+    if (!r.rawKept || !r.sha256 || !existsSync(file)) {
+      fail(`Cannot re-tally ${r.path}: its raw response is not on disk (an NPR or wire page keeps none, or the sandbox restarted). Nothing was changed.`)
+    }
+    const info = classifyPath(r.path)
+    addPage(tally, tallyGroupOf(r), r.path, JSON.parse(gunzipSync(readFileSync(file)).toString()), { date: info.date, section: info.section })
+    n++
+  }
+  state.tally = tally
+  saveState(STATE, state)
+  exportArtifacts(state, REPO_CENSUS)
+  log(`re-tallied ${n} pages from the raw files`)
+}
+
 function status(): void {
   const s = loadWorkState()
   const byStatus: Record<string, number> = {}
@@ -253,6 +276,9 @@ switch (command) {
   }
   case 'archive':
     archive()
+    break
+  case 'retally':
+    retally()
     break
   case 'status':
     status()
