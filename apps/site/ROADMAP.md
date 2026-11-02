@@ -305,8 +305,8 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
 
 ## Needs the owner (cannot be done from the repository)
 
-- **Pull request:** [wuwfdevs/portal#320](https://github.com/wuwfdevs/portal/pull/320) (`claude/new-session-x1z9so` into
-  `claude/main`, the only default-like branch) is open and awaiting the owner's merge.
+- **Pull request:** [wuwfdevs/portal#320](https://github.com/wuwfdevs/portal/pull/320) (the workspace conversion, the site
+  and the Portal's contract halves) was **merged into `claude/main` on 2026-11-02**. Later work goes in new pull requests.
 - **Vercel, Portal project:** set Root Directory to `apps/portal` (with "Include source files outside of the Root
   Directory" on, and Node 22.x). Until it is set, a build of this layout fails with `NEXT_NO_VERSION`; once it is set,
   builds of old-layout branches fail instead (previews only; the live deployment is never replaced by a failed build).
