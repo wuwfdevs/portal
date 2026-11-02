@@ -160,13 +160,13 @@ quotes, inline images dropped in HTML conversion), likelihood High. Its mitigati
 | `legacy.legacyPath` and `legacy.nprId` on posts and pages, unique and indexed (stable identity; a re-run cannot duplicate) | Built, tested |
 | `source` on posts (`wuwf`, `npr`, `wire`): NPR and wire stories are not WUWF's to archive separately or alter | Field built; **read-only enforcement not built** |
 | Redirects plugin (from, to) in the starter, for the Grove-path redirect map | Built (starter); the import is not |
-| Block inventory, tallied from the Grove JSON export | **Not done; next** |
+| Block inventory, tallied from Grove's JSON renderer output | **Not done; next** |
 | Body blocks Gallery, Pull quote, Embed, Promo, Preserved HTML, from Brightspot's documentation (see the table below) | **Built and tested, but provisional**: a guess until the inventory exists |
-| Converter: Grove JSON export → Payload (media upload, per-block converters, fidelity report), then migrate | **Not built**; designed from the inventory |
+| Converter: Grove renderer JSON → Payload (media upload, per-block converters, fidelity report), then migrate | **Not built**; designed from the inventory |
 | Timestamps preserved from the source, never import time; podcast feed URLs, GUIDs and enclosures preserved | Specified |
 | CDS sync for NPR content (poll inbound, PUT outbound; NPR items read-only, re-pulled, never archived separately) | Specified (Milestone 3) |
 
-**Body blocks (provisional).** The plan is that Payload has a block for everything Grove does, derived from a tally of the JSON export of the archive (owner decision, 2026-11-02; see `ROADMAP.md` → *Grove migration*). What follows is the first guess, from the rich-text elements Brightspot documents, and is **not** parity. Brightspot's docs could be read
+**Body blocks (provisional).** The plan is that Payload has a block for everything Grove does, derived from a tally of Grove's JSON renderer output (owner decision, 2026-11-02; see `ROADMAP.md` → *Grove migration*, which also records what the first sample showed and the URL scheme). What follows is the first guess, from the rich-text elements Brightspot documents, and is **not** parity. Brightspot's docs could be read
 only through search summaries (the pages themselves are blocked from the build sandbox), and Grove is a customised
 instance whose Studio is behind a login, so this is a *documented-capability* inventory, not yet a *Grove-actually-uses*
 inventory. Checking it takes about five minutes in Grove: open any story in the editor and list the large toolbar

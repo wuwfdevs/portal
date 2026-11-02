@@ -50,7 +50,7 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Before any more body work: the block inventory** (see *Grove migration*). Needs the JSON export from the owner.
+5. **Before any more body work: the census and the `path` resolver** (see *Grove migration*).
    Nothing else in this list depends on it, so the pages below may proceed if the owner asks.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
@@ -76,31 +76,72 @@ in them has been started.
 
 Read `ARCHITECTURE.md` → *Migrating from Grove*.
 
-**Decision (owner, 2026-11-02): the block set comes from the data, not from documentation.** WUWF will export the JSON
-representation of the Grove archive, convert it to Payload, and only then migrate. Payload must have a block for
-everything Grove/Brightspot does, and articles must be able to use those blocks the way they do in Grove. So the next
-step on bodies is **not** to build blocks; it is:
+**Decisions (owner, 2026-11-02)**
 
-1. Get the JSON export (or a representative sample of every kind of record, plus the oldest stories). It stays out of
-   the repository: it is a large archive and may hold unpublished content or personal data.
-2. Write a read-only script that tallies every distinct block, element and content type in it, with counts and example
-   record ids. That tally is the inventory, ranked by how often each thing is actually used.
-3. Design each Payload block as a faithful target for its JSON shape; write the converter with a fidelity report (the
-   memo's 95% gate); anything unmapped is kept as preserved HTML and flagged, never dropped.
-4. Only then do the pages that render bodies get their final shape.
+1. **The block set comes from the data, not from documentation.** Payload needs a block for everything Grove/Brightspot
+   does, and stories must be able to use them as in Grove. The data is Grove's own JSON.
+2. **There is no bulk export** (NPR support, 2026-10-21). The source is the public `?_renderer=json` view of each page,
+   fetched one page at a time: a rendered view model, not a database export. The owner's migration plan
+   ("Grove to Payload Migration Plan", 2026-10-30, a draft) governs scope: WUWF-originated reporting and locally managed
+   pages are migrated in full; NPR-syndicated and other wire stories are **not** (URL exceptions only; new NPR content
+   comes through CDS); drafts and revisions are out of scope. Large crawls are coordinated with NPR; public reachability
+   is not authorization.
+3. **URLs: keep Grove's exact paths.** See *URL scheme* below.
+
+### What the first sample showed (33 pages, 2026-11-02; raw responses are kept outside the repository)
+
+- Seven page templates: `ArticlePage`, `AuthorPage`, `ContentPage` (main = containers and rich-text modules), `SectionPage`,
+  `EventPage`, `RadioShowPage`, `RadioShowEpisodePage`.
+- An article's `articleBody` is an ordered list of rich-text chunks (HTML strings mixed with inline enhancements: links,
+  headings) and `Enhancement` objects wrapping: `Figure` (image, caption, credit, alignment), `QuoteEnhancement`
+  (with a `pullQuote` flag), `IframeModule` (url, width, height: NPR player, station schedule and playlist widgets),
+  `TweetUrl`, `PymInteractive` (raw HTML holding an iframe: NPR video, Vimeo), `VideoEnhancement` with a YouTube player.
+  Audio is page-level (`audio`: mp3 sources, duration), not in the body. HTML seen: `p ul li b i u br sup img iframe`
+  and the classes `cms-textAlign-center`, `fullattribution`, `rte2-style-ul`.
+- **Not seen in 33 pages: galleries, tables, story-body promos.** Absence in a small sample is not absence in the
+  archive; the template census decides. The provisional Gallery and Promo blocks have no evidence yet.
+- Origin is read from `sourceOrganizationName` and the `canonicalLink` host (NPR and wire stories canonicalize to
+  `npr.org` or the partner's site), **not** from the path: `/music-arts/…` was NPR, `/florida-news/…` was a statewide
+  partner, `/commentary/…` and `/local-news/…` were WUWF.
+- Metadata to carry: `contentId` (the Grove id), ISO published and modified dates, author and contributors, tags,
+  primary and secondary sections, corrections (`updatesCorrections`), and the NPR id that appears inside NPR canonical URLs.
+- WUWF's own audio and images are hosted on NPR-controlled hosts (`cpa.ds.npr.org/wuwf/…`,
+  `npr.brightspotcdn.com/legacy/sites/wuwf/…`). Copying them, and what happens to them after Grove shuts down, is a
+  rights and retention question for NPR.
+
+### URL scheme (decided)
+
+Grove serves exactly one URL per story: `/{section}/{YYYY-MM-DD}/{slug}` for local stories (`/{YYYY-MM-DD}/{slug}` for
+wire stories); the same date and slug under another section, or none, is a 404; a trailing slash also serves 200. So:
+
+- Every record has one unique, indexed **`path`**. Migrated records copy it verbatim and never recompute it. New stories
+  generate it once, at first publish, as `/{section}/{YYYY-MM-DD}/{slug}`, and it does not change when the section is
+  edited. Pages keep their shapes: `/people/…`, `/show/…`, `/community-calendar/event/…`, standalone paths.
+- One catch-all route resolves a path to a story, author, show, event or page. It replaces `/posts/[slug]`, which was a
+  placeholder. A trailing slash redirects (308) to the path without one; the canonical is the path itself.
+- Redirects exist only for a path an editor deliberately changes (automatic) and for justified syndicated exceptions.
+  Changing the URL structure for tidiness would need redirects across the archive and gain nothing for search.
+- For syndicated pages, the JSON's `canonicalLink` is the exact publisher URL, so exact redirects can be derived rather
+  than guessed. Whether to redirect, serve or let 404 is decided by the URL census and, later, Search Console.
+
+### Grove migration: next steps
+
+1. **URL census** from the 276 monthly sitemaps (no story pages): shapes and counts per year.
+2. **Search Console and backlink data** for the syndicated-URL decision. **Pinned**: the owner has no access right now.
+3. **Template census**: a larger stratified fetch, volume and timing agreed with the owner (and NPR) first.
+4. The `path` field and catch-all resolver (approved).
+5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
+   `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).
 
 **The five blocks that exist (Gallery, Pull quote, Embed, Promo, Preserved HTML) are provisional.** They were built from
 search summaries of Brightspot's documentation, not from Grove's data, and were wrongly described as "parity". Keep,
-rework or remove them once the tally exists. The sanitizer, the embed allowlist and the administrators-only guard on
-preserved HTML are sound and carry over. If the inventory or the JSON shape is unclear, stop and ask the owner; do not
-build on a guess.
-
-For access: the sandbox cannot reach `wuwf.org`, so the export must be uploaded. Allowing `www.wuwf.org`,
-`npr.brightspotcdn.com` and `brightspot.com` under the environment's Network access lets a session read the public site
-and Brightspot's documentation as a cross-check, but the export, not the documentation, is the source of truth.
+rework or remove them once the census exists. The sanitizer, the embed allowlist and the administrators-only guard on
+preserved HTML are sound and carry over. If the data or the plan is unclear, stop and ask the owner; do not build on a
+guess.
 
 ## Known gaps in what exists
 
+- Stories are served at `/posts/[slug]`, a placeholder. They move to their Grove-style `path` (see *URL scheme*).
 - The article page is built to board 3 except: the "This story started with your answers" strip, the audio player
   button and the inline listening ask (listening and the player are later work), the sponsor message unit
   (Milestone 3), and the pull quote and inline audio excerpt (they have no editor block yet).
@@ -185,9 +226,13 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
   Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
   administrators.
 - Legal and university review (IT-04 notice, privacy, retention) before production.
+- **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
+  right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
+  the template census's volume and timing.
 
 ## Sources
 
+- The owner's draft *WUWF Grove to Payload Migration Plan* (2026-10-30): scope, disposition policy, pilot gates.
 - The project brief (revised) for this work, supplied by the owner.
 - Design canvas "WUWF.org Home Redesign" (26 boards) and the "WUWF Design System" (claude.ai artifacts named in the
   brief). Read: boards 1–6, 14, 15, the phone homepage, the tokens. **Not yet read:** the Grove migration memo, the
