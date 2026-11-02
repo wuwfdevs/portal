@@ -6,6 +6,7 @@ import type { Database, ToolStatus } from "@/lib/database.types";
 // tool behaves, because every other row is invite_only and none is proposed.
 
 type ToolRow = Pick<Database["public"]["Tables"]["tools"]["Row"], "status" | "default_access">;
+type ListedToolRow = ToolRow & Pick<Database["public"]["Tables"]["tools"]["Row"], "enabled">;
 
 /**
  * Whether opening this tool requires an explicit `tool_access` row.
@@ -30,9 +31,14 @@ export function grantRequiredForTool(tool: ToolRow): boolean {
  * idea somebody filed on the Roadmap, not software — it exists so a roadmap
  * post has something to point at, and showing it as a card would promise a
  * product that does not exist.
+ *
+ * Likewise a tool an administrator has switched off (`enabled = false` at
+ * /admin/tools) is not listed: a card nobody can open is noise on a staff
+ * member's dashboard. The admin screens read the registry directly, so an
+ * administrator still sees the tool there and can switch it back on.
  */
-export function isListedOnDashboard(tool: ToolRow): boolean {
-  return tool.status !== "proposed";
+export function isListedOnDashboard(tool: ListedToolRow): boolean {
+  return tool.enabled && tool.status !== "proposed";
 }
 
 type ToolSortRow = Pick<Database["public"]["Tables"]["tools"]["Row"], "status" | "sort_order">;

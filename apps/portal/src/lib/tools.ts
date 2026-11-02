@@ -35,12 +35,11 @@ export async function listToolsForCurrentUser(userId: string): Promise<ToolWithA
 
   // A 'proposed' tool is an idea filed on the Roadmap, not software — RLS
   // shows it to Roadmap members so a post can target it, and it must not
-  // become a dashboard card. `hasAccess` additionally honors a registry row
-  // that is open to all active staff; both rules live in tool-access-rules.ts.
-  // `hasAccess` is deliberately about the grant/open-access question alone —
-  // whether the registry row is currently enabled is a separate axis that
-  // ToolCard reads straight off `tool.enabled` (see getToolCardState), the
-  // same thing canOpenTool in lib/auth/authz.ts checks for the actual gate.
+  // become a dashboard card. A tool an administrator has disabled is left off
+  // the dashboard too. `hasAccess` additionally honors a registry row that is
+  // open to all active staff; these rules live in tool-access-rules.ts.
+  // `hasAccess` is deliberately about the grant/open-access question alone;
+  // canOpenTool in lib/auth/authz.ts still checks `enabled` for the actual gate.
   return (tools ?? [])
     .filter(isListedOnDashboard)
     .sort(compareToolsForDashboard)
