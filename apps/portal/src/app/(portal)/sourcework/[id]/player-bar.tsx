@@ -139,11 +139,20 @@ export function PlayerBar({
       className={cn(
         // Below lg: docked to the bottom edge, clear of the home indicator.
         "fixed inset-x-0 bottom-0 z-30 flex flex-nowrap items-center gap-1.5 border-t border-line bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_14px_rgba(15,20,25,0.07)]",
-        // lg and up: the sticky bar at the top of the transcript column.
-        "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-10 lg:flex-wrap lg:gap-3 lg:rounded lg:border lg:bg-white/95 lg:py-2 lg:pb-2 lg:shadow-none lg:backdrop-blur",
+        // lg and up: the sticky bar at the top of the transcript column. It sticks 1rem
+        // below the portal nav (a sticky 4rem header, so `top-0` slid the bar underneath
+        // it) — the same line the excerpt rail sticks to. A solid background, not a
+        // translucent one: text scrolling beneath showed through.
+        "lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-20 lg:z-10 lg:flex-wrap lg:gap-3 lg:rounded lg:border lg:py-2 lg:pb-2 lg:shadow-sm",
         hiddenOnPhone && "max-lg:hidden",
       )}
     >
+      {/* Fills the 1rem between the nav and the stuck bar, so transcript text does not
+          show in it. Exactly the column's own gap, so at rest it covers nothing. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-px -right-px -top-[17px] hidden h-4 bg-white lg:block"
+      />
       <button
         type="button"
         onClick={togglePlay}

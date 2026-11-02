@@ -922,7 +922,8 @@ export function TranscriptWorkspace({
 
       <div
         className={cn(
-          "flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto",
+          // top-20 clears the sticky 4rem nav plus 1rem, the same line the player bar sticks to.
+          "flex-col gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto",
           pane === "excerpts" ? "flex" : pane === "projects" ? "hidden" : "hidden lg:flex",
         )}
       >

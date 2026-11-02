@@ -33,12 +33,14 @@ export function getToolCardState(
   if (status === "proposed") {
     return { mode: "hidden", statusLabel: STATUS_LABEL.proposed, actionLabel: null };
   }
-  // An administrator has switched this tool off from /admin/tools. This is
-  // checked ahead of `status`/`hasAccess` so a disabled tool never renders as
-  // openable, whatever grant the viewer holds — matches canOpenTool in
-  // lib/auth/authz.ts, the actual page/action boundary this label describes.
+  // An administrator has switched this tool off from /admin/tools. It is not
+  // shown on the dashboard at all (isListedOnDashboard filters it out); this is
+  // the same rule where a test can read it. Checked ahead of `status`/`hasAccess`
+  // so a disabled tool never renders as openable, whatever grant the viewer
+  // holds — matches canOpenTool in lib/auth/authz.ts, the actual page/action
+  // boundary.
   if (!enabled) {
-    return { mode: "unavailable", statusLabel: "Unavailable", actionLabel: null };
+    return { mode: "hidden", statusLabel: "Unavailable", actionLabel: null };
   }
   if (status === "available" && hasAccess) {
     return { mode: "open", statusLabel: STATUS_LABEL.available, actionLabel: "Open Tool" };

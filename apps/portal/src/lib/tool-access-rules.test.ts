@@ -23,12 +23,24 @@ describe("grantRequiredForTool", () => {
 
 describe("isListedOnDashboard", () => {
   it("excludes a proposed tool — it is an idea on the roadmap, not software", () => {
-    expect(isListedOnDashboard({ status: "proposed", default_access: "invite_only" })).toBe(false);
+    expect(
+      isListedOnDashboard({ status: "proposed", default_access: "invite_only", enabled: true }),
+    ).toBe(false);
   });
 
-  it("lists every other status", () => {
+  it("lists every other status when the tool is enabled", () => {
     for (const status of ["available", "in_development", "planned"] as const) {
-      expect(isListedOnDashboard({ status, default_access: "invite_only" })).toBe(true);
+      expect(isListedOnDashboard({ status, default_access: "invite_only", enabled: true })).toBe(
+        true,
+      );
+    }
+  });
+
+  it("excludes a tool an administrator has disabled, whatever its status or access rule", () => {
+    for (const status of ["available", "in_development", "planned", "proposed"] as const) {
+      for (const default_access of ["invite_only", "approved_staff", "open"] as const) {
+        expect(isListedOnDashboard({ status, default_access, enabled: false })).toBe(false);
+      }
     }
   });
 });

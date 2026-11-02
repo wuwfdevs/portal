@@ -37,11 +37,10 @@ describe("getToolCardState", () => {
     }
   });
 
-  it("is never openable when an administrator has disabled the tool, even with access", () => {
+  it("hides a tool an administrator has disabled, even from someone with access", () => {
     for (const status of ["available", "in_development", "planned"] as const) {
       const state = getToolCardState(status, false, true);
-      expect(state.mode).toBe("unavailable");
-      expect(state.statusLabel).toBe("Unavailable");
+      expect(state.mode).toBe("hidden");
       expect(state.actionLabel).toBeNull();
     }
   });
