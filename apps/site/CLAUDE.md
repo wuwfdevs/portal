@@ -111,8 +111,12 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   the source's published and modified dates; never use import time.
 - **NPR and wire stories (`source` ≠ `wuwf`) are not WUWF's to archive separately or alter** beyond headline, teaser
   and description. They are re-pulled from NPR, not migrated as our own.
-- **Body blocks follow Brightspot's documented elements** (see `ARCHITECTURE.md`): gallery, pull quote, embed, promo,
-  preserved HTML. Add a block only for a real archive need. Embeds are a URL plus a host allowlist, never free HTML.
+- **The block set comes from the data.** WUWF will export the Grove archive as JSON and convert it to Payload before
+  migrating; Payload needs a block for everything Grove/Brightspot does, and stories must be able to use them as in
+  Grove. Derive the blocks from a tally of that export (`ROADMAP.md` → *Grove migration*), not from documentation or
+  guesswork. The five existing blocks (gallery, pull quote, embed, promo, preserved HTML) are provisional. Embeds stay
+  a URL plus a host allowlist, never free HTML.
+- **If you do not know how to proceed, or need information, stop and ask the owner.** Do not build on a guess.
 - **`dangerouslySetInnerHTML` is allowed in exactly one place**: `blocks/LegacyHtml/Component.tsx`, on the output of
   `lib/sanitize.ts`. Nowhere else.
 - Every Grove path gets a redirect; the canonical URL scheme is decided from the Content Report's `path` column.

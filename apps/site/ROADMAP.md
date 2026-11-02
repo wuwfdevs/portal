@@ -50,15 +50,17 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
+5. **Before any more body work: the block inventory** (see *Grove migration*). Needs the JSON export from the owner.
+   Nothing else in this list depends on it, so the pages below may proceed if the owner asks.
+6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
    links already point at it), then the **homepage** (boards 1-2, editor-curated placements, no hard-coded arrays, and
    emergency coverage as a first-class state). Every acknowledgment through `getAcknowledgments`.
-6. **Listening:** collections (no public read), server actions with Local API writes, signed upload URLs to a
+7. **Listening:** collections (no public read), server actions with Local API writes, signed upload URLs to a
    private bucket, the Inline ask then the full flow, staff review in Payload.
-7. **Analytics foundations** per `ANALYTICS.md`.
-8. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
-9. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
+8. **Analytics foundations** per `ANALYTICS.md`.
+9. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
+10. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
 
 ## Deferred
 
@@ -72,12 +74,30 @@ in them has been started.
 
 ## Grove migration: what is and is not planned for
 
-Read `ARCHITECTURE.md` → *Migrating from Grove*. In short: the body model can take custom blocks and every record can
-carry its Grove identity, but **a first block set is built** (gallery, pull quote, embed, promo, preserved HTML) from Brightspot's documented
-elements, but it has not been checked against what WUWF's archive actually uses. wuwf.org is blocked from the build
-sandbox (network policy), so that inventory needs either the owner's Content Report and a sample of pages, or
-`www.wuwf.org` (and `npr.brightspotcdn.com` for images) allowed under the environment's Network access. Until then:
-do not invent blocks, and do not let any importer drop content it cannot map.
+Read `ARCHITECTURE.md` → *Migrating from Grove*.
+
+**Decision (owner, 2026-11-02): the block set comes from the data, not from documentation.** WUWF will export the JSON
+representation of the Grove archive, convert it to Payload, and only then migrate. Payload must have a block for
+everything Grove/Brightspot does, and articles must be able to use those blocks the way they do in Grove. So the next
+step on bodies is **not** to build blocks; it is:
+
+1. Get the JSON export (or a representative sample of every kind of record, plus the oldest stories). It stays out of
+   the repository: it is a large archive and may hold unpublished content or personal data.
+2. Write a read-only script that tallies every distinct block, element and content type in it, with counts and example
+   record ids. That tally is the inventory, ranked by how often each thing is actually used.
+3. Design each Payload block as a faithful target for its JSON shape; write the converter with a fidelity report (the
+   memo's 95% gate); anything unmapped is kept as preserved HTML and flagged, never dropped.
+4. Only then do the pages that render bodies get their final shape.
+
+**The five blocks that exist (Gallery, Pull quote, Embed, Promo, Preserved HTML) are provisional.** They were built from
+search summaries of Brightspot's documentation, not from Grove's data, and were wrongly described as "parity". Keep,
+rework or remove them once the tally exists. The sanitizer, the embed allowlist and the administrators-only guard on
+preserved HTML are sound and carry over. If the inventory or the JSON shape is unclear, stop and ask the owner; do not
+build on a guess.
+
+For access: the sandbox cannot reach `wuwf.org`, so the export must be uploaded. Allowing `www.wuwf.org`,
+`npr.brightspotcdn.com` and `brightspot.com` under the environment's Network access lets a session read the public site
+and Brightspot's documentation as a cross-check, but the export, not the documentation, is the source of truth.
 
 ## Known gaps in what exists
 
