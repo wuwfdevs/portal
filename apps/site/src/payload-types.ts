@@ -70,6 +70,7 @@ export interface Config {
     pages: Page;
     posts: Post;
     media: Media;
+    audio: Audio;
     sections: Section;
     categories: Category;
     contributors: Contributor;
@@ -101,6 +102,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    audio: AudioSelect<false> | AudioSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
@@ -274,7 +276,14 @@ export interface Page {
 export interface Post {
   id: number;
   title: string;
-  heroImage?: (number | null) | Media;
+  /**
+   * The picture, gallery or video that opens the story. Add one.
+   */
+  featuredMedia?: (MediaBlock | GalleryBlock | EmbedBlock)[] | null;
+  /**
+   * The audio version of this story, for the main player. Optional.
+   */
+  featuredAudio?: (number | null) | Audio;
   content: {
     root: {
       type: string;
@@ -364,11 +373,49 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MediaBlock".
+ */
+export interface MediaBlock {
+  media: number | Media;
+  /**
+   * Shown under the picture. Leave empty to use the library caption, if it has one.
+   */
+  caption?: string | null;
+  /**
+   * Leave empty to use the library credit.
+   */
+  credit?: string | null;
+  /**
+   * Leave empty to use the library source.
+   */
+  source?: string | null;
+  /**
+   * Replaces the library alt text for this use only. Leave empty to use the library alt text.
+   */
+  altText?: string | null;
+  alignment?: ('full' | 'center' | 'left' | 'right') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'mediaBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
   id: number;
+  /**
+   * What the picture shows, for people who cannot see it. A story can override this where the same picture is used differently.
+   */
   alt?: string | null;
+  /**
+   * Who made it, e.g. "Photo: Jane Doe / WUWF". A story can override this for one use.
+   */
+  credit?: string | null;
+  /**
+   * Where it came from or who owns the rights, when that is not the same as the credit.
+   */
+  source?: string | null;
   caption?: {
     root: {
       type: string;
@@ -384,6 +431,15 @@ export interface Media {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a picture used in many stories is stored once and a re-run cannot duplicate it. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
   folder?: (number | null) | FolderInterface;
   updatedAt: string;
   createdAt: string;
@@ -480,6 +536,103 @@ export interface FolderInterface {
   folderType?: 'media'[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock".
+ */
+export interface GalleryBlock {
+  /**
+   * Optional heading above the gallery.
+   */
+  title?: string | null;
+  /**
+   * Optional text under the heading.
+   */
+  description?: string | null;
+  layout: 'carousel' | 'grid' | 'list';
+  images: {
+    image: number | Media;
+    title?: string | null;
+    caption?: string | null;
+    /**
+     * Leave empty to use the library credit.
+     */
+    credit?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'gallery';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock".
+ */
+export interface EmbedBlock {
+  /**
+   * The address of a specific video, episode or track (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud), or a page on an approved site.
+   */
+  url: string;
+  /**
+   * What the embed is, for people using a screen reader. Not shown on the page.
+   */
+  title: string;
+  /**
+   * Optional. The original width of an embedded page or widget, to keep its proportions.
+   */
+  width?: number | null;
+  /**
+   * Optional. The original height. Used together with the width; videos and audio players ignore both.
+   */
+  height?: number | null;
+  /**
+   * Shown under the embed. For a post on X or Facebook, put the post's text here: it is shown on the card.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'embed';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audio".
+ */
+export interface Audio {
+  id: number;
+  /**
+   * What a listener sees on the player, e.g. "Listen to this story".
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Who produced it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -834,16 +987,6 @@ export interface ContentBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'content';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "MediaBlock".
- */
-export interface MediaBlock {
-  media: number | Media;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'mediaBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1325,6 +1468,10 @@ export interface PayloadLockedDocument {
         value: number | Media;
       } | null)
     | ({
+        relationTo: 'audio';
+        value: number | Audio;
+      } | null)
+    | ({
         relationTo: 'sections';
         value: number | Section;
       } | null)
@@ -1546,6 +1693,11 @@ export interface ContentBlockSelect<T extends boolean = true> {
  */
 export interface MediaBlockSelect<T extends boolean = true> {
   media?: T;
+  caption?: T;
+  credit?: T;
+  source?: T;
+  altText?: T;
+  alignment?: T;
   id?: T;
   blockName?: T;
 }
@@ -1580,7 +1732,14 @@ export interface FormBlockSelect<T extends boolean = true> {
  */
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
-  heroImage?: T;
+  featuredMedia?:
+    | T
+    | {
+        mediaBlock?: T | MediaBlockSelect<T>;
+        gallery?: T | GalleryBlockSelect<T>;
+        embed?: T | EmbedBlockSelect<T>;
+      };
+  featuredAudio?: T;
   content?: T;
   relatedPosts?: T;
   categories?: T;
@@ -1618,11 +1777,51 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock_select".
+ */
+export interface GalleryBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  layout?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        title?: T;
+        caption?: T;
+        credit?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock_select".
+ */
+export interface EmbedBlockSelect<T extends boolean = true> {
+  url?: T;
+  title?: T;
+  width?: T;
+  height?: T;
+  caption?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  credit?: T;
+  source?: T;
   caption?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
   folder?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1709,6 +1908,32 @@ export interface MediaSelect<T extends boolean = true> {
               filename?: T;
             };
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audio_select".
+ */
+export interface AudioSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  credit?: T;
+  durationSeconds?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2625,26 +2850,6 @@ export interface CodeBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "GalleryBlock".
- */
-export interface GalleryBlock {
-  /**
-   * Optional heading above the gallery.
-   */
-  title?: string | null;
-  layout: 'grid' | 'list';
-  images: {
-    image: number | Media;
-    caption?: string | null;
-    credit?: string | null;
-    id?: string | null;
-  }[];
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'gallery';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "PullQuoteBlock".
  */
 export interface PullQuoteBlock {
@@ -2660,52 +2865,25 @@ export interface PullQuoteBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EmbedBlock".
+ * via the `definition` "AudioPlayerBlock".
  */
-export interface EmbedBlock {
+export interface AudioPlayerBlock {
+  audio: number | Audio;
   /**
-   * The address of a specific video, episode or track (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud), or a page on an approved site.
+   * Shown above the player. Leave empty to use the audio file's own title.
    */
-  url: string;
+  title?: string | null;
   /**
-   * What the embed is, for people using a screen reader. Not shown on the page.
-   */
-  title: string;
-  caption?: string | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'embed';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "PromoBlock".
- */
-export interface PromoBlock {
-  target:
-    | {
-        relationTo: 'posts';
-        value: number | Post;
-      }
-    | {
-        relationTo: 'pages';
-        value: number | Page;
-      }
-    | {
-        relationTo: 'fellowships';
-        value: number | Fellowship;
-      };
-  /**
-   * Leave empty to use the item's own title.
-   */
-  headline?: string | null;
-  /**
-   * Leave empty to use the item's summary.
+   * Optional. Leave empty to use the audio file's own description.
    */
   description?: string | null;
-  image?: (number | null) | Media;
+  /**
+   * Optional picture shown beside the player.
+   */
+  thumbnail?: (number | null) | Media;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'promo';
+  blockType: 'audioPlayer';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

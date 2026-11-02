@@ -1,8 +1,8 @@
 import type { Block } from 'payload'
 
 /**
- * A set of images with captions and credits, laid out as a grid or a list (the two layouts Brightspot's gallery
- * offers). Dynamic galleries (filled by tag or date) are not built yet.
+ * A set of pictures with titles, captions and credits, shown as a carousel, a grid or a list (the layouts Grove's
+ * galleries use). Dynamic galleries (filled by tag or date) are not built.
  */
 export const Gallery: Block = {
   slug: 'gallery',
@@ -10,12 +10,14 @@ export const Gallery: Block = {
   labels: { singular: 'Gallery', plural: 'Galleries' },
   fields: [
     { name: 'title', type: 'text', admin: { description: 'Optional heading above the gallery.' } },
+    { name: 'description', type: 'textarea', admin: { description: 'Optional text under the heading.' } },
     {
       name: 'layout',
       type: 'select',
       required: true,
-      defaultValue: 'grid',
+      defaultValue: 'carousel',
       options: [
+        { label: 'Carousel (swipe or scroll sideways)', value: 'carousel' },
         { label: 'Grid', value: 'grid' },
         { label: 'List (one per row)', value: 'list' },
       ],
@@ -27,8 +29,9 @@ export const Gallery: Block = {
       minRows: 1,
       fields: [
         { name: 'image', type: 'upload', relationTo: 'media', required: true },
+        { name: 'title', type: 'text' },
         { name: 'caption', type: 'text' },
-        { name: 'credit', type: 'text' },
+        { name: 'credit', type: 'text', admin: { description: 'Leave empty to use the library credit.' } },
       ],
     },
   ],

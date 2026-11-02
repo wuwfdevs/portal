@@ -79,3 +79,44 @@ describe('embedAllow', () => {
     expect(embedAllow('video')).toContain('fullscreen')
   })
 })
+
+describe('posts on X and Facebook are link-only: a canonical address, never a frame', () => {
+  const kind = (u: string) => {
+    const r = resolveEmbed(u)
+    return r.ok ? { provider: r.embed.provider, shape: r.embed.shape, src: r.embed.src } : r.reason
+  }
+  it('an X post is rebuilt on x.com whichever host or tracking query it came with', () => {
+    const want = { provider: 'x', shape: 'link', src: 'https://x.com/NPR/status/1234567890123' }
+    for (const u of [
+      'https://twitter.com/NPR/status/1234567890123',
+      'https://www.twitter.com/NPR/status/1234567890123?s=20&t=abc',
+      'https://mobile.twitter.com/NPR/status/1234567890123/',
+      'https://x.com/NPR/status/1234567890123',
+    ])
+      expect(kind(u), u).toEqual(want)
+  })
+  it('an X profile or search page is not a post', () => {
+    expect(kind('https://x.com/NPR')).toBe('unsupported_link')
+    expect(kind('https://twitter.com/search?q=wuwf')).toBe('unsupported_link')
+  })
+  it('a Facebook post, video, permalink, watch and share link are accepted and rebuilt', () => {
+    expect(kind('https://www.facebook.com/WUWF/posts/1234567890123?ref=x')).toEqual({ provider: 'facebook', shape: 'link', src: 'https://www.facebook.com/WUWF/posts/1234567890123' })
+    expect(kind('https://m.facebook.com/WUWF/videos/987654321012')).toMatchObject({ provider: 'facebook', src: 'https://www.facebook.com/WUWF/videos/987654321012' })
+    expect(kind('https://www.facebook.com/permalink.php?story_fbid=1234567&id=7654321&utm=z')).toMatchObject({ src: 'https://www.facebook.com/permalink.php?story_fbid=1234567&id=7654321' })
+    expect(kind('https://www.facebook.com/watch/?v=1234567890')).toMatchObject({ src: 'https://www.facebook.com/watch/?v=1234567890' })
+    expect(kind('https://fb.watch/abc-DEF_1/')).toMatchObject({ provider: 'facebook', src: 'https://fb.watch/abc-DEF_1/' })
+  })
+  it('the Facebook home page, a login page or a bare page name is not a post', () => {
+    expect(kind('https://www.facebook.com/')).toBe('unsupported_link')
+    expect(kind('https://www.facebook.com/WUWF')).toBe('unsupported_link')
+    expect(kind('https://www.facebook.com/permalink.php?story_fbid=abc&id=1')).toBe('unsupported_link')
+  })
+  it('a look-alike host is not treated as X or Facebook', () => {
+    expect(kind('https://x.com.evil.example/NPR/status/1234567890123')).toBe('host_not_allowed')
+    expect(kind('https://facebook.com.evil.example/WUWF/posts/1234567890123')).toBe('host_not_allowed')
+  })
+  it('credentials and plain http are still refused first', () => {
+    expect(kind('http://x.com/NPR/status/1234567890123')).toBe('not_https')
+    expect(kind('https://user:pw@x.com/NPR/status/1234567890123')).toBe('has_credentials')
+  })
+})

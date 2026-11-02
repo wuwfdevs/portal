@@ -23,11 +23,28 @@ export const Media: CollectionConfig = {
     read: anyone,
     update: requirePermission('content.write'),
   },
+  admin: {
+    // The library is searched by name, alt text and credit; each is indexed so the search stays fast on thousands of files.
+    listSearchableFields: ['filename', 'alt', 'credit'],
+  },
   fields: [
     {
       name: 'alt',
       type: 'text',
+      index: true,
+      admin: { description: 'What the picture shows, for people who cannot see it. A story can override this where the same picture is used differently.' },
       //required: true,
+    },
+    {
+      name: 'credit',
+      type: 'text',
+      index: true,
+      admin: { description: 'Who made it, e.g. "Photo: Jane Doe / WUWF". A story can override this for one use.' },
+    },
+    {
+      name: 'source',
+      type: 'text',
+      admin: { description: 'Where it came from or who owns the rights, when that is not the same as the credit.' },
     },
     {
       name: 'caption',
@@ -37,6 +54,25 @@ export const Media: CollectionConfig = {
           return [...rootFeatures, FixedToolbarFeature(), InlineToolbarFeature()]
         },
       }),
+    },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new work.' },
+      fields: [
+        {
+          name: 'sourceUrl',
+          type: 'text',
+          unique: true,
+          index: true,
+          access: { update: () => false },
+          admin: {
+            description:
+              'The address this file was copied from. The import matches on it, so a picture used in many stories is stored once and a re-run cannot duplicate it. Cannot be changed once set.',
+          },
+        },
+      ],
     },
   ],
   upload: {
@@ -79,3 +115,4 @@ export const Media: CollectionConfig = {
     ],
   },
 }
+

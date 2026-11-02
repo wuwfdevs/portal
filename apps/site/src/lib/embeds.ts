@@ -6,9 +6,13 @@
 // look-alike host or a path trick cannot slip through). Anything else must be on the administrator-approved host
 // list in Site settings, and must be https.
 
-export type EmbedProvider = 'youtube' | 'vimeo' | 'spotify' | 'apple-podcasts' | 'soundcloud' | 'custom'
-/** How the frame is sized: video is 16:9, audio is a short fixed-height player, wide is 4:3. */
-export type EmbedShape = 'video' | 'audio' | 'wide'
+export type EmbedProvider = 'youtube' | 'vimeo' | 'spotify' | 'apple-podcasts' | 'soundcloud' | 'x' | 'facebook' | 'custom'
+/**
+ * How the embed is shown: video is a 16:9 frame, audio is a short fixed-height player, wide is a 4:3 frame, and
+ * link is no frame at all, a static card pointing at the original post. Posts on X and Facebook are link-only on
+ * purpose: their live embeds load the platform's own script, which this site does not run (no third-party tracking).
+ */
+export type EmbedShape = 'video' | 'audio' | 'wide' | 'link'
 
 export interface ResolvedEmbed {
   provider: EmbedProvider
@@ -89,6 +93,44 @@ function soundcloud(url: URL): ResolvedEmbed | null {
   return { provider: 'soundcloud', shape: 'audio', src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(canonical)}` }
 }
 
+const X_HOSTS = new Set(['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com'])
+const X_STATUS = /^\/([A-Za-z0-9_]{1,15})\/status\/(\d{5,25})\/?$/
+const FB_HOSTS = new Set(['facebook.com', 'www.facebook.com', 'm.facebook.com', 'web.facebook.com', 'fb.watch'])
+const FB_SEGMENT = /^[A-Za-z0-9._-]{1,200}$/
+
+/** A single post on X. Link-only: shown as a card pointing at the original, never as a live embed. */
+function xPost(url: URL): ResolvedEmbed | null {
+  if (!X_HOSTS.has(url.hostname)) return null
+  const m = X_STATUS.exec(url.pathname)
+  if (!m) return null
+  return { provider: 'x', shape: 'link', src: `https://x.com/${m[1]}/status/${m[2]}` }
+}
+
+/** A single post, video or share link on Facebook. Link-only, like X. The address is rebuilt, never passed through. */
+function facebookPost(url: URL): ResolvedEmbed | null {
+  if (!FB_HOSTS.has(url.hostname)) return null
+  const parts = url.pathname.split('/').filter(Boolean)
+  if (url.hostname === 'fb.watch') {
+    return parts.length === 1 && FB_SEGMENT.test(parts[0]!) ? { provider: 'facebook', shape: 'link', src: `https://fb.watch/${parts[0]}/` } : null
+  }
+  if (parts[0] === 'permalink.php') {
+    const story = url.searchParams.get('story_fbid')
+    const id = url.searchParams.get('id')
+    return story && id && /^\d{5,25}$/.test(story) && /^\d{5,25}$/.test(id)
+      ? { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/permalink.php?story_fbid=${story}&id=${id}` }
+      : null
+  }
+  if (parts[0] === 'watch') {
+    const v = url.searchParams.get('v')
+    return v && /^\d{5,25}$/.test(v) ? { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/watch/?v=${v}` } : null
+  }
+  // /<page>/posts/<id>, /<page>/videos/<id>, /<page>/photos/<set>/<id>, /share/p/<code>, /share/v/<code>
+  if (parts.length >= 2 && parts.length <= 5 && parts.every((p) => FB_SEGMENT.test(p))) {
+    return { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/${parts.join('/')}` }
+  }
+  return null
+}
+
 /**
  * @param allowedHosts hostnames an administrator approved in Site settings for frames that are not one of the known
  *   providers. Matched exactly (a subdomain is not the same host), https only.
@@ -103,13 +145,13 @@ export function resolveEmbed(input: string, allowedHosts: readonly string[] = []
   if (url.protocol !== 'https:') return { ok: false, reason: 'not_https' }
   if (url.username || url.password) return { ok: false, reason: 'has_credentials' }
 
-  const known = youtube(url) ?? vimeo(url) ?? spotify(url) ?? applePodcasts(url) ?? soundcloud(url)
+  const known = youtube(url) ?? vimeo(url) ?? spotify(url) ?? applePodcasts(url) ?? soundcloud(url) ?? xPost(url) ?? facebookPost(url)
   if (known) return { ok: true, embed: known }
 
   const host = url.hostname.toLowerCase()
   const isKnownHost =
     YT_HOSTS.has(host) || host === 'youtu.be' || VIMEO_HOSTS.has(host) || host === 'open.spotify.com' ||
-    host.endsWith('podcasts.apple.com') || host.endsWith('soundcloud.com')
+    host.endsWith('podcasts.apple.com') || host.endsWith('soundcloud.com') || X_HOSTS.has(host) || FB_HOSTS.has(host)
   if (isKnownHost) return { ok: false, reason: 'unsupported_link' } // a provider's page that is not a playable item
 
   if (allowedHosts.map((h) => h.trim().toLowerCase()).includes(host)) {
@@ -125,12 +167,12 @@ export const EMBED_FAILURE_MESSAGE: Record<EmbedFailure, string> = {
   not_https: 'Embeds must use https.',
   has_credentials: 'The URL must not contain a username or password.',
   host_not_allowed: 'That site is not on the approved list. An administrator can add it in Site settings.',
-  unsupported_link: 'That link is not a playable item. Paste the address of a specific video, episode or track.',
+  unsupported_link: 'That link is not a playable item. Paste the address of a specific video, episode, track or post.',
 }
 
 /** Frame attributes for every embed: no top navigation, no forms, no downloads; a policy, not a suggestion. */
 export const EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-popups allow-presentation'
 export const EMBED_REFERRER_POLICY = 'strict-origin-when-cross-origin'
-export function embedAllow(shape: EmbedShape): string {
+export function embedAllow(shape: Exclude<EmbedShape, 'link'>): string {
   return shape === 'audio' ? 'encrypted-media' : 'fullscreen; picture-in-picture; encrypted-media'
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatLongDate, initialsOf } from './format'
+import { formatDuration, formatLongDate, initialsOf } from './format'
 
 describe('formatLongDate', () => {
   it('formats in the station\'s time zone, so a late-evening story keeps its own day', () => {
@@ -22,5 +22,19 @@ describe('initialsOf', () => {
     expect(initialsOf('Madonna')).toBe('M')
     expect(initialsOf('Ada Byron King')).toBe('AB')
     expect(initialsOf('')).toBe('')
+  })
+})
+
+describe('formatDuration', () => {
+  it('shows minutes and seconds, adding hours only when there are some', () => {
+    expect(formatDuration(247)).toBe('4:07')
+    expect(formatDuration(59)).toBe('0:59')
+    expect(formatDuration(3729)).toBe('1:02:09')
+  })
+  it('rounds to the nearest second', () => {
+    expect(formatDuration(59.6)).toBe('1:00')
+  })
+  it('is empty for nothing, zero, negative or nonsense', () => {
+    for (const v of [null, undefined, 0, -5, Number.NaN, Number.POSITIVE_INFINITY]) expect(formatDuration(v)).toBe('')
   })
 })

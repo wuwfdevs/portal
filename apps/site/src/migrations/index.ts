@@ -5,6 +5,7 @@ import * as migration_20261031_010109_site_settings_embed_hosts from './20261031
 import * as migration_20261031_010737_support_page from './20261031_010737_support_page';
 import * as migration_20261102_180610_paths_and_sections from './20261102_180610_paths_and_sections';
 import * as migration_20261102_183024_legacy_grove_id_and_modified_at from './20261102_183024_legacy_grove_id_and_modified_at';
+import * as migration_20261102_220306_featured_media_and_audio from './20261102_220306_featured_media_and_audio';
 
 export const migrations = [
   {
@@ -40,6 +41,11 @@ export const migrations = [
   {
     up: migration_20261102_183024_legacy_grove_id_and_modified_at.up,
     down: migration_20261102_183024_legacy_grove_id_and_modified_at.down,
-    name: '20261102_183024_legacy_grove_id_and_modified_at'
+    name: '20261102_183024_legacy_grove_id_and_modified_at',
+  },
+  {
+    up: migration_20261102_220306_featured_media_and_audio.up,
+    down: migration_20261102_220306_featured_media_and_audio.down,
+    name: '20261102_220306_featured_media_and_audio'
   },
 ];

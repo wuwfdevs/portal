@@ -10,7 +10,7 @@ import {
 } from '@payloadcms/richtext-lexical'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
-import { bodyBlocks } from '../../blocks/body'
+import { bodyBlocks, featuredMediaBlocks } from '../../blocks/body'
 import { userCan } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
@@ -70,9 +70,19 @@ export const Posts: CollectionConfig<'posts'> = {
         {
           fields: [
             {
-              name: 'heroImage',
+              name: 'featuredMedia',
+              type: 'blocks',
+              label: 'Featured media',
+              maxRows: 1,
+              blocks: featuredMediaBlocks,
+              admin: { description: 'The picture, gallery or video that opens the story. Add one.' },
+            },
+            {
+              name: 'featuredAudio',
               type: 'upload',
-              relationTo: 'media',
+              relationTo: 'audio',
+              label: 'Featured audio',
+              admin: { description: 'The audio version of this story, for the main player. Optional.' },
             },
             {
               name: 'content',

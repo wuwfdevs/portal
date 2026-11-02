@@ -87,7 +87,7 @@ await ensure(payload, 'posts', { title: { equals: 'Block parity sampler (illustr
     block('pullQuote', { text: "It's not a roof. It's a vote on whether my kids grow up here.", attribution: 'Illustrative quote' }),
     block('embed', { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', title: 'An illustrative video', caption: 'An embedded video. Frames load only for approved hosts.' }),
     block('gallery', { title: 'A gallery', layout: 'grid', images: [1, 2, 3].map((n) => ({ image: logo.id, caption: `Image ${n}`, credit: 'WUWF' })) }),
-    block('promo', { target: { relationTo: 'posts', value: story.id } }),
+    block('mediaBlock', { media: logo.id, caption: 'An illustrative picture, centered', credit: 'WUWF', alignment: 'center' }),
     para('Below is preserved HTML from an imaginary old page, including a script, an inline handler and a javascript: link. Only the safe part should appear.'),
     block('legacyHtml', { note: 'Illustrative', html: '<h3>Preserved heading</h3><p onclick="alert(1)">Kept paragraph with <a href="javascript:alert(1)">a bad link</a> and <a href="https://wuwf.org">a good one</a>.</p><script>alert(1)</script><iframe src="https://evil.example"></iframe>' }),
   ] } },

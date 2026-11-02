@@ -13,21 +13,21 @@ import {
 import { CodeBlock, CodeBlockProps } from '@/blocks/Code/Component'
 
 import type {
+  AudioPlayerBlock as AudioPlayerBlockProps,
   BannerBlock as BannerBlockProps,
   CallToActionBlock as CTABlockProps,
   EmbedBlock as EmbedBlockProps,
   GalleryBlock as GalleryBlockProps,
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
-  PromoBlock as PromoBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
 } from '@/payload-types'
+import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { BannerBlock } from '@/blocks/Banner/Component'
 import { CallToActionBlock } from '@/blocks/CallToAction/Component'
 import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
-import { PromoBlock } from '@/blocks/Promo/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
 import { cn } from '@/utilities/ui'
 
@@ -43,7 +43,7 @@ type NodeTypes =
       | GalleryBlockProps
       | PullQuoteBlockProps
       | EmbedBlockProps
-      | PromoBlockProps
+      | AudioPlayerBlockProps
       | LegacyHtmlBlockProps
     >
 
@@ -67,7 +67,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
-    promo: ({ node }) => <PromoBlock {...node.fields} />,
+    audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
     legacyHtml: ({ node }) => <LegacyHtmlBlock {...node.fields} />,
   },
 })

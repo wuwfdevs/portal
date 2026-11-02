@@ -4,6 +4,7 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { Audio } from './collections/Audio'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
@@ -76,6 +77,7 @@ export default buildConfig({
     Pages,
     Posts,
     Media,
+    Audio,
     Sections,
     Categories,
     Contributors,
@@ -93,6 +95,13 @@ export default buildConfig({
   plugins,
   secret: process.env.PAYLOAD_SECRET,
   sharp,
+  // Payload's default is 20 MiB per file and 50 MiB per request, which rejects (HTTP 413) a long station recording.
+  // Raised so audio fits. On Vercel a server upload is capped at 4.5 MB regardless, so production uploads must go
+  // straight from the browser to storage (the storage adapter's `clientUploads`) once that adapter is set up.
+  upload: {
+    limits: { fileSize: 150 * 1024 * 1024 },
+    requestSizeLimit: 160 * 1024 * 1024,
+  },
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
