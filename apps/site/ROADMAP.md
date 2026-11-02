@@ -210,6 +210,17 @@ standalone pages, one event. Paths:
    metadata manifest, not the raw JSON. Where the real archive will live durably is a decision for before the actual
    migration fetch. Coordination with NPR on volume is the owner's to arrange (the plan's Phase 0); ask before anything
    beyond this census.
+   **Decisions and state (owner, 2026-11-02, after the plan was cross-checked against the final Migration Plan):**
+   the census is the **stratified sample only** (about 1,500 pages, seeded, year x section, weighted to 2013-2016; the
+   order is a prefix of the whole set, so extending later wastes nothing); the owner approved re-reading the monthly
+   sitemaps (2013 on, plus two seeded months a year for 2004-2012 only to find legacy-probe candidates), about 10
+   `?_renderer=styleguide` pages (the Migration Plan §3 says to compare the two renderers), a **legacy probe** of about
+   135 pages outside local news (wire-style 2004-2012 and 2013 on, standalone pages, show episodes, show pages, events,
+   people), and checkpoint commits of `census/manifest.jsonl` and `census/tally.json`. **Raw JSON is kept**, not
+   discarded (the plan wants an immutable source archive): outside the repository, for WUWF-originated and ambiguous
+   pages only, and delivered to the owner as zips (`pnpm census archive`; the Drive connector cannot take files from
+   disk, so it was ruled out). The owner does **not** want NPR contacted about a template list for now. Tooling:
+   `src/lib/census/` (pure, 87 tests, mutation-checked), `scripts/census/cli.ts`, `census/README.md`.
 4. The `path` field and catch-all resolver (approved).
 5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).

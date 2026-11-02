@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "census": "cross-env NODE_OPTIONS=--no-deprecation NODE_USE_ENV_PROXY=1 tsx --tsconfig tsconfig.json scripts/census/cli.ts",
     "db:down": "docker compose down",
     "db:up": "docker compose up -d db",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
