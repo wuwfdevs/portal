@@ -21,6 +21,7 @@ import type {
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
+  VideoPlayerBlock as VideoPlayerBlockProps,
 } from '@/payload-types'
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { BannerBlock } from '@/blocks/Banner/Component'
@@ -29,6 +30,7 @@ import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
+import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
 import { cn } from '@/utilities/ui'
 
 import { internalDocToHref } from './links'
@@ -44,6 +46,7 @@ type NodeTypes =
       | PullQuoteBlockProps
       | EmbedBlockProps
       | AudioPlayerBlockProps
+      | VideoPlayerBlockProps
       | LegacyHtmlBlockProps
     >
 
@@ -68,6 +71,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
+    videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,
     legacyHtml: ({ node }) => <LegacyHtmlBlock {...node.fields} />,
   },
 })

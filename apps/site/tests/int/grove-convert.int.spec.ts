@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
+import fs from 'node:fs'
+import path from 'node:path'
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -14,7 +16,7 @@ import { ensureTestSection } from '../helpers/section'
 
 const run = Date.now().toString(36)
 let payload: Payload
-const made: { collection: 'media' | 'audio' | 'posts'; id: number | string }[] = []
+const made: { collection: 'media' | 'audio' | 'video' | 'posts'; id: number | string }[] = []
 
 const link = (body: string, href: string) => ({ _template: '/core/link/Link.hbs', body, href, target: '_blank', extraAttributes: '' })
 const page = () => ({
@@ -39,6 +41,7 @@ const page = () => ({
     { _template: '/core/enhancement/Enhancement.hbs', item: [{ _template: '/twitter/TweetUrl.hbs', postUrl: 'https://twitter.com/WUWF/status/1285659380751499264?ref_src=x', oEmbed: '<blockquote><p>Cases are rising.</p></blockquote>' }] },
     { _template: '/core/enhancement/Enhancement.hbs', item: [{ _template: '/core/quote/QuoteEnhancement.hbs', pullQuote: true, quote: 'It is a vote.', attribution: 'A neighbour' }] },
     { _template: '/core/enhancement/Enhancement.hbs', item: [{ _template: '/core/audio/AudioEnhancement.hbs', title: 'Full interview', player: [{ _template: '/core/audio/HTML5AudioPlayer.hbs', duration: '11:41', sources: [{ src: `https://cpa.ds.npr.org/wuwf/audio/interview-${run}.wav` }] }] }] },
+    { _template: '/core/enhancement/Enhancement.hbs', item: [{ _template: '/core/video/VideoEnhancement.hbs', title: 'The Planets', caption: 'A performance', player: [{ _template: '/core/video/HTML5VideoPlayer.hbs', poster: { src: `https://npr.brightspotcdn.com/poster-${run}.jpg` }, sources: [{ _template: '/core/video/HTML5VideoPlayerSource.hbs', src: `https://npr.brightspotcdn.com/b8/planets-${run}.mp4`, type: 'video/mp4' }] }] }] },
   ],
 })
 
@@ -51,6 +54,16 @@ async function store(a: AssetRef): Promise<number | string> {
       data: { alt: a.alt ?? '', ...(a.credit ? { credit: a.credit } : {}), legacy: { sourceUrl: a.sourceUrl } } as never,
     })
     made.push({ collection: 'media', id: doc.id })
+    return doc.id
+  }
+  if (a.kind === 'video') {
+    const data = fs.readFileSync(path.resolve(__dirname, '../fixtures/one-second.mp4'))
+    const doc = await payload.create({
+      collection: 'video', overrideAccess: true,
+      file: { data, mimetype: 'video/mp4', name: `${a.sourceUrl.split('/').pop()}`, size: data.length },
+      data: { title: a.title ?? 'Video', legacy: { sourceUrl: a.sourceUrl } } as never,
+    })
+    made.push({ collection: 'video', id: doc.id })
     return doc.id
   }
   const samples = 800
@@ -112,11 +125,12 @@ describe('a converted Grove page becomes a story Payload accepts and keeps', () 
 
     // the body kept its order and every block, with the library ids filled in
     const kinds = (back.content.root.children as { type: string; fields?: { blockType?: string } }[]).map((n) => (n.type === 'block' ? n.fields!.blockType : n.type))
-    expect(kinds).toEqual(['paragraph', 'list', 'block' /* the photo */, 'paragraph', 'block' /* the table */, 'block' /* the tweet */, 'block' /* the pull quote */, 'block' /* the audio */].map((k, i) => (k === 'block' ? ['mediaBlock', 'legacyHtml', 'embed', 'pullQuote', 'audioPlayer'][[2, 4, 5, 6, 7].indexOf(i)] : k)))
+    expect(kinds).toEqual(['paragraph', 'list', 'mediaBlock', 'paragraph', 'legacyHtml', 'embed', 'pullQuote', 'audioPlayer', 'videoPlayer'])
     const blocks = (back.content.root.children as { type: string; fields?: Record<string, unknown> }[]).filter((n) => n.type === 'block').map((n) => n.fields!)
     expect(blocks[0]).toMatchObject({ blockType: 'mediaBlock', media: ids.get(`https://npr.brightspotcdn.com/body-${run}.jpg`), alignment: 'left', caption: 'Body caption' })
     expect(blocks[2]).toMatchObject({ blockType: 'embed', url: 'https://twitter.com/WUWF/status/1285659380751499264?ref_src=x', caption: 'Cases are rising.' }) // kept as pasted; the block resolves the canonical address when it renders
     expect(blocks[4]).toMatchObject({ blockType: 'audioPlayer', audio: ids.get(`https://cpa.ds.npr.org/wuwf/audio/interview-${run}.wav`), title: 'Full interview' })
+    expect(blocks[5]).toMatchObject({ blockType: 'videoPlayer', video: ids.get(`https://npr.brightspotcdn.com/b8/planets-${run}.mp4`), poster: ids.get(`https://npr.brightspotcdn.com/poster-${run}.jpg`), title: 'The Planets', caption: 'A performance' })
     // nothing in what was saved is a token, a script or a script address
     expect(JSON.stringify(back.content)).not.toMatch(/\$asset|<script|widgets\.js/)
   })

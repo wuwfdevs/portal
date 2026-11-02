@@ -115,11 +115,24 @@ describe('video', () => {
     expect(fields(run(enh(v({ _template: '/youtube/YouTubeVideoPlayer.hbs', videoId: 'dQw4w9WgXcQ' }))).nodes[0])).toMatchObject({ blockType: 'embed', title: 'The Planets', caption: 'A performance' })
     expect(fields(run(enh(v({ _template: '/vimeo/VimeoVideoPlayer.hbs', videoId: '1008776089' }))).nodes[0]).url).toBe('https://vimeo.com/1008776089')
   })
-  it('a video file has no block yet, so it is kept as a link and flagged for a person', () => {
-    const { nodes, ctx } = run(enh(v({ _template: T('video/HTML5VideoPlayer'), poster: { src: 'https://x/poster.jpg' }, sources: [{ _template: T('video/HTML5VideoPlayerSource'), src: 'https://npr.brightspotcdn.com/b8/planets.mp4', type: 'video/mp4' }] })))
-    expect(nodes[0]!.type).toBe('paragraph')
-    expect(JSON.stringify(nodes[0])).toContain('https://npr.brightspotcdn.com/b8/planets.mp4')
-    expect(ctx.entries.map((e) => e.code)).toEqual(['video.file-kept-as-link', 'video.poster-not-carried'])
+  it('a video file becomes a video block with its poster picture, both registered as files to copy', () => {
+    const { nodes, ctx } = run(enh(v({ _template: T('video/HTML5VideoPlayer'), poster: { src: 'https://npr.brightspotcdn.com/x/poster.jpg' }, sources: [{ _template: T('video/HTML5VideoPlayerSource'), src: 'https://npr.brightspotcdn.com/b8/planets.mp4', type: 'video/mp4' }] })))
+    expect(fields(nodes[0])).toMatchObject({
+      blockType: 'videoPlayer', video: { $asset: 'https://npr.brightspotcdn.com/b8/planets.mp4' }, title: 'The Planets', caption: 'A performance',
+      poster: { $asset: 'https://npr.brightspotcdn.com/x/poster.jpg' },
+    })
+    expect([...ctx.assets.values()].map((a) => [a.kind, a.sourceUrl])).toEqual([['image', 'https://npr.brightspotcdn.com/x/poster.jpg'], ['video', 'https://npr.brightspotcdn.com/b8/planets.mp4']])
+    expect(ctx.entries).toEqual([])
+  })
+  it('prefers the MP4 and says which other formats were left behind', () => {
+    const { ctx } = run(enh(v({ _template: T('video/HTML5VideoPlayer'), sources: [{ src: 'https://x/a.webm', type: 'video/webm' }, { src: 'https://x/a.mp4', type: 'video/mp4' }] })))
+    expect([...ctx.assets.keys()]).toEqual(['https://x/a.mp4'])
+    expect(ctx.entries).toEqual([{ level: 'noted', code: 'video.other-formats-not-kept', detail: 'video/webm' }])
+  })
+  it('a video player with no file is an exception, not a silent skip', () => {
+    const { nodes, ctx } = run(enh(v({ _template: T('video/HTML5VideoPlayer'), sources: [] })))
+    expect(nodes).toEqual([])
+    expect(ctx.entries).toEqual([{ level: 'exception', code: 'video.no-source' }])
   })
 })
 

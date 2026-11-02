@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
+import fs from 'node:fs'
+import path from 'node:path'
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -11,7 +13,7 @@ import { ensureTestSection } from '../helpers/section'
 
 const run = Date.now().toString(36)
 let payload: Payload
-const made: { collection: 'media' | 'audio' | 'posts'; id: number | string }[] = []
+const made: { collection: 'media' | 'audio' | 'video' | 'posts'; id: number | string }[] = []
 
 const as = (role: string) => ({ id: 1, collection: 'users', email: `${role}@wuwf.org`, roles: [role] }) as never
 const editor = as('editor')
@@ -38,6 +40,16 @@ const wav = (name: string) => {
   data.writeUInt32LE(8000, 24); data.writeUInt32LE(8000, 28); data.writeUInt16LE(1, 32); data.writeUInt16LE(8, 34)
   data.write('data', 36); data.writeUInt32LE(samples, 40)
   return { data, mimetype: 'audio/wav', name: `${name}-${run}.wav`, size: data.length }
+}
+
+const mp4 = (name: string) => {
+  const data = fs.readFileSync(path.resolve(__dirname, '../fixtures/one-second.mp4'))
+  return { data, mimetype: 'video/mp4', name: `${name}-${run}.mp4`, size: data.length }
+}
+async function makeVideo(name: string, data: Record<string, unknown> = {}) {
+  const doc = await payload.create({ collection: 'video', overrideAccess: true, file: mp4(name), data: { title: name, ...data } as never })
+  made.push({ collection: 'video', id: doc.id })
+  return doc
 }
 
 async function makeMedia(name: string, data: Record<string, unknown> = {}) {
@@ -86,6 +98,24 @@ describe('media and audio libraries, and featured story media', () => {
 
     it('an audio file needs a title', async () => {
       await expect(payload.create({ collection: 'audio', overrideAccess: true, file: wav('untitled'), data: {} as never })).rejects.toThrow()
+    })
+  })
+
+  describe('video library access', () => {
+    it('anyone can read a video file; content staff can add one and sponsorship staff cannot', async () => {
+      const v = await makeVideo('readable-video')
+      expect((await payload.findByID({ collection: 'video', id: v.id, overrideAccess: false, user: undefined })).title).toBe('readable-video')
+      const ok = await payload.create({ collection: 'video', ...asUser(editor), file: mp4('by-editor'), data: { title: 'by editor' } as never })
+      made.push({ collection: 'video', id: ok.id })
+      await expect(payload.create({ collection: 'video', ...asUser(sponsorship), file: mp4('by-sponsor'), data: { title: 'nope' } as never })).rejects.toThrow()
+    })
+    it('takes video files only', async () => {
+      await expect(payload.create({ collection: 'video', overrideAccess: true, file: await image('not-a-video'), data: { title: 'wrong kind' } as never })).rejects.toThrow()
+    })
+    it('the same source address cannot be stored twice', async () => {
+      const url = `https://npr.brightspotcdn.com/b8/${run}.mp4`
+      await makeVideo('first-video', { legacy: { sourceUrl: url } })
+      await expect(makeVideo('second-video', { legacy: { sourceUrl: url } })).rejects.toThrow()
     })
   })
 
@@ -150,6 +180,14 @@ describe('media and audio libraries, and featured story media', () => {
       ).resolves.toBeTruthy()
     })
 
+    it('a featured video keeps its caption and poster, and can open a story', async () => {
+      const v = await makeVideo('featured-video')
+      const poster = await makeMedia('poster')
+      const p = await makePost({ featuredMedia: [{ blockType: 'videoPlayer', video: v.id, title: 'The Planets', caption: 'A performance', poster: poster.id }] }, 'published')
+      const read = await payload.findByID({ collection: 'posts', id: p.id, depth: 0, overrideAccess: true })
+      expect(read.featuredMedia?.[0]).toMatchObject({ blockType: 'videoPlayer', video: v.id, title: 'The Planets', caption: 'A performance', poster: poster.id })
+    })
+
     it('opens with only one featured item', async () => {
       const m = await makeMedia('one-of-two')
       await expect(
@@ -174,11 +212,12 @@ describe('media and audio libraries, and featured story media', () => {
   })
 
   describe('story body blocks', () => {
-    it('the body no longer offers a promo card, and offers audio', async () => {
+    it('the body no longer offers a promo card, and offers audio and video', async () => {
       const posts = payload.collections.posts.config
       const content = posts.flattenedFields.find((f) => f.name === 'content')
       const json = JSON.stringify(content, (_k, v) => (typeof v === 'function' ? undefined : v))
       expect(json).toContain('"audioPlayer"')
+      expect(json).toContain('"videoPlayer"')
       expect(json).not.toContain('"slug":"promo"')
     })
   })

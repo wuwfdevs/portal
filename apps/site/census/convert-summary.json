@@ -8,18 +8,19 @@
  "nondeterministic": 0,
  "problems": [],
  "problemCount": 0,
- "meanStoryJson": 9130,
+ "meanStoryJson": 9131,
  "statuses": {
-  "clean": 1477,
-  "review": 21,
+  "clean": 1480,
+  "review": 18,
   "exception": 0
  },
  "assets": {
-  "distinctImages": 2520,
+  "distinctImages": 2521,
   "distinctAudio": 1307,
-  "usesAcrossStories": 4616,
+  "distinctVideo": 4,
+  "usesAcrossStories": 4621,
   "perHost": {
-   "npr.brightspotcdn.com": 3285,
+   "npr.brightspotcdn.com": 3290,
    "cpa.ds.npr.org": 1317,
    "media.npr.org": 5,
    "npr-brightspot.s3.amazonaws.com": 4,
@@ -54,6 +55,7 @@
   "embed:x": 26,
   "embed:facebook": 19,
   "block:gallery": 10,
+  "block:videoPlayer": 4,
   "image:inline": 4,
   "embed:vimeo": 2,
   "block:legacyHtml": 1
@@ -78,20 +80,6 @@
     "/local-news/2024-03-19/maximizing-the-voting-power-of-gen-z-in-florida",
     "/local-news/2022-04-20/floridas-new-textbook-standards-cause-issues-to-school-districts",
     "/local-music/2014-02-18/album-review-always-with-us-by-ladysmith-black-mambazo"
-   ]
-  },
-  {
-   "code": "video.file-kept-as-link",
-   "level": "preserved",
-   "occurrences": 4,
-   "stories": 4,
-   "details": {
-    "npr.brightspotcdn.com": 4
-   },
-   "examples": [
-    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season",
-    "/local-news/2022-02-17/ecat-driver-willie-carter-honored-for-47-years-of-service",
-    "/local-news-featured/2024-02-02/take-back-our-border-convoy-reflects-mounting-immigration-crisis"
    ]
   },
   {
@@ -325,16 +313,6 @@
    "examples": [
     "/local-news/2015-04-30/dogs-on-deployment-gives-military-pets-a-loving-home",
     "/local-news/2015-03-03/star-treks-middle-child-was-center-stage-at-pensacon"
-   ]
-  },
-  {
-   "code": "video.poster-not-carried",
-   "level": "noted",
-   "occurrences": 1,
-   "stories": 1,
-   "details": {},
-   "examples": [
-    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season"
    ]
   },
   {

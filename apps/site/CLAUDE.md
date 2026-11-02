@@ -116,7 +116,7 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   export); it is converted to Payload before migrating. The owner's migration plan governs scope (WUWF-originated
   content only; wire stories are URL exceptions); Payload needs a block for everything Grove/Brightspot does, and stories must be able to use them as in
   Grove. Derive the blocks from a tally of that data (`ROADMAP.md` → *Grove migration*), not from documentation or
-  guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, preserved HTML); a story's
+  guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, video, preserved HTML); a story's
   featured media and featured audio are fields, not body blocks. Embeds stay a URL plus a host allowlist, never free HTML,
   and posts on X and Facebook are link-only cards, never live embeds (their scripts track readers). Asset files are copied
   into our own storage, one library record per source file (`legacy.sourceUrl`); the asset fetch needs the owner's approval.

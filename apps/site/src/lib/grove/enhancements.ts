@@ -214,14 +214,20 @@ export function objectNodes(o: JsonObject, ctx: Ctx, align: 'full' | 'left' | 'c
         return e ? [e] : []
       }
       if (pname === 'HTML5VideoPlayer') {
-        const src = arr(player?.sources).map(obj).map((s) => absoluteUrl(str(s?.src))).find((u) => u)
-        if (!src) {
+        const sources = arr(player?.sources).map(obj).filter((x): x is JsonObject => !!x && !!absoluteUrl(str(x.src)))
+        if (!sources.length) {
           ctx.fail('video.no-source')
           return []
         }
-        ctx.preserve('video.file-kept-as-link', hostOf(src))
-        if (player?.poster) ctx.note('video.poster-not-carried')
-        return [lex.paragraph([lex.link(src, true, [lex.text(title || 'Video')]), ...(caption ? [lex.text(` — ${caption}`)] : [])])]
+        const isMp4 = (x: JsonObject) => /mp4/i.test(str(x.type) ?? '') || /\.mp4(\?|$)/i.test(str(x.src) ?? '')
+        const chosen = sources.find(isMp4) ?? sources[0]!
+        if (sources.length > 1) ctx.note('video.other-formats-not-kept', sources.filter((x) => x !== chosen).map((x) => str(x.type) ?? 'unknown type').join(', '))
+        const sourceUrl = absoluteUrl(str(chosen.src))!
+        const posterUrl = absoluteUrl(str(obj(player?.poster)?.src))
+        const poster = posterUrl ? ctx.asset({ kind: 'image', sourceUrl: posterUrl }) : undefined
+        const token = ctx.asset({ kind: 'video', sourceUrl, ...(str(chosen.type) ? { mimeType: str(chosen.type)! } : {}), ...(title ? { title } : {}) })
+        ctx.count('block:videoPlayer')
+        return [lex.block(ctx.id(), 'videoPlayer', { video: token, ...(title ? { title } : {}), ...(caption ? { caption } : {}), ...(poster ? { poster } : {}) })]
       }
       ctx.fail('video.unknown-player', pname || 'none')
       return []

@@ -11,6 +11,7 @@ import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
+import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
@@ -78,6 +79,7 @@ export default buildConfig({
     Posts,
     Media,
     Audio,
+    Video,
     Sections,
     Categories,
     Contributors,

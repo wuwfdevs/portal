@@ -45,7 +45,7 @@ const problems: string[] = []
 let converted = 0
 let nondeterministic = 0
 const assetUses = new Map<string, number>()
-const assetKinds: Record<string, Set<string>> = { image: new Set(), audio: new Set() }
+const assetKinds: Record<string, Set<string>> = { image: new Set(), audio: new Set(), video: new Set() }
 const assetHosts: Record<string, number> = {}
 let bytes = 0
 
@@ -93,6 +93,7 @@ const result = {
   assets: {
     distinctImages: assetKinds.image!.size,
     distinctAudio: assetKinds.audio!.size,
+    distinctVideo: assetKinds.video!.size,
     usesAcrossStories: usesTotal,
     perHost: Object.fromEntries(Object.entries(assetHosts).sort((a, b) => b[1] - a[1])),
   },

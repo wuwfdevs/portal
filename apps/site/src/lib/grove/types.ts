@@ -11,7 +11,7 @@ export type JsonObject = { [key: string]: Json }
  * `resolveAssets` swaps tokens for library ids once the files are stored.
  */
 export interface AssetRef {
-  kind: 'image' | 'audio'
+  kind: 'image' | 'audio' | 'video'
   /** Absolute https address of the file as Grove serves it. The library matches on this (`legacy.sourceUrl`). */
   sourceUrl: string
   width?: number

@@ -71,6 +71,7 @@ export interface Config {
     posts: Post;
     media: Media;
     audio: Audio;
+    video: Video;
     sections: Section;
     categories: Category;
     contributors: Contributor;
@@ -103,6 +104,7 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
+    video: VideoSelect<false> | VideoSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
@@ -279,7 +281,7 @@ export interface Post {
   /**
    * The picture, gallery or video that opens the story. Add one.
    */
-  featuredMedia?: (MediaBlock | GalleryBlock | EmbedBlock)[] | null;
+  featuredMedia?: (MediaBlock | GalleryBlock | VideoPlayerBlock | EmbedBlock)[] | null;
   /**
    * The audio version of this story, for the main player. Optional.
    */
@@ -564,6 +566,72 @@ export interface GalleryBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'gallery';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "VideoPlayerBlock".
+ */
+export interface VideoPlayerBlock {
+  video: number | Video;
+  /**
+   * Names the video for people using a screen reader. Leave empty to use the video file's own title.
+   */
+  title?: string | null;
+  /**
+   * Shown under the video.
+   */
+  caption?: string | null;
+  /**
+   * The picture shown before it plays. Leave empty to use the video file's own picture, if it has one.
+   */
+  poster?: (number | null) | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'videoPlayer';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video".
+ */
+export interface Video {
+  id: number;
+  /**
+   * What the video is. Read aloud by a screen reader as its label.
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Who made it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * The picture shown before the video plays. Optional; a story can choose a different one.
+   */
+  poster?: (number | null) | Media;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1472,6 +1540,10 @@ export interface PayloadLockedDocument {
         value: number | Audio;
       } | null)
     | ({
+        relationTo: 'video';
+        value: number | Video;
+      } | null)
+    | ({
         relationTo: 'sections';
         value: number | Section;
       } | null)
@@ -1737,6 +1809,7 @@ export interface PostsSelect<T extends boolean = true> {
     | {
         mediaBlock?: T | MediaBlockSelect<T>;
         gallery?: T | GalleryBlockSelect<T>;
+        videoPlayer?: T | VideoPlayerBlockSelect<T>;
         embed?: T | EmbedBlockSelect<T>;
       };
   featuredAudio?: T;
@@ -1792,6 +1865,18 @@ export interface GalleryBlockSelect<T extends boolean = true> {
         credit?: T;
         id?: T;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "VideoPlayerBlock_select".
+ */
+export interface VideoPlayerBlockSelect<T extends boolean = true> {
+  video?: T;
+  title?: T;
+  caption?: T;
+  poster?: T;
   id?: T;
   blockName?: T;
 }
@@ -1918,6 +2003,33 @@ export interface AudioSelect<T extends boolean = true> {
   description?: T;
   credit?: T;
   durationSeconds?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video_select".
+ */
+export interface VideoSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  credit?: T;
+  durationSeconds?: T;
+  poster?: T;
   legacy?:
     | T
     | {

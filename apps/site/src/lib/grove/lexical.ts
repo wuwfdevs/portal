@@ -51,8 +51,8 @@ export function stableId(seed: string, n: number): string {
 }
 
 /** The block types a story body may hold, and the ones that may open a story. Must match `blocks/body.ts`. */
-export const BODY_BLOCK_TYPES = ['banner', 'code', 'mediaBlock', 'gallery', 'pullQuote', 'embed', 'audioPlayer', 'legacyHtml'] as const
-export const FEATURED_BLOCK_TYPES = ['mediaBlock', 'gallery', 'embed'] as const
+export const BODY_BLOCK_TYPES = ['banner', 'code', 'mediaBlock', 'gallery', 'pullQuote', 'embed', 'audioPlayer', 'videoPlayer', 'legacyHtml'] as const
+export const FEATURED_BLOCK_TYPES = ['mediaBlock', 'gallery', 'videoPlayer', 'embed'] as const
 
 const NODE_TYPES = new Set(['root', 'paragraph', 'heading', 'quote', 'list', 'listitem', 'horizontalrule', 'text', 'linebreak', 'link', 'block'])
 

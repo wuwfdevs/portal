@@ -50,6 +50,7 @@ const wanted: [string, (m: Record<string, number>) => boolean][] = [
   ['a table', (m) => (m['block:legacyHtml'] ?? 0) > 0],
   ['inline pictures', (m) => (m['image:inline'] ?? 0) > 0],
   ['lists and headings', (m) => (m.list ?? 0) > 1 && (m.heading ?? 0) > 0],
+  ['a video file', (m) => (m['block:videoPlayer'] ?? 0) > 0],
   ['a quotation', (m) => (m.quote ?? 0) > 0],
   ['a plain typical story', () => true],
 ]
@@ -94,12 +95,16 @@ for (const { story, why } of picked.values()) {
 
   const ids = new Map<string, number | string>()
   for (const a of story.assets) {
-    const found = await payload.find({ collection: a.kind === 'image' ? 'media' : 'audio', where: { 'legacy.sourceUrl': { equals: a.sourceUrl } }, limit: 1, depth: 0, overrideAccess: true })
+    const found = await payload.find({ collection: a.kind === 'image' ? 'media' : a.kind === 'video' ? 'video' : 'audio', where: { 'legacy.sourceUrl': { equals: a.sourceUrl } }, limit: 1, depth: 0, overrideAccess: true })
     if (found.docs[0]) { ids.set(a.sourceUrl, found.docs[0].id); continue }
     const name = a.sourceUrl.split('/').pop()?.split('?')[0] ?? 'file'
     if (a.kind === 'image') {
       const data = await placeholderImage(a.sourceUrl, a.width ?? 1200, a.height ?? 800)
       const doc = await payload.create({ collection: 'media', overrideAccess: true, context: ctx, file: { data, mimetype: 'image/png', name: `${name}.png`, size: data.length }, data: { alt: a.alt ?? '', ...(a.credit ? { credit: a.credit } : {}), ...(a.source ? { source: a.source } : {}), legacy: { sourceUrl: a.sourceUrl } } as never })
+      ids.set(a.sourceUrl, doc.id)
+    } else if (a.kind === 'video') {
+      const data = fs.readFileSync(path.resolve(import.meta.dirname, '../../tests/fixtures/one-second.mp4'))
+      const doc = await payload.create({ collection: 'video', overrideAccess: true, file: { data, mimetype: 'video/mp4', name: name.endsWith('.mp4') ? name : `${name}.mp4`, size: data.length }, data: { title: a.title ?? name, legacy: { sourceUrl: a.sourceUrl } } as never })
       ids.set(a.sourceUrl, doc.id)
     } else {
       const data = silentWav()
