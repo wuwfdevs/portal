@@ -1,0 +1,381 @@
+{
+ "generatedFrom": "1566 pages",
+ "converted": 1498,
+ "skipped": {
+  "not-an-article": 65,
+  "ambiguous": 3
+ },
+ "nondeterministic": 0,
+ "problems": [],
+ "problemCount": 0,
+ "meanStoryJson": 9130,
+ "statuses": {
+  "clean": 1477,
+  "review": 21,
+  "exception": 0
+ },
+ "assets": {
+  "distinctImages": 2520,
+  "distinctAudio": 1307,
+  "usesAcrossStories": 4616,
+  "perHost": {
+   "npr.brightspotcdn.com": 3285,
+   "cpa.ds.npr.org": 1317,
+   "media.npr.org": 5,
+   "npr-brightspot.s3.amazonaws.com": 4,
+   "www.wuwf.org": 2,
+   "wuwf.org": 1,
+   "www.90works.org": 1,
+   "mediad.publicbroadcasting.net": 1
+  }
+ },
+ "hostsNeedingApproval": {
+  "embed.documentcloud.org": 5,
+  "www.npr.org": 2,
+  "uw-media.pnj.com": 1,
+  "storify.com": 1,
+  "npr.brightspotcdn.com": 1,
+  "storymaps.arcgis.com": 1,
+  "players.brightcove.net": 1,
+  "datawrapper.dwcdn.net": 1
+ },
+ "mapped": {
+  "paragraph": 20594,
+  "link": 1855,
+  "lead:mediaBlock": 1402,
+  "block:mediaBlock": 732,
+  "block:embed": 94,
+  "lead:gallery": 86,
+  "list": 77,
+  "heading": 50,
+  "embed:youtube": 47,
+  "block:audioPlayer": 40,
+  "quote": 27,
+  "embed:x": 26,
+  "embed:facebook": 19,
+  "block:gallery": 10,
+  "image:inline": 4,
+  "embed:vimeo": 2,
+  "block:legacyHtml": 1
+ },
+ "codes": [
+  {
+   "code": "embed.host-not-approved",
+   "level": "preserved",
+   "occurrences": 13,
+   "stories": 13,
+   "details": {
+    "www.npr.org": 2,
+    "embed.documentcloud.org": 5,
+    "uw-media.pnj.com": 1,
+    "storify.com": 1,
+    "npr.brightspotcdn.com": 1,
+    "storymaps.arcgis.com": 1,
+    "players.brightcove.net": 1,
+    "datawrapper.dwcdn.net": 1
+   },
+   "examples": [
+    "/local-news/2024-03-19/maximizing-the-voting-power-of-gen-z-in-florida",
+    "/local-news/2022-04-20/floridas-new-textbook-standards-cause-issues-to-school-districts",
+    "/local-music/2014-02-18/album-review-always-with-us-by-ladysmith-black-mambazo"
+   ]
+  },
+  {
+   "code": "video.file-kept-as-link",
+   "level": "preserved",
+   "occurrences": 4,
+   "stories": 4,
+   "details": {
+    "npr.brightspotcdn.com": 4
+   },
+   "examples": [
+    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season",
+    "/local-news/2022-02-17/ecat-driver-willie-carter-honored-for-47-years-of-service",
+    "/local-news-featured/2024-02-02/take-back-our-border-convoy-reflects-mounting-immigration-crisis"
+   ]
+  },
+  {
+   "code": "link.unsafe-address-removed",
+   "level": "preserved",
+   "occurrences": 2,
+   "stories": 2,
+   "details": {
+    "http://www.uwfwomen’studies conference.w": 1,
+    "http://govoteokaloosa. com": 1
+   },
+   "examples": [
+    "/uwf-news/2018-03-21/poet-andrea-gibson-to-speak-at-uwf-womens-studies-conference",
+    "/local-news/2015-03-05/crestview-mayors-race-focuses-on-crime"
+   ]
+  },
+  {
+   "code": "html.script-removed",
+   "level": "preserved",
+   "occurrences": 2,
+   "stories": 1,
+   "details": {
+    "inline": 1,
+    "static.electup.com": 1
+   },
+   "examples": [
+    "/local-news/2026-07-31/wuwf-voter-guide-helps-you-navigate-election-season"
+   ]
+  },
+  {
+   "code": "image.no-address",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "resource://skype_ff_extension-at-jetpack": 1
+   },
+   "examples": [
+    "/local-news/2014-02-23/pace-man-arrested-on-charges-of-possessing-promoting-child-pornography"
+   ]
+  },
+  {
+   "code": "html.table-preserved",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-news/2020-05-31/coronavirus-live-blog-week-of-may-25"
+   ]
+  },
+  {
+   "code": "byline.none",
+   "level": "noted",
+   "occurrences": 117,
+   "stories": 116,
+   "details": {},
+   "examples": [
+    "/local-news/2015-07-14/uwf-students-work-with-fwb-youth-center",
+    "/local-news/2014-08-12/local-air-force-staff-sgt-receives-purple-heart",
+    "/local-news/2015-08-05/shalimar-adds-to-air-force-enlisted-village"
+   ]
+  },
+  {
+   "code": "section.none",
+   "level": "noted",
+   "occurrences": 93,
+   "stories": 93,
+   "details": {},
+   "examples": [
+    "/local-politics/2018-11-05/the-issues-motivating-young-people-to-the-polls",
+    "/local-arts/2019-09-05/art-show-highlights-trash-from-escambia-county-waterways",
+    "/local-politics/2020-10-19/salzman-pledges-full-time-effort-for-all-of-district-1"
+   ]
+  },
+  {
+   "code": "sections.secondary-not-migrated",
+   "level": "noted",
+   "occurrences": 87,
+   "stories": 87,
+   "details": {
+    "Apple News": 72,
+    "Apple News, Music & Arts": 1,
+    "Local News": 8,
+    "Florida News": 1,
+    "Unearthing Florida": 1,
+    "Election 2024": 1,
+    "Music & Arts": 1,
+    "Apple News, The EcoMinute": 1,
+    "Apple News, Civics 101": 1
+   },
+   "examples": [
+    "/local-news/2025-09-16/community-outcry-stops-plan-to-rename-pensacola-street-for-charlie-kirk",
+    "/local-news/2025-05-23/uwf-memorial-day-observance-honors-the-fallen-mia-and-pow",
+    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season"
+   ]
+  },
+  {
+   "code": "byline.person-without-address",
+   "level": "noted",
+   "occurrences": 62,
+   "stories": 61,
+   "details": {
+    "christian garman": 1,
+    "Danielle Freeman": 4,
+    "Mike Ensley": 2,
+    "Lindsay Myers-Humlie": 1,
+    "Abigail Megginson": 8,
+    "Jim Saunders - News Service of Florida": 3,
+    "Jennie McKeon": 3,
+    "Dave Dunwoody": 19,
+    "CAITIE SWITALSKI": 1,
+    "Staff report": 1,
+    "Staff reports": 1,
+    "WUWF Staff": 5,
+    "Peter Rubardt": 2,
+    "Gina Jordan": 1,
+    "Catherine Welch": 1,
+    "Timothy Jones": 1,
+    "Travis Morency": 1,
+    "Staff": 1,
+    "News Service of Florida": 1,
+    "bbarrett": 1,
+    "FPREN": 1,
+    "Charlie Crist": 1,
+    "Jeff Huffman": 1,
+    "lmyers": 1
+   },
+   "examples": [
+    "/local-news/2019-10-21/gulf-stories-moment-10-21-19",
+    "/local-news/2014-08-29/tax-breaks-renewed-for-businesses-in-okaloosa-county",
+    "/local-news/2019-07-15/tattoo-stigma-still-exists-but-is-quickly-disappearing"
+   ]
+  },
+  {
+   "code": "byline.from-text",
+   "level": "noted",
+   "occurrences": 58,
+   "stories": 57,
+   "details": {},
+   "examples": [
+    "/local-news/2019-10-21/gulf-stories-moment-10-21-19",
+    "/local-news/2014-08-29/tax-breaks-renewed-for-businesses-in-okaloosa-county",
+    "/local-news/2019-07-15/tattoo-stigma-still-exists-but-is-quickly-disappearing"
+   ]
+  },
+  {
+   "code": "text.markup-flattened",
+   "level": "noted",
+   "occurrences": 19,
+   "stories": 16,
+   "details": {
+    "source": 5,
+    "caption": 10,
+    "credit": 3,
+    "slide caption": 1
+   },
+   "examples": [
+    "/unearthing-florida/2025-03-14/exploring-spanish-history-at-fountain-of-youth-park",
+    "/local-news/2023-12-13/northwest-florida-school-districts-fare-well-with-a-and-b-ratings-for-2022-23",
+    "/local-news/2025-04-05/hands-off-pensacola-protest-draws-a-massive-crowd"
+   ]
+  },
+  {
+   "code": "gallery.filename-title-dropped",
+   "level": "noted",
+   "occurrences": 89,
+   "stories": 16,
+   "details": {},
+   "examples": [
+    "/local-news/2025-08-29/pensacola-residents-honor-the-life-and-legacy-of-rev-h-k-matthews",
+    "/local-news/2024-04-08/uwf-enjoys-partial-eclipse-despite-cloudy-weather",
+    "/local-news/2022-03-24/no-easy-solutions-for-escambias-old-deteriorating-overcrowded-jail"
+   ]
+  },
+  {
+   "code": "link.polluted-address-dropped",
+   "level": "noted",
+   "occurrences": 9,
+   "stories": 8,
+   "details": {},
+   "examples": [
+    "/local-news/2019-12-23/port-of-pensacola-2-oysters",
+    "/local-arts/2015-10-06/stamped-pensacola-lgbt-film-fest-is-back-for-fourth-year",
+    "/local-news/2020-04-14/obama-endorses-biden-for-president"
+   ]
+  },
+  {
+   "code": "html.font-formatting-dropped",
+   "level": "noted",
+   "occurrences": 7,
+   "stories": 5,
+   "details": {},
+   "examples": [
+    "/uwf-news/2017-11-17/gulf-stories-moment-11-20-17",
+    "/local-news/2014-04-22/listen-pensacola-symphony-orchestra-presents-mozart-mahler",
+    "/local-news/2014-05-06/latest-damage-assessments-escambia-santa-rosa-okaloosa"
+   ]
+  },
+  {
+   "code": "link.empty-text",
+   "level": "noted",
+   "occurrences": 3,
+   "stories": 3,
+   "details": {},
+   "examples": [
+    "/local-news/2014-02-10/impact-100-seeking-membership-of-1-000-women",
+    "/local-news/2014-04-14/gaetz-works-through-holiday-seeks-feedback-on-three-controversial-bills",
+    "/local-news/2014-02-28/florida-history-highlighted-during-archaeology-month"
+   ]
+  },
+  {
+   "code": "gallery.description-flattened",
+   "level": "noted",
+   "occurrences": 2,
+   "stories": 2,
+   "details": {},
+   "examples": [
+    "/local-news/2025-03-03/pensacola-grand-mardi-gras-parade-celebrates-community",
+    "/local-news/2025-09-30/pensacola-finalizes-baptist-hospital-campus-transfer-launching-major-westside-redevelopment"
+   ]
+  },
+  {
+   "code": "html.unwrapped-tag",
+   "level": "noted",
+   "occurrences": 7,
+   "stories": 2,
+   "details": {
+    "li": 7
+   },
+   "examples": [
+    "/local-news/2015-04-30/dogs-on-deployment-gives-military-pets-a-loving-home",
+    "/local-news/2015-03-03/star-treks-middle-child-was-center-stage-at-pensacon"
+   ]
+  },
+  {
+   "code": "video.poster-not-carried",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season"
+   ]
+  },
+  {
+   "code": "figure.empty",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-news/2015-05-18/florida-lawmakers-return-to-work-on-budget"
+   ]
+  },
+  {
+   "code": "html.noscript-removed",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-news/2014-02-25/pensacon-weekend-in-review"
+   ]
+  },
+  {
+   "code": "link.without-address",
+   "level": "noted",
+   "occurrences": 3,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-news/2014-02-23/pace-man-arrested-on-charges-of-possessing-promoting-child-pornography"
+   ]
+  },
+  {
+   "code": "heading.h1-became-h2",
+   "level": "noted",
+   "occurrences": 2,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/local-music/2015-12-23/merry-christmas-from-14-59"
+   ]
+  }
+ ]
+}

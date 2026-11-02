@@ -17,6 +17,7 @@ design canvas are described under *Sources* below.
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
 | Story blocks derived from the template census (2026-11-02): Media (per-use caption, credit, source, alt override, alignment), Gallery (carousel, grid, list; slide titles), Pull quote, Embed (adds width/height and link-only X and Facebook posts), Audio (new), Preserved HTML; Promo removed | **Done**; checked in a browser at 1440 and 390 px; tables and a native video player are **not** (one table in 1,500 pages stays preserved HTML) |
+| **Grove converter** (`src/lib/grove`, pure): one Grove article page to one story plus a fidelity report; asset tokens, exact path, slug, ids and dates kept | **Done** (2026-11-02). Run on all 1,566 real census pages: 1,498 converted (exactly the census's WUWF-originated count), 3 ambiguous copies and 65 non-articles skipped by design; **1,477 clean, 21 need a person, 0 exceptions**; every path and Grove id matches the manifest; output is deterministic. 91 tests (6 mutation-checked), plus an integration test that publishes a converted story through Payload and reads it back. Not yet built: the asset pipeline and the importer |
 | Media and audio libraries; featured media and audio on stories (replace `heroImage`) | **Done** (migration `20261102_220306`, data move tested up, down and up again). `credit`, `source` and a unique write-once `legacy.sourceUrl` on media and audio; `featuredMedia` is one photo, gallery or video, `featuredAudio` one audio file |
 | Grove-ready identity: `legacy.legacyPath`, `legacy.groveId` (contentId), `legacy.modifiedAt`, `legacy.nprId`, `source` on posts and pages; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
@@ -53,7 +54,7 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. ~~**Before any more body work: the census**~~ Done, and the blocks are built from it. **Next in the migration: the converter with its fidelity report, then the asset pipeline** (see *Grove migration: next steps*). The pages below do not depend on either.
+5. ~~**Before any more body work: the census**~~ Done, the blocks are built from it, and **the converter is built and run on the whole sample** (see *The converter*). **Next in the migration: the asset pipeline (needs the owner's approval to fetch, and the site's Supabase storage), then the importer.** The pages below do not depend on either.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
    links already point at it), then the **homepage** (boards 1-2, editor-curated placements, no hard-coded arrays, and
@@ -302,6 +303,46 @@ and why (counts are pages of the 1,500 sampled):
 The sanitizer, the embed allowlist and the administrators-only guard on preserved HTML are unchanged. If the data or the plan
 is unclear, stop and ask the owner; do not build on a guess.
 
+### The converter (built 2026-11-02): `src/lib/grove`
+
+Pure code: a Grove page's JSON in, a story and a report out. It fetches nothing and writes nothing.
+
+- `convertStory(page, { embedHosts })` returns `converted` (a `ConvertedStory` and a `StoryReport`) or `skipped` (`external`,
+  `ambiguous`, `not-an-article`). Only WUWF-originated stories convert; origin is read per page with the census classifier.
+- The story keeps Grove's exact `path`, its `slug` (the last path segment), `contentId`, both dates, the description (as
+  `meta.description`, not a dek), the section and topics (as natural keys the importer resolves), and the byline (people
+  keyed by their `/people/<slug>`). Block ids are deterministic, so a re-run changes nothing.
+- The body is Grove's flat run of text chunks, inline link objects and block objects, rejoined so a paragraph a link
+  interrupted is one paragraph. A real parser (`parse5`, added as a direct dependency) reads the HTML; empty paragraphs
+  (Grove is full of them) are dropped silently, everything else is accounted for. Links to our own pages become relative.
+- Every file the story uses is a `$asset` token with its URL in `assets`; `resolveAssets(value, idByUrl)` swaps tokens for
+  library ids and **throws, naming the files, if any has none**, so a story cannot be saved pointing at nothing.
+- The report says, per story, what was `preserved` (kept some other way, needs a person), `noted` (changed, nothing lost)
+  or an `exception` (stop). `summarize()` rolls many reports up and lists the hosts that need approving.
+
+Run it: `pnpm exec tsx scripts/grove/convert-corpus.ts --raw <unzipped census folders> --manifest census/manifest.jsonl
+[--hosts a,b] [--out census/convert-summary.json]`. The saved summary is `census/convert-summary.json` (no page content).
+`scripts/grove/rehearse.ts` saves a varied handful of real stories into the **local** database with generated placeholder
+files, to look at them in a browser (it refuses any non-local database). It is a rehearsal, not the importer.
+
+**Result on the 1,566 census pages:** 2,520 distinct images and 1,307 distinct audio files across 4,616 uses (so reuse is
+real: the library dedupes about a third of uses); hosts are `npr.brightspotcdn.com` (3,285), `cpa.ds.npr.org` (1,317) and a
+handful of others (`media.npr.org`, an S3 bucket, `www.90works.org`, ...). Mapped: 20,594 paragraphs, 1,853 links, 1,402 lead
+photos, 732 body photos, 86 lead galleries, 94 embeds (47 YouTube, 26 X, 19 Facebook, 2 Vimeo), 40 audio blocks, 27 quotes.
+
+**What needs the owner (the 21 stories to review, and the notes):**
+1. **Hosts to approve in Site settings** so these frames become embeds (until then they are links, and the host is named):
+   `embed.documentcloud.org` (5 stories), `www.npr.org` (2), and one each of `uw-media.pnj.com`, `storify.com`,
+   `storymaps.arcgis.com`, `players.brightcove.net`, `datawrapper.dwcdn.net`, `npr.brightspotcdn.com`.
+2. **Video files** (4 stories): no video block exists, so each is kept as a link to the file. Decide whether to build one.
+3. **Two broken addresses** in the text (a link with a space in it); the words are kept, the link is not.
+4. **One script widget** (an election-guide embed in the 2026 voter guide) cannot be imported; flagged.
+5. **One table** is preserved HTML; **one junk image** (a browser-extension URL) was skipped and flagged.
+6. **93 stories have no primary section and 116 have no byline**; the importer needs a rule (for example, derive the section
+   from the path's first segment, and credit "WUWF Staff"). 61 bylines have a name but no `/people/` address.
+7. `updatesCorrections` is empty on every sampled story; a story that has one is an exception (there is no corrections field).
+8. 87 stories list a secondary section (almost always "Apple News", a distribution flag); noted, not migrated.
+
 ### The libraries (decided 2026-11-02)
 
 Grove keeps a reusable library of audio, video and photos with metadata; `media` and the new `audio` collection are that
@@ -430,6 +471,15 @@ signed-in account page, not CMS content.
 - **Run upload tests in the Node environment** (`// @vitest-environment node` at the top of the file): in the default
   jsdom environment Payload cannot detect the type of a Buffer and refuses it. Payload checks what a file really is, so test
   audio must be a genuine file (a tiny silent WAV).
+- **Stop a server by its process id, and check it is gone.** `lsof` is not installed here, so `lsof -ti:3000 | xargs kill` did
+  nothing; the old server kept port 3000 while a rebuild deleted its stylesheets, and the new one never started. The page
+  looked unstyled. List with `ps -eo pid,args | grep -E "[n]ext-server"` and kill those pids.
+- **The local Postgres stops when the sandbox idles.** `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/wuwf-site-pg
+  -l /var/tmp/wuwf-site-pg/log.txt -w start"` brings it back (the roadmap's setup block creates it).
+- **Real data finds what synthetic data cannot.** Grove galleries mix portrait and landscape pictures, so the carousel needed a
+  uniform frame (`relative aspect-[3/2]`, image `absolute inset-0 object-contain`); a pasted video link arrived wrapped in a
+  corrupted `<brightspot-cms-external-content>` element; an empty lead figure is "no picture", not an error. The census zips
+  are the test material: unzip each into its own new folder outside the repository and run the corpus script over them.
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
 
@@ -466,7 +516,12 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
 - **Vercel, new project for the site:** Root Directory `apps/site`, Node pinned, own env vars.
 - **Not yet confirmed:** that Vercel's install handles one lockfile per project in a pnpm workspace. Check the
   first preview build.
-- **A Supabase project for the site** (separate from the Portal's two) and its keys.
+- **Supabase projects for the site: created 2026-11-02** in the WUWF organization, region `us-east-1`, separate from the
+  Portal's two: `wuwf-site-staging` (ref `avgeycgvaufwdfzdsogi`) and `wuwf-site-production` (ref `gyidqxhkkhajfazbcrug`).
+  **Still to do:** put each project's connection strings (pooled for the running site, direct or session for migrations) in
+  Vercel's environment variables, and in this session's secrets so staging can be migrated with `payload migrate` (not by
+  raw SQL, which would leave Payload's migration ledger out of step); then the S3-compatible storage adapter for uploads and
+  the first staging import rehearsal. Never commit keys. The exact monthly cost was not shown at creation: check billing.
 - WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
   page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
   WUWF can source them; staff add them under Support page → Top of page.

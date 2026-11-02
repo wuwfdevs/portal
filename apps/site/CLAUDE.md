@@ -120,6 +120,10 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   featured media and featured audio are fields, not body blocks. Embeds stay a URL plus a host allowlist, never free HTML,
   and posts on X and Facebook are link-only cards, never live embeds (their scripts track readers). Asset files are copied
   into our own storage, one library record per source file (`legacy.sourceUrl`); the asset fetch needs the owner's approval.
+- **The converter lives in `src/lib/grove`** (pure: no fetching, no database). One Grove page in, one story plus a report out;
+  anything it cannot map becomes a flagged link, preserved HTML or an exception, never a silent drop, and a script is never
+  imported. Keep it that way: no network, no Payload, no React in that folder. Test it on synthetic pages in the repo and on
+  the real census pages through `scripts/grove/convert-corpus.ts` (the raw pages stay outside the repository).
 - **If you do not know how to proceed, or need information, stop and ask the owner.** Do not build on a guess.
 - **`dangerouslySetInnerHTML` is allowed in exactly one place**: `blocks/LegacyHtml/Component.tsx`, on the output of
   `lib/sanitize.ts`. Nowhere else.
