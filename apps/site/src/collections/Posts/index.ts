@@ -9,10 +9,10 @@ import {
   lexicalEditor,
 } from '@payloadcms/richtext-lexical'
 
-import { authenticated } from '../../access/authenticated'
-import { authenticatedOrPublished } from '../../access/authenticatedOrPublished'
+import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { bodyBlocks } from '../../blocks/body'
 import { userCan } from '../../access/permissions'
+import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { changedLegacyHtml } from '../../lib/legacy-html-guard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -30,10 +30,10 @@ import { APIError, slugField } from 'payload'
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
   access: {
-    create: authenticated,
-    delete: authenticated,
-    read: authenticatedOrPublished,
-    update: authenticated,
+    create: requirePermission('content.write'),
+    delete: requirePermission('content.publish'),
+    read: publishedOrContentStaff,
+    update: requirePermission('content.write'),
   },
   // This config controls what's populated by default when a post is referenced
   // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property
@@ -262,6 +262,7 @@ export const Posts: CollectionConfig<'posts'> = {
   hooks: {
     beforeValidate: [ensureSlug('title')],
     beforeChange: [
+      enforcePublishPermission,
       ({ data, originalDoc, req }) => {
         // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
         // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.

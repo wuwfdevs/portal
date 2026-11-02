@@ -143,6 +143,15 @@ Run typecheck, lint and tests before calling a change done.
 
 - Strict TypeScript and generated CMS types. Loading, empty and error states on every data screen.
 - Server-side validation of all public input. Access control on every collection and every route.
+- **Access is by permission, never by "is signed in".** Staff roles are defined in `@wuwf/portal-contracts`; use
+  `requirePermission(...)` (and `publishedOrContentStaff` for reads), not `authenticated`. Saving drafts is
+  `content.write`; making work live (publish, edit a live document, delete, redirects) is `content.publish`,
+  enforced for publishing by `hooks/enforcePublishPermission`. Plugin collections (redirects, forms) get the same
+  treatment through their `overrides`.
+- **Every public read through the Local API states `overrideAccess`.** The Local API skips access control by default,
+  so an unguarded `payload.find` in a page or block leaks drafts. `lib/public-reads.test.ts` fails when one forgets.
+- **A cached read needs an invalidation.** Anything read through `getCachedGlobal` (tag `global_<slug>`) needs an
+  `afterChange` hook that revalidates that tag, as Header, Footer, Support page and Site settings have.
 - Logic separate from presentation: pure, tested modules for publishing, revenue, entitlement and
   listening logic; components stay thin.
 - Colours, type and spacing come from `@wuwf/design-tokens`; no one-off hex values or pixel sizes.

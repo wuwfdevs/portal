@@ -4,6 +4,7 @@ import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { Plugin } from 'payload'
+import { requirePermission } from '@/access/permissions'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
 import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
@@ -27,6 +28,13 @@ export const plugins: Plugin[] = [
   redirectsPlugin({
     collections: ['pages', 'posts'],
     overrides: {
+      // A redirect reroutes a live URL, so changing one is publishing.
+      access: {
+        read: () => true,
+        create: requirePermission('content.publish'),
+        update: requirePermission('content.publish'),
+        delete: requirePermission('content.publish'),
+      },
       // @ts-expect-error - This is a valid override, mapped fields don't resolve to the same type
       fields: ({ defaultFields }) => {
         return defaultFields.map((field) => {
@@ -59,6 +67,12 @@ export const plugins: Plugin[] = [
       payment: false,
     },
     formOverrides: {
+      access: {
+        read: () => true,
+        create: requirePermission('content.write'),
+        update: requirePermission('content.write'),
+        delete: requirePermission('content.write'),
+      },
       fields: ({ defaultFields }) => {
         return defaultFields.map((field) => {
           if ('name' in field && field.name === 'confirmationMessage') {

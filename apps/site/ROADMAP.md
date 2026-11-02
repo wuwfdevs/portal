@@ -157,6 +157,14 @@ guess.
 
 ## Lessons (these cost real time)
 
+- **The starter's access control is "any signed-in user".** Posts, Pages, Categories, Media and the redirects and forms
+  plugins all shipped that way, so a sponsorship-only account could edit and publish stories and an editor could
+  publish. Found in review, fixed with permission-based access and a publish guard, tested by role in
+  `tests/int/editorial-access.int.spec.ts`. When adding or importing a collection, check its access first.
+- **The Local API ignores access control unless told otherwise.** The Archive block listed unpublished stories to the
+  public for that reason. Every public `payload.find` now states `overrideAccess`, and a test enforces it.
+- **A cached global with no invalidation never changes.** Site settings (approved embed hosts, the independence-policy
+  link) were cached forever; saving them now refreshes the tag and the rendered pages.
 - **Never use one shared pnpm lockfile.** It made pnpm resolve the Portal's optional peers from the site
   (esbuild, sass, tsx, `@playwright/test`), changing how Portal tests were transpiled; 6 failed with empty error
   messages while every resolved version stayed identical. `sharedWorkspaceLockfile: false`. After any change to

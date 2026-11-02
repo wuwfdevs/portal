@@ -6,6 +6,7 @@ export async function getRedirects(depth = 1) {
   const payload = await getPayload({ config: configPromise })
 
   const { docs: redirects } = await payload.find({
+    overrideAccess: false,
     collection: 'redirects',
     depth,
     limit: 0,

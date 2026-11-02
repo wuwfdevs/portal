@@ -12,6 +12,8 @@ async function getDocument(collection: Collection, slug: string, depth = 0) {
   const page = await payload.find({
     collection,
     depth,
+    // Resolves a redirect target for anonymous visitors: only what they could read anyway.
+    overrideAccess: false,
     where: {
       slug: {
         equals: slug,

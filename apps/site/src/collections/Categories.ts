@@ -1,7 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { anyone } from '../access/anyone'
-import { authenticated } from '../access/authenticated'
+import { requirePermission } from '../access/permissions'
 import { ensureSlug } from '../hooks/ensureSlug'
 import { slugField } from 'payload'
 
@@ -11,10 +11,10 @@ export const Categories: CollectionConfig = {
   // components built on it keep working. A topic is reader navigation and is never underwritten.
   labels: { singular: 'Topic', plural: 'Topics' },
   access: {
-    create: authenticated,
-    delete: authenticated,
+    create: requirePermission('content.write'),
+    delete: requirePermission('content.write'),
     read: anyone,
-    update: authenticated,
+    update: requirePermission('content.write'),
   },
   admin: {
     group: 'Editorial',

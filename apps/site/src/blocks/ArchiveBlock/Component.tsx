@@ -30,6 +30,8 @@ export const ArchiveBlock: React.FC<
       collection: 'posts',
       depth: 1,
       limit,
+      // The public archive: apply the collection's read access (no signed-in user here, so published stories only).
+      overrideAccess: false,
       ...(flattenedCategories && flattenedCategories.length > 0
         ? {
             where: {

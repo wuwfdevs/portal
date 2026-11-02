@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { requirePermission } from '@/access/permissions'
+import { revalidateSiteSettings } from './hooks/revalidateSiteSettings'
 
 /**
  * Site-wide settings that pages link to. Kept as references, not typed-in URLs, so a link can never point at a
@@ -10,6 +11,7 @@ export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
   label: 'Site settings',
   access: { read: () => true, update: requirePermission('settings.manage') },
+  hooks: { afterChange: [revalidateSiteSettings] },
   fields: [
     {
       name: 'embedHosts',
