@@ -140,7 +140,7 @@ host) can say. Whether any bare `/DATE/slug` story is WUWF-originated is unknown
 
 The raw sitemaps and sample responses were kept in the session's scratch space, not the repository, and are gone with
 the sandbox. To regenerate: read `https://www.wuwf.org/sitemap.xml` (an index of `sitemap-YYYYMM.xml` files), fetch each
-with a User-Agent that identifies the project and at least 3 s between requests (robots.txt allows all; no personal email in the User-Agent), and tally by
+with a neutral User-Agent (no contact information of any kind) and at least 3 s between requests (robots.txt allows all), and tally by
 path shape. Re-fetch the sample below the same way with `?_renderer=json`.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
@@ -190,19 +190,26 @@ standalone pages, one event. Paths:
 
 1. **URL census** from the 276 monthly sitemaps (no story pages): shapes and counts per year.
 2. **Search Console and backlink data** for the syndicated-URL decision. **Pinned**: the owner has no access right now.
-3. **Template census**: **approved by the owner** to run as a larger fetch, in the same session as step 4 or after it
-   (the fetch runs in the background while code is written). The session proposes its plan first and waits for the
-   owner's OK. Suggested shape, about 2,500 pages (about two hours at one request every 3 s): every standalone page, show
-   episode, show page and deep-path page (about 1,050); about 1,000 section-prefixed stories stratified by year and
-   section, weighted toward 2013-2016; about 300 wire-style stories stratified by year (to find any WUWF-originated
-   story hiding under a wire-style URL); about 150 events, people and tags. Seeded and deterministic; a manifest it can
-   resume from (the sandbox restarts and kills background jobs); backoff on errors and a stop after repeated failures;
-   robots.txt honoured; **a neutral User-Agent with no personal email** (use a contact address only if the owner gives
-   one); raw responses outside the repository. Output: a frequency table of every `_template`, enhancement type and
-   field shape with example records, plus how many new types each extra 100 pages found (is the sample big enough?).
-   Commit the tally and a small metadata manifest, not the raw JSON. Where the real archive will live durably is a
-   decision for before the actual migration fetch. Coordination with NPR on volume is the owner's to arrange (the
-   plan's Phase 0); ask before anything beyond this census.
+3. **Template census**: **approved by the owner**, **scoped to local news stories only** (the owner's instruction), to run
+   in the same session as step 4 or after it (the fetch runs in the background while code is written). The session
+   proposes its plan first and waits for the owner's OK. The universe, from the sitemap census: `/local-news/` 4,663
+   URLs (2013: 105, 2014: 581, 2015: 515, 2016: 454, 2017: 302, 2018: 333, 2019: 388, 2020: 489, 2021: 328, 2022: 270,
+   2023: 188, 2024: 203, 2025: 310, 2026: 196), plus the other WUWF-looking sections, about 425 more (`commentary` 106,
+   `uwf-news` 77, `local-arts` 65, `unearthing-florida` 59, `local-politics` 51, `local-elections` 26, `local-music` 24,
+   `local-economy` 8, `local-news-featured` 7, `local-music-scene` 2). Origin is still decided by
+   `sourceOrganizationName` and the `canonicalLink` host, not the section. That is about 5,100 pages, so the session
+   should propose either a stratified sample (for example about 1,500 by year and section, weighted toward 2013-2016) or
+   the whole set (about 4.3 hours at one request every 3 s) and let the owner choose. **Not in this census** (so their
+   templates are known only from the 33-page sample): standalone pages, show episodes and show pages, events, people,
+   tags, and wire-style stories, including the check for any WUWF-originated story hiding under a wire-style URL; the
+   owner can add them later. Seeded and deterministic; a manifest it can resume from (the sandbox restarts and kills
+   background jobs); backoff on errors and a stop after repeated failures; robots.txt honoured; **no contact
+   information of any kind in request headers** (a neutral User-Agent such as `WUWF-migration-research`); raw responses
+   outside the repository. Output: a frequency table of every `_template`, enhancement type and field shape with example
+   records, plus how many new types each extra 100 pages found (is the sample big enough?). Commit the tally and a small
+   metadata manifest, not the raw JSON. Where the real archive will live durably is a decision for before the actual
+   migration fetch. Coordination with NPR on volume is the owner's to arrange (the plan's Phase 0); ask before anything
+   beyond this census.
 4. The `path` field and catch-all resolver (approved).
 5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).

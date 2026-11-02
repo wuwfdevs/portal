@@ -122,7 +122,7 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   `lib/sanitize.ts`. Nowhere else.
 - **URLs keep Grove's exact paths** (`/{section}/{YYYY-MM-DD}/{slug}`), stored once as a unique `path` and resolved by one
   catch-all route; never recompute a migrated path. Do not fetch from `wuwf.org` beyond what the owner has approved:
-  honour robots.txt, space requests at least 3 s apart, send a neutral User-Agent (never the owner's email), keep raw responses out of the repository.
+  honour robots.txt, space requests at least 3 s apart, send a neutral User-Agent with no contact information of any kind, keep raw responses out of the repository.
 
 ## Database
 
