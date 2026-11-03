@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_BYLINE, planImport, sectionTitlesBySegment, titleFromSegment } from './import-rules'
+import { DEFAULT_BYLINE, planImport, sectionTitlesBySegment, splitAuthorsByStories, titleFromSegment } from './import-rules'
 import type { ConvertedStory } from './types'
 
 type S = Pick<ConvertedStory, 'path' | 'section' | 'byline'>
@@ -80,5 +80,17 @@ describe('planImport: byline', () => {
     const before = JSON.stringify(s)
     planImport(s, new Map())
     expect(JSON.stringify(s)).toBe(before)
+  })
+})
+
+describe('splitAuthorsByStories', () => {
+  const by = (...slugs: (string | undefined)[]) => ({ byline: { people: slugs.map((slug, i) => ({ name: `P${i}`, ...(slug ? { slug } : {}) })), text: null } })
+  it('keeps only authors a migrated story credits, and says who was skipped', () => {
+    const r = splitAuthorsByStories([{ slug: 'a' }, { slug: 'b' }, { slug: 'c' }], [by('a', undefined), by('c')])
+    expect(r.keep.map((x) => x.slug)).toEqual(['a', 'c'])
+    expect(r.skipped.map((x) => x.slug)).toEqual(['b'])
+  })
+  it('skips everyone when no story credits them', () => {
+    expect(splitAuthorsByStories([{ slug: 'a' }], []).keep).toEqual([])
   })
 })

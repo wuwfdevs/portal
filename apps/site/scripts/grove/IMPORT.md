@@ -87,3 +87,7 @@ pnpm exec tsx scripts/grove/import.ts --raw ~/grove/raw --cache ~/grove/cache --
 The report (`import-report.json` in the cache folder) lists what was saved, what was already there, which stories are held and
 why, and every decision the importer made for the owner to review (stories filed by path, credited to "WUWF Staff", extra
 byline names). A held story is fixed or decided by a person, then the same command is run again.
+
+## Author profiles follow the stories
+
+A profile is saved only when a story in the run credits that person (matched on `/people/<slug>`). Other people (NPR or other-station contributors who never wrote for WUWF) are skipped by rule and counted as `authorsSkippedByRule` in the report, not held. Their `/people/` addresses are not carried over; owner to decide whether they redirect.

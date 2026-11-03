@@ -82,3 +82,20 @@ export function planImport(story: Pick<ConvertedStory, 'path' | 'section' | 'byl
   }
   return { section, people, notes }
 }
+
+/**
+ * Which author profiles to bring in. The rule is the same as for stories: we migrate what the station made. A person's profile
+ * is kept only when a story being migrated credits them, matched on the `/people/<slug>` address. Anyone else (an NPR or
+ * other-station contributor who never wrote for WUWF) is skipped by rule, not held for missing files.
+ */
+export function splitAuthorsByStories<A extends { slug: string }>(
+  authors: readonly A[],
+  stories: readonly Pick<ConvertedStory, 'byline'>[],
+): { keep: A[]; skipped: A[] } {
+  const credited = new Set<string>()
+  for (const s of stories) for (const p of s.byline.people) if (p.slug) credited.add(p.slug)
+  const keep: A[] = []
+  const skipped: A[] = []
+  for (const a of authors) (credited.has(a.slug) ? keep : skipped).push(a)
+  return { keep, skipped }
+}

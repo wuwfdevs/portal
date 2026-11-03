@@ -43,7 +43,7 @@ const dryRun = has('dry-run')
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
-const { convertStory, convertContentPage, convertAuthorPage, convertEventPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+const { convertStory, convertContentPage, convertAuthorPage, convertEventPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment, splitAuthorsByStories } = await import('../../src/lib/grove')
 type ConvertedPage = import('../../src/lib/grove').ConvertedPage
 type ConvertedShow = import('../../src/lib/grove').ConvertedShow
 type ConvertedEvent = import('../../src/lib/grove').ConvertedEvent
@@ -120,6 +120,11 @@ if (sampleN > 0 && sampleN < stories.length) {
   stories.splice(0, stories.length, ...picked)
   console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
 }
+// Only people a migrated station story credits get a profile; the rest are skipped by rule (see import-rules.ts).
+const split = splitAuthorsByStories(authors, stories)
+authors.splice(0, authors.length, ...split.keep)
+const authorsSkipped = split.skipped.map((x) => x.path)
+if (authorsSkipped.length) console.log(`authors: ${authorsSkipped.length} skipped, no migrated station story credits them`)
 console.log(`converted ${stories.length} stories, ${shows.length} shows, ${standardPages.length} standard pages, ${events.length} events and ${authors.length} author profiles (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
@@ -576,6 +581,7 @@ function summary(saved: number, already: number, notes: Map<string, number>, fai
     failed: failures.length,
     decisions: Object.fromEntries([...notes].sort()),
     heldStories: held.slice(0, 40),
+    authorsSkippedByRule: authorsSkipped.length,
     failures,
   }
   const file = path.join(cache, 'import-report.json')
