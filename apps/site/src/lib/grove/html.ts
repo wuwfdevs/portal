@@ -7,6 +7,7 @@ import { parseFragment, serializeOuter } from 'parse5'
 import type { DefaultTreeAdapterMap } from 'parse5'
 
 import { absoluteUrl, plainText, safeHref, type Ctx } from './context'
+import { isLinkLineUrl } from '../link-line'
 import { checkScriptUrl, DEFAULT_WIDGET_HEIGHT } from '../widgets'
 import { embedNode } from './embed'
 import * as lex from './lexical'
@@ -100,12 +101,13 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
 
 /** Escaped tags in link text that the editor typed as words (`&lt;b&gt;Headline&lt;/b&gt;`), by the format each stands for. */
 const ESCAPED_WRAP = /^\s*<(b|strong|i|em|u)>([\s\S]*?)<\/\1>\s*$/i
+const ESCAPED_EMPTY = /<(b|strong|i|em|u)>\s*<\/\1>/gi
 const ESCAPED_FORMAT: Record<string, number> = { b: lex.FORMAT.bold, strong: lex.FORMAT.bold, i: lex.FORMAT.italic, em: lex.FORMAT.italic, u: lex.FORMAT.underline }
 
 /**
  * Grove editors sometimes typed `<b>…</b>` into a link's text, and it was stored as the characters, not as bold. When the
  * whole link text is wrapped in such a pair, show the words with the formatting the tags asked for, and say so.
- * Only a pair that wraps the entire text counts, so a sentence that merely mentions a tag is never touched.
+ * Only a pair that wraps the entire text counts (or an empty pair, which says nothing), so a sentence that merely mentions a tag is never touched.
  */
 function repairEscapedMarkup(inline: LexNode[], ctx: Ctx): LexNode[] {
   const only = inline.length === 1 ? inline[0]! : null
@@ -113,6 +115,12 @@ function repairEscapedMarkup(inline: LexNode[], ctx: Ctx): LexNode[] {
   let value = String(only.text)
   let format = Number(only.format)
   let repaired = false
+  // An empty typed pair ("<b> </b>" in front of the real words) means nothing, so it goes wherever it sits.
+  const withoutEmpty = value.replace(ESCAPED_EMPTY, '')
+  if (withoutEmpty !== value) {
+    value = withoutEmpty
+    repaired = true
+  }
   for (let m = ESCAPED_WRAP.exec(value); m; m = ESCAPED_WRAP.exec(value)) {
     format |= ESCAPED_FORMAT[m[1]!.toLowerCase()]!
     value = m[2]!
@@ -190,10 +198,10 @@ const nodeText = (n: LexNode): string =>
 
 /**
  * Grove had no element for pointing at another story; editors typed a label and a link into a paragraph. A paragraph that is
- * exactly that (only plain text saying "Related", then one link to a page, and nothing after it) becomes a `relatedStory`
+ * exactly that (only plain text saying "Related", then one link to a page, and nothing after it) becomes a `linkLine`
  * block. A paragraph with anything else in it, a second link, or a link that is not a page address stays a paragraph.
  */
-function relatedStoryBlock(run: LexNode[], ctx: Ctx): LexNode | null {
+function relatedLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
   const at = run.findIndex((n) => n.type === 'link')
   if (at < 1 || at !== run.length - 1 || run.slice(0, at).some((n) => n.type !== 'text')) return null
   const labelText = run.slice(0, at).map(nodeText).join('').replace(/\s+/g, ' ').trim()
@@ -201,11 +209,42 @@ function relatedStoryBlock(run: LexNode[], ctx: Ctx): LexNode | null {
   const l = run[at]!
   const { url, newTab } = l.fields as { url: string; newTab?: boolean }
   const headline = nodeText(l).replace(/\s+/g, ' ').trim()
-  if (!headline || !(/^\/(?!\/)/.test(url) || /^https?:\/\//i.test(url))) return null
+  // Only an address the block will accept (a page here, http or https; not an email): a line the editor would refuse to save stays a paragraph.
+  if (!headline || /^mailto:/i.test(url) || !isLinkLineUrl(url)) return null
   const words = labelText.replace(/\s*[:\-–—]$/, '')
   const label = words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
-  ctx.count('block:relatedStory')
-  return lex.block(ctx.id(), 'relatedStory', { label, headline, url, ...(newTab ? { newTab: true } : {}) })
+  ctx.count('block:linkLine')
+  ctx.count('linkLine:related')
+  return lex.block(ctx.id(), 'linkLine', { label, linkText: headline, url, ...(newTab ? { newTab: true } : {}) })
+}
+
+// ---- the stock "Support Local Stories. Donate Here." line -------------------------------------------------------
+
+/** The page Grove's stock support line pointed at (50 of the 1,513 census stories). Matched on the path alone. */
+const GROVE_SUPPORT_PATHS = new Set(['/thanks-for-your-support'])
+
+/**
+ * Editors typed a short bold sentence and a link to Grove's donation page into a paragraph. A paragraph that is exactly
+ * that (plain text of at most 80 characters, one link to that address, nothing after it but a full stop) becomes a
+ * `linkLine` block (the sentence is its label). The link keeps its own address; whether that address still leads anywhere on this site is a
+ * redirect decision for the owner, and the report names the address so every affected story can be found.
+ * A sentence of prose that merely contains such a link is not this line, and stays a paragraph.
+ */
+function supportLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
+  const at = run.findIndex((n) => n.type === 'link')
+  if (at < 1 || run.slice(0, at).some((n) => n.type !== 'text') || run.slice(at + 1).some((n) => n.type !== 'text')) return null
+  const l = run[at]!
+  const { url } = l.fields as { url: string }
+  const path = url.split(/[?#]/)[0]!.replace(/\/+$/, '').toLowerCase()
+  if (!GROVE_SUPPORT_PATHS.has(path)) return null
+  const message = run.slice(0, at).map(nodeText).join('').replace(/\s+/g, ' ').trim()
+  const linkText = nodeText(l).replace(/\s+/g, ' ').trim()
+  const after = run.slice(at + 1).map(nodeText).join('').trim()
+  if (!message || message.length > 80 || !linkText || !/^[.!]?$/.test(after) || !isLinkLineUrl(url)) return null
+  ctx.count('block:linkLine')
+  ctx.count('linkLine:support')
+  ctx.note('support.appeal-points-at-grove-address', path)
+  return lex.block(ctx.id(), 'linkLine', { label: message, linkText, url })
 }
 
 // ---- pictures, frames, dropped things -------------------------------------------------------------------------
@@ -322,8 +361,8 @@ function blocksFromNodes(nodes: PNode[], ctx: Ctx, align?: Align): LexNode[] {
     const run = trimRun(buf)
     buf = []
     if (run.length) {
-      const related = relatedStoryBlock(run, ctx)
-      if (related) out.push(related)
+      const special = relatedLineBlock(run, ctx) ?? supportLineBlock(run, ctx)
+      if (special) out.push(special)
       else {
         out.push(lex.paragraph(run, bufAlign))
         ctx.count('paragraph')

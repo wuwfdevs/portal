@@ -116,6 +116,12 @@ describe('escaped markup typed into link text', () => {
     expect(children.map(texts)).toEqual(['Okaloosa Commission'])
     expect(children[0]!.format).toBe(FORMAT.bold)
   })
+  it('drops an empty typed pair that sits in front of the real words (a real headline had "<b> </b>" first)', () => {
+    const { children, ctx } = only('<p><a href="/x">&lt;b&gt; &lt;/b&gt;DeSantis cuts recurring state funding</a></p>')
+    expect(children.map(texts)).toEqual(['DeSantis cuts recurring state funding'])
+    expect(children[0]!.format).toBe(0)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
   it('leaves link text alone when the tag is only mentioned, or the pair does not wrap everything', () => {
     expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
     expect(only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>').children.map(texts)).toEqual(['Say <b>this</b> twice'])
@@ -123,7 +129,7 @@ describe('escaped markup typed into link text', () => {
   })
 })
 
-describe('"RELATED:" lines become related-story blocks', () => {
+describe('"RELATED:" lines become link-line blocks', () => {
   const blockFields = (html: string) => {
     const { nodes, ctx } = run(html)
     return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
@@ -131,22 +137,26 @@ describe('"RELATED:" lines become related-story blocks', () => {
   it('turns a bold label and one link into a block carrying the label, the words and the address', () => {
     const { nodes, f, ctx } = blockFields('<p><b>RELATED:</b> <a href="https://www.wuwf.org/local-news/2024-11-14/lawmakers-react">Lawmakers react</a></p>')
     expect(nodes).toHaveLength(1)
-    expect(f).toMatchObject({ blockType: 'relatedStory', label: 'Related', headline: 'Lawmakers react', url: '/local-news/2024-11-14/lawmakers-react' })
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Related', linkText: 'Lawmakers react', url: '/local-news/2024-11-14/lawmakers-react' })
     expect(f).not.toHaveProperty('newTab')
-    expect(ctx.mapped['block:relatedStory']).toBe(1)
+    expect(ctx.mapped['block:linkLine']).toBe(1)
+    expect(ctx.mapped['linkLine:related']).toBe(1)
     expect(ctx.mapped['paragraph']).toBeUndefined()
     expect(ctx.entries).toEqual([])
   })
   it('fixes the pattern from the real story: the headline arrives with typed <b> tags in the link text', () => {
     const { f, ctx } = blockFields('<p><b>RELATED: </b><a href="/politics/2024-11-14/shocked">&lt;b&gt;\'I was shocked\': Lawmakers react to Gaetz pick&lt;/b&gt;</a></p>')
-    expect(f).toMatchObject({ blockType: 'relatedStory', headline: "'I was shocked': Lawmakers react to Gaetz pick", url: '/politics/2024-11-14/shocked' })
+    expect(f).toMatchObject({ blockType: 'linkLine', linkText: "'I was shocked': Lawmakers react to Gaetz pick", url: '/politics/2024-11-14/shocked' })
     expect(JSON.stringify(f)).not.toContain('<b>')
     expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
   })
   it('accepts the other ways editors wrote the label, a real <b> inside the link, and an outside address', () => {
-    expect(blockFields('<p>Related story – <a href="https://example.org/a" target="_blank"><b>Elsewhere</b></a></p>').f).toMatchObject({ label: 'Related story', headline: 'Elsewhere', url: 'https://example.org/a', newTab: true })
-    expect(blockFields('<p><strong>Related coverage:</strong>&nbsp;<a href="/x">One</a></p>').f).toMatchObject({ label: 'Related coverage', headline: 'One' })
+    expect(blockFields('<p>Related story – <a href="https://example.org/a" target="_blank"><b>Elsewhere</b></a></p>').f).toMatchObject({ label: 'Related story', linkText: 'Elsewhere', url: 'https://example.org/a', newTab: true })
+    expect(blockFields('<p><strong>Related coverage:</strong>&nbsp;<a href="/x">One</a></p>').f).toMatchObject({ label: 'Related coverage', linkText: 'One' })
     expect(blockFields('<p>related <a href="/x">One</a></p>').f).toMatchObject({ label: 'Related' })
+  })
+  it('accepts a plain http address too, because the block accepts one (a line the editor would refuse to save must not be built)', () => {
+    expect(blockFields('<p><b>RELATED:</b> <a href="http://www.example.org/old-page">An old page</a></p>').f).toMatchObject({ blockType: 'linkLine', url: 'http://www.example.org/old-page' })
   })
   it('keeps the paragraph before and after it as they were', () => {
     const { nodes } = blockFields('<p>Before.</p><p><b>RELATED:</b> <a href="/x">Story</a></p><p>After.</p>')
@@ -169,6 +179,54 @@ describe('"RELATED:" lines become related-story blocks', () => {
   it('builds the same ids every time', () => {
     const html = '<p><b>RELATED:</b> <a href="/x">Story</a></p>'
     expect(blockFields(html).nodes).toEqual(blockFields(html).nodes)
+  })
+})
+
+describe('the stock "Support Local Stories." line becomes a link-line block', () => {
+  const appeal = (html: string) => {
+    const { nodes, ctx } = run(html)
+    return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
+  }
+  it('turns the centred bold sentence and its one link into a block, keeping the words and the address', () => {
+    const { nodes, f, ctx } = appeal('<p class="cms-textAlign-center"><b>Support Local Stories. </b><a href="https://www.wuwf.org/thanks-for-your-support">Donate Here</a>.</p>')
+    expect(nodes).toHaveLength(1)
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Donate Here', url: '/thanks-for-your-support' })
+    expect(ctx.mapped['block:linkLine']).toBe(1)
+    expect(ctx.mapped['linkLine:support']).toBe(1)
+    expect(ctx.mapped['paragraph']).toBeUndefined()
+    expect(ctx.entries).toEqual([{ level: 'noted', code: 'support.appeal-points-at-grove-address', detail: '/thanks-for-your-support' }])
+  })
+  it('fixes the pattern from the real story: the link text arrives with typed <b> tags', () => {
+    const { f, ctx } = appeal('<p><b>Support Local Stories. </b><a href="/thanks-for-your-support">&lt;b&gt;Support Public Media&lt;/b&gt;</a>.</p>')
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Support Public Media' })
+    expect(JSON.stringify(f)).not.toContain('<b>')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'support.appeal-points-at-grove-address'])
+  })
+  it('accepts a line with no full stop after the link, and a trailing slash or query on the address', () => {
+    expect(appeal('<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support/?src=story">Donate Here</a></p>').f).toMatchObject({ blockType: 'linkLine', linkText: 'Donate Here' })
+  })
+  it('keeps the paragraphs around it as they were', () => {
+    const { nodes } = appeal('<p>Before.</p><p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate Here</a>.</p><p>After.</p>')
+    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block', 'paragraph'])
+  })
+  it('leaves anything else a paragraph, losing nothing', () => {
+    for (const html of [
+      // another address: an ordinary link that happens to be about giving
+      '<p><b>Support Local Stories.</b> <a href="https://www.example.org/donate">Donate Here</a>.</p>',
+      // prose around the stock address
+      '<p>WUWF is committed to providing Northwest Florida and South Alabama with trusted news and information, and your support makes that possible. <a href="/thanks-for-your-support">Give today</a>.</p>',
+      // more than a full stop after the link
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate Here</a> before Friday.</p>',
+      // two links
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate</a> or <a href="/support">join</a>.</p>',
+      // nothing before the link
+      '<p><a href="/thanks-for-your-support">Donate Here</a></p>',
+      // an empty link
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support"></a></p>',
+    ]) {
+      const { nodes } = run(html)
+      expect(nodes.map((n) => n.type), html).toEqual(['paragraph'])
+    }
   })
 })
 

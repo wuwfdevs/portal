@@ -116,7 +116,7 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   export); it is converted to Payload before migrating. The owner's migration plan governs scope (WUWF-originated
   content only; wire stories are URL exceptions); Payload needs a block for everything Grove/Brightspot does, and stories must be able to use them as in
   Grove. Derive the blocks from a tally of that data (`ROADMAP.md` → *Grove migration*), not from documentation or
-  guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, video, preserved HTML), plus one the owner added that Grove never had: `relatedStory`, built by the converter from a typed "RELATED:" line (never from guesswork about other patterns); a story's
+  guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, video, preserved HTML), plus one the owner added that Grove never had, `linkLine` (a label and a link), built by the converter from two exact hand-typed patterns (a "RELATED:" line; the stock "Support Local Stories. Donate Here." line) and never from guesswork about other patterns; a story's
   featured media and featured audio are fields, not body blocks. Embeds stay a URL, never free HTML: a built-in and administrator-approved host list loads without a click, any other public https host
   loads only behind a click-to-load card, and private, internal and own-site addresses are refused. Posts on X and Facebook are link-only cards,
   never live embeds (their scripts track readers). A script widget (an election guide) is its own `widget` block (structured fields, never pasted HTML; sandboxed frame with no

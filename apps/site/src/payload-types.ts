@@ -4018,29 +4018,29 @@ export interface PullQuoteBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "RelatedStoryBlock".
+ * via the `definition` "LinkLineBlock".
  */
-export interface RelatedStoryBlock {
+export interface LinkLineBlock {
   /**
-   * The word before the headline, e.g. "Related" or "Related coverage".
+   * The short words before the link, e.g. "Related", "Related coverage" or "Support Local Stories."
    */
   label?: string | null;
   /**
-   * Pick a WUWF story. Its headline and address are used, and stay current if the story is renamed.
+   * Link to a WUWF story. Its headline and address are used, and stay current if the story is renamed.
    */
   story?: (number | null) | Post;
   /**
-   * Only when no story is picked: the words to show.
+   * Only when no story is picked: the words that are the link.
    */
-  headline?: string | null;
+  linkText?: string | null;
   /**
-   * Only when no story is picked: a path on this site (/local-news/…) or an https address.
+   * Only when no story is picked: a page here (/local-news/…), an https:// address, or mailto:.
    */
   url?: string | null;
   newTab?: boolean | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'relatedStory';
+  blockType: 'linkLine';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
