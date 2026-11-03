@@ -1,5 +1,6 @@
 // An embed as the story wants it: a block when the address resolves to something we show, otherwise a plain link
-// (never nothing) and a report entry so a person can approve the host and run the page again.
+// (never nothing) and a report entry saying why. A public site that is not on the approved list still becomes an
+// embed block; it will wait for the reader's click, and the report notes it.
 
 import { resolveEmbed, type EmbedProvider } from '../embeds'
 import { absoluteUrl, hostOf, type Ctx } from './context'
@@ -48,11 +49,13 @@ export function embedNode(rawUrl: string, ctx: Ctx, opts: EmbedOptions = {}): Le
   const result = resolveEmbed(url, ctx.embedHosts)
   if (!result.ok) {
     const host = hostOf(url)
-    ctx.preserve(result.reason === 'host_not_allowed' ? 'embed.host-not-approved' : `embed.${result.reason.replace(/_/g, '-')}`, host)
+    ctx.preserve(`embed.${result.reason.replace(/_/g, '-')}`, host)
     const label = opts.title ?? `Embedded content: ${host}`
     return lex.paragraph([lex.link(url, true, [lex.text(label)])])
   }
   const { provider } = result.embed
+  // A site nobody approved still embeds, behind a click; the note lets the owner see which sites those are.
+  if (result.embed.load === 'click') ctx.note('embed.click-to-load', hostOf(url))
   const fields: Record<string, unknown> = { url, title: opts.title ?? (provider === 'custom' ? `Embedded content from ${hostOf(url)}` : TITLE[provider]) }
   if (opts.caption) fields.caption = opts.caption
   if (provider === 'custom') {

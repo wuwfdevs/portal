@@ -8,10 +8,10 @@
  "nondeterministic": 0,
  "problems": [],
  "problemCount": 0,
- "meanStoryJson": 9131,
+ "meanStoryJson": 9129,
  "statuses": {
-  "clean": 1480,
-  "review": 18,
+  "clean": 1494,
+  "review": 4,
   "exception": 0
  },
  "assets": {
@@ -30,22 +30,13 @@
    "mediad.publicbroadcasting.net": 1
   }
  },
- "hostsNeedingApproval": {
-  "embed.documentcloud.org": 5,
-  "www.npr.org": 2,
-  "uw-media.pnj.com": 1,
-  "storify.com": 1,
-  "npr.brightspotcdn.com": 1,
-  "storymaps.arcgis.com": 1,
-  "players.brightcove.net": 1,
-  "datawrapper.dwcdn.net": 1
- },
+ "hostsNeedingApproval": {},
  "mapped": {
   "paragraph": 20594,
   "link": 1855,
   "lead:mediaBlock": 1402,
   "block:mediaBlock": 732,
-  "block:embed": 94,
+  "block:embed": 107,
   "lead:gallery": 86,
   "list": 77,
   "heading": 50,
@@ -54,34 +45,15 @@
   "quote": 27,
   "embed:x": 26,
   "embed:facebook": 19,
+  "embed:custom": 13,
   "block:gallery": 10,
   "block:videoPlayer": 4,
   "image:inline": 4,
   "embed:vimeo": 2,
+  "block:widget": 1,
   "block:legacyHtml": 1
  },
  "codes": [
-  {
-   "code": "embed.host-not-approved",
-   "level": "preserved",
-   "occurrences": 13,
-   "stories": 13,
-   "details": {
-    "www.npr.org": 2,
-    "embed.documentcloud.org": 5,
-    "uw-media.pnj.com": 1,
-    "storify.com": 1,
-    "npr.brightspotcdn.com": 1,
-    "storymaps.arcgis.com": 1,
-    "players.brightcove.net": 1,
-    "datawrapper.dwcdn.net": 1
-   },
-   "examples": [
-    "/local-news/2024-03-19/maximizing-the-voting-power-of-gen-z-in-florida",
-    "/local-news/2022-04-20/floridas-new-textbook-standards-cause-issues-to-school-districts",
-    "/local-music/2014-02-18/album-review-always-with-us-by-ladysmith-black-mambazo"
-   ]
-  },
   {
    "code": "link.unsafe-address-removed",
    "level": "preserved",
@@ -94,19 +66,6 @@
    "examples": [
     "/uwf-news/2018-03-21/poet-andrea-gibson-to-speak-at-uwf-womens-studies-conference",
     "/local-news/2015-03-05/crestview-mayors-race-focuses-on-crime"
-   ]
-  },
-  {
-   "code": "html.script-removed",
-   "level": "preserved",
-   "occurrences": 2,
-   "stories": 1,
-   "details": {
-    "inline": 1,
-    "static.electup.com": 1
-   },
-   "examples": [
-    "/local-news/2026-07-31/wuwf-voter-guide-helps-you-navigate-election-season"
    ]
   },
   {
@@ -292,6 +251,22 @@
    ]
   },
   {
+   "code": "embed.click-to-load",
+   "level": "noted",
+   "occurrences": 3,
+   "stories": 3,
+   "details": {
+    "uw-media.pnj.com": 1,
+    "storify.com": 1,
+    "npr.brightspotcdn.com": 1
+   },
+   "examples": [
+    "/unearthing-florida/2022-04-05/the-resting-place-for-pensacolas-creole-families",
+    "/local-news/2014-02-25/pensacon-weekend-in-review",
+    "/local-news/2021-09-01/fort-walton-beach-man-charged-with-wire-fraud"
+   ]
+  },
+  {
    "code": "gallery.description-flattened",
    "level": "noted",
    "occurrences": 2,
@@ -313,6 +288,18 @@
    "examples": [
     "/local-news/2015-04-30/dogs-on-deployment-gives-military-pets-a-loving-home",
     "/local-news/2015-03-03/star-treks-middle-child-was-center-stage-at-pensacon"
+   ]
+  },
+  {
+   "code": "widget.script-embedded",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "static.electup.com": 1
+   },
+   "examples": [
+    "/local-news/2026-07-31/wuwf-voter-guide-helps-you-navigate-election-season"
    ]
   },
   {

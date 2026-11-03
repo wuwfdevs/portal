@@ -117,8 +117,10 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   content only; wire stories are URL exceptions); Payload needs a block for everything Grove/Brightspot does, and stories must be able to use them as in
   Grove. Derive the blocks from a tally of that data (`ROADMAP.md` → *Grove migration*), not from documentation or
   guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, video, preserved HTML); a story's
-  featured media and featured audio are fields, not body blocks. Embeds stay a URL plus a host allowlist, never free HTML,
-  and posts on X and Facebook are link-only cards, never live embeds (their scripts track readers). Asset files are copied
+  featured media and featured audio are fields, not body blocks. Embeds stay a URL, never free HTML: a built-in and administrator-approved host list loads without a click, any other public https host
+  loads only behind a click-to-load card, and private, internal and own-site addresses are refused. Posts on X and Facebook are link-only cards,
+  never live embeds (their scripts track readers). A script widget is its own `widget` block (structured fields, sandboxed frame with no
+  `allow-same-origin`, click to load, publisher-only to add or change); never import a `<script>` any other way. Asset files are copied
   into our own storage, one library record per source file (`legacy.sourceUrl`); the asset fetch needs the owner's approval.
 - **The converter lives in `src/lib/grove`** (pure: no fetching, no database). One Grove page in, one story plus a report out;
   anything it cannot map becomes a flagged link, preserved HTML or an exception, never a silent drop, and a script is never

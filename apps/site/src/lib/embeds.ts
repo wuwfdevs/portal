@@ -1,10 +1,13 @@
 // Turns a URL an editor pastes into an iframe `src`, or refuses. Pure.
 //
-// An embed is a URL plus an allowlist, never free HTML: a story body can show a video or an audio player without
-// anyone being able to put a script, a form or an arbitrary frame on the page. Known providers are recognised by
-// their real hostname and rewritten to their canonical embed address (the pasted URL is never used as-is, so a
-// look-alike host or a path trick cannot slip through). Anything else must be on the administrator-approved host
-// list in Site settings, and must be https.
+// An embed is a URL, never free HTML: a story body can show a video or an audio player without anyone being able
+// to put a script or a form on the page. Known providers are recognised by their real hostname and rewritten to
+// their canonical embed address (the pasted URL is never used as-is, so a look-alike host or a path trick cannot
+// slip through). Any other public https site can be embedded too, in one of two ways:
+//   auto  a vetted default list (below) plus the hosts an administrator approves in Site settings load straight away;
+//   click every other host sits behind a click-to-load placeholder in a strict sandbox, so nothing from that site
+//         loads until the reader chooses (no request, no cookie, nothing to track).
+// What is never embedded: http, an address with a password, a private or internal host, or a page of this site.
 
 export type EmbedProvider = 'youtube' | 'vimeo' | 'spotify' | 'apple-podcasts' | 'soundcloud' | 'x' | 'facebook' | 'custom'
 /**
@@ -14,13 +17,17 @@ export type EmbedProvider = 'youtube' | 'vimeo' | 'spotify' | 'apple-podcasts' |
  */
 export type EmbedShape = 'video' | 'audio' | 'wide' | 'link'
 
+/** `auto` loads with the page; `click` waits for the reader (a placeholder first). */
+export type EmbedLoad = 'auto' | 'click'
+
 export interface ResolvedEmbed {
   provider: EmbedProvider
   src: string
   shape: EmbedShape
+  load: EmbedLoad
 }
 
-export type EmbedFailure = 'invalid_url' | 'not_https' | 'has_credentials' | 'host_not_allowed' | 'unsupported_link'
+export type EmbedFailure = 'invalid_url' | 'not_https' | 'has_credentials' | 'private_host' | 'own_site' | 'unsupported_link'
 export type EmbedResult = { ok: true; embed: ResolvedEmbed } | { ok: false; reason: EmbedFailure }
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/
@@ -50,7 +57,7 @@ function youtube(url: URL): ResolvedEmbed | null {
   } else return null
   if (!id || !YT_ID.test(id)) return null
   const start = seconds(url.searchParams.get('t') ?? url.searchParams.get('start'))
-  return { provider: 'youtube', shape: 'video', src: `https://www.youtube-nocookie.com/embed/${id}${start ? `?start=${start}` : ''}` }
+  return { provider: 'youtube', shape: 'video', load: 'auto', src: `https://www.youtube-nocookie.com/embed/${id}${start ? `?start=${start}` : ''}` }
 }
 
 function vimeo(url: URL): ResolvedEmbed | null {
@@ -61,7 +68,7 @@ function vimeo(url: URL): ResolvedEmbed | null {
   if (!id || !VIMEO_ID.test(id)) return null
   const hash = url.hostname === 'player.vimeo.com' ? url.searchParams.get('h') : parts[at + 1]
   const h = hash && VIMEO_HASH.test(hash) ? `?h=${hash}` : ''
-  return { provider: 'vimeo', shape: 'video', src: `https://player.vimeo.com/video/${id}${h}` }
+  return { provider: 'vimeo', shape: 'video', load: 'auto', src: `https://player.vimeo.com/video/${id}${h}` }
 }
 
 function spotify(url: URL): ResolvedEmbed | null {
@@ -70,7 +77,7 @@ function spotify(url: URL): ResolvedEmbed | null {
   if (parts[0] === 'embed') parts.shift()
   const [kind, id] = parts
   if (!kind || !id || !SPOTIFY_KINDS.has(kind) || !SPOTIFY_ID.test(id)) return null
-  return { provider: 'spotify', shape: 'audio', src: `https://open.spotify.com/embed/${kind}/${id}` }
+  return { provider: 'spotify', shape: 'audio', load: 'auto', src: `https://open.spotify.com/embed/${kind}/${id}` }
 }
 
 function applePodcasts(url: URL): ResolvedEmbed | null {
@@ -81,6 +88,7 @@ function applePodcasts(url: URL): ResolvedEmbed | null {
   return {
     provider: 'apple-podcasts',
     shape: 'audio',
+    load: 'auto',
     src: `https://embed.podcasts.apple.com/${m[1]}/podcast/${m[2]}/id${m[3]}${episode && /^\d{5,14}$/.test(episode) ? `?i=${episode}` : ''}`,
   }
 }
@@ -90,7 +98,7 @@ function soundcloud(url: URL): ResolvedEmbed | null {
   const parts = url.pathname.split('/').filter(Boolean)
   if (parts.length < 1 || parts.some((p) => !/^[A-Za-z0-9_-]+$/.test(p))) return null
   const canonical = `https://soundcloud.com/${parts.join('/')}`
-  return { provider: 'soundcloud', shape: 'audio', src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(canonical)}` }
+  return { provider: 'soundcloud', shape: 'audio', load: 'auto', src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(canonical)}` }
 }
 
 const X_HOSTS = new Set(['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com'])
@@ -103,7 +111,7 @@ function xPost(url: URL): ResolvedEmbed | null {
   if (!X_HOSTS.has(url.hostname)) return null
   const m = X_STATUS.exec(url.pathname)
   if (!m) return null
-  return { provider: 'x', shape: 'link', src: `https://x.com/${m[1]}/status/${m[2]}` }
+  return { provider: 'x', shape: 'link', load: 'auto', src: `https://x.com/${m[1]}/status/${m[2]}` }
 }
 
 /** A single post, video or share link on Facebook. Link-only, like X. The address is rebuilt, never passed through. */
@@ -111,31 +119,58 @@ function facebookPost(url: URL): ResolvedEmbed | null {
   if (!FB_HOSTS.has(url.hostname)) return null
   const parts = url.pathname.split('/').filter(Boolean)
   if (url.hostname === 'fb.watch') {
-    return parts.length === 1 && FB_SEGMENT.test(parts[0]!) ? { provider: 'facebook', shape: 'link', src: `https://fb.watch/${parts[0]}/` } : null
+    return parts.length === 1 && FB_SEGMENT.test(parts[0]!) ? { provider: 'facebook', shape: 'link', load: 'auto', src: `https://fb.watch/${parts[0]}/` } : null
   }
   if (parts[0] === 'permalink.php') {
     const story = url.searchParams.get('story_fbid')
     const id = url.searchParams.get('id')
     return story && id && /^\d{5,25}$/.test(story) && /^\d{5,25}$/.test(id)
-      ? { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/permalink.php?story_fbid=${story}&id=${id}` }
+      ? { provider: 'facebook', shape: 'link', load: 'auto', src: `https://www.facebook.com/permalink.php?story_fbid=${story}&id=${id}` }
       : null
   }
   if (parts[0] === 'watch') {
     const v = url.searchParams.get('v')
-    return v && /^\d{5,25}$/.test(v) ? { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/watch/?v=${v}` } : null
+    return v && /^\d{5,25}$/.test(v) ? { provider: 'facebook', shape: 'link', load: 'auto', src: `https://www.facebook.com/watch/?v=${v}` } : null
   }
   // /<page>/posts/<id>, /<page>/videos/<id>, /<page>/photos/<set>/<id>, /share/p/<code>, /share/v/<code>
   if (parts.length >= 2 && parts.length <= 5 && parts.every((p) => FB_SEGMENT.test(p))) {
-    return { provider: 'facebook', shape: 'link', src: `https://www.facebook.com/${parts.join('/')}` }
+    return { provider: 'facebook', shape: 'link', load: 'auto', src: `https://www.facebook.com/${parts.join('/')}` }
   }
   return null
 }
 
 /**
- * @param allowedHosts hostnames an administrator approved in Site settings for frames that are not one of the known
- *   providers. Matched exactly (a subdomain is not the same host), https only.
+ * Sites that load straight away without anyone approving them: established tools public-media newsrooms embed. Vetted
+ * only in the sense that each is a well-known provider of that kind of embed, not audited; administrators can add to
+ * the list in Site settings. Everything else is still embeddable, behind a click.
  */
-export function resolveEmbed(input: string, allowedHosts: readonly string[] = []): EmbedResult {
+export const DEFAULT_EMBED_HOSTS: readonly string[] = [
+  'embed.documentcloud.org', 'www.documentcloud.org',
+  'datawrapper.dwcdn.net',
+  'public.flourish.studio',
+  'storymaps.arcgis.com', 'experience.arcgis.com', 'www.arcgis.com',
+  'www.npr.org',
+  'players.brightcove.net',
+  'rumble.com',
+]
+
+const OWN_HOSTS = new Set(['wuwf.org', 'www.wuwf.org'])
+const INTERNAL_TLD = /\.(local|localhost|internal|lan|home|corp|intranet|test|invalid|example)$/i
+
+/** A hostname on the public internet: not an address, not localhost, not an internal name. */
+export function isPublicHost(host: string): boolean {
+  const h = host.toLowerCase()
+  if (!h.includes('.') || h.length > 253) return false
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(':') || h.startsWith('[')) return false
+  if (INTERNAL_TLD.test(h)) return false
+  return /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(h)
+}
+
+/**
+ * @param approvedHosts hostnames an administrator approved in Site settings. Together with the built-in list they
+ *   load without a click; matched exactly (a subdomain is not the same host), https only.
+ */
+export function resolveEmbed(input: string, approvedHosts: readonly string[] = []): EmbedResult {
   let url: URL
   try {
     url = new URL(input.trim())
@@ -154,11 +189,12 @@ export function resolveEmbed(input: string, allowedHosts: readonly string[] = []
     host.endsWith('podcasts.apple.com') || host.endsWith('soundcloud.com') || X_HOSTS.has(host) || FB_HOSTS.has(host)
   if (isKnownHost) return { ok: false, reason: 'unsupported_link' } // a provider's page that is not a playable item
 
-  if (allowedHosts.map((h) => h.trim().toLowerCase()).includes(host)) {
-    url.hash = ''
-    return { ok: true, embed: { provider: 'custom', shape: 'wide', src: url.toString() } }
-  }
-  return { ok: false, reason: 'host_not_allowed' }
+  if (OWN_HOSTS.has(host)) return { ok: false, reason: 'own_site' }
+  if (!isPublicHost(host)) return { ok: false, reason: 'private_host' }
+
+  url.hash = ''
+  const auto = DEFAULT_EMBED_HOSTS.includes(host) || approvedHosts.map((h) => h.trim().toLowerCase()).includes(host)
+  return { ok: true, embed: { provider: 'custom', shape: 'wide', load: auto ? 'auto' : 'click', src: url.toString() } }
 }
 
 /** What an editor is told when a URL is refused. */
@@ -166,7 +202,8 @@ export const EMBED_FAILURE_MESSAGE: Record<EmbedFailure, string> = {
   invalid_url: 'That is not a valid URL.',
   not_https: 'Embeds must use https.',
   has_credentials: 'The URL must not contain a username or password.',
-  host_not_allowed: 'That site is not on the approved list. An administrator can add it in Site settings.',
+  private_host: 'That address is not on the public internet, so it cannot be embedded.',
+  own_site: 'That is a page of this site. Link to it instead of embedding it.',
   unsupported_link: 'That link is not a playable item. Paste the address of a specific video, episode, track or post.',
 }
 

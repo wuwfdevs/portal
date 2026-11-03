@@ -17,8 +17,9 @@ design canvas are described under *Sources* below.
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
 | Story blocks derived from the template census (2026-11-02): Media (per-use caption, credit, source, alt override, alignment), Gallery (carousel, grid, list; slide titles), Pull quote, Embed (adds width/height and link-only X and Facebook posts), Audio (new), Preserved HTML; Promo removed | **Done**; checked in a browser at 1440 and 390 px; tables and a native video player are **not** (one table in 1,500 pages stays preserved HTML) |
-| **Grove converter** (`src/lib/grove`, pure): one Grove article page to one story plus a fidelity report; asset tokens, exact path, slug, ids and dates kept | **Done** (2026-11-02). Run on all 1,566 real census pages: 1,498 converted (exactly the census's WUWF-originated count), 3 ambiguous copies and 65 non-articles skipped by design; **1,480 clean, 18 need a person, 0 exceptions**; every path and Grove id matches the manifest; output is deterministic. 91 tests (6 mutation-checked), plus an integration test that publishes a converted story through Payload and reads it back. Not yet built: the asset pipeline and the importer |
+| **Grove converter** (`src/lib/grove`, pure): one Grove article page to one story plus a fidelity report; asset tokens, exact path, slug, ids and dates kept | **Done** (2026-11-02). Run on all 1,566 real census pages: 1,498 converted (exactly the census's WUWF-originated count), 3 ambiguous copies and 65 non-articles skipped by design; **1,494 clean, 4 need a person, 0 exceptions** (after the embed-host and script-widget changes below; it was 1,480 / 18); every path and Grove id matches the manifest; output is deterministic. 91 tests (6 mutation-checked), plus an integration test that publishes a converted story through Payload and reads it back. Not yet built: the asset pipeline and the importer |
 | **Video player block and video library** (`video` collection; the `videoPlayer` block in story bodies and as featured media; Grove's HTML5 video files convert to it with their poster pictures) | **Done** (migration `20261102_234817`, tested up, down and up). Native controls, nothing loaded until played, files served with range support so readers can seek. Checked in a browser on a real story. Large files need the storage adapter's direct upload on Vercel |
+| **Embeds from any public host, and script widgets** (owner decision 2026-11-03) | **Done.** A built-in host list loads without a click; any other public https host embeds behind a click-to-load card; private, internal and own-site addresses are refused. A `widget` block (script URL, container id, `data-*` settings, event, height) runs a script in a sandboxed frame (no `allow-same-origin`), only after a click; adding or changing one needs publish permission. The Grove converter turns the election guide into one. Checked in a browser: nothing requested from either host before the click, no parent or cookie access from inside the widget, 44 px button, frame resizes to the widget. **Not verified:** the real Electup script (not fetched; it needs the owner's approval to run it against their service) |
 | Media and audio libraries; featured media and audio on stories (replace `heroImage`) | **Done** (migration `20261102_220306`, data move tested up, down and up again). `credit`, `source` and a unique write-once `legacy.sourceUrl` on media and audio; `featuredMedia` is one photo, gallery or video, `featuredAudio` one audio file |
 | Grove-ready identity: `legacy.legacyPath`, `legacy.groveId` (contentId), `legacy.modifiedAt`, `legacy.nprId`, `source` on posts and pages; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
@@ -332,37 +333,34 @@ handful of others (`media.npr.org`, an S3 bucket, `www.90works.org`, ...). Mappe
 photos, 732 body photos, 86 lead galleries, 94 embeds (47 YouTube, 26 X, 19 Facebook, 2 Vimeo), 40 audio blocks, 27 quotes.
 
 **What needs the owner (the 21 stories to review, and the notes):**
-1. **Hosts to approve in Site settings** so these frames become embeds (until then they are links, and the host is named):
-   `embed.documentcloud.org` (5 stories), `www.npr.org` (2), and one each of `uw-media.pnj.com`, `storify.com`,
-   `storymaps.arcgis.com`, `players.brightcove.net`, `datawrapper.dwcdn.net`, `npr.brightspotcdn.com`.
+1. ~~**Hosts to approve in Site settings**~~ Decided (2026-11-03): a built-in list loads without a click, every other public host embeds behind a click, so no per-host approval is needed. Three stories now carry a click-to-load note (`uw-media.pnj.com`, `storify.com`, `npr.brightspotcdn.com`).
 2. ~~**Video files** (4 stories)~~ Done: there is now a video block and library, and those four convert to it.
 3. **Two broken addresses** in the text (a link with a space in it); the words are kept, the link is not.
-4. **One script widget** (the 2026 voter guide's Electup map) cannot be imported. It is not a frame: it is a script that
-   builds the guide into the page from an id (`<div id="electup-embed" data-embed="...">` plus `static.electup.com/v2/app.js`),
-   and we never import scripts. The story's text is kept; the interactive guide needs either a hosted or frame version from
-   Electup (then it is an Embed) or a link to it.
+4. ~~**One script widget** (the 2026 voter guide's Electup map)~~ Done: it converts to a `widget` block (container `electup-embed`, `data-embed`, event `electup_load`, module script `static.electup.com/v2/app.js`) that runs in a sandboxed frame after a click. The event script sits inside the container in Grove's data and runs before the module loads, exactly as it did in Grove; whether Electup's real script works inside a sandboxed frame is the one thing not yet tried.
 5. **One table** is preserved HTML; **one junk image** (a browser-extension URL) was skipped and flagged.
 6. **93 stories have no primary section and 116 have no byline**; the importer needs a rule (for example, derive the section
    from the path's first segment, and credit "WUWF Staff"). 61 bylines have a name but no `/people/` address.
 7. `updatesCorrections` is empty on every sampled story; a story that has one is an exception (there is no corrections field).
 8. 87 stories list a secondary section (almost always "Apple News", a distribution flag); noted, not migrated.
 
-### Open: which hosts an embed may load from
+### Decided: which hosts an embed may load from (owner, 2026-11-03: option (c))
 
-Today an Embed accepts a known provider (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, plus X and Facebook as link
-cards) or a host an **administrator** has approved in Site settings; anything else becomes a link. That was a deliberate
-choice (an arbitrary frame loads someone else's page and scripts, which the no-third-party-tracking rule forbids, and it can
-be a phishing or clickjacking surface), not a technical limit, and relaxing it is small. Options put to the owner: (a) keep the
-list but pre-approve a vetted set (DocumentCloud, Datawrapper, ArcGIS, the NPR player, Brightcove...) and let publishers add a
-host in one click; (b) allow any https host with a strict sandbox and a click-to-load placeholder, so nothing from a third
-party loads until the reader chooses, keeping the list only for hosts that may load without a click; (c) both. **Undecided.**
+A **built-in list** (`DEFAULT_EMBED_HOSTS` in `src/lib/embeds.ts`: DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble, plus YouTube, Vimeo, Spotify, Apple Podcasts and SoundCloud) and the hosts an administrator adds in Site settings load **without a click**. **Any other public https host still embeds**, but behind a click-to-load card that names the host and says it may see the visit and set cookies; nothing is requested from it before the click. Addresses on private networks, internal names, `wuwf.org` and anything not https are refused on save. Posts on X and Facebook stay link-only cards. Every embed frame is sandboxed.
+
+**Script widgets** (an election guide, a chart, a map that works by running a script) are a separate `widget` block, not free HTML: one https script on a public host, a container id, `data-*` settings and an optional event. The script runs in a frame we build, in a sandbox with **no `allow-same-origin`** (so no access to this site's cookies, storage or page), after a click, and the frame reports its height by message. Only a publisher can add one or change its script or settings (the story save is checked, because Payload does not apply a block's field access inside rich text).
 
 ### Live updates (a new content type; data examined, design proposed, nothing built)
 
 Grove has `/live-updates/<slug>`: one post that aggregates timestamped updates for a fast-moving event. The owner approved a
 census of these pages on 2026-11-03 (same rules as the template census; `scripts/live-updates/probe.ts`; raw pages stay
 outside the repository). **There is no listing page** (`/live-updates` is a 404); `probe.ts discover` reads the monthly sitemaps
-for `/live-updates/` addresses, and its count is **pending** (a scan of about 276 sitemap files at 3 s each).
+for `/live-updates/` addresses, the scan of all 276 monthly sitemaps found **only three** (see below).
+
+**How many (found 2026-11-03).** Reading all 276 monthly sitemaps found **three** live-update addresses in the whole archive:
+`/live-updates/tropical-storm-isaias-updates` (sitemap 2026-10), `/live-updates/2024-election-live-blog` (2024-11) and
+`/live-updates/the-d-c-effect` (2025-03). So the content type is small to migrate (three posts); the design question is the
+tool WUWF will use for *future* events, not the archive. The other two pages have not been fetched yet; the approved census
+covers them (about 10 seconds at the 3 s spacing).
 
 **The data (one page examined: `/live-updates/tropical-storm-isaias-updates`, 628 KB of JSON).** Its own template,
 `/liveblog/LiveBlogPage.hbs`: `blogLead` (a Figure), `blogBody` (the intro, in the same body structure as a story),

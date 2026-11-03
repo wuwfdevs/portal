@@ -2,11 +2,19 @@ import React from 'react'
 
 import type { EmbedBlock as EmbedBlockProps } from '@/payload-types'
 
+import { ClickToLoad } from '@/components/ClickToLoad'
 import { EMBED_REFERRER_POLICY, EMBED_SANDBOX, embedAllow, resolveEmbed, type EmbedProvider } from '@/lib/embeds'
 import { cn } from '@/utilities/ui'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
 const SHAPE_CLASS = { video: 'aspect-video', wide: 'aspect-[4/3]', audio: 'h-40' } as const
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return 'another site'
+  }
+}
 const PROVIDER_NAME: Partial<Record<EmbedProvider, string>> = { x: 'X', facebook: 'Facebook' }
 
 export const EmbedBlock: React.FC<EmbedBlockProps & { className?: string }> = async ({ url, title, caption, width, height, className }) => {
@@ -46,22 +54,32 @@ export const EmbedBlock: React.FC<EmbedBlockProps & { className?: string }> = as
 
   // A page or widget with its original proportions keeps them; videos and audio players keep their standard shape.
   const keepsProportions = embed.provider === 'custom' && width && height
+  const frame = (
+    <iframe
+      allow={embedAllow(embed.shape)}
+      allowFullScreen={embed.shape !== 'audio'}
+      className="size-full border-0"
+      loading="lazy"
+      referrerPolicy={EMBED_REFERRER_POLICY}
+      sandbox={EMBED_SANDBOX}
+      src={embed.src}
+      title={title}
+    />
+  )
   return (
     <figure className={cn('not-prose my-8', className)}>
       <div
         className={cn('w-full overflow-hidden rounded-sm bg-surface-3', !keepsProportions && SHAPE_CLASS[embed.shape])}
         style={keepsProportions ? { aspectRatio: `${width} / ${height}` } : undefined}
       >
-        <iframe
-          allow={embedAllow(embed.shape)}
-          allowFullScreen={embed.shape !== 'audio'}
-          className="size-full border-0"
-          loading="lazy"
-          referrerPolicy={EMBED_REFERRER_POLICY}
-          sandbox={EMBED_SANDBOX}
-          src={embed.src}
-          title={title}
-        />
+        {/* A site nobody approved loads only after the reader clicks: until then the frame is not on the page at all. */}
+        {embed.load === 'click' ? (
+          <ClickToLoad host={hostOf(embed.src)} title={title}>
+            {frame}
+          </ClickToLoad>
+        ) : (
+          frame
+        )}
       </div>
       {caption && <figcaption className="mt-2 font-sans text-sm text-ink-3">{caption}</figcaption>}
     </figure>

@@ -104,8 +104,12 @@ describe('audio, quotes and modules', () => {
   })
   it('a Pym interactive hands its HTML to the converter, so its frame becomes an embed or a flagged link', () => {
     const e = enh({ _template: '/pyminteractive/PymInteractive.hbs', html: '<iframe src="https://www.npr.org/player/embed/1/2" width="100%" height="290"></iframe>' })
-    expect(run(e).ctx.entries).toEqual([{ level: 'preserved', code: 'embed.host-not-approved', detail: 'www.npr.org' }])
-    expect(fields(run(e, ['www.npr.org']).nodes[0])).toMatchObject({ blockType: 'embed', height: 290 })
+    // npr.org is on the built-in list, so it loads without a click and nothing is flagged
+    expect(run(e).ctx.entries).toEqual([])
+    expect(fields(run(e).nodes[0])).toMatchObject({ blockType: 'embed', height: 290 })
+    const other = enh({ _template: '/pyminteractive/PymInteractive.hbs', html: '<iframe src="https://maps.example.org/x" height="290"></iframe>' })
+    expect(run(other).ctx.entries).toEqual([{ level: 'noted', code: 'embed.click-to-load', detail: 'maps.example.org' }])
+    expect(fields(run(other).nodes[0])).toMatchObject({ blockType: 'embed' })
   })
 })
 

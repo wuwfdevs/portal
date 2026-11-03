@@ -34,3 +34,31 @@ describe('changedLegacyHtml', () => {
     expect(changedLegacyHtml(doc(), doc(legacy('a', '<p>1</p>')))).toEqual([])
   })
 })
+
+import { changedWidgets, collectWidgets } from './legacy-html-guard'
+
+const widget = (id: string, over: Record<string, unknown> = {}) => ({
+  type: 'block',
+  fields: { id, blockType: 'widget', title: 'Guide', scriptUrl: 'https://e.example/s.js', elementId: 'g', attributes: [{ name: 'data-a', value: '1' }], height: 600, ...over },
+})
+
+describe('changedWidgets', () => {
+  it('finds widgets however deep and ignores other blocks', () => {
+    expect([...collectWidgets(doc(other('e'), { type: 'list', children: [widget('w')] })).keys()]).toEqual(['w'])
+  })
+  it('a re-save, or a new title, caption or height, changes nothing', () => {
+    const d = doc(widget('w'))
+    expect(changedWidgets(d, d)).toEqual([])
+    expect(changedWidgets(doc(widget('w', { title: 'New', caption: 'c', height: 900 })), d)).toEqual([])
+  })
+  it('names a new widget and one whose script, module, id, event or settings differ', () => {
+    const d = doc(widget('w'))
+    expect(changedWidgets(doc(widget('w'), widget('n')), d)).toEqual(['n'])
+    for (const over of [{ scriptUrl: 'https://evil.example/s.js' }, { module: true }, { elementId: 'x' }, { initEvent: 'go' }, { attributes: [{ name: 'data-a', value: '2' }] }]) {
+      expect(changedWidgets(doc(widget('w', over)), d)).toEqual(['w'])
+    }
+  })
+  it('treats a first save as everything new', () => {
+    expect(changedWidgets(doc(widget('w')), undefined)).toEqual(['w'])
+  })
+})
