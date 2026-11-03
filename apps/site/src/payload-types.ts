@@ -4018,6 +4018,32 @@ export interface PullQuoteBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "RelatedStoryBlock".
+ */
+export interface RelatedStoryBlock {
+  /**
+   * The word before the headline, e.g. "Related" or "Related coverage".
+   */
+  label?: string | null;
+  /**
+   * Pick a WUWF story. Its headline and address are used, and stay current if the story is renamed.
+   */
+  story?: (number | null) | Post;
+  /**
+   * Only when no story is picked: the words to show.
+   */
+  headline?: string | null;
+  /**
+   * Only when no story is picked: a path on this site (/local-news/…) or an https address.
+   */
+  url?: string | null;
+  newTab?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'relatedStory';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "AudioPlayerBlock".
  */
 export interface AudioPlayerBlock {

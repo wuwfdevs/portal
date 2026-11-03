@@ -94,6 +94,79 @@ describe('links', () => {
   })
 })
 
+describe('escaped markup typed into link text', () => {
+  const only = (html: string) => {
+    const { nodes, ctx } = run(html)
+    const l = (nodes[0]!.children as LexNode[]).find((c) => c.type === 'link')!
+    return { children: l.children as LexNode[], ctx }
+  }
+  it('shows the words, bold, when the whole link text is wrapped in a typed <b> pair, and says so', () => {
+    const { children, ctx } = only('<p>See <a href="/x">&lt;b&gt;I was shocked&lt;/b&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['I was shocked'])
+    expect(children[0]!.format).toBe(FORMAT.bold)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('handles nested pairs and keeps every format they ask for', () => {
+    const { children } = only('<p><a href="/x">&lt;strong&gt;&lt;i&gt;Both&lt;/i&gt;&lt;/strong&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['Both'])
+    expect(children[0]!.format).toBe(FORMAT.bold | FORMAT.italic)
+  })
+  it('leaves link text alone when the tag is only mentioned, or the pair does not wrap everything', () => {
+    expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
+    expect(only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>').children.map(texts)).toEqual(['Say <b>this</b> twice'])
+    expect(only('<p><a href="/x">Plain</a></p>').ctx.entries).toEqual([])
+  })
+})
+
+describe('"RELATED:" lines become related-story blocks', () => {
+  const blockFields = (html: string) => {
+    const { nodes, ctx } = run(html)
+    return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
+  }
+  it('turns a bold label and one link into a block carrying the label, the words and the address', () => {
+    const { nodes, f, ctx } = blockFields('<p><b>RELATED:</b> <a href="https://www.wuwf.org/local-news/2024-11-14/lawmakers-react">Lawmakers react</a></p>')
+    expect(nodes).toHaveLength(1)
+    expect(f).toMatchObject({ blockType: 'relatedStory', label: 'Related', headline: 'Lawmakers react', url: '/local-news/2024-11-14/lawmakers-react' })
+    expect(f).not.toHaveProperty('newTab')
+    expect(ctx.mapped['block:relatedStory']).toBe(1)
+    expect(ctx.mapped['paragraph']).toBeUndefined()
+    expect(ctx.entries).toEqual([])
+  })
+  it('fixes the pattern from the real story: the headline arrives with typed <b> tags in the link text', () => {
+    const { f, ctx } = blockFields('<p><b>RELATED: </b><a href="/politics/2024-11-14/shocked">&lt;b&gt;\'I was shocked\': Lawmakers react to Gaetz pick&lt;/b&gt;</a></p>')
+    expect(f).toMatchObject({ blockType: 'relatedStory', headline: "'I was shocked': Lawmakers react to Gaetz pick", url: '/politics/2024-11-14/shocked' })
+    expect(JSON.stringify(f)).not.toContain('<b>')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('accepts the other ways editors wrote the label, a real <b> inside the link, and an outside address', () => {
+    expect(blockFields('<p>Related story – <a href="https://example.org/a" target="_blank"><b>Elsewhere</b></a></p>').f).toMatchObject({ label: 'Related story', headline: 'Elsewhere', url: 'https://example.org/a', newTab: true })
+    expect(blockFields('<p><strong>Related coverage:</strong>&nbsp;<a href="/x">One</a></p>').f).toMatchObject({ label: 'Related coverage', headline: 'One' })
+    expect(blockFields('<p>related <a href="/x">One</a></p>').f).toMatchObject({ label: 'Related' })
+  })
+  it('keeps the paragraph before and after it as they were', () => {
+    const { nodes } = blockFields('<p>Before.</p><p><b>RELATED:</b> <a href="/x">Story</a></p><p>After.</p>')
+    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block', 'paragraph'])
+  })
+  it('leaves anything that is not exactly that pattern a paragraph, losing nothing', () => {
+    for (const html of [
+      '<p><b>RELATED:</b> <a href="/x">One</a> and <a href="/y">Two</a></p>',
+      '<p><b>RELATED:</b> <a href="/x">One</a> from last week.</p>',
+      '<p><b>RELATED:</b> no link here</p>',
+      '<p>Read the related <a href="/x">story</a></p>',
+      '<p><a href="/x">Story</a></p>',
+      '<p><b>RELATED:</b> <a href="mailto:news@wuwf.org">Email us</a></p>',
+      '<p><b>RELATED:</b> <a href="/x"></a></p>',
+    ]) {
+      const { nodes } = run(html)
+      expect(nodes.map((n) => n.type), html).toEqual(['paragraph'])
+    }
+  })
+  it('builds the same ids every time', () => {
+    const html = '<p><b>RELATED:</b> <a href="/x">Story</a></p>'
+    expect(blockFields(html).nodes).toEqual(blockFields(html).nodes)
+  })
+})
+
 describe('headings, lists and quotes', () => {
   it('maps headings, and demotes a stray h1 because the page title is the h1', () => {
     const { nodes, ctx } = run('<h3>Section</h3><h1>Big</h1>')

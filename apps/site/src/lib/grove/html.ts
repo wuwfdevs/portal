@@ -98,9 +98,34 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
   return out
 }
 
+/** Escaped tags in link text that the editor typed as words (`&lt;b&gt;Headline&lt;/b&gt;`), by the format each stands for. */
+const ESCAPED_WRAP = /^\s*<(b|strong|i|em|u)>([\s\S]*?)<\/\1>\s*$/i
+const ESCAPED_FORMAT: Record<string, number> = { b: lex.FORMAT.bold, strong: lex.FORMAT.bold, i: lex.FORMAT.italic, em: lex.FORMAT.italic, u: lex.FORMAT.underline }
+
+/**
+ * Grove editors sometimes typed `<b>…</b>` into a link's text, and it was stored as the characters, not as bold. When the
+ * whole link text is wrapped in such a pair, show the words with the formatting the tags asked for, and say so.
+ * Only a pair that wraps the entire text counts, so a sentence that merely mentions a tag is never touched.
+ */
+function repairEscapedMarkup(inline: LexNode[], ctx: Ctx): LexNode[] {
+  const only = inline.length === 1 ? inline[0]! : null
+  if (!only || only.type !== 'text') return inline
+  let value = String(only.text)
+  let format = Number(only.format)
+  let repaired = false
+  for (let m = ESCAPED_WRAP.exec(value); m; m = ESCAPED_WRAP.exec(value)) {
+    format |= ESCAPED_FORMAT[m[1]!.toLowerCase()]!
+    value = m[2]!
+    repaired = true
+  }
+  if (!repaired) return inline
+  ctx.note('link.escaped-markup-repaired')
+  return [lex.text(value.trim(), format)]
+}
+
 function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
   const pieces = inlinePieces(kids(a), fmt, ctx)
-  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  const inline = repairEscapedMarkup(pieces.flatMap((p) => ('inline' in p ? [p.inline] : [])), ctx)
   const blocks = pieces.flatMap((p) => ('block' in p ? [{ block: p.block } as Piece] : []))
   const href = attr(a, 'href')
   let safe = safeHref(href)
@@ -152,6 +177,34 @@ function trimRun(nodes: LexNode[]): LexNode[] {
   const kept = run.filter((n) => !(n.type === 'text' && n.text === ''))
   const visible = kept.some((n) => n.type === 'link' || n.type === 'linebreak' || (n.type === 'text' && String(n.text).replace(/[\s ]+/g, '') !== ''))
   return visible ? kept : []
+}
+
+// ---- "RELATED:" lines -------------------------------------------------------------------------------------------
+
+/** The word or two an editor put before the link: "RELATED:", "Related story –", "Related coverage". */
+const RELATED_LABEL = /^related(?:\s+(?:story|stories|coverage|reading|content|links?))?\s*[:\-–—]?$/i
+
+const nodeText = (n: LexNode): string =>
+  n.type === 'text' ? String(n.text) : n.type === 'linebreak' ? ' ' : ((n.children as LexNode[] | undefined) ?? []).map(nodeText).join('')
+
+/**
+ * Grove had no element for pointing at another story; editors typed a label and a link into a paragraph. A paragraph that is
+ * exactly that (only plain text saying "Related", then one link to a page, and nothing after it) becomes a `relatedStory`
+ * block. A paragraph with anything else in it, a second link, or a link that is not a page address stays a paragraph.
+ */
+function relatedStoryBlock(run: LexNode[], ctx: Ctx): LexNode | null {
+  const at = run.findIndex((n) => n.type === 'link')
+  if (at < 1 || at !== run.length - 1 || run.slice(0, at).some((n) => n.type !== 'text')) return null
+  const labelText = run.slice(0, at).map(nodeText).join('').replace(/\s+/g, ' ').trim()
+  if (!RELATED_LABEL.test(labelText)) return null
+  const l = run[at]!
+  const { url, newTab } = l.fields as { url: string; newTab?: boolean }
+  const headline = nodeText(l).replace(/\s+/g, ' ').trim()
+  if (!headline || !(/^\/(?!\/)/.test(url) || /^https?:\/\//i.test(url))) return null
+  const words = labelText.replace(/\s*[:\-–—]$/, '')
+  const label = words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
+  ctx.count('block:relatedStory')
+  return lex.block(ctx.id(), 'relatedStory', { label, headline, url, ...(newTab ? { newTab: true } : {}) })
 }
 
 // ---- pictures, frames, dropped things -------------------------------------------------------------------------
@@ -268,8 +321,12 @@ function blocksFromNodes(nodes: PNode[], ctx: Ctx, align?: Align): LexNode[] {
     const run = trimRun(buf)
     buf = []
     if (run.length) {
-      out.push(lex.paragraph(run, bufAlign))
-      ctx.count('paragraph')
+      const related = relatedStoryBlock(run, ctx)
+      if (related) out.push(related)
+      else {
+        out.push(lex.paragraph(run, bufAlign))
+        ctx.count('paragraph')
+      }
     }
   }
   const consume = (pieces: Piece[]) => {

@@ -21,6 +21,7 @@ import type {
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
+  RelatedStoryBlock as RelatedStoryBlockProps,
   VideoPlayerBlock as VideoPlayerBlockProps,
   WidgetBlock as WidgetBlockProps,
 } from '@/payload-types'
@@ -31,6 +32,7 @@ import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
+import { RelatedStoryBlock } from '@/blocks/RelatedStory/Component'
 import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
 import { WidgetBlock } from '@/blocks/Widget/Component'
 import { cn } from '@/utilities/ui'
@@ -46,6 +48,7 @@ type NodeTypes =
       | CodeBlockProps
       | GalleryBlockProps
       | PullQuoteBlockProps
+      | RelatedStoryBlockProps
       | EmbedBlockProps
       | AudioPlayerBlockProps
       | VideoPlayerBlockProps
@@ -72,6 +75,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     cta: ({ node }) => <CallToActionBlock {...node.fields} />,
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
+    relatedStory: ({ node }) => <RelatedStoryBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
     videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,
