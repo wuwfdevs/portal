@@ -6,6 +6,7 @@ import { requirePermission } from '../access/permissions'
 import { bodyEditor } from '../fields/bodyEditor'
 import { ensureSlug } from '../hooks/ensureSlug'
 import { legacyIdentityWriteOnce } from '../hooks/pathHooks'
+import { restrictedBlocksGuard } from '../hooks/restrictedBlocksGuard'
 import { listHref } from '../lib/lists/route'
 import { revalidatePath } from '../lib/revalidate'
 
@@ -24,16 +25,19 @@ export const Contributors: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: { group: 'Editorial', useAsTitle: 'name', defaultColumns: ['name', 'title', 'updatedAt'] },
-  hooks: { beforeValidate: [ensureSlug('name')], beforeChange: [legacyIdentityWriteOnce],
+  hooks: { beforeValidate: [ensureSlug('name')], beforeChange: [legacyIdentityWriteOnce, restrictedBlocksGuard(['biography'])],
     // Their page (/people/<slug>) shows the profile, so an edit must reach readers at once, under the old address too.
     afterChange: [
-      ({ doc, previousDoc }) => {
+      ({ doc, previousDoc, req: { context } }) => {
+        if (context.disableRevalidate) return doc
         for (const slug of new Set([doc?.slug, previousDoc?.slug])) if (typeof slug === 'string' && slug) revalidatePath(listHref('person', slug))
+        return doc
       },
     ],
     afterDelete: [
-      ({ doc }) => {
-        if (typeof doc?.slug === 'string' && doc.slug) revalidatePath(listHref('person', doc.slug))
+      ({ doc, req: { context } }) => {
+        if (!context.disableRevalidate && typeof doc?.slug === 'string' && doc.slug) revalidatePath(listHref('person', doc.slug))
+        return doc
       },
     ],
   },

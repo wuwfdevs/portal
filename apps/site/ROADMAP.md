@@ -12,9 +12,8 @@ design canvas are described under *Sources* below.
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
 **Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
-program is under *The build program*. **Phases 1, 2 and 3 are done** (standard pages; shows, episodes, podcast directory; the community
-calendar with public submissions and editorial approval: see *Community calendar*). **Next: phase 4**: author pages (Grove `AuthorPage`, 1,148;
-the census has 10 samples, and **no board designs them**), and the Unearthing Florida and Voyager hubs (boards 11, 13), then 5 (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
+program is under *The build program*. **Phases 1 to 4 are done** (standard pages; shows, episodes, podcast directory; the community
+calendar with public submissions and editorial approval: see *Community calendar*; author profiles and the Unearthing Florida and Voyager hubs: see *Phase 4*). **Next: phase 5** (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
 sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
 homepage slots). The per-session task list does not survive; recreate it from that list. Pattern that worked for each phase: read the board and
 Grove's JSON for the page type, decide the data model (reuse an existing collection when the shape fits: a show is a production, an
@@ -100,6 +99,7 @@ sponsorship and listening are deferred.
 | **Pages: template system and standard pages** (Grove `ContentPage`) | **Built** (2026-11-03). `pages` gets a `template` (standard, or `blocks` for the starter's older layout, which keeps rendering), a short lead and a body made of the same blocks a story holds; a page is served at its exact address by the same resolver as stories; drafts stay private. The converter turns Grove's standard pages (modules, containers, a sub-heading that holds a video) into that, never dropping anything: on the 24 census pages, 22 clean and 2 flagged (a Vimeo address that is not a video). The importer now brings standard pages in with the stories. Also fixed: **NPR Pym interactives** (a `data-pym-src` placeholder plus NPR's loader script) were being lost; they now embed the same address as a frame, `apps.npr.org` is a built-in embed host, and the loader is reported as replaced, not lost (this rescues the election simulator page and the same pattern in stories and live blogs). Migration `20261103_032912`; 11 unit + 3 integration tests; checked in a browser (livestream behind a click, Vimeo and NPR inline, no overflow at 390 px). **Next templates for pages:** a hub template (for Unearthing Florida, The Voyager and other hubs) arrives with phase 4 |
 | **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, podcasts, RadioLive and Unearthing Florida features, short videos, newsletters, "From NPR", sponsor placements. The membership band's wording is the Article page's; the owner should confirm the front-page copy |
+| **Author profiles and the Unearthing Florida and Voyager hubs** (Grove `AuthorPage`; boards 11, 13) | **Built** (2026-11-03). See *Phase 4*. |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
@@ -426,7 +426,7 @@ follows what replacing Grove needs first, then the new products):
 1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**
 2. **Shows and episodes** (boards 9, 10; Grove's `RadioShowPage` and `RadioShowEpisodePage`, about 500 episodes), the podcast directory. **Done.**
 3. **Events** (Grove's `EventPage`, 1,474 community-calendar events) and the calendar list, **with public submissions and editorial approval. Done** (*Community calendar*).
-4. **Author profile pages** (Grove's `AuthorPage`, 1,148) and the hubs for **Unearthing Florida** (11) and **The Voyager** (13).
+4. **Author profile pages** (Grove's `AuthorPage`, 1,148) and the hubs for **Unearthing Florida** (11) and **The Voyager** (13). **Done** (*Phase 4*).
 5. **Short video** (boards 7, 8). 6. **RadioLive** (12). 7. **Barefoot Mary and member feeds** (21-25: needs sign-in, entitlements and
 private feeds, so it is designed with the owner before it is built). 8. **Cutover infrastructure**: redirects, sitemap (stories,
 lists, live blogs, pages), search results, the gallery page, retiring the starter `/posts`. 9. Fill the homepage and hub slots left
@@ -434,6 +434,41 @@ out so far, as the features behind them land.
 
 Grove's non-story pages in the census (65): standard content pages 24, radio-show episodes 15, events 10, author pages 10, radio
 show pages 5, a gallery page 1: these are the shapes the program covers.
+
+### Phase 4: author profiles and the two hubs (built 2026-11-03)
+
+**Author profiles** (`/people/<slug>`, Grove's exact address). No board designs them, so, with the owner's go-ahead, the existing person
+list (`/people/<slug>`, the same page as sections and topics) gained a profile header: portrait or initials, name, title, short bio, links,
+then "About <name>" (the full biography, the same blocks as a story) above the stories. `contributors` gained `biography` (rich text,
+publisher-only blocks guarded), `links` (http/https only) and a write-once `legacy` identity. The converter is `src/lib/grove/author.ts`
+(`scripts/grove/convert-authors.ts` runs it over raw pages); the importer matches an existing byline-created contributor on the slug and
+fills what it lacks, never a second record. Grove's story list on an author page is not carried: the site builds it from bylines (noted
+in the report). **Checked on 4 real pages** fetched with the owner's go-ahead (robots.txt allowed, 4 s apart, neutral User-Agent, raw JSON
+kept outside the repository): all clean. `authorSocialLinks` was empty on all four, so its field shape is a guess (an item with `href` and
+a label); anything else is flagged `author.link-not-mapped`, never dropped. Grove's long biographies with inline links convert correctly.
+
+**Unearthing Florida hub** (`/unearthing-florida`, board 11). The production is the existing `productions` record; episodes are its stories.
+New: a `sites` collection (name, place, era, a map position in percent, because the map is schematic), and `site` and `period` on stories
+(`period` is one of the board's seven; the era filter groups them: Native, Spanish colonial, British, American). The hub's settings are the
+**Unearthing Florida hub** global (production, dateline, about, featured episode, then-and-now pairs). Everything else is derived and
+tested (`src/lib/unearthing`): the featured episode (picked, else newest), timeline counts, collections (the episodes' **series**, so
+"The Spanish missions" is a series), site pins, with honest counts ("No episodes yet", never the board's `[N]`). The map and era filter are
+the one client component. The funding line comes from the production's underwriting agreements, as on a show page.
+*Left out on purpose:* the place-tip form and the weekly email (no service behind either; nothing is faked), transcripts (not migrated).
+The hub is at `/unearthing-florida` ahead of Grove's section list of the same name; its episodes and `/page/<n>` still go through the
+catch-all route. **To go live:** create the production and sites, set `site`/`period`/series on episodes, then fill the global.
+
+**The Voyager hub** (`/voyager`, board 13). A story belongs to The Voyager through its **publishing identity**. The **The Voyager hub**
+global holds the identity, tagline, an optional featured story, up to six sections, an optional podcast, the staff list (a contributor
+and the term's role) and the "Join the newsroom" call (link validated like the giving page's). The page: the featured story and a Latest
+rail, each chosen section's two newest stories, a multimedia band (newest video stories and the podcast), staff, the join box.
+*Left out:* the board's "One story, its own masthead, three places" panel, which explains the arrangement to WUWF staff on the design
+canvas and is not reader content. The masthead prints the date in America/Chicago (AP month style), so the page refreshes every 10 minutes.
+**To go live:** create the Voyager publishing identity and set it on its stories, then fill the global.
+
+Both hubs return 404 until their global names a production or identity. Story saves refresh both. Browser-checked at 1440 and 390 px: no
+horizontal overflow; the map and filter work with a keyboard-reachable button per pin. The site header and footer still wrap the Voyager
+hub (the board shows only a thin WUWF bar); a themed layout per publishing identity is a later decision.
 
 ### Community calendar (built 2026-11-03)
 

@@ -13,6 +13,9 @@ import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
+import { Sites } from './collections/Sites'
+import { UnearthingHub } from './UnearthingHub/config'
+import { VoyagerHub } from './VoyagerHub/config'
 import { EventCategories } from './collections/Events/EventCategories'
 import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
 import { EventSubmissions } from './collections/Events/EventSubmissions'
@@ -97,6 +100,7 @@ export default buildConfig({
     Sections,
     Categories,
     Contributors,
+    Sites,
     PublishingIdentities,
     Fellowships,
     Series,
@@ -107,7 +111,7 @@ export default buildConfig({
     PortalSignIns,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

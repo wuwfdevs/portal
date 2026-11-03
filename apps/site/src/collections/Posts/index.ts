@@ -19,6 +19,7 @@ import {
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
 import { slugField } from 'payload'
+import { PERIOD_OPTIONS } from '../../lib/unearthing/periods'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
@@ -262,6 +263,18 @@ export const Posts: CollectionConfig<'posts'> = {
     },
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
     { name: 'production', type: 'relationship', relationTo: 'productions', admin: { position: 'sidebar' } },
+    {
+      name: 'site',
+      type: 'relationship',
+      relationTo: 'sites',
+      admin: { position: 'sidebar', description: 'Unearthing Florida: the place this episode is about. Shown on the hub\'s map.' },
+    },
+    {
+      name: 'period',
+      type: 'select',
+      options: PERIOD_OPTIONS,
+      admin: { position: 'sidebar', description: 'Unearthing Florida: where this episode falls on the timeline.' },
+    },
     slugField(),
   ],
   hooks: {

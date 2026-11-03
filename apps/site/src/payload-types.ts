@@ -81,6 +81,7 @@ export interface Config {
     sections: Section;
     categories: Category;
     contributors: Contributor;
+    sites: Site;
     'publishing-identities': PublishingIdentity;
     fellowships: Fellowship;
     series: Series;
@@ -120,6 +121,7 @@ export interface Config {
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
+    sites: SitesSelect<false> | SitesSelect<true>;
     'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
     fellowships: FellowshipsSelect<false> | FellowshipsSelect<true>;
     series: SeriesSelect<false> | SeriesSelect<true>;
@@ -149,6 +151,8 @@ export interface Config {
     homepage: Homepage;
     'site-settings': SiteSetting;
     'support-page': SupportPage;
+    'unearthing-hub': UnearthingHub;
+    'voyager-hub': VoyagerHub;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -156,6 +160,8 @@ export interface Config {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
+    'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
+    'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
   };
   locale: null;
   widgets: {
@@ -404,6 +410,24 @@ export interface Post {
   fellowship?: (number | null) | Fellowship;
   series?: (number | null) | Series;
   production?: (number | null) | Production;
+  /**
+   * Unearthing Florida: the place this episode is about. Shown on the hub's map.
+   */
+  site?: (number | null) | Site;
+  /**
+   * Unearthing Florida: where this episode falls on the timeline.
+   */
+  period?:
+    | (
+        | 'paleoindian-archaic'
+        | 'woodland-mississippian'
+        | 'first-spanish'
+        | 'british-west-florida'
+        | 'second-spanish'
+        | 'territory-statehood'
+        | 'civil-war'
+      )
+    | null;
   /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
@@ -1111,6 +1135,47 @@ export interface Production {
    * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
    */
   agreements?: (number | UnderwritingAgreement)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Places Unearthing Florida episodes are about. Each appears as a pin on the hub's map.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sites".
+ */
+export interface Site {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * The label beside the pin. Defaults to the name.
+   */
+  short?: string | null;
+  /**
+   * Town or area, e.g. "Tallahassee".
+   */
+  place: string;
+  /**
+   * Used by the hub's era filter.
+   */
+  era: 'native' | 'spanish' | 'british' | 'american';
+  /**
+   * One or two sentences, shown when the pin is chosen.
+   */
+  description?: string | null;
+  /**
+   * 0 is the west edge, 100 the east.
+   */
+  mapX?: number | null;
+  /**
+   * 0 is the north edge, 100 the south.
+   */
+  mapY?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2195,6 +2260,10 @@ export interface PayloadLockedDocument {
         value: number | Contributor;
       } | null)
     | ({
+        relationTo: 'sites';
+        value: number | Site;
+      } | null)
+    | ({
         relationTo: 'publishing-identities';
         value: number | PublishingIdentity;
       } | null)
@@ -2484,6 +2553,8 @@ export interface PostsSelect<T extends boolean = true> {
   fellowship?: T;
   series?: T;
   production?: T;
+  site?: T;
+  period?: T;
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -3006,6 +3077,23 @@ export interface ContributorsSelect<T extends boolean = true> {
         legacyPath?: T;
         groveId?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sites_select".
+ */
+export interface SitesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  short?: T;
+  place?: T;
+  era?: T;
+  description?: T;
+  mapX?: T;
+  mapY?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3737,6 +3825,99 @@ export interface SupportPage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub".
+ */
+export interface UnearthingHub {
+  id: number;
+  /**
+   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  production?: (number | null) | Production;
+  /**
+   * The small line above the title, e.g. "Northwest Florida to the Keys".
+   */
+  dateline?: string | null;
+  /**
+   * The "About the project" box: who makes it, since when, when it airs.
+   */
+  about?: string | null;
+  /**
+   * The episode shown large with its player. Empty means the newest episode.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Pairs a history episode with today's reporting on the same place. Leave the pairs empty to hide the band.
+   */
+  thenNow?: {
+    /**
+     * For example "People have rebuilt on this coast after storms for 500 years."
+     */
+    heading?: string | null;
+    blurb?: string | null;
+    pairs?:
+      | {
+          then: number | Post;
+          now: number | Post;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub".
+ */
+export interface VoyagerHub {
+  id: number;
+  /**
+   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  identity?: (number | null) | PublishingIdentity;
+  tagline?: string | null;
+  /**
+   * The large story at the top. Empty means the newest Voyager story.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * A Voyager podcast to show in the Multimedia band. Optional.
+   */
+  podcast?: (number | null) | Production;
+  /**
+   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
+   */
+  staff?:
+    | {
+        person: number | Contributor;
+        /**
+         * Their role this term, e.g. "News editor". Empty uses their title.
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  join?: {
+    heading?: string | null;
+    /**
+     * Say only what is true this term (who can join, whether editor roles are paid).
+     */
+    text?: string | null;
+    /**
+     * Where "Join the newsroom" goes. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  footnote?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -3917,6 +4098,61 @@ export interface SupportPageSelect<T extends boolean = true> {
         id?: T;
       };
   giftNotice?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub_select".
+ */
+export interface UnearthingHubSelect<T extends boolean = true> {
+  production?: T;
+  dateline?: T;
+  about?: T;
+  featured?: T;
+  thenNow?:
+    | T
+    | {
+        heading?: T;
+        blurb?: T;
+        pairs?:
+          | T
+          | {
+              then?: T;
+              now?: T;
+              id?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub_select".
+ */
+export interface VoyagerHubSelect<T extends boolean = true> {
+  identity?: T;
+  tagline?: T;
+  featured?: T;
+  sections?: T;
+  podcast?: T;
+  staff?:
+    | T
+    | {
+        person?: T;
+        role?: T;
+        id?: T;
+      };
+  join?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        href?: T;
+      };
+  footnote?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
