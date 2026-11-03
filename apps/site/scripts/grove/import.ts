@@ -175,7 +175,7 @@ async function fetchPhase() {
   const todo = [...assets.values()].filter((a) => {
     if (!kinds.includes(a.kind)) return false
     const e = ledger.get(a.sourceUrl)
-    if (upgrade.has(a.sourceUrl)) return !e || (e.status === 'refused' && e.reason === 'not_https')
+    if (upgrade.has(a.sourceUrl)) return !e || (e.status === 'refused' && e.reason === 'not_https') || (e.status === 'failed' && retryFailed)
     return !e || (e.status === 'failed' && retryFailed)
   })
   console.log(`fetch: ${todo.length} to download, ${assets.size - todo.length} already in the ledger; about ${Math.round((todo.length * intervalMs) / 60000)} minutes at ${intervalMs / 1000}s a file`)

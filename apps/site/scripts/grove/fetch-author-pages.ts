@@ -82,12 +82,13 @@ for (const [slug] of missing) {
     continue
   }
   const r = await client.get(pq, 'application/json')
+  if (r.kind === 'forbidden') {
+    // The server saying no is not something to push against: stop, and ask the owner.
+    problems.push(`${slug}: HTTP ${r.status}`, 'stopped: the server answered 403; not pushing on')
+    break
+  }
   if (r.kind !== 'ok') {
-    problems.push(`${slug}: ${r.kind === 'final' ? `HTTP ${r.status}` : r.kind}`)
-    if (r.kind === 'final' && r.status === 403) {
-      problems.push('stopped: the server answered 403; not pushing on')
-      break
-    }
+    problems.push(`${slug}: ${r.kind === 'final' ? `HTTP ${r.status}` : r.kind === 'failed' ? r.error : 'not fetched'}`)
     continue
   }
   const sha = crypto.createHash('sha256').update(r.body).digest('hex')
