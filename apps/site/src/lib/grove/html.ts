@@ -120,7 +120,8 @@ function repairEscapedMarkup(inline: LexNode[], ctx: Ctx): LexNode[] {
   }
   if (!repaired) return inline
   ctx.note('link.escaped-markup-repaired')
-  return [lex.text(value.trim(), format)]
+  // Text escaped twice also shows its spaces as the characters "&nbsp;" (six links in one 2014 story).
+  return [lex.text(value.replace(/&nbsp;/gi, ' ').trim(), format)]
 }
 
 function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {

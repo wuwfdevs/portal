@@ -111,6 +111,11 @@ describe('escaped markup typed into link text', () => {
     expect(children.map(texts)).toEqual(['Both'])
     expect(children[0]!.format).toBe(FORMAT.bold | FORMAT.italic)
   })
+  it('also turns a typed &nbsp; inside the repaired text into a space (text that was escaped twice)', () => {
+    const { children } = only('<p><a href="/x">&lt;b&gt;Okaloosa Commission&amp;nbsp;&lt;/b&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['Okaloosa Commission'])
+    expect(children[0]!.format).toBe(FORMAT.bold)
+  })
   it('leaves link text alone when the tag is only mentioned, or the pair does not wrap everything', () => {
     expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
     expect(only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>').children.map(texts)).toEqual(['Say <b>this</b> twice'])
