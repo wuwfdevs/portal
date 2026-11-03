@@ -596,8 +596,7 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
   `MIGRATE_ON_BUILD`. **Wrong right now:** `PAYLOAD_SECRET`, `CRON_SECRET` and `PREVIEW_SECRET` in Preview hold placeholder
   text (a mistake while setting them) and must be replaced before anything real runs there. **Not set:** Production env,
   `PORTAL_IDENTITY_SECRET` (must equal the Portal's `WEBSITE_IDENTITY_SECRET`), the S3 keys and `S3_*` variables.
-- **Unverified:** the pooler host used in the connection strings (`aws-1-us-east-1.pooler.supabase.com`) is a guess from
-  Supabase's current naming; the dashboard's Connect dialog shows the real one. No site build has completed on Vercel yet
+- **Pooler host (confirmed by the owner from the dashboard, 2026-11-03):** `aws-0-us-east-1.pooler.supabase.com`; the app role connects as `payload_app.<ref>`. The first guess (`aws-1`) was wrong. Not yet proven by a build: no site build has completed on Vercel yet
   (the one attempt was cancelled; it was created as a *production* deployment by mistake, nothing went live).
 - **Lesson:** `create_deployment` with a Git source on a project that has no production deployment yet can come back with
   target `production`, whatever branch is named. Use a push to a branch (Vercel builds it as a preview) instead.
