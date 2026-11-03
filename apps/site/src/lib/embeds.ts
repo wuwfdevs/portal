@@ -152,6 +152,8 @@ export const DEFAULT_EMBED_HOSTS: readonly string[] = [
   'www.npr.org',
   'players.brightcove.net',
   'rumble.com',
+  // The election-guide service WUWF has always embedded (script widgets, see lib/widgets.ts)
+  'static.electup.com',
 ]
 
 const OWN_HOSTS = new Set(['wuwf.org', 'www.wuwf.org'])

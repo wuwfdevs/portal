@@ -179,4 +179,72 @@ describe('body blocks', () => {
       expect(outcome.stored).toBe('')
     })
   })
+
+  describe('script widgets', () => {
+    const widget = (over: Record<string, unknown> = {}) =>
+      block('widget', {
+        title: 'Election guide',
+        scriptUrl: 'https://static.electup.com/v2/app.js',
+        module: true,
+        elementId: 'electup-embed',
+        attributes: [{ id: 'a1', name: 'data-embed', value: 'abc' }],
+        initEvent: 'electup_load',
+        height: 600,
+        ...over,
+      })
+    const draft = (title: string, content: unknown, user: unknown) =>
+      payload
+        .create({
+          collection: 'posts',
+          draft: true,
+          context: { disableRevalidate: true },
+          overrideAccess: false,
+          user: user as never,
+          data: { title: `${title} ${run}`, content, _status: 'draft', section: undefined } as never,
+        })
+        .then((p) => {
+          created.push(p.id)
+          return p
+        })
+    const editor = { id: 1, collection: 'users', email: 'e@wuwf.org', roles: ['editor'] }
+    const publisher = { id: 2, collection: 'users', email: 'p@wuwf.org', roles: ['editor', 'publisher'] }
+
+    it('is stored with its script, container, settings and event', async () => {
+      const p = await story('Guide', body(widget()))
+      expect(blocksOf(p.content)[0]?.fields).toMatchObject({ blockType: 'widget', scriptUrl: 'https://static.electup.com/v2/app.js', elementId: 'electup-embed', initEvent: 'electup_load' })
+    })
+    it('is refused on publish when the script is not https, is private, or is this site', async () => {
+      for (const scriptUrl of ['http://x.org/a.js', 'https://10.0.0.5/a.js', 'https://www.wuwf.org/a.js', 'javascript:alert(1)'])
+        await expect(story('Bad script', body(widget({ scriptUrl }))), scriptUrl).rejects.toThrow()
+    })
+    it('refuses a setting whose name is not data-*, and a malformed id or event', async () => {
+      for (const over of [
+        { attributes: [{ id: 'a', name: 'onload', value: 'x' }] },
+        { elementId: 'a b' },
+        { initEvent: 'a(b)' },
+      ])
+        await expect(story('Bad field', body(widget(over))), JSON.stringify(over)).rejects.toThrow()
+    })
+    it('an editor cannot add one, a publisher can', async () => {
+      await expect(draft('Editor widget', body(widget()), editor)).rejects.toThrow(/publisher/i)
+      const p = await draft('Publisher widget', body(widget()), publisher)
+      expect(blocksOf(p.content)[0]?.fields?.blockType).toBe('widget')
+    })
+    it('an editor may re-save a story that already has one, but not change its script', async () => {
+      const p = await story('Has widget', body(widget()))
+      const same = await payload.update({
+        collection: 'posts', id: p.id, draft: true, overrideAccess: false, user: editor as never, context: { disableRevalidate: true },
+        data: { content: p.content, _status: 'draft' } as never,
+      })
+      expect(blocksOf(same.content)[0]?.fields?.blockType).toBe('widget')
+      const swapped = JSON.parse(JSON.stringify(p.content)) as { root: { children: { type: string; fields: Record<string, unknown> }[] } }
+      swapped.root.children.filter((n) => n.type === 'block')[0]!.fields.scriptUrl = 'https://other.org/x.js'
+      await expect(
+        payload.update({
+          collection: 'posts', id: p.id, draft: true, overrideAccess: false, user: editor as never, context: { disableRevalidate: true },
+          data: { content: swapped, _status: 'draft' } as never,
+        }),
+      ).rejects.toThrow(/publisher/i)
+    })
+  })
 })

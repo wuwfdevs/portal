@@ -19,7 +19,7 @@ export const SiteSettings: GlobalConfig = {
       label: 'Approved embed sites',
       admin: {
         description:
-          'Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. Exact hostname, https only. Only add sites you trust: an embed runs that site\'s code in a frame on our page.',
+          'Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site\'s code in a frame on our page.',
       },
       fields: [
         {
