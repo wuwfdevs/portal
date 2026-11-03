@@ -73,6 +73,36 @@ pnpm exec tsx scripts/grove/staging-repair-files.ts --cache ~/grove/cache --appl
 
 It runs only against the staging project (an allow-list of one), and deletes nothing.
 
+### After the converter changes: repairing bodies that are already in (staging)
+
+The importer leaves a story that is already in alone, so a story saved before a converter change keeps its old body, however good
+the converter has become. `repair-bodies.ts` fixes that for the bodies only: it re-converts each story's Grove page and replaces the
+body when the stored one still holds markup typed as words (`<i>Frontiers in Psychology</i>` showing on the page) or has a
+"RELATED:" / "Support Local Stories." line as a plain paragraph (it becomes a link-line block).
+
+```bash
+set -a; source ~/grove/staging.env; set +a
+pnpm exec tsx scripts/grove/repair-bodies.ts --raw ~/grove/raw --report ~/grove/repair-dry.json     # DRY RUN: lists what it would change, changes nothing
+pnpm exec tsx scripts/grove/repair-bodies.ts --raw ~/grove/raw --only <part of a story's path> --apply   # one story first, then look at it
+pnpm exec tsx scripts/grove/repair-bodies.ts --raw ~/grove/raw --report ~/grove/repair-done.json --apply
+```
+
+Before `--apply`: the staging site must be running the code that has the link-line block, or the repaired lines have nothing to
+render them. After it: the changed pages refresh when the site revalidates them (the script cannot run Next's cache), so
+redeploy or revalidate staging.
+
+What it will not do, and says so in the report: it never touches any field but the body; never creates or fetches a file (every
+picture or audio file the new body uses must already be in the library); skips a story an editor has changed since the import
+(more than the one version the importer saved); skips a story whose words a reader reads would change; skips a story with no Grove
+page among `--raw`. Running it again after a repair finds nothing left to do. It runs only against the staging project (an
+allow-list of one; `NODE_ENV=production` is required for a hosted database), prints no password, and a failed story is reported
+and the run goes on.
+
+Rehearsed before it was written down (2026-11-03, on a scratch database, with 224 real census stories saved the way the old
+converter saved them): 63 would be repaired, 154 needed nothing; after `--apply`, every repaired story read the same words,
+had no typed markup left and had exactly two versions, every other story was byte-for-byte unchanged with one version, and a second
+run found nothing to repair. The same 63 stories were found by an independent count.
+
 ## 3. The full import into production (owner's approval first)
 
 Production is this project's real database. Apply its migrations deliberately first (`pnpm payload migrate` with the production

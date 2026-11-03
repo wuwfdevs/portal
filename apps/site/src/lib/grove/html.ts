@@ -7,6 +7,7 @@ import { parseFragment, serializeOuter } from 'parse5'
 import type { DefaultTreeAdapterMap } from 'parse5'
 
 import { absoluteUrl, plainText, safeHref, type Ctx } from './context'
+import { isLinkLineUrl } from '../link-line'
 import { checkScriptUrl, DEFAULT_WIDGET_HEIGHT } from '../widgets'
 import { embedNode } from './embed'
 import * as lex from './lexical'
@@ -47,10 +48,20 @@ const alignOf = (el: El): Align | undefined => {
 
 // ---- inline content -------------------------------------------------------------------------------------------
 
-function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
+/** `inLink`: the text is a link's words. `repaired`: this text already came from re-reading typed markup (never do it twice). */
+type InlineOpts = { inLink?: boolean; repaired?: boolean }
+
+function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx, opt: InlineOpts = {}): Piece[] {
   const out: Piece[] = []
   for (const n of nodes) {
     if (isText(n)) {
+      if (!opt.repaired && looksTyped(n.value)) {
+        const typed = typedPieces(n.value, fmt, ctx, !!opt.inLink)
+        if (typed) {
+          out.push(...typed)
+          continue
+        }
+      }
       const value = n.value.replace(/[ \t\r\n\f]+/g, ' ')
       if (value) out.push({ inline: lex.text(value, fmt) })
       continue
@@ -73,10 +84,10 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
         ctx.note('html.external-content-embedded')
       } else {
         ctx.note('html.external-content-without-address')
-        out.push(...inlinePieces(kids(n), fmt, ctx))
+        out.push(...inlinePieces(kids(n), fmt, ctx, opt))
       }
     } else if (tag in FORMAT_TAGS) {
-      out.push(...inlinePieces(kids(n), fmt | FORMAT_TAGS[tag]!, ctx))
+      out.push(...inlinePieces(kids(n), fmt | FORMAT_TAGS[tag]!, ctx, opt))
     } else if (tag === 'br') {
       out.push({ inline: lex.linebreak() })
     } else if (tag === 'a') {
@@ -92,15 +103,58 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
     } else {
       if (tag === 'font' && (attr(n, 'color') || attr(n, 'size') || attr(n, 'face') || attr(n, 'style'))) ctx.note('html.font-formatting-dropped')
       else if (!UNWRAP_QUIET.has(tag)) ctx.note('html.unwrapped-tag', tag)
-      out.push(...inlinePieces(kids(n), fmt, ctx))
+      out.push(...inlinePieces(kids(n), fmt, ctx, opt))
     }
   }
   return out
 }
 
+// ---- markup typed as words ----------------------------------------------------------------------------------------
+
+/**
+ * Grove editors sometimes typed markup into the visible text, and it was stored as the characters, not as formatting:
+ * `<i>Frontiers in Psychology</i>` as the words of a link, `Listen</i></b>`, `1<sup>st</sup>`, a `<br>` in a line, a
+ * `&nbsp;`. (In the census: 50 stories, 85 repairs.) Such text is read again as HTML, by the same parser and the same rules
+ * as the rest of the page, so the formatting it asked for is applied and the tags are gone.
+ *
+ * It only happens when the text carries a closing tag of a formatting tag we know, a `<br>` or `<wbr>`, or a `&nbsp;`, so
+ * a sentence that merely mentions an opening tag ("use <b> for bold") is never touched.
+ */
+const TYPED_NAMES = 'b|strong|i|em|u|ins|s|strike|del|sup|sub|font|span|small|big|mark|cite|code|kbd|tt'
+const TYPED_CLOSING = new RegExp(`</(?:${TYPED_NAMES})\\s*>`, 'i')
+const TYPED_BREAK = /<(?:br|wbr)(?:\s[^>]*)?\/?>/i
+const TYPED_EMPTY = new RegExp(`<(${TYPED_NAMES})(?:\\s[^>]*)?>\\s*</\\1\\s*>`, 'gi')
+
+/** Only formatting is ever read back out of typed text. A typed `<img>`, `<iframe>`, `<a>`, `<script>` or Grove element stays the characters it was. */
+const TYPED_OK = new Set([...TYPED_NAMES.split('|'), 'br', 'wbr'])
+const onlyFormatting = (value: string): boolean => [...value.matchAll(/<\/?([a-zA-Z][\w:-]*)/g)].every((m) => TYPED_OK.has(m[1]!.toLowerCase()))
+
+function looksTyped(value: string): boolean {
+  return value.includes('<') || value.includes('&') ? TYPED_CLOSING.test(value) || TYPED_BREAK.test(value) || /&nbsp;/i.test(value) : false
+}
+
+/** True when the converter would read this text again as formatting (typed tags it knows, and nothing else): the mark of a story imported before the repair. */
+export const isTypedMarkup = (value: string): boolean => looksTyped(value) && onlyFormatting(value)
+
+/** The text read again as HTML, or null when it holds anything but formatting (it is then left exactly as it was). */
+function typedPieces(value: string, fmt: number, ctx: Ctx, inLink: boolean): Piece[] | null {
+  if (!onlyFormatting(value)) return null
+  // An empty typed pair ("<b> </b>" in front of the real words) says nothing, so it goes wherever it sits.
+  const pieces = inlinePieces(parseFragment(value.replace(TYPED_EMPTY, '')).childNodes as PNode[], fmt, ctx, { inLink, repaired: true })
+  if (pieces.some((p) => 'block' in p)) return null
+  ctx.note(inLink ? 'link.escaped-markup-repaired' : 'text.escaped-markup-repaired')
+  // Not trimmed here: a fragment's trailing space can be the space between two words of the same link. The link is trimmed once,
+  // as a whole, in `linkPieces`.
+  return pieces
+}
+
 function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
-  const pieces = inlinePieces(kids(a), fmt, ctx)
-  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  const entriesBefore = ctx.entries.length
+  const pieces = inlinePieces(kids(a), fmt, ctx, { inLink: true })
+  const whole = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  // A link whose words had typed markup repaired carries no stray space at either end (a typed `&nbsp;` before the closing tag was
+  // one). The ends of the whole link are trimmed, never the ends of a repaired fragment inside it.
+  const inline = ctx.entries.slice(entriesBefore).some((e) => e.code === 'link.escaped-markup-repaired') ? trimRun(whole) : whole
   const blocks = pieces.flatMap((p) => ('block' in p ? [{ block: p.block } as Piece] : []))
   const href = attr(a, 'href')
   let safe = safeHref(href)
@@ -125,6 +179,9 @@ function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
   if (inline.length) {
     out.push({ inline: lex.link(safe.url, attr(a, 'target') === '_blank', mergeText(inline)) })
     ctx.count('link')
+  } else if (!blocks.length) {
+    // A link with nothing to read (or only a typed &nbsp;) has nowhere to be clicked, so it goes, and the report says so.
+    ctx.note('link.empty-text')
   }
   return [...out, ...blocks]
 }
@@ -152,6 +209,68 @@ function trimRun(nodes: LexNode[]): LexNode[] {
   const kept = run.filter((n) => !(n.type === 'text' && n.text === ''))
   const visible = kept.some((n) => n.type === 'link' || n.type === 'linebreak' || (n.type === 'text' && String(n.text).replace(/[\s ]+/g, '') !== ''))
   return visible ? kept : []
+}
+
+// ---- "RELATED:" lines -------------------------------------------------------------------------------------------
+
+/** The word or two an editor put before the link: "RELATED:", "Related story –", "Related coverage". */
+const RELATED_LABEL = /^related(?:\s+(?:story|stories|coverage|reading|content|links?))?\s*[:\-–—]?$/i
+
+const nodeText = (n: LexNode): string =>
+  n.type === 'text' ? String(n.text) : n.type === 'linebreak' ? ' ' : ((n.children as LexNode[] | undefined) ?? []).map(nodeText).join('')
+
+/**
+ * Grove had no element for pointing at another story; editors typed a label and a link into a paragraph. A paragraph that is
+ * exactly that (only plain text saying "Related", then one link to a page, and nothing after it) becomes a `linkLine`
+ * block. A paragraph with anything else in it, a second link, or a link that is not a page address stays a paragraph.
+ */
+function relatedLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
+  const at = run.findIndex((n) => n.type === 'link')
+  if (at < 1 || at !== run.length - 1 || run.slice(0, at).some((n) => n.type !== 'text')) return null
+  const labelText = run.slice(0, at).map(nodeText).join('').replace(/\s+/g, ' ').trim()
+  if (!RELATED_LABEL.test(labelText)) return null
+  const l = run[at]!
+  const { url, newTab } = l.fields as { url: string; newTab?: boolean }
+  const headline = nodeText(l).replace(/\s+/g, ' ').trim()
+  // Only an address the block will accept (a page here, http or https; not an email): a line the editor would refuse to save stays a paragraph.
+  if (!headline || /^mailto:/i.test(url) || !isLinkLineUrl(url)) return null
+  const words = labelText.replace(/\s*[:\-–—]$/, '')
+  const label = words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
+  ctx.count('block:linkLine')
+  ctx.count('linkLine:related')
+  return lex.block(ctx.id(), 'linkLine', { label, linkText: headline, url, ...(newTab ? { newTab: true } : {}) })
+}
+
+// ---- the stock "Support Local Stories. Donate Here." line -------------------------------------------------------
+
+/** The page Grove's stock support line pointed at (50 of the 1,513 census stories). Matched on the path alone. */
+const GROVE_SUPPORT_PATHS = new Set(['/thanks-for-your-support'])
+/** Where every one of those lines goes on this site: the Support page (owner decision, 2026-11-03). */
+const SUPPORT_PAGE_PATH = '/support'
+
+/**
+ * Editors typed a short bold sentence and a link to Grove's donation page into a paragraph. A paragraph that is exactly
+ * that (plain text of at most 80 characters, one link to that address, nothing after it but a full stop) becomes a
+ * `linkLine` block (the sentence is its label). Grove's donation page does not exist here, so the block links to the Support
+ * page instead, and the report names the address it replaced so every affected story can be found. (`redirects.ts` sends
+ * the old address there too, for any other place it is still used.)
+ * A sentence of prose that merely contains such a link is not this line, and stays a paragraph.
+ */
+function supportLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
+  const at = run.findIndex((n) => n.type === 'link')
+  if (at < 1 || run.slice(0, at).some((n) => n.type !== 'text') || run.slice(at + 1).some((n) => n.type !== 'text')) return null
+  const l = run[at]!
+  const { url } = l.fields as { url: string }
+  const path = url.split(/[?#]/)[0]!.replace(/\/+$/, '').toLowerCase()
+  if (!GROVE_SUPPORT_PATHS.has(path)) return null
+  const message = run.slice(0, at).map(nodeText).join('').replace(/\s+/g, ' ').trim()
+  const linkText = nodeText(l).replace(/\s+/g, ' ').trim()
+  const after = run.slice(at + 1).map(nodeText).join('').trim()
+  if (!message || message.length > 80 || !linkText || !/^[.!]?$/.test(after) || !isLinkLineUrl(url)) return null
+  ctx.count('block:linkLine')
+  ctx.count('linkLine:support')
+  ctx.note('support.appeal-sent-to-support-page', path)
+  return lex.block(ctx.id(), 'linkLine', { label: message, linkText, url: SUPPORT_PAGE_PATH })
 }
 
 // ---- pictures, frames, dropped things -------------------------------------------------------------------------
@@ -268,8 +387,12 @@ function blocksFromNodes(nodes: PNode[], ctx: Ctx, align?: Align): LexNode[] {
     const run = trimRun(buf)
     buf = []
     if (run.length) {
-      out.push(lex.paragraph(run, bufAlign))
-      ctx.count('paragraph')
+      const special = relatedLineBlock(run, ctx) ?? supportLineBlock(run, ctx)
+      if (special) out.push(special)
+      else {
+        out.push(lex.paragraph(run, bufAlign))
+        ctx.count('paragraph')
+      }
     }
   }
   const consume = (pieces: Piece[]) => {

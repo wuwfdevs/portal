@@ -8,7 +8,7 @@
  "nondeterministic": 0,
  "problems": [],
  "problemCount": 0,
- "meanStoryJson": 9076,
+ "meanStoryJson": 9047,
  "statuses": {
   "clean": 1509,
   "review": 4,
@@ -32,14 +32,17 @@
  },
  "hostsNeedingApproval": {},
  "mapped": {
-  "paragraph": 20562,
-  "link": 1855,
+  "paragraph": 20432,
+  "link": 1854,
   "lead:mediaBlock": 1417,
   "block:mediaBlock": 732,
+  "block:linkLine": 130,
   "block:embed": 107,
   "lead:gallery": 86,
+  "linkLine:related": 81,
   "list": 77,
   "heading": 50,
+  "linkLine:support": 49,
   "embed:youtube": 47,
   "block:audioPlayer": 40,
   "quote": 27,
@@ -137,6 +140,18 @@
    ]
   },
   {
+   "code": "link.escaped-markup-repaired",
+   "level": "noted",
+   "occurrences": 147,
+   "stories": 86,
+   "details": {},
+   "examples": [
+    "/local-music/2014-08-07/songwriters-malcolm-holcombe-callaghan-chris-alvarado",
+    "/local-news/2025-05-12/uwf-president-martha-saunders-announces-resignation-amid-mounting-political-pressures",
+    "/local-news/2015-10-20/iten-wired-summit-fosters-local-innovation-technology-entrepreneurship"
+   ]
+  },
+  {
    "code": "byline.person-without-address",
    "level": "noted",
    "occurrences": 62,
@@ -186,6 +201,20 @@
    ]
   },
   {
+   "code": "support.appeal-sent-to-support-page",
+   "level": "noted",
+   "occurrences": 49,
+   "stories": 49,
+   "details": {
+    "/thanks-for-your-support": 49
+   },
+   "examples": [
+    "/local-news/2024-03-19/maximizing-the-voting-power-of-gen-z-in-florida",
+    "/local-news/2025-10-02/pensacola-symphony-orchestra-opens-100th-anniversary-season",
+    "/local-news/2025-07-10/kristin-brown-named-acting-chief-of-pensacola-police-following-randalls-resignation"
+   ]
+  },
+  {
    "code": "text.markup-flattened",
    "level": "noted",
    "occurrences": 20,
@@ -227,6 +256,18 @@
    ]
   },
   {
+   "code": "html.font-formatting-dropped",
+   "level": "noted",
+   "occurrences": 8,
+   "stories": 6,
+   "details": {},
+   "examples": [
+    "/uwf-news/2017-11-17/gulf-stories-moment-11-20-17",
+    "/local-news/2014-04-22/listen-pensacola-symphony-orchestra-presents-mozart-mahler",
+    "/local-arts/2013-11-26/ladysmith-black-mambazo-returns-to-north-west-florida"
+   ]
+  },
+  {
    "code": "episode.show-from-address",
    "level": "noted",
    "occurrences": 6,
@@ -241,22 +282,10 @@
    ]
   },
   {
-   "code": "html.font-formatting-dropped",
-   "level": "noted",
-   "occurrences": 7,
-   "stories": 5,
-   "details": {},
-   "examples": [
-    "/uwf-news/2017-11-17/gulf-stories-moment-11-20-17",
-    "/local-news/2014-04-22/listen-pensacola-symphony-orchestra-presents-mozart-mahler",
-    "/local-news/2014-05-06/latest-damage-assessments-escambia-santa-rosa-okaloosa"
-   ]
-  },
-  {
    "code": "link.empty-text",
    "level": "noted",
-   "occurrences": 3,
-   "stories": 3,
+   "occurrences": 4,
+   "stories": 4,
    "details": {},
    "examples": [
     "/local-news/2014-02-10/impact-100-seeking-membership-of-1-000-women",

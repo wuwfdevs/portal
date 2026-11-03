@@ -18,6 +18,7 @@ import type {
   CallToActionBlock as CTABlockProps,
   EmbedBlock as EmbedBlockProps,
   GalleryBlock as GalleryBlockProps,
+  LinkLineBlock as LinkLineBlockProps,
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
@@ -30,6 +31,7 @@ import { CallToActionBlock } from '@/blocks/CallToAction/Component'
 import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
+import { LinkLineBlock } from '@/blocks/LinkLine/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
 import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
 import { WidgetBlock } from '@/blocks/Widget/Component'
@@ -46,6 +48,7 @@ type NodeTypes =
       | CodeBlockProps
       | GalleryBlockProps
       | PullQuoteBlockProps
+      | LinkLineBlockProps
       | EmbedBlockProps
       | AudioPlayerBlockProps
       | VideoPlayerBlockProps
@@ -72,6 +75,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     cta: ({ node }) => <CallToActionBlock {...node.fields} />,
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
+    linkLine: ({ node }) => <LinkLineBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
     videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,

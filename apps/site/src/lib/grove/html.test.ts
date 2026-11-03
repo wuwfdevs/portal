@@ -94,6 +94,203 @@ describe('links', () => {
   })
 })
 
+describe('escaped markup typed into link text', () => {
+  const only = (html: string) => {
+    const { nodes, ctx } = run(html)
+    const l = (nodes[0]!.children as LexNode[]).find((c) => c.type === 'link')!
+    return { children: l.children as LexNode[], ctx }
+  }
+  it('shows the words, bold, when the whole link text is wrapped in a typed <b> pair, and says so', () => {
+    const { children, ctx } = only('<p>See <a href="/x">&lt;b&gt;I was shocked&lt;/b&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['I was shocked'])
+    expect(children[0]!.format).toBe(FORMAT.bold)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('handles nested pairs and keeps every format they ask for', () => {
+    const { children } = only('<p><a href="/x">&lt;strong&gt;&lt;i&gt;Both&lt;/i&gt;&lt;/strong&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['Both'])
+    expect(children[0]!.format).toBe(FORMAT.bold | FORMAT.italic)
+  })
+  it('also turns a typed &nbsp; inside the repaired text into a space (text that was escaped twice)', () => {
+    const { children } = only('<p><a href="/x">&lt;b&gt;Okaloosa Commission&amp;nbsp;&lt;/b&gt;</a></p>')
+    expect(children.map(texts)).toEqual(['Okaloosa Commission'])
+    expect(children[0]!.format).toBe(FORMAT.bold)
+  })
+  it('drops an empty typed pair that sits in front of the real words (a real headline had "<b> </b>" first)', () => {
+    const { children, ctx } = only('<p><a href="/x">&lt;b&gt; &lt;/b&gt;DeSantis cuts recurring state funding</a></p>')
+    expect(children.map(texts)).toEqual(['DeSantis cuts recurring state funding'])
+    expect(children[0]!.format).toBe(0)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('repairs a typed pair that wraps only part of the link text, keeping the rest as it was', () => {
+    const { children } = only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>')
+    expect(children.map(texts)).toEqual(['Say ', 'this', ' twice'])
+    expect(children.map((c) => c.format)).toEqual([0, FORMAT.bold, 0])
+  })
+  it('drops a link that has no words left to click (a lone typed &nbsp;), and says so', () => {
+    const { nodes, ctx } = run('<p>See this <a href="/x">&amp;nbsp;</a> page.</p>')
+    expect(nodes.map((n) => texts(n).replace(/\s+/g, ' '))).toEqual(['See this page.'])
+    expect(JSON.stringify(nodes)).not.toContain('"link"')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'link.empty-text'])
+  })
+  it('keeps the space between a repaired fragment and a real element in the same link, trimming only the ends of the link', () => {
+    const { children } = only('<p><a href="/x">&lt;i&gt;Hello&lt;/i&gt; <b>world</b></a></p>')
+    expect(children.map(texts).join('')).toBe('Hello world')
+    expect(children.map((c) => c.format)).toEqual([FORMAT.italic, 0, FORMAT.bold])
+    const lead = only('<p><a href="/x"> &lt;b&gt;Hello&lt;/b&gt; <i>there</i>&amp;nbsp;</a></p>')
+    expect(lead.children.map(texts).join('')).toBe('Hello there')
+  })
+  it('leaves text alone when a tag is only mentioned (an opening tag with nothing closing it), and says nothing', () => {
+    expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
+    expect(only('<p><a href="/x">Plain</a></p>').ctx.entries).toEqual([])
+    const { nodes, ctx } = run('<p>Use &lt;b&gt; for bold and 3 &lt; 5.</p>')
+    expect(nodes.map(texts)).toEqual(['Use <b> for bold and 3 < 5.'])
+    expect(ctx.entries).toEqual([])
+  })
+  it('reads a misnested typed pair as HTML does, and keeps every word', () => {
+    const { children, ctx } = only('<p><a href="/x">&ldquo;Beyond Our Backyard: &lt;/b&gt;Archaeology around the World&lt;b&gt;&rdquo;</a></p>')
+    expect(children.map(texts).join('')).toBe('“Beyond Our Backyard: Archaeology around the World”')
+    expect(JSON.stringify(children)).not.toMatch(/<\/?b>/)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('turns a typed <br> into a line break, a typed <wbr> into nothing, and a typed <sup> into a superscript', () => {
+    expect(only('<p><a href="/x">Dirty Rice&lt;br&gt;Sausage</a></p>').children.map((c) => (c.type === 'linebreak' ? '\n' : texts(c))).join('')).toBe('Dirty Rice\nSausage')
+    expect(only('<p><a href="/x">http://santarosa.fl.gov/&lt;wbr&gt;EmergencyNEW/WebDamage.cfm</a></p>').children.map(texts).join('')).toBe('http://santarosa.fl.gov/EmergencyNEW/WebDamage.cfm')
+    const { nodes } = run('<p>1&lt;sup&gt;st&lt;/sup&gt; Special Operations Wing</p>')
+    const kids = nodes[0]!.children as LexNode[]
+    expect(kids.map(texts)).toEqual(['1', 'st', ' Special Operations Wing'])
+    expect(kids[1]!.format).toBe(FORMAT.superscript)
+  })
+  it('also repairs typed markup in ordinary text outside a link, and reports it under its own code', () => {
+    const { nodes, ctx } = run('<p>Research in &lt;i&gt;Frontiers in Psychology&lt;/i&gt; found that 20 minutes helps.</p>')
+    const kids = nodes[0]!.children as LexNode[]
+    expect(kids.map(texts)).toEqual(['Research in ', 'Frontiers in Psychology', ' found that 20 minutes helps.'])
+    expect(kids[1]!.format).toBe(FORMAT.italic)
+    expect(codes(ctx)).toEqual(['text.escaped-markup-repaired'])
+  })
+  it('never turns typed text into anything but formatting: a typed image, frame, link, script or Grove element stays characters', () => {
+    for (const typed of [
+      'Look &lt;img src="https://example.org/x.jpg"&gt; here &lt;/b&gt;',
+      'Watch &lt;iframe src="https://www.youtube.com/embed/abc"&gt;&lt;/iframe&gt; &lt;/i&gt;',
+      'Go &lt;a href="https://example.org"&gt;there&lt;/a&gt; &lt;/b&gt;',
+      'Run &lt;script&gt;alert(1)&lt;/script&gt; &lt;/b&gt;',
+      'Embed &lt;brightspot-cms-external-content data-state="{}"&gt;x&lt;/brightspot-cms-external-content&gt; &lt;/b&gt;',
+    ]) {
+      const { nodes, ctx } = run(`<p>${typed}</p>`)
+      expect(nodes.map((n) => n.type), typed).toEqual(['paragraph'])
+      expect(JSON.stringify(nodes), typed).toMatch(/[<]/)
+      expect(codes(ctx), typed).toEqual([])
+      expect(ctx.mapped['block:mediaBlock'] ?? 0, typed).toBe(0)
+    }
+  })
+  it('leaves text that was escaped twice exactly as it was (it holds no tag to read, only the characters)', () => {
+    const { nodes, ctx } = run('<p>&amp;lt;b&amp;gt;x&amp;lt;/b&amp;gt;</p>')
+    expect(nodes.map(texts)).toEqual(['&lt;b&gt;x&lt;/b&gt;'])
+    expect(ctx.entries).toEqual([])
+  })
+})
+
+describe('"RELATED:" lines become link-line blocks', () => {
+  const blockFields = (html: string) => {
+    const { nodes, ctx } = run(html)
+    return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
+  }
+  it('turns a bold label and one link into a block carrying the label, the words and the address', () => {
+    const { nodes, f, ctx } = blockFields('<p><b>RELATED:</b> <a href="https://www.wuwf.org/local-news/2024-11-14/lawmakers-react">Lawmakers react</a></p>')
+    expect(nodes).toHaveLength(1)
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Related', linkText: 'Lawmakers react', url: '/local-news/2024-11-14/lawmakers-react' })
+    expect(f).not.toHaveProperty('newTab')
+    expect(ctx.mapped['block:linkLine']).toBe(1)
+    expect(ctx.mapped['linkLine:related']).toBe(1)
+    expect(ctx.mapped['paragraph']).toBeUndefined()
+    expect(ctx.entries).toEqual([])
+  })
+  it('fixes the pattern from the real story: the headline arrives with typed <b> tags in the link text', () => {
+    const { f, ctx } = blockFields('<p><b>RELATED: </b><a href="/politics/2024-11-14/shocked">&lt;b&gt;\'I was shocked\': Lawmakers react to Gaetz pick&lt;/b&gt;</a></p>')
+    expect(f).toMatchObject({ blockType: 'linkLine', linkText: "'I was shocked': Lawmakers react to Gaetz pick", url: '/politics/2024-11-14/shocked' })
+    expect(JSON.stringify(f)).not.toContain('<b>')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('accepts the other ways editors wrote the label, a real <b> inside the link, and an outside address', () => {
+    expect(blockFields('<p>Related story – <a href="https://example.org/a" target="_blank"><b>Elsewhere</b></a></p>').f).toMatchObject({ label: 'Related story', linkText: 'Elsewhere', url: 'https://example.org/a', newTab: true })
+    expect(blockFields('<p><strong>Related coverage:</strong>&nbsp;<a href="/x">One</a></p>').f).toMatchObject({ label: 'Related coverage', linkText: 'One' })
+    expect(blockFields('<p>related <a href="/x">One</a></p>').f).toMatchObject({ label: 'Related' })
+  })
+  it('accepts a plain http address too, because the block accepts one (a line the editor would refuse to save must not be built)', () => {
+    expect(blockFields('<p><b>RELATED:</b> <a href="http://www.example.org/old-page">An old page</a></p>').f).toMatchObject({ blockType: 'linkLine', url: 'http://www.example.org/old-page' })
+  })
+  it('keeps the paragraph before and after it as they were', () => {
+    const { nodes } = blockFields('<p>Before.</p><p><b>RELATED:</b> <a href="/x">Story</a></p><p>After.</p>')
+    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block', 'paragraph'])
+  })
+  it('leaves anything that is not exactly that pattern a paragraph, losing nothing', () => {
+    for (const html of [
+      '<p><b>RELATED:</b> <a href="/x">One</a> and <a href="/y">Two</a></p>',
+      '<p><b>RELATED:</b> <a href="/x">One</a> from last week.</p>',
+      '<p><b>RELATED:</b> no link here</p>',
+      '<p>Read the related <a href="/x">story</a></p>',
+      '<p><a href="/x">Story</a></p>',
+      '<p><b>RELATED:</b> <a href="mailto:news@wuwf.org">Email us</a></p>',
+      '<p><b>RELATED:</b> <a href="/x"></a></p>',
+    ]) {
+      const { nodes } = run(html)
+      expect(nodes.map((n) => n.type), html).toEqual(['paragraph'])
+    }
+  })
+  it('builds the same ids every time', () => {
+    const html = '<p><b>RELATED:</b> <a href="/x">Story</a></p>'
+    expect(blockFields(html).nodes).toEqual(blockFields(html).nodes)
+  })
+})
+
+describe('the stock "Support Local Stories." line becomes a link-line block', () => {
+  const appeal = (html: string) => {
+    const { nodes, ctx } = run(html)
+    return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
+  }
+  it('turns the centred bold sentence and its one link into a block, keeping the words and sending it to the Support page', () => {
+    const { nodes, f, ctx } = appeal('<p class="cms-textAlign-center"><b>Support Local Stories. </b><a href="https://www.wuwf.org/thanks-for-your-support">Donate Here</a>.</p>')
+    expect(nodes).toHaveLength(1)
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Donate Here', url: '/support' })
+    expect(ctx.mapped['block:linkLine']).toBe(1)
+    expect(ctx.mapped['linkLine:support']).toBe(1)
+    expect(ctx.mapped['paragraph']).toBeUndefined()
+    expect(ctx.entries).toEqual([{ level: 'noted', code: 'support.appeal-sent-to-support-page', detail: '/thanks-for-your-support' }])
+  })
+  it('fixes the pattern from the real story: the link text arrives with typed <b> tags', () => {
+    const { f, ctx } = appeal('<p><b>Support Local Stories. </b><a href="/thanks-for-your-support">&lt;b&gt;Support Public Media&lt;/b&gt;</a>.</p>')
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Support Public Media' })
+    expect(JSON.stringify(f)).not.toContain('<b>')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'support.appeal-sent-to-support-page'])
+  })
+  it('accepts a line with no full stop after the link, and a trailing slash or query on the address', () => {
+    expect(appeal('<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support/?src=story">Donate Here</a></p>').f).toMatchObject({ blockType: 'linkLine', linkText: 'Donate Here', url: '/support' })
+  })
+  it('keeps the paragraphs around it as they were', () => {
+    const { nodes } = appeal('<p>Before.</p><p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate Here</a>.</p><p>After.</p>')
+    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block', 'paragraph'])
+  })
+  it('leaves anything else a paragraph, losing nothing', () => {
+    for (const html of [
+      // another address: an ordinary link that happens to be about giving
+      '<p><b>Support Local Stories.</b> <a href="https://www.example.org/donate">Donate Here</a>.</p>',
+      // prose around the stock address
+      '<p>WUWF is committed to providing Northwest Florida and South Alabama with trusted news and information, and your support makes that possible. <a href="/thanks-for-your-support">Give today</a>.</p>',
+      // more than a full stop after the link
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate Here</a> before Friday.</p>',
+      // two links
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate</a> or <a href="/support">join</a>.</p>',
+      // nothing before the link
+      '<p><a href="/thanks-for-your-support">Donate Here</a></p>',
+      // an empty link
+      '<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support"></a></p>',
+    ]) {
+      const { nodes } = run(html)
+      expect(nodes.map((n) => n.type), html).toEqual(['paragraph'])
+    }
+  })
+})
+
 describe('headings, lists and quotes', () => {
   it('maps headings, and demotes a stray h1 because the page title is the h1', () => {
     const { nodes, ctx } = run('<h3>Section</h3><h1>Big</h1>')

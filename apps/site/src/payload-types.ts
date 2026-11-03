@@ -4018,6 +4018,32 @@ export interface PullQuoteBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LinkLineBlock".
+ */
+export interface LinkLineBlock {
+  /**
+   * The short words before the link, e.g. "Related", "Related coverage" or "Support Local Stories."
+   */
+  label?: string | null;
+  /**
+   * Link to a WUWF story. Its headline and address are used, and stay current if the story is renamed.
+   */
+  story?: (number | null) | Post;
+  /**
+   * Only when no story is picked: the words that are the link.
+   */
+  linkText?: string | null;
+  /**
+   * Only when no story is picked: a page here (/local-news/…), an https:// address, or mailto:.
+   */
+  url?: string | null;
+  newTab?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'linkLine';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "AudioPlayerBlock".
  */
 export interface AudioPlayerBlock {
