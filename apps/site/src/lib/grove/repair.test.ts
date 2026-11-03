@@ -35,6 +35,15 @@ describe('what in a stored body needs repair', () => {
     expect(visibleWords(oldBody(para(text('A&nbsp;B &gt;&gt;&gt; <i>c</i>'))))).toBe('abc')
     expect(visibleWords(oldBody(para(text('One two'))))).not.toBe(visibleWords(oldBody(para(text('One too')))))
   })
+  it('does not depend on the order of a block\'s keys: the database hands them back in its own order (credit before caption)', () => {
+    const gallery = (fields: Record<string, unknown>) => oldBody(para(text('Intro.')), { type: 'block', version: 2, fields })
+    const written = gallery({ blockType: 'gallery', layout: 'carousel', images: [{ image: 1, caption: 'Nissam family', credit: 'Courtesy photo' }, { image: 2, caption: 'Holender family', credit: 'Courtesy photo' }] })
+    const readBack = gallery({ id: 'x', images: [{ id: 'a', image: 1, credit: 'Courtesy photo', caption: 'Nissam family' }, { id: 'b', image: 2, credit: 'Courtesy photo', caption: 'Holender family' }], layout: 'carousel', blockType: 'gallery' })
+    expect(visibleWords(readBack)).toBe(visibleWords(written))
+    // but the order of the pictures is the reading order, and still counts
+    const swapped = gallery({ blockType: 'gallery', images: [{ image: 2, credit: 'Courtesy photo', caption: 'Holender family' }, { image: 1, credit: 'Courtesy photo', caption: 'Nissam family' }] })
+    expect(visibleWords(swapped)).not.toBe(visibleWords(written))
+  })
 })
 
 describe('planning a repair', () => {
