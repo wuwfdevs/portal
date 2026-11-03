@@ -133,6 +133,13 @@ describe('escaped markup typed into link text', () => {
     expect(JSON.stringify(nodes)).not.toContain('"link"')
     expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'link.empty-text'])
   })
+  it('keeps the space between a repaired fragment and a real element in the same link, trimming only the ends of the link', () => {
+    const { children } = only('<p><a href="/x">&lt;i&gt;Hello&lt;/i&gt; <b>world</b></a></p>')
+    expect(children.map(texts).join('')).toBe('Hello world')
+    expect(children.map((c) => c.format)).toEqual([FORMAT.italic, 0, FORMAT.bold])
+    const lead = only('<p><a href="/x"> &lt;b&gt;Hello&lt;/b&gt; <i>there</i>&amp;nbsp;</a></p>')
+    expect(lead.children.map(texts).join('')).toBe('Hello there')
+  })
   it('leaves text alone when a tag is only mentioned (an opening tag with nothing closing it), and says nothing', () => {
     expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
     expect(only('<p><a href="/x">Plain</a></p>').ctx.entries).toEqual([])

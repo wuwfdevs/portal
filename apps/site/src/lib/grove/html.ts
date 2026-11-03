@@ -143,14 +143,18 @@ function typedPieces(value: string, fmt: number, ctx: Ctx, inLink: boolean): Pie
   const pieces = inlinePieces(parseFragment(value.replace(TYPED_EMPTY, '')).childNodes as PNode[], fmt, ctx, { inLink, repaired: true })
   if (pieces.some((p) => 'block' in p)) return null
   ctx.note(inLink ? 'link.escaped-markup-repaired' : 'text.escaped-markup-repaired')
-  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
-  // A link's own words carry no stray spaces at either end (a typed `&nbsp;` before the closing tag was one).
-  return (inLink ? trimRun(inline) : inline).map((x) => ({ inline: x }))
+  // Not trimmed here: a fragment's trailing space can be the space between two words of the same link. The link is trimmed once,
+  // as a whole, in `linkPieces`.
+  return pieces
 }
 
 function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
+  const entriesBefore = ctx.entries.length
   const pieces = inlinePieces(kids(a), fmt, ctx, { inLink: true })
-  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  const whole = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  // A link whose words had typed markup repaired carries no stray space at either end (a typed `&nbsp;` before the closing tag was
+  // one). The ends of the whole link are trimmed, never the ends of a repaired fragment inside it.
+  const inline = ctx.entries.slice(entriesBefore).some((e) => e.code === 'link.escaped-markup-repaired') ? trimRun(whole) : whole
   const blocks = pieces.flatMap((p) => ('block' in p ? [{ block: p.block } as Piece] : []))
   const href = attr(a, 'href')
   let safe = safeHref(href)

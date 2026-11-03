@@ -40,11 +40,28 @@ export function countTypedMarkup(content: unknown): number {
   return n
 }
 
+/**
+ * The fields where the converter puts words a reader reads, in blocks other than a link line: a pull quote's text and
+ * attribution, a picture's caption, credit and source, a gallery's titles and captions, an audio or video title, a preserved
+ * table's HTML. (Other fields hold identifiers, addresses and settings, which are not read.)
+ */
+const BLOCK_TEXT_KEYS = new Set(['text', 'attribution', 'caption', 'credit', 'source', 'altText', 'title', 'description', 'html', 'note'])
+
+function collectBlockText(value: unknown, out: string[]): void {
+  if (Array.isArray(value)) for (const v of value) collectBlockText(v, out)
+  else if (value && typeof value === 'object')
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        if (BLOCK_TEXT_KEYS.has(k)) out.push(v)
+      } else collectBlockText(v, out)
+    }
+}
+
 const decode = (t: string): string => t.replace(/&nbsp;/gi, ' ').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&amp;/gi, '&')
 
 /**
- * The words a reader would read, as lower-case letters and digits only: the text of the body plus the label and words of every
- * link line, with typed tags and entities removed first. Two bodies with the same value read the same.
+ * The words a reader would read, as lower-case letters and digits only: the text of the body, the label and words of every
+ * link line, and the readable fields of every other block (a pull quote, a caption, a title), with typed tags and entities removed first. Two bodies with the same value read the same.
  */
 export function visibleWords(content: unknown): string {
   const parts: string[] = []
@@ -53,7 +70,7 @@ export function visibleWords(content: unknown): string {
     else if (x.type === 'block' && x.fields?.blockType === 'linkLine') {
       if (typeof x.fields.label === 'string') parts.push(x.fields.label)
       if (typeof x.fields.linkText === 'string') parts.push(x.fields.linkText)
-    }
+    } else if (x.type === 'block') collectBlockText(x.fields, parts)
   })
   return decode(parts.join(' ')).replace(/<\/?[a-zA-Z][^>]*>/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
 }

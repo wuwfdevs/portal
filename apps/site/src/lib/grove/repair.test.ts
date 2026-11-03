@@ -51,6 +51,27 @@ describe('planning a repair', () => {
   })
 })
 
+describe('the words of blocks other than text and link lines count too', () => {
+  const quote = (text: string, attribution = 'A neighbour') => ({ type: 'block', version: 2, fields: { id: 'q1', blockType: 'pullQuote', text, attribution } })
+  const pic = (caption: string, extra: Record<string, unknown> = {}) => ({ type: 'block', version: 2, fields: { id: 'm1', blockType: 'mediaBlock', media: 7, caption, ...extra } })
+  const withTyped = (...blocks: unknown[]) => oldBody(para(text('Lead.'), link('/x', text('<i>A title</i>'))), ...blocks)
+  const freshWith = (...blocks: unknown[]) => ({ root: { type: 'root', version: 1, children: [para(text('Lead.'), { type: 'link', version: 3, fields: { url: '/x' }, children: [{ ...text('A title'), format: 2 }] }), ...blocks] } })
+  it('repairs when the pull quote and caption are the same before and after', () => {
+    expect(planRepair(withTyped(quote('It is a vote.'), pic('A caption')), freshWith(quote('It is a vote.'), pic('A caption')))).toMatchObject({ kind: 'repair' })
+  })
+  it('refuses when a pull quote\'s words, a caption, or a removed block would change what a reader reads', () => {
+    expect(planRepair(withTyped(quote('It is a vote.')), freshWith(quote('It is not a vote.')))).toEqual({ kind: 'words-differ' })
+    expect(planRepair(withTyped(quote('It is a vote.', 'A neighbour')), freshWith(quote('It is a vote.', 'Someone else')))).toEqual({ kind: 'words-differ' })
+    expect(planRepair(withTyped(pic('A caption')), freshWith(pic('A different caption')))).toEqual({ kind: 'words-differ' })
+    expect(planRepair(withTyped(quote('It is a vote.')), freshWith())).toEqual({ kind: 'words-differ' })
+  })
+  it('reads captions inside a gallery\'s images, and ignores fields that are not words (ids, settings Payload fills in)', () => {
+    const gallery = (caption: string) => ({ type: 'block', version: 2, fields: { id: 'g1', blockType: 'gallery', layout: 'carousel', images: [{ id: 'i1', image: 3, caption }] } })
+    expect(planRepair(withTyped(gallery('One')), freshWith(gallery('Two')))).toEqual({ kind: 'words-differ' })
+    expect(planRepair(withTyped(pic('Same', { alignment: 'full', enableGutter: true })), freshWith(pic('Same')))).toMatchObject({ kind: 'repair' })
+  })
+})
+
 describe('has an editor worked on the story since the import', () => {
   const t0 = '2026-11-03T10:00:00.000Z'
   it('is not edited with one version and a save moments after the import', () => {
