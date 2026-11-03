@@ -29,6 +29,7 @@
     "verify:migrations": "bash scripts/verify-migrations.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1161.0",
     "@payloadcms/admin-bar": "3.92.1",
     "@payloadcms/db-postgres": "3.92.1",
     "@payloadcms/live-preview-react": "3.92.1",

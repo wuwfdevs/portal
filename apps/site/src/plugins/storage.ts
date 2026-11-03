@@ -18,12 +18,15 @@ import { s3Storage } from '@payloadcms/storage-s3'
  */
 const bucket = process.env.S3_BUCKET
 
+/** The folder each upload collection stores under. The importer reads these to check a file really landed where the site will look. */
+export const STORAGE_PREFIXES = { media: 'media', audio: 'audio', video: 'video', 'event-submission-images': 'event-submission-images' } as const
+
 export const storagePlugin = s3Storage({
   enabled: Boolean(bucket),
   alwaysInsertFields: true,
   bucket: bucket ?? 'not-configured',
   clientUploads: true,
-  collections: { media: { prefix: 'media' }, audio: { prefix: 'audio' }, video: { prefix: 'video' }, 'event-submission-images': { prefix: 'event-submission-images' } },
+  collections: Object.fromEntries(Object.entries(STORAGE_PREFIXES).map(([slug, prefix]) => [slug, { prefix }])),
   config: {
     endpoint: process.env.S3_ENDPOINT,
     region: process.env.S3_REGION ?? 'us-east-1',
