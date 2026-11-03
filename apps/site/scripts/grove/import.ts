@@ -10,6 +10,7 @@
 //   --phase      fetch | save | all (default all)
 //   --interval-ms  minimum gap between requests (default 3000, never lower)
 //   --retry-failed fetch again the files whose last attempt failed (a missing or refused file is not retried)
+//   --upgrade-http <address>  fetch phase: request the https:// version of this one exact http:// address (repeatable); nothing else is upgraded
 //   --limit      save at most this many stories (a trial run)
 //   --sample N   work on N stories spread evenly across the whole set (a rehearsal slice), in both phases
 //   --kinds      fetch phase: only these kinds of file, e.g. image or image,audio (default: all)
@@ -162,6 +163,9 @@ const record = (e: Entry) => {
 
 async function fetchPhase() {
   const retryFailed = has('retry-failed')
+  // `--upgrade-http <exact address>` (repeatable): ask for the https:// version of one named http:// file. Nothing else is upgraded.
+  const upgrade = new Set(flag('upgrade-http'))
+  for (const u of upgrade) if (!u.startsWith('http://')) throw new Error(`--upgrade-http takes an exact http:// address, got: ${u}`)
   const kinds = (flag('kinds')[0] ?? 'image,audio,video').split(',')
   const minFreeBytes = Number(flag('min-free-gib')[0] ?? 3) * 1024 ** 3
   const freeBytes = () => {
@@ -171,6 +175,7 @@ async function fetchPhase() {
   const todo = [...assets.values()].filter((a) => {
     if (!kinds.includes(a.kind)) return false
     const e = ledger.get(a.sourceUrl)
+    if (upgrade.has(a.sourceUrl)) return !e || (e.status === 'refused' && e.reason === 'not_https')
     return !e || (e.status === 'failed' && retryFailed)
   })
   console.log(`fetch: ${todo.length} to download, ${assets.size - todo.length} already in the ledger; about ${Math.round((todo.length * intervalMs) / 60000)} minutes at ${intervalMs / 1000}s a file`)
@@ -191,7 +196,7 @@ async function fetchPhase() {
       console.log(`stopping: less than ${minFreeBytes / 1024 ** 3} GiB free on the disk holding ${cache}. The ledger is saved; free some space (or move the cache) and run again.`)
       break
     }
-    const r = await dl.download(a.sourceUrl, a.kind)
+    const r = await dl.download(upgrade.has(a.sourceUrl) ? a.sourceUrl.replace(/^http:/, 'https:') : a.sourceUrl, a.kind) // the ledger keeps the original address
     const at = new Date().toISOString()
     if (r.status === 'ok') {
       forbidden = 0
