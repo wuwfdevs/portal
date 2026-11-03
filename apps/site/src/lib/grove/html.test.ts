@@ -122,10 +122,64 @@ describe('escaped markup typed into link text', () => {
     expect(children[0]!.format).toBe(0)
     expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
   })
-  it('leaves link text alone when the tag is only mentioned, or the pair does not wrap everything', () => {
+  it('repairs a typed pair that wraps only part of the link text, keeping the rest as it was', () => {
+    const { children } = only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>')
+    expect(children.map(texts)).toEqual(['Say ', 'this', ' twice'])
+    expect(children.map((c) => c.format)).toEqual([0, FORMAT.bold, 0])
+  })
+  it('drops a link that has no words left to click (a lone typed &nbsp;), and says so', () => {
+    const { nodes, ctx } = run('<p>See this <a href="/x">&amp;nbsp;</a> page.</p>')
+    expect(nodes.map((n) => texts(n).replace(/\s+/g, ' '))).toEqual(['See this page.'])
+    expect(JSON.stringify(nodes)).not.toContain('"link"')
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'link.empty-text'])
+  })
+  it('leaves text alone when a tag is only mentioned (an opening tag with nothing closing it), and says nothing', () => {
     expect(only('<p><a href="/x">Use &lt;b&gt; for bold</a></p>').children.map(texts)).toEqual(['Use <b> for bold'])
-    expect(only('<p><a href="/x">Say &lt;b&gt;this&lt;/b&gt; twice</a></p>').children.map(texts)).toEqual(['Say <b>this</b> twice'])
     expect(only('<p><a href="/x">Plain</a></p>').ctx.entries).toEqual([])
+    const { nodes, ctx } = run('<p>Use &lt;b&gt; for bold and 3 &lt; 5.</p>')
+    expect(nodes.map(texts)).toEqual(['Use <b> for bold and 3 < 5.'])
+    expect(ctx.entries).toEqual([])
+  })
+  it('reads a misnested typed pair as HTML does, and keeps every word', () => {
+    const { children, ctx } = only('<p><a href="/x">&ldquo;Beyond Our Backyard: &lt;/b&gt;Archaeology around the World&lt;b&gt;&rdquo;</a></p>')
+    expect(children.map(texts).join('')).toBe('“Beyond Our Backyard: Archaeology around the World”')
+    expect(JSON.stringify(children)).not.toMatch(/<\/?b>/)
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired'])
+  })
+  it('turns a typed <br> into a line break, a typed <wbr> into nothing, and a typed <sup> into a superscript', () => {
+    expect(only('<p><a href="/x">Dirty Rice&lt;br&gt;Sausage</a></p>').children.map((c) => (c.type === 'linebreak' ? '\n' : texts(c))).join('')).toBe('Dirty Rice\nSausage')
+    expect(only('<p><a href="/x">http://santarosa.fl.gov/&lt;wbr&gt;EmergencyNEW/WebDamage.cfm</a></p>').children.map(texts).join('')).toBe('http://santarosa.fl.gov/EmergencyNEW/WebDamage.cfm')
+    const { nodes } = run('<p>1&lt;sup&gt;st&lt;/sup&gt; Special Operations Wing</p>')
+    const kids = nodes[0]!.children as LexNode[]
+    expect(kids.map(texts)).toEqual(['1', 'st', ' Special Operations Wing'])
+    expect(kids[1]!.format).toBe(FORMAT.superscript)
+  })
+  it('also repairs typed markup in ordinary text outside a link, and reports it under its own code', () => {
+    const { nodes, ctx } = run('<p>Research in &lt;i&gt;Frontiers in Psychology&lt;/i&gt; found that 20 minutes helps.</p>')
+    const kids = nodes[0]!.children as LexNode[]
+    expect(kids.map(texts)).toEqual(['Research in ', 'Frontiers in Psychology', ' found that 20 minutes helps.'])
+    expect(kids[1]!.format).toBe(FORMAT.italic)
+    expect(codes(ctx)).toEqual(['text.escaped-markup-repaired'])
+  })
+  it('never turns typed text into anything but formatting: a typed image, frame, link, script or Grove element stays characters', () => {
+    for (const typed of [
+      'Look &lt;img src="https://example.org/x.jpg"&gt; here &lt;/b&gt;',
+      'Watch &lt;iframe src="https://www.youtube.com/embed/abc"&gt;&lt;/iframe&gt; &lt;/i&gt;',
+      'Go &lt;a href="https://example.org"&gt;there&lt;/a&gt; &lt;/b&gt;',
+      'Run &lt;script&gt;alert(1)&lt;/script&gt; &lt;/b&gt;',
+      'Embed &lt;brightspot-cms-external-content data-state="{}"&gt;x&lt;/brightspot-cms-external-content&gt; &lt;/b&gt;',
+    ]) {
+      const { nodes, ctx } = run(`<p>${typed}</p>`)
+      expect(nodes.map((n) => n.type), typed).toEqual(['paragraph'])
+      expect(JSON.stringify(nodes), typed).toMatch(/[<]/)
+      expect(codes(ctx), typed).toEqual([])
+      expect(ctx.mapped['block:mediaBlock'] ?? 0, typed).toBe(0)
+    }
+  })
+  it('leaves text that was escaped twice exactly as it was (it holds no tag to read, only the characters)', () => {
+    const { nodes, ctx } = run('<p>&amp;lt;b&amp;gt;x&amp;lt;/b&amp;gt;</p>')
+    expect(nodes.map(texts)).toEqual(['&lt;b&gt;x&lt;/b&gt;'])
+    expect(ctx.entries).toEqual([])
   })
 })
 

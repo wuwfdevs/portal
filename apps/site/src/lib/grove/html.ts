@@ -48,10 +48,20 @@ const alignOf = (el: El): Align | undefined => {
 
 // ---- inline content -------------------------------------------------------------------------------------------
 
-function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
+/** `inLink`: the text is a link's words. `repaired`: this text already came from re-reading typed markup (never do it twice). */
+type InlineOpts = { inLink?: boolean; repaired?: boolean }
+
+function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx, opt: InlineOpts = {}): Piece[] {
   const out: Piece[] = []
   for (const n of nodes) {
     if (isText(n)) {
+      if (!opt.repaired && looksTyped(n.value)) {
+        const typed = typedPieces(n.value, fmt, ctx, !!opt.inLink)
+        if (typed) {
+          out.push(...typed)
+          continue
+        }
+      }
       const value = n.value.replace(/[ \t\r\n\f]+/g, ' ')
       if (value) out.push({ inline: lex.text(value, fmt) })
       continue
@@ -74,10 +84,10 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
         ctx.note('html.external-content-embedded')
       } else {
         ctx.note('html.external-content-without-address')
-        out.push(...inlinePieces(kids(n), fmt, ctx))
+        out.push(...inlinePieces(kids(n), fmt, ctx, opt))
       }
     } else if (tag in FORMAT_TAGS) {
-      out.push(...inlinePieces(kids(n), fmt | FORMAT_TAGS[tag]!, ctx))
+      out.push(...inlinePieces(kids(n), fmt | FORMAT_TAGS[tag]!, ctx, opt))
     } else if (tag === 'br') {
       out.push({ inline: lex.linebreak() })
     } else if (tag === 'a') {
@@ -93,48 +103,51 @@ function inlinePieces(nodes: PNode[], fmt: number, ctx: Ctx): Piece[] {
     } else {
       if (tag === 'font' && (attr(n, 'color') || attr(n, 'size') || attr(n, 'face') || attr(n, 'style'))) ctx.note('html.font-formatting-dropped')
       else if (!UNWRAP_QUIET.has(tag)) ctx.note('html.unwrapped-tag', tag)
-      out.push(...inlinePieces(kids(n), fmt, ctx))
+      out.push(...inlinePieces(kids(n), fmt, ctx, opt))
     }
   }
   return out
 }
 
-/** Escaped tags in link text that the editor typed as words (`&lt;b&gt;Headline&lt;/b&gt;`), by the format each stands for. */
-const ESCAPED_WRAP = /^\s*<(b|strong|i|em|u)>([\s\S]*?)<\/\1>\s*$/i
-const ESCAPED_EMPTY = /<(b|strong|i|em|u)>\s*<\/\1>/gi
-const ESCAPED_FORMAT: Record<string, number> = { b: lex.FORMAT.bold, strong: lex.FORMAT.bold, i: lex.FORMAT.italic, em: lex.FORMAT.italic, u: lex.FORMAT.underline }
+// ---- markup typed as words ----------------------------------------------------------------------------------------
 
 /**
- * Grove editors sometimes typed `<b>…</b>` into a link's text, and it was stored as the characters, not as bold. When the
- * whole link text is wrapped in such a pair, show the words with the formatting the tags asked for, and say so.
- * Only a pair that wraps the entire text counts (or an empty pair, which says nothing), so a sentence that merely mentions a tag is never touched.
+ * Grove editors sometimes typed markup into the visible text, and it was stored as the characters, not as formatting:
+ * `<i>Frontiers in Psychology</i>` as the words of a link, `Listen</i></b>`, `1<sup>st</sup>`, a `<br>` in a line, a
+ * `&nbsp;`. (In the census: 50 stories, 85 repairs.) Such text is read again as HTML, by the same parser and the same rules
+ * as the rest of the page, so the formatting it asked for is applied and the tags are gone.
+ *
+ * It only happens when the text carries a closing tag of a formatting tag we know, a `<br>` or `<wbr>`, or a `&nbsp;`, so
+ * a sentence that merely mentions an opening tag ("use <b> for bold") is never touched.
  */
-function repairEscapedMarkup(inline: LexNode[], ctx: Ctx): LexNode[] {
-  const only = inline.length === 1 ? inline[0]! : null
-  if (!only || only.type !== 'text') return inline
-  let value = String(only.text)
-  let format = Number(only.format)
-  let repaired = false
-  // An empty typed pair ("<b> </b>" in front of the real words) means nothing, so it goes wherever it sits.
-  const withoutEmpty = value.replace(ESCAPED_EMPTY, '')
-  if (withoutEmpty !== value) {
-    value = withoutEmpty
-    repaired = true
-  }
-  for (let m = ESCAPED_WRAP.exec(value); m; m = ESCAPED_WRAP.exec(value)) {
-    format |= ESCAPED_FORMAT[m[1]!.toLowerCase()]!
-    value = m[2]!
-    repaired = true
-  }
-  if (!repaired) return inline
-  ctx.note('link.escaped-markup-repaired')
-  // Text escaped twice also shows its spaces as the characters "&nbsp;" (six links in one 2014 story).
-  return [lex.text(value.replace(/&nbsp;/gi, ' ').trim(), format)]
+const TYPED_NAMES = 'b|strong|i|em|u|ins|s|strike|del|sup|sub|font|span|small|big|mark|cite|code|kbd|tt'
+const TYPED_CLOSING = new RegExp(`</(?:${TYPED_NAMES})\\s*>`, 'i')
+const TYPED_BREAK = /<(?:br|wbr)(?:\s[^>]*)?\/?>/i
+const TYPED_EMPTY = new RegExp(`<(${TYPED_NAMES})(?:\\s[^>]*)?>\\s*</\\1\\s*>`, 'gi')
+
+/** Only formatting is ever read back out of typed text. A typed `<img>`, `<iframe>`, `<a>`, `<script>` or Grove element stays the characters it was. */
+const TYPED_OK = new Set([...TYPED_NAMES.split('|'), 'br', 'wbr'])
+const onlyFormatting = (value: string): boolean => [...value.matchAll(/<\/?([a-zA-Z][\w:-]*)/g)].every((m) => TYPED_OK.has(m[1]!.toLowerCase()))
+
+function looksTyped(value: string): boolean {
+  return value.includes('<') || value.includes('&') ? TYPED_CLOSING.test(value) || TYPED_BREAK.test(value) || /&nbsp;/i.test(value) : false
+}
+
+/** The text read again as HTML, or null when it holds anything but formatting (it is then left exactly as it was). */
+function typedPieces(value: string, fmt: number, ctx: Ctx, inLink: boolean): Piece[] | null {
+  if (!onlyFormatting(value)) return null
+  // An empty typed pair ("<b> </b>" in front of the real words) says nothing, so it goes wherever it sits.
+  const pieces = inlinePieces(parseFragment(value.replace(TYPED_EMPTY, '')).childNodes as PNode[], fmt, ctx, { inLink, repaired: true })
+  if (pieces.some((p) => 'block' in p)) return null
+  ctx.note(inLink ? 'link.escaped-markup-repaired' : 'text.escaped-markup-repaired')
+  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
+  // A link's own words carry no stray spaces at either end (a typed `&nbsp;` before the closing tag was one).
+  return (inLink ? trimRun(inline) : inline).map((x) => ({ inline: x }))
 }
 
 function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
-  const pieces = inlinePieces(kids(a), fmt, ctx)
-  const inline = repairEscapedMarkup(pieces.flatMap((p) => ('inline' in p ? [p.inline] : [])), ctx)
+  const pieces = inlinePieces(kids(a), fmt, ctx, { inLink: true })
+  const inline = pieces.flatMap((p) => ('inline' in p ? [p.inline] : []))
   const blocks = pieces.flatMap((p) => ('block' in p ? [{ block: p.block } as Piece] : []))
   const href = attr(a, 'href')
   let safe = safeHref(href)
@@ -159,6 +172,9 @@ function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
   if (inline.length) {
     out.push({ inline: lex.link(safe.url, attr(a, 'target') === '_blank', mergeText(inline)) })
     ctx.count('link')
+  } else if (!blocks.length) {
+    // A link with nothing to read (or only a typed &nbsp;) has nowhere to be clicked, so it goes, and the report says so.
+    ctx.note('link.empty-text')
   }
   return [...out, ...blocks]
 }
