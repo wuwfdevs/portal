@@ -585,10 +585,22 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
   first preview build.
 - **Supabase projects for the site: created 2026-11-02** in the WUWF organization, region `us-east-1`, separate from the
   Portal's two: `wuwf-site-staging` (ref `avgeycgvaufwdfzdsogi`) and `wuwf-site-production` (ref `gyidqxhkkhajfazbcrug`).
-  **Still to do:** put each project's connection strings (pooled for the running site, direct or session for migrations) in
-  Vercel's environment variables, and in this session's secrets so staging can be migrated with `payload migrate` (not by
-  raw SQL, which would leave Payload's migration ledger out of step); then the S3-compatible storage adapter for uploads and
-  the first staging import rehearsal. Never commit keys. The exact monthly cost was not shown at creation: check billing.
+  **Set up 2026-11-03 (by Claude, via the Supabase and Vercel tools):** on both projects a login role `payload_app` (not a
+  superuser; the tables it creates get no access for Supabase's public Data API roles) and a private storage bucket
+  `wuwf-site-files` (150 MiB file limit). Supabase does not let the `postgres` role's password be changed from SQL, which is
+  why the app has its own role. Its password is in the session's private files, not in the repository.
+- **Vercel project `wuwf-site`** (id `prj_YaSfN6SHJtDLj8Pf6nAQERO8hqbL`, WUWF team): Root Directory `apps/site`, linked to
+  `wuwfdevs/portal`, build command `bash scripts/vercel-build.sh` (applies committed migrations before building **only** when
+  `MIGRATE_ON_BUILD=1`, which is set for Preview only), region `iad1`, Vercel sign-in required for previews.
+  Preview env set: `DATABASE_URL` (staging, pooled, port 6543), `DATABASE_MIGRATION_URL` (staging, session mode, 5432),
+  `MIGRATE_ON_BUILD`. **Wrong right now:** `PAYLOAD_SECRET`, `CRON_SECRET` and `PREVIEW_SECRET` in Preview hold placeholder
+  text (a mistake while setting them) and must be replaced before anything real runs there. **Not set:** Production env,
+  `PORTAL_IDENTITY_SECRET` (must equal the Portal's `WEBSITE_IDENTITY_SECRET`), the S3 keys and `S3_*` variables.
+- **Unverified:** the pooler host used in the connection strings (`aws-1-us-east-1.pooler.supabase.com`) is a guess from
+  Supabase's current naming; the dashboard's Connect dialog shows the real one. No site build has completed on Vercel yet
+  (the one attempt was cancelled; it was created as a *production* deployment by mistake, nothing went live).
+- **Lesson:** `create_deployment` with a Git source on a project that has no production deployment yet can come back with
+  target `production`, whatever branch is named. Use a push to a branch (Vercel builds it as a preview) instead.
 - WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
   page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
   WUWF can source them; staff add them under Support page → Top of page.
