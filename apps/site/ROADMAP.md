@@ -756,6 +756,11 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   site's branch address. The Portal's **Production** environment is deliberately unset (the live Portal's Website tool stays
   "not set up" until a production site exists). **Not set:** the site's Production environment, apart from the two public
   Supabase variables.
+- **Production builds are switched off (2026-11-03, at the owner's request).** `claude/main` is the Vercel project's production branch, so every merge started a
+  Production build that failed ("missing secret key": Production has no database or secrets), twice (PRs 325 and 326). Nothing went live; the project is
+  `live: false`. Claude set the project's **Ignored Build Step** to `[ "$VERCEL_ENV" = "production" ]` (exit 0 skips): Production builds are skipped, preview
+  builds (every other branch, against staging) still build. **The merge after this should show "Skipped"; if it shows a build, the setting did not stick**
+  (Settings → Git → Ignored Build Step). **At go-live, clear it** in the dashboard together with giving Production its environment (database, secrets, S3).
 - **Pooler host (confirmed by the owner from the dashboard, 2026-11-03):** `aws-0-us-east-1.pooler.supabase.com`; the app role connects as `payload_app.<ref>`. The first guess (`aws-1`) was wrong. Not yet proven by a build: no site build has completed on Vercel yet
   (the one attempt was cancelled; it was created as a *production* deployment by mistake, nothing went live).
 - **Lesson:** `create_deployment` with a Git source on a project that has no production deployment yet can come back with
