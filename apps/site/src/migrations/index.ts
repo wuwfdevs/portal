@@ -11,6 +11,7 @@ import * as migration_20261103_004740_storage_prefix_fields from './20261103_004
 import * as migration_20261103_023039_fellowship_hub_fields from './20261103_023039_fellowship_hub_fields';
 import * as migration_20261103_024053_homepage_global from './20261103_024053_homepage_global';
 import * as migration_20261103_025619_live_blogs from './20261103_025619_live_blogs';
+import * as migration_20261103_032912_page_templates from './20261103_032912_page_templates';
 
 export const migrations = [
   {
@@ -76,6 +77,11 @@ export const migrations = [
   {
     up: migration_20261103_025619_live_blogs.up,
     down: migration_20261103_025619_live_blogs.down,
-    name: '20261103_025619_live_blogs'
+    name: '20261103_025619_live_blogs',
+  },
+  {
+    up: migration_20261103_032912_page_templates.up,
+    down: migration_20261103_032912_page_templates.down,
+    name: '20261103_032912_page_templates'
   },
 ];

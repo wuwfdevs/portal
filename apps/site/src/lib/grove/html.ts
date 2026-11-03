@@ -182,7 +182,9 @@ function iframeNode(el: El, ctx: Ctx): LexNode | null {
 function dropped(el: El, ctx: Ctx): void {
   if (el.tagName === 'script') {
     const src = attr(el, 'src')
-    ctx.preserve('html.script-removed', src ? new URL(src, 'https://x.invalid').hostname : 'inline')
+    // NPR's Pym loader only exists to turn a placeholder into a frame; the frame is already in the story.
+    if (ctx.pymFrame && src && /\/pym(\.min)?\.js(\?|$)/.test(src)) ctx.note('embed.pym-loader-replaced', new URL(src, 'https://x.invalid').hostname)
+    else ctx.preserve('html.script-removed', src ? new URL(src, 'https://x.invalid').hostname : 'inline')
   } else if (el.tagName === 'noscript') ctx.note('html.noscript-removed')
   else ctx.note('html.element-removed', el.tagName)
 }
@@ -292,6 +294,15 @@ function blocksFromNodes(nodes: PNode[], ctx: Ctx, align?: Align): LexNode[] {
       flush()
       out.push(widget.node)
       i += widget.consumed
+    } else if (tag === 'p' && attr(n, 'data-pym-src')) {
+      // An NPR interactive: Pym's script would build this frame; we embed the same address directly.
+      flush()
+      const e = embedNode(attr(n, 'data-pym-src')!, ctx)
+      if (e) {
+        out.push(e)
+        ctx.pymFrame = true
+        ctx.note('embed.pym-as-frame')
+      }
     } else if (tag === 'p' || tag === 'pre' || tag === 'figcaption' || tag === 'address') {
       flush()
       bufAlign = alignOf(n) ?? align

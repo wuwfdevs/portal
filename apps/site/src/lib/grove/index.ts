@@ -1,4 +1,5 @@
 export { bodyNodes, convertStory } from './story'
+export { convertContentPage, type ConvertedPage, type ConvertPageResult } from './page'
 export { convertLiveBlog, type ConvertedLiveBlog, type ConvertedLiveUpdate, type ConvertLiveResult } from './live'
 export { Ctx } from './context'
 export { DEFAULT_BYLINE, planImport, sectionTitlesBySegment, titleFromSegment, type ImportPlan } from './import-rules'

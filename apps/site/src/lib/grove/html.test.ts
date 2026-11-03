@@ -257,3 +257,20 @@ describe('script widgets (the election-guide pattern)', () => {
     expect(JSON.stringify(nodes)).not.toContain('"widget"')
   })
 })
+
+describe('NPR Pym interactives', () => {
+  const pym =
+    '<p data-pym-src="https://apps.npr.org/dailygraphics/graphics/sim/child.html?interactive=true&amp;a=0.00">&nbsp;</p>' +
+    '<script src="https://apps.npr.org/dailygraphics/graphics/sim/js/lib/pym.js" type="text/javascript"></script>'
+  it('become a frame of the same address, loading without a click (NPR is a built-in host), and the loader script is not reported as lost', () => {
+    const { nodes, ctx } = run(`<p>Try it.</p>${pym}`)
+    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block'])
+    expect(nodes[1]!.fields).toMatchObject({ blockType: 'embed', url: 'https://apps.npr.org/dailygraphics/graphics/sim/child.html?interactive=true&a=0.00' })
+    expect(ctx.entries.map((e) => e.code)).toEqual(['embed.pym-as-frame', 'embed.pym-loader-replaced'])
+    expect(ctx.entries.every((e) => e.level === 'noted')).toBe(true)
+  })
+  it('does not excuse a pym-named script on its own, or any other script', () => {
+    expect(codes(run('<script src="https://apps.npr.org/x/pym.js"></script>').ctx)).toEqual(['html.script-removed'])
+    expect(codes(run(`${pym}<script src="https://evil.org/steal.js"></script>`).ctx)).toContain('html.script-removed')
+  })
+})

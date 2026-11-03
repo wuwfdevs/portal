@@ -149,7 +149,7 @@ export const DEFAULT_EMBED_HOSTS: readonly string[] = [
   'datawrapper.dwcdn.net',
   'public.flourish.studio',
   'storymaps.arcgis.com', 'experience.arcgis.com', 'www.arcgis.com',
-  'www.npr.org',
+  'www.npr.org', 'apps.npr.org',
   'players.brightcove.net',
   'rumble.com',
   // The election-guide service WUWF has always embedded (script widgets, see lib/widgets.ts)

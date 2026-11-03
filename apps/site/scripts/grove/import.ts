@@ -43,7 +43,8 @@ const dryRun = has('dry-run')
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
-const { convertStory, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+const { convertStory, convertContentPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+type ConvertedPage = import('../../src/lib/grove').ConvertedPage
 type ConvertedStory = import('../../src/lib/grove').ConvertedStory
 type AssetRef = import('../../src/lib/grove').AssetRef
 const { assertOutsideRepo } = await import('../../src/lib/census/state-io')
@@ -67,12 +68,22 @@ pages.sort()
 
 const stories: ConvertedStory[] = []
 const held: { path: string; why: string }[] = []
+const standardPages: ConvertedPage[] = []
 for (const f of pages) {
-  const r = convertStory(JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8')), { embedHosts: [] })
-  if (r.status !== 'converted') continue
+  const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
+  const r = convertStory(raw, { embedHosts: [] })
+  if (r.status !== 'converted') {
+    // Not a story: it may be a standard page (a title and a body).
+    const pg = convertContentPage(raw)
+    if (pg.status !== 'converted') continue
+    if (pg.report.status === 'exception') held.push({ path: pg.page.path, why: 'page converter exception' })
+    else standardPages.push(pg.page)
+    continue
+  }
   if (r.report.status === 'exception') held.push({ path: r.story.path, why: 'converter exception' })
   else stories.push(r.story)
 }
+standardPages.sort((a, b) => a.path.localeCompare(b.path))
 stories.sort((a, b) => a.path.localeCompare(b.path))
 const sampleN = flag('sample')[0] ? Number(flag('sample')[0]) : 0
 if (sampleN > 0 && sampleN < stories.length) {
@@ -82,10 +93,10 @@ if (sampleN > 0 && sampleN < stories.length) {
   stories.splice(0, stories.length, ...picked)
   console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
 }
-console.log(`converted ${stories.length} stories (${held.length} held for a converter exception)`)
+console.log(`converted ${stories.length} stories and ${standardPages.length} standard pages (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
-for (const s of stories) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
+for (const s of [...stories, ...standardPages]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
 console.log(`${assets.size} distinct files across ${stories.reduce((n, s) => n + s.assets.length, 0)} uses`)
 
 // ---- the ledger: one JSON line per attempt, the last line for an address wins ------------------------------------------
@@ -200,7 +211,7 @@ async function savePhase() {
   const payload = await getPayload({ config })
   const ctx = { disableRevalidate: true }
 
-  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'sections' | 'categories' | 'contributors', where: Record<string, unknown>) =>
+  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'pages' | 'sections' | 'categories' | 'contributors', where: Record<string, unknown>) =>
     (await payload.find({ collection, where: where as never, limit: 1, depth: 0, overrideAccess: true })).docs[0]
 
   const libraryId = async (a: AssetRef): Promise<number | string> => {
@@ -280,7 +291,37 @@ async function savePhase() {
       console.log(`FAILED ${s.path}: ${(e as Error).message.slice(0, 200)}`)
     }
   }
-  summary(saved, already, noteCounts, failures)
+  // Standard pages: a title and a body at Grove's exact address. Same rules: all files downloaded, matched on the Grove id.
+  let pagesSaved = 0
+  for (const pg of standardPages) {
+    if (pagesSaved >= limit) break
+    const bad = pg.assets.filter((a) => ledger.get(a.sourceUrl)?.status !== 'ok')
+    if (bad.length) {
+      held.push({ path: pg.path, why: `${bad.length} file(s) not fetched: ${bad.slice(0, 2).map((a) => a.sourceUrl).join('; ')}` })
+      continue
+    }
+    try {
+      if (await find('pages', { 'legacy.groveId': { equals: pg.legacy.groveId } })) {
+        already++
+        continue
+      }
+      const ids = new Map<string, number | string>()
+      for (const a of pg.assets) ids.set(a.sourceUrl, await libraryId(a))
+      const resolved = resolveAssets({ body: pg.body }, ids)
+      await payload.create({
+        collection: 'pages',
+        overrideAccess: true,
+        context: ctx,
+        data: { title: pg.title, slug: pg.slug, path: pg.path, template: 'standard', ...(pg.summary ? { summary: pg.summary } : {}), body: resolved.body, legacy: { legacyPath: pg.legacy.legacyPath, groveId: pg.legacy.groveId, modifiedAt: pg.legacy.modifiedAt }, _status: 'published' } as never,
+      })
+      pagesSaved++
+    } catch (e) {
+      failures.push({ path: pg.path, error: (e as Error).message.slice(0, 300) })
+      console.log(`FAILED ${pg.path}: ${(e as Error).message.slice(0, 200)}`)
+    }
+  }
+  if (pagesSaved) console.log(`save: ${pagesSaved} standard pages`)
+  summary(saved + pagesSaved, already, noteCounts, failures)
   process.exit(failures.length ? 1 : 0)
 }
 

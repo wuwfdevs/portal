@@ -15,6 +15,8 @@ export class Ctx {
   readonly entries: ReportEntry[] = []
   readonly mapped: Record<string, number> = {}
   private n = 0
+  /** True once an NPR Pym placeholder (`data-pym-src`) has been turned into a frame: its loader script is then not a loss. */
+  pymFrame = false
 
   constructor(
     readonly seed: string,

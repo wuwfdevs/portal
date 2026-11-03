@@ -1,6 +1,7 @@
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
+import { bodyEditor } from '../../fields/bodyEditor'
 import type { CollectionConfig } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
@@ -55,11 +56,31 @@ export const Pages: CollectionConfig<'pages'> = {
       required: true,
     },
     {
+      name: 'template',
+      type: 'select',
+      required: true,
+      defaultValue: 'standard',
+      options: [
+        { label: 'Standard page: a title, a short lead and a body', value: 'standard' },
+        { label: 'Blocks (the starter\'s layout; existing pages only)', value: 'blocks' },
+      ],
+      admin: { position: 'sidebar', description: 'The structure of the page. A developer adds templates; staff fill them in.' },
+    },
+    {
       type: 'tabs',
       tabs: [
         {
+          label: 'Page',
+          admin: { condition: (_, { template }) => template !== 'blocks' },
+          fields: [
+            { name: 'summary', type: 'textarea', admin: { description: 'A short lead shown under the title. Optional.' } },
+            { name: 'body', type: 'richText', editor: bodyEditor, label: 'Body', admin: { description: 'Text, pictures, audio, video and embeds, the same blocks as a story.' } },
+          ],
+        },
+        {
           fields: [hero],
           label: 'Hero',
+          admin: { condition: (_, { template }) => template === 'blocks' },
         },
         {
           fields: [
@@ -67,13 +88,13 @@ export const Pages: CollectionConfig<'pages'> = {
               name: 'layout',
               type: 'blocks',
               blocks: [CallToAction, Content, MediaBlock, Archive, FormBlock],
-              required: true,
               admin: {
                 initCollapsed: true,
               },
             },
           ],
           label: 'Content',
+          admin: { condition: (_, { template }) => template === 'blocks' },
         },
         {
           name: 'meta',
