@@ -3,7 +3,11 @@ import { slugField } from 'payload'
 
 import { anyone } from '../access/anyone'
 import { requirePermission } from '../access/permissions'
+import { bodyEditor } from '../fields/bodyEditor'
 import { ensureSlug } from '../hooks/ensureSlug'
+import { legacyIdentityWriteOnce } from '../hooks/pathHooks'
+import { listHref } from '../lib/lists/route'
+import { revalidatePath } from '../lib/revalidate'
 
 /**
  * A byline: reporters, hosts, fellows, student journalists. Public by design. This is deliberately not
@@ -20,12 +24,47 @@ export const Contributors: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: { group: 'Editorial', useAsTitle: 'name', defaultColumns: ['name', 'title', 'updatedAt'] },
-  hooks: { beforeValidate: [ensureSlug('name')] },
+  hooks: { beforeValidate: [ensureSlug('name')], beforeChange: [legacyIdentityWriteOnce],
+    // Their page (/people/<slug>) shows the profile, so an edit must reach readers at once, under the old address too.
+    afterChange: [
+      ({ doc, previousDoc }) => {
+        for (const slug of new Set([doc?.slug, previousDoc?.slug])) if (typeof slug === 'string' && slug) revalidatePath(listHref('person', slug))
+      },
+    ],
+    afterDelete: [
+      ({ doc }) => {
+        if (typeof doc?.slug === 'string' && doc.slug) revalidatePath(listHref('person', doc.slug))
+      },
+    ],
+  },
   fields: [
     { name: 'name', type: 'text', required: true },
     slugField({ useAsSlug: 'name' }),
     { name: 'title', type: 'text', admin: { description: 'For example "Coastal Futures Fellow".' } },
-    { name: 'bio', type: 'textarea' },
+    { name: 'bio', type: 'textarea', label: 'Short bio', admin: { description: 'One or two sentences, shown under the name on their page and on a byline.' } },
+    {
+      name: 'biography',
+      type: 'richText',
+      editor: bodyEditor,
+      label: 'Full biography',
+      admin: { description: 'The longer version, shown on their page under the short bio. Optional.' },
+    },
+    {
+      name: 'links',
+      type: 'array',
+      label: 'Links',
+      maxRows: 8,
+      admin: { description: 'Their own site and social accounts, shown on their page. Only http(s) addresses.' },
+      fields: [
+        { name: 'label', type: 'text', required: true },
+        {
+          name: 'url',
+          type: 'text',
+          required: true,
+          validate: (v: unknown) => (typeof v === 'string' && /^https?:\/\/[^\s]+$/i.test(v) ? true : 'Enter a full web address that starts with https:// or http://'),
+        },
+      ],
+    },
     { name: 'photo', type: 'upload', relationTo: 'media' },
     {
       name: 'initials',
@@ -41,6 +80,16 @@ export const Contributors: CollectionConfig = {
           },
         ],
       },
+    },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new work.' },
+      fields: [
+        { name: 'legacyPath', type: 'text', unique: true, index: true, admin: { description: 'The Grove path this came from, e.g. /people/rachel-cramer. Set by the migration and then fixed.' } },
+        { name: 'groveId', type: 'text', unique: true, index: true, admin: { description: 'Grove\'s contentId for this person. Set by the migration and then fixed; a re-run matches on it.' } },
+      ],
     },
   ],
 }

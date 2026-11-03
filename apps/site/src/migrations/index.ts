@@ -15,6 +15,7 @@ import * as migration_20261103_032912_page_templates from './20261103_032912_pag
 import * as migration_20261103_033745_show_fields from './20261103_033745_show_fields';
 import * as migration_20261103_040200_backfill_page_templates from './20261103_040200_backfill_page_templates';
 import * as migration_20261103_042706_community_calendar from './20261103_042706_community_calendar';
+import * as migration_20261103_052450_author_profiles from './20261103_052450_author_profiles';
 
 export const migrations = [
   {
@@ -100,6 +101,11 @@ export const migrations = [
   {
     up: migration_20261103_042706_community_calendar.up,
     down: migration_20261103_042706_community_calendar.down,
-    name: '20261103_042706_community_calendar'
+    name: '20261103_042706_community_calendar',
+  },
+  {
+    up: migration_20261103_052450_author_profiles.up,
+    down: migration_20261103_052450_author_profiles.down,
+    name: '20261103_052450_author_profiles'
   },
 ];

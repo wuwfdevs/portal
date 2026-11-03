@@ -1,6 +1,7 @@
 export { bodyNodes, convertStory } from './story'
 export { convertShowPage, type ConvertedShow, type ConvertShowResult } from './show'
 export { convertContentPage, type ConvertedPage, type ConvertPageResult } from './page'
+export { convertAuthorPage, type ConvertedAuthor, type ConvertAuthorResult } from './author'
 export { convertEventPage, type ConvertedEvent, type ConvertEventResult } from './event'
 export { convertLiveBlog, type ConvertedLiveBlog, type ConvertedLiveUpdate, type ConvertLiveResult } from './live'
 export { Ctx } from './context'

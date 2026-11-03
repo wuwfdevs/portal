@@ -43,10 +43,11 @@ const dryRun = has('dry-run')
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
-const { convertStory, convertContentPage, convertEventPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+const { convertStory, convertContentPage, convertAuthorPage, convertEventPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
 type ConvertedPage = import('../../src/lib/grove').ConvertedPage
 type ConvertedShow = import('../../src/lib/grove').ConvertedShow
 type ConvertedEvent = import('../../src/lib/grove').ConvertedEvent
+type ConvertedAuthor = import('../../src/lib/grove').ConvertedAuthor
 type ConvertedStory = import('../../src/lib/grove').ConvertedStory
 type AssetRef = import('../../src/lib/grove').AssetRef
 const { assertOutsideRepo } = await import('../../src/lib/census/state-io')
@@ -73,6 +74,7 @@ const held: { path: string; why: string }[] = []
 const standardPages: ConvertedPage[] = []
 const shows: ConvertedShow[] = []
 const events: ConvertedEvent[] = []
+const authors: ConvertedAuthor[] = []
 for (const f of pages) {
   const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
   const r = convertStory(raw, { embedHosts: [] })
@@ -91,6 +93,13 @@ for (const f of pages) {
       else events.push(ev.event)
       continue
     }
+    // An author's own page (`/people/<slug>`).
+    const au = convertAuthorPage(raw)
+    if (au.status === 'converted') {
+      if (au.report.status === 'exception') held.push({ path: au.author.path, why: 'author converter exception' })
+      else authors.push(au.author)
+      continue
+    }
     const pg = convertContentPage(raw)
     if (pg.status !== 'converted') continue
     if (pg.report.status === 'exception') held.push({ path: pg.page.path, why: 'page converter exception' })
@@ -101,6 +110,7 @@ for (const f of pages) {
   else stories.push(r.story)
 }
 standardPages.sort((a, b) => a.path.localeCompare(b.path))
+authors.sort((a, b) => a.path.localeCompare(b.path))
 stories.sort((a, b) => a.path.localeCompare(b.path))
 const sampleN = flag('sample')[0] ? Number(flag('sample')[0]) : 0
 if (sampleN > 0 && sampleN < stories.length) {
@@ -110,10 +120,10 @@ if (sampleN > 0 && sampleN < stories.length) {
   stories.splice(0, stories.length, ...picked)
   console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
 }
-console.log(`converted ${stories.length} stories, ${shows.length} shows, ${standardPages.length} standard pages and ${events.length} events (${held.length} held for a converter exception)`)
+console.log(`converted ${stories.length} stories, ${shows.length} shows, ${standardPages.length} standard pages, ${events.length} events and ${authors.length} author profiles (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
-for (const s of [...stories, ...standardPages, ...shows, ...events]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
+for (const s of [...stories, ...standardPages, ...shows, ...events, ...authors]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
 console.log(`${assets.size} distinct files across ${stories.reduce((n, s) => n + s.assets.length, 0)} uses`)
 
 // ---- the ledger: one JSON line per attempt, the last line for an address wins ------------------------------------------
@@ -386,6 +396,48 @@ async function savePhase() {
     }
   }
   if (pagesSaved) console.log(`save: ${pagesSaved} standard pages`)
+
+  // Author profiles. A person usually exists already (created from a byline, matched on the slug); their profile fields are added
+  // to that record, never a second one. Matched on the Grove id first, so a re-run changes nothing.
+  let authorsSaved = 0
+  for (const au of authors) {
+    if (authorsSaved >= limit) break
+    const bad = au.assets.filter((a) => ledger.get(a.sourceUrl)?.status !== 'ok')
+    if (bad.length) {
+      held.push({ path: au.path, why: `${bad.length} file(s) not fetched: ${bad.slice(0, 2).map((a) => a.sourceUrl).join('; ')}` })
+      continue
+    }
+    try {
+      if (await find('contributors', { 'legacy.groveId': { equals: au.legacy.groveId } })) {
+        already++
+        continue
+      }
+      const ids = new Map<string, number | string>()
+      for (const a of au.assets) ids.set(a.sourceUrl, await libraryId(a))
+      const resolved = resolveAssets({ biography: au.biography, portrait: au.portrait }, ids)
+      const fields = {
+        name: au.name,
+        slug: au.slug,
+        ...(au.summary ? { bio: au.summary } : {}),
+        ...(resolved.biography ? { biography: resolved.biography } : {}),
+        ...(resolved.portrait ? { photo: resolved.portrait } : {}),
+        ...(au.links.length ? { links: au.links } : {}),
+        legacy: { legacyPath: au.legacy.legacyPath, groveId: au.legacy.groveId },
+      }
+      const byline = await find('contributors', { slug: { equals: au.slug } })
+      if (byline) {
+        // Keep what a byline already gave (a title, a photo); fill what it did not.
+        const have = byline as unknown as { photo?: unknown; bio?: string | null; title?: string | null }
+        const { photo, bio, ...rest } = fields as typeof fields & { photo?: unknown; bio?: string }
+        await payload.update({ collection: 'contributors', id: byline.id, overrideAccess: true, context: ctx, data: { ...rest, ...(have.photo ? {} : photo ? { photo } : {}), ...(have.bio ? {} : bio ? { bio } : {}) } as never })
+      } else await payload.create({ collection: 'contributors', overrideAccess: true, context: ctx, data: fields as never })
+      authorsSaved++
+    } catch (e) {
+      failures.push({ path: au.path, error: (e as Error).message.slice(0, 300) })
+      console.log(`FAILED ${au.path}: ${(e as Error).message.slice(0, 200)}`)
+    }
+  }
+  if (authorsSaved) console.log(`save: ${authorsSaved} author profiles`)
 
   // Community-calendar events at Grove's exact addresses. Same rules: every file downloaded, matched on the Grove id. An event
   // whose date text could not be read is saved WITH its original wording, flagged `needsAttention`, and no dates; it is never dropped.

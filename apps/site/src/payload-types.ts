@@ -807,12 +807,56 @@ export interface Contributor {
    * For example "Coastal Futures Fellow".
    */
   title?: string | null;
+  /**
+   * One or two sentences, shown under the name on their page and on a byline.
+   */
   bio?: string | null;
+  /**
+   * The longer version, shown on their page under the short bio. Optional.
+   */
+  biography?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Their own site and social accounts, shown on their page. Only http(s) addresses.
+   */
+  links?:
+    | {
+        label: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
   photo?: (number | null) | Media;
   /**
    * Shown when there is no photo. Defaults to the name's initials.
    */
   initials?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from, e.g. /people/rachel-cramer. Set by the migration and then fixed.
+     */
+    legacyPath?: string | null;
+    /**
+     * Grove's contentId for this person. Set by the migration and then fixed; a re-run matches on it.
+     */
+    groveId?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -2946,8 +2990,22 @@ export interface ContributorsSelect<T extends boolean = true> {
   slug?: T;
   title?: T;
   bio?: T;
+  biography?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
   photo?: T;
   initials?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
