@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, RichTextFieldValidation } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { featuredMediaBlocks } from '../../blocks/body'
@@ -8,6 +8,7 @@ import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
 import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
+import { storyBodyMayBeEmpty } from '../../lib/story-body'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { stampEnd } from '../Live/hooks'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
@@ -84,6 +85,11 @@ export const Posts: CollectionConfig<'posts'> = {
               editor: bodyEditor,
               label: false,
               required: true,
+              // Required, except for a story carried by its audio, video or photo (Grove has audio-only pieces).
+              validate: (async (value, options) => {
+                if (storyBodyMayBeEmpty(options.data as never)) return true
+                return (options.editor as unknown as { validate: (v: unknown, o: unknown) => Promise<string | true> }).validate(value, options)
+              }) as RichTextFieldValidation,
             },
           ],
           label: 'Content',

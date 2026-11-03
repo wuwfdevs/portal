@@ -10,6 +10,7 @@
 //   --phase      fetch | save | all (default all)
 //   --interval-ms  minimum gap between requests (default 3000, never lower)
 //   --retry-failed fetch again the files whose last attempt failed (a missing or refused file is not retried)
+//   --upgrade-http <address>  fetch phase: request the https:// version of this one exact http:// address (repeatable); nothing else is upgraded
 //   --limit      save at most this many stories (a trial run)
 //   --sample N   work on N stories spread evenly across the whole set (a rehearsal slice), in both phases
 //   --kinds      fetch phase: only these kinds of file, e.g. image or image,audio (default: all)
@@ -33,6 +34,12 @@ dotenv.config()
 const args = process.argv.slice(2)
 const flag = (n: string) => args.flatMap((a, i) => (a === `--${n}` ? [args[i + 1] ?? ''] : []))
 const has = (n: string) => args.includes(`--${n}`)
+// A failed Payload save says only "The following field is invalid"; the reason sits in the error's data. Say it, so a person can decide.
+const why = (e: unknown): string => {
+  const err = e as { message?: string; data?: { errors?: { path?: string; message?: string }[] } }
+  const detail = (err.data?.errors ?? []).map((x) => `${x.path ?? '?'}: ${x.message ?? '?'}`).join('; ')
+  return `${err.message ?? String(e)}${detail ? ` [${detail}]` : ''}`.slice(0, 500)
+}
 
 const raw = flag('raw')
 const cache = flag('cache')[0]
@@ -156,6 +163,9 @@ const record = (e: Entry) => {
 
 async function fetchPhase() {
   const retryFailed = has('retry-failed')
+  // `--upgrade-http <exact address>` (repeatable): ask for the https:// version of one named http:// file. Nothing else is upgraded.
+  const upgrade = new Set(flag('upgrade-http'))
+  for (const u of upgrade) if (!u.startsWith('http://')) throw new Error(`--upgrade-http takes an exact http:// address, got: ${u}`)
   const kinds = (flag('kinds')[0] ?? 'image,audio,video').split(',')
   const minFreeBytes = Number(flag('min-free-gib')[0] ?? 3) * 1024 ** 3
   const freeBytes = () => {
@@ -165,6 +175,7 @@ async function fetchPhase() {
   const todo = [...assets.values()].filter((a) => {
     if (!kinds.includes(a.kind)) return false
     const e = ledger.get(a.sourceUrl)
+    if (upgrade.has(a.sourceUrl)) return !e || (e.status === 'refused' && e.reason === 'not_https') || (e.status === 'failed' && retryFailed)
     return !e || (e.status === 'failed' && retryFailed)
   })
   console.log(`fetch: ${todo.length} to download, ${assets.size - todo.length} already in the ledger; about ${Math.round((todo.length * intervalMs) / 60000)} minutes at ${intervalMs / 1000}s a file`)
@@ -185,7 +196,7 @@ async function fetchPhase() {
       console.log(`stopping: less than ${minFreeBytes / 1024 ** 3} GiB free on the disk holding ${cache}. The ledger is saved; free some space (or move the cache) and run again.`)
       break
     }
-    const r = await dl.download(a.sourceUrl, a.kind)
+    const r = await dl.download(upgrade.has(a.sourceUrl) ? a.sourceUrl.replace(/^http:/, 'https:') : a.sourceUrl, a.kind) // the ledger keeps the original address
     const at = new Date().toISOString()
     if (r.status === 'ok') {
       forbidden = 0
@@ -374,8 +385,8 @@ async function savePhase() {
       productionByPath.set(sh.path, doc.id)
       noteCounts.set('import.show-saved', (noteCounts.get('import.show-saved') ?? 0) + 1)
     } catch (e) {
-      failures.push({ path: sh.path, error: (e as Error).message.slice(0, 300) })
-      console.log(`FAILED show ${sh.path}: ${(e as Error).message.slice(0, 200)}`)
+      failures.push({ path: sh.path, error: why(e) })
+      console.log(`FAILED show ${sh.path}: ${why(e).slice(0, 300)}`)
     }
   }
   /** The show an episode belongs to: the one imported from its own page, else a minimal one made from the episode, and said so. */
@@ -439,8 +450,8 @@ async function savePhase() {
       for (const n of plan.notes) noteCounts.set(n.code, (noteCounts.get(n.code) ?? 0) + 1)
       if (++saved % 25 === 0) console.log(`save: ${saved} stories`)
     } catch (e) {
-      failures.push({ path: s.path, error: (e as Error).message.slice(0, 300) })
-      console.log(`FAILED ${s.path}: ${(e as Error).message.slice(0, 200)}`)
+      failures.push({ path: s.path, error: why(e) })
+      console.log(`FAILED ${s.path}: ${why(e).slice(0, 300)}`)
     }
   }
   // Standard pages: a title and a body at Grove's exact address. Same rules: all files downloaded, matched on the Grove id.
@@ -468,8 +479,8 @@ async function savePhase() {
       })
       pagesSaved++
     } catch (e) {
-      failures.push({ path: pg.path, error: (e as Error).message.slice(0, 300) })
-      console.log(`FAILED ${pg.path}: ${(e as Error).message.slice(0, 200)}`)
+      failures.push({ path: pg.path, error: why(e) })
+      console.log(`FAILED ${pg.path}: ${why(e).slice(0, 300)}`)
     }
   }
   if (pagesSaved) console.log(`save: ${pagesSaved} standard pages`)
@@ -510,8 +521,8 @@ async function savePhase() {
       } else await payload.create({ collection: 'contributors', overrideAccess: true, context: { ...ctx }, data: fields as never })
       authorsSaved++
     } catch (e) {
-      failures.push({ path: au.path, error: (e as Error).message.slice(0, 300) })
-      console.log(`FAILED ${au.path}: ${(e as Error).message.slice(0, 200)}`)
+      failures.push({ path: au.path, error: why(e) })
+      console.log(`FAILED ${au.path}: ${why(e).slice(0, 300)}`)
     }
   }
   if (authorsSaved) console.log(`save: ${authorsSaved} author profiles`)
@@ -563,8 +574,8 @@ async function savePhase() {
       eventsSaved++
       if (ev.legacy.needsAttention) noteCounts.set('import.event-needs-attention', (noteCounts.get('import.event-needs-attention') ?? 0) + 1)
     } catch (e) {
-      failures.push({ path: ev.path, error: (e as Error).message.slice(0, 300) })
-      console.log(`FAILED ${ev.path}: ${(e as Error).message.slice(0, 200)}`)
+      failures.push({ path: ev.path, error: why(e) })
+      console.log(`FAILED ${ev.path}: ${why(e).slice(0, 300)}`)
     }
   }
   if (eventsSaved) console.log(`save: ${eventsSaved} events`)
