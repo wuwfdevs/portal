@@ -8,7 +8,8 @@ import type { Post } from '@/payload-types'
 import type {
   Agreement, CollectionKind, CollectionRef, ContentFormat, ContentRef, Placement, Resolution,
 } from './resolve'
-import { resolveUnderwriting } from './resolve'
+import { resolveHubUnderwriting, resolveUnderwriting } from './resolve'
+import type { AcknowledgmentLine } from './resolve'
 
 type Rel<T> = T | string | number | null | undefined
 const populated = <T extends object>(v: Rel<T>): T | null => (v && typeof v === 'object' ? (v as T) : null)
@@ -104,4 +105,14 @@ export async function getAcknowledgments(
 ): Promise<Resolution> {
   const post = await payload.findByID({ collection: 'posts', id: postId, depth: 3, overrideAccess: true })
   return resolveUnderwriting(toContentRef(post as unknown as PostLike), { placement, now })
+}
+
+/**
+ * The funder lines on a fellowship's own hub page. Agreements are not readable by the public, so this reads them on the
+ * server (as `getAcknowledgments` does) and hands back only the approved lines to show.
+ */
+export async function getFellowshipHubAcknowledgments(payload: Payload, fellowshipId: string | number, now: string): Promise<AcknowledgmentLine[]> {
+  const doc = await payload.findByID({ collection: 'fellowships', id: fellowshipId, depth: 3, overrideAccess: true })
+  const ref = toCollectionRef('fellowship', doc as unknown as CollectionDoc)
+  return ref ? resolveHubUnderwriting(ref, { now }) : []
 }

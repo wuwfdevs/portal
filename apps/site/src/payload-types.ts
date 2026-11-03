@@ -830,7 +830,31 @@ export interface Fellowship {
    */
   summary?: string | null;
   heroImage?: (number | null) | Media;
+  /**
+   * The small label above the title on the hub page.
+   */
+  eyebrow?: string | null;
+  /**
+   * One sentence that says what the fellowship is for. Shown large above the mission.
+   */
+  missionHeadline?: string | null;
+  /**
+   * A paragraph under the headline.
+   */
   mission?: string | null;
+  /**
+   * The two or three subjects the fellowship covers, shown under the mission.
+   */
+  focusAreas?:
+    | {
+        title: string;
+        /**
+         * A few words, e.g. "What it costs to stay".
+         */
+        blurb?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   fellow?: (number | null) | Contributor;
   termStartsOn?: string | null;
   termEndsOn?: string | null;
@@ -2133,7 +2157,16 @@ export interface FellowshipsSelect<T extends boolean = true> {
   slug?: T;
   summary?: T;
   heroImage?: T;
+  eyebrow?: T;
+  missionHeadline?: T;
   mission?: T;
+  focusAreas?:
+    | T
+    | {
+        title?: T;
+        blurb?: T;
+        id?: T;
+      };
   fellow?: T;
   termStartsOn?: T;
   termEndsOn?: T;
