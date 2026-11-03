@@ -23,6 +23,7 @@ export const Users: CollectionConfig = {
     update: ({ req, id }) => userCan(req.user, 'users.manage') || req.user?.id === id,
   },
   admin: {
+    group: 'System',
     defaultColumns: ['name', 'email', 'roles'],
     useAsTitle: 'name',
   },

@@ -24,6 +24,7 @@ export const Video: CollectionConfig = {
     update: requirePermission('content.write'),
   },
   admin: {
+    group: 'Media library',
     useAsTitle: 'title',
     defaultColumns: ['title', 'credit', 'durationSeconds', 'updatedAt'],
     listSearchableFields: ['title', 'filename', 'credit'],

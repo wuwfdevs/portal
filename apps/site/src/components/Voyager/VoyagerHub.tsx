@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
 import { Media } from '@/components/Media'
 import { leadPicture } from '@/lib/homepage/select'
 import { formatLongDate } from '@/lib/format'
@@ -32,6 +33,7 @@ export function VoyagerHub({ data, now = new Date() }: { data: VoyagerData; now?
 
   return (
     <div className="bg-surface font-sans text-ink">
+      <LivePreviewInIframe />
       <div className="bg-surface-dark text-surface">
         <div className="container flex min-h-11 flex-wrap items-center gap-x-5 gap-y-1 text-[0.8125rem]">
           <Link className="flex min-h-11 items-center text-surface hover:no-underline" href="/">Published with WUWF Public Media</Link>

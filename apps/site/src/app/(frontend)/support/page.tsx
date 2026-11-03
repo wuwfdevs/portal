@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 
 import React from 'react'
 
+import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
+
 import {
   SupportBusinesses,
   SupportFellowships,
@@ -21,6 +23,7 @@ export default async function SupportRoute() {
 
   return (
     <>
+      <LivePreviewInIframe />
       <SupportHero page={page} />
       <SupportLevels page={page} />
       <SupportBusinesses page={page} />

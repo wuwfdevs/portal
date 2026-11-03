@@ -27,6 +27,7 @@ const hrefField = (name: string, label: string, description?: string) =>
  */
 export const SupportPage: GlobalConfig = {
   slug: 'support-page',
+  admin: { group: 'Pages & hubs', livePreview: { url: '/support' } },
   label: 'Support page',
   access: { read: () => true, update: canEdit },
   hooks: { afterChange: [revalidateSupportPage] },

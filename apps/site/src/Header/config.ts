@@ -6,6 +6,7 @@ import { revalidateHeader } from './hooks/revalidateHeader'
 
 export const Header: GlobalConfig = {
   slug: 'header',
+  admin: { group: 'Site settings', livePreview: { url: '/' } },
   access: {
     read: () => true,
     update: requirePermission('content.publish'),

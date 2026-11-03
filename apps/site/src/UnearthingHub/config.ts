@@ -11,6 +11,7 @@ import { revalidateUnearthingHub } from './hooks/revalidate'
  */
 export const UnearthingHub: GlobalConfig = {
   slug: 'unearthing-hub',
+  admin: { group: 'Pages & hubs', livePreview: { url: '/unearthing-florida' } },
   label: 'Unearthing Florida hub',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateUnearthingHub] },

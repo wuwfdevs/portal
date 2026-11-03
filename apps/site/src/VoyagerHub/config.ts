@@ -12,6 +12,7 @@ import { revalidateVoyagerHub } from './hooks/revalidate'
  */
 export const VoyagerHub: GlobalConfig = {
   slug: 'voyager-hub',
+  admin: { group: 'Pages & hubs', livePreview: { url: '/voyager' } },
   label: 'The Voyager hub',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateVoyagerHub] },

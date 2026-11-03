@@ -14,6 +14,7 @@ const publishedOnly = { _status: { equals: 'published' } }
  */
 export const Homepage: GlobalConfig = {
   slug: 'homepage',
+  admin: { group: 'Pages & hubs', livePreview: { url: '/' } },
   label: 'Home page',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateHomepage] },

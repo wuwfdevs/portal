@@ -11,6 +11,7 @@ import { episodeCount } from '@/lib/unearthing/group'
 import { periodLabel } from '@/lib/unearthing/periods'
 import { audioOf, type UnearthingData } from '@/lib/unearthing/load'
 
+import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
 import { ExplorePanel } from './ExplorePanel'
 
 /**
@@ -28,6 +29,7 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
 
   return (
     <article className="bg-warning-bg font-sans text-ink">
+      <LivePreviewInIframe />
       <header className="border-b border-warning-border">
         <div className="container flex flex-wrap items-end gap-8 pb-10 pt-12 md:pt-14">
           <div className="flex min-w-0 flex-[999_1_32rem] flex-col gap-3.5">
