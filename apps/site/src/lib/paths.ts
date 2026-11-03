@@ -20,6 +20,7 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'search',
   'support',
   'live-updates',
+  'podcasts',
   'fellowships',
   'series',
   'productions',

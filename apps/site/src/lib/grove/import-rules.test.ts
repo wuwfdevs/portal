@@ -44,6 +44,14 @@ describe('planImport: section', () => {
   })
 })
 
+describe('planImport: an episode', () => {
+  it('is filed under its show, so it gets no section and no section note', () => {
+    const p = planImport({ ...story({ path: '/show/acoustic-interlude/2026-10-03/josh-ritter' }), show: { path: '/show/acoustic-interlude', title: 'Acoustic Interlude' } }, new Map())
+    expect(p.section).toBeNull()
+    expect(p.notes.map((n) => n.code)).not.toContain('import.section-from-path')
+  })
+})
+
 describe('planImport: byline', () => {
   it('leaves named people as they are, including one with no profile page', () => {
     const p = planImport(story({ byline: { people: [{ name: 'Danielle Freeman' }], text: null } }), new Map())

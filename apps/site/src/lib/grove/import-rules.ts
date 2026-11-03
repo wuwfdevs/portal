@@ -54,12 +54,13 @@ const isNameFragment = (text: string, people: readonly PersonRef[]): boolean => 
   return !t || people.some((p) => norm(p.name).split(' ').some((w) => w === t || (t.length === 1 && w.startsWith(t))) || norm(p.name).includes(t))
 }
 
-export function planImport(story: Pick<ConvertedStory, 'path' | 'section' | 'byline'>, titles: ReadonlyMap<string, string>): ImportPlan {
+export function planImport(story: Pick<ConvertedStory, 'path' | 'section' | 'byline'> & Partial<Pick<ConvertedStory, 'show'>>, titles: ReadonlyMap<string, string>): ImportPlan {
   const notes: ImportPlan['notes'] = []
   const seg = firstSegment(story.path)
 
   let section: ImportPlan['section'] = null
-  if (seg) {
+  // An episode is filed under its show (a production), not under a section.
+  if (seg && !story.show) {
     // The section's address segment is always the first part of the story's path, so the two never disagree.
     const title = story.section?.title ?? titles.get(seg) ?? titleFromSegment(seg)
     section = { title, slug: seg }

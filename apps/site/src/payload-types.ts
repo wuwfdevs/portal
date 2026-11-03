@@ -995,7 +995,7 @@ export interface Series {
   createdAt: string;
 }
 /**
- * An ongoing WUWF production, such as a podcast or live-music series.
+ * An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "productions".
@@ -1013,6 +1013,48 @@ export interface Production {
    */
   summary?: string | null;
   heroImage?: (number | null) | Media;
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
+  /**
+   * The line under the name, e.g. "A Coastal Futures podcast · WUWF".
+   */
+  tagline?: string | null;
+  /**
+   * When it airs or how often it comes out, e.g. "Sundays at 7 p.m. on WUWF-HD2" or "New episodes every other Friday".
+   */
+  schedule?: string | null;
+  hosts?: (number | Contributor)[] | null;
+  /**
+   * About the show. Shown on its page.
+   */
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Show this in the podcast directory.
+   */
+  listed?: boolean | null;
+  /**
+   * Set by the migration. Leave empty for new shows.
+   */
+  legacy?: {
+    legacyPath?: string | null;
+    groveId?: string | null;
+  };
   /**
    * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
    */
@@ -2424,6 +2466,18 @@ export interface ProductionsSelect<T extends boolean = true> {
   slug?: T;
   summary?: T;
   heroImage?: T;
+  path?: T;
+  tagline?: T;
+  schedule?: T;
+  hosts?: T;
+  description?: T;
+  listed?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+      };
   agreements?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -116,3 +116,10 @@ export async function getFellowshipHubAcknowledgments(payload: Payload, fellowsh
   const ref = toCollectionRef('fellowship', doc as unknown as CollectionDoc)
   return ref ? resolveHubUnderwriting(ref, { now }) : []
 }
+
+/** The funder lines on a show's own page. Same rules as a fellowship hub: only agreements whose term is running, read server-side. */
+export async function getProductionHubAcknowledgments(payload: Payload, productionId: string | number, now: string): Promise<AcknowledgmentLine[]> {
+  const doc = await payload.findByID({ collection: 'productions', id: productionId, depth: 3, overrideAccess: true })
+  const ref = toCollectionRef('production', doc as unknown as CollectionDoc)
+  return ref ? resolveHubUnderwriting(ref, { now }) : []
+}

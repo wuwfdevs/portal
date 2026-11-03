@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field } from 'payload'
+import type { CollectionAfterChangeHook, CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionConfig, Field } from 'payload'
 import { slugField } from 'payload'
 
 import { anyone } from '../../access/anyone'
@@ -20,6 +20,9 @@ export function fundableCollection(opts: {
   plural: string
   description: string
   extraFields?: Field[]
+  beforeChange?: CollectionBeforeChangeHook[]
+  afterChange?: CollectionAfterChangeHook[]
+  afterDelete?: CollectionAfterDeleteHook[]
 }): CollectionConfig {
   return {
     slug: opts.slug,
@@ -55,8 +58,9 @@ export function fundableCollection(opts: {
     ],
     hooks: {
       beforeValidate: [ensureSlug('title')],
-      afterChange: [revalidateCollection],
-      afterDelete: [revalidateCollectionDelete],
+      ...(opts.beforeChange ? { beforeChange: opts.beforeChange } : {}),
+      afterChange: [revalidateCollection, ...(opts.afterChange ?? [])],
+      afterDelete: [revalidateCollectionDelete, ...(opts.afterDelete ?? [])],
     },
   }
 }

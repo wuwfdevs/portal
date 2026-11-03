@@ -43,8 +43,9 @@ const dryRun = has('dry-run')
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
-const { convertStory, convertContentPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+const { convertStory, convertContentPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
 type ConvertedPage = import('../../src/lib/grove').ConvertedPage
+type ConvertedShow = import('../../src/lib/grove').ConvertedShow
 type ConvertedStory = import('../../src/lib/grove').ConvertedStory
 type AssetRef = import('../../src/lib/grove').AssetRef
 const { assertOutsideRepo } = await import('../../src/lib/census/state-io')
@@ -69,11 +70,18 @@ pages.sort()
 const stories: ConvertedStory[] = []
 const held: { path: string; why: string }[] = []
 const standardPages: ConvertedPage[] = []
+const shows: ConvertedShow[] = []
 for (const f of pages) {
   const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
   const r = convertStory(raw, { embedHosts: [] })
   if (r.status !== 'converted') {
-    // Not a story: it may be a standard page (a title and a body).
+    // Not a story: it may be a show (a radio program's own page) or a standard page (a title and a body).
+    const sh = convertShowPage(raw)
+    if (sh.status === 'converted') {
+      if (sh.report.status === 'exception') held.push({ path: sh.show.path, why: 'show converter exception' })
+      else shows.push(sh.show)
+      continue
+    }
     const pg = convertContentPage(raw)
     if (pg.status !== 'converted') continue
     if (pg.report.status === 'exception') held.push({ path: pg.page.path, why: 'page converter exception' })
@@ -93,10 +101,10 @@ if (sampleN > 0 && sampleN < stories.length) {
   stories.splice(0, stories.length, ...picked)
   console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
 }
-console.log(`converted ${stories.length} stories and ${standardPages.length} standard pages (${held.length} held for a converter exception)`)
+console.log(`converted ${stories.length} stories, ${shows.length} shows and ${standardPages.length} standard pages (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
-for (const s of [...stories, ...standardPages]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
+for (const s of [...stories, ...standardPages, ...shows]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
 console.log(`${assets.size} distinct files across ${stories.reduce((n, s) => n + s.assets.length, 0)} uses`)
 
 // ---- the ledger: one JSON line per attempt, the last line for an address wins ------------------------------------------
@@ -211,7 +219,7 @@ async function savePhase() {
   const payload = await getPayload({ config })
   const ctx = { disableRevalidate: true }
 
-  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'pages' | 'sections' | 'categories' | 'contributors', where: Record<string, unknown>) =>
+  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'pages' | 'productions' | 'sections' | 'categories' | 'contributors', where: Record<string, unknown>) =>
     (await payload.find({ collection, where: where as never, limit: 1, depth: 0, overrideAccess: true })).docs[0]
 
   const libraryId = async (a: AssetRef): Promise<number | string> => {
@@ -243,6 +251,51 @@ async function savePhase() {
   let saved = 0
   let already = 0
   const failures: { path: string; error: string }[] = []
+
+  // Shows first, so an episode can point at its show. A show is a production at Grove's exact address.
+  const productionByPath = new Map<string, number | string>()
+  for (const sh of shows) {
+    const bad = sh.assets.filter((a) => ledger.get(a.sourceUrl)?.status !== 'ok')
+    if (bad.length) {
+      held.push({ path: sh.path, why: `${bad.length} file(s) not fetched` })
+      continue
+    }
+    try {
+      const existing = await find('productions', { path: { equals: sh.path } })
+      if (existing) {
+        productionByPath.set(sh.path, existing.id)
+        continue
+      }
+      const ids = new Map<string, number | string>()
+      for (const a of sh.assets) ids.set(a.sourceUrl, await libraryId(a))
+      const r = resolveAssets({ heroImage: sh.heroImage, description: sh.description }, ids)
+      const doc = await payload.create({
+        collection: 'productions',
+        overrideAccess: true,
+        context: ctx,
+        data: { title: sh.title, slug: sh.slug, path: sh.path, ...(sh.schedule ? { schedule: sh.schedule } : {}), ...(r.heroImage ? { heroImage: r.heroImage } : {}), ...(r.description ? { description: r.description } : {}), listed: true, legacy: sh.legacy } as never,
+      })
+      productionByPath.set(sh.path, doc.id)
+      noteCounts.set('import.show-saved', (noteCounts.get('import.show-saved') ?? 0) + 1)
+    } catch (e) {
+      failures.push({ path: sh.path, error: (e as Error).message.slice(0, 300) })
+      console.log(`FAILED show ${sh.path}: ${(e as Error).message.slice(0, 200)}`)
+    }
+  }
+  /** The show an episode belongs to: the one imported from its own page, else a minimal one made from the episode, and said so. */
+  const productionFor = async (show: { path: string; title: string | null }): Promise<number | string> => {
+    const known = productionByPath.get(show.path) ?? (await find('productions', { path: { equals: show.path } }))?.id
+    if (known !== undefined) {
+      productionByPath.set(show.path, known)
+      return known
+    }
+    const slug = show.path.split('/').filter(Boolean).pop() ?? 'show'
+    const doc = await payload.create({ collection: 'productions', overrideAccess: true, context: ctx, data: { title: show.title ?? slug.replace(/-/g, ' '), slug, path: show.path, listed: false } as never })
+    productionByPath.set(show.path, doc.id)
+    noteCounts.set('import.show-made-from-episode', (noteCounts.get('import.show-made-from-episode') ?? 0) + 1)
+    return doc.id
+  }
+
   for (const s of ready) {
     if (saved >= limit) break
     try {
@@ -255,6 +308,7 @@ async function savePhase() {
       for (const a of s.assets) ids.set(a.sourceUrl, await libraryId(a))
       const resolved = resolveAssets({ content: s.content, featuredMedia: s.featuredMedia, featuredAudio: s.featuredAudio, people: plan.people }, ids)
 
+      const production = s.show ? await productionFor(s.show) : undefined
       const section = plan.section ? await findOrCreate('sections', 'slug', plan.section.slug, { title: plan.section.title, slug: plan.section.slug }) : undefined
       const categories: (number | string)[] = []
       for (const t of s.topics) categories.push(await findOrCreate('categories', 'title', t.title, { title: t.title, ...(t.slug ? { slug: t.slug } : {}) }))
@@ -274,6 +328,8 @@ async function savePhase() {
           publishedAt: s.publishedAt,
           source: s.source,
           ...(section ? { section } : {}),
+          ...(production !== undefined ? { production } : {}),
+          format: s.format,
           categories,
           contributors,
           meta: { description: s.description },

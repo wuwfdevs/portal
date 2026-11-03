@@ -7,6 +7,65 @@ Keep it current: update it in the same commit as the work.
 Branch: work after PR 320 (merged 2026-11-02) continues on `claude/eloquent-thompson-7gpsj2` in `wuwfdevs/portal` (earlier session branches were merged: PRs 322 to 324). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Resume here (end of the 2026-11-03 session)
+
+**Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed; no PR is open (open one only when the owner asks). Everything below is committed.
+
+**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
+program is under *The build program*. **Phases 1 and 2 are done** (standard pages; shows, episodes, podcast directory). **Next: phase 3,
+events** (Grove `EventPage`, 1,474 community-calendar events; the census has 10 samples), then 4 (author pages, 1,148, and the Unearthing
+Florida and Voyager hubs), 5 (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
+sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
+homepage slots). The per-session task list does not survive; recreate it from that list. Pattern that worked for each phase: read the board and
+Grove's JSON for the page type, decide the data model (reuse an existing collection when the shape fits: a show is a production, an
+episode is a story), converter with tests on synthetic pages and on the real census (`scripts/grove/convert-*.ts`), collection fields with a
+migration (`pnpm payload migrate:create <name>`, then `pnpm verify:migrations`), loader reading with `overrideAccess: false`, a server view,
+integration tests, a production build, a browser check at 1440 and 390 px, then ROADMAP and a commit.
+
+**Running outside this repository (ask the owner for the results):**
+- **The importer rehearsal.** The owner started a separate Cowork session on their own computer that runs `scripts/grove/import.ts` (see
+  `scripts/grove/IMPORT.md`) against **staging**: a 40-story rehearsal, then the full file download (3 to 4 hours, resumable). That session
+  uses the code as it was then (before standard pages, shows and episodes were added to the importer, and before topics and authors kept
+  Grove's slugs). When the owner pastes its report: check the held stories and the "decisions" counts, then open a few `/tags/` and
+  `/people/` addresses on the staging preview.
+- **Waiting on the owner:** the rehearsal report; the **approval to import into production** (then create a production login the same way
+  as the staging one: `create role importer_production login password '<new>' in role payload_app;` through the Supabase tool, apply the
+  production migrations deliberately, and have production's own S3 keys and pooler URL in the import settings); the 2024 election live blog
+  check (does Grove show "load more"?); wording review of fixed copy (the fellowship hub's "How the fellowship works", the front-page
+  membership band).
+
+**Infrastructure (no secrets here; none are in the repository).** Supabase (WUWF org, `us-east-1`): `wuwf-site-staging` (ref
+`avgeycgvaufwdfzdsogi`) and `wuwf-site-production` (ref `gyidqxhkkhajfazbcrug`); each has a login role `payload_app` (not a superuser; the
+app and migrations connect as it) and a private bucket `wuwf-site-files`; staging also has `importer_staging`. The session pooler is
+`aws-0-us-east-1.pooler.supabase.com` (5432 session, 6543 transaction; user `<role>.<project-ref>`). Vercel (team `WUWF`,
+`team_y6qwjjgoZVgKrtElTK1nZET7`): project `wuwf-site` (`prj_YaSfN6SHJtDLj8Pf6nAQERO8hqbL`), Root Directory `apps/site`, build command
+`bash scripts/vercel-build.sh` (applies migrations on **Preview** builds only, via `MIGRATE_ON_BUILD=1`). A push to a branch builds a Preview
+against **staging**; the staging site is behind Vercel sign-in. **Production has no deployment and none may be started without the owner's
+say-so.** Preview env is set (database, secrets, storage, the staff sign-in secret shared with the Portal's Preview). Production env has only
+the two public Supabase variables. The Portal's Production env is deliberately unset for the website tool.
+
+**Working in the cloud sandbox (hard-won).**
+- Outbound is **HTTPS through a proxy only**: no direct Postgres, so the importer and `payload migrate` against Supabase cannot run here;
+  they run on the owner's computer (Cowork) or in Vercel's build. Supabase's SQL tool (HTTPS) works for small administrative SQL.
+- Hosts must be allowed in the environment's network settings; the NPR file hosts, `wuwf.org` and the Supabase hosts were allowed by the owner.
+- Local Postgres dies when the sandbox idles: `rm -f /var/tmp/wuwf-site-pg/postmaster.pid; su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl
+  -D /var/tmp/wuwf-site-pg -o '-p 5433 -c listen_addresses=127.0.0.1 -c unix_socket_directories=/tmp' -l /var/tmp/wuwf-pg.log start"`
+  (a fresh sandbox: see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
+  development mode does not push schema changes.
+- Never create a Vercel deployment with the tool for a project that has no production deployment yet: it came back as a *production* one
+  (cancelled in seconds, nothing went live). Push a branch instead.
+- Secrets: the owner pasted some credentials in chat; the auto-mode classifier refuses to let the agent read secret files back. Do not work
+  around it; generate and set values in one step, and tell the owner when a value was shown in the session log.
+- The census raw pages (`raw/001-004`, from the owner's four zips) and the live-updates pages live only in a sandbox scratch folder and are
+  gone with it; the owner has the zips. Re-fetch the three live blogs with `scripts/live-updates/probe.ts fetch` (neutral client, 3 s apart).
+
+**Decisions the owner made this session (do not reopen):** separate Supabase projects from the Portal's; embeds: a built-in list plus
+approved hosts load without a click, any other public https host loads behind a click, and **script widgets (the election guide) load
+without a click** from built-in or approved hosts, publisher-only to add; **no third-party scripts otherwise**; the importer's defaults
+(sections from the path, "WUWF Staff" for no byline, extra byline names kept and flagged); editors post live updates, publishers open and
+end a blog, bylines optional, comments left out, polling our own endpoint; the full import goes to **production, rehearsed on staging first**;
+sponsorship and listening are deferred.
+
 ## Where things stand (Milestone 1)
 
 | Area | State |
@@ -36,6 +95,7 @@ design canvas are described under *Sources* below.
 | Production build (`pnpm build`) | **Passes again** (2026-11-02). It had failed since 2026-10-31 without anyone noticing; see *Lessons* |
 | Fellowship hub `/fellowships/[slug]` (board 4) | **First slice done** (2026-11-03): eyebrow, title, summary, a stats line, the funder panel (agreement lines whose term is running, read on the server), mission headline, mission and focus areas, the fellow, the latest story and all work (published only), and the "how it works" strip. All of it is edited on the fellowship record in the admin. Migration `20261103_023039`; 4 integration tests, 12 unit tests; checked in a browser at 1440 and 390 px. **Left out on purpose, because the features are not built:** follow, ask the fellowship a question and the open-questions list (listening, and the board's per-question "Me too" counts conflict with the no-public-tallies rule), the newsletter signup, explore by place, related coverage across WUWF, and "all of the fellow's work" (no contributor pages yet). The "how it works" copy is the board's, fixed in the component: the owner should confirm the wording |
 | **Live blogs** (`/live-updates/<slug>`): `live-posts` and `live-updates` collections, the page, polling, structured data, the Grove converter | **Built** (2026-11-03). A blog is a publishable record (a publisher opens and ends it; ending stamps the time); an update is its own record that an **editor** posts, live on save, with a stable anchor, a Central-time stamp, an automatic "Updated" label when its words change, optional bylines, up to three pinned. The page is cached and refreshed the moment an update is saved (so an emergency surge is served from cache); while a blog is live and the tab is visible it asks our own endpoint every 45 s and offers "New updates available" without moving the reader or refreshing by itself; an ended blog polls nothing. `LiveBlogPosting` data for search, no third-party scripts, comments left out. Migration `20261103_025619`; 8 integration + 18 unit tests; checked in a browser (real Isaias blog, 143 updates, at 1440 and 390 px, the polling prompt included). The converter turns all three archive blogs into 161 updates with no exceptions. **Not done:** importing them into the database (a step to add to the importer; the pages are fetched with `scripts/live-updates/probe.ts fetch`), a faster "post an update" screen than the standard create form, paging for a blog over 250 updates, live blogs in the sitemap, and the election blog check below |
+| **Shows, episodes and the podcast directory** (boards 9, 10; Grove `RadioShowPage` and `RadioShowEpisodePage`) | **Built** (2026-11-03). A **show is an original production** (the thing an underwriting agreement attaches to), extended with an exact address (`/show/<slug>` migrated, `/shows/<slug>` new; only a publisher can change it; it cannot collide with a story or page), tagline, schedule, hosts, description, a "listed" flag and Grove ids. An **episode is a story** (`format: audio`, the audio as its featured audio) that belongs to a show, so it reuses the story page, lists, search and importer; its page shows "Episode · <show>". Show page: tagline, summary, host/schedule/episode-count line, cover, funder panel (hub rules), the newest episode with its player, about, hosts, all episodes (newest 20), more originals. `/podcasts` lists every listed show with its count and newest episode, then the newest episodes. Both refresh when a show or episode is saved. Converters: `convertShowPage` and episodes through `convertStory` (the show comes from the page, else from the address, and is said so; an NPR-distributed show is not archived). Corpus: **1,513 stories convert (15 episodes), 1,509 clean, 4 flagged, 0 exceptions**. The importer saves shows first, then episodes attached to them (a minimal unlisted show is made, and reported, if an episode's own show page was not in the data). Migration `20261103_033745`; 7 integration + 9 unit tests; checked in a browser at 1440 and 390 px. **Left out (deferred or not built):** follow the show, leave a message (listening), email signup, transcripts, member feeds, related reporting; show-level podcast feed URLs |
 | **Pages: template system and standard pages** (Grove `ContentPage`) | **Built** (2026-11-03). `pages` gets a `template` (standard, or `blocks` for the starter's older layout, which keeps rendering), a short lead and a body made of the same blocks a story holds; a page is served at its exact address by the same resolver as stories; drafts stay private. The converter turns Grove's standard pages (modules, containers, a sub-heading that holds a video) into that, never dropping anything: on the 24 census pages, 22 clean and 2 flagged (a Vimeo address that is not a video). The importer now brings standard pages in with the stories. Also fixed: **NPR Pym interactives** (a `data-pym-src` placeholder plus NPR's loader script) were being lost; they now embed the same address as a frame, `apps.npr.org` is a built-in embed host, and the loader is reported as replaced, not lost (this rescues the election simulator page and the same pattern in stories and live blogs). Migration `20261103_032912`; 11 unit + 3 integration tests; checked in a browser (livestream behind a click, Vimeo and NPR inline, no overflow at 390 px). **Next templates for pages:** a hub template (for Unearthing Florida, The Voyager and other hubs) arrives with phase 4 |
 | **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, podcasts, RadioLive and Unearthing Florida features, short videos, newsletters, "From NPR", sponsor placements. The membership band's wording is the Article page's; the owner should confirm the front-page copy |
@@ -49,6 +109,8 @@ listening hub, short video, sponsorship section and measurement, membership sync
 in them has been started.
 
 ## Next, in order
+
+> **Superseded for pages and templates by *Resume here* and *The build program*.** The older list below is kept for the items it still covers (analytics, Supabase Auth, final pass).
 
 1. ~~**Node.**~~ Done: 22.23.4 (the Payload minimum) pinned in `.node-version`/`.nvmrc`, and `engine-strict`
    in the root `.npmrc` makes an unsupported Node fail the install. Portal, site and packages all re-verified on it.
@@ -360,8 +422,8 @@ A **built-in list** (`DEFAULT_EMBED_HOSTS` in `src/lib/embeds.ts`: DocumentCloud
 Deferred by the owner: boards 5-6 (listening) and 16-20 (sponsorship). Everything else is to be built, in this order (the order
 follows what replacing Grove needs first, then the new products):
 
-1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done** (below).
-2. **Shows and episodes** (boards 9, 10; Grove's `RadioShowPage` and `RadioShowEpisodePage`, about 500 episodes), the podcast directory.
+1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**
+2. **Shows and episodes** (boards 9, 10; Grove's `RadioShowPage` and `RadioShowEpisodePage`, about 500 episodes), the podcast directory. **Done.**
 3. **Events** (Grove's `EventPage`, 1,474 community-calendar events) and the calendar list.
 4. **Author profile pages** (Grove's `AuthorPage`, 1,148) and the hubs for **Unearthing Florida** (11) and **The Voyager** (13).
 5. **Short video** (boards 7, 8). 6. **RadioLive** (12). 7. **Barefoot Mary and member feeds** (21-25: needs sign-in, entitlements and
@@ -593,7 +655,7 @@ su postgres -c "$PGBIN/pg_ctl -D $D -l $D/log.txt -w start"
 psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c "create database wuwf_site_test;"
 ```
 
-Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
+(If the sandbox is the same one and Postgres has only stopped, use the restart command under *Resume here*.) Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
 
 ## Needs the owner (cannot be done from the repository)
 

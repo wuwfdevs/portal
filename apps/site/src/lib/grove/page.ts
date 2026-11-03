@@ -32,6 +32,29 @@ export type ConvertPageResult =
 /** Grove puts the site name after the page's title in `title`; the page's own title is what comes before it. */
 const withoutSiteSuffix = (t: string): string => t.replace(/\s*\|\s*WUWF\s*$/i, '').trim()
 
+/**
+ * A Grove page's modules, in order, as body content. Containers only arrange columns on Grove's page, so their contents are
+ * read in order; a module it does not know is flagged, never dropped silently.
+ */
+export function readModules(items: Json[], ctx: Ctx): LexNode[] {
+  const nodes: LexNode[] = []
+  for (const m of items) {
+    const o = obj(m)
+    if (!o) continue
+    const name = tname(template(o))
+    if (name === 'RichTextModule') nodes.push(...bodyNodes(arr(o.items), ctx))
+    else if (name === 'IframeModule') {
+      const num = (v: Json | undefined): number | undefined => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : undefined)
+      const e = embedNode(str(o.url) ?? '', ctx, { width: num(o.width), height: num(o.height) })
+      if (e) nodes.push(e)
+    } else if (/Container$/.test(name)) {
+      ctx.note('page.layout-flattened', name)
+      nodes.push(...readModules(Object.values(o).flatMap((v) => (Array.isArray(v) ? v : obj(v) ? [v] : [])) as Json[], ctx))
+    } else ctx.preserve('page.module-not-mapped', name || 'no template')
+  }
+  return nodes
+}
+
 export function convertContentPage(raw: unknown): ConvertPageResult {
   const j = obj(raw)
   const groveId = str(j?.contentId) ?? ''
@@ -71,25 +94,7 @@ export function convertContentPage(raw: unknown): ConvertPageResult {
   }
   if (arr(j.pageLead).length > 0) nodes.push(...bodyNodes(arr(j.pageLead), ctx))
 
-  // The modules, in order. Containers only arrange columns on Grove's page; their contents are read in order.
-  const modules = (items: Json[]): void => {
-    for (const m of items) {
-      const o = obj(m)
-      if (!o) continue
-      const name = tname(template(o))
-      if (name === 'RichTextModule') nodes.push(...bodyNodes(arr(o.items), ctx))
-      else if (name === 'IframeModule') {
-        const num = (v: Json | undefined): number | undefined => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : undefined)
-        const e = embedNode(str(o.url) ?? '', ctx, { width: num(o.width), height: num(o.height) })
-        if (e) nodes.push(e)
-      }
-      else if (/Container$/.test(name)) {
-        ctx.note('page.layout-flattened', name)
-        modules(Object.values(o).flatMap((v) => (Array.isArray(v) ? v : obj(v) ? [v] : [])) as Json[])
-      } else ctx.preserve('page.module-not-mapped', name || 'no template')
-    }
-  }
-  modules(arr(j.main))
+  nodes.push(...readModules(arr(j.main), ctx))
 
   for (const p of lex.lexicalProblems(lex.root(nodes))) ctx.fail('output.invalid', p)
   if (nodes.length === 0) ctx.note('page.empty-body')

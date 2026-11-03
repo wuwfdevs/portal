@@ -1,27 +1,27 @@
 {
  "generatedFrom": "1566 pages",
- "converted": 1498,
+ "converted": 1513,
  "skipped": {
-  "not-an-article": 65,
+  "not-an-article": 50,
   "ambiguous": 3
  },
  "nondeterministic": 0,
  "problems": [],
  "problemCount": 0,
- "meanStoryJson": 9124,
+ "meanStoryJson": 9076,
  "statuses": {
-  "clean": 1494,
+  "clean": 1509,
   "review": 4,
   "exception": 0
  },
  "assets": {
-  "distinctImages": 2521,
-  "distinctAudio": 1307,
+  "distinctImages": 2536,
+  "distinctAudio": 1316,
   "distinctVideo": 4,
-  "usesAcrossStories": 4621,
+  "usesAcrossStories": 4647,
   "perHost": {
-   "npr.brightspotcdn.com": 3290,
-   "cpa.ds.npr.org": 1317,
+   "npr.brightspotcdn.com": 3307,
+   "cpa.ds.npr.org": 1326,
    "media.npr.org": 5,
    "npr-brightspot.s3.amazonaws.com": 4,
    "www.wuwf.org": 2,
@@ -34,7 +34,7 @@
  "mapped": {
   "paragraph": 20562,
   "link": 1855,
-  "lead:mediaBlock": 1402,
+  "lead:mediaBlock": 1417,
   "block:mediaBlock": 732,
   "block:embed": 107,
   "lead:gallery": 86,
@@ -93,8 +93,8 @@
   {
    "code": "byline.none",
    "level": "noted",
-   "occurrences": 117,
-   "stories": 116,
+   "occurrences": 130,
+   "stories": 129,
    "details": {},
    "examples": [
     "/local-news/2015-07-14/uwf-students-work-with-fwb-youth-center",
@@ -105,8 +105,8 @@
   {
    "code": "section.none",
    "level": "noted",
-   "occurrences": 93,
-   "stories": 93,
+   "occurrences": 107,
+   "stories": 107,
    "details": {},
    "examples": [
     "/local-politics/2018-11-05/the-issues-motivating-young-people-to-the-polls",
@@ -188,12 +188,12 @@
   {
    "code": "text.markup-flattened",
    "level": "noted",
-   "occurrences": 19,
-   "stories": 16,
+   "occurrences": 20,
+   "stories": 17,
    "details": {
     "source": 5,
     "caption": 10,
-    "credit": 3,
+    "credit": 4,
     "slide caption": 1
    },
    "examples": [
@@ -224,6 +224,20 @@
     "/local-news/2019-12-23/port-of-pensacola-2-oysters",
     "/local-arts/2015-10-06/stamped-pensacola-lgbt-film-fest-is-back-for-fourth-year",
     "/local-news/2020-04-14/obama-endorses-biden-for-president"
+   ]
+  },
+  {
+   "code": "episode.show-from-address",
+   "level": "noted",
+   "occurrences": 6,
+   "stories": 6,
+   "details": {
+    "/show/14-59": 6
+   },
+   "examples": [
+    "/show/14-59/2025-11-10/its-our-350th-program",
+    "/show/14-59/2022-10-31/november-11-2022",
+    "/show/14-59/2026-06-29/were-celebrating-our-musical-independence-this-week-with-sounds-from-all-over"
    ]
   },
   {

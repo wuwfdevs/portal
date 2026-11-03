@@ -25,6 +25,7 @@ const named = <T extends object>(value: T | string | number | null | undefined):
 export async function StoryView({ post, draft, url }: { post: Post; draft: boolean; url: string }) {
   const fellowship = named(post.fellowship)
   const series = named(post.series)
+  const production = named(post.production)
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
 
@@ -51,6 +52,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
         <div className="flex flex-wrap gap-2">
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
+          {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}
           {topics.map((t) => (
             <Chip key={t.id}>Topic · {t.title}</Chip>

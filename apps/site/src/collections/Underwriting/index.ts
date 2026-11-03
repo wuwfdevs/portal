@@ -1,3 +1,7 @@
+import { bodyEditor } from '../../fields/bodyEditor'
+import { pathField } from '../../fields/path'
+import { revalidateShow, revalidateShowDelete } from '../../hooks/revalidateShow'
+import { showPathBeforeChange } from '../../hooks/showPath'
 import { fundableCollection } from './fundable'
 
 export { Sponsors } from './Sponsors'
@@ -49,5 +53,26 @@ export const Productions = fundableCollection({
   slug: 'productions',
   singular: 'Original production',
   plural: 'Original productions',
-  description: 'An ongoing WUWF production, such as a podcast or live-music series.',
+  description: 'An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.',
+  beforeChange: [showPathBeforeChange],
+  afterChange: [revalidateShow],
+  afterDelete: [revalidateShowDelete],
+  extraFields: [
+    pathField,
+    { name: 'tagline', type: 'text', admin: { description: 'The line under the name, e.g. "A Coastal Futures podcast · WUWF".' } },
+    { name: 'schedule', type: 'text', admin: { description: 'When it airs or how often it comes out, e.g. "Sundays at 7 p.m. on WUWF-HD2" or "New episodes every other Friday".' } },
+    { name: 'hosts', type: 'relationship', relationTo: 'contributors', hasMany: true },
+    { name: 'description', type: 'richText', editor: bodyEditor, admin: { description: 'About the show. Shown on its page.' } },
+    { name: 'listed', type: 'checkbox', defaultValue: true, admin: { position: 'sidebar', description: 'Show this in the podcast directory.' } },
+    {
+      name: 'legacy',
+      type: 'group',
+      label: 'From Grove',
+      admin: { position: 'sidebar', description: 'Set by the migration. Leave empty for new shows.' },
+      fields: [
+        { name: 'legacyPath', type: 'text', unique: true, index: true },
+        { name: 'groveId', type: 'text', unique: true, index: true },
+      ],
+    },
+  ],
 })

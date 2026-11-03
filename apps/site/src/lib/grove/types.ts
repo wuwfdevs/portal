@@ -93,6 +93,10 @@ export interface ConvertedStory {
   description: string | null
   source: 'wuwf'
   section: { title: string; path: string | null } | null
+  /** The show an episode belongs to (its Grove address, `/show/<slug>`); null for an ordinary story. */
+  show: { path: string; title: string | null } | null
+  /** `audio` for an episode, `web` for a story. */
+  format: 'web' | 'audio'
   topics: { title: string; slug: string | null; groveId: string | null }[]
   byline: { people: PersonRef[]; text: string | null }
   featuredMedia: BlockItem[]

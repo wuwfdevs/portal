@@ -5,8 +5,8 @@ import { APIError, ValidationError } from 'payload'
 import { userCan } from '../access/permissions'
 import { checkPath, pagePath, storyPath } from '../lib/paths'
 
-/** The collections whose records are served by path. One registry, so the resolver and the uniqueness check agree. */
-export const PATH_COLLECTIONS = ['posts', 'pages'] as const
+/** The collections whose records are served by path (a production is a show). One registry, so the resolver and the uniqueness check agree. */
+export const PATH_COLLECTIONS = ['posts', 'pages', 'productions'] as const
 export type PathCollection = (typeof PATH_COLLECTIONS)[number]
 
 const blank = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null)

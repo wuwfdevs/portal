@@ -12,6 +12,8 @@ import * as lex from './lexical'
 import type { ConvertOptions, ConvertResult, ConvertedStory, Json, JsonObject, LexNode, PersonRef, StoryReport } from './types'
 
 const ARTICLE = '/core/article/ArticlePage.hbs'
+/** A radio show or podcast episode: a story with audio that belongs to a show. */
+const EPISODE = '/media/episode/audio/RadioShowEpisodePage.hbs'
 const tname = (t: string): string => t.split('/').pop()?.replace(/\.hbs$/, '') ?? t
 
 // ---- the body -------------------------------------------------------------------------------------------------
@@ -98,6 +100,29 @@ export function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
   return out
 }
 
+/** An episode's show: Grove names it on the page, or the address does (`/show/<slug>/<date>/<slug>`). Never guessed otherwise. */
+function showOf(j: JsonObject, path: string, ctx: Ctx): ConvertedStory['show'] {
+  let showPath: string | null = null
+  try {
+    const u = str(j.radioShowUrl)
+    if (u) showPath = new URL(u).pathname.replace(/\/$/, '')
+  } catch {
+    /* fall back to the address */
+  }
+  if (!showPath) {
+    const m = /^(\/show\/[^/]+)\//.exec(path)
+    if (m) {
+      showPath = m[1]!
+      ctx.note('episode.show-from-address', showPath)
+    }
+  }
+  if (!showPath) {
+    ctx.fail('episode.no-show')
+    return null
+  }
+  return { path: showPath, title: plainText(str(j.radioShowTitle)).text || null }
+}
+
 // ---- who wrote it, where it is filed --------------------------------------------------------------------------
 
 const slugOf = (url: string | undefined, prefix: string): string | undefined => {
@@ -172,7 +197,10 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
     return { status: 'skipped', reason, report: ctx.report(path, groveId) }
   }
 
-  if (!j || template(j) !== ARTICLE) return skipped('not-an-article', 'page.not-an-article', template(j) || 'no template')
+  const isEpisode = template(j) === EPISODE
+  if (!j || (template(j) !== ARTICLE && !isEpisode)) return skipped('not-an-article', 'page.not-an-article', template(j) || 'no template')
+  // An NPR-distributed show's episodes are NPR's, not WUWF's to archive.
+  if (isEpisode && j.nprShow === true) return skipped('external', 'origin.npr-show', str(j.radioShowTitle) ?? host ?? 'no host')
 
   const origin = classifyOrigin({ organization: str(j.sourceOrganizationName) ?? null, canonicalHost: host })
   if (origin === 'external') return skipped('external', 'origin.not-wuwf', `${str(j.sourceOrganizationName) ?? 'unnamed'} / ${host ?? 'no host'}`)
@@ -226,6 +254,8 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
     description: description || null,
     source: 'wuwf',
     section: sectionTitle ? { title: sectionTitle, path: sectionPath } : null,
+    show: isEpisode ? showOf(j, path, ctx) : null,
+    format: isEpisode ? 'audio' : 'web',
     topics,
     byline,
     featuredMedia,
