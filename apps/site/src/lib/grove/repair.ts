@@ -50,7 +50,9 @@ const BLOCK_TEXT_KEYS = new Set(['text', 'attribution', 'caption', 'credit', 'so
 function collectBlockText(value: unknown, out: string[]): void {
   if (Array.isArray(value)) for (const v of value) collectBlockText(v, out)
   else if (value && typeof value === 'object')
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    // Keys in a fixed order: the database stores an object's keys in its own order (a picture reads back as credit, then caption),
+    // so the order the converter wrote them in cannot be what is compared. Lists keep their order, which is the reading order.
+    for (const [k, v] of Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
       if (typeof v === 'string') {
         if (BLOCK_TEXT_KEYS.has(k)) out.push(v)
       } else collectBlockText(v, out)
