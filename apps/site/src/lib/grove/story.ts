@@ -36,7 +36,7 @@ function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
  * block objects (a photo, a gallery...). The chunks and links are joined back into one stream of HTML and converted
  * together, so a paragraph that a link interrupted comes out as one paragraph; a block object ends the stream.
  */
-function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
+export function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
   const out: LexNode[] = []
   let html = ''
   const flush = () => {

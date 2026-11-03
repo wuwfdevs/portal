@@ -357,19 +357,44 @@ list but pre-approve a vetted set (DocumentCloud, Datawrapper, ArcGIS, the NPR p
 host in one click; (b) allow any https host with a strict sandbox and a click-to-load placeholder, so nothing from a third
 party loads until the reader chooses, keeping the list only for hosts that may load without a click; (c) both. **Undecided.**
 
-### Live updates (a new content type; not built, not designed)
+### Live updates (a new content type; data examined, design proposed, nothing built)
 
-Grove has `/live-updates/<slug>`: one post that aggregates timestamped updates for a fast-moving event (the example is the
-Isaias recovery page, hundreds of updates). Seen on the live page (2026-11-02, one request): an undated introduction at the
-top, then updates **newest first**, each with a headline, a copy-link permalink and its own anchor, a posted time in Central
-time, share buttons and a body of text, bullets, bold subheads, links and a few credited photos; no visible live/ended state
-and no visible auto-refresh. It is a different template from the stories the census sampled (`ArticlePage`), so **its JSON
-has not been looked at and a census of the `/live-updates/` pages needs the owner's approval**; the boards have no design for
-it either. Design notes for when it is taken up: an update should be its own record (joined to the live post), not a row inside
-one document, because editors posting at once would fight over a locked document, every update would save a full version of
-the whole post, and a long event makes one enormous document; a live post needs a status (live, ended), an optional pinned
-summary, newest-first order with a stable permalink per update, and a quick, phone-friendly way to post. Existing migrated
-live blogs are a separate question from the new feature.
+Grove has `/live-updates/<slug>`: one post that aggregates timestamped updates for a fast-moving event. The owner approved a
+census of these pages on 2026-11-03 (same rules as the template census; `scripts/live-updates/probe.ts`; raw pages stay
+outside the repository). **There is no listing page** (`/live-updates` is a 404); `probe.ts discover` reads the monthly sitemaps
+for `/live-updates/` addresses, and its count is **pending** (a scan of about 276 sitemap files at 3 s each).
+
+**The data (one page examined: `/live-updates/tropical-storm-isaias-updates`, 628 KB of JSON).** Its own template,
+`/liveblog/LiveBlogPage.hbs`: `blogLead` (a Figure), `blogBody` (the intro, in the same body structure as a story),
+`posts` (all 143 updates) and `currentPosts` (the first 10), `pinnedPosts` (empty), **`liveEvent` (a boolean: live or ended)**,
+`coverageStartTime`/`coverageEndTime` in its schema.org `LiveBlogPosting` data, `postsEndpoint` (an API the page uses to load
+more), `ownerName`, an Atom feed link and Disqus comments (`meta`). Each update is `/liveblog/LiveBlogPost.hbs`: `postId`,
+`anchor` (the permalink fragment, unique), `headline`, `body` (strings, inline links and the same Figure, YouTube, Pym and
+ExternalContent objects as stories), `authors` (1 of 143 had one), `postedDate` and `postedDateTimestamp`, and `updateDate`
+(30 of 143 differ from the posted time, so they were edited). Cadence: 143 updates over 14 days, up to 43 in a day, median
+3 minutes between consecutive updates, 103 within 30 minutes of the one before. Bodies are 1,060 characters at the median and
+5,764 at most.
+
+**The existing story-body converter handles every body unchanged** (`bodyNodes` is now exported): 144 bodies (intro and 143
+updates), 143 clean, 1 needs review (a `rumble.com` embed, another host to approve), 0 problems.
+
+**Proposed design (the boards have none; owner has seen it and answered nothing yet):**
+- Two collections: a **live post** (title, intro, lead media, status live/ended with an ended-at time, optional pinned updates,
+  the exact Grove path, drafts and versions, SEO, legacy ids) and a **live update** (its own record joined to the post:
+  headline, body in the story blocks, posted time defaulting to now, an edited time set when changed after publishing, a
+  stable anchor unique within the post, optional bylines, legacy `postId`). Updates are separate records because editors
+  post in bursts (a locked document would block them), every update would otherwise save a full version of the whole post, and
+  a two-week event would be one enormous document.
+- The reader page: updates newest first, each with a permalink and anchor, the posted time in Central time and an "updated"
+  label; a clear Live or Ended state; `LiveBlogPosting` data for search engines; copy-link and share without third-party
+  scripts. While live, the page asks for new updates every 30 to 60 seconds only while the tab is visible, announces them
+  politely, never moves the reader's scroll; publishing an update refreshes the cached page at once.
+- Editors: a quick "post an update" action with the post and time preset, usable on a phone.
+- The homepage's emergency-coverage state (an existing rule) is what a live post would fill.
+- Migration: update by update through the existing body converter, keeping each anchor, time and byline. Disqus comments are
+  not migrated (a third-party tracker).
+- **Open questions for the owner:** who may publish updates during an emergency (publishers only, or editors as a fast path);
+  whether updates carry optional bylines; leaving comments out; whether polling for new updates is acceptable.
 
 ### The libraries (decided 2026-11-02)
 

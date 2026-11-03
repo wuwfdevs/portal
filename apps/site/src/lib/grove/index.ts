@@ -1,4 +1,5 @@
-export { convertStory } from './story'
+export { bodyNodes, convertStory } from './story'
+export { Ctx } from './context'
 export { MissingAssetError, assetRefs, resolveAssets } from './assets'
 export { summarize, type CodeSummary, type Summary } from './report'
 export { lexicalProblems, featuredProblems, BODY_BLOCK_TYPES, FEATURED_BLOCK_TYPES } from './lexical'
