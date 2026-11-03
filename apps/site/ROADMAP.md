@@ -593,8 +593,7 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
   `wuwfdevs/portal`, build command `bash scripts/vercel-build.sh` (applies committed migrations before building **only** when
   `MIGRATE_ON_BUILD=1`, which is set for Preview only), region `iad1`, Vercel sign-in required for previews.
   Preview env set: `DATABASE_URL` (staging, pooled, port 6543), `DATABASE_MIGRATION_URL` (staging, session mode, 5432),
-  `MIGRATE_ON_BUILD`. **Wrong right now:** `PAYLOAD_SECRET`, `CRON_SECRET` and `PREVIEW_SECRET` in Preview hold placeholder
-  text (a mistake while setting them) and must be replaced before anything real runs there. **Not set:** Production env,
+  `MIGRATE_ON_BUILD`. The three secrets (`PAYLOAD_SECRET`, `CRON_SECRET`, `PREVIEW_SECRET`) were replaced with generated values on 2026-11-03 after a placeholder mistake; the S3 variables for staging are set (bucket `wuwf-site-files`). Production is not configured. **Not set:** Production env,
   `PORTAL_IDENTITY_SECRET` (must equal the Portal's `WEBSITE_IDENTITY_SECRET`), the S3 keys and `S3_*` variables.
 - **Pooler host (confirmed by the owner from the dashboard, 2026-11-03):** `aws-0-us-east-1.pooler.supabase.com`; the app role connects as `payload_app.<ref>`. The first guess (`aws-1`) was wrong. Not yet proven by a build: no site build has completed on Vercel yet
   (the one attempt was cancelled; it was created as a *production* deployment by mistake, nothing went live).
