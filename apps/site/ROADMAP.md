@@ -701,7 +701,8 @@ signed-in account page, not CMS content.
 - **A fake clock and a real database disagree.** `createdAt` is real time; a test that passes a 2090 "now" to code comparing against it (rate
   limits, clean-up) passes or fails for the wrong reason. Use real time and dates relative to today; mutation-check the guard.
 - **Generated `down()` can fail:** it drops tables with CASCADE (taking the foreign keys) and then drops the foreign keys. Use `DROP CONSTRAINT IF
-  EXISTS` for the `payload_locked_documents_rels` ones, and run up, down, up. (`live_blogs` has the same flaw: queued as a separate fix.)
+  EXISTS` for the `payload_locked_documents_rels` ones, and run up, down, up. (Four older migrations had it and were fixed 2026-11-03; the whole
+  batch of 17 now rolls back to nothing and re-applies. A finished rollback also drops `payload_migrations`, so "relation does not exist" afterwards is success.)
 - **Observed, not mine:** in one browser tab that navigates repeatedly, the header's background prefetch of `/` can stay open 10 to 25 s, so
   Playwright's `networkidle` never arrives (also on `/support` and `/podcasts`). A fresh tab settles in under a second. Wait for `load` in browser checks; worth a look
   if real visitors report slow first clicks.

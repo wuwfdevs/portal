@@ -19,7 +19,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "productions_rels" DROP CONSTRAINT "productions_rels_contributors_fk";
+   ALTER TABLE "productions_rels" DROP CONSTRAINT IF EXISTS "productions_rels_contributors_fk";
   
   DROP INDEX "productions_path_idx";
   DROP INDEX "productions_legacy_legacy_legacy_path_idx";
