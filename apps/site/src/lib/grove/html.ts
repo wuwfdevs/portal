@@ -180,8 +180,10 @@ function linkPieces(a: El, fmt: number, ctx: Ctx): Piece[] {
     out.push({ inline: lex.link(safe.url, attr(a, 'target') === '_blank', mergeText(inline)) })
     ctx.count('link')
   } else if (!blocks.length) {
-    // A link with nothing to read (or only a typed &nbsp;) has nowhere to be clicked, so it goes, and the report says so.
+    // A link with nothing to read (or only a typed &nbsp;) has nowhere to be clicked, so the link goes, and the report says so.
+    // Its space does not: editors used such a link as the gap between two words ("<a>website</a><a>&nbsp;</a>and join us").
     ctx.note('link.empty-text')
+    if (whole.some((n) => n.type === 'text' && /[\s ]/.test(String(n.text)))) out.push({ inline: lex.text(' ') })
   }
   return [...out, ...blocks]
 }

@@ -133,6 +133,14 @@ describe('escaped markup typed into link text', () => {
     expect(JSON.stringify(nodes)).not.toContain('"link"')
     expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'link.empty-text'])
   })
+  it('keeps the gap an editor made with a link that holds only a space: the link goes, the space stays (a real story: "website" + a lone &nbsp; link + "and join us")', () => {
+    const { nodes } = run('<p>visit our <a href="/a">website</a><a href="/a">&amp;nbsp;</a>and join us on <a href="/b">Facebook</a>.</p>')
+    const kids = nodes[0]!.children as LexNode[]
+    expect(kids.map((k) => (k.type === 'link' ? `[${texts(k)}]` : texts(k)))).toEqual(['visit our ', '[website]', ' and join us on ', '[Facebook]', '.'])
+    // a link with nothing at all in it leaves no space behind
+    const none = run('<p>See<a href="/x"></a>this.</p>')
+    expect((none.nodes[0]!.children as LexNode[]).map(texts).join('')).toBe('Seethis.')
+  })
   it('keeps the space between a repaired fragment and a real element in the same link, trimming only the ends of the link', () => {
     const { children } = only('<p><a href="/x">&lt;i&gt;Hello&lt;/i&gt; <b>world</b></a></p>')
     expect(children.map(texts).join('')).toBe('Hello world')
