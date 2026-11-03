@@ -3,7 +3,7 @@ import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, Payload, Pa
 import { APIError, ValidationError } from 'payload'
 
 import { userCan } from '../access/permissions'
-import { checkPath, pagePath, storyPath } from '../lib/paths'
+import { LIVE_FIRST_SEGMENT, checkPath, livePath, pagePath, storyPath } from '../lib/paths'
 
 /** The collections whose records are served by path (a production is a show). One registry, so the resolver and the uniqueness check agree. */
 export const PATH_COLLECTIONS = ['posts', 'pages', 'productions', 'events'] as const
@@ -53,11 +53,18 @@ export const pathBeforeChange =
 
     const status = data._status ?? originalDoc?._status
     const slug = (data.slug ?? originalDoc?.slug) as string | undefined
+    // A live blog is a story whose address is fixed by its slug, under /live-updates, and which needs no section.
+    const isLive = kind === 'posts' && (data.format ?? originalDoc?.format) === 'live'
 
     if (!path && status === 'published' && !(kind === 'pages' && slug === 'home')) {
       if (kind === 'pages') {
         if (!slug) invalid(kind, req, 'slug', 'A page needs an address name before it is published.')
         path = pagePath(slug)
+      } else if (isLive) {
+        if (!slug) invalid(kind, req, 'slug', 'A live blog needs an address name before it is published.')
+        const publishedAt: string = (data.publishedAt ?? originalDoc?.publishedAt ?? new Date().toISOString()) as string
+        data.publishedAt = publishedAt // when the blog started
+        path = livePath(slug)
       } else {
         const sectionId = idOf(data.section ?? originalDoc?.section)
         if (sectionId === null) invalid(kind, req, 'section', 'Choose a section before publishing: the story\'s address is built from it and then fixed.')
@@ -70,7 +77,7 @@ export const pathBeforeChange =
     }
 
     if (path && path !== existing) {
-      const check = checkPath(path)
+      const check = checkPath(path, isLive ? { allowFirstSegment: LIVE_FIRST_SEGMENT } : {})
       if (!check.ok) invalid(kind, req, 'path', check.reason)
       const id = originalDoc?.id as string | number | undefined
       if (await pathTaken(req.payload, req, path, id !== undefined ? { collection: kind, id } : undefined)) {

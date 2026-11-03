@@ -24,6 +24,7 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
       revalidatePath('/')
       for (const p of await listPathsForStory(payload, doc)) revalidatePath(p)
       for (const p of HUB_PATHS) revalidatePath(p)
+      if (doc.format === 'live' && doc.slug) revalidateTag(`live:${doc.slug}`, 'max')
       revalidateTag('posts-sitemap', 'max')
     }
 

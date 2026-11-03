@@ -2,7 +2,10 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { ensureTestSection } from '../helpers/section'
+
 import { loadFeedState, loadLiveBlog } from '@/lib/live/load'
+import { loadStoryList } from '@/lib/lists/load'
 
 const run = Date.now().toString(36)
 let payload: Payload
@@ -19,6 +22,8 @@ async function make<T extends { id: string | number }>(collection: string, data:
   created.push({ collection, id: doc.id })
   return doc
 }
+/** A live blog is a story with format "live": its content is the introduction, its summary the description. */
+const blogData = (title: string, extra: Record<string, unknown> = {}) => ({ title, format: 'live', content: body('Introduction.'), _status: 'published', ...extra })
 const update = (blog: { id: string | number }, headline: string, minute: number, extra: Record<string, unknown> = {}) =>
   make<{ id: string | number; anchor: string }>('live-updates', { livePost: blog.id, headline, body: body(`${headline} body`), postedAt: `2099-01-01T12:${String(minute).padStart(2, '0')}:00.000Z`, ...extra })
 
@@ -28,8 +33,8 @@ describe('live blogs', () => {
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
-    blog = await make('live-posts', { title: `Storm ${run}`, _status: 'published', description: 'Updates.' })
-    draftBlog = await make('live-posts', { title: `Draft storm ${run}`, _status: 'draft' })
+    blog = await make('posts', blogData(`Storm ${run}`, { meta: { description: 'Updates.' } }))
+    draftBlog = await make('posts', blogData(`Draft storm ${run}`, { _status: 'draft' }))
   }, 60_000)
 
   afterAll(async () => {
@@ -50,7 +55,7 @@ describe('live blogs', () => {
 
   it('refuses a second update with an anchor already used in the same blog, but allows it in another blog', async () => {
     await expect(update(blog, 'Another', 9, { anchor: 'road-closures' })).rejects.toThrow(/already uses the anchor/)
-    const other = await make<{ id: string | number }>('live-posts', { title: `Other ${run}`, _status: 'published' })
+    const other = await make<{ id: string | number }>('posts', blogData(`Other ${run}`))
     await expect(update(other, 'Road closures', 1)).resolves.toMatchObject({ anchor: 'road-closures' })
   })
 
@@ -62,7 +67,7 @@ describe('live blogs', () => {
 
   it('keeps pinned updates apart from the rest, in the order set', async () => {
     const [first, second] = await Promise.all([update(blog, 'Pin me one', 5), update(blog, 'Pin me two', 6)])
-    await payload.update({ collection: 'live-posts', id: blog.id, data: { pinned: [second.id, first.id], _status: 'published' } as never, overrideAccess: true, context: ctx })
+    await payload.update({ collection: 'posts', id: blog.id, data: { live: { pinned: [second.id, first.id] }, _status: 'published' } as never, overrideAccess: true, context: ctx })
     const d = await loadLiveBlog(blog.slug)
     expect(d?.pinned.map((u) => u.headline)).toEqual(['Pin me two', 'Pin me one'])
     expect(d?.updates.map((u) => u.headline)).not.toContain('Pin me one')
@@ -80,10 +85,10 @@ describe('live blogs', () => {
     await expect(
       make('live-updates', { livePost: blog.id, headline: `By an editor ${run}`, body: body('x') }, { user: editor, overrideAccess: false }),
     ).resolves.toBeTruthy()
-    await expect(payload.update({ collection: 'live-posts', id: blog.id, data: { coverage: 'ended', _status: 'published' } as never, user: editor as never, overrideAccess: false, context: ctx })).rejects.toThrow(/publisher/i)
-    const ended = await payload.update({ collection: 'live-posts', id: blog.id, data: { coverage: 'ended', _status: 'published' } as never, user: publisher as never, overrideAccess: false, context: ctx })
-    expect(ended.coverage).toBe('ended')
-    expect(typeof ended.endedAt).toBe('string')
+    await expect(payload.update({ collection: 'posts', id: blog.id, data: { live: { coverage: 'ended' }, _status: 'published' } as never, user: editor as never, overrideAccess: false, context: ctx })).rejects.toThrow(/publisher/i)
+    const ended = await payload.update({ collection: 'posts', id: blog.id, data: { live: { coverage: 'ended' }, _status: 'published' } as never, user: publisher as never, overrideAccess: false, context: ctx })
+    expect(ended.live?.coverage).toBe('ended')
+    expect(typeof ended.live?.endedAt).toBe('string')
     const d = await loadLiveBlog(blog.slug)
     expect(d?.live).toBe(false)
   })
@@ -104,26 +109,26 @@ describe('live blogs', () => {
     expect((await loadLiveBlog(blog.slug))?.token).not.toBe(before)
   })
   it('changes the token when only the blog changes (it is ended, its introduction is rewritten, its pins change), so open pages are told', async () => {
-    const b = await make<{ id: string | number; slug: string }>('live-posts', { title: `Token blog ${run}`, _status: 'published' })
+    const b = await make<{ id: string | number; slug: string }>('posts', blogData(`Token blog ${run}`))
     const u = await update(b, 'Only update', 1)
-    const publish = (data: Record<string, unknown>) => payload.update({ collection: 'live-posts', id: b.id, data: { ...data, _status: 'published' } as never, user: publisher as never, overrideAccess: false, context: ctx })
+    const publish = (data: Record<string, unknown>) => payload.update({ collection: 'posts', id: b.id, data: { ...data, _status: 'published' } as never, user: publisher as never, overrideAccess: false, context: ctx })
     const token = async () => (await loadLiveBlog(b.slug))?.token
     const t0 = await token()
     // the page and the status endpoint use one function: they always agree
     expect((await loadFeedState(b.slug))?.token).toBe(t0)
 
     await new Promise((r) => setTimeout(r, 1100)) // updatedAt has second resolution in some paths: make the change visibly later
-    await publish({ intro: body('A new introduction.') })
+    await publish({ content: body('A new introduction.') })
     const t1 = await token()
     expect(t1).not.toBe(t0)
 
     await new Promise((r) => setTimeout(r, 1100))
-    await publish({ pinned: [u.id] })
+    await publish({ live: { pinned: [u.id] } })
     const t2 = await token()
     expect(t2).not.toBe(t1)
 
     await new Promise((r) => setTimeout(r, 1100))
-    await publish({ coverage: 'ended' })
+    await publish({ live: { coverage: 'ended' } })
     const t3 = await token()
     expect(t3).not.toBe(t2)
     const state = await loadFeedState(b.slug)
@@ -132,5 +137,41 @@ describe('live blogs', () => {
 
   it('has no state for a blog that is not published', async () => {
     expect(await loadFeedState(draftBlog.slug)).toBeNull()
+  })
+
+  it('is a story: it has the address /live-updates/<slug> without needing a section, and keeps it', async () => {
+    const fresh = (await payload.findByID({ collection: 'posts', id: blog.id, overrideAccess: true })) as { path?: string; format?: string; section?: unknown }
+    expect(fresh.format).toBe('live')
+    expect(fresh.path).toBe(`/live-updates/${blog.slug}`)
+    expect(fresh.section ?? null).toBeNull()
+  })
+
+  it('shows up in the story lists its section and topics put it in, newest first, like any other story', async () => {
+    const section = await make<{ id: string | number; slug: string }>('sections', { title: `Live Desk ${run}`, slug: `live-desk-${run}` })
+    const topic = await make<{ id: string | number; slug: string }>('categories', { title: `Storm coverage ${run}`, slug: `storm-coverage-${run}` })
+    const person = await make<{ id: string | number; slug: string }>('contributors', { name: `Live Reporter ${run}`, slug: `live-reporter-${run}` })
+    const plainSection = await ensureTestSection(payload)
+    const live = await make<{ id: string | number }>('posts', blogData(`Listed live blog ${run}`, { section: section.id, categories: [topic.id], contributors: [person.id], publishedAt: '2099-02-02T12:00:00.000Z' }))
+    await make('posts', { title: `Ordinary story ${run}`, content: body('x'), _status: 'published', section: section.id, categories: [topic.id], contributors: [person.id], publishedAt: '2099-02-01T12:00:00.000Z' })
+    void plainSection
+    for (const [kind, slug] of [['section', section.slug], ['topic', topic.slug], ['person', person.slug]] as const) {
+      const list = await loadStoryList(kind, slug, 1)
+      expect(list?.stories.map((x) => x.title), kind).toEqual([`Listed live blog ${run}`, `Ordinary story ${run}`])
+      expect(list?.stories[0]).toMatchObject({ id: live.id, format: 'live', path: expect.stringMatching(/^\/live-updates\//) })
+    }
+  })
+
+  it('refuses a live blog address for anything that is not a live blog', async () => {
+    const err = await make('posts', { title: `Squatter ${run}`, content: body('x'), _status: 'published', section: await ensureTestSection(payload), path: `/live-updates/squatter-${run}` }).then(
+      () => null,
+      (e: unknown) => e as { data?: { errors?: { message: string }[] } },
+    )
+    expect(err, 'expected the call to be refused').not.toBeNull()
+    expect((err!.data?.errors ?? []).map((e) => e.message).join(' | ')).toMatch(/belongs to the site itself/)
+  })
+
+  it('is in the site search like any other story', async () => {
+    const found = await payload.find({ collection: 'search', where: { 'doc.value': { equals: blog.id } }, overrideAccess: true, depth: 0, limit: 1 })
+    expect(found.docs[0]).toMatchObject({ title: `Storm ${run}` })
   })
 })

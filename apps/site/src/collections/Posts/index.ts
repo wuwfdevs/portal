@@ -9,6 +9,7 @@ import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from 
 import { pathField } from '../../fields/path'
 import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
+import { stampEnd } from '../Live/hooks'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
 import {
@@ -242,6 +243,7 @@ export const Posts: CollectionConfig<'posts'> = {
         { label: 'Story', value: 'web' },
         { label: 'Audio story', value: 'audio' },
         { label: 'Video story', value: 'video' },
+        { label: 'Live blog', value: 'live' },
       ],
       admin: { position: 'sidebar' },
     },
@@ -261,6 +263,46 @@ export const Posts: CollectionConfig<'posts'> = {
       type: 'relationship',
       relationTo: 'fellowships',
       admin: { position: 'sidebar', description: 'Attach, don\'t paste: funder acknowledgments follow from this.' },
+    },
+    {
+      name: 'live',
+      type: 'group',
+      label: 'Live blog',
+      admin: {
+        position: 'sidebar',
+        description: 'For a live blog (format: Live blog). The words above the updates go in Content; post the updates themselves under "Updates" below.',
+        condition: (data) => data?.format === 'live',
+      },
+      fields: [
+        {
+          name: 'coverage',
+          type: 'select',
+          defaultValue: 'live',
+          options: [
+            { label: 'Live: still updating', value: 'live' },
+            { label: 'Ended', value: 'ended' },
+          ],
+          admin: { description: 'Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record. Only a publisher can end a blog.' },
+        },
+        { name: 'endedAt', type: 'date', admin: { date: { pickerAppearance: 'dayAndTime' }, description: 'Set when the blog is ended.', condition: (_, s) => s?.coverage === 'ended' } },
+        {
+          name: 'pinned',
+          type: 'relationship',
+          relationTo: 'live-updates',
+          hasMany: true,
+          maxRows: 3,
+          admin: { description: 'Up to three updates to keep at the top, above the newest. Choose from this blog\'s updates.' },
+        },
+        {
+          name: 'updates',
+          type: 'join',
+          collection: 'live-updates',
+          on: 'livePost',
+          defaultSort: '-postedAt',
+          defaultLimit: 25,
+          admin: { defaultColumns: ['headline', 'postedAt'], description: 'Every update in this blog. Use "Create new" to post one; it is live as soon as it is saved.' },
+        },
+      ],
     },
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
     { name: 'production', type: 'relationship', relationTo: 'productions', admin: { position: 'sidebar' } },
@@ -285,6 +327,7 @@ export const Posts: CollectionConfig<'posts'> = {
       pathBeforeChange('posts'),
       legacyIdentityWriteOnce,
       restrictedBlocksGuard(['content']),
+      stampEnd,
     ],
     afterChange: [redirectOnPathChange, revalidatePost],
     afterDelete: [revalidateDelete],

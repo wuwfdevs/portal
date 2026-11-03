@@ -1,12 +1,42 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { Contributor, LivePost, LiveUpdate } from '@/payload-types'
+import type { Contributor, LiveUpdate, Post } from '@/payload-types'
 
 import { feedToken } from './token'
 
+/** A live blog as the page needs it. A live blog is a story (a post with format "live"); this is the part of it the page shows. */
+export interface LiveBlog {
+  id: string | number
+  title: string
+  slug: string
+  description: string | null
+  /** The words above the updates (the story's content). */
+  intro: Post['content'] | null
+  featuredMedia: Post['featuredMedia']
+  coverage: 'live' | 'ended'
+  endedAt: string | null
+  updatedAt: string
+  pinned: Post['live'] extends infer L ? (L extends { pinned?: infer P } ? P : never) : never
+}
+
+const toBlog = (p: Post): LiveBlog => ({
+  id: p.id,
+  title: p.title,
+  slug: p.slug ?? '',
+  description: p.meta?.description?.trim() || null,
+  intro: p.content ?? null,
+  featuredMedia: p.featuredMedia,
+  coverage: p.live?.coverage === 'ended' ? 'ended' : 'live',
+  endedAt: p.live?.endedAt ?? null,
+  updatedAt: p.updatedAt,
+  pinned: p.live?.pinned ?? null,
+})
+
+const liveBlogsWhere = (slug: string) => ({ and: [{ format: { equals: 'live' } }, { slug: { equals: slug } }] })
+
 export interface LiveBlogData {
-  blog: LivePost
+  blog: LiveBlog
   /** Pinned updates, in the order an editor set (only ones that belong to this blog). */
   pinned: LiveUpdate[]
   /** Every other update, newest first. */
@@ -24,7 +54,7 @@ type Payload = Awaited<ReturnType<typeof getPayload>>
  * (and a blog with more updates than the page shows still compares equal): the count is a real count, the latest change a
  * real query, and the blog's own state is part of it.
  */
-async function feedStateFor(payload: Payload, blog: Pick<LivePost, 'id' | 'updatedAt' | 'coverage'>): Promise<{ live: boolean; token: string }> {
+async function feedStateFor(payload: Payload, blog: Pick<LiveBlog, 'id' | 'updatedAt' | 'coverage'>): Promise<{ live: boolean; token: string }> {
   const [count, latest] = await Promise.all([
     payload.count({ collection: 'live-updates', overrideAccess: false, where: { livePost: { equals: blog.id } } }),
     payload.find({ collection: 'live-updates', depth: 0, limit: 1, overrideAccess: false, pagination: false, select: { updatedAt: true }, sort: '-updatedAt', where: { livePost: { equals: blog.id } } }),
@@ -35,9 +65,9 @@ async function feedStateFor(payload: Payload, blog: Pick<LivePost, 'id' | 'updat
 /** The status endpoint's answer for a blog address, or null when no published blog has it. */
 export async function loadFeedState(slug: string): Promise<{ live: boolean; token: string } | null> {
   const payload = await getPayload({ config: configPromise })
-  const found = await payload.find({ collection: 'live-posts', where: { slug: { equals: slug } }, draft: false, depth: 0, limit: 1, overrideAccess: false, select: { coverage: true, updatedAt: true } })
-  const blog = found.docs[0]
-  return blog ? feedStateFor(payload, blog) : null
+  const found = await payload.find({ collection: 'posts', where: liveBlogsWhere(slug) as never, draft: false, depth: 0, limit: 1, overrideAccess: false, select: { live: true, updatedAt: true } })
+  const post = found.docs[0]
+  return post ? feedStateFor(payload, toBlog(post as Post)) : null
 }
 
 /** The most updates one page shows. A blog longer than this would need paging; none of the three in the archive is close. */
@@ -51,9 +81,10 @@ const idOf = (v: { id: string | number } | string | number | null | undefined): 
  */
 export async function loadLiveBlog(slug: string): Promise<LiveBlogData | null> {
   const payload = await getPayload({ config: configPromise })
-  const found = await payload.find({ collection: 'live-posts', where: { slug: { equals: slug } }, draft: false, depth: 2, limit: 1, overrideAccess: false })
-  const blog = found.docs[0]
-  if (!blog) return null
+  const found = await payload.find({ collection: 'posts', where: liveBlogsWhere(slug) as never, draft: false, depth: 2, limit: 1, overrideAccess: false })
+  const post = found.docs[0]
+  if (!post) return null
+  const blog = toBlog(post)
 
   const all = await payload.find({
     collection: 'live-updates',
@@ -75,7 +106,7 @@ export async function loadLiveBlog(slug: string): Promise<LiveBlogData | null> {
     pinned,
     updates: all.docs.filter((u) => !pinnedSet.has(String(u.id))),
     live: state.live,
-    startedAt: blog.legacy?.startedAt ?? blog.createdAt,
+    startedAt: post.publishedAt ?? post.createdAt,
     token: state.token,
   }
 }

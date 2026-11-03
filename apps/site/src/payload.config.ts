@@ -20,7 +20,6 @@ import { EventCategories } from './collections/Events/EventCategories'
 import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
 import { EventSubmissions } from './collections/Events/EventSubmissions'
 import { Events } from './collections/Events/Events'
-import { LivePosts } from './collections/Live/LivePosts'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
@@ -88,7 +87,6 @@ export default buildConfig({
   collections: [
     Pages,
     Posts,
-    LivePosts,
     LiveUpdates,
     Events,
     EventCategories,

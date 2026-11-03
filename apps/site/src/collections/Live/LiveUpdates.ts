@@ -29,7 +29,8 @@ export const LiveUpdates: CollectionConfig = {
     delete: requirePermission('content.write'),
   },
   admin: {
-    group: 'Editorial',
+    // Updates are posted from inside their blog (its "Updates" list); this stays reachable by address but has no sidebar link.
+    group: false,
     useAsTitle: 'headline',
     defaultColumns: ['headline', 'livePost', 'postedAt'],
     listSearchableFields: ['headline'],
@@ -37,7 +38,7 @@ export const LiveUpdates: CollectionConfig = {
   },
   defaultSort: '-postedAt',
   fields: [
-    { name: 'livePost', type: 'relationship', relationTo: 'live-posts', required: true, index: true, label: 'Live blog' },
+    { name: 'livePost', type: 'relationship', relationTo: 'posts', required: true, index: true, label: 'Live blog', filterOptions: { format: { equals: 'live' } } },
     { name: 'headline', type: 'text', required: true },
     { name: 'body', type: 'richText', editor: bodyEditor, required: true, label: 'Update' },
     {

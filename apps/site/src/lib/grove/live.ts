@@ -25,6 +25,12 @@ export interface ConvertedLiveUpdate {
   authors: PersonRef[]
 }
 
+/**
+ * A converted live blog. A live blog is saved as a story (a post with `format: 'live'`), so the importer maps: `title` and `slug` as
+ * they are; `description` to the story's SEO description; `intro` to its content; `startedAt` to its published date (the blog's
+ * start); `coverage` and `endedAt` to its `live` group; `featuredMedia` as it is. Its updates become `live-updates` records
+ * pointing at that story. (The importer does not save live blogs yet.)
+ */
 export interface ConvertedLiveBlog {
   legacy: { groveId: string; legacyPath: string; modifiedAt: string | null }
   slug: string

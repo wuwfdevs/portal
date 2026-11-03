@@ -7,7 +7,7 @@ import { Media } from '@/components/Media'
 import { cn } from '@/utilities/ui'
 
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
-export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'>
+export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format'>>
 
 /**
  * A story card. The whole card is clickable through one link whose box is stretched over it with CSS
@@ -23,7 +23,7 @@ export const Card: React.FC<{
   showCategories?: boolean
   title?: string
 }> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
-  const { path, categories, meta, title } = doc || {}
+  const { path, categories, meta, title, format } = doc || {}
   const { description, image: metaImage } = meta || {}
 
   const topics = (categories ?? [])
@@ -51,6 +51,14 @@ export const Card: React.FC<{
         )
       )}
       <div className="flex flex-col gap-2 p-4">
+        {format === 'live' && (
+          <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">
+            <span className="inline-flex items-center gap-1.5 rounded-pill bg-wuwf-blue-100 px-2 py-0.5">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-wuwf-blue-700" />
+              Live updates
+            </span>
+          </p>
+        )}
         {showCategories && topics.length > 0 && (
           <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{topics.join(', ')}</p>
         )}

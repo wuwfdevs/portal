@@ -17,6 +17,8 @@ import * as migration_20261103_040200_backfill_page_templates from './20261103_0
 import * as migration_20261103_042706_community_calendar from './20261103_042706_community_calendar';
 import * as migration_20261103_052450_author_profiles from './20261103_052450_author_profiles';
 import * as migration_20261103_052904_hubs from './20261103_052904_hubs';
+import * as migration_20261103_170456_live_blog_story_fields from './20261103_170456_live_blog_story_fields';
+import * as migration_20261103_170521_remove_live_blogs_collection from './20261103_170521_remove_live_blogs_collection';
 
 export const migrations = [
   {
@@ -112,6 +114,16 @@ export const migrations = [
   {
     up: migration_20261103_052904_hubs.up,
     down: migration_20261103_052904_hubs.down,
-    name: '20261103_052904_hubs'
+    name: '20261103_052904_hubs',
+  },
+  {
+    up: migration_20261103_170456_live_blog_story_fields.up,
+    down: migration_20261103_170456_live_blog_story_fields.down,
+    name: '20261103_170456_live_blog_story_fields',
+  },
+  {
+    up: migration_20261103_170521_remove_live_blogs_collection.up,
+    down: migration_20261103_170521_remove_live_blogs_collection.down,
+    name: '20261103_170521_remove_live_blogs_collection'
   },
 ];

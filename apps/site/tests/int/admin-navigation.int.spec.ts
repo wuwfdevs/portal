@@ -11,8 +11,14 @@ describe('admin navigation', async () => {
   const globals = payload.config.globals
 
   it('puts every collection in a group or hides it', () => {
-    const loose = collections.filter((c) => !c.admin?.hidden && !c.admin?.group).map((c) => c.slug)
+    // `group: false` is a deliberate choice (reachable by address, no sidebar link): live updates are posted from inside their blog.
+    const loose = collections.filter((c) => !c.admin?.hidden && c.admin?.group === undefined).map((c) => c.slug)
     expect(loose).toEqual([])
+  })
+
+  it('hides the live updates link, because updates are posted from inside their blog', () => {
+    expect(collections.find((c) => c.slug === 'live-updates')?.admin?.group).toBe(false)
+    expect(collections.some((c) => c.slug === 'live-posts')).toBe(false)
   })
 
   it('puts every global in a group', () => {

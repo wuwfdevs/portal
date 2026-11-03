@@ -69,7 +69,6 @@ export interface Config {
   collections: {
     pages: Page;
     posts: Post;
-    'live-posts': LivePost;
     'live-updates': LiveUpdate;
     events: Event;
     'event-categories': EventCategory;
@@ -102,6 +101,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    posts: {
+      'live.updates': 'live-updates';
+    };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
     };
@@ -109,7 +111,6 @@ export interface Config {
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
-    'live-posts': LivePostsSelect<false> | LivePostsSelect<true>;
     'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     'event-categories': EventCategoriesSelect<false> | EventCategoriesSelect<true>;
@@ -395,7 +396,7 @@ export interface Post {
    * The byline.
    */
   contributors?: (number | Contributor)[] | null;
-  format: 'web' | 'audio' | 'video';
+  format: 'web' | 'audio' | 'video' | 'live';
   /**
    * The sentence or two under the headline.
    */
@@ -408,6 +409,31 @@ export interface Post {
    * Attach, don't paste: funder acknowledgments follow from this.
    */
   fellowship?: (number | null) | Fellowship;
+  /**
+   * For a live blog (format: Live blog). The words above the updates go in Content; post the updates themselves under "Updates" below.
+   */
+  live?: {
+    /**
+     * Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record. Only a publisher can end a blog.
+     */
+    coverage?: ('live' | 'ended') | null;
+    /**
+     * Set when the blog is ended.
+     */
+    endedAt?: string | null;
+    /**
+     * Up to three updates to keep at the top, above the newest. Choose from this blog's updates.
+     */
+    pinned?: (number | LiveUpdate)[] | null;
+    /**
+     * Every update in this blog. Use "Create new" to post one; it is live as soon as it is saved.
+     */
+    updates?: {
+      docs?: (number | LiveUpdate)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
+  };
   series?: (number | null) | Series;
   production?: (number | null) | Production;
   /**
@@ -1045,6 +1071,59 @@ export interface Sponsor {
   createdAt: string;
 }
 /**
+ * Post an update to a live blog. It is live as soon as you save.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-updates".
+ */
+export interface LiveUpdate {
+  id: number;
+  livePost: number | Post;
+  headline: string;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * When this happened or was posted. Defaults to now.
+   */
+  postedAt: string;
+  /**
+   * Set automatically when the words are changed after posting; readers see "Updated".
+   */
+  editedAt?: string | null;
+  /**
+   * Optional. Leave empty and the update carries no byline.
+   */
+  authors?: (number | Contributor)[] | null;
+  /**
+   * The part of the address after # that links straight to this update. Made from the headline; it never changes by itself.
+   */
+  anchor?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * Grove's id for this update. Fixed once set; a re-run matches on it.
+     */
+    postId?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * An editorial series such as "After Isaias". May carry an agreement; many do not.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1499,136 +1578,6 @@ export interface Form {
         id?: string | null;
       }[]
     | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * A page that gathers timestamped updates on a fast-moving event. Post the updates under "Live updates".
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-posts".
- */
-export interface LivePost {
-  id: number;
-  title: string;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record.
-   */
-  coverage: 'live' | 'ended';
-  /**
-   * Set when the blog is ended.
-   */
-  endedAt?: string | null;
-  /**
-   * One or two sentences for search results and sharing.
-   */
-  description?: string | null;
-  /**
-   * The picture, gallery or video that opens the page. Optional.
-   */
-  featuredMedia?: (MediaBlock | GalleryBlock | VideoPlayerBlock | EmbedBlock)[] | null;
-  /**
-   * What this is and why it matters, shown above the updates. Optional.
-   */
-  intro?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Up to three updates to keep at the top, above the newest. Choose from this blog's updates.
-   */
-  pinned?: (number | LiveUpdate)[] | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * The Grove path this came from. Set by the migration and then fixed.
-     */
-    legacyPath?: string | null;
-    /**
-     * Grove's contentId for this page. Set by the migration and then fixed; a re-run matches on it.
-     */
-    groveId?: string | null;
-    /**
-     * When Grove last modified this page.
-     */
-    modifiedAt?: string | null;
-    /**
-     * When the blog was started (Grove's published date). New blogs use the publish date.
-     */
-    startedAt?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * Post an update to a live blog. It is live as soon as you save.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-updates".
- */
-export interface LiveUpdate {
-  id: number;
-  livePost: number | LivePost;
-  headline: string;
-  body: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  /**
-   * When this happened or was posted. Defaults to now.
-   */
-  postedAt: string;
-  /**
-   * Set automatically when the words are changed after posting; readers see "Updated".
-   */
-  editedAt?: string | null;
-  /**
-   * Optional. Leave empty and the update carries no byline.
-   */
-  authors?: (number | Contributor)[] | null;
-  /**
-   * The part of the address after # that links straight to this update. Made from the headline; it never changes by itself.
-   */
-  anchor?: string | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * Grove's id for this update. Fixed once set; a re-run matches on it.
-     */
-    postId?: string | null;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -2212,10 +2161,6 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
-        relationTo: 'live-posts';
-        value: number | LivePost;
-      } | null)
-    | ({
         relationTo: 'live-updates';
         value: number | LiveUpdate;
       } | null)
@@ -2551,6 +2496,14 @@ export interface PostsSelect<T extends boolean = true> {
   dek?: T;
   publishingIdentity?: T;
   fellowship?: T;
+  live?:
+    | T
+    | {
+        coverage?: T;
+        endedAt?: T;
+        pinned?: T;
+        updates?: T;
+      };
   series?: T;
   production?: T;
   site?: T;
@@ -2605,39 +2558,6 @@ export interface EmbedBlockSelect<T extends boolean = true> {
   caption?: T;
   id?: T;
   blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-posts_select".
- */
-export interface LivePostsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  coverage?: T;
-  endedAt?: T;
-  description?: T;
-  featuredMedia?:
-    | T
-    | {
-        mediaBlock?: T | MediaBlockSelect<T>;
-        gallery?: T | GalleryBlockSelect<T>;
-        videoPlayer?: T | VideoPlayerBlockSelect<T>;
-        embed?: T | EmbedBlockSelect<T>;
-      };
-  intro?: T;
-  pinned?: T;
-  legacy?:
-    | T
-    | {
-        legacyPath?: T;
-        groveId?: T;
-        modifiedAt?: T;
-        startedAt?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
