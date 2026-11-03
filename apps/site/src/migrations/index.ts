@@ -7,6 +7,7 @@ import * as migration_20261102_180610_paths_and_sections from './20261102_180610
 import * as migration_20261102_183024_legacy_grove_id_and_modified_at from './20261102_183024_legacy_grove_id_and_modified_at';
 import * as migration_20261102_220306_featured_media_and_audio from './20261102_220306_featured_media_and_audio';
 import * as migration_20261102_234817_video_library_and_player from './20261102_234817_video_library_and_player';
+import * as migration_20261103_004740_storage_prefix_fields from './20261103_004740_storage_prefix_fields';
 
 export const migrations = [
   {
@@ -52,6 +53,11 @@ export const migrations = [
   {
     up: migration_20261102_234817_video_library_and_player.up,
     down: migration_20261102_234817_video_library_and_player.down,
-    name: '20261102_234817_video_library_and_player'
+    name: '20261102_234817_video_library_and_player',
+  },
+  {
+    up: migration_20261103_004740_storage_prefix_fields.up,
+    down: migration_20261103_004740_storage_prefix_fields.down,
+    name: '20261103_004740_storage_prefix_fields'
   },
 ];

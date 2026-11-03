@@ -8,7 +8,7 @@
  "nondeterministic": 0,
  "problems": [],
  "problemCount": 0,
- "meanStoryJson": 9129,
+ "meanStoryJson": 9124,
  "statuses": {
   "clean": 1493,
   "review": 5,
@@ -32,7 +32,7 @@
  },
  "hostsNeedingApproval": {},
  "mapped": {
-  "paragraph": 20594,
+  "paragraph": 20562,
   "link": 1855,
   "lead:mediaBlock": 1402,
   "block:mediaBlock": 732,

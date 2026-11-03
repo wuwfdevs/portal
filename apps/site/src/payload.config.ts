@@ -27,6 +27,7 @@ import { Header } from './Header/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
+import { storagePlugin } from './plugins/storage'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 
@@ -94,7 +95,7 @@ export default buildConfig({
   ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, SiteSettings, SupportPage],
-  plugins,
+  plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,
   // Payload's default is 20 MiB per file and 50 MiB per request, which rejects (HTTP 413) a long station recording.

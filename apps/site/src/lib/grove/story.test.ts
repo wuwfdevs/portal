@@ -173,3 +173,44 @@ describe('the output', () => {
     expect(json).not.toMatch(/<script|onclick|javascript:/i)
   })
 })
+
+describe('unrendered template calls', () => {
+  const text = (n: unknown): string => {
+    const o = n as { text?: string; children?: unknown[] }
+    return o.text ?? (o.children ?? []).map(text).join('')
+  }
+  it('are unwrapped in small fields and in body chunks, including a call that spans a photo', async () => {
+    const { bodyNodes } = await import('./story')
+    const { Ctx } = await import('./context')
+    const ctx = new Ctx('seed', [])
+    const nodes = bodyNodes(
+      [
+        "{{html('<p>It\\'s a first paragraph.</p>",
+        { _template: '/core/enhancement/Enhancement.hbs', item: [] },
+        "<p>Second, with a \\'quote\\'.</p>')}}",
+        '<p>Plain after.</p>',
+      ],
+      ctx,
+    )
+    expect(nodes.filter((n) => n.type === 'paragraph').map(text)).toEqual(["It's a first paragraph.", "Second, with a 'quote'.", 'Plain after.'])
+    expect(JSON.stringify(nodes)).not.toMatch(/\{\{|html\(/)
+  })
+  it('a section or topic title wrapped in one is read as the words', () => {
+    const { story } = ok(page({
+      primarySection: [link("{{html('Local News')}}", 'https://www.wuwf.org/local-news')],
+      tags: [{ ...link("{{html('City of Pensacola')}}", 'https://www.wuwf.org/tags/city-of-pensacola'), contentId: '00000177-b32b-d5f4-a5ff-bbfb31fb0081' }],
+    }))
+    expect(story.section?.title).toBe('Local News')
+    expect(story.topics[0]?.title).toBe('City of Pensacola')
+  })
+})
+
+describe('an inline link whose text is a template call', () => {
+  it('shows the words', () => {
+    const { story } = ok(page({
+      articleBody: [{ items: ['<p>See ', { _template: '/core/enhancement/InlineEnhancement.hbs', items: [{ _template: '/core/link/Link.hbs', body: "{{html('the filing')}}", href: 'https://example.org/f' }] }, '.</p>'] }],
+    }))
+    expect(JSON.stringify(story.content)).toContain('the filing')
+    expect(JSON.stringify(story.content)).not.toContain('html(')
+  })
+})

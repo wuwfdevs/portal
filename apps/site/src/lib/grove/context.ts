@@ -108,11 +108,21 @@ const textOf = (nodes: PNode[]): string =>
     .map((n) => (n.nodeName === '#text' ? (n as DefaultTreeAdapterMap['textNode']).value : 'childNodes' in n ? textOf(n.childNodes as PNode[]) : ''))
     .join('')
 
+/**
+ * Some Grove fields hold an unrendered template call, `{{html('Local News')}}`, where the text should be. The text inside
+ * the call is what the editor typed; the wrapper is Grove's. Unwrapped everywhere text is read.
+ */
+export function unwrapTemplates(s: string): string {
+  return s.replace(/\{\{\s*html\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*\)\s*\}\}/g, (_m, a: string | undefined, b: string | undefined) =>
+    (a ?? b ?? '').replace(/\\(['"\\])/g, '$1'),
+  )
+}
+
 /** Text with markup removed and entities decoded, whitespace collapsed. `hadMarkup` is true when tags were thrown away. */
 export function plainText(html: string | null | undefined): { text: string; hadMarkup: boolean } {
   const raw = html ?? ''
   const hadMarkup = /<\/?[a-z][^>]*>/i.test(raw)
-  const text = textOf(parseFragment(raw).childNodes as PNode[]).replace(/[ \t\r\n\f ]+/g, ' ').trim()
+  const text = unwrapTemplates(textOf(parseFragment(raw).childNodes as PNode[])).replace(/[ \t\r\n\f ]+/g, ' ').trim()
   return { text, hadMarkup }
 }
 

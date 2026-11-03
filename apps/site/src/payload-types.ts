@@ -442,6 +442,8 @@ export interface Media {
      */
     sourceUrl?: string | null;
   };
+  prefix?: string | null;
+  _objectKey?: string | null;
   folder?: (number | null) | FolderInterface;
   updatedAt: string;
   createdAt: string;
@@ -621,6 +623,8 @@ export interface Video {
      */
     sourceUrl?: string | null;
   };
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -690,6 +694,8 @@ export interface Audio {
      */
     sourceUrl?: string | null;
   };
+  prefix?: string | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1907,6 +1913,8 @@ export interface MediaSelect<T extends boolean = true> {
     | {
         sourceUrl?: T;
       };
+  prefix?: T;
+  _objectKey?: T;
   folder?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2008,6 +2016,8 @@ export interface AudioSelect<T extends boolean = true> {
     | {
         sourceUrl?: T;
       };
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2035,6 +2045,8 @@ export interface VideoSelect<T extends boolean = true> {
     | {
         sourceUrl?: T;
       };
+  prefix?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;

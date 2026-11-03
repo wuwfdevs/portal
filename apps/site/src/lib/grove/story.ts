@@ -6,7 +6,7 @@
 
 import { classifyOrigin } from '../census/tally'
 import { audioToken, arr, enhancementNodes, leadItems, obj, objectNodes, str, template } from './enhancements'
-import { Ctx, absoluteUrl, escapeHtml, plainText } from './context'
+import { Ctx, absoluteUrl, escapeHtml, plainText, unwrapTemplates } from './context'
 import { htmlToNodes } from './html'
 import * as lex from './lexical'
 import type { ConvertOptions, ConvertResult, ConvertedStory, Json, JsonObject, LexNode, PersonRef, StoryReport } from './types'
@@ -18,7 +18,7 @@ const tname = (t: string): string => t.split('/').pop()?.replace(/\.hbs$/, '') ?
 
 /** A link that sits between two text chunks, as HTML, so the paragraph around it can be put back together. */
 function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
-  const body = str(l.body)
+  const body = unwrapTemplates(str(l.body) ?? '')
   const href = str(l.href)
   if (!body) {
     ctx.note('link.empty-text')
@@ -43,9 +43,27 @@ export function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
     if (html) out.push(...htmlToNodes(html, ctx))
     html = ''
   }
+  // Some chunks come wrapped in an unrendered template call: {{html('<p>...</p>')}}. The wrapper can open in one chunk
+  // and close in a later one (a photo sits between), and inside it apostrophes are escaped. Taken in document order.
+  let wrapped = false
+  const unwrapChunk = (chunk: string): string => {
+    let s = chunk
+    const open = /^\s*\{\{\s*html\(\s*['"]/.exec(s)
+    if (open) {
+      s = s.slice(open[0].length)
+      wrapped = true
+    }
+    if (!wrapped) return s
+    const close = /['"]\s*\)\s*\}\}\s*$/.exec(s)
+    if (close) {
+      s = s.slice(0, close.index)
+      wrapped = false
+    }
+    return s.replace(/\\(['"\\])/g, '$1')
+  }
   const take = (item: Json): void => {
     if (typeof item === 'string') {
-      html += item
+      html += unwrapChunk(item)
       return
     }
     const o = obj(item)
