@@ -1,6 +1,6 @@
-// Takes one public submission from the form and puts it in the review queue, or says why not. Server side only. It is the
-// ONLY thing that writes `event-submissions` for the public, and it does so through the Local API (the collection has no
-// public access of its own), after every check below. The route that calls it supplies the request facts (address, time).
+// Takes one public submission from the form and saves it as a draft event marked "pending review", or says why not. Server side
+// only. It is the ONLY thing that writes an event for the public, and it does so through the Local API (events have no public
+// create access of their own), after every check below. The route that calls it supplies the request facts (address, time).
 //
 // Order matters: the cheapest, quietest checks first. A bot that fills the hidden field is told "thank you" and nothing is
 // saved, so it learns nothing. Nothing a submitter types is ever written to a log.
@@ -11,7 +11,7 @@ import sharp from 'sharp'
 
 import { IMAGE, checkFormToken, clientKey, honeypotClean, rateDecision, sniffImage } from './abuse'
 import { stationToday } from './schedule'
-import { scheduleToStored } from './stored'
+import { eventFromSubmission } from './stored'
 import { validate, type RawForm } from './submission'
 
 export interface SubmitInput {
@@ -57,18 +57,18 @@ export async function processSubmission(payload: Payload, input: SubmitInput, se
   }
 
   // 3. Rate limit by a keyed hash of the address. Old keys are cleared as we go.
+  // The keys live in their own small ledger, not on the event: events keep version history, and a hash of an address must not.
   const key = clientKey(input.address, secrets.client)
-  await payload.update({
-    collection: 'event-submissions',
-    where: { and: [{ clientKey: { exists: true } }, { createdAt: { less_than: new Date(now.getTime() - KEY_KEEP_MS).toISOString() } }] },
-    data: { clientKey: null },
+  await payload.delete({
+    collection: 'submission-rate-limits',
+    where: { createdAt: { less_than: new Date(now.getTime() - KEY_KEEP_MS).toISOString() } },
     overrideAccess: true,
     context: { disableRevalidate: true },
   })
   const since = (ms: number) => new Date(now.getTime() - ms).toISOString()
   const [lastHour, lastDay] = await Promise.all([
-    payload.count({ collection: 'event-submissions', overrideAccess: true, where: { and: [{ clientKey: { equals: key } }, { createdAt: { greater_than: since(3_600_000) } }] } }),
-    payload.count({ collection: 'event-submissions', overrideAccess: true, where: { and: [{ clientKey: { equals: key } }, { createdAt: { greater_than: since(24 * 3_600_000) } }] } }),
+    payload.count({ collection: 'submission-rate-limits', overrideAccess: true, where: { and: [{ key: { equals: key } }, { createdAt: { greater_than: since(3_600_000) } }] } }),
+    payload.count({ collection: 'submission-rate-limits', overrideAccess: true, where: { and: [{ key: { equals: key } }, { createdAt: { greater_than: since(24 * 3_600_000) } }] } }),
   ])
   const rate = rateDecision({ lastHour: lastHour.totalDocs, lastDay: lastDay.totalDocs })
   if (!rate.allowed) return { kind: 'limited', retryAfter: rate.retryAfter }
@@ -96,8 +96,10 @@ export async function processSubmission(payload: Payload, input: SubmitInput, se
   }
   if (!checked.ok || Object.keys(errors).length) return { kind: 'invalid', errors }
 
-  // 6. Save it as pending. The file name is made here; the submitter's is never used.
+  // 6. Save it as a DRAFT event marked "pending review": private until a publisher publishes it. The file name is made here; the
+  // submitter's is never used.
   const v = checked.value
+  const e = eventFromSubmission(v, idBySlug)
   const imageDoc = image
     ? await payload.create({
         collection: 'event-submission-images',
@@ -108,26 +110,29 @@ export async function processSubmission(payload: Payload, input: SubmitInput, se
       })
     : null
   await payload.create({
-    collection: 'event-submissions',
+    collection: 'events',
+    draft: true,
     data: {
-      status: 'pending',
-      title: v.title,
-      categories: v.categories.map((slug) => idBySlug.get(slug)!),
-      description: v.description,
-      schedule: scheduleToStored(v.schedule) as never,
-      venue: v.venue,
-      organization: v.organization,
-      artist: v.artist,
-      price: v.price.text,
-      free: v.price.free,
-      priceNotes: v.price.additional,
-      ticketUrl: v.ticketUrl,
-      ...(imageDoc ? { image: imageDoc.id } : {}),
+      _status: 'draft',
+      review: { status: 'pending' },
+      title: e.title,
+      teaser: e.teaser,
+      description: e.description as never,
+      categories: e.categories as never,
+      schedule: e.schedule as never,
+      venue: e.venue as never,
+      organization: e.organization as never,
+      artist: e.artist as never,
+      price: e.price,
+      free: e.free,
+      priceNotes: e.priceNotes,
+      ticketUrl: e.ticketUrl,
+      ...(imageDoc ? { submittedImage: imageDoc.id } : {}),
       submitter: v.submitter,
-      clientKey: key,
-    },
+    } as never,
     overrideAccess: true,
     context: { disableRevalidate: true },
   })
+  await payload.create({ collection: 'submission-rate-limits', data: { key }, overrideAccess: true, context: { disableRevalidate: true } })
   return { kind: 'ok' }
 }

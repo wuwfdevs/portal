@@ -4,10 +4,8 @@ import { APIError } from 'payload'
 
 import { uniqueAnchor, isValidAnchor } from '@/lib/live/anchor'
 import { wordsChanged } from '@/lib/live/edit'
+import { livePath } from '@/lib/paths'
 import { revalidatePath, revalidateTag } from '@/lib/revalidate'
-
-/** The public address of a live blog. */
-export const livePath = (slug: string): string => `/live-updates/${slug}`
 
 const idOf = (ref: unknown): string | number | null => {
   if (ref && typeof ref === 'object' && 'id' in ref) return (ref as { id: string | number }).id
@@ -15,31 +13,19 @@ const idOf = (ref: unknown): string | number | null => {
 }
 
 // ---- the blog ------------------------------------------------------------------------------------------------------
+// A live blog is a story (a post with format "live"); its page, lists and caches are handled by the post's own hooks. Only the
+// bit that is specific to live blogs is here.
 
 /** Ending a blog stamps when, once; reopening it clears that. A script or the importer may set `endedAt` itself. */
 export const stampEnd: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
-  if (data?.coverage === 'ended' && !data.endedAt && !originalDoc?.endedAt) return { ...data, endedAt: new Date().toISOString() }
-  if (data?.coverage === 'live') return { ...data, endedAt: null }
+  if (!data || (data.format ?? originalDoc?.format) !== 'live') return data
+  const live = (data.live ?? {}) as { coverage?: string; endedAt?: string | null }
+  const before = (originalDoc?.live ?? {}) as { coverage?: string; endedAt?: string | null }
+  const coverage = live.coverage ?? before.coverage
+  const endedAt = live.endedAt !== undefined ? live.endedAt : before.endedAt
+  if (coverage === 'ended' && !endedAt) return { ...data, live: { ...live, endedAt: new Date().toISOString() } }
+  if (coverage === 'live' && endedAt) return { ...data, live: { ...live, endedAt: null } }
   return data
-}
-
-/** A blog's slug is its address, so a published one cannot change it without a publisher making a redirect on purpose. */
-export const revalidateBlog: CollectionAfterChangeHook = async ({ doc, previousDoc, req: { payload, context } }) => {
-  if (context.disableRevalidate) return doc
-  if (doc.slug) revalidatePath(livePath(doc.slug))
-  if (previousDoc?.slug && previousDoc.slug !== doc.slug) revalidatePath(livePath(previousDoc.slug))
-  revalidatePath('/')
-  revalidateTag(`live:${doc.slug}`, 'max')
-  payload.logger.info(`Revalidated live blog ${doc.slug}`)
-  return doc
-}
-export const revalidateBlogDelete: CollectionAfterDeleteHook = ({ doc, req: { context } }) => {
-  if (!context.disableRevalidate && doc?.slug) {
-    revalidatePath(livePath(doc.slug))
-    revalidatePath('/')
-    revalidateTag(`live:${doc.slug}`, 'max')
-  }
-  return doc
 }
 
 // ---- one update ----------------------------------------------------------------------------------------------------
@@ -86,7 +72,7 @@ export const revalidateUpdate: CollectionAfterChangeHook = async ({ doc, req: { 
   if (context.disableRevalidate) return doc
   const blogId = idOf(doc.livePost)
   if (blogId === null) return doc
-  const blog = await payload.findByID({ collection: 'live-posts', id: blogId, depth: 0, overrideAccess: true, select: { slug: true } }).catch(() => null)
+  const blog = await payload.findByID({ collection: 'posts', id: blogId, depth: 0, overrideAccess: true, select: { slug: true } }).catch(() => null)
   if (blog?.slug) {
     revalidatePath(livePath(blog.slug))
     revalidateTag(`live:${blog.slug}`, 'max')
@@ -97,7 +83,7 @@ export const revalidateUpdate: CollectionAfterChangeHook = async ({ doc, req: { 
 export const revalidateUpdateDelete: CollectionAfterDeleteHook = async ({ doc, req: { payload, context } }) => {
   if (context.disableRevalidate) return doc
   const blogId = idOf(doc?.livePost)
-  const blog = blogId === null ? null : await payload.findByID({ collection: 'live-posts', id: blogId, depth: 0, overrideAccess: true, select: { slug: true } }).catch(() => null)
+  const blog = blogId === null ? null : await payload.findByID({ collection: 'posts', id: blogId, depth: 0, overrideAccess: true, select: { slug: true } }).catch(() => null)
   if (blog?.slug) {
     revalidatePath(livePath(blog.slug))
     revalidateTag(`live:${blog.slug}`, 'max')

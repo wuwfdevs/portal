@@ -5,6 +5,9 @@ import { revalidatePath, revalidateTag } from '@/lib/revalidate'
 
 import type { Post } from '../../../payload-types'
 
+// Hub pages list the newest work of one production or newsroom; a story saved anywhere may change one of them.
+const HUB_PATHS = ['/unearthing-florida', '/voyager']
+
 export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
   doc,
   previousDoc,
@@ -20,6 +23,8 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
       // The front page lists the newest published work, and so do the story's section, topic and author pages.
       revalidatePath('/')
       for (const p of await listPathsForStory(payload, doc)) revalidatePath(p)
+      for (const p of HUB_PATHS) revalidatePath(p)
+      if (doc.format === 'live' && doc.slug) revalidateTag(`live:${doc.slug}`, 'max')
       revalidateTag('posts-sitemap', 'max')
     }
 
@@ -33,6 +38,7 @@ export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
       revalidatePath('/')
       // It left the lists it was in (unpublished, or moved).
       for (const p of await listPathsForStory(payload, previousDoc)) revalidatePath(p)
+      for (const p of HUB_PATHS) revalidatePath(p)
       revalidateTag('posts-sitemap', 'max')
     }
   }
@@ -44,6 +50,7 @@ export const revalidateDelete: CollectionAfterDeleteHook<Post> = async ({ doc, r
     if (doc?.path) revalidatePath(doc.path)
     revalidatePath('/')
     for (const p of await listPathsForStory(payload, doc)) revalidatePath(p)
+    for (const p of HUB_PATHS) revalidatePath(p)
     revalidateTag('posts-sitemap', 'max')
   }
 

@@ -1,3 +1,4 @@
+import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
 import Link from 'next/link'
 import React from 'react'
 
@@ -38,6 +39,7 @@ export function HomepageView({ data }: { data: HomepageData }) {
 
   return (
     <div className="pb-20">
+      <LivePreviewInIframe />
       {emergency && (
         <section aria-label={emergency.label} className="border-b-4 border-wuwf-blue-700 bg-wuwf-blue-100">
           <div className="container flex flex-col gap-2 py-5 md:flex-row md:items-center md:justify-between md:gap-8">

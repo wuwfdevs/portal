@@ -40,8 +40,15 @@ export function isReservedPath(path: string): boolean {
   return RESERVED_FIRST_SEGMENTS.has(first) || /-sitemap\.xml$/.test(first)
 }
 
-/** Whether a stored path is acceptable. Lenient about letters (Grove's paths are kept as they are), strict about shape. */
-export function checkPath(path: unknown): PathCheck {
+/** The address of a live blog. It lives under `/live-updates`, a first segment that is otherwise reserved for the site's own routes. */
+export const LIVE_FIRST_SEGMENT = 'live-updates'
+export const livePath = (slug: string): string => `/${LIVE_FIRST_SEGMENT}/${slug}`
+
+/**
+ * Whether a stored path is acceptable. Lenient about letters (Grove's paths are kept as they are), strict about shape.
+ * `allowFirstSegment` lets one reserved first segment through, for the one kind of record that is meant to live under it (a live blog).
+ */
+export function checkPath(path: unknown, opts: { allowFirstSegment?: string } = {}): PathCheck {
   if (typeof path !== 'string' || path === '') return { ok: false, reason: 'A path is required.' }
   if (!path.startsWith('/')) return { ok: false, reason: 'A path starts with "/".' }
   if (path === '/') return { ok: false, reason: 'The home page is served at "/" and has no path of its own.' }
@@ -51,7 +58,7 @@ export function checkPath(path: unknown): PathCheck {
   const segments = path.slice(1).split('/')
   if (segments.some((s) => s === '')) return { ok: false, reason: 'A path has no empty segment ("//").' }
   if (segments.some((s) => s === '.' || s === '..')) return { ok: false, reason: 'A path has no "." or ".." segment.' }
-  if (isReservedPath(path)) return { ok: false, reason: `"/${segments[0]}" belongs to the site itself.` }
+  if (isReservedPath(path) && !(opts.allowFirstSegment && segments[0] === opts.allowFirstSegment)) return { ok: false, reason: `"/${segments[0]}" belongs to the site itself.` }
   return { ok: true }
 }
 

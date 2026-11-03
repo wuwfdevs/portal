@@ -2,8 +2,9 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-// The community calendar: a public submission waits in a private queue, staff review it, only a publisher can approve, and
-// approving makes a live event. These tests walk that path and the rules around it.
+// The community calendar: a public submission is a draft event marked pending review, staff review and edit it, only a publisher
+// can approve (approving is publishing it), and what the public can see of it is only the event. These tests walk that path and
+// the rules around it, in the one events collection.
 
 const run = Date.now().toString(36)
 let payload: Payload
@@ -36,22 +37,34 @@ async function rejectsWith(promise: Promise<unknown>, reason: RegExp): Promise<v
   expect([err!.message, ...(err!.data?.errors ?? []).map((e) => e.message)].join(' | ')).toMatch(reason)
 }
 
-/** What the form's server action writes: a pending submission, through the Local API with access control bypassed. */
+const para = (t: string) => ({ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', version: 1, text: t, format: 0, mode: 'normal', style: '', detail: 0 }] })
+const lexical = (...paras: string[]) => ({ root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: paras.map(para) } })
+
+/** What the form's server action writes: a DRAFT event marked "pending review", through the Local API with access control bypassed. */
 const submit = (extra: Record<string, unknown> = {}) =>
-  make<Doc>('event-submissions', {
-    title: `Fall Plant Sale ${run}`,
-    categories: [outdoors.id],
-    description: 'Plants.\n\nMore plants.',
-    schedule: { kind: 'once', date: '2090-11-14', start: '09:00', end: '14:00' },
-    venue: { name: 'Pensacola Garden Center', street: '1850 N 9th Avenue', city: 'Pensacola', state: 'FL' },
-    organization: { name: 'Garden Clubs', designation: 'not-for-profit' },
-    free: true,
-    submitter: { name: `Pat Submitter ${run}`, email: `pat-${run}@example.org`, role: 'venue' },
-    clientKey: `client-${run}`,
-    ...extra,
-  })
+  make<Doc>(
+    'events',
+    {
+      _status: 'draft',
+      review: { status: 'pending' },
+      title: `Fall Plant Sale ${run}`,
+      categories: [outdoors.id],
+      teaser: 'Plants.',
+      description: lexical('Plants.', 'More plants.'),
+      schedule: { kind: 'once', date: '2090-11-14', start: '09:00', end: '14:00' },
+      venue: { name: 'Pensacola Garden Center', street: '1850 N 9th Avenue', city: 'Pensacola', state: 'FL' },
+      organization: { name: 'Garden Clubs', designation: 'not-for-profit' },
+      free: true,
+      submitter: { name: `Pat Submitter ${run}`, email: `pat-${run}@example.org`, role: 'venue' },
+      ...extra,
+    },
+    { draft: true },
+  )
 
 const forPublic = <T extends Record<string, unknown>>(args: T) => ({ ...args, overrideAccess: false, context: ctx })
+/** An acting user's change to an event. Drafts are saved as drafts; publishing is a separate, explicit step. */
+const asDraft = (u: Doc, id: string | number, data: Record<string, unknown>) => payload.update({ collection: 'events', id, data: data as never, draft: true, user: asUser(u), overrideAccess: false, context: ctx }) as Promise<Doc>
+const publish = (u: Doc, id: string | number) => payload.update({ collection: 'events', id, data: { _status: 'published' } as never, user: asUser(u), overrideAccess: false, context: ctx }) as Promise<Doc>
 
 describe('community calendar', () => {
   beforeAll(async () => {
@@ -66,100 +79,115 @@ describe('community calendar', () => {
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
-  describe('the review queue is private', () => {
-    it('a submission starts pending and the public cannot read, list or create one', async () => {
+  describe('an event waiting for review is private', () => {
+    it('is a draft marked pending, and the public cannot find, read or create one', async () => {
       const s = await submit()
-      expect(s.status).toBe('pending')
-      await rejectsWith(payload.find(forPublic({ collection: 'event-submissions' })), /not allowed/i)
-      await rejectsWith(payload.findByID(forPublic({ collection: 'event-submissions', id: s.id })), /not allowed/i)
+      expect(s.review.status).toBe('pending')
+      expect(s._status).toBe('draft')
+      expect((await payload.find(forPublic({ collection: 'events', where: { title: { equals: `Fall Plant Sale ${run}` } } }))).docs).toEqual([])
+      await rejectsWith(payload.findByID(forPublic({ collection: 'events', id: s.id })), /not found|not allowed/i)
       await rejectsWith(
-        payload.create(forPublic({ collection: 'event-submissions', data: { title: 'x', categories: [outdoors.id], venue: { name: 'v' }, schedule: { kind: 'once', date: '2090-01-01', start: '10:00' }, submitter: { email: 'a@b.co' } } as never })),
+        payload.create(forPublic({ collection: 'events', data: { title: 'x', categories: [outdoors.id], venue: { name: 'v' }, schedule: { kind: 'once', date: '2090-01-01', start: '10:00' }, submitter: { email: 'a@b.co' } } as never })),
         /not allowed/i,
       )
     })
 
-    it('an editor can read and edit a submission; the client key never comes back through the API', async () => {
+    it('an editor can read and edit it, and sees who sent it', async () => {
       const s = await submit()
-      const read = (await payload.findByID({ collection: 'event-submissions', id: s.id, user: asUser(editor), overrideAccess: false })) as Doc
+      const read = (await payload.findByID({ collection: 'events', id: s.id, draft: true, user: asUser(editor), overrideAccess: false })) as Doc
       expect(read.title).toBe(s.title)
-      expect(read.clientKey).toBeUndefined()
-      const edited = (await payload.update({ collection: 'event-submissions', id: s.id, data: { title: `Edited ${run}` }, user: asUser(editor), overrideAccess: false, context: ctx })) as Doc
+      expect(read.submitter.email).toBe(`pat-${run}@example.org`)
+      const edited = await asDraft(editor, s.id, { title: `Edited ${run}` })
       expect(edited.title).toBe(`Edited ${run}`)
+      expect(edited.review.status).toBe('pending')
     })
 
     it('records the likely problems for a reviewer, from the station\'s guidelines', async () => {
       const s = await submit({ organization: { name: 'Acme Candles', designation: 'for-profit' }, price: '$20', free: false })
-      expect(s.concerns).toMatch(/for-profit/)
-      expect(s.concerns).toMatch(/lists a price/)
+      expect(s.review.concerns).toMatch(/for-profit/)
+      expect(s.review.concerns).toMatch(/lists a price/)
       const fine = await submit({ title: `Quiet Event ${run}`, schedule: { kind: 'once', date: '2090-12-01', start: '10:00' } })
-      expect(fine.concerns ?? '').toBe('')
+      expect(fine.review.concerns ?? '').toBe('')
     })
   })
 
-  describe('approval', () => {
-    it('an editor can reject or ask for information but cannot approve', async () => {
+  describe('approval is publishing', () => {
+    it('an editor can reject or ask for information, but cannot publish or choose "approved"', async () => {
       const s = await submit()
-      await rejectsWith(payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'approved' }, user: asUser(editor), overrideAccess: false, context: ctx }), /Only a publisher can approve/)
-      const stillPending = (await payload.findByID({ collection: 'event-submissions', id: s.id, overrideAccess: true })) as Doc
-      expect(stillPending.status).toBe('pending')
-      expect(stillPending.event ?? null).toBeNull()
-      const asked = (await payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'needs-info' }, user: asUser(editor), overrideAccess: false, context: ctx })) as Doc
-      expect(asked.status).toBe('needs-info')
-      expect(asked.reviewedAt).toBeTruthy()
-      const rejected = (await payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'rejected' }, user: asUser(editor), overrideAccess: false, context: ctx })) as Doc
-      expect(rejected.status).toBe('rejected')
+      await rejectsWith(publish(editor, s.id), /only a publisher can publish/i)
+      await rejectsWith(asDraft(editor, s.id, { review: { status: 'approved' } }), /approved by publishing/i)
+      const stillPending = (await payload.findByID({ collection: 'events', id: s.id, draft: true, overrideAccess: true })) as Doc
+      expect(stillPending.review.status).toBe('pending')
+      expect(stillPending._status).toBe('draft')
+      const asked = await asDraft(editor, s.id, { review: { status: 'needs-info' } })
+      expect(asked.review.status).toBe('needs-info')
+      expect(asked.review.reviewedAt).toBeTruthy()
+      const rejected = await asDraft(editor, s.id, { review: { status: 'rejected' } })
+      expect(rejected.review.status).toBe('rejected')
     })
 
-    it('a publisher approves: the event is live at its address, linked back, and carries nothing about the submitter', async () => {
-      const s = await submit({ title: `Approve Me ${run}`, teaser: undefined })
-      const approved = (await payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'approved' }, user: asUser(publisher), overrideAccess: false, context: ctx })) as Doc
-      expect(approved.status).toBe('approved')
-      expect(approved.reviewedBy).toBeTruthy()
-      const eventId = typeof approved.event === 'object' ? approved.event.id : approved.event
-      expect(eventId).toBeTruthy()
-      created.push({ collection: 'events', id: eventId })
+    it('a publisher publishes: the event is live at its address, marked approved, and the public sees nothing about who sent it', async () => {
+      const s = await submit({ title: `Approve Me ${run}` })
+      const approved = await publish(publisher, s.id)
+      expect(approved._status).toBe('published')
+      expect(approved.review.status).toBe('approved')
+      expect(approved.review.reviewedBy).toBeTruthy()
 
       // The public reads it, as a published event, through access control.
-      const live = (await payload.findByID(forPublic({ collection: 'events', id: eventId, depth: 1 }))) as Doc
+      const live = (await payload.findByID(forPublic({ collection: 'events', id: s.id, depth: 1 }))) as Doc
       expect(live._status).toBe('published')
       expect(live.title).toBe(`Approve Me ${run}`)
       expect(live.path).toMatch(/^\/community-calendar\/event\/approve-me-.+-2090-11-14$/)
       expect(live.firstDate).toBe('2090-11-14')
-      expect(live.lastDate).toBe('2090-11-14')
       expect(live.venue.name).toBe('Pensacola Garden Center')
       expect(live.teaser).toBe('Plants.')
       expect(live.free).toBe(true)
       expect(live.categories.map((c: Doc) => c.title)).toEqual([`Outdoors ${run}`])
-      // Nothing about who sent it, and not even the pointer back to the submission, is public.
+      // Nothing about who sent it or how it was reviewed is public, by field access, even though it is on the same record.
       const wire = JSON.stringify(live)
       expect(wire).not.toContain(`pat-${run}@example.org`)
       expect(wire).not.toContain('Pat Submitter')
-      expect(live.submissionId).toBeUndefined()
-      // Staff see the pointer.
-      const staff = (await payload.findByID({ collection: 'events', id: eventId, user: asUser(editor), overrideAccess: false })) as Doc
-      expect(staff.submissionId).toBe(String(s.id))
+      expect(live.submitter).toBeUndefined()
+      expect(live.review).toBeUndefined()
+      expect(live.submittedImage).toBeUndefined()
+      // Staff still see it all.
+      const staff = (await payload.findByID({ collection: 'events', id: s.id, user: asUser(editor), overrideAccess: false })) as Doc
+      expect(staff.submitter.email).toBe(`pat-${run}@example.org`)
+      expect(staff.review.status).toBe('approved')
     })
 
-    it('an approved submission cannot be changed back', async () => {
-      const s = await submit({ title: `Final ${run}` })
-      const a = (await payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'approved' }, user: asUser(publisher), overrideAccess: false, context: ctx })) as Doc
-      created.push({ collection: 'events', id: typeof a.event === 'object' ? a.event.id : a.event })
-      await rejectsWith(payload.update({ collection: 'event-submissions', id: s.id, data: { status: 'pending' }, user: asUser(publisher), overrideAccess: false, context: ctx }), /cannot be changed back/)
+    it('the public REST-style list of events never carries submitter details either', async () => {
+      const s = await submit({ title: `Listed Publicly ${run}` })
+      await publish(publisher, s.id)
+      const list = await payload.find(forPublic({ collection: 'events', where: { title: { equals: `Listed Publicly ${run}` } }, depth: 0 }))
+      expect(list.docs).toHaveLength(1)
+      expect(JSON.stringify(list)).not.toContain(`pat-${run}@example.org`)
     })
 
-    it('will not approve a submission with no usable dates or no category', async () => {
+    it('will not publish an event with no usable dates, and it stays a draft', async () => {
       const noDates = await submit({ title: `No Dates ${run}`, schedule: { kind: 'once', date: '2090-02-30', start: '10:00' } })
-      await rejectsWith(payload.update({ collection: 'event-submissions', id: noDates.id, data: { status: 'approved' }, user: asUser(publisher), overrideAccess: false, context: ctx }), /valid dates/)
-      const events = await payload.count({ collection: 'events', overrideAccess: true, where: { title: { equals: `No Dates ${run}` } } })
-      expect(events.totalDocs).toBe(0)
+      await rejectsWith(publish(publisher, noDates.id), /valid dates/)
+      const after = (await payload.findByID({ collection: 'events', id: noDates.id, draft: true, overrideAccess: true })) as Doc
+      expect(after._status).toBe('draft')
+      expect(after.review.status).toBe('pending')
+    })
+
+    it('will not publish an event with no category', async () => {
+      const noCategory = await submit({ title: `No Category ${run}`, categories: [] })
+      await rejectsWith(publish(publisher, noCategory.id), /at least one category/)
     })
 
     it('flags a second submission for an event that is already on the calendar', async () => {
       const first = await submit({ title: `Twice ${run}` })
-      const a = (await payload.update({ collection: 'event-submissions', id: first.id, data: { status: 'approved' }, user: asUser(publisher), overrideAccess: false, context: ctx })) as Doc
-      created.push({ collection: 'events', id: typeof a.event === 'object' ? a.event.id : a.event })
+      await publish(publisher, first.id)
       const again = await submit({ title: `Twice ${run}` })
-      expect(again.concerns).toMatch(/same title/)
+      expect(again.review.concerns).toMatch(/same title/)
+    })
+
+    it('leaves events staff made, and Grove\'s, alone: no review, no submitter, published as before', async () => {
+      const e = await make<Doc>('events', { title: `Staff Made ${run}`, categories: [theater.id], schedule: { kind: 'once', date: '2090-05-01', start: '10:00' }, venue: { name: 'v' }, _status: 'published' })
+      expect(e.review?.status ?? null).toBeNull()
+      expect((e.review?.concerns ?? null)).toBeNull()
     })
   })
 

@@ -9,6 +9,7 @@ import { revalidateSiteSettings } from './hooks/revalidateSiteSettings'
  */
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
+  admin: { group: 'Site settings' },
   label: 'Site settings',
   access: { read: () => true, update: requirePermission('settings.manage') },
   hooks: { afterChange: [revalidateSiteSettings] },

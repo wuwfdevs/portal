@@ -68,7 +68,9 @@ const input = (over: Partial<SubmitInput> = {}): SubmitInput => ({
   ...over,
 })
 
-const submissions = async (where: Record<string, unknown> = {}) => (await payload.find({ collection: 'event-submissions', depth: 0, limit: 100, overrideAccess: true, pagination: false, where: { and: [{ title: { like: run } }, where] } as never })).docs as Doc[]
+// A submission is a draft event with a review status, so "the queue" is the events that have one.
+const submissions = async (where: Record<string, unknown> = {}) =>
+  (await payload.find({ collection: 'events', draft: true, depth: 0, limit: 100, overrideAccess: true, pagination: false, where: { and: [{ title: { like: run } }, { 'review.status': { exists: true } }, where] } as never })).docs as Doc[]
 const total = async () => (await submissions()).length
 const send = async (over: Partial<SubmitInput> = {}) => {
   const before = await total()
@@ -86,27 +88,30 @@ describe('public submissions', () => {
   }, 90_000)
 
   afterAll(async () => {
-    for (const s of await submissions()) await payload.delete({ collection: 'event-submissions', id: s.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+    for (const s of await submissions()) await payload.delete({ collection: 'events', id: s.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+    await payload.delete({ collection: 'submission-rate-limits', where: { key: { exists: true } }, overrideAccess: true, context: ctx }).catch(() => undefined)
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
-  it('a good submission waits in the queue, pending, with a hashed client key and nothing public', async () => {
+  it('a good submission waits as a draft event, pending review, with a hashed client key in the ledger and nothing public', async () => {
     const address = nextAddress()
     const { outcome, saved } = await send({ address })
     expect(outcome).toEqual({ kind: 'ok' })
     expect(saved).toBe(1)
     const [s] = await submissions()
-    expect(s).toMatchObject({ status: 'pending', title: `Fall Plant Sale ${run}`, free: true })
+    expect(s).toMatchObject({ _status: 'draft', title: `Fall Plant Sale ${run}`, free: true })
+    expect(s!.review.status).toBe('pending')
     expect(s!.categories).toEqual([theater.id])
     expect(s!.schedule).toMatchObject({ kind: 'once', date: EVENT_DATE, start: '09:00', end: '14:00' })
     expect(s!.submitter).toMatchObject({ email: `pat-${run}@example.org`, role: 'venue' })
-    // The stored key is the keyed hash of the address, never the address.
-    const count = (key: string) => payload.count({ collection: 'event-submissions', overrideAccess: true, where: { clientKey: { equals: key } } })
+    // The ledger key is the keyed hash of the address, never the address, and it is not on the event at all.
+    const count = (key: string) => payload.count({ collection: 'submission-rate-limits', overrideAccess: true, where: { key: { equals: key } } })
     expect((await count(clientKey(address, secrets.client))).totalDocs).toBe(1)
     expect((await count(address)).totalDocs).toBe(0)
-    // Not readable by the public, and no event exists yet.
-    await expect(payload.find({ collection: 'event-submissions', overrideAccess: false })).rejects.toThrow()
-    expect((await payload.count({ collection: 'events', overrideAccess: true, where: { title: { equals: `Fall Plant Sale ${run}` } } })).totalDocs).toBe(0)
+    expect(JSON.stringify(s)).not.toContain(clientKey(address, secrets.client))
+    // The ledger is not readable by the public, and the event is not public either.
+    await expect(payload.find({ collection: 'submission-rate-limits', overrideAccess: false })).rejects.toThrow()
+    expect((await payload.find({ collection: 'events', overrideAccess: false, where: { title: { equals: `Fall Plant Sale ${run}` } } })).docs).toEqual([])
   })
 
   it('a bot that fills the hidden field is thanked and nothing is saved', async () => {
@@ -143,18 +148,11 @@ describe('public submissions', () => {
   })
 
   it('client keys older than two days are cleared as new ones arrive, so no address history builds up', async () => {
-    const old = await make<Doc>('event-submissions', {
-      title: `Old ${run}`,
-      categories: [theater.id],
-      schedule: { kind: 'once', date: EVENT_DATE, start: '10:00' },
-      venue: { name: 'v' },
-      submitter: { email: 'old@example.org' },
-      clientKey: `old-key-${run}`,
-      createdAt: new Date(NOW.getTime() - 3 * 24 * 3_600_000).toISOString(),
-    })
+    await make<Doc>('submission-rate-limits', { key: `old-key-${run}`, createdAt: new Date(NOW.getTime() - 3 * 24 * 3_600_000).toISOString() })
+    const there = () => payload.count({ collection: 'submission-rate-limits', overrideAccess: true, where: { key: { equals: `old-key-${run}` } } })
+    expect((await there()).totalDocs).toBe(1)
     expect((await send()).outcome).toEqual({ kind: 'ok' })
-    const after = await payload.count({ collection: 'event-submissions', overrideAccess: true, where: { and: [{ id: { equals: old.id } }, { clientKey: { exists: true } }] } })
-    expect(after.totalDocs).toBe(0)
+    expect((await there()).totalDocs).toBe(0)
   })
 
   describe('pictures', () => {
@@ -163,8 +161,8 @@ describe('public submissions', () => {
       const { outcome } = await send({ image: { name: '../../etc/passwd.png', bytes: new Uint8Array(bytes) }, raw: form({ 'event-title': `Picture ${run}` }) })
       expect(outcome).toEqual({ kind: 'ok' })
       const [s] = await submissions({ title: { equals: `Picture ${run}` } })
-      expect(s!.image).toBeTruthy()
-      const img = (await payload.findByID({ collection: 'event-submission-images', id: s!.image, overrideAccess: true })) as Doc
+      expect(s!.submittedImage).toBeTruthy()
+      const img = (await payload.findByID({ collection: 'event-submission-images', id: s!.submittedImage, overrideAccess: true })) as Doc
       created.push({ collection: 'event-submission-images', id: img.id })
       expect(img.filename).toMatch(/^submitted-[a-z0-9]+\.png$/)
       expect(img.mimeType).toBe('image/png')
@@ -188,15 +186,15 @@ describe('public submissions', () => {
   })
 
   describe('from the form to the calendar', () => {
-    it('a stranger submits, a publisher approves, and it is on the calendar and at its own address; before that it is nowhere', async () => {
+    it('a stranger submits, a publisher publishes it, and it is on the calendar and at its own address; before that it is nowhere', async () => {
       const title = `Journey Concert ${run}`
       await send({ raw: form({ 'event-title': title, 'event-category': [`theater-${run}`, `outdoors-${run}`], 'venue-name': `Journey Hall ${run}` }) })
       const [s] = await submissions({ title: { equals: title } })
       const before = await loadCalendar({ q: `Journey ${run}` }, NOW)
       expect(before.result.total).toBe(0)
 
-      const approved = (await payload.update({ collection: 'event-submissions', id: s!.id, data: { status: 'approved' }, user: { id: publisher.id, collection: 'users', email: publisher.email, roles: ['publisher'] } as never, overrideAccess: false, context: ctx })) as Doc
-      created.push({ collection: 'events', id: typeof approved.event === 'object' ? approved.event.id : approved.event })
+      const approved = (await payload.update({ collection: 'events', id: s!.id, data: { _status: 'published' } as never, user: { id: publisher.id, collection: 'users', email: publisher.email, roles: ['publisher'] } as never, overrideAccess: false, context: ctx })) as Doc
+      expect(approved.review.status).toBe('approved')
 
       const calendar = await loadCalendar({ q: `Journey ${run}` }, NOW)
       expect(calendar.result.total).toBe(1)

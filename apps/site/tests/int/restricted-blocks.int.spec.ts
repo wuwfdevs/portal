@@ -40,14 +40,6 @@ const places = [
     field: 'body',
   },
   {
-    name: 'a live blog introduction',
-    create: async (user: unknown, content: unknown) => payload.create({ collection: 'live-posts', draft: true, data: { title: `B ${run}`, intro: content, _status: 'draft' } as never, ...asUser(user) }),
-    update: (id: string | number, user: unknown, content: unknown) => payload.update({ collection: 'live-posts', id, draft: true, data: { intro: content, _status: 'draft' } as never, ...asUser(user) }),
-    plain: () => ({ title: `Seed blog ${run}`, _status: 'draft' }),
-    collection: 'live-posts',
-    field: 'intro',
-  },
-  {
     name: 'a page body',
     create: async (user: unknown, content: unknown) => payload.create({ collection: 'pages', draft: true, data: { title: `P ${run}`, body: content, _status: 'draft' } as never, ...asUser(user) }),
     update: (id: string | number, user: unknown, content: unknown) => payload.update({ collection: 'pages', id, draft: true, data: { body: content, _status: 'draft' } as never, ...asUser(user) }),
@@ -78,7 +70,7 @@ describe('restricted blocks are refused on every collection that takes story-sty
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
-    blog = await make('live-posts', { title: `Host blog ${run}`, _status: 'published' })
+    blog = await make('posts', { title: `Host blog ${run}`, format: 'live', content: { root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', version: 1, text: 'Intro.', format: 0, mode: 'normal', style: '', detail: 0 }] }] } }, _status: 'published' })
   }, 60_000)
 
   afterAll(async () => {

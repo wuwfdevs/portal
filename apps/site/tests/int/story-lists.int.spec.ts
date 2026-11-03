@@ -93,4 +93,41 @@ describe('story lists', () => {
     expect(await listPathsForStory(payload, { section: null, categories: [], contributors: null })).toEqual([])
     expect(await listPathsForStory(payload, null)).toEqual([])
   })
+
+  describe('a person\'s profile', () => {
+    it('carries the short bio, full biography, links and portrait state with the list', async () => {
+      const bio = { root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', version: 1, text: 'Long bio.', format: 0, mode: 'normal', style: '', detail: 0 }] }] } }
+      const who = await make<{ id: string | number; slug: string }>('contributors', {
+        name: `Profile Person ${run}`,
+        slug: `profile-person-${run}`,
+        title: 'Host',
+        bio: 'Short.',
+        biography: bio,
+        links: [{ label: 'Site', url: 'https://example.org/me' }],
+      })
+      const data = await loadStoryList('person', who.slug, 1)
+      expect(data?.profile).toMatchObject({ photo: null, links: [{ label: 'Site', url: 'https://example.org/me' }] })
+      expect(data?.profile?.initials).toBe('PP')
+      expect(JSON.stringify(data?.profile?.biography)).toContain('Long bio.')
+      expect(data).toMatchObject({ blurb: 'Host', bio: 'Short.', totalDocs: 0 })
+    })
+
+    it('has no profile on a section or a topic list', async () => {
+      expect((await loadStoryList('section', section.slug, 1))?.profile).toBeNull()
+      expect((await loadStoryList('topic', topic.slug, 1))?.profile).toBeNull()
+    })
+
+    it('refuses a link that is not a web address', async () => {
+      await expect(make('contributors', { name: `Bad Link ${run}`, slug: `bad-link-${run}`, links: [{ label: 'x', url: 'javascript:alert(1)' }] })).rejects.toThrow()
+    })
+
+    it('keeps its Grove identity once set and refuses a second record with the same Grove id', async () => {
+      const gid = `g-${run}`
+      const one = await make<{ id: string | number; slug: string }>('contributors', { name: `Grove One ${run}`, slug: `grove-one-${run}`, legacy: { legacyPath: `/people/grove-one-${run}`, groveId: gid } })
+      await expect(make('contributors', { name: `Grove Two ${run}`, slug: `grove-two-${run}`, legacy: { legacyPath: `/people/grove-two-${run}`, groveId: gid } })).rejects.toThrow()
+      await expect(
+        payload.update({ collection: 'contributors', id: one.id, data: { legacy: { groveId: `other-${run}` } } as never, overrideAccess: true, context: ctx, user: { id: 1, collection: 'users' } as never }),
+      ).rejects.toThrow()
+    })
+  })
 })

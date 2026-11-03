@@ -69,11 +69,10 @@ export interface Config {
   collections: {
     pages: Page;
     posts: Post;
-    'live-posts': LivePost;
     'live-updates': LiveUpdate;
     events: Event;
     'event-categories': EventCategory;
-    'event-submissions': EventSubmission;
+    'submission-rate-limits': SubmissionRateLimit;
     'event-submission-images': EventSubmissionImage;
     media: Media;
     audio: Audio;
@@ -81,6 +80,7 @@ export interface Config {
     sections: Section;
     categories: Category;
     contributors: Contributor;
+    sites: Site;
     'publishing-identities': PublishingIdentity;
     fellowships: Fellowship;
     series: Series;
@@ -101,6 +101,9 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    posts: {
+      'live.updates': 'live-updates';
+    };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
     };
@@ -108,11 +111,10 @@ export interface Config {
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
-    'live-posts': LivePostsSelect<false> | LivePostsSelect<true>;
     'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     'event-categories': EventCategoriesSelect<false> | EventCategoriesSelect<true>;
-    'event-submissions': EventSubmissionsSelect<false> | EventSubmissionsSelect<true>;
+    'submission-rate-limits': SubmissionRateLimitsSelect<false> | SubmissionRateLimitsSelect<true>;
     'event-submission-images': EventSubmissionImagesSelect<false> | EventSubmissionImagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
@@ -120,6 +122,7 @@ export interface Config {
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
+    sites: SitesSelect<false> | SitesSelect<true>;
     'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
     fellowships: FellowshipsSelect<false> | FellowshipsSelect<true>;
     series: SeriesSelect<false> | SeriesSelect<true>;
@@ -149,6 +152,8 @@ export interface Config {
     homepage: Homepage;
     'site-settings': SiteSetting;
     'support-page': SupportPage;
+    'unearthing-hub': UnearthingHub;
+    'voyager-hub': VoyagerHub;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -156,6 +161,8 @@ export interface Config {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
+    'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
+    'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
   };
   locale: null;
   widgets: {
@@ -389,7 +396,7 @@ export interface Post {
    * The byline.
    */
   contributors?: (number | Contributor)[] | null;
-  format: 'web' | 'audio' | 'video';
+  format: 'web' | 'audio' | 'video' | 'live';
   /**
    * The sentence or two under the headline.
    */
@@ -402,8 +409,51 @@ export interface Post {
    * Attach, don't paste: funder acknowledgments follow from this.
    */
   fellowship?: (number | null) | Fellowship;
+  /**
+   * For a live blog (format: Live blog). The words above the updates go in Content; post the updates themselves under "Updates" below.
+   */
+  live?: {
+    /**
+     * Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record. Only a publisher can end a blog.
+     */
+    coverage?: ('live' | 'ended') | null;
+    /**
+     * Set when the blog is ended.
+     */
+    endedAt?: string | null;
+    /**
+     * Up to three updates to keep at the top, above the newest. Choose from this blog's updates.
+     */
+    pinned?: (number | LiveUpdate)[] | null;
+    /**
+     * Every update in this blog. Use "Create new" to post one; it is live as soon as it is saved.
+     */
+    updates?: {
+      docs?: (number | LiveUpdate)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
+  };
   series?: (number | null) | Series;
   production?: (number | null) | Production;
+  /**
+   * Unearthing Florida: the place this episode is about. Shown on the hub's map.
+   */
+  site?: (number | null) | Site;
+  /**
+   * Unearthing Florida: where this episode falls on the timeline.
+   */
+  period?:
+    | (
+        | 'paleoindian-archaic'
+        | 'woodland-mississippian'
+        | 'first-spanish'
+        | 'british-west-florida'
+        | 'second-spanish'
+        | 'territory-statehood'
+        | 'civil-war'
+      )
+    | null;
   /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
@@ -807,12 +857,56 @@ export interface Contributor {
    * For example "Coastal Futures Fellow".
    */
   title?: string | null;
+  /**
+   * One or two sentences, shown under the name on their page and on a byline.
+   */
   bio?: string | null;
+  /**
+   * The longer version, shown on their page under the short bio. Optional.
+   */
+  biography?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Their own site and social accounts, shown on their page. Only http(s) addresses.
+   */
+  links?:
+    | {
+        label: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
   photo?: (number | null) | Media;
   /**
    * Shown when there is no photo. Defaults to the name's initials.
    */
   initials?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from, e.g. /people/rachel-cramer. Set by the migration and then fixed.
+     */
+    legacyPath?: string | null;
+    /**
+     * Grove's contentId for this person. Set by the migration and then fixed; a re-run matches on it.
+     */
+    groveId?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -977,6 +1071,59 @@ export interface Sponsor {
   createdAt: string;
 }
 /**
+ * Post an update to a live blog. It is live as soon as you save.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-updates".
+ */
+export interface LiveUpdate {
+  id: number;
+  livePost: number | Post;
+  headline: string;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * When this happened or was posted. Defaults to now.
+   */
+  postedAt: string;
+  /**
+   * Set automatically when the words are changed after posting; readers see "Updated".
+   */
+  editedAt?: string | null;
+  /**
+   * Optional. Leave empty and the update carries no byline.
+   */
+  authors?: (number | Contributor)[] | null;
+  /**
+   * The part of the address after # that links straight to this update. Made from the headline; it never changes by itself.
+   */
+  anchor?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * Grove's id for this update. Fixed once set; a re-run matches on it.
+     */
+    postId?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * An editorial series such as "After Isaias". May carry an agreement; many do not.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1067,6 +1214,47 @@ export interface Production {
    * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
    */
   agreements?: (number | UnderwritingAgreement)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Places Unearthing Florida episodes are about. Each appears as a pin on the hub's map.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sites".
+ */
+export interface Site {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * The label beside the pin. Defaults to the name.
+   */
+  short?: string | null;
+  /**
+   * Town or area, e.g. "Tallahassee".
+   */
+  place: string;
+  /**
+   * Used by the hub's era filter.
+   */
+  era: 'native' | 'spanish' | 'british' | 'american';
+  /**
+   * One or two sentences, shown when the pin is chosen.
+   */
+  description?: string | null;
+  /**
+   * 0 is the west edge, 100 the east.
+   */
+  mapX?: number | null;
+  /**
+   * 0 is the north edge, 100 the south.
+   */
+  mapY?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1394,137 +1582,7 @@ export interface Form {
   createdAt: string;
 }
 /**
- * A page that gathers timestamped updates on a fast-moving event. Post the updates under "Live updates".
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-posts".
- */
-export interface LivePost {
-  id: number;
-  title: string;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record.
-   */
-  coverage: 'live' | 'ended';
-  /**
-   * Set when the blog is ended.
-   */
-  endedAt?: string | null;
-  /**
-   * One or two sentences for search results and sharing.
-   */
-  description?: string | null;
-  /**
-   * The picture, gallery or video that opens the page. Optional.
-   */
-  featuredMedia?: (MediaBlock | GalleryBlock | VideoPlayerBlock | EmbedBlock)[] | null;
-  /**
-   * What this is and why it matters, shown above the updates. Optional.
-   */
-  intro?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Up to three updates to keep at the top, above the newest. Choose from this blog's updates.
-   */
-  pinned?: (number | LiveUpdate)[] | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * The Grove path this came from. Set by the migration and then fixed.
-     */
-    legacyPath?: string | null;
-    /**
-     * Grove's contentId for this page. Set by the migration and then fixed; a re-run matches on it.
-     */
-    groveId?: string | null;
-    /**
-     * When Grove last modified this page.
-     */
-    modifiedAt?: string | null;
-    /**
-     * When the blog was started (Grove's published date). New blogs use the publish date.
-     */
-    startedAt?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * Post an update to a live blog. It is live as soon as you save.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-updates".
- */
-export interface LiveUpdate {
-  id: number;
-  livePost: number | LivePost;
-  headline: string;
-  body: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  /**
-   * When this happened or was posted. Defaults to now.
-   */
-  postedAt: string;
-  /**
-   * Set automatically when the words are changed after posting; readers see "Updated".
-   */
-  editedAt?: string | null;
-  /**
-   * Optional. Leave empty and the update carries no byline.
-   */
-  authors?: (number | Contributor)[] | null;
-  /**
-   * The part of the address after # that links straight to this update. Made from the headline; it never changes by itself.
-   */
-  anchor?: string | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * Grove's id for this update. Fixed once set; a re-run matches on it.
-     */
-    postId?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Events on the community calendar. Saving a draft is private; publishing makes it public.
+ * Events on the community calendar, including those sent in through the public form (they arrive as drafts marked "Pending review"). Saving a draft is private; publishing approves it and makes it public.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "events".
@@ -1654,6 +1712,37 @@ export interface Event {
    */
   submissionId?: string | null;
   /**
+   * For events sent in through the public form. Staff only. Publishing the event approves it.
+   */
+  review?: {
+    /**
+     * Empty for an event staff made. "Approved" is set by publishing, which only a publisher can do; it cannot be chosen here.
+     */
+    status?: ('pending' | 'needs-info' | 'rejected' | 'approved') | null;
+    /**
+     * Things the station's guidelines ask a reviewer to check. Advisory; recomputed on every save.
+     */
+    concerns?: string | null;
+    /**
+     * For staff only. Nothing is sent to the submitter.
+     */
+    note?: string | null;
+    reviewedBy?: (number | null) | User;
+    reviewedAt?: string | null;
+  };
+  /**
+   * For questions about the event only. Staff only: never shown on the site, never in the public API.
+   */
+  submitter?: {
+    name?: string | null;
+    email?: string | null;
+    role?: ('listener' | 'venue' | 'artist' | 'promoter') | null;
+  };
+  /**
+   * The picture that came with the submission. It is private. To use it, add it to the media library with alt text and choose it as the event's picture.
+   */
+  submittedImage?: (number | null) | EventSubmissionImage;
+  /**
    * Set by the migration. Leave empty for new events.
    */
   legacy?: {
@@ -1695,138 +1784,6 @@ export interface EventCategory {
      * Grove's id for this category (used in its filter addresses).
      */
     groveId?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Events sent in through the public form. Review, edit, then set the status to Approved to put it on the calendar (publishers only).
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-submissions".
- */
-export interface EventSubmission {
-  id: number;
-  /**
-   * Approving makes the event live at once, so only a publisher can. It cannot be undone here; edit or unpublish the event instead.
-   */
-  status: 'pending' | 'needs-info' | 'approved' | 'rejected';
-  /**
-   * Things the station's guidelines ask a reviewer to check. Advisory.
-   */
-  concerns?: string | null;
-  /**
-   * For staff only. Nothing is sent to the submitter.
-   */
-  reviewNote?: string | null;
-  reviewedBy?: (number | null) | User;
-  reviewedAt?: string | null;
-  /**
-   * The live event made from this submission.
-   */
-  event?: (number | null) | Event;
-  clientKey?: string | null;
-  title: string;
-  categories: (number | EventCategory)[];
-  /**
-   * Plain text. Blank lines make paragraphs.
-   */
-  description?: string | null;
-  schedule: {
-    kind: 'once' | 'daily' | 'weekly' | 'monthly' | 'listed';
-    /**
-     * YYYY-MM-DD.
-     */
-    date?: string | null;
-    /**
-     * YYYY-MM-DD.
-     */
-    startDate?: string | null;
-    /**
-     * YYYY-MM-DD.
-     */
-    endDate?: string | null;
-    /**
-     * 24-hour HH:MM, station time (Central), for example 19:30.
-     */
-    start?: string | null;
-    /**
-     * 24-hour HH:MM. Optional for a one-time event.
-     */
-    end?: string | null;
-    /**
-     * Counted from the week of the first date. 1 is every week.
-     */
-    everyWeeks?: number | null;
-    slots?:
-      | {
-          day: '0' | '1' | '2' | '3' | '4' | '5' | '6';
-          /**
-           * 24-hour HH:MM, station time (Central), for example 19:30.
-           */
-          start?: string | null;
-          /**
-           * 24-hour HH:MM, station time (Central), for example 19:30.
-           */
-          end?: string | null;
-          id?: string | null;
-        }[]
-      | null;
-    everyMonths?: number | null;
-    nth?: ('1' | '2' | '3' | '4' | 'last') | null;
-    weekday?: ('0' | '1' | '2' | '3' | '4' | '5' | '6') | null;
-    /**
-     * The date text exactly as Grove showed it. When this is set the event page shows it instead of the sentence made from the fields above.
-     */
-    displayText?: string | null;
-    /**
-     * Grove did not give a start date for this run; the date it was submitted was used. Check it, then clear this.
-     */
-    startEstimated?: boolean | null;
-  };
-  venue: {
-    name: string;
-    street?: string | null;
-    city?: string | null;
-    /**
-     * Two-letter code, for example FL.
-     */
-    state?: string | null;
-    zip?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    website?: string | null;
-  };
-  organization?: {
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    website?: string | null;
-    designation?: ('n-a' | 'not-for-profit' | 'for-profit') | null;
-  };
-  artist?: {
-    name?: string | null;
-    email?: string | null;
-    website?: string | null;
-  };
-  /**
-   * As written, for example $25-40.
-   */
-  price?: string | null;
-  free?: boolean | null;
-  priceNotes?: string | null;
-  ticketUrl?: string | null;
-  /**
-   * The picture that came with the submission. It is private. To use it, add it to the media library with alt text and attach it to the event.
-   */
-  image?: (number | null) | EventSubmissionImage;
-  /**
-   * For questions about the event only. Never shown on the site and never copied to the event.
-   */
-  submitter: {
-    name?: string | null;
-    email: string;
-    role?: ('listener' | 'venue' | 'artist' | 'promoter') | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -1890,6 +1847,16 @@ export interface EventSubmissionImage {
   focalX?: number | null;
   focalY?: number | null;
   sizes?: {};
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-rate-limits".
+ */
+export interface SubmissionRateLimit {
+  id: number;
+  key: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2103,10 +2070,6 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
-        relationTo: 'live-posts';
-        value: number | LivePost;
-      } | null)
-    | ({
         relationTo: 'live-updates';
         value: number | LiveUpdate;
       } | null)
@@ -2119,8 +2082,8 @@ export interface PayloadLockedDocument {
         value: number | EventCategory;
       } | null)
     | ({
-        relationTo: 'event-submissions';
-        value: number | EventSubmission;
+        relationTo: 'submission-rate-limits';
+        value: number | SubmissionRateLimit;
       } | null)
     | ({
         relationTo: 'event-submission-images';
@@ -2149,6 +2112,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'contributors';
         value: number | Contributor;
+      } | null)
+    | ({
+        relationTo: 'sites';
+        value: number | Site;
       } | null)
     | ({
         relationTo: 'publishing-identities';
@@ -2438,8 +2405,18 @@ export interface PostsSelect<T extends boolean = true> {
   dek?: T;
   publishingIdentity?: T;
   fellowship?: T;
+  live?:
+    | T
+    | {
+        coverage?: T;
+        endedAt?: T;
+        pinned?: T;
+        updates?: T;
+      };
   series?: T;
   production?: T;
+  site?: T;
+  period?: T;
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -2490,39 +2467,6 @@ export interface EmbedBlockSelect<T extends boolean = true> {
   caption?: T;
   id?: T;
   blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-posts_select".
- */
-export interface LivePostsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  coverage?: T;
-  endedAt?: T;
-  description?: T;
-  featuredMedia?:
-    | T
-    | {
-        mediaBlock?: T | MediaBlockSelect<T>;
-        gallery?: T | GalleryBlockSelect<T>;
-        videoPlayer?: T | VideoPlayerBlockSelect<T>;
-        embed?: T | EmbedBlockSelect<T>;
-      };
-  intro?: T;
-  pinned?: T;
-  legacy?:
-    | T
-    | {
-        legacyPath?: T;
-        groveId?: T;
-        modifiedAt?: T;
-        startedAt?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2614,6 +2558,23 @@ export interface EventsSelect<T extends boolean = true> {
   firstDate?: T;
   lastDate?: T;
   submissionId?: T;
+  review?:
+    | T
+    | {
+        status?: T;
+        concerns?: T;
+        note?: T;
+        reviewedBy?: T;
+        reviewedAt?: T;
+      };
+  submitter?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        role?: T;
+      };
+  submittedImage?: T;
   legacy?:
     | T
     | {
@@ -2644,83 +2605,10 @@ export interface EventCategoriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-submissions_select".
+ * via the `definition` "submission-rate-limits_select".
  */
-export interface EventSubmissionsSelect<T extends boolean = true> {
-  status?: T;
-  concerns?: T;
-  reviewNote?: T;
-  reviewedBy?: T;
-  reviewedAt?: T;
-  event?: T;
-  clientKey?: T;
-  title?: T;
-  categories?: T;
-  description?: T;
-  schedule?:
-    | T
-    | {
-        kind?: T;
-        date?: T;
-        startDate?: T;
-        endDate?: T;
-        start?: T;
-        end?: T;
-        everyWeeks?: T;
-        slots?:
-          | T
-          | {
-              day?: T;
-              start?: T;
-              end?: T;
-              id?: T;
-            };
-        everyMonths?: T;
-        nth?: T;
-        weekday?: T;
-        displayText?: T;
-        startEstimated?: T;
-      };
-  venue?:
-    | T
-    | {
-        name?: T;
-        street?: T;
-        city?: T;
-        state?: T;
-        zip?: T;
-        email?: T;
-        phone?: T;
-        website?: T;
-      };
-  organization?:
-    | T
-    | {
-        name?: T;
-        email?: T;
-        phone?: T;
-        website?: T;
-        designation?: T;
-      };
-  artist?:
-    | T
-    | {
-        name?: T;
-        email?: T;
-        website?: T;
-      };
-  price?: T;
-  free?: T;
-  priceNotes?: T;
-  ticketUrl?: T;
-  image?: T;
-  submitter?:
-    | T
-    | {
-        name?: T;
-        email?: T;
-        role?: T;
-      };
+export interface SubmissionRateLimitsSelect<T extends boolean = true> {
+  key?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2946,8 +2834,39 @@ export interface ContributorsSelect<T extends boolean = true> {
   slug?: T;
   title?: T;
   bio?: T;
+  biography?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
   photo?: T;
   initials?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sites_select".
+ */
+export interface SitesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  short?: T;
+  place?: T;
+  era?: T;
+  description?: T;
+  mapX?: T;
+  mapY?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3679,6 +3598,99 @@ export interface SupportPage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub".
+ */
+export interface UnearthingHub {
+  id: number;
+  /**
+   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  production?: (number | null) | Production;
+  /**
+   * The small line above the title, e.g. "Northwest Florida to the Keys".
+   */
+  dateline?: string | null;
+  /**
+   * The "About the project" box: who makes it, since when, when it airs.
+   */
+  about?: string | null;
+  /**
+   * The episode shown large with its player. Empty means the newest episode.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Pairs a history episode with today's reporting on the same place. Leave the pairs empty to hide the band.
+   */
+  thenNow?: {
+    /**
+     * For example "People have rebuilt on this coast after storms for 500 years."
+     */
+    heading?: string | null;
+    blurb?: string | null;
+    pairs?:
+      | {
+          then: number | Post;
+          now: number | Post;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub".
+ */
+export interface VoyagerHub {
+  id: number;
+  /**
+   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  identity?: (number | null) | PublishingIdentity;
+  tagline?: string | null;
+  /**
+   * The large story at the top. Empty means the newest Voyager story.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * A Voyager podcast to show in the Multimedia band. Optional.
+   */
+  podcast?: (number | null) | Production;
+  /**
+   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
+   */
+  staff?:
+    | {
+        person: number | Contributor;
+        /**
+         * Their role this term, e.g. "News editor". Empty uses their title.
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  join?: {
+    heading?: string | null;
+    /**
+     * Say only what is true this term (who can join, whether editor roles are paid).
+     */
+    text?: string | null;
+    /**
+     * Where "Join the newsroom" goes. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  footnote?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -3859,6 +3871,61 @@ export interface SupportPageSelect<T extends boolean = true> {
         id?: T;
       };
   giftNotice?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub_select".
+ */
+export interface UnearthingHubSelect<T extends boolean = true> {
+  production?: T;
+  dateline?: T;
+  about?: T;
+  featured?: T;
+  thenNow?:
+    | T
+    | {
+        heading?: T;
+        blurb?: T;
+        pairs?:
+          | T
+          | {
+              then?: T;
+              now?: T;
+              id?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub_select".
+ */
+export interface VoyagerHubSelect<T extends boolean = true> {
+  identity?: T;
+  tagline?: T;
+  featured?: T;
+  sections?: T;
+  podcast?: T;
+  staff?:
+    | T
+    | {
+        person?: T;
+        role?: T;
+        id?: T;
+      };
+  join?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        href?: T;
+      };
+  footnote?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

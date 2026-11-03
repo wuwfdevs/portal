@@ -28,6 +28,7 @@ export const plugins: Plugin[] = [
   redirectsPlugin({
     collections: ['pages', 'posts'],
     overrides: {
+      admin: { group: 'System' },
       // A redirect reroutes a live URL, so changing one is publishing.
       access: {
         read: () => true,
@@ -66,7 +67,9 @@ export const plugins: Plugin[] = [
     fields: {
       payment: false,
     },
+    formSubmissionOverrides: { admin: { group: 'System' } },
     formOverrides: {
+      admin: { group: 'System' },
       access: {
         read: () => true,
         create: requirePermission('content.write'),
@@ -98,6 +101,7 @@ export const plugins: Plugin[] = [
     collections: ['posts'],
     beforeSync: beforeSyncWithSearch,
     searchOverrides: {
+      admin: { group: 'System' },
       fields: ({ defaultFields }) => {
         return [...defaultFields, ...searchFields]
       },

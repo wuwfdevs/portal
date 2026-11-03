@@ -57,6 +57,22 @@ pnpm exec tsx scripts/grove/import.ts --raw ~/grove/raw --cache ~/grove/cache --
 Then look at those stories on the staging site: pictures and audio load, the byline and section are right, the path matches
 Grove's. Fix what is wrong before the full run.
 
+### If files are missing from the bucket (staging)
+
+The save phase now checks storage itself: before saving anything it writes, reads back and deletes one small object in the bucket
+(and refuses a hosted database unless the S3 settings are complete and active), and after every file it asks the bucket for each
+object the record needs. A file that did not arrive fails the story instead of counting it as saved. The first staging rehearsal
+saved 38 stories whose files never reached the bucket (one Payload context object was shared by every call, and the storage plugin
+leaves state on it, so uploads stopped after the first; see the comment in `import.ts`). To repair records left like that:
+
+```bash
+set -a; source ~/grove/staging.env; set +a
+pnpm exec tsx scripts/grove/staging-repair-files.ts --cache ~/grove/cache            # dry run: reports, changes nothing
+pnpm exec tsx scripts/grove/staging-repair-files.ts --cache ~/grove/cache --apply    # re-uploads the missing files, same names
+```
+
+It runs only against the staging project (an allow-list of one), and deletes nothing.
+
 ## 3. The full import into production (owner's approval first)
 
 Production is this project's real database. Apply its migrations deliberately first (`pnpm payload migrate` with the production
@@ -71,3 +87,7 @@ pnpm exec tsx scripts/grove/import.ts --raw ~/grove/raw --cache ~/grove/cache --
 The report (`import-report.json` in the cache folder) lists what was saved, what was already there, which stories are held and
 why, and every decision the importer made for the owner to review (stories filed by path, credited to "WUWF Staff", extra
 byline names). A held story is fixed or decided by a person, then the same command is run again.
+
+## Author profiles follow the stories
+
+A profile is saved only when a story in the run credits that person (matched on `/people/<slug>`). Other people (NPR or other-station contributors who never wrote for WUWF) are skipped by rule and counted as `authorsSkippedByRule` in the report, not held. Their `/people/` addresses are not carried over; owner to decide whether they redirect.

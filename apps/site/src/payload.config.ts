@@ -13,11 +13,13 @@ import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
+import { Sites } from './collections/Sites'
+import { UnearthingHub } from './UnearthingHub/config'
+import { VoyagerHub } from './VoyagerHub/config'
 import { EventCategories } from './collections/Events/EventCategories'
 import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
-import { EventSubmissions } from './collections/Events/EventSubmissions'
+import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
 import { Events } from './collections/Events/Events'
-import { LivePosts } from './collections/Live/LivePosts'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
@@ -85,11 +87,10 @@ export default buildConfig({
   collections: [
     Pages,
     Posts,
-    LivePosts,
     LiveUpdates,
     Events,
     EventCategories,
-    EventSubmissions,
+    SubmissionRateLimits,
     EventSubmissionImages,
     Media,
     Audio,
@@ -97,6 +98,7 @@ export default buildConfig({
     Sections,
     Categories,
     Contributors,
+    Sites,
     PublishingIdentities,
     Fellowships,
     Series,
@@ -107,7 +109,7 @@ export default buildConfig({
     PortalSignIns,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,
