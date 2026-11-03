@@ -9,7 +9,7 @@ design canvas are described under *Sources* below.
 
 ## Resume here (end of the 2026-11-03 session)
 
-**Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed; no PR is open (open one only when the owner asks). Everything below is committed.
+**Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
 **Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
 program is under *The build program*. **Phases 1 and 2 are done** (standard pages; shows, episodes, podcast directory). **Next: phase 3,
