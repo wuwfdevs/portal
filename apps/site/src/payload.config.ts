@@ -18,7 +18,7 @@ import { UnearthingHub } from './UnearthingHub/config'
 import { VoyagerHub } from './VoyagerHub/config'
 import { EventCategories } from './collections/Events/EventCategories'
 import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
-import { EventSubmissions } from './collections/Events/EventSubmissions'
+import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
 import { Events } from './collections/Events/Events'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
@@ -90,7 +90,7 @@ export default buildConfig({
     LiveUpdates,
     Events,
     EventCategories,
-    EventSubmissions,
+    SubmissionRateLimits,
     EventSubmissionImages,
     Media,
     Audio,

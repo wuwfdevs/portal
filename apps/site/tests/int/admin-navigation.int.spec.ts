@@ -18,7 +18,7 @@ describe('admin navigation', async () => {
 
   it('hides the live updates link, because updates are posted from inside their blog', () => {
     expect(collections.find((c) => c.slug === 'live-updates')?.admin?.group).toBe(false)
-    expect(collections.some((c) => c.slug === 'live-posts')).toBe(false)
+    expect(collections.map((c) => String(c.slug))).not.toContain('live-posts')
   })
 
   it('puts every global in a group', () => {

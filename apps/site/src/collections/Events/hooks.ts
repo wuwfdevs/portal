@@ -7,7 +7,7 @@ import { pathTaken } from '@/hooks/pathHooks'
 import { checkPath } from '@/lib/paths'
 import { revalidatePath } from '@/lib/revalidate'
 import type { SubmissionValue } from '@/lib/events/submission'
-import { EVENT_PATH_PREFIX, boundsOfStored, eventFromSubmission, eventPathBase, reviewConcerns, scheduleFromStored, type StoredSchedule } from '@/lib/events/stored'
+import { EVENT_PATH_PREFIX, boundsOfStored, eventPathBase, reviewConcerns, scheduleFromStored, type StoredSchedule } from '@/lib/events/stored'
 
 const blank = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v.trim() : null)
 const idOf = (ref: unknown): string | number | null => {
@@ -86,11 +86,18 @@ export const revalidateEventDelete: CollectionAfterDeleteHook = ({ doc, req: { c
   return doc
 }
 
-// ---- submissions ----------------------------------------------------------------------------------------------------------
+// ---- review (an event sent in through the public form) ------------------------------------------------------------------------
 
-const STATUS_LABEL: Record<string, string> = { pending: 'pending', 'needs-info': 'needs information', approved: 'approved', rejected: 'rejected' }
+/** The words of an editor's rich text, for the advisory checks (the number of links, say). */
+function plainOf(node: unknown): string {
+  if (!node || typeof node !== 'object') return ''
+  const n = node as Loose
+  if (typeof n.text === 'string') return n.text
+  const kids = Array.isArray(n.children) ? n.children : n.root ? [n.root] : []
+  return kids.map(plainOf).join(n.type === 'paragraph' ? '\n\n' : ' ')
+}
 
-/** A stored submission as the typed value the rules in `lib/events` work with. Categories stay as ids (the caller maps them). */
+/** A stored event, with the submitter and review, as the typed value the rules in `lib/events` work with. Categories stay as ids. */
 function valueOf(doc: Loose): SubmissionValue {
   const g = (o: unknown): Loose => (o && typeof o === 'object' ? (o as Loose) : {})
   const v = g(doc.venue)
@@ -102,7 +109,7 @@ function valueOf(doc: Loose): SubmissionValue {
     venue: { name: String(v.name ?? ''), street: v.street ?? null, city: v.city ?? null, state: v.state ?? null, zip: v.zip ?? null, email: v.email ?? null, phone: v.phone ?? null, website: v.website ?? null },
     schedule: scheduleFromStored(doc.schedule),
     categories: (Array.isArray(doc.categories) ? doc.categories : []).map((c: unknown) => String(idOf(c))),
-    description: blank(doc.description),
+    description: blank(plainOf(doc.description)),
     price: { text: blank(doc.price), free: Boolean(doc.free), additional: blank(doc.priceNotes) },
     ticketUrl: blank(doc.ticketUrl),
     organization: { name: o.name ?? null, email: o.email ?? null, phone: o.phone ?? null, website: o.website ?? null, designation: o.designation ?? 'n-a' },
@@ -112,75 +119,56 @@ function valueOf(doc: Loose): SubmissionValue {
 }
 
 /**
- * The review rules for a submission, in one place:
+ * The review rules for an event that has a review status (one sent in through the form), in one place. Events staff made and
+ * Grove's are not touched.
  *  - concerns (advisory notes from the station's guidelines) are recomputed on every save;
  *  - changing the status records who and when;
- *  - an approved submission is final: the event exists, and is edited as an event;
- *  - only a publisher can approve, because approving makes the event live (a script with no signed-in user may);
- *  - approving creates the event, published, in the same transaction, and links it back. The submitter's contact details
- *    never leave the submission.
+ *  - "Approved" cannot be chosen: publishing is approving. Only a publisher can publish (the publish guard), so approval
+ *    needs that permission, and it needs a title, a category and dates that could be read;
+ *  - publishing marks the review approved.
  */
-export const submissionBeforeChange: CollectionBeforeChangeHook = async ({ data, originalDoc, req, operation }) => {
+export const eventReviewBeforeChange: CollectionBeforeChangeHook = async ({ data, originalDoc, req, operation }) => {
   if (operation !== 'create' && operation !== 'update') return data
-  const before = (originalDoc?.status as string | undefined) ?? undefined
-  const next = (data.status ?? before ?? 'pending') as string
-  const merged = { ...(originalDoc ?? {}), ...data } as Loose
+  const before = (originalDoc?.review as Loose | undefined)?.status as string | undefined
+  const review = { ...((originalDoc?.review as Loose | undefined) ?? {}), ...((data.review as Loose | undefined) ?? {}) }
+  const next = review.status as string | undefined
+  if (!next) return data // not an event from the form
 
-  if (before === 'approved' && next !== 'approved') {
-    throw new APIError('An approved submission cannot be changed back. Edit the event it made instead.', 403, undefined, true)
+  const nowPublished = (data._status ?? originalDoc?._status) === 'published'
+  const wasPublished = originalDoc?._status === 'published'
+  if (next === 'approved' && !nowPublished) {
+    throw new APIError('An event is approved by publishing it. Choose another status, or publish the event (publishers only).', 400, undefined, true)
   }
+
+  const merged = { ...(originalDoc ?? {}), ...data } as Loose
   const value = valueOf(merged)
   const first = boundsOfStored(merged.schedule as StoredSchedule)?.first
   let duplicate = false
   if (first && value.title) {
-    const found = await req.payload.count({ collection: 'events', where: { and: [{ title: { equals: value.title } }, { firstDate: { equals: first } }] }, overrideAccess: true, req })
-    duplicate = found.totalDocs > 0
+    const others = await req.payload.count({
+      collection: 'events',
+      where: { and: [{ title: { equals: value.title } }, { firstDate: { equals: first } }, { _status: { equals: 'published' } }, ...(originalDoc?.id !== undefined ? [{ id: { not_equals: originalDoc.id } }] : [])] },
+      overrideAccess: true,
+      req,
+    })
+    duplicate = others.totalDocs > 0
   }
-  data.concerns = reviewConcerns(value, { duplicate }).join('\n') || null
+  review.concerns = reviewConcerns(value, { duplicate }).join('\n') || null
 
-  if (next !== (before ?? 'pending')) {
-    data.reviewedBy = req.user?.id ?? null
-    data.reviewedAt = new Date().toISOString()
-  }
-
-  if (next === 'approved' && before !== 'approved') {
-    if (req.user && !userCan(req.user as Roles, 'content.publish')) {
-      throw new APIError(`Only a publisher can approve an event (it goes live at once). You can edit it, ask for information, or reject it. This one is ${STATUS_LABEL[before ?? 'pending']}.`, 403, undefined, true)
-    }
+  if (nowPublished && !wasPublished) {
     const problems: string[] = []
     if (value.schedule.kind === 'listed') problems.push('Give it valid dates first (see "When").')
     if (!value.title) problems.push('It needs a title.')
     if (!value.categories.length) problems.push('Choose at least one category.')
-    if (problems.length) throw new ValidationError({ collection: 'event-submissions', errors: problems.map((message) => ({ message, path: 'status' })), req }, req.t)
-
-    if (!merged.event) {
-      const ids = new Map(value.categories.map((c) => [c, merged.categories.map(idOf).find((x: string | number | null) => String(x) === c)!] as const))
-      const e = eventFromSubmission(value, ids)
-      const created = await req.payload.create({
-        collection: 'events',
-        data: {
-          _status: 'published',
-          title: e.title,
-          teaser: e.teaser,
-          description: e.description as never,
-          categories: e.categories as never,
-          schedule: e.schedule as never,
-          venue: e.venue as never,
-          organization: e.organization as never,
-          artist: e.artist as never,
-          price: e.price,
-          free: e.free,
-          priceNotes: e.priceNotes,
-          ticketUrl: e.ticketUrl,
-          submissionId: originalDoc?.id !== undefined ? String(originalDoc.id) : null,
-        },
-        draft: false,
-        overrideAccess: true,
-        req,
-      })
-      data.event = created.id
-    }
+    if (problems.length) throw new ValidationError({ collection: 'events', errors: problems.map((message) => ({ message, path: 'schedule' })), req }, req.t)
+    review.status = 'approved'
+    review.reviewedBy = req.user?.id ?? null
+    review.reviewedAt = new Date().toISOString()
+  } else if (next !== (before ?? 'pending') && next !== 'approved') {
+    review.reviewedBy = req.user?.id ?? null
+    review.reviewedAt = new Date().toISOString()
   }
+  data.review = review
   return data
 }
 

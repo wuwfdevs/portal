@@ -19,6 +19,8 @@ import * as migration_20261103_052450_author_profiles from './20261103_052450_au
 import * as migration_20261103_052904_hubs from './20261103_052904_hubs';
 import * as migration_20261103_170456_live_blog_story_fields from './20261103_170456_live_blog_story_fields';
 import * as migration_20261103_170521_remove_live_blogs_collection from './20261103_170521_remove_live_blogs_collection';
+import * as migration_20261103_172011_event_review_fields from './20261103_172011_event_review_fields';
+import * as migration_20261103_172027_remove_event_submissions from './20261103_172027_remove_event_submissions';
 
 export const migrations = [
   {
@@ -124,6 +126,16 @@ export const migrations = [
   {
     up: migration_20261103_170521_remove_live_blogs_collection.up,
     down: migration_20261103_170521_remove_live_blogs_collection.down,
-    name: '20261103_170521_remove_live_blogs_collection'
+    name: '20261103_170521_remove_live_blogs_collection',
+  },
+  {
+    up: migration_20261103_172011_event_review_fields.up,
+    down: migration_20261103_172011_event_review_fields.down,
+    name: '20261103_172011_event_review_fields',
+  },
+  {
+    up: migration_20261103_172027_remove_event_submissions.up,
+    down: migration_20261103_172027_remove_event_submissions.down,
+    name: '20261103_172027_remove_event_submissions'
   },
 ];
