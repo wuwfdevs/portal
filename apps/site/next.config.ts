@@ -53,6 +53,8 @@ const nextConfig: NextConfig = {
   // A trailing slash redirects (308) to the path without one: the canonical address is the path itself.
   trailingSlash: false,
   reactStrictMode: true,
+  // The community-calendar form can carry a picture of up to 4 MB (and the platform refuses a request over 4.5 MB anyway).
+  experimental: { serverActions: { bodySizeLimit: '5mb' } },
   redirects,
   turbopack: {
     // The pnpm workspace root, not this app: dependencies are symlinks into the root node_modules.

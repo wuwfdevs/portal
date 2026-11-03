@@ -23,7 +23,7 @@ export const storagePlugin = s3Storage({
   alwaysInsertFields: true,
   bucket: bucket ?? 'not-configured',
   clientUploads: true,
-  collections: { media: { prefix: 'media' }, audio: { prefix: 'audio' }, video: { prefix: 'video' } },
+  collections: { media: { prefix: 'media' }, audio: { prefix: 'audio' }, video: { prefix: 'video' }, 'event-submission-images': { prefix: 'event-submission-images' } },
   config: {
     endpoint: process.env.S3_ENDPOINT,
     region: process.env.S3_REGION ?? 'us-east-1',

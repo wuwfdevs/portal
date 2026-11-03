@@ -9,9 +9,11 @@ import type { Page, Post } from '@/payload-types'
 
 import { StoryView } from '@/components/Article/StoryView'
 import { PageView } from '@/components/PageView'
+import { EventView } from '@/components/Events/EventView'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { ShowView } from '@/components/Show/ShowView'
 import { StoryListView } from '@/components/StoryList/StoryListView'
+import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
 import { pathFromSegments } from '@/lib/paths'
@@ -43,6 +45,7 @@ type Result =
   | { kind: 'page'; doc: Pick<Page, 'hero' | 'layout' | 'meta'> & Partial<Page>; url: string }
   | { kind: 'list'; data: StoryListData; url: string }
   | { kind: 'show'; data: ShowData; url: string }
+  | { kind: 'event'; data: EventPageData; url: string }
   | { kind: 'miss'; url: string }
 
 /** `joined` is the request's segments joined with "/" (empty for "/"); a string, so React's cache can key on it. */
@@ -70,7 +73,11 @@ const resolveRequest = cache(async (joined: string, draft: boolean): Promise<Res
   const show = await loadShowByPath(path)
   if (show) return { kind: 'show', data: show, url: path }
 
-  // No story, page or show owns it: it may be a list (a section, a topic, a person), at its page number if it has one.
+  // A community-calendar event at its own address.
+  const event = await loadEventByPath(path)
+  if (event) return { kind: 'event', data: event, url: path }
+
+  // No story, page, show or event owns it: it may be a list (a section, a topic, a person), at its page number if it has one.
   const list = parseListRequest(segments)
   const data = list ? await loadStoryListFor(list) : null
   return data ? { kind: 'list', data, url: path } : { kind: 'miss', url: path }
@@ -85,6 +92,7 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   if (result.kind === 'miss') return <PayloadRedirects url={result.url} />
   if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
   if (result.kind === 'list') return <StoryListView data={result.data} />
+  if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'show') {
     const settings = await getCachedGlobal('site-settings', 1)()
     const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
@@ -98,6 +106,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const { path: segments } = await paramsPromise
   const result = await resolveRequest((segments ?? []).join('/'), draft)
   if (result.kind === 'show') return { title: result.data.show.title, description: result.data.show.summary ?? undefined }
+  if (result.kind === 'event') return { title: result.data.event.title, description: result.data.event.teaser ?? undefined, alternates: { canonical: result.url } }
   if (result.kind === 'list') {
     const { kind, slug, title, blurb, page } = result.data
     return {

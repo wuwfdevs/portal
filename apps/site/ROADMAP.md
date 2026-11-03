@@ -12,9 +12,9 @@ design canvas are described under *Sources* below.
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
 **Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
-program is under *The build program*. **Phases 1 and 2 are done** (standard pages; shows, episodes, podcast directory). **Next: phase 3,
-events** (Grove `EventPage`, 1,474 community-calendar events; the census has 10 samples), then 4 (author pages, 1,148, and the Unearthing
-Florida and Voyager hubs), 5 (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
+program is under *The build program*. **Phases 1, 2 and 3 are done** (standard pages; shows, episodes, podcast directory; the community
+calendar with public submissions and editorial approval: see *Community calendar*). **Next: phase 4**: author pages (Grove `AuthorPage`, 1,148;
+the census has 10 samples, and **no board designs them**), and the Unearthing Florida and Voyager hubs (boards 11, 13), then 5 (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
 sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
 homepage slots). The per-session task list does not survive; recreate it from that list. Pattern that worked for each phase: read the board and
 Grove's JSON for the page type, decide the data model (reuse an existing collection when the shape fits: a show is a production, an
@@ -96,6 +96,7 @@ sponsorship and listening are deferred.
 | Fellowship hub `/fellowships/[slug]` (board 4) | **First slice done** (2026-11-03): eyebrow, title, summary, a stats line, the funder panel (agreement lines whose term is running, read on the server), mission headline, mission and focus areas, the fellow, the latest story and all work (published only), and the "how it works" strip. All of it is edited on the fellowship record in the admin. Migration `20261103_023039`; 4 integration tests, 12 unit tests; checked in a browser at 1440 and 390 px. **Left out on purpose, because the features are not built:** follow, ask the fellowship a question and the open-questions list (listening, and the board's per-question "Me too" counts conflict with the no-public-tallies rule), the newsletter signup, explore by place, related coverage across WUWF, and "all of the fellow's work" (no contributor pages yet). The "how it works" copy is the board's, fixed in the component: the owner should confirm the wording |
 | **Live blogs** (`/live-updates/<slug>`): `live-posts` and `live-updates` collections, the page, polling, structured data, the Grove converter | **Built** (2026-11-03). A blog is a publishable record (a publisher opens and ends it; ending stamps the time); an update is its own record that an **editor** posts, live on save, with a stable anchor, a Central-time stamp, an automatic "Updated" label when its words change, optional bylines, up to three pinned. The page is cached and refreshed the moment an update is saved (so an emergency surge is served from cache); while a blog is live and the tab is visible it asks our own endpoint every 45 s and offers "New updates available" without moving the reader or refreshing by itself; an ended blog polls nothing. `LiveBlogPosting` data for search, no third-party scripts, comments left out. Migration `20261103_025619`; 8 integration + 18 unit tests; checked in a browser (real Isaias blog, 143 updates, at 1440 and 390 px, the polling prompt included). The converter turns all three archive blogs into 161 updates with no exceptions. **Not done:** importing them into the database (a step to add to the importer; the pages are fetched with `scripts/live-updates/probe.ts fetch`), a faster "post an update" screen than the standard create form, paging for a blog over 250 updates, live blogs in the sitemap, and the election blog check below |
 | **Shows, episodes and the podcast directory** (boards 9, 10; Grove `RadioShowPage` and `RadioShowEpisodePage`) | **Built** (2026-11-03). A **show is an original production** (the thing an underwriting agreement attaches to), extended with an exact address (`/show/<slug>` migrated, `/shows/<slug>` new; only a publisher can change it; it cannot collide with a story or page), tagline, schedule, hosts, description, a "listed" flag and Grove ids. An **episode is a story** (`format: audio`, the audio as its featured audio) that belongs to a show, so it reuses the story page, lists, search and importer; its page shows "Episode · <show>". Show page: tagline, summary, host/schedule/episode-count line, cover, funder panel (hub rules), the newest episode with its player, about, hosts, all episodes (newest 20), more originals. `/podcasts` lists every listed show with its count and newest episode, then the newest episodes. Both refresh when a show or episode is saved. Converters: `convertShowPage` and episodes through `convertStory` (the show comes from the page, else from the address, and is said so; an NPR-distributed show is not archived). Corpus: **1,513 stories convert (15 episodes), 1,509 clean, 4 flagged, 0 exceptions**. The importer saves shows first, then episodes attached to them (a minimal unlisted show is made, and reported, if an episode's own show page was not in the data). Migration `20261103_033745`; 7 integration + 9 unit tests; checked in a browser at 1440 and 390 px. **Left out (deferred or not built):** follow the show, leave a message (listening), email signup, transcripts, member feeds, related reporting; show-level podcast feed URLs |
+| **Community calendar** (Grove `EventPage`; the live calendar and its submission form) | **Built** (2026-11-03). A public form (the station's own fields, one-time and recurring) writes to a **private review queue**; staff review and edit; a **publisher** approves and the event goes live at once; an editor can edit, ask for information or reject. `/community-calendar` (what is coming up, or day by day when dates are picked; category, keyword and date filters; Grove's old `?f0=` filter addresses still work), the event page (schema.org data, upcoming dates, external links marked user-supplied), `/community-calendar-event-submission` (works without a script; honeypot, signed timing token, per-address rate limit, plain text only, pictures checked by their bytes and kept private). Grove's events convert (10 of 10 real samples clean) and import at their exact addresses. Migration `20261103_042706` (up, down and up tested; seeds the 12 categories). 121 unit + 27 integration tests (the whole suite: 933); checked in a browser at 1440 and 390 px (51 automated checks: no overflow, 44px targets and 16px fields on my content, the form with and **without a script**, a refused form keeps its answers). **Left out / open:** see *Community calendar* below (IT-04 notice wording, staff notification, ICS download, attaching a submitted picture, the other 1,464 events unseen) |
 | **Pages: template system and standard pages** (Grove `ContentPage`) | **Built** (2026-11-03). `pages` gets a `template` (standard, or `blocks` for the starter's older layout, which keeps rendering), a short lead and a body made of the same blocks a story holds; a page is served at its exact address by the same resolver as stories; drafts stay private. The converter turns Grove's standard pages (modules, containers, a sub-heading that holds a video) into that, never dropping anything: on the 24 census pages, 22 clean and 2 flagged (a Vimeo address that is not a video). The importer now brings standard pages in with the stories. Also fixed: **NPR Pym interactives** (a `data-pym-src` placeholder plus NPR's loader script) were being lost; they now embed the same address as a frame, `apps.npr.org` is a built-in embed host, and the loader is reported as replaced, not lost (this rescues the election simulator page and the same pattern in stories and live blogs). Migration `20261103_032912`; 11 unit + 3 integration tests; checked in a browser (livestream behind a click, Vimeo and NPR inline, no overflow at 390 px). **Next templates for pages:** a hub template (for Unearthing Florida, The Voyager and other hubs) arrives with phase 4 |
 | **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, podcasts, RadioLive and Unearthing Florida features, short videos, newsletters, "From NPR", sponsor placements. The membership band's wording is the Article page's; the owner should confirm the front-page copy |
@@ -424,7 +425,7 @@ follows what replacing Grove needs first, then the new products):
 
 1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**
 2. **Shows and episodes** (boards 9, 10; Grove's `RadioShowPage` and `RadioShowEpisodePage`, about 500 episodes), the podcast directory. **Done.**
-3. **Events** (Grove's `EventPage`, 1,474 community-calendar events) and the calendar list.
+3. **Events** (Grove's `EventPage`, 1,474 community-calendar events) and the calendar list, **with public submissions and editorial approval. Done** (*Community calendar*).
 4. **Author profile pages** (Grove's `AuthorPage`, 1,148) and the hubs for **Unearthing Florida** (11) and **The Voyager** (13).
 5. **Short video** (boards 7, 8). 6. **RadioLive** (12). 7. **Barefoot Mary and member feeds** (21-25: needs sign-in, entitlements and
 private feeds, so it is designed with the owner before it is built). 8. **Cutover infrastructure**: redirects, sitemap (stories,
@@ -433,6 +434,44 @@ out so far, as the features behind them land.
 
 Grove's non-story pages in the census (65): standard content pages 24, radio-show episodes 15, events 10, author pages 10, radio
 show pages 5, a gallery page 1: these are the shapes the program covers.
+
+### Community calendar (built 2026-11-03)
+
+**What the live calendar and form do (read 2026-11-03, with the owner's go-ahead for those two pages; robots.txt allowed it).**
+`wuwf.org/community-calendar`: 22 pages of about 10 cards, one card **per occurrence** (a nightly run is listed every night), grouped
+under day headings; filters for 10 categories with counts, a from/to date and a keyword. The form
+(`/community-calendar-event-submission`, posts to Grove's `/form/submit`): title; venue (name required); **one-time** (date, start,
+optional end) or **recurring**: daily (first and last date, times), weekly (first and last date, **every N weeks**, one row per day with
+its own times) or monthly (first/second/third/fourth/last weekday, every N months); up to 3 of 12 categories; description; a picture
+(300 to 2000 px); price, a "free" box, pricing notes, ticket link; presenting organization with a for-profit / not-for-profit /
+n-a designation; artist; and who is sending it (name, email required, "listener / venue / artist / promoter"). Its guidelines
+(non-profit and government only, five days ahead, no direct solicitation) are on the page and are reproduced on ours verbatim.
+
+**The Grove data.** Only a display string (`time`) survives on the page, in three shapes seen so far: one time
+(`07:00 PM - 09:00 PM on Tue, 31 Dec 2024`), daily (`..., every day through Nov 08, 2026.`) and weekly
+(`Every 40 weeks through Jun 28, 2025.` then `Saturday: 09:00 AM - 02:00 PM`). **A recurring run's start date is not in the text**:
+the date it was submitted (the end of the address) stands in and the page then shows Grove's own wording. A monthly shape has **not been
+seen** (only 10 events are in the census). **Anything not matching exactly is kept as Grove's words, flagged `needsAttention`, and has no
+dates; it is never dropped and never guessed.** Grove's own recurrence is faulty: that Palafox Market listing ("every 40 weeks", ended
+June 2025) still appears on its November 2026 calendar, probably why "Outdoors" shows 168 events; ours does not repeat it.
+
+**Decisions made here (the owner may change any).**
+- *Approval needs `content.publish`* (it goes live). Editors edit, ask for information (`needs-info`) or reject. No new permission was added to the shared contract.
+- *The calendar reads two ways.* No dates picked: each event **once**, at its next date, with how it repeats and how many more dates ("what is coming up"). Dates picked: every occurrence, day by day. (Grove showed seven cards for one play.)
+- *Past events keep their pages* and fall off the list when they end (an occurrence with no end time is taken as three hours). Past dates can be browsed with the date filter.
+- *Public submissions are plain text only* (markup is refused), so nothing a stranger types is ever rendered as HTML; a Grove description is converted by the story converter and a block in one is an exception (held).
+- *No CAPTCHA and no third-party script.* Honeypot + an HMAC-signed timing token (4 s to 6 h) + 3 per hour / 10 per day per address. The address is stored only as a keyed hash on the pending submission and **cleared after 48 hours** by the next submission; the submitter's name and email stay on the submission and are **never copied to the event**.
+- *Pictures from the public are private.* They go to `event-submission-images` (staff only), are checked by their bytes (JPEG/PNG/WebP/GIF), size (4 MB, the platform's limit) and pixels, and are named by the server. **Approving does not attach the picture**: staff add it to the media library with alt text and credit, then attach it to the event.
+- *Nothing is emailed.* No confirmation to the submitter, no alert to staff (sending live communications needs authorization). Staff find new ones in the admin: Community calendar → Event submissions, filter by status.
+- *Categories* are a collection seeded by the migration with Grove's twelve and their ids.
+
+**Not built / open.**
+- **The UWF IT-04 notice**: the page carries a plain statement of what the form does with the data, not the official wording. **Needs the university's text** before production.
+- **No board designs** the calendar, the event page or the form; they reuse the site's story-list and form patterns. Owner to review, or add boards.
+- **Staff notification** of a new submission (email or a count in the admin); an **"add to calendar" (.ics)** download; events in the **sitemap**; the homepage events strip (the first-pass page had one); "report a problem with this listing".
+- **The other 1,464 events** have not been seen: run `scripts/grove/convert-events.ts --raw <dirs> --show` over them as soon as they are fetched and read the `event.date-not-read` count. A monthly shape is the likeliest to appear.
+- *Dev helper:* `scripts/dev/seed-events.ts` seeds upcoming events into the LOCAL database (the Grove ones are all past). It refuses a non-local database.
+- The importer saves events (`import.ts`); an import already running uses the old code. Events whose pictures are not downloaded are held like stories.
 
 ### Live updates (built 2026-11-03; the data and the decisions behind it)
 
@@ -650,6 +689,25 @@ signed-in account page, not CMS content.
   and `verify:migrations` read only the latest, and `verify:migrations` was shown to still catch a missing migration with the older ones
   gone. The seven intermediate snapshots made in this PR were dropped; do the same each time (delete all but the latest).
 
+- **A `'use server'` file may export only async functions.** A sync helper (or a constant) exported beside an action passes every test and
+  fails the production build. Keep helpers in their own module (`lib/events/secrets.ts`).
+- **A `required` input inside a hidden section stops the browser sending the form** (it cannot show its message). Conditional fields get a visible
+  asterisk but no `required` attribute; the server validates them. The one-time/recurring sections open and close with CSS (`group-has-[:checked]`),
+  so the form needs no script.
+- **Payload rejects a field name used twice in a group, even under different conditions.** Share one field and show it for several kinds.
+- **The first user created in an empty `users` table gets every role** (break-glass administrator). A test that creates an "editor" first has an
+  administrator. Build acting users with explicit roles and real ids (see `events.int.spec.ts`).
+- **Upload tests need `// @vitest-environment node`**: under jsdom Payload cannot detect the file type of a `Buffer`.
+- **A fake clock and a real database disagree.** `createdAt` is real time; a test that passes a 2090 "now" to code comparing against it (rate
+  limits, clean-up) passes or fails for the wrong reason. Use real time and dates relative to today; mutation-check the guard.
+- **Generated `down()` can fail:** it drops tables with CASCADE (taking the foreign keys) and then drops the foreign keys. Use `DROP CONSTRAINT IF
+  EXISTS` for the `payload_locked_documents_rels` ones, and run up, down, up. (Four older migrations had it and were fixed 2026-11-03; the whole
+  batch of 17 now rolls back to nothing and re-applies. A finished rollback also drops `payload_migrations`, so "relation does not exist" afterwards is success.)
+- **Observed, not mine:** in one browser tab that navigates repeatedly, the header's background prefetch of `/` can stay open 10 to 25 s, so
+  Playwright's `networkidle` never arrives (also on `/support` and `/podcasts`). A fresh tab settles in under a second. Wait for `load` in browser checks; worth a look
+  if real visitors report slow first clicks.
+- **`pkill -f '<words>'` kills the shell that typed it** when the command line contains those words. Stop a server by its pid or port.
+
 ## Running things in a fresh sandbox
 
 The sandbox is ephemeral; nothing below survives.
@@ -710,7 +768,8 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   those pages exist, the legal footer line, and a review of the level descriptions (tax-deductibility wording).
   Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
   administrators.
-- Legal and university review (IT-04 notice, privacy, retention) before production.
+- Legal and university review (IT-04 notice, privacy, retention) before production. **The community-calendar form needs the university's IT-04 wording** (it has a plain factual statement for now), and the 48-hour address-hash retention reviewed.
+- **Community calendar:** who should approve (it is publishers only today); whether staff want an email or a count when a submission arrives; the other 1,464 events' date text (see *Community calendar*).
 - **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
