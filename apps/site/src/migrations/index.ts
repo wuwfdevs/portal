@@ -13,6 +13,7 @@ import * as migration_20261103_024053_homepage_global from './20261103_024053_ho
 import * as migration_20261103_025619_live_blogs from './20261103_025619_live_blogs';
 import * as migration_20261103_032912_page_templates from './20261103_032912_page_templates';
 import * as migration_20261103_033745_show_fields from './20261103_033745_show_fields';
+import * as migration_20261103_040200_backfill_page_templates from './20261103_040200_backfill_page_templates';
 
 export const migrations = [
   {
@@ -88,6 +89,11 @@ export const migrations = [
   {
     up: migration_20261103_033745_show_fields.up,
     down: migration_20261103_033745_show_fields.down,
-    name: '20261103_033745_show_fields'
+    name: '20261103_033745_show_fields',
+  },
+  {
+    up: migration_20261103_040200_backfill_page_templates.up,
+    down: migration_20261103_040200_backfill_page_templates.down,
+    name: '20261103_040200_backfill_page_templates'
   },
 ];

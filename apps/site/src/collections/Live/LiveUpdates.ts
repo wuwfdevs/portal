@@ -2,6 +2,7 @@ import type { Access, CollectionConfig } from 'payload'
 
 import { requirePermission, userCan } from '../../access/permissions'
 import { bodyEditor } from '../../fields/bodyEditor'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { ensureAnchor, markEdited, revalidateUpdate, revalidateUpdateDelete } from './hooks'
 
 /**
@@ -65,7 +66,7 @@ export const LiveUpdates: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [ensureAnchor],
-    beforeChange: [markEdited],
+    beforeChange: [restrictedBlocksGuard(['body']), markEdited],
     afterChange: [revalidateUpdate],
     afterDelete: [revalidateUpdateDelete],
   },

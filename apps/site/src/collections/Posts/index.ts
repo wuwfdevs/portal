@@ -3,12 +3,11 @@ import type { CollectionConfig } from 'payload'
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { featuredMediaBlocks } from '../../blocks/body'
 import { bodyEditor } from '../../fields/bodyEditor'
-import { userCan } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
-import { changedLegacyHtml, changedWidgets } from '../../lib/legacy-html-guard'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -19,7 +18,7 @@ import {
   OverviewField,
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
-import { APIError, slugField } from 'payload'
+import { slugField } from 'payload'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
@@ -271,24 +270,7 @@ export const Posts: CollectionConfig<'posts'> = {
       enforcePublishPermission,
       pathBeforeChange('posts'),
       legacyIdentityWriteOnce,
-      ({ data, originalDoc, req }) => {
-        // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
-        // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.
-        if (!req.user || userCan(req.user, 'settings.manage') || data?.content === undefined) return data
-        if (changedLegacyHtml(data.content, originalDoc?.content).length > 0) {
-          throw new APIError('Only an administrator can add or change preserved HTML.', 403, undefined, true)
-        }
-        return data
-      },
-      ({ data, originalDoc, req }) => {
-        // A script widget decides which site's code a reader runs, so adding one or changing its script or settings
-        // takes publish permission. Editing its title, caption or height does not. No user = the system (importer).
-        if (!req.user || userCan(req.user, 'content.publish') || data?.content === undefined) return data
-        if (changedWidgets(data.content, originalDoc?.content).length > 0) {
-          throw new APIError('Only a publisher can add a script widget or change its script or settings.', 403, undefined, true)
-        }
-        return data
-      },
+      restrictedBlocksGuard(['content']),
     ],
     afterChange: [redirectOnPathChange, revalidatePost],
     afterDelete: [revalidateDelete],

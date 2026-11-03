@@ -1,5 +1,6 @@
 import { bodyEditor } from '../../fields/bodyEditor'
 import { pathField } from '../../fields/path'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { revalidateShow, revalidateShowDelete } from '../../hooks/revalidateShow'
 import { showPathBeforeChange } from '../../hooks/showPath'
 import { fundableCollection } from './fundable'
@@ -54,7 +55,7 @@ export const Productions = fundableCollection({
   singular: 'Original production',
   plural: 'Original productions',
   description: 'An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.',
-  beforeChange: [showPathBeforeChange],
+  beforeChange: [showPathBeforeChange, restrictedBlocksGuard(['description'])],
   afterChange: [revalidateShow],
   afterDelete: [revalidateShowDelete],
   extraFields: [

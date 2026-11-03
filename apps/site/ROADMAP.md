@@ -635,6 +635,21 @@ signed-in account page, not CMS content.
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
 
+- **Restricted blocks need a hook on every collection that takes story-style content.** The story body editor (`fields/bodyEditor.ts`) includes
+  the script widget (publisher-only) and preserved HTML (administrator-only), and Payload does not enforce a block's own access inside rich
+  text. `hooks/restrictedBlocksGuard.ts` does, and **every collection using `bodyEditor` must list its fields in it** (stories, live blog
+  introductions, live updates, page bodies, show descriptions). `restrictedBlocksGuard.test.ts` fails when one is missing and
+  `tests/int/restricted-blocks.int.spec.ts` walks them all. (A review of PR 325 found four were missing: an editor could have put a widget in
+  a live update and gone live at once.)
+- **A live page's refresh fingerprint must include the blog, not just its updates** (`lib/live/token.ts`, one function for the page and the
+  endpoint): ending a blog, pinning and rewriting the introduction touch no update.
+- **Adding a column with a default backfills every existing row with that default.** Adding `pages.template` made old layout pages
+  `standard`; migration `20261103_040200` sets them back to `blocks`. When a migration adds a defaulted column, ask what the existing rows
+  should be.
+- **Keep only the newest Payload migration snapshot.** Each `.json` snapshot is a full copy of the schema (12-19k lines); `migrate:create`
+  and `verify:migrations` read only the latest, and `verify:migrations` was shown to still catch a missing migration with the older ones
+  gone. The seven intermediate snapshots made in this PR were dropped; do the same each time (delete all but the latest).
+
 ## Running things in a fresh sandbox
 
 The sandbox is ephemeral; nothing below survives.

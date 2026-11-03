@@ -20,7 +20,8 @@ export function LiveRefresh({ slug, token, live }: { slug: string; token: string
   const known = useRef(token)
 
   useEffect(() => {
-    if (!live) return
+    // An ended blog has nothing to watch for, and once a change is known there is nothing more to ask until the reader looks.
+    if (!live || changed) return
     let stopped = false
     const check = async () => {
       if (stopped || document.visibilityState !== 'visible') return
@@ -41,7 +42,7 @@ export function LiveRefresh({ slug, token, live }: { slug: string; token: string
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [slug, live])
+  }, [slug, live, changed])
 
   const show = useCallback(() => {
     setBusy(true)

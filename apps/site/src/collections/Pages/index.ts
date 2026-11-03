@@ -6,6 +6,7 @@ import type { CollectionConfig } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
 import { Content } from '../../blocks/Content/config'
@@ -172,7 +173,7 @@ export const Pages: CollectionConfig<'pages'> = {
   hooks: {
     beforeValidate: [ensureSlug('title')],
     afterChange: [redirectOnPathChange, revalidatePage],
-    beforeChange: [enforcePublishPermission, pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
+    beforeChange: [enforcePublishPermission, restrictedBlocksGuard(['body']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {

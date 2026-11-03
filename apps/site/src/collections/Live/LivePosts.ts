@@ -5,6 +5,7 @@ import { publishedOrContentStaff, requirePermission } from '../../access/permiss
 import { featuredMediaBlocks } from '../../blocks/body'
 import { bodyEditor } from '../../fields/bodyEditor'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce } from '../../hooks/pathHooks'
 import { revalidateBlog, revalidateBlogDelete, stampEnd } from './hooks'
@@ -77,7 +78,7 @@ export const LivePosts: CollectionConfig = {
   ],
   hooks: {
     beforeValidate: [ensureSlug('title')],
-    beforeChange: [enforcePublishPermission, legacyIdentityWriteOnce, stampEnd],
+    beforeChange: [enforcePublishPermission, restrictedBlocksGuard(['intro']), legacyIdentityWriteOnce, stampEnd],
     afterChange: [revalidateBlog],
     afterDelete: [revalidateBlogDelete],
   },

@@ -2,7 +2,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { loadLiveBlog } from '@/lib/live/load'
+import { loadFeedState, loadLiveBlog } from '@/lib/live/load'
 
 const run = Date.now().toString(36)
 let payload: Payload
@@ -102,5 +102,35 @@ describe('live blogs', () => {
     const before = (await loadLiveBlog(blog.slug))?.token
     await update(blog, 'One more', 8)
     expect((await loadLiveBlog(blog.slug))?.token).not.toBe(before)
+  })
+  it('changes the token when only the blog changes (it is ended, its introduction is rewritten, its pins change), so open pages are told', async () => {
+    const b = await make<{ id: string | number; slug: string }>('live-posts', { title: `Token blog ${run}`, _status: 'published' })
+    const u = await update(b, 'Only update', 1)
+    const publish = (data: Record<string, unknown>) => payload.update({ collection: 'live-posts', id: b.id, data: { ...data, _status: 'published' } as never, user: publisher as never, overrideAccess: false, context: ctx })
+    const token = async () => (await loadLiveBlog(b.slug))?.token
+    const t0 = await token()
+    // the page and the status endpoint use one function: they always agree
+    expect((await loadFeedState(b.slug))?.token).toBe(t0)
+
+    await new Promise((r) => setTimeout(r, 1100)) // updatedAt has second resolution in some paths: make the change visibly later
+    await publish({ intro: body('A new introduction.') })
+    const t1 = await token()
+    expect(t1).not.toBe(t0)
+
+    await new Promise((r) => setTimeout(r, 1100))
+    await publish({ pinned: [u.id] })
+    const t2 = await token()
+    expect(t2).not.toBe(t1)
+
+    await new Promise((r) => setTimeout(r, 1100))
+    await publish({ coverage: 'ended' })
+    const t3 = await token()
+    expect(t3).not.toBe(t2)
+    const state = await loadFeedState(b.slug)
+    expect(state).toMatchObject({ live: false, token: t3 })
+  })
+
+  it('has no state for a blog that is not published', async () => {
+    expect(await loadFeedState(draftBlog.slug)).toBeNull()
   })
 })
