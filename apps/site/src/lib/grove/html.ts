@@ -7,7 +7,6 @@ import { parseFragment, serializeOuter } from 'parse5'
 import type { DefaultTreeAdapterMap } from 'parse5'
 
 import { absoluteUrl, plainText, safeHref, type Ctx } from './context'
-import { checkScriptUrl, DEFAULT_WIDGET_HEIGHT } from '../widgets'
 import { embedNode } from './embed'
 import * as lex from './lexical'
 import type { Align } from './lexical'
@@ -187,66 +186,6 @@ function dropped(el: El, ctx: Ctx): void {
   else ctx.note('html.element-removed', el.tagName)
 }
 
-// ---- script widgets -------------------------------------------------------------------------------------------
-
-/**
- * Grove let a pasted widget run in the page: a container with an id and `data-*` settings that holds (or is followed
- * by) a one-line script dispatching an event, then a script from the widget's own site. That exact shape becomes a `widget`
- * block (the script runs in an isolated frame, after a click). Anything else stays a removed, flagged script.
- */
-const INIT_EVENT = /^\s*window\.dispatchEvent\(\s*new\s+Event\(\s*(['"])([A-Za-z][\w:.-]{0,60})\1\s*\)\s*\)\s*;?\s*$/
-const isBlankText = (n: PNode): boolean => isText(n) && n.value.trim() === ''
-
-function widgetAt(nodes: PNode[], i: number, ctx: Ctx): { node: LexNode; consumed: number } | null {
-  const div = nodes[i]
-  if (!div || !isEl(div) || div.tagName !== 'div') return null
-  const id = attr(div, 'id')
-  const data = div.attrs.filter((a) => /^data-[a-z0-9][a-z0-9_.-]{0,60}$/.test(a.name))
-  if (!id || data.length === 0) return null
-  // The one-line event script sits inside the container in Grove's real data (and beside it in some pastes).
-  let init: string | undefined
-  for (const k of kids(div)) {
-    if (isBlankText(k)) continue
-    const m = isEl(k) && k.tagName === 'script' && !attr(k, 'src') ? INIT_EVENT.exec(kids(k).map((c) => (isText(c) ? c.value : '')).join('')) : null
-    if (!m || init) return null
-    init = m[2]
-  }
-  let src: El | undefined
-  let last = i
-  for (let j = i + 1; j < nodes.length; j++) {
-    const n = nodes[j]!
-    if (isBlankText(n)) continue
-    if (!isEl(n) || n.tagName !== 'script') break
-    const s = attr(n, 'src')
-    if (s) {
-      if (src) break
-      src = n
-      last = j
-      break
-    }
-    const m = INIT_EVENT.exec(kids(n).map((k) => (isText(k) ? k.value : '')).join(''))
-    if (!m || init) break
-    init = m[2]
-    last = j
-  }
-  if (!src) return null
-  const abs = absoluteUrl(attr(src, 'src')!)
-  const check = abs ? checkScriptUrl(abs) : null
-  if (!check || !check.ok) return null
-  ctx.count('block:widget')
-  ctx.note('widget.script-embedded', check.host)
-  const node = lex.block(ctx.id(), 'widget', {
-    title: `Interactive content from ${check.host}`,
-    scriptUrl: check.url,
-    ...(attr(src, 'type') === 'module' ? { module: true } : {}),
-    elementId: id,
-    attributes: data.map((a) => ({ id: ctx.id(), name: a.name, value: a.value })),
-    ...(init ? { initEvent: init } : {}),
-    height: DEFAULT_WIDGET_HEIGHT,
-  })
-  return { node, consumed: last - i }
-}
-
 // ---- block content --------------------------------------------------------------------------------------------
 
 /** The status address inside an embedded post from X, or null. */
@@ -279,20 +218,14 @@ function blocksFromNodes(nodes: PNode[], ctx: Ctx, align?: Align): LexNode[] {
       }
     }
   }
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i]!
+  for (const n of nodes) {
     if (isText(n)) {
       consume(inlinePieces([n], 0, ctx))
       continue
     }
     if (!isEl(n)) continue
     const tag = n.tagName
-    const widget = tag === 'div' ? widgetAt(nodes, i, ctx) : null
-    if (widget) {
-      flush()
-      out.push(widget.node)
-      i += widget.consumed
-    } else if (tag === 'p' || tag === 'pre' || tag === 'figcaption' || tag === 'address') {
+    if (tag === 'p' || tag === 'pre' || tag === 'figcaption' || tag === 'address') {
       flush()
       bufAlign = alignOf(n) ?? align
       consume(inlinePieces(kids(n), 0, ctx))

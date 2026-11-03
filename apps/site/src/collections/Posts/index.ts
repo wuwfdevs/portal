@@ -16,7 +16,7 @@ import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
-import { changedLegacyHtml, changedWidgets } from '../../lib/legacy-html-guard'
+import { changedLegacyHtml } from '../../lib/legacy-html-guard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -296,15 +296,6 @@ export const Posts: CollectionConfig<'posts'> = {
         if (!req.user || userCan(req.user, 'settings.manage') || data?.content === undefined) return data
         if (changedLegacyHtml(data.content, originalDoc?.content).length > 0) {
           throw new APIError('Only an administrator can add or change preserved HTML.', 403, undefined, true)
-        }
-        return data
-      },
-      ({ data, originalDoc, req }) => {
-        // A script widget decides which site's code a reader runs, so adding one or changing its script or settings
-        // takes publish permission. Editing its title, caption or height does not. No user = the system (importer).
-        if (!req.user || userCan(req.user, 'content.publish') || data?.content === undefined) return data
-        if (changedWidgets(data.content, originalDoc?.content).length > 0) {
-          throw new APIError('Only a publisher can add a script widget or change its script or settings.', 403, undefined, true)
         }
         return data
       },

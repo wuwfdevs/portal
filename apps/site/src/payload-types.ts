@@ -2999,56 +2999,6 @@ export interface AudioPlayerBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "WidgetBlock".
- */
-export interface WidgetBlock {
-  /**
-   * What the tool is, e.g. "Election guide". Shown on the click-to-load card and read by screen readers.
-   */
-  title: string;
-  /**
-   * The https address of the tool's script. It runs in an isolated frame, only after the reader clicks to load it.
-   */
-  scriptUrl: string;
-  /**
-   * Load the script as a module. Only if the tool's instructions say type="module".
-   */
-  module?: boolean | null;
-  /**
-   * The id of the container the script fills, if its instructions give one.
-   */
-  elementId?: string | null;
-  /**
-   * The data- settings from the tool's instructions (e.g. data-election-id).
-   */
-  attributes?:
-    | {
-        /**
-         * Must start with data-
-         */
-        name: string;
-        value?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * An event the tool expects before it loads, if its instructions say to dispatch one.
-   */
-  initEvent?: string | null;
-  /**
-   * Starting height in pixels, used until the tool reports its own.
-   */
-  height?: number | null;
-  /**
-   * Shown under the tool.
-   */
-  caption?: string | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'widget';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "LegacyHtmlBlock".
  */
 export interface LegacyHtmlBlock {

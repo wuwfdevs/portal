@@ -10,8 +10,8 @@
  "problemCount": 0,
  "meanStoryJson": 9129,
  "statuses": {
-  "clean": 1494,
-  "review": 4,
+  "clean": 1493,
+  "review": 5,
   "exception": 0
  },
  "assets": {
@@ -50,7 +50,6 @@
   "block:videoPlayer": 4,
   "image:inline": 4,
   "embed:vimeo": 2,
-  "block:widget": 1,
   "block:legacyHtml": 1
  },
  "codes": [
@@ -66,6 +65,19 @@
    "examples": [
     "/uwf-news/2018-03-21/poet-andrea-gibson-to-speak-at-uwf-womens-studies-conference",
     "/local-news/2015-03-05/crestview-mayors-race-focuses-on-crime"
+   ]
+  },
+  {
+   "code": "html.script-removed",
+   "level": "preserved",
+   "occurrences": 2,
+   "stories": 1,
+   "details": {
+    "inline": 1,
+    "static.electup.com": 1
+   },
+   "examples": [
+    "/local-news/2026-07-31/wuwf-voter-guide-helps-you-navigate-election-season"
    ]
   },
   {
@@ -288,18 +300,6 @@
    "examples": [
     "/local-news/2015-04-30/dogs-on-deployment-gives-military-pets-a-loving-home",
     "/local-news/2015-03-03/star-treks-middle-child-was-center-stage-at-pensacon"
-   ]
-  },
-  {
-   "code": "widget.script-embedded",
-   "level": "noted",
-   "occurrences": 1,
-   "stories": 1,
-   "details": {
-    "static.electup.com": 1
-   },
-   "examples": [
-    "/local-news/2026-07-31/wuwf-voter-guide-helps-you-navigate-election-season"
    ]
   },
   {
