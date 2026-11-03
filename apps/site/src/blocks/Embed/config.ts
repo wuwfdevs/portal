@@ -3,9 +3,10 @@ import type { Block } from 'payload'
 import { EMBED_FAILURE_MESSAGE, resolveEmbed } from '../../lib/embeds'
 
 /**
- * A video, audio player or other frame, by URL. Not free HTML: known providers are recognised and rewritten to
+ * A video, audio player, other frame or a post on X or Facebook, by URL. Not free HTML: known providers are recognised and rewritten to
  * their canonical embed address; any other host must be on the approved list in Site settings. The URL is checked
- * on save (so an editor is told why at once) and again when rendered.
+ * on save (so an editor is told why at once) and again when rendered. Posts on X and Facebook are shown as a
+ * static card that links to the original, never as a live embed (those load the platform's tracking script).
  */
 export const Embed: Block = {
   slug: 'embed',
@@ -30,6 +31,29 @@ export const Embed: Block = {
       required: true,
       admin: { description: 'What the embed is, for people using a screen reader. Not shown on the page.' },
     },
-    { name: 'caption', type: 'text' },
+    {
+      type: 'row',
+      fields: [
+        {
+          name: 'width',
+          type: 'number',
+          min: 1,
+          max: 4000,
+          admin: { width: '50%', description: 'Optional. The original width of an embedded page or widget, to keep its proportions.' },
+        },
+        {
+          name: 'height',
+          type: 'number',
+          min: 1,
+          max: 4000,
+          admin: { width: '50%', description: 'Optional. The original height. Used together with the width; videos and audio players ignore both.' },
+        },
+      ],
+    },
+    {
+      name: 'caption',
+      type: 'text',
+      admin: { description: 'Shown under the embed. For a post on X or Facebook, put the post\'s text here: it is shown on the card.' },
+    },
   ],
 }

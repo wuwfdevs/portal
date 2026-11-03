@@ -13,22 +13,26 @@ import {
 import { CodeBlock, CodeBlockProps } from '@/blocks/Code/Component'
 
 import type {
+  AudioPlayerBlock as AudioPlayerBlockProps,
   BannerBlock as BannerBlockProps,
   CallToActionBlock as CTABlockProps,
   EmbedBlock as EmbedBlockProps,
   GalleryBlock as GalleryBlockProps,
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
-  PromoBlock as PromoBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
+  VideoPlayerBlock as VideoPlayerBlockProps,
+  WidgetBlock as WidgetBlockProps,
 } from '@/payload-types'
+import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { BannerBlock } from '@/blocks/Banner/Component'
 import { CallToActionBlock } from '@/blocks/CallToAction/Component'
 import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
-import { PromoBlock } from '@/blocks/Promo/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
+import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
+import { WidgetBlock } from '@/blocks/Widget/Component'
 import { cn } from '@/utilities/ui'
 
 import { internalDocToHref } from './links'
@@ -43,7 +47,9 @@ type NodeTypes =
       | GalleryBlockProps
       | PullQuoteBlockProps
       | EmbedBlockProps
-      | PromoBlockProps
+      | AudioPlayerBlockProps
+      | VideoPlayerBlockProps
+      | WidgetBlockProps
       | LegacyHtmlBlockProps
     >
 
@@ -67,7 +73,9 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
-    promo: ({ node }) => <PromoBlock {...node.fields} />,
+    audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
+    videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,
+    widget: ({ node }) => <WidgetBlock {...node.fields} />,
     legacyHtml: ({ node }) => <LegacyHtmlBlock {...node.fields} />,
   },
 })
@@ -85,6 +93,8 @@ export default function RichText(props: Props) {
       converters={jsxConverters}
       className={cn(
         'payload-richtext',
+        // A long web address used as link text has nowhere to break, and would push the page wider than a phone.
+        'break-words',
         {
           container: enableGutter,
           'max-w-none': !enableGutter,

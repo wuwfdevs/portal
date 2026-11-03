@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  agreementApplies, agreementTag, collectionTag, resolveUnderwriting, shortForm, validateTerm,
+  agreementApplies, agreementTag, collectionTag, resolveHubUnderwriting, resolveUnderwriting, shortForm, validateTerm,
   type Agreement, type CollectionRef, type ContentRef, type ResolveContext,
 } from "./resolve";
 
@@ -189,5 +189,32 @@ describe("validateTerm", () => {
     expect(validateTerm("2026-07-01", "2026-13-01")).toMatch(/end date/);
     expect(validateTerm("2026-07-01", "2026-06-30")).toMatch(/before the start/);
     expect(validateTerm("07/01/2026", null)).toMatch(/start date/);
+  });
+});
+
+describe("a collection's own hub page", () => {
+  const NOW = { now: "2026-10-30T12:00:00Z" };
+  it("carries the line while the term runs, with the full approved wording and the route it came by", () => {
+    const lines = resolveHubUnderwriting(fellowship(), NOW);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ agreementId: "agr-1", text: EXAMPLE_FOUNDATION_TEXT, via: { kind: "fellowship", slug: "coastal-futures" } });
+  });
+  it("drops it once the term has ended, or before it starts: a hub is display, not history", () => {
+    expect(resolveHubUnderwriting(fellowship(), { now: "2027-07-01T00:00:00Z" })).toEqual([]);
+    expect(resolveHubUnderwriting(fellowship(), { now: "2026-06-30T23:59:59Z" })).toEqual([]);
+    expect(resolveHubUnderwriting(fellowship(), { now: "2027-06-30T23:59:59Z" })).toHaveLength(1);
+  });
+  it("leaves out an inactive agreement and one limited to other placements, and keeps an open-ended one", () => {
+    const c = fellowship({ agreements: [agreement({ id: "a", active: false }), agreement({ id: "b", placements: ["article"] }), agreement({ id: "c", placements: ["hub"] }), agreement({ id: "d", endsOn: null })] });
+    expect(resolveHubUnderwriting(c, NOW).map((l) => l.agreementId)).toEqual(["c", "d"]);
+  });
+  it("lists every applicable line, oldest agreement first, with no cap", () => {
+    const c = fellowship({ agreements: ["z", "y", "x"].map((id, i) => agreement({ id, startsOn: `2026-0${i + 1}-01` })) });
+    expect(resolveHubUnderwriting(c, NOW).map((l) => l.agreementId)).toEqual(["z", "y", "x"]);
+    const many = fellowship({ agreements: Array.from({ length: 5 }, (_, i) => agreement({ id: `m${i}` })) });
+    expect(resolveHubUnderwriting(many, NOW)).toHaveLength(5);
+  });
+  it("is nothing for a topic or a publishing identity, which are never underwritten", () => {
+    expect(resolveHubUnderwriting({ ...topic, agreements: [agreement()] }, NOW)).toEqual([]);
   });
 });

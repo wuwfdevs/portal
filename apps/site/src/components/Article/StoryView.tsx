@@ -5,11 +5,12 @@ import React, { cache } from 'react'
 
 import type { Contributor, Post } from '@/payload-types'
 
+import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
+import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
-import { Media } from '@/components/Media'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { formatLongDate } from '@/lib/format'
@@ -24,6 +25,7 @@ const named = <T extends object>(value: T | string | number | null | undefined):
 export async function StoryView({ post, draft, url }: { post: Post; draft: boolean; url: string }) {
   const fellowship = named(post.fellowship)
   const series = named(post.series)
+  const production = named(post.production)
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
 
@@ -39,7 +41,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
 
   const minutes = readingMinutes(post.content)
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
-  const heroImage = named(post.heroImage)
+  const featuredAudio = named(post.featuredAudio)
+  const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
 
   return (
     <article className="pb-16">
@@ -49,6 +52,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
         <div className="flex flex-wrap gap-2">
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
+          {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}
           {topics.map((t) => (
             <Chip key={t.id}>Topic · {t.title}</Chip>
@@ -77,10 +81,16 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         <Acknowledgment hubHref={hubHref} independenceHref={independenceHref} lines={acknowledgments.lines} />
       </header>
 
-      {heroImage && (
-        <figure className="container mt-8 max-w-[52rem]">
-          <Media imgClassName="rounded-sm" resource={heroImage} />
-        </figure>
+      {hasFeaturedMedia && (
+        <div className="container mt-8 max-w-[52rem]">
+          <FeaturedMedia blocks={post.featuredMedia} />
+        </div>
+      )}
+
+      {featuredAudio && (
+        <div className="container mt-6 max-w-[52rem]">
+          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" />
+        </div>
       )}
 
       <div className="container mt-8 flex flex-col gap-10">

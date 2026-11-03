@@ -5,6 +5,15 @@ import * as migration_20261031_010109_site_settings_embed_hosts from './20261031
 import * as migration_20261031_010737_support_page from './20261031_010737_support_page';
 import * as migration_20261102_180610_paths_and_sections from './20261102_180610_paths_and_sections';
 import * as migration_20261102_183024_legacy_grove_id_and_modified_at from './20261102_183024_legacy_grove_id_and_modified_at';
+import * as migration_20261102_220306_featured_media_and_audio from './20261102_220306_featured_media_and_audio';
+import * as migration_20261102_234817_video_library_and_player from './20261102_234817_video_library_and_player';
+import * as migration_20261103_004740_storage_prefix_fields from './20261103_004740_storage_prefix_fields';
+import * as migration_20261103_023039_fellowship_hub_fields from './20261103_023039_fellowship_hub_fields';
+import * as migration_20261103_024053_homepage_global from './20261103_024053_homepage_global';
+import * as migration_20261103_025619_live_blogs from './20261103_025619_live_blogs';
+import * as migration_20261103_032912_page_templates from './20261103_032912_page_templates';
+import * as migration_20261103_033745_show_fields from './20261103_033745_show_fields';
+import * as migration_20261103_040200_backfill_page_templates from './20261103_040200_backfill_page_templates';
 
 export const migrations = [
   {
@@ -40,6 +49,51 @@ export const migrations = [
   {
     up: migration_20261102_183024_legacy_grove_id_and_modified_at.up,
     down: migration_20261102_183024_legacy_grove_id_and_modified_at.down,
-    name: '20261102_183024_legacy_grove_id_and_modified_at'
+    name: '20261102_183024_legacy_grove_id_and_modified_at',
+  },
+  {
+    up: migration_20261102_220306_featured_media_and_audio.up,
+    down: migration_20261102_220306_featured_media_and_audio.down,
+    name: '20261102_220306_featured_media_and_audio',
+  },
+  {
+    up: migration_20261102_234817_video_library_and_player.up,
+    down: migration_20261102_234817_video_library_and_player.down,
+    name: '20261102_234817_video_library_and_player',
+  },
+  {
+    up: migration_20261103_004740_storage_prefix_fields.up,
+    down: migration_20261103_004740_storage_prefix_fields.down,
+    name: '20261103_004740_storage_prefix_fields',
+  },
+  {
+    up: migration_20261103_023039_fellowship_hub_fields.up,
+    down: migration_20261103_023039_fellowship_hub_fields.down,
+    name: '20261103_023039_fellowship_hub_fields',
+  },
+  {
+    up: migration_20261103_024053_homepage_global.up,
+    down: migration_20261103_024053_homepage_global.down,
+    name: '20261103_024053_homepage_global',
+  },
+  {
+    up: migration_20261103_025619_live_blogs.up,
+    down: migration_20261103_025619_live_blogs.down,
+    name: '20261103_025619_live_blogs',
+  },
+  {
+    up: migration_20261103_032912_page_templates.up,
+    down: migration_20261103_032912_page_templates.down,
+    name: '20261103_032912_page_templates',
+  },
+  {
+    up: migration_20261103_033745_show_fields.up,
+    down: migration_20261103_033745_show_fields.down,
+    name: '20261103_033745_show_fields',
+  },
+  {
+    up: migration_20261103_040200_backfill_page_templates.up,
+    down: migration_20261103_040200_backfill_page_templates.down,
+    name: '20261103_040200_backfill_page_templates'
   },
 ];

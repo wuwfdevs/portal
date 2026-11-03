@@ -4,8 +4,67 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: work after PR 320 (merged 2026-11-02) is on `claude/elegant-dirac-1y89or` in `wuwfdevs/portal`. The brief this follows (the "project brief") and the
+Branch: work after PR 320 (merged 2026-11-02) continues on `claude/eloquent-thompson-7gpsj2` in `wuwfdevs/portal` (earlier session branches were merged: PRs 322 to 324). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
+
+## Resume here (end of the 2026-11-03 session)
+
+**Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
+
+**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
+program is under *The build program*. **Phases 1 and 2 are done** (standard pages; shows, episodes, podcast directory). **Next: phase 3,
+events** (Grove `EventPage`, 1,474 community-calendar events; the census has 10 samples), then 4 (author pages, 1,148, and the Unearthing
+Florida and Voyager hubs), 5 (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
+sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
+homepage slots). The per-session task list does not survive; recreate it from that list. Pattern that worked for each phase: read the board and
+Grove's JSON for the page type, decide the data model (reuse an existing collection when the shape fits: a show is a production, an
+episode is a story), converter with tests on synthetic pages and on the real census (`scripts/grove/convert-*.ts`), collection fields with a
+migration (`pnpm payload migrate:create <name>`, then `pnpm verify:migrations`), loader reading with `overrideAccess: false`, a server view,
+integration tests, a production build, a browser check at 1440 and 390 px, then ROADMAP and a commit.
+
+**Running outside this repository (ask the owner for the results):**
+- **The importer rehearsal.** The owner started a separate Cowork session on their own computer that runs `scripts/grove/import.ts` (see
+  `scripts/grove/IMPORT.md`) against **staging**: a 40-story rehearsal, then the full file download (3 to 4 hours, resumable). That session
+  uses the code as it was then (before standard pages, shows and episodes were added to the importer, and before topics and authors kept
+  Grove's slugs). When the owner pastes its report: check the held stories and the "decisions" counts, then open a few `/tags/` and
+  `/people/` addresses on the staging preview.
+- **Waiting on the owner:** the rehearsal report; the **approval to import into production** (then create a production login the same way
+  as the staging one: `create role importer_production login password '<new>' in role payload_app;` through the Supabase tool, apply the
+  production migrations deliberately, and have production's own S3 keys and pooler URL in the import settings); the 2024 election live blog
+  check (does Grove show "load more"?); wording review of fixed copy (the fellowship hub's "How the fellowship works", the front-page
+  membership band).
+
+**Infrastructure (no secrets here; none are in the repository).** Supabase (WUWF org, `us-east-1`): `wuwf-site-staging` (ref
+`avgeycgvaufwdfzdsogi`) and `wuwf-site-production` (ref `gyidqxhkkhajfazbcrug`); each has a login role `payload_app` (not a superuser; the
+app and migrations connect as it) and a private bucket `wuwf-site-files`; staging also has `importer_staging`. The session pooler is
+`aws-0-us-east-1.pooler.supabase.com` (5432 session, 6543 transaction; user `<role>.<project-ref>`). Vercel (team `WUWF`,
+`team_y6qwjjgoZVgKrtElTK1nZET7`): project `wuwf-site` (`prj_YaSfN6SHJtDLj8Pf6nAQERO8hqbL`), Root Directory `apps/site`, build command
+`bash scripts/vercel-build.sh` (applies migrations on **Preview** builds only, via `MIGRATE_ON_BUILD=1`). A push to a branch builds a Preview
+against **staging**; the staging site is behind Vercel sign-in. **Production has no deployment and none may be started without the owner's
+say-so.** Preview env is set (database, secrets, storage, the staff sign-in secret shared with the Portal's Preview). Production env has only
+the two public Supabase variables. The Portal's Production env is deliberately unset for the website tool.
+
+**Working in the cloud sandbox (hard-won).**
+- Outbound is **HTTPS through a proxy only**: no direct Postgres, so the importer and `payload migrate` against Supabase cannot run here;
+  they run on the owner's computer (Cowork) or in Vercel's build. Supabase's SQL tool (HTTPS) works for small administrative SQL.
+- Hosts must be allowed in the environment's network settings; the NPR file hosts, `wuwf.org` and the Supabase hosts were allowed by the owner.
+- Local Postgres dies when the sandbox idles: `rm -f /var/tmp/wuwf-site-pg/postmaster.pid; su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl
+  -D /var/tmp/wuwf-site-pg -o '-p 5433 -c listen_addresses=127.0.0.1 -c unix_socket_directories=/tmp' -l /var/tmp/wuwf-pg.log start"`
+  (a fresh sandbox: see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
+  development mode does not push schema changes.
+- Never create a Vercel deployment with the tool for a project that has no production deployment yet: it came back as a *production* one
+  (cancelled in seconds, nothing went live). Push a branch instead.
+- Secrets: the owner pasted some credentials in chat; the auto-mode classifier refuses to let the agent read secret files back. Do not work
+  around it; generate and set values in one step, and tell the owner when a value was shown in the session log.
+- The census raw pages (`raw/001-004`, from the owner's four zips) and the live-updates pages live only in a sandbox scratch folder and are
+  gone with it; the owner has the zips. Re-fetch the three live blogs with `scripts/live-updates/probe.ts fetch` (neutral client, 3 s apart).
+
+**Decisions the owner made this session (do not reopen):** separate Supabase projects from the Portal's; embeds: a built-in list plus
+approved hosts load without a click, any other public https host loads behind a click, and **script widgets (the election guide) load
+without a click** from built-in or approved hosts, publisher-only to add; **no third-party scripts otherwise**; the importer's defaults
+(sections from the path, "WUWF Staff" for no byline, extra byline names kept and flagged); editors post live updates, publishers open and
+end a blog, bylines optional, comments left out, polling our own endpoint; the full import goes to **production, rehearsed on staging first**;
+sponsorship and listening are deferred.
 
 ## Where things stand (Milestone 1)
 
@@ -16,7 +75,13 @@ design canvas are described under *Sources* below.
 | Shared packages (design-tokens, listening-core, portal-contracts) | **Done**, tests in each |
 | Visual foundation: tokens → CSS, self-hosted fonts, header/footer driven by their globals, no dark theme | **Done**; checked in a browser at 1440 and 390 px |
 | Article page (board 3) with the acknowledgment panel | **Done**; checked in a browser, and the edit-the-agreement loop verified on a production build |
-| Body blocks for parity with Brightspot's documented elements (gallery, pull quote, embed, promo, preserved HTML); hostile-HTML and embed-allowlist behaviour tested and checked in a browser | **Done**; dynamic galleries, tables, audio player, video playlist and anything Grove-specific are **not** |
+| Story blocks derived from the template census (2026-11-02): Media (per-use caption, credit, source, alt override, alignment), Gallery (carousel, grid, list; slide titles), Pull quote, Embed (adds width/height and link-only X and Facebook posts), Audio (new), Preserved HTML; Promo removed | **Done**; checked in a browser at 1440 and 390 px; tables and a native video player are **not** (one table in 1,500 pages stays preserved HTML) |
+| **Grove converter** (`src/lib/grove`, pure): one Grove article page to one story plus a fidelity report; asset tokens, exact path, slug, ids and dates kept | **Done** (2026-11-02). Run on all 1,566 real census pages: 1,498 converted (exactly the census's WUWF-originated count), 3 ambiguous copies and 65 non-articles skipped by design; **1,493 clean, 5 need a person, 0 exceptions** (after the embed-host change below; it was 1,480 / 18). The 5 include the voter guide's script, which is removed and flagged; every path and Grove id matches the manifest; output is deterministic. 91 tests (6 mutation-checked), plus an integration test that publishes a converted story through Payload and reads it back. The importer is built (next row); the files are not yet downloaded |
+| **Video player block and video library** (`video` collection; the `videoPlayer` block in story bodies and as featured media; Grove's HTML5 video files convert to it with their poster pictures) | **Done** (migration `20261102_234817`, tested up, down and up). Native controls, nothing loaded until played, files served with range support so readers can seek. Checked in a browser on a real story. Large files need the storage adapter's direct upload on Vercel |
+| **Embeds from any public host, and script widgets** (owner decisions 2026-11-03) | **Done.** A built-in host list (now including the election-guide service, `static.electup.com`) and hosts approved in Site settings load **without a click**; any other public https host embeds behind a click-to-load card; private, internal and own-site addresses are refused. A `widget` block (script URL, container id, `data-*` settings, event, height) runs a script in a sandboxed frame (no `allow-same-origin`), by the same load rule, and only a publisher can add or change one. The converter turns Grove's election-guide pattern into one. History: the widget block was removed on 2026-11-03 when the owner expected to build a new guide, and restored the same day once the owner said the old guides must render inline with no click |
+| **Importer and asset downloader** (`scripts/grove/import.ts`, `src/lib/assets/download.ts`, `src/lib/grove/import-rules.ts`) | **Built and tested; the real download has not run.** Two resumable phases: `fetch` (one file at a time, 3 s apart, neutral headers, robots.txt per host, https and public hosts only, size caps, a ledger of every attempt outside the repository, stops after five 403s) and `save` (library record per source file, matched on `legacy.sourceUrl`; sections, categories, contributors; story matched on Grove id so a re-run changes nothing; a story whose files are not all downloaded is **held**, never saved pointing at nothing). Owner's rules applied and reported: no section → section from the first path segment (93 stories); no byline → "WUWF Staff" (117); byline text that is only a fragment of a credited name is dropped with a note, any other extra name becomes a contributor and is flagged (6 stories have extra byline text). Rehearsed locally with generated placeholder files for 33 stories (saved, then a second run saved nothing). **Blocked:** this session's network policy refuses `cpa.ds.npr.org`, `media.npr.org` and `npr.brightspotcdn.com` (403 from the egress proxy), so no real file has been fetched. The environment's allowed domains need those hosts added |
+| **File storage adapter** (S3-compatible, for Supabase Storage; `src/plugins/storage.ts`) | **Wired, not tested against a real bucket.** Off unless `S3_BUCKET` is set (then files stay on disk, as in tests and local work). On: all three upload collections store in the bucket and uploads go from the editor's browser straight to it (Vercel's 4.5 MB server limit). Migration `20261103_004740` adds the adapter's two columns to media, audio and video in every environment. Needs the bucket, its S3 keys and a CORS rule allowing PUT from the site |
+| Media and audio libraries; featured media and audio on stories (replace `heroImage`) | **Done** (migration `20261102_220306`, data move tested up, down and up again). `credit`, `source` and a unique write-once `legacy.sourceUrl` on media and audio; `featuredMedia` is one photo, gallery or video, `featuredAudio` one audio file |
 | Grove-ready identity: `legacy.legacyPath`, `legacy.groveId` (contentId), `legacy.modifiedAt`, `legacy.nprId`, `source` on posts and pages; migrations verified | **Done**; the block set, importer and NPR read-only enforcement are **not** (see *Grove migration*) |
 | Content model, staff roles, access control | **Done**, integration-tested |
 | Underwriting resolution + Coastal Futures / Example Foundation demonstration | **Done**, 26 unit + integration tests |
@@ -28,7 +93,12 @@ design canvas are described under *Sources* below.
 | Giving page `/support` (board 14): levels, figures, calls to action edited in the admin (`Support page` global) | **Done**, checked in a browser at 1440 and 390 px; button addresses and the audience figures are for WUWF to supply (see below) |
 | URL scheme: unique `path` on stories and pages, `sections`, one catch-all route, permanent redirects on address change, trailing slash 308 (2026-11-02) | **Done**; 27 integration + 38 unit tests, mutation-checked; production build and `pnpm smoke:paths` pass. Contributors, shows and events get a `path` when their routes exist (one line in the resolver's registry) |
 | Production build (`pnpm build`) | **Passes again** (2026-11-02). It had failed since 2026-10-31 without anyone noticing; see *Lessons* |
-| Homepage, fellowship hub (boards 1, 2, 4) | Not started (the article, board 3, is done) |
+| Fellowship hub `/fellowships/[slug]` (board 4) | **First slice done** (2026-11-03): eyebrow, title, summary, a stats line, the funder panel (agreement lines whose term is running, read on the server), mission headline, mission and focus areas, the fellow, the latest story and all work (published only), and the "how it works" strip. All of it is edited on the fellowship record in the admin. Migration `20261103_023039`; 4 integration tests, 12 unit tests; checked in a browser at 1440 and 390 px. **Left out on purpose, because the features are not built:** follow, ask the fellowship a question and the open-questions list (listening, and the board's per-question "Me too" counts conflict with the no-public-tallies rule), the newsletter signup, explore by place, related coverage across WUWF, and "all of the fellow's work" (no contributor pages yet). The "how it works" copy is the board's, fixed in the component: the owner should confirm the wording |
+| **Live blogs** (`/live-updates/<slug>`): `live-posts` and `live-updates` collections, the page, polling, structured data, the Grove converter | **Built** (2026-11-03). A blog is a publishable record (a publisher opens and ends it; ending stamps the time); an update is its own record that an **editor** posts, live on save, with a stable anchor, a Central-time stamp, an automatic "Updated" label when its words change, optional bylines, up to three pinned. The page is cached and refreshed the moment an update is saved (so an emergency surge is served from cache); while a blog is live and the tab is visible it asks our own endpoint every 45 s and offers "New updates available" without moving the reader or refreshing by itself; an ended blog polls nothing. `LiveBlogPosting` data for search, no third-party scripts, comments left out. Migration `20261103_025619`; 8 integration + 18 unit tests; checked in a browser (real Isaias blog, 143 updates, at 1440 and 390 px, the polling prompt included). The converter turns all three archive blogs into 161 updates with no exceptions. **Not done:** importing them into the database (a step to add to the importer; the pages are fetched with `scripts/live-updates/probe.ts fetch`), a faster "post an update" screen than the standard create form, paging for a blog over 250 updates, live blogs in the sitemap, and the election blog check below |
+| **Shows, episodes and the podcast directory** (boards 9, 10; Grove `RadioShowPage` and `RadioShowEpisodePage`) | **Built** (2026-11-03). A **show is an original production** (the thing an underwriting agreement attaches to), extended with an exact address (`/show/<slug>` migrated, `/shows/<slug>` new; only a publisher can change it; it cannot collide with a story or page), tagline, schedule, hosts, description, a "listed" flag and Grove ids. An **episode is a story** (`format: audio`, the audio as its featured audio) that belongs to a show, so it reuses the story page, lists, search and importer; its page shows "Episode · <show>". Show page: tagline, summary, host/schedule/episode-count line, cover, funder panel (hub rules), the newest episode with its player, about, hosts, all episodes (newest 20), more originals. `/podcasts` lists every listed show with its count and newest episode, then the newest episodes. Both refresh when a show or episode is saved. Converters: `convertShowPage` and episodes through `convertStory` (the show comes from the page, else from the address, and is said so; an NPR-distributed show is not archived). Corpus: **1,513 stories convert (15 episodes), 1,509 clean, 4 flagged, 0 exceptions**. The importer saves shows first, then episodes attached to them (a minimal unlisted show is made, and reported, if an episode's own show page was not in the data). Migration `20261103_033745`; 7 integration + 9 unit tests; checked in a browser at 1440 and 390 px. **Left out (deferred or not built):** follow the show, leave a message (listening), email signup, transcripts, member feeds, related reporting; show-level podcast feed URLs |
+| **Pages: template system and standard pages** (Grove `ContentPage`) | **Built** (2026-11-03). `pages` gets a `template` (standard, or `blocks` for the starter's older layout, which keeps rendering), a short lead and a body made of the same blocks a story holds; a page is served at its exact address by the same resolver as stories; drafts stay private. The converter turns Grove's standard pages (modules, containers, a sub-heading that holds a video) into that, never dropping anything: on the 24 census pages, 22 clean and 2 flagged (a Vimeo address that is not a video). The importer now brings standard pages in with the stories. Also fixed: **NPR Pym interactives** (a `data-pym-src` placeholder plus NPR's loader script) were being lost; they now embed the same address as a frame, `apps.npr.org` is a built-in embed host, and the loader is reported as replaced, not lost (this rescues the election simulator page and the same pattern in stories and live blogs). Migration `20261103_032912`; 11 unit + 3 integration tests; checked in a browser (livestream behind a click, Vimeo and NPR inline, no overflow at 390 px). **Next templates for pages:** a hub template (for Unearthing Florida, The Voyager and other hubs) arrives with phase 4 |
+| **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
+| Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, podcasts, RadioLive and Unearthing Florida features, short videos, newsletters, "From NPR", sponsor placements. The membership band's wording is the Article page's; the owner should confirm the front-page copy |
 | Audience listening: collections, flow, private storage, staff review | Not started |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
@@ -39,6 +109,8 @@ listening hub, short video, sponsorship section and measurement, membership sync
 in them has been started.
 
 ## Next, in order
+
+> **Superseded for pages and templates by *Resume here* and *The build program*.** The older list below is kept for the items it still covers (analytics, Supabase Auth, final pass).
 
 1. ~~**Node.**~~ Done: 22.23.4 (the Payload minimum) pinned in `.node-version`/`.nvmrc`, and `engine-strict`
    in the root `.npmrc` makes an unsupported Node fail the install. Portal, site and packages all re-verified on it.
@@ -52,8 +124,7 @@ in them has been started.
    "isn't set up on this server yet" and logs why. The site must hold the same secret as `PORTAL_IDENTITY_SECRET`.
 4. ~~**Site sign-in route**~~ Done (`src/lib/portal/`, `src/app/api/portal/sso/route.ts`, `portal-sign-ins` collection).
    Needs `PORTAL_IDENTITY_SECRET` (= the Portal's `WEBSITE_IDENTITY_SECRET`). Create the break-glass admin first.
-5. **Before any more body work: the census** (see *Grove migration*; the `path` resolver is done).
-   Nothing else in this list depends on it, so the pages below may proceed if the owner asks.
+5. ~~**Before any more body work: the census**~~ Done, the blocks are built from it, and **the converter is built and run on the whole sample** (see *The converter*). **Next in the migration: the asset pipeline (needs the owner's approval to fetch, and the site's Supabase storage), then the importer.** The pages below do not depend on either.
 6. **Pages**, built to the boards with `@wuwf/design-tokens`. Done: the foundation, the article. **Next: the
    fellowship hub** (`/fellowships/[slug]`, board 4: the article's "About the fellowship" and "Explore the project"
    links already point at it), then the **homepage** (boards 1-2, editor-curated placements, no hard-coded arrays, and
@@ -276,14 +347,169 @@ standalone pages, one event. Paths:
    works only with the preview cookie. Sections are a collection (`Local News`, ...): primary section only; secondary
    sections wait for the census. The time zone is consistent with the first 5 real pages (4 agree in either zone; one evening
    story is dated in Central time, not UTC); the census tally (`dates.pathDateMatches`) is the real test.
-5. Blocks derived from the census; converter with a fidelity report (the plan's gate: no silent loss; an unknown
+5. ~~Blocks derived from the census~~ **done** (see above). **Next: the converter with a fidelity report** (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).
 
-**The five blocks that exist (Gallery, Pull quote, Embed, Promo, Preserved HTML) are provisional.** They were built from
-search summaries of Brightspot's documentation, not from Grove's data, and were wrongly described as "parity". Keep,
-rework or remove them once the census exists. The sanitizer, the embed allowlist and the administrators-only guard on
-preserved HTML are sound and carry over. If the data or the plan is unclear, stop and ask the owner; do not build on a
-guess.
+**The block set is now derived from the census (done 2026-11-02, owner-approved).** What changed from the provisional set,
+and why (counts are pages of the 1,500 sampled):
+- **Media** gained per-use `caption`, `credit`, `source`, `altText` and `alignment` (`Figure`: 1,454 pages, 1,407 as the lead
+  and 448 in the body). The file's own alt, credit and source live on the library record; a use overrides them.
+- **Gallery** gained a carousel layout (the default), a description and a slide title (`Carousel`: 94 pages, 84 as the lead).
+  The carousel is plain scroll-snap with no script: focusable, labelled, keyboard and screen-reader friendly.
+- **Embed** gained optional `width` and `height` (`IframeModule`, 32 pages). **Posts on X and Facebook are link-only on
+  purpose** (owner decision): a canonical address rendered as a static card with the post's text, never a live embed,
+  because the live embeds load the platform's tracking script.
+- **Audio** is new (`AudioEnhancement`, 31 pages), a block that points at the audio library.
+- **Promo was removed** from stories (nothing in 1,500 pages). **Code and Banner were left as they are** (starter leftovers,
+  not in Grove's data; removal was not confirmed).
+- **Featured media and featured audio are story fields, not body blocks.** Grove's `lead` (1,491 pages: 1,407 photos, 84
+  galleries, no video in the sample) becomes `featuredMedia`, a blocks field limited to one of Media, Gallery or Embed (the
+  same definitions as the body). Grove's top-level `audio` (1,272 pages; `sources` with a type on 145, so some stories have
+  more than one format) becomes `featuredAudio`. **No featured-video example exists** and the owner says it was rarely used,
+  so a featured video is an Embed (a URL); revisit a `videos` collection only if that changes.
+- **Unknown until the raw JSON is at hand:** Grove's `enhancementAlignment` values (the tally records only that it is a string
+  on 388 pages) and which `Figure` fields are library defaults versus per-use. The converter maps known values and reports
+  the rest; the block's alignment options are full, center, left, right.
+The sanitizer, the embed allowlist and the administrators-only guard on preserved HTML are unchanged. If the data or the plan
+is unclear, stop and ask the owner; do not build on a guess.
+
+### The converter (built 2026-11-02): `src/lib/grove`
+
+Pure code: a Grove page's JSON in, a story and a report out. It fetches nothing and writes nothing.
+
+- `convertStory(page, { embedHosts })` returns `converted` (a `ConvertedStory` and a `StoryReport`) or `skipped` (`external`,
+  `ambiguous`, `not-an-article`). Only WUWF-originated stories convert; origin is read per page with the census classifier.
+- The story keeps Grove's exact `path`, its `slug` (the last path segment), `contentId`, both dates, the description (as
+  `meta.description`, not a dek), the section and topics (as natural keys the importer resolves), and the byline (people
+  keyed by their `/people/<slug>`). Block ids are deterministic, so a re-run changes nothing.
+- The body is Grove's flat run of text chunks, inline link objects and block objects, rejoined so a paragraph a link
+  interrupted is one paragraph. A real parser (`parse5`, added as a direct dependency) reads the HTML; empty paragraphs
+  (Grove is full of them) are dropped silently, everything else is accounted for. Links to our own pages become relative.
+- Every file the story uses is a `$asset` token with its URL in `assets`; `resolveAssets(value, idByUrl)` swaps tokens for
+  library ids and **throws, naming the files, if any has none**, so a story cannot be saved pointing at nothing.
+- The report says, per story, what was `preserved` (kept some other way, needs a person), `noted` (changed, nothing lost)
+  or an `exception` (stop). `summarize()` rolls many reports up and lists the hosts that need approving.
+
+Run it: `pnpm exec tsx scripts/grove/convert-corpus.ts --raw <unzipped census folders> --manifest census/manifest.jsonl
+[--hosts a,b] [--out census/convert-summary.json]`. The saved summary is `census/convert-summary.json` (no page content).
+`scripts/grove/rehearse.ts` saves a varied handful of real stories into the **local** database with generated placeholder
+files, to look at them in a browser (it refuses any non-local database). It is a rehearsal, not the importer.
+
+**Result on the 1,566 census pages:** 2,520 distinct images and 1,307 distinct audio files across 4,616 uses (so reuse is
+real: the library dedupes about a third of uses); hosts are `npr.brightspotcdn.com` (3,285), `cpa.ds.npr.org` (1,317) and a
+handful of others (`media.npr.org`, an S3 bucket, `www.90works.org`, ...). Mapped: 20,594 paragraphs, 1,853 links, 1,402 lead
+photos, 732 body photos, 86 lead galleries, 94 embeds (47 YouTube, 26 X, 19 Facebook, 2 Vimeo), 40 audio blocks, 27 quotes.
+
+**What needs the owner (the 21 stories to review, and the notes):**
+1. ~~**Hosts to approve in Site settings**~~ Decided (2026-11-03): a built-in list loads without a click, every other public host embeds behind a click, so no per-host approval is needed. Three stories now carry a click-to-load note (`uw-media.pnj.com`, `storify.com`, `npr.brightspotcdn.com`).
+2. ~~**Video files** (4 stories)~~ Done: there is now a video block and library, and those four convert to it.
+3. **Two broken addresses** in the text (a link with a space in it); the words are kept, the link is not.
+4. ~~**One script widget** (the 2026 voter guide's Electup map)~~ Done: it converts to a `widget` block (container `electup-embed`, `data-embed`, event `electup_load`, module script `static.electup.com/v2/app.js`) that runs in a sandboxed frame and loads without a click (Electup is on the built-in host list). The event script sits inside the container in Grove's data and runs before the module loads, exactly as it did in Grove; whether Electup's real script works inside a sandboxed frame is the one thing not yet tried.
+5. **One table** is preserved HTML; **one junk image** (a browser-extension URL) was skipped and flagged.
+6. **93 stories have no primary section and 116 have no byline**; the importer needs a rule (for example, derive the section
+   from the path's first segment, and credit "WUWF Staff"). 61 bylines have a name but no `/people/` address.
+7. `updatesCorrections` is empty on every sampled story; a story that has one is an exception (there is no corrections field).
+8. 87 stories list a secondary section (almost always "Apple News", a distribution flag); noted, not migrated.
+
+### Decided: which hosts an embed may load from (owner, 2026-11-03: option (c))
+
+A **built-in list** (`DEFAULT_EMBED_HOSTS` in `src/lib/embeds.ts`: DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble, plus YouTube, Vimeo, Spotify, Apple Podcasts and SoundCloud) and the hosts an administrator adds in Site settings load **without a click**. **Any other public https host still embeds**, but behind a click-to-load card that names the host and says it may see the visit and set cookies; nothing is requested from it before the click. Addresses on private networks, internal names, `wuwf.org` and anything not https are refused on save. Posts on X and Facebook stay link-only cards. Every embed frame is sandboxed.
+
+**Script widgets** (an election guide, a chart, a map that works by running a script) are a separate `widget` block, not free HTML: one https script on a public host, a container id, `data-*` settings and an optional event. The script runs in a frame we build, in a sandbox with **no `allow-same-origin`** (so no access to this site's cookies, storage or page). The host follows the embed rule: built-in or approved hosts (Electup is built in) load without a click, others after one. Only a publisher can add one or change its script or settings (the story save is checked, because Payload does not apply a block's field access inside rich text). **Trade-off the owner accepted:** an automatically loading widget tells its host that the reader visited, which is the one place this site contacts a third party without a click.
+
+### The build program (owner, 2026-11-03: build everything except sponsorship and listening)
+
+Deferred by the owner: boards 5-6 (listening) and 16-20 (sponsorship). Everything else is to be built, in this order (the order
+follows what replacing Grove needs first, then the new products):
+
+1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**
+2. **Shows and episodes** (boards 9, 10; Grove's `RadioShowPage` and `RadioShowEpisodePage`, about 500 episodes), the podcast directory. **Done.**
+3. **Events** (Grove's `EventPage`, 1,474 community-calendar events) and the calendar list.
+4. **Author profile pages** (Grove's `AuthorPage`, 1,148) and the hubs for **Unearthing Florida** (11) and **The Voyager** (13).
+5. **Short video** (boards 7, 8). 6. **RadioLive** (12). 7. **Barefoot Mary and member feeds** (21-25: needs sign-in, entitlements and
+private feeds, so it is designed with the owner before it is built). 8. **Cutover infrastructure**: redirects, sitemap (stories,
+lists, live blogs, pages), search results, the gallery page, retiring the starter `/posts`. 9. Fill the homepage and hub slots left
+out so far, as the features behind them land.
+
+Grove's non-story pages in the census (65): standard content pages 24, radio-show episodes 15, events 10, author pages 10, radio
+show pages 5, a gallery page 1: these are the shapes the program covers.
+
+### Live updates (built 2026-11-03; the data and the decisions behind it)
+
+Grove has `/live-updates/<slug>`: one post that aggregates timestamped updates for a fast-moving event. The owner approved a
+census of these pages on 2026-11-03 (same rules as the template census; `scripts/live-updates/probe.ts`; raw pages stay
+outside the repository). **There is no listing page** (`/live-updates` is a 404); `probe.ts discover` reads the monthly sitemaps
+for `/live-updates/` addresses, the scan of all 276 monthly sitemaps found **only three** (see below).
+
+**How many (found 2026-11-03).** Reading all 276 monthly sitemaps found **three** live-update addresses in the whole archive:
+`/live-updates/tropical-storm-isaias-updates` (sitemap 2026-10), `/live-updates/2024-election-live-blog` (2024-11) and
+`/live-updates/the-d-c-effect` (2025-03). So the content type is small to migrate (three posts); the design question is the
+tool WUWF will use for *future* events, not the archive. The other two pages have not been fetched yet; the approved census
+covers them (about 10 seconds at the 3 s spacing).
+
+**The data (one page examined: `/live-updates/tropical-storm-isaias-updates`, 628 KB of JSON).** Its own template,
+`/liveblog/LiveBlogPage.hbs`: `blogLead` (a Figure), `blogBody` (the intro, in the same body structure as a story),
+`posts` (all 143 updates) and `currentPosts` (the first 10), `pinnedPosts` (empty), **`liveEvent` (a boolean: live or ended)**,
+`coverageStartTime`/`coverageEndTime` in its schema.org `LiveBlogPosting` data, `postsEndpoint` (an API the page uses to load
+more), `ownerName`, an Atom feed link and Disqus comments (`meta`). Each update is `/liveblog/LiveBlogPost.hbs`: `postId`,
+`anchor` (the permalink fragment, unique), `headline`, `body` (strings, inline links and the same Figure, YouTube, Pym and
+ExternalContent objects as stories), `authors` (1 of 143 had one), `postedDate` and `postedDateTimestamp`, and `updateDate`
+(30 of 143 differ from the posted time, so they were edited). Cadence: 143 updates over 14 days, up to 43 in a day, median
+3 minutes between consecutive updates, 103 within 30 minutes of the one before. Bodies are 1,060 characters at the median and
+5,764 at most.
+
+**The existing story-body converter handles every body unchanged** (`bodyNodes` is now exported): 144 bodies (intro and 143
+updates), 143 clean, 1 needs review (a `rumble.com` embed, another host to approve), 0 problems.
+
+**Proposed design (the boards have none; owner has seen it and answered nothing yet):**
+- Two collections: a **live post** (title, intro, lead media, status live/ended with an ended-at time, optional pinned updates,
+  the exact Grove path, drafts and versions, SEO, legacy ids) and a **live update** (its own record joined to the post:
+  headline, body in the story blocks, posted time defaulting to now, an edited time set when changed after publishing, a
+  stable anchor unique within the post, optional bylines, legacy `postId`). Updates are separate records because editors
+  post in bursts (a locked document would block them), every update would otherwise save a full version of the whole post, and
+  a two-week event would be one enormous document.
+- The reader page: updates newest first, each with a permalink and anchor, the posted time in Central time and an "updated"
+  label; a clear Live or Ended state; `LiveBlogPosting` data for search engines; copy-link and share without third-party
+  scripts. While live, the page asks for new updates every 30 to 60 seconds only while the tab is visible, announces them
+  politely, never moves the reader's scroll; publishing an update refreshes the cached page at once.
+- Editors: a quick "post an update" action with the post and time preset, usable on a phone.
+- The homepage's emergency-coverage state (an existing rule) is what a live post would fill.
+- Migration: update by update through the existing body converter, keeping each anchor, time and byline. Disqus comments are
+  not migrated (a third-party tracker).
+- **Decided (owner said go to the recommendations, 2026-11-03), and built that way:** editors post updates (a fast path), publishers open
+  and end a blog; bylines are optional; comments are left out; polling our own endpoint is fine.
+- **To confirm on Grove:** the 2024 election blog lists 10 updates and so does its own API, with no sign of a next page, so it is treated as
+  complete. If the live page shows a "load more" button, tell the developer and the fetch will be redone with paging.
+
+**Fixed 2026-11-03: unrendered template calls.** Grove's data holds `{{html('...')}}` in place of text in about 120 places (section
+and topic titles, link text, and whole body chunks, where the call can open in one chunk and close after a photo). The converter
+now unwraps them everywhere text is read; a scan of all 1,498 converted stories finds none left.
+
+### The libraries (decided 2026-11-02)
+
+Grove keeps a reusable library of audio, video and photos with metadata; `media` and the new `audio` collection are that
+library here, and the upload field's "choose existing or create new" is how editors reuse an item. **The asset files are copied
+into our own storage** (the NPR terms cover WUWF's audio and images, per the owner). Rules for the import: one record per
+source file, matched on `legacy.sourceUrl` (unique, write-once for staff); the file's alt, credit and source go on the library
+record; a story's caption, alignment and any differing credit or alt go on the use, and a conflict is listed in the fidelity
+report. Credits that are not WUWF's are flagged for review, never copied silently. The asset fetch is a **separate approval**:
+the asset hosts are NPR-controlled (`cpa.ds.npr.org`, `npr.brightspotcdn.com`), the volume is large, and the politeness rules
+set for wuwf.org pages (neutral User-Agent, 3 s spacing) were approved only for those pages. Dry run first: a manifest counting
+distinct files against uses.
+
+### Pages and templates (decided 2026-11-02, design agreed with the owner; not built)
+
+Staff edit pages whose **structure a developer has set**; they do not build pages from scratch. The boards show about 15 to 18
+recurring section patterns and about a dozen templates. Plan: a new collection where the data shape differs (shows and
+episodes with a per-show theme, events and performances, artists, videos, contributors); otherwise the `pages` collection with
+a `template` select, each template a folder (its fields, its component) in one registry. Fixed structure uses **groups and named
+tabs, not a blocks field** (Payload has no option to stop editors adding or removing blocks rows); `admin.condition` shows a
+template's fields; `filterOptions` limits the blocks a template allows; shared section components are reused across templates;
+per-page or per-show themes come from token sets checked with the contrast helpers. Never store HTML or CSS in the CMS. A look
+the sections cannot make means a developer adds a section or template (a pull request), which then serves every page. The
+design canvas has **no designs for** authors, events detail, standard pages, the gallery page, section and topic pages, search,
+or RadioLive artist and performance pages: each needs a design or reuses the closest template. Board 25 (member feeds) is a
+signed-in account page, not CMS content.
 
 ## Known gaps in what exists
 
@@ -295,6 +521,13 @@ guess.
 - Malformed percent-encoding (`/a/%E0%A4%A`) is answered 500 by Next in production (400 in development) before any
   of our code runs. Garbage URLs also each try to become an ISR cache entry (a disk write when self-hosting).
 - The header's "News" link points at no page yet (a 404 on prefetch).
+- **Uploads are stored on local disk** (`public/media`, `public/audio`), which does not persist on Vercel. A storage adapter
+  (S3-compatible, with `clientUploads: true` and bucket CORS) is needed before the first real upload there; it comes with the
+  site's own Supabase project. Payload's upload limits are raised for audio (150 MiB a file) in `payload.config.ts`.
+- The story page plays audio with the browser's own controls; the persistent player is Milestone 2.
+- Audio files are public by design. Anything private needs its own collection with its own access.
+- `EmbedBlock` sets both `allow` and `allowFullScreen` on its frame, so browsers log "Allow attribute will take precedence".
+  Harmless; drop `allowFullScreen` when next touching it.
 - The article page is built to board 3 except: the "This story started with your answers" strip, the audio player
   button and the inline listening ask (listening and the player are later work), the sponsor message unit
   (Milestone 3), and the pull quote and inline audio excerpt (they have no editor block yet).
@@ -359,8 +592,63 @@ guess.
 - **`next/image` only serves what `images.localPatterns` allows** (the starter allows `/api/media/file/**`). A new
   static image needs a pattern, or every page that renders it returns 500. Typecheck cannot catch it; a browser does.
 - **`pkill -f` can kill your own shell** if the pattern is in the command line.
+- **Payload 3.92.1 documentation is not reachable from the sandbox (payloadcms.com is outside the network policy), but it is in
+  the repository:** `git clone --depth 1 --branch v3.92.1 https://github.com/payloadcms/payload`, then read `docs/`. Read the
+  tag that matches the installed version. Things it settles: Payload does not reject an unknown block type, it drops it
+  (so an importer must build only allowed types; the generated `Post` type enforces it); a draft skips validation, so
+  `maxRows` and `required` only bite when a story is published (test them published); the Local API skips access control
+  unless `overrideAccess: false`; a field's `access.update: () => false` discards a write silently; `payload.auth` and draft
+  preview need a Payload session, which the Portal sign-in provides through its own signed cookie; there is no Supabase
+  storage adapter (use the S3 adapter) and Vercel caps a server upload at 4.5 MB (`clientUploads: true`); `autoRun` must
+  never be used on Vercel (Vercel Cron calls `/api/payload-jobs/run`, secured by `CRON_SECRET`); `slugField()` is experimental.
+- **A rename prompt hangs `migrate:create` and dev push.** When a column is dropped and another is added in one change,
+  Payload (Drizzle) asks "created or renamed?" and needs a real terminal. Answer it under a pseudo-terminal:
+  `(sleep 14; printf '\r'; sleep 6; printf '\r') | script -qefc "pnpm payload migrate:create name" /dev/null`, then read the
+  SQL. The same prompt stops the test run (it waits forever in "Pulling schema"): rebuild the database from the committed
+  migrations (`DATABASE_URL=...wuwf_site_test pnpm payload migrate` on a fresh database), which also tests them.
+- **Read the generated migration, then test it on rows.** The generated rollback failed (it dropped a foreign key that the
+  `DROP TABLE ... CASCADE` before it had already removed), and a guessed internal name was wrong: Payload stores a version
+  row's block path as `version.featuredMedia`, not `version_featuredMedia`. Both were found only by running up, down and up
+  on a scratch database with old-shape rows and then reading the result back through Payload.
+- **Run upload tests in the Node environment** (`// @vitest-environment node` at the top of the file): in the default
+  jsdom environment Payload cannot detect the type of a Buffer and refuses it. Payload checks what a file really is, so test
+  audio must be a genuine file (a tiny silent WAV).
+- **Stop a server by its process id, and check it is gone.** `lsof` is not installed here, so `lsof -ti:3000 | xargs kill` did
+  nothing; the old server kept port 3000 while a rebuild deleted its stylesheets, and the new one never started. The page
+  looked unstyled. List with `ps -eo pid,args | grep -E "[n]ext-server"` and kill those pids.
+- **The local Postgres stops when the sandbox idles.** `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/wuwf-site-pg
+  -l /var/tmp/wuwf-site-pg/log.txt -w start"` brings it back (the roadmap's setup block creates it).
+- **Real data finds what synthetic data cannot.** Grove galleries mix portrait and landscape pictures, so the carousel needed a
+  uniform frame (`relative aspect-[3/2]`, image `absolute inset-0 object-contain`); a pasted video link arrived wrapped in a
+  corrupted `<brightspot-cms-external-content>` element; an empty lead figure is "no picture", not an error. The census zips
+  are the test material: unzip each into its own new folder outside the repository and run the corpus script over them.
+- **Scripts that touch the dev database push schema in dev mode, and then `payload migrate` hangs on a question.** Payload marks
+  a dev-pushed database; the next `payload migrate` asks "continue?" and, with no terminal, waits forever. Run such scripts with
+  `NODE_ENV=production` (no push), keep `< /dev/null` on every Payload CLI call, and when it has happened rebuild the dev
+  database from the migrations (drop, create, `payload migrate`).
+- **Never put a kill pattern in a command whose own text contains the pattern.** `ps | grep migrate | xargs kill` killed the
+  shell that contained the word "migrate" (exit 144) for the third time. Use `ps -eo pid,args | grep "[n]ext-server"` in a
+  command by itself, then kill the pids.
+- **Rolling back more than the last migration is untested.** `payload migrate:down` rolls back a whole *batch* (every migration
+  that ran together); the older `paths_and_sections` rollback fails on a constraint already removed. The two newest
+  migrations' rollbacks were fixed and tested (`DROP CONSTRAINT IF EXISTS` after a `DROP TABLE ... CASCADE`).
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
+
+- **Restricted blocks need a hook on every collection that takes story-style content.** The story body editor (`fields/bodyEditor.ts`) includes
+  the script widget (publisher-only) and preserved HTML (administrator-only), and Payload does not enforce a block's own access inside rich
+  text. `hooks/restrictedBlocksGuard.ts` does, and **every collection using `bodyEditor` must list its fields in it** (stories, live blog
+  introductions, live updates, page bodies, show descriptions). `restrictedBlocksGuard.test.ts` fails when one is missing and
+  `tests/int/restricted-blocks.int.spec.ts` walks them all. (A review of PR 325 found four were missing: an editor could have put a widget in
+  a live update and gone live at once.)
+- **A live page's refresh fingerprint must include the blog, not just its updates** (`lib/live/token.ts`, one function for the page and the
+  endpoint): ending a blog, pinning and rewriting the introduction touch no update.
+- **Adding a column with a default backfills every existing row with that default.** Adding `pages.template` made old layout pages
+  `standard`; migration `20261103_040200` sets them back to `blocks`. When a migration adds a defaulted column, ask what the existing rows
+  should be.
+- **Keep only the newest Payload migration snapshot.** Each `.json` snapshot is a full copy of the schema (12-19k lines); `migrate:create`
+  and `verify:migrations` read only the latest, and `verify:migrations` was shown to still catch a missing migration with the older ones
+  gone. The seven intermediate snapshots made in this PR were dropped; do the same each time (delete all but the latest).
 
 ## Running things in a fresh sandbox
 
@@ -382,7 +670,7 @@ su postgres -c "$PGBIN/pg_ctl -D $D -l $D/log.txt -w start"
 psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c "create database wuwf_site_test;"
 ```
 
-Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
+(If the sandbox is the same one and Postgres has only stopped, use the restart command under *Resume here*.) Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
 
 ## Needs the owner (cannot be done from the repository)
 
@@ -395,7 +683,25 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
 - **Vercel, new project for the site:** Root Directory `apps/site`, Node pinned, own env vars.
 - **Not yet confirmed:** that Vercel's install handles one lockfile per project in a pnpm workspace. Check the
   first preview build.
-- **A Supabase project for the site** (separate from the Portal's two) and its keys.
+- **Supabase projects for the site: created 2026-11-02** in the WUWF organization, region `us-east-1`, separate from the
+  Portal's two: `wuwf-site-staging` (ref `avgeycgvaufwdfzdsogi`) and `wuwf-site-production` (ref `gyidqxhkkhajfazbcrug`).
+  **Set up 2026-11-03 (by Claude, via the Supabase and Vercel tools):** on both projects a login role `payload_app` (not a
+  superuser; the tables it creates get no access for Supabase's public Data API roles) and a private storage bucket
+  `wuwf-site-files` (150 MiB file limit). Supabase does not let the `postgres` role's password be changed from SQL, which is
+  why the app has its own role. Its password is in the session's private files, not in the repository.
+- **Vercel project `wuwf-site`** (id `prj_YaSfN6SHJtDLj8Pf6nAQERO8hqbL`, WUWF team): Root Directory `apps/site`, linked to
+  `wuwfdevs/portal`, build command `bash scripts/vercel-build.sh` (applies committed migrations before building **only** when
+  `MIGRATE_ON_BUILD=1`, which is set for Preview only), region `iad1`, Vercel sign-in required for previews.
+  Preview env set: `DATABASE_URL` (staging, pooled, port 6543), `DATABASE_MIGRATION_URL` (staging, session mode, 5432),
+  `MIGRATE_ON_BUILD`. The three secrets (`PAYLOAD_SECRET`, `CRON_SECRET`, `PREVIEW_SECRET`) were replaced with generated values on 2026-11-03 after a placeholder mistake; the S3 variables for staging are set (bucket `wuwf-site-files`). **Staff sign-in handoff (staging only):** one generated value is set as the site's `PORTAL_IDENTITY_SECRET` (Preview) and the
+  Portal project's `WEBSITE_IDENTITY_SECRET` (Preview only), with the Portal's Preview `WEBSITE_ORIGIN` pointing at the staging
+  site's branch address. The Portal's **Production** environment is deliberately unset (the live Portal's Website tool stays
+  "not set up" until a production site exists). **Not set:** the site's Production environment, apart from the two public
+  Supabase variables.
+- **Pooler host (confirmed by the owner from the dashboard, 2026-11-03):** `aws-0-us-east-1.pooler.supabase.com`; the app role connects as `payload_app.<ref>`. The first guess (`aws-1`) was wrong. Not yet proven by a build: no site build has completed on Vercel yet
+  (the one attempt was cancelled; it was created as a *production* deployment by mistake, nothing went live).
+- **Lesson:** `create_deployment` with a Git source on a project that has no production deployment yet can come back with
+  target `production`, whatever branch is named. Use a push to a branch (Vercel builds it as a preview) instead.
 - WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
   page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
   WUWF can source them; staff add them under Support page → Top of page.
@@ -405,6 +711,9 @@ Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.exa
   Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
   administrators.
 - Legal and university review (IT-04 notice, privacy, retention) before production.
+- **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
+  converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
+  hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.

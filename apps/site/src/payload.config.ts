@@ -4,13 +4,17 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { Audio } from './collections/Audio'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
+import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
+import { LivePosts } from './collections/Live/LivePosts'
+import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
 import {
@@ -22,9 +26,11 @@ import {
 } from './collections/Underwriting'
 import { Footer } from './Footer/config'
 import { Header } from './Header/config'
+import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
+import { storagePlugin } from './plugins/storage'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 
@@ -75,7 +81,11 @@ export default buildConfig({
   collections: [
     Pages,
     Posts,
+    LivePosts,
+    LiveUpdates,
     Media,
+    Audio,
+    Video,
     Sections,
     Categories,
     Contributors,
@@ -89,10 +99,17 @@ export default buildConfig({
     PortalSignIns,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, SiteSettings, SupportPage],
-  plugins,
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage],
+  plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,
+  // Payload's default is 20 MiB per file and 50 MiB per request, which rejects (HTTP 413) a long station recording.
+  // Raised so audio fits. On Vercel a server upload is capped at 4.5 MB regardless, so production uploads must go
+  // straight from the browser to storage (the storage adapter's `clientUploads`) once that adapter is set up.
+  upload: {
+    limits: { fileSize: 150 * 1024 * 1024 },
+    requestSizeLimit: 160 * 1024 * 1024,
+  },
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

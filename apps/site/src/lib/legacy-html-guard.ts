@@ -27,3 +27,34 @@ export function changedLegacyHtml(next: unknown, previous: unknown): string[] {
   const before = collectLegacyHtml(previous)
   return [...collectLegacyHtml(next)].filter(([id, html]) => before.get(id) !== html).map(([id]) => id)
 }
+
+// The same question for script widgets: which site's code a reader runs is decided by `scriptUrl` and the settings
+// handed to it, so a change to any of those needs a publisher. A new title, caption or height does not.
+
+type WidgetFields = { id?: unknown; blockType?: unknown; scriptUrl?: unknown; module?: unknown; elementId?: unknown; initEvent?: unknown; attributes?: unknown }
+
+const fingerprint = (f: WidgetFields): string => {
+  const attrs = Array.isArray(f.attributes) ? (f.attributes as { name?: unknown; value?: unknown }[]).map((a) => [a?.name ?? '', a?.value ?? '']) : []
+  return JSON.stringify([f.scriptUrl ?? '', Boolean(f.module), f.elementId ?? '', f.initEvent ?? '', attrs])
+}
+
+/** block id → what the widget runs, for every script widget anywhere in a Lexical state. */
+export function collectWidgets(state: unknown): Map<string, string> {
+  const found = new Map<string, string>()
+  const walk = (node: unknown): void => {
+    if (typeof node !== 'object' || node === null) return
+    const n = node as { type?: unknown; fields?: WidgetFields; children?: unknown }
+    if (n.type === 'block' && n.fields?.blockType === 'widget') {
+      found.set(typeof n.fields.id === 'string' ? n.fields.id : `anon-${found.size}`, fingerprint(n.fields))
+    }
+    if (Array.isArray(n.children)) n.children.forEach(walk)
+  }
+  walk((state as { root?: unknown } | null | undefined)?.root)
+  return found
+}
+
+/** Ids of widgets in `next` that are new, or whose script or settings differ from `previous`. */
+export function changedWidgets(next: unknown, previous: unknown): string[] {
+  const before = collectWidgets(previous)
+  return [...collectWidgets(next)].filter(([id, f]) => before.get(id) !== f).map(([id]) => id)
+}

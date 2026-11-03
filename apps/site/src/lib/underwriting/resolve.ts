@@ -175,6 +175,30 @@ export function resolveUnderwriting(content: ContentRef, ctx: ResolveContext): R
   return { lines, overflow, tags };
 }
 
+/**
+ * The funder lines a collection's own hub page carries. A hub is display, not history: an agreement acknowledges it only
+ * while its term runs (a recognition agreement that has ended still credits the work made during the term, but not the
+ * page). Every applicable line is listed; the hub is where the overflow from stories goes, so there is no cap. An agreement
+ * that limits itself to other placements leaves the hub out.
+ */
+export function resolveHubUnderwriting(collection: CollectionRef, ctx: { now: string }): AcknowledgmentLine[] {
+  if (!isFundable(collection.kind)) return [];
+  const day = dayOf(ctx.now);
+  return collection.agreements
+    .filter((a) => a.active && inTerm(day, a) && (a.placements.length === 0 || a.placements.includes("hub")))
+    .sort((x, y) => (x.startsOn !== y.startsOn ? (x.startsOn < y.startsOn ? -1 : 1) : x.id < y.id ? -1 : x.id > y.id ? 1 : 0))
+    .map((agreement) => ({
+      agreementId: agreement.id,
+      sponsorId: agreement.sponsorId,
+      sponsorName: agreement.sponsorName,
+      text: agreement.text,
+      via: { kind: collection.kind as FundableKind, id: collection.id, slug: collection.slug, title: collection.title },
+      textVersion: agreement.textVersion,
+      ...(agreement.logoMediaId ? { logoMediaId: agreement.logoMediaId } : {}),
+      ...(agreement.url ? { url: agreement.url } : {}),
+    }));
+}
+
 function compareRoutes(a: { kind: FundableKind; id: string }, b: { kind: FundableKind; id: string }): number {
   const byKind = KIND_RANK[a.kind] - KIND_RANK[b.kind];
   if (byKind !== 0) return byKind;

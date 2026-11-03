@@ -23,7 +23,7 @@ change them to match the Portal, and never touch the Portal's dependencies from 
 The reviewed design canvas ("WUWF.org Home Redesign", 26 boards) and the WUWF Design System are the source
 for layout, copy and tokens. Where the brief and the boards differ, the boards win on layout and copy.
 
-- Shows live at `wuwf.org/shows/<slug>`; a marketing domain (e.g. barefootmary.com) redirects into it.
+- Shows live at `wuwf.org/shows/<slug>`; a marketing domain (e.g. barefootmary.com) redirects into it. A show is an **original production** (the record an underwriting agreement attaches to); an **episode is a story** (`format: audio`) that belongs to it. Migrated shows keep Grove's exact `/show/<slug>` address.
 - **There is no podcast subscription product.** Supporting a show means becoming a WUWF sustaining member;
   member benefits arrive as private podcast feeds. The language is "donate to get", never "subscribe".
 - Audience listening is native to this site, not an embed of the Portal's tool; it reuses the Portal's
@@ -116,8 +116,18 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   export); it is converted to Payload before migrating. The owner's migration plan governs scope (WUWF-originated
   content only; wire stories are URL exceptions); Payload needs a block for everything Grove/Brightspot does, and stories must be able to use them as in
   Grove. Derive the blocks from a tally of that data (`ROADMAP.md` → *Grove migration*), not from documentation or
-  guesswork. The five existing blocks (gallery, pull quote, embed, promo, preserved HTML) are provisional. Embeds stay
-  a URL plus a host allowlist, never free HTML.
+  guesswork. The story blocks now follow the census (media, gallery, pull quote, embed, audio, video, preserved HTML); a story's
+  featured media and featured audio are fields, not body blocks. Embeds stay a URL, never free HTML: a built-in and administrator-approved host list loads without a click, any other public https host
+  loads only behind a click-to-load card, and private, internal and own-site addresses are refused. Posts on X and Facebook are link-only cards,
+  never live embeds (their scripts track readers). A script widget (an election guide) is its own `widget` block (structured fields, never pasted HTML; sandboxed frame with no
+  `allow-same-origin`; publisher-only to add or change). Its script host follows the embed rule: a built-in or approved host loads
+  without a click (owner decision, 2026-11-03: old election guides must render inline), any other host waits for a click. Never
+  import a `<script>` any other way. Asset files are copied
+  into our own storage, one library record per source file (`legacy.sourceUrl`); the asset fetch needs the owner's approval.
+- **The converter lives in `src/lib/grove`** (pure: no fetching, no database). One Grove page in, one story plus a report out;
+  anything it cannot map becomes a flagged link, preserved HTML or an exception, never a silent drop, and a script is never
+  imported. Keep it that way: no network, no Payload, no React in that folder. Test it on synthetic pages in the repo and on
+  the real census pages through `scripts/grove/convert-corpus.ts` (the raw pages stay outside the repository).
 - **If you do not know how to proceed, or need information, stop and ask the owner.** Do not build on a guess.
 - **`dangerouslySetInnerHTML` is allowed in exactly one place**: `blocks/LegacyHtml/Component.tsx`, on the output of
   `lib/sanitize.ts`. Nowhere else.

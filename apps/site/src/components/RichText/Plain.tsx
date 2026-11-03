@@ -6,7 +6,7 @@ import { cn } from '@/utilities/ui'
 
 import { internalDocToHref } from './links'
 
-// Rich text with the default nodes and links only, and none of the story blocks (gallery, embed, promo, preserved
+// Rich text with the default nodes and links only, and none of the story blocks (gallery, embed, audio, preserved
 // HTML...). Those blocks are server components that read Payload, so anything that renders them is server-only.
 // A client component (the form block, for its intro and confirmation text) must use this one instead of `RichText`:
 // importing `RichText` from a client component pulls Payload into the browser bundle and the build fails.

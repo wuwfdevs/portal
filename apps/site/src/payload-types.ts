@@ -69,7 +69,11 @@ export interface Config {
   collections: {
     pages: Page;
     posts: Post;
+    'live-posts': LivePost;
+    'live-updates': LiveUpdate;
     media: Media;
+    audio: Audio;
+    video: Video;
     sections: Section;
     categories: Category;
     contributors: Contributor;
@@ -100,7 +104,11 @@ export interface Config {
   collectionsSelect: {
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
+    'live-posts': LivePostsSelect<false> | LivePostsSelect<true>;
+    'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    audio: AudioSelect<false> | AudioSelect<true>;
+    video: VideoSelect<false> | VideoSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
@@ -130,12 +138,14 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    homepage: Homepage;
     'site-settings': SiteSetting;
     'support-page': SupportPage;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    homepage: HomepageSelect<false> | HomepageSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
   };
@@ -180,6 +190,32 @@ export interface UserAuthOperations {
 export interface Page {
   id: number;
   title: string;
+  /**
+   * The structure of the page. A developer adds templates; staff fill them in.
+   */
+  template: 'standard' | 'blocks';
+  /**
+   * A short lead shown under the title. Optional.
+   */
+  summary?: string | null;
+  /**
+   * Text, pictures, audio, video and embeds, the same blocks as a story.
+   */
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   hero: {
     type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
     richText?: {
@@ -223,7 +259,7 @@ export interface Page {
       | null;
     media?: (number | null) | Media;
   };
-  layout: (CallToActionBlock | ContentBlock | MediaBlock | ArchiveBlock | FormBlock)[];
+  layout?: (CallToActionBlock | ContentBlock | MediaBlock | ArchiveBlock | FormBlock)[] | null;
   meta?: {
     title?: string | null;
     /**
@@ -274,7 +310,14 @@ export interface Page {
 export interface Post {
   id: number;
   title: string;
-  heroImage?: (number | null) | Media;
+  /**
+   * The picture, gallery or video that opens the story. Add one.
+   */
+  featuredMedia?: (MediaBlock | GalleryBlock | VideoPlayerBlock | EmbedBlock)[] | null;
+  /**
+   * The audio version of this story, for the main player. Optional.
+   */
+  featuredAudio?: (number | null) | Audio;
   content: {
     root: {
       type: string;
@@ -364,11 +407,49 @@ export interface Post {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MediaBlock".
+ */
+export interface MediaBlock {
+  media: number | Media;
+  /**
+   * Shown under the picture. Leave empty to use the library caption, if it has one.
+   */
+  caption?: string | null;
+  /**
+   * Leave empty to use the library credit.
+   */
+  credit?: string | null;
+  /**
+   * Leave empty to use the library source.
+   */
+  source?: string | null;
+  /**
+   * Replaces the library alt text for this use only. Leave empty to use the library alt text.
+   */
+  altText?: string | null;
+  alignment?: ('full' | 'center' | 'left' | 'right') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'mediaBlock';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
   id: number;
+  /**
+   * What the picture shows, for people who cannot see it. A story can override this where the same picture is used differently.
+   */
   alt?: string | null;
+  /**
+   * Who made it, e.g. "Photo: Jane Doe / WUWF". A story can override this for one use.
+   */
+  credit?: string | null;
+  /**
+   * Where it came from or who owns the rights, when that is not the same as the credit.
+   */
+  source?: string | null;
   caption?: {
     root: {
       type: string;
@@ -384,6 +465,17 @@ export interface Media {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a picture used in many stories is stored once and a re-run cannot duplicate it. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  prefix?: string | null;
+  _objectKey?: string | null;
   folder?: (number | null) | FolderInterface;
   updatedAt: string;
   createdAt: string;
@@ -480,6 +572,173 @@ export interface FolderInterface {
   folderType?: 'media'[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock".
+ */
+export interface GalleryBlock {
+  /**
+   * Optional heading above the gallery.
+   */
+  title?: string | null;
+  /**
+   * Optional text under the heading.
+   */
+  description?: string | null;
+  layout: 'carousel' | 'grid' | 'list';
+  images: {
+    image: number | Media;
+    title?: string | null;
+    caption?: string | null;
+    /**
+     * Leave empty to use the library credit.
+     */
+    credit?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'gallery';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "VideoPlayerBlock".
+ */
+export interface VideoPlayerBlock {
+  video: number | Video;
+  /**
+   * Names the video for people using a screen reader. Leave empty to use the video file's own title.
+   */
+  title?: string | null;
+  /**
+   * Shown under the video.
+   */
+  caption?: string | null;
+  /**
+   * The picture shown before it plays. Leave empty to use the video file's own picture, if it has one.
+   */
+  poster?: (number | null) | Media;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'videoPlayer';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video".
+ */
+export interface Video {
+  id: number;
+  /**
+   * What the video is. Read aloud by a screen reader as its label.
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Who made it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * The picture shown before the video plays. Optional; a story can choose a different one.
+   */
+  poster?: (number | null) | Media;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock".
+ */
+export interface EmbedBlock {
+  /**
+   * The address of a specific video, episode or track (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud), or a page on an approved site.
+   */
+  url: string;
+  /**
+   * What the embed is, for people using a screen reader. Not shown on the page.
+   */
+  title: string;
+  /**
+   * Optional. The original width of an embedded page or widget, to keep its proportions.
+   */
+  width?: number | null;
+  /**
+   * Optional. The original height. Used together with the width; videos and audio players ignore both.
+   */
+  height?: number | null;
+  /**
+   * Shown under the embed. For a post on X or Facebook, put the post's text here: it is shown on the card.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'embed';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audio".
+ */
+export interface Audio {
+  id: number;
+  /**
+   * What a listener sees on the player, e.g. "Listen to this story".
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Who produced it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -603,7 +862,31 @@ export interface Fellowship {
    */
   summary?: string | null;
   heroImage?: (number | null) | Media;
+  /**
+   * The small label above the title on the hub page.
+   */
+  eyebrow?: string | null;
+  /**
+   * One sentence that says what the fellowship is for. Shown large above the mission.
+   */
+  missionHeadline?: string | null;
+  /**
+   * A paragraph under the headline.
+   */
   mission?: string | null;
+  /**
+   * The two or three subjects the fellowship covers, shown under the mission.
+   */
+  focusAreas?:
+    | {
+        title: string;
+        /**
+         * A few words, e.g. "What it costs to stay".
+         */
+        blurb?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   fellow?: (number | null) | Contributor;
   termStartsOn?: string | null;
   termEndsOn?: string | null;
@@ -712,7 +995,7 @@ export interface Series {
   createdAt: string;
 }
 /**
- * An ongoing WUWF production, such as a podcast or live-music series.
+ * An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "productions".
@@ -730,6 +1013,48 @@ export interface Production {
    */
   summary?: string | null;
   heroImage?: (number | null) | Media;
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
+  /**
+   * The line under the name, e.g. "A Coastal Futures podcast · WUWF".
+   */
+  tagline?: string | null;
+  /**
+   * When it airs or how often it comes out, e.g. "Sundays at 7 p.m. on WUWF-HD2" or "New episodes every other Friday".
+   */
+  schedule?: string | null;
+  hosts?: (number | Contributor)[] | null;
+  /**
+   * About the show. Shown on its page.
+   */
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Show this in the podcast directory.
+   */
+  listed?: boolean | null;
+  /**
+   * Set by the migration. Leave empty for new shows.
+   */
+  legacy?: {
+    legacyPath?: string | null;
+    groveId?: string | null;
+  };
   /**
    * Underwriting agreements acknowledged on everything in this collection. Managed by the sponsorship team.
    */
@@ -834,16 +1159,6 @@ export interface ContentBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'content';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "MediaBlock".
- */
-export interface MediaBlock {
-  media: number | Media;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'mediaBlock';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1067,6 +1382,136 @@ export interface Form {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * A page that gathers timestamped updates on a fast-moving event. Post the updates under "Live updates".
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-posts".
+ */
+export interface LivePost {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * Live shows a "Live" label and checks for new updates. Ended stops both and keeps the page as a record.
+   */
+  coverage: 'live' | 'ended';
+  /**
+   * Set when the blog is ended.
+   */
+  endedAt?: string | null;
+  /**
+   * One or two sentences for search results and sharing.
+   */
+  description?: string | null;
+  /**
+   * The picture, gallery or video that opens the page. Optional.
+   */
+  featuredMedia?: (MediaBlock | GalleryBlock | VideoPlayerBlock | EmbedBlock)[] | null;
+  /**
+   * What this is and why it matters, shown above the updates. Optional.
+   */
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Up to three updates to keep at the top, above the newest. Choose from this blog's updates.
+   */
+  pinned?: (number | LiveUpdate)[] | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from. Set by the migration and then fixed.
+     */
+    legacyPath?: string | null;
+    /**
+     * Grove's contentId for this page. Set by the migration and then fixed; a re-run matches on it.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page.
+     */
+    modifiedAt?: string | null;
+    /**
+     * When the blog was started (Grove's published date). New blogs use the publish date.
+     */
+    startedAt?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Post an update to a live blog. It is live as soon as you save.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-updates".
+ */
+export interface LiveUpdate {
+  id: number;
+  livePost: number | LivePost;
+  headline: string;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * When this happened or was posted. Defaults to now.
+   */
+  postedAt: string;
+  /**
+   * Set automatically when the words are changed after posting; readers see "Updated".
+   */
+  editedAt?: string | null;
+  /**
+   * Optional. Leave empty and the update carries no byline.
+   */
+  authors?: (number | Contributor)[] | null;
+  /**
+   * The part of the address after # that links straight to this update. Made from the headline; it never changes by itself.
+   */
+  anchor?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * Grove's id for this update. Fixed once set; a re-run matches on it.
+     */
+    postId?: string | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1321,8 +1766,24 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
+        relationTo: 'live-posts';
+        value: number | LivePost;
+      } | null)
+    | ({
+        relationTo: 'live-updates';
+        value: number | LiveUpdate;
+      } | null)
+    | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'audio';
+        value: number | Audio;
+      } | null)
+    | ({
+        relationTo: 'video';
+        value: number | Video;
       } | null)
     | ({
         relationTo: 'sections';
@@ -1436,6 +1897,9 @@ export interface PayloadMigration {
  */
 export interface PagesSelect<T extends boolean = true> {
   title?: T;
+  template?: T;
+  summary?: T;
+  body?: T;
   hero?:
     | T
     | {
@@ -1546,6 +2010,11 @@ export interface ContentBlockSelect<T extends boolean = true> {
  */
 export interface MediaBlockSelect<T extends boolean = true> {
   media?: T;
+  caption?: T;
+  credit?: T;
+  source?: T;
+  altText?: T;
+  alignment?: T;
   id?: T;
   blockName?: T;
 }
@@ -1580,7 +2049,15 @@ export interface FormBlockSelect<T extends boolean = true> {
  */
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
-  heroImage?: T;
+  featuredMedia?:
+    | T
+    | {
+        mediaBlock?: T | MediaBlockSelect<T>;
+        gallery?: T | GalleryBlockSelect<T>;
+        videoPlayer?: T | VideoPlayerBlockSelect<T>;
+        embed?: T | EmbedBlockSelect<T>;
+      };
+  featuredAudio?: T;
   content?: T;
   relatedPosts?: T;
   categories?: T;
@@ -1618,11 +2095,118 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock_select".
+ */
+export interface GalleryBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  layout?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        title?: T;
+        caption?: T;
+        credit?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "VideoPlayerBlock_select".
+ */
+export interface VideoPlayerBlockSelect<T extends boolean = true> {
+  video?: T;
+  title?: T;
+  caption?: T;
+  poster?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock_select".
+ */
+export interface EmbedBlockSelect<T extends boolean = true> {
+  url?: T;
+  title?: T;
+  width?: T;
+  height?: T;
+  caption?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-posts_select".
+ */
+export interface LivePostsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  coverage?: T;
+  endedAt?: T;
+  description?: T;
+  featuredMedia?:
+    | T
+    | {
+        mediaBlock?: T | MediaBlockSelect<T>;
+        gallery?: T | GalleryBlockSelect<T>;
+        videoPlayer?: T | VideoPlayerBlockSelect<T>;
+        embed?: T | EmbedBlockSelect<T>;
+      };
+  intro?: T;
+  pinned?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
+        startedAt?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-updates_select".
+ */
+export interface LiveUpdatesSelect<T extends boolean = true> {
+  livePost?: T;
+  headline?: T;
+  body?: T;
+  postedAt?: T;
+  editedAt?: T;
+  authors?: T;
+  anchor?: T;
+  legacy?:
+    | T
+    | {
+        postId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  credit?: T;
+  source?: T;
   caption?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
+  prefix?: T;
+  _objectKey?: T;
   folder?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1712,6 +2296,63 @@ export interface MediaSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audio_select".
+ */
+export interface AudioSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  credit?: T;
+  durationSeconds?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video_select".
+ */
+export interface VideoSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  credit?: T;
+  durationSeconds?: T;
+  poster?: T;
+  legacy?:
+    | T
+    | {
+        sourceUrl?: T;
+      };
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sections_select".
  */
 export interface SectionsSelect<T extends boolean = true> {
@@ -1784,7 +2425,16 @@ export interface FellowshipsSelect<T extends boolean = true> {
   slug?: T;
   summary?: T;
   heroImage?: T;
+  eyebrow?: T;
+  missionHeadline?: T;
   mission?: T;
+  focusAreas?:
+    | T
+    | {
+        title?: T;
+        blurb?: T;
+        id?: T;
+      };
   fellow?: T;
   termStartsOn?: T;
   termEndsOn?: T;
@@ -1816,6 +2466,18 @@ export interface ProductionsSelect<T extends boolean = true> {
   slug?: T;
   summary?: T;
   heroImage?: T;
+  path?: T;
+  tagline?: T;
+  schedule?: T;
+  hosts?: T;
+  description?: T;
+  listed?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+      };
   agreements?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2286,12 +2948,72 @@ export interface Footer {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage".
+ */
+export interface Homepage {
+  id: number;
+  emergency?: {
+    active?: boolean | null;
+    /**
+     * The small label above the headline.
+     */
+    label?: string | null;
+    headline?: string | null;
+    /**
+     * A sentence or two. Plain text.
+     */
+    body?: string | null;
+    /**
+     * e.g. "Live updates"
+     */
+    linkLabel?: string | null;
+    /**
+     * A page on this site (/live-updates/storm), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    linkHref?: string | null;
+  };
+  /**
+   * The large story at the top. Leave empty to lead with the newest published story.
+   */
+  lead?: (number | null) | Post;
+  /**
+   * Optional small label above the headline, e.g. "After Isaias". Leave empty to show the story's section.
+   */
+  leadKicker?: string | null;
+  /**
+   * Up to five, in the order shown beside the lead. Any you leave empty are filled with the newest published stories.
+   */
+  topStories?: (number | Post)[] | null;
+  fellowshipFeature?: {
+    enabled?: boolean | null;
+    fellowship?: (number | null) | Fellowship;
+    /**
+     * The story to feature. Leave empty to feature the fellowship's newest.
+     */
+    story?: (number | null) | Post;
+  };
+  localNews?: {
+    heading?: string | null;
+    /**
+     * Which section fills this list. Leave empty for the newest stories from any section.
+     */
+    section?: (number | null) | Section;
+    /**
+     * How many stories to list (3 to 12).
+     */
+    count?: number | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings".
  */
 export interface SiteSetting {
   id: number;
   /**
-   * Sites (other than YouTube, Vimeo, Spotify, Apple Podcasts and SoundCloud, which are built in) that editors may embed in a story. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
+   * Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
    */
   embedHosts?:
     | {
@@ -2484,6 +3206,42 @@ export interface FooterSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage_select".
+ */
+export interface HomepageSelect<T extends boolean = true> {
+  emergency?:
+    | T
+    | {
+        active?: T;
+        label?: T;
+        headline?: T;
+        body?: T;
+        linkLabel?: T;
+        linkHref?: T;
+      };
+  lead?: T;
+  leadKicker?: T;
+  topStories?: T;
+  fellowshipFeature?:
+    | T
+    | {
+        enabled?: T;
+        fellowship?: T;
+        story?: T;
+      };
+  localNews?:
+    | T
+    | {
+        heading?: T;
+        section?: T;
+        count?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings_select".
  */
 export interface SiteSettingsSelect<T extends boolean = true> {
@@ -2625,26 +3383,6 @@ export interface CodeBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "GalleryBlock".
- */
-export interface GalleryBlock {
-  /**
-   * Optional heading above the gallery.
-   */
-  title?: string | null;
-  layout: 'grid' | 'list';
-  images: {
-    image: number | Media;
-    caption?: string | null;
-    credit?: string | null;
-    id?: string | null;
-  }[];
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'gallery';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "PullQuoteBlock".
  */
 export interface PullQuoteBlock {
@@ -2660,52 +3398,75 @@ export interface PullQuoteBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EmbedBlock".
+ * via the `definition` "AudioPlayerBlock".
  */
-export interface EmbedBlock {
+export interface AudioPlayerBlock {
+  audio: number | Audio;
   /**
-   * The address of a specific video, episode or track (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud), or a page on an approved site.
+   * Shown above the player. Leave empty to use the audio file's own title.
    */
-  url: string;
+  title?: string | null;
   /**
-   * What the embed is, for people using a screen reader. Not shown on the page.
+   * Optional. Leave empty to use the audio file's own description.
    */
-  title: string;
-  caption?: string | null;
+  description?: string | null;
+  /**
+   * Optional picture shown beside the player.
+   */
+  thumbnail?: (number | null) | Media;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'embed';
+  blockType: 'audioPlayer';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "PromoBlock".
+ * via the `definition` "WidgetBlock".
  */
-export interface PromoBlock {
-  target:
-    | {
-        relationTo: 'posts';
-        value: number | Post;
-      }
-    | {
-        relationTo: 'pages';
-        value: number | Page;
-      }
-    | {
-        relationTo: 'fellowships';
-        value: number | Fellowship;
-      };
+export interface WidgetBlock {
   /**
-   * Leave empty to use the item's own title.
+   * What the tool is, e.g. "Election guide". Read by screen readers, and shown on the click-to-load card for a host that has not been approved.
    */
-  headline?: string | null;
+  title: string;
   /**
-   * Leave empty to use the item's summary.
+   * The https address of the tool's script. It runs in an isolated frame. Hosts that are not built in or approved in Site settings load only after the reader clicks.
    */
-  description?: string | null;
-  image?: (number | null) | Media;
+  scriptUrl: string;
+  /**
+   * Load the script as a module. Only if the tool's instructions say type="module".
+   */
+  module?: boolean | null;
+  /**
+   * The id of the container the script fills, if its instructions give one.
+   */
+  elementId?: string | null;
+  /**
+   * The data- settings from the tool's instructions (e.g. data-election-id).
+   */
+  attributes?:
+    | {
+        /**
+         * Must start with data-
+         */
+        name: string;
+        value?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * An event the tool expects before it loads, if its instructions say to dispatch one.
+   */
+  initEvent?: string | null;
+  /**
+   * Starting height in pixels, used until the tool reports its own.
+   */
+  height?: number | null;
+  /**
+   * Shown under the tool.
+   */
+  caption?: string | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'promo';
+  blockType: 'widget';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

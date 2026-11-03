@@ -1,22 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
-import {
-  BlocksFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from '@payloadcms/richtext-lexical'
-
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
-import { bodyBlocks } from '../../blocks/body'
-import { userCan } from '../../access/permissions'
+import { featuredMediaBlocks } from '../../blocks/body'
+import { bodyEditor } from '../../fields/bodyEditor'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
-import { changedLegacyHtml } from '../../lib/legacy-html-guard'
+import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -27,7 +18,7 @@ import {
   OverviewField,
   PreviewField,
 } from '@payloadcms/plugin-seo/fields'
-import { APIError, slugField } from 'payload'
+import { slugField } from 'payload'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
@@ -70,25 +61,24 @@ export const Posts: CollectionConfig<'posts'> = {
         {
           fields: [
             {
-              name: 'heroImage',
+              name: 'featuredMedia',
+              type: 'blocks',
+              label: 'Featured media',
+              maxRows: 1,
+              blocks: featuredMediaBlocks,
+              admin: { description: 'The picture, gallery or video that opens the story. Add one.' },
+            },
+            {
+              name: 'featuredAudio',
               type: 'upload',
-              relationTo: 'media',
+              relationTo: 'audio',
+              label: 'Featured audio',
+              admin: { description: 'The audio version of this story, for the main player. Optional.' },
             },
             {
               name: 'content',
               type: 'richText',
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-                    BlocksFeature({ blocks: bodyBlocks }),
-                    FixedToolbarFeature(),
-                    InlineToolbarFeature(),
-                    HorizontalRuleFeature(),
-                  ]
-                },
-              }),
+              editor: bodyEditor,
               label: false,
               required: true,
             },
@@ -280,15 +270,7 @@ export const Posts: CollectionConfig<'posts'> = {
       enforcePublishPermission,
       pathBeforeChange('posts'),
       legacyIdentityWriteOnce,
-      ({ data, originalDoc, req }) => {
-        // Preserved (migrated) HTML is administrator-only. A save with no signed-in user is the system (the importer,
-        // a script) and is allowed; anyone else may keep the blocks already there but not add or change one.
-        if (!req.user || userCan(req.user, 'settings.manage') || data?.content === undefined) return data
-        if (changedLegacyHtml(data.content, originalDoc?.content).length > 0) {
-          throw new APIError('Only an administrator can add or change preserved HTML.', 403, undefined, true)
-        }
-        return data
-      },
+      restrictedBlocksGuard(['content']),
     ],
     afterChange: [redirectOnPathChange, revalidatePost],
     afterDelete: [revalidateDelete],
