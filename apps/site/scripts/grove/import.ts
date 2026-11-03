@@ -11,6 +11,9 @@
 //   --interval-ms  minimum gap between requests (default 3000, never lower)
 //   --retry-failed fetch again the files whose last attempt failed (a missing or refused file is not retried)
 //   --limit      save at most this many stories (a trial run)
+//   --sample N   work on N stories spread evenly across the whole set (a rehearsal slice), in both phases
+//   --kinds      fetch phase: only these kinds of file, e.g. image or image,audio (default: all)
+//   --min-free-gib  fetch phase: stop cleanly when the disk holding --cache has less than this free (default 3)
 //   --dry-run    save phase: say what would be saved, write nothing
 //   --allow-remote  required to save into a database that is not on this machine; the host is printed first
 //
@@ -71,6 +74,14 @@ for (const f of pages) {
   else stories.push(r.story)
 }
 stories.sort((a, b) => a.path.localeCompare(b.path))
+const sampleN = flag('sample')[0] ? Number(flag('sample')[0]) : 0
+if (sampleN > 0 && sampleN < stories.length) {
+  // Evenly spaced, so the slice covers every year and section the set does, and the same N always picks the same stories.
+  const step = stories.length / sampleN
+  const picked = Array.from({ length: sampleN }, (_, i) => stories[Math.floor(i * step)]!)
+  stories.splice(0, stories.length, ...picked)
+  console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
+}
 console.log(`converted ${stories.length} stories (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
@@ -102,7 +113,14 @@ const record = (e: Entry) => {
 
 async function fetchPhase() {
   const retryFailed = has('retry-failed')
+  const kinds = (flag('kinds')[0] ?? 'image,audio,video').split(',')
+  const minFreeBytes = Number(flag('min-free-gib')[0] ?? 3) * 1024 ** 3
+  const freeBytes = () => {
+    const st = fs.statfsSync(cache)
+    return st.bavail * st.bsize
+  }
   const todo = [...assets.values()].filter((a) => {
+    if (!kinds.includes(a.kind)) return false
     const e = ledger.get(a.sourceUrl)
     return !e || (e.status === 'failed' && retryFailed)
   })
@@ -120,6 +138,10 @@ async function fetchPhase() {
   let forbidden = 0
   for (const a of todo) {
     if (stop) break
+    if (freeBytes() < minFreeBytes) {
+      console.log(`stopping: less than ${minFreeBytes / 1024 ** 3} GiB free on the disk holding ${cache}. The ledger is saved; free some space (or move the cache) and run again.`)
+      break
+    }
     const r = await dl.download(a.sourceUrl, a.kind)
     const at = new Date().toISOString()
     if (r.status === 'ok') {
@@ -150,6 +172,9 @@ async function savePhase() {
   const dbHost = new URL(process.env.DATABASE_URL ?? 'postgresql://localhost/none').hostname
   const local = ['localhost', '127.0.0.1', '::1', 'db'].includes(dbHost)
   console.log(`save: database host ${dbHost}${dryRun ? ' (dry run: nothing is written)' : ''}`)
+  // In development Payload pushes schema changes to whatever database it is pointed at. Against a hosted database that
+  // would rewrite its schema outside the migration ledger, so a hosted save must run in production mode.
+  if (!local && process.env.NODE_ENV !== 'production') throw new Error('Refusing to save into a hosted database without NODE_ENV=production (development mode would push schema changes to it).')
   if (!local && !has('allow-remote')) throw new Error(`Refusing to save into ${dbHost}: it is not on this machine. Pass --allow-remote if the owner has approved this target.`)
 
   const titles = sectionTitlesBySegment(stories)
