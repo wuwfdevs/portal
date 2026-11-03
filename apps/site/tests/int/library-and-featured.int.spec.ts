@@ -211,6 +211,20 @@ describe('media and audio libraries, and featured story media', () => {
     })
   })
 
+  describe('a story with no body text', () => {
+    const emptyBody = { root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [] }] } }
+
+    it('can be published when its audio carries it (Grove has audio-only pieces)', async () => {
+      const a = await makeAudio('audio-only')
+      const p = await makePost({ featuredAudio: a.id, content: emptyBody }, 'published')
+      expect(p._status).toBe('published')
+    })
+
+    it('is still refused when nothing is attached', async () => {
+      await expect(makePost({ content: emptyBody }, 'published')).rejects.toThrow(/invalid/)
+    })
+  })
+
   describe('story body blocks', () => {
     it('the body no longer offers a promo card, and offers audio and video', async () => {
       const posts = payload.collections.posts.config
