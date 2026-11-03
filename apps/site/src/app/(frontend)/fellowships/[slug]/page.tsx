@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Args): Promise<Metadata> {
   const data = await loadFellowshipHub(slug)
   if (!data) return {}
   return {
-    title: `${data.fellowship.title} | WUWF`,
+    title: data.fellowship.title,
     description: data.fellowship.summary ?? undefined,
   }
 }

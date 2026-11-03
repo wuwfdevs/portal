@@ -30,5 +30,5 @@ export async function generateMetadata({ params }: Args): Promise<Metadata> {
   const { slug } = await params
   const data = await loadLiveBlog(slug)
   if (!data) return {}
-  return { title: `${data.blog.title} | WUWF`, description: data.blog.description ?? undefined }
+  return { title: data.blog.title, description: data.blog.description ?? undefined }
 }

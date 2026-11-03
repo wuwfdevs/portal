@@ -246,10 +246,10 @@ async function savePhase() {
 
       const section = plan.section ? await findOrCreate('sections', 'slug', plan.section.slug, { title: plan.section.title, slug: plan.section.slug }) : undefined
       const categories: (number | string)[] = []
-      for (const t of s.topics) categories.push(await findOrCreate('categories', 'title', t.title, { title: t.title }))
+      for (const t of s.topics) categories.push(await findOrCreate('categories', 'title', t.title, { title: t.title, ...(t.slug ? { slug: t.slug } : {}) }))
       const contributors: (number | string)[] = []
       for (const p of resolved.people) {
-        contributors.push(await findOrCreate('contributors', 'name', p.name, { name: p.name, ...(p.title ? { title: p.title } : {}), ...(p.bio ? { bio: p.bio } : {}), ...(p.photo ? { photo: p.photo } : {}) }))
+        contributors.push(await findOrCreate('contributors', 'name', p.name, { name: p.name, ...(p.slug ? { slug: p.slug } : {}), ...(p.title ? { title: p.title } : {}), ...(p.bio ? { bio: p.bio } : {}), ...(p.photo ? { photo: p.photo } : {}) }))
       }
 
       await payload.create({

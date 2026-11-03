@@ -15,7 +15,7 @@ const idOf = (value: { id: string | number } | string | number | null | undefine
 /** The fields a homepage card needs; the story body is never loaded. */
 export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format'>
 
-const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true } as const
+export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true } as const
 
 export interface HomepageData {
   emergency: { label: string; headline: string; body: string | null; linkLabel: string | null; linkHref: string | null } | null
@@ -23,7 +23,8 @@ export interface HomepageData {
   leadKicker: string | null
   top: HomeStory[]
   feature: { fellowship: Fellowship; story: HomeStory | null; acknowledgments: AcknowledgmentLine[] } | null
-  local: { heading: string; stories: HomeStory[] }
+  /** `href` is the section's own page when the list is filled from one section. */
+  local: { heading: string; stories: HomeStory[]; href: string | null }
 }
 
 export const TOP_COUNT = 5
@@ -85,6 +86,7 @@ export async function loadHomepage(): Promise<HomepageData> {
 
   const shown = [lead, ...top, feature?.story].filter((s): s is HomeStory => Boolean(s))
   const local = remainingStories(localCandidates ?? recent, shown, localCount)
+  const sectionSlug = sectionId !== null ? ((await payload.find({ collection: 'sections', where: { id: { equals: sectionId } }, limit: 1, depth: 0, overrideAccess: false, select: { slug: true } })).docs[0]?.slug ?? null) : null
 
   const e = settings.emergency
   return {
@@ -93,7 +95,7 @@ export async function loadHomepage(): Promise<HomepageData> {
     leadKicker: settings.leadKicker?.trim() || null,
     top,
     feature,
-    local: { heading: settings.localNews?.heading?.trim() || 'Northwest Florida', stories: local },
+    local: { heading: settings.localNews?.heading?.trim() || 'Northwest Florida', stories: local, href: sectionSlug ? `/${sectionSlug}` : null },
   }
 }
 

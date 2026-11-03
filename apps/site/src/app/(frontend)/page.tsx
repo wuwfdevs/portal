@@ -13,6 +13,6 @@ export default async function HomePage() {
 }
 
 export const metadata: Metadata = {
-  title: 'WUWF Public Media',
+  title: { absolute: 'WUWF Public Media' },
   description: 'Public radio and journalism for Northwest Florida: local news, NPR, and WUWF originals from Pensacola.',
 }

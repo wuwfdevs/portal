@@ -6,14 +6,12 @@ import type { Media as MediaDoc } from '@/payload-types'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
+import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
-import { bylineOf, kickerOf, type HomepageData, type HomeStory } from '@/lib/homepage/load'
+import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
-
-/** A card's data with the story's lead picture standing in for the SEO image, which migrated stories do not have. */
-const asCard = (story: HomeStory) => ({ ...story, meta: { ...story.meta, image: leadPicture<MediaDoc>(story) } })
 
 const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
   href.startsWith('/') ? (
@@ -161,10 +159,17 @@ export function HomepageView({ data }: { data: HomepageData }) {
           <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3')}>
             {local.stories.map((story) => (
               <li key={story.id}>
-                <Card className="h-full" doc={asCard(story)} fixedImage showCategories />
+                <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
               </li>
             ))}
           </ul>
+          {local.href && (
+            <p className="mt-6 text-base">
+              <Link className="font-semibold text-wuwf-blue-700 underline" href={local.href}>
+                More {local.heading} stories
+              </Link>
+            </p>
+          )}
         </section>
       )}
 
