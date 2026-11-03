@@ -133,6 +133,9 @@ function looksTyped(value: string): boolean {
   return value.includes('<') || value.includes('&') ? TYPED_CLOSING.test(value) || TYPED_BREAK.test(value) || /&nbsp;/i.test(value) : false
 }
 
+/** True when the converter would read this text again as formatting (typed tags it knows, and nothing else): the mark of a story imported before the repair. */
+export const isTypedMarkup = (value: string): boolean => looksTyped(value) && onlyFormatting(value)
+
 /** The text read again as HTML, or null when it holds anything but formatting (it is then left exactly as it was). */
 function typedPieces(value: string, fmt: number, ctx: Ctx, inLink: boolean): Piece[] | null {
   if (!onlyFormatting(value)) return null
