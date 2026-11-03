@@ -18,9 +18,11 @@ export const Card: React.FC<{
   alignItems?: 'center'
   className?: string
   doc?: CardPostData
+  /** Show the picture in a fixed 3:2 frame, cropped to fill it, so a grid of cards lines up whatever shape the pictures are. */
+  fixedImage?: boolean
   showCategories?: boolean
   title?: string
-}> = ({ className, doc, showCategories, title: titleFromProps }) => {
+}> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
   const { path, categories, meta, title } = doc || {}
   const { description, image: metaImage } = meta || {}
 
@@ -38,9 +40,15 @@ export const Card: React.FC<{
       )}
     >
       {metaImage && typeof metaImage !== 'string' && (
-        <div className="relative w-full">
-          <Media resource={metaImage} size="33vw" />
-        </div>
+        fixedImage ? (
+          <div className="relative aspect-[3/2] w-full overflow-hidden bg-surface-3">
+            <Media imgClassName="absolute inset-0 size-full object-cover" resource={metaImage} size="33vw" />
+          </div>
+        ) : (
+          <div className="relative w-full">
+            <Media resource={metaImage} size="33vw" />
+          </div>
+        )
       )}
       <div className="flex flex-col gap-2 p-4">
         {showCategories && topics.length > 0 && (

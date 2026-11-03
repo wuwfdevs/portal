@@ -10,13 +10,11 @@ import type { Page, Post } from '@/payload-types'
 import { StoryView } from '@/components/Article/StoryView'
 import { PageView } from '@/components/PageView'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
-import { homeStatic } from '@/endpoints/seed/home-static'
 import { pathFromSegments } from '@/lib/paths'
 import { generateMeta } from '@/utilities/generateMeta'
-import { resolveDraftById, resolveHome, resolvePath } from '@/utilities/resolvePath'
+import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
 
-// One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page, and "/" to the
-// home page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
+// One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
 // reached, so these pages also refresh on a schedule.
 export const revalidate = 3600
 
@@ -43,10 +41,8 @@ type Result =
 const resolveRequest = cache(async (joined: string, draft: boolean): Promise<Result> => {
   const segments = joined === '' ? undefined : joined.split('/')
 
-  if (!segments) {
-    const home = (await resolveHome(draft)) ?? homeStatic
-    return { kind: 'page', doc: home as Page, url: '/' }
-  }
+  // "/" is not resolved here: the home page has its own route (app/(frontend)/page.tsx).
+  if (!segments) return { kind: 'miss', url: '/' }
 
   // A draft that was never published has no path yet: its preview address is /_draft/{collection}/{id}, and only
   // works with the preview cookie (the preview route sets it for signed-in staff).

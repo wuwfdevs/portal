@@ -24,6 +24,7 @@ import {
 } from './collections/Underwriting'
 import { Footer } from './Footer/config'
 import { Header } from './Header/config'
+import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
@@ -94,7 +95,7 @@ export default buildConfig({
     PortalSignIns,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, SiteSettings, SupportPage],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

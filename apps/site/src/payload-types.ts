@@ -134,12 +134,14 @@ export interface Config {
   globals: {
     header: Header;
     footer: Footer;
+    homepage: Homepage;
     'site-settings': SiteSetting;
     'support-page': SupportPage;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    homepage: HomepageSelect<false> | HomepageSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
   };
@@ -2668,6 +2670,66 @@ export interface Footer {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage".
+ */
+export interface Homepage {
+  id: number;
+  emergency?: {
+    active?: boolean | null;
+    /**
+     * The small label above the headline.
+     */
+    label?: string | null;
+    headline?: string | null;
+    /**
+     * A sentence or two. Plain text.
+     */
+    body?: string | null;
+    /**
+     * e.g. "Live updates"
+     */
+    linkLabel?: string | null;
+    /**
+     * A page on this site (/live-updates/storm), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    linkHref?: string | null;
+  };
+  /**
+   * The large story at the top. Leave empty to lead with the newest published story.
+   */
+  lead?: (number | null) | Post;
+  /**
+   * Optional small label above the headline, e.g. "After Isaias". Leave empty to show the story's section.
+   */
+  leadKicker?: string | null;
+  /**
+   * Up to five, in the order shown beside the lead. Any you leave empty are filled with the newest published stories.
+   */
+  topStories?: (number | Post)[] | null;
+  fellowshipFeature?: {
+    enabled?: boolean | null;
+    fellowship?: (number | null) | Fellowship;
+    /**
+     * The story to feature. Leave empty to feature the fellowship's newest.
+     */
+    story?: (number | null) | Post;
+  };
+  localNews?: {
+    heading?: string | null;
+    /**
+     * Which section fills this list. Leave empty for the newest stories from any section.
+     */
+    section?: (number | null) | Section;
+    /**
+     * How many stories to list (3 to 12).
+     */
+    count?: number | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings".
  */
 export interface SiteSetting {
@@ -2859,6 +2921,42 @@ export interface FooterSelect<T extends boolean = true> {
               label?: T;
             };
         id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage_select".
+ */
+export interface HomepageSelect<T extends boolean = true> {
+  emergency?:
+    | T
+    | {
+        active?: T;
+        label?: T;
+        headline?: T;
+        body?: T;
+        linkLabel?: T;
+        linkHref?: T;
+      };
+  lead?: T;
+  leadKicker?: T;
+  topStories?: T;
+  fellowshipFeature?:
+    | T
+    | {
+        enabled?: T;
+        fellowship?: T;
+        story?: T;
+      };
+  localNews?:
+    | T
+    | {
+        heading?: T;
+        section?: T;
+        count?: T;
       };
   updatedAt?: T;
   createdAt?: T;
