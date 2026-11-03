@@ -13,6 +13,10 @@ import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
+import { EventCategories } from './collections/Events/EventCategories'
+import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
+import { EventSubmissions } from './collections/Events/EventSubmissions'
+import { Events } from './collections/Events/Events'
 import { LivePosts } from './collections/Live/LivePosts'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
@@ -83,6 +87,10 @@ export default buildConfig({
     Posts,
     LivePosts,
     LiveUpdates,
+    Events,
+    EventCategories,
+    EventSubmissions,
+    EventSubmissionImages,
     Media,
     Audio,
     Video,

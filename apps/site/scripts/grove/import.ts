@@ -43,9 +43,10 @@ const dryRun = has('dry-run')
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
-const { convertStory, convertContentPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
+const { convertStory, convertContentPage, convertEventPage, convertShowPage, resolveAssets, planImport, sectionTitlesBySegment } = await import('../../src/lib/grove')
 type ConvertedPage = import('../../src/lib/grove').ConvertedPage
 type ConvertedShow = import('../../src/lib/grove').ConvertedShow
+type ConvertedEvent = import('../../src/lib/grove').ConvertedEvent
 type ConvertedStory = import('../../src/lib/grove').ConvertedStory
 type AssetRef = import('../../src/lib/grove').AssetRef
 const { assertOutsideRepo } = await import('../../src/lib/census/state-io')
@@ -71,6 +72,7 @@ const stories: ConvertedStory[] = []
 const held: { path: string; why: string }[] = []
 const standardPages: ConvertedPage[] = []
 const shows: ConvertedShow[] = []
+const events: ConvertedEvent[] = []
 for (const f of pages) {
   const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
   const r = convertStory(raw, { embedHosts: [] })
@@ -80,6 +82,13 @@ for (const f of pages) {
     if (sh.status === 'converted') {
       if (sh.report.status === 'exception') held.push({ path: sh.show.path, why: 'show converter exception' })
       else shows.push(sh.show)
+      continue
+    }
+    // A community-calendar event.
+    const ev = convertEventPage(raw)
+    if (ev.status === 'converted') {
+      if (ev.report.status === 'exception') held.push({ path: ev.event.path, why: 'event converter exception' })
+      else events.push(ev.event)
       continue
     }
     const pg = convertContentPage(raw)
@@ -101,10 +110,10 @@ if (sampleN > 0 && sampleN < stories.length) {
   stories.splice(0, stories.length, ...picked)
   console.log(`--sample ${sampleN}: working on ${stories.length} stories spread across the set`)
 }
-console.log(`converted ${stories.length} stories, ${shows.length} shows and ${standardPages.length} standard pages (${held.length} held for a converter exception)`)
+console.log(`converted ${stories.length} stories, ${shows.length} shows, ${standardPages.length} standard pages and ${events.length} events (${held.length} held for a converter exception)`)
 
 const assets = new Map<string, AssetRef>()
-for (const s of [...stories, ...standardPages, ...shows]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
+for (const s of [...stories, ...standardPages, ...shows, ...events]) for (const a of s.assets) if (!assets.has(a.sourceUrl)) assets.set(a.sourceUrl, a)
 console.log(`${assets.size} distinct files across ${stories.reduce((n, s) => n + s.assets.length, 0)} uses`)
 
 // ---- the ledger: one JSON line per attempt, the last line for an address wins ------------------------------------------
@@ -219,7 +228,7 @@ async function savePhase() {
   const payload = await getPayload({ config })
   const ctx = { disableRevalidate: true }
 
-  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'pages' | 'productions' | 'sections' | 'categories' | 'contributors', where: Record<string, unknown>) =>
+  const find = async (collection: 'media' | 'audio' | 'video' | 'posts' | 'pages' | 'productions' | 'sections' | 'categories' | 'contributors' | 'events' | 'event-categories', where: Record<string, unknown>) =>
     (await payload.find({ collection, where: where as never, limit: 1, depth: 0, overrideAccess: true })).docs[0]
 
   const libraryId = async (a: AssetRef): Promise<number | string> => {
@@ -377,7 +386,60 @@ async function savePhase() {
     }
   }
   if (pagesSaved) console.log(`save: ${pagesSaved} standard pages`)
-  summary(saved + pagesSaved, already, noteCounts, failures)
+
+  // Community-calendar events at Grove's exact addresses. Same rules: every file downloaded, matched on the Grove id. An event
+  // whose date text could not be read is saved WITH its original wording, flagged `needsAttention`, and no dates; it is never dropped.
+  let eventsSaved = 0
+  for (const ev of events) {
+    if (eventsSaved >= limit) break
+    const bad = ev.assets.filter((a) => ledger.get(a.sourceUrl)?.status !== 'ok')
+    if (bad.length) {
+      held.push({ path: ev.path, why: `${bad.length} file(s) not fetched: ${bad.slice(0, 2).map((a) => a.sourceUrl).join('; ')}` })
+      continue
+    }
+    try {
+      if (await find('events', { 'legacy.groveId': { equals: ev.legacy.groveId } })) {
+        already++
+        continue
+      }
+      const ids = new Map<string, number | string>()
+      for (const a of ev.assets) ids.set(a.sourceUrl, await libraryId(a))
+      const resolved = resolveAssets({ image: ev.image, description: ev.description }, ids)
+      const categories: (number | string)[] = []
+      for (const c of ev.categories) {
+        const known = (await find('event-categories', { 'legacy.groveId': { equals: c.groveId } })) ?? (await find('event-categories', { title: { equals: c.title } }))
+        categories.push(known ? known.id : (await payload.create({ collection: 'event-categories', overrideAccess: true, context: ctx, data: { title: c.title, legacy: { groveId: c.groveId } } as never })).id)
+      }
+      await payload.create({
+        collection: 'events',
+        overrideAccess: true,
+        context: ctx,
+        data: {
+          title: ev.title,
+          ...(ev.teaser ? { teaser: ev.teaser } : {}),
+          ...(resolved.description ? { description: resolved.description } : {}),
+          categories,
+          schedule: ev.schedule,
+          venue: ev.venue,
+          organization: ev.organization,
+          price: ev.price,
+          free: ev.free,
+          ticketUrl: ev.ticketUrl,
+          ...(resolved.image ? { image: resolved.image } : {}),
+          path: ev.path,
+          legacy: ev.legacy,
+          _status: 'published',
+        } as never,
+      })
+      eventsSaved++
+      if (ev.legacy.needsAttention) noteCounts.set('import.event-needs-attention', (noteCounts.get('import.event-needs-attention') ?? 0) + 1)
+    } catch (e) {
+      failures.push({ path: ev.path, error: (e as Error).message.slice(0, 300) })
+      console.log(`FAILED ${ev.path}: ${(e as Error).message.slice(0, 200)}`)
+    }
+  }
+  if (eventsSaved) console.log(`save: ${eventsSaved} events`)
+  summary(saved + pagesSaved + eventsSaved, already, noteCounts, failures)
   process.exit(failures.length ? 1 : 0)
 }
 

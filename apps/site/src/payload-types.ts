@@ -71,6 +71,10 @@ export interface Config {
     posts: Post;
     'live-posts': LivePost;
     'live-updates': LiveUpdate;
+    events: Event;
+    'event-categories': EventCategory;
+    'event-submissions': EventSubmission;
+    'event-submission-images': EventSubmissionImage;
     media: Media;
     audio: Audio;
     video: Video;
@@ -106,6 +110,10 @@ export interface Config {
     posts: PostsSelect<false> | PostsSelect<true>;
     'live-posts': LivePostsSelect<false> | LivePostsSelect<true>;
     'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
+    events: EventsSelect<false> | EventsSelect<true>;
+    'event-categories': EventCategoriesSelect<false> | EventCategoriesSelect<true>;
+    'event-submissions': EventSubmissionsSelect<false> | EventSubmissionsSelect<true>;
+    'event-submission-images': EventSubmissionImagesSelect<false> | EventSubmissionImagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
@@ -1516,6 +1524,314 @@ export interface LiveUpdate {
   createdAt: string;
 }
 /**
+ * Events on the community calendar. Saving a draft is private; publishing makes it public.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events".
+ */
+export interface Event {
+  id: number;
+  title: string;
+  /**
+   * One or two sentences for the calendar list. Made from the description when empty.
+   */
+  teaser?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  categories?: (number | EventCategory)[] | null;
+  schedule: {
+    kind: 'once' | 'daily' | 'weekly' | 'monthly' | 'listed';
+    /**
+     * YYYY-MM-DD.
+     */
+    date?: string | null;
+    /**
+     * YYYY-MM-DD.
+     */
+    startDate?: string | null;
+    /**
+     * YYYY-MM-DD.
+     */
+    endDate?: string | null;
+    /**
+     * 24-hour HH:MM, station time (Central), for example 19:30.
+     */
+    start?: string | null;
+    /**
+     * 24-hour HH:MM. Optional for a one-time event.
+     */
+    end?: string | null;
+    /**
+     * Counted from the week of the first date. 1 is every week.
+     */
+    everyWeeks?: number | null;
+    slots?:
+      | {
+          day: '0' | '1' | '2' | '3' | '4' | '5' | '6';
+          /**
+           * 24-hour HH:MM, station time (Central), for example 19:30.
+           */
+          start?: string | null;
+          /**
+           * 24-hour HH:MM, station time (Central), for example 19:30.
+           */
+          end?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    everyMonths?: number | null;
+    nth?: ('1' | '2' | '3' | '4' | 'last') | null;
+    weekday?: ('0' | '1' | '2' | '3' | '4' | '5' | '6') | null;
+    /**
+     * The date text exactly as Grove showed it. When this is set the event page shows it instead of the sentence made from the fields above.
+     */
+    displayText?: string | null;
+    /**
+     * Grove did not give a start date for this run; the date it was submitted was used. Check it, then clear this.
+     */
+    startEstimated?: boolean | null;
+  };
+  venue?: {
+    name?: string | null;
+    street?: string | null;
+    city?: string | null;
+    /**
+     * Two-letter code, for example FL.
+     */
+    state?: string | null;
+    zip?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    website?: string | null;
+  };
+  organization?: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    website?: string | null;
+    designation?: ('n-a' | 'not-for-profit' | 'for-profit') | null;
+  };
+  artist?: {
+    name?: string | null;
+    email?: string | null;
+    website?: string | null;
+  };
+  /**
+   * As written, for example $25-40.
+   */
+  price?: string | null;
+  free?: boolean | null;
+  priceNotes?: string | null;
+  ticketUrl?: string | null;
+  /**
+   * Optional. Give it alt text in the media library.
+   */
+  image?: (number | null) | Media;
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
+  /**
+   * Set from "When". The calendar lists an event until its last date has passed.
+   */
+  firstDate?: string | null;
+  lastDate?: string | null;
+  /**
+   * The submission this event was made from, if it came through the public form.
+   */
+  submissionId?: string | null;
+  /**
+   * Set by the migration. Leave empty for new events.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from. Set by the migration and then fixed.
+     */
+    legacyPath?: string | null;
+    /**
+     * Grove's contentId. Set by the migration and then fixed; a re-run matches on it.
+     */
+    groveId?: string | null;
+    modifiedAt?: string | null;
+    /**
+     * The migration could not read something on this page. See the notes, fix it, then clear this.
+     */
+    needsAttention?: boolean | null;
+    /**
+     * What the migration noted about this page.
+     */
+    notes?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-categories".
+ */
+export interface EventCategory {
+  id: number;
+  title: string;
+  slug: string;
+  /**
+   * Set by the migration. Leave empty for new categories.
+   */
+  legacy?: {
+    /**
+     * Grove's id for this category (used in its filter addresses).
+     */
+    groveId?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Events sent in through the public form. Review, edit, then set the status to Approved to put it on the calendar (publishers only).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-submissions".
+ */
+export interface EventSubmission {
+  id: number;
+  /**
+   * Approving makes the event live at once, so only a publisher can. It cannot be undone here; edit or unpublish the event instead.
+   */
+  status: 'pending' | 'needs-info' | 'approved' | 'rejected';
+  /**
+   * Things the station's guidelines ask a reviewer to check. Advisory.
+   */
+  concerns?: string | null;
+  /**
+   * For staff only. Nothing is sent to the submitter.
+   */
+  reviewNote?: string | null;
+  reviewedBy?: (number | null) | User;
+  reviewedAt?: string | null;
+  /**
+   * The live event made from this submission.
+   */
+  event?: (number | null) | Event;
+  clientKey?: string | null;
+  title: string;
+  categories: (number | EventCategory)[];
+  /**
+   * Plain text. Blank lines make paragraphs.
+   */
+  description?: string | null;
+  schedule: {
+    kind: 'once' | 'daily' | 'weekly' | 'monthly' | 'listed';
+    /**
+     * YYYY-MM-DD.
+     */
+    date?: string | null;
+    /**
+     * YYYY-MM-DD.
+     */
+    startDate?: string | null;
+    /**
+     * YYYY-MM-DD.
+     */
+    endDate?: string | null;
+    /**
+     * 24-hour HH:MM, station time (Central), for example 19:30.
+     */
+    start?: string | null;
+    /**
+     * 24-hour HH:MM. Optional for a one-time event.
+     */
+    end?: string | null;
+    /**
+     * Counted from the week of the first date. 1 is every week.
+     */
+    everyWeeks?: number | null;
+    slots?:
+      | {
+          day: '0' | '1' | '2' | '3' | '4' | '5' | '6';
+          /**
+           * 24-hour HH:MM, station time (Central), for example 19:30.
+           */
+          start?: string | null;
+          /**
+           * 24-hour HH:MM, station time (Central), for example 19:30.
+           */
+          end?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    everyMonths?: number | null;
+    nth?: ('1' | '2' | '3' | '4' | 'last') | null;
+    weekday?: ('0' | '1' | '2' | '3' | '4' | '5' | '6') | null;
+    /**
+     * The date text exactly as Grove showed it. When this is set the event page shows it instead of the sentence made from the fields above.
+     */
+    displayText?: string | null;
+    /**
+     * Grove did not give a start date for this run; the date it was submitted was used. Check it, then clear this.
+     */
+    startEstimated?: boolean | null;
+  };
+  venue: {
+    name: string;
+    street?: string | null;
+    city?: string | null;
+    /**
+     * Two-letter code, for example FL.
+     */
+    state?: string | null;
+    zip?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    website?: string | null;
+  };
+  organization?: {
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    website?: string | null;
+    designation?: ('n-a' | 'not-for-profit' | 'for-profit') | null;
+  };
+  artist?: {
+    name?: string | null;
+    email?: string | null;
+    website?: string | null;
+  };
+  /**
+   * As written, for example $25-40.
+   */
+  price?: string | null;
+  free?: boolean | null;
+  priceNotes?: string | null;
+  ticketUrl?: string | null;
+  /**
+   * The picture that came with the submission. It is private. To use it, add it to the media library with alt text and attach it to the event.
+   */
+  image?: (number | null) | EventSubmissionImage;
+  /**
+   * For questions about the event only. Never shown on the site and never copied to the event.
+   */
+  submitter: {
+    name?: string | null;
+    email: string;
+    role?: ('listener' | 'venue' | 'artist' | 'promoter') | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
@@ -1553,6 +1869,27 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-submission-images".
+ */
+export interface EventSubmissionImage {
+  id: number;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {};
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1772,6 +2109,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'live-updates';
         value: number | LiveUpdate;
+      } | null)
+    | ({
+        relationTo: 'events';
+        value: number | Event;
+      } | null)
+    | ({
+        relationTo: 'event-categories';
+        value: number | EventCategory;
+      } | null)
+    | ({
+        relationTo: 'event-submissions';
+        value: number | EventSubmission;
+      } | null)
+    | ({
+        relationTo: 'event-submission-images';
+        value: number | EventSubmissionImage;
       } | null)
     | ({
         relationTo: 'media';
@@ -2190,6 +2543,206 @@ export interface LiveUpdatesSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events_select".
+ */
+export interface EventsSelect<T extends boolean = true> {
+  title?: T;
+  teaser?: T;
+  description?: T;
+  categories?: T;
+  schedule?:
+    | T
+    | {
+        kind?: T;
+        date?: T;
+        startDate?: T;
+        endDate?: T;
+        start?: T;
+        end?: T;
+        everyWeeks?: T;
+        slots?:
+          | T
+          | {
+              day?: T;
+              start?: T;
+              end?: T;
+              id?: T;
+            };
+        everyMonths?: T;
+        nth?: T;
+        weekday?: T;
+        displayText?: T;
+        startEstimated?: T;
+      };
+  venue?:
+    | T
+    | {
+        name?: T;
+        street?: T;
+        city?: T;
+        state?: T;
+        zip?: T;
+        email?: T;
+        phone?: T;
+        website?: T;
+      };
+  organization?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        phone?: T;
+        website?: T;
+        designation?: T;
+      };
+  artist?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        website?: T;
+      };
+  price?: T;
+  free?: T;
+  priceNotes?: T;
+  ticketUrl?: T;
+  image?: T;
+  path?: T;
+  firstDate?: T;
+  lastDate?: T;
+  submissionId?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
+        needsAttention?: T;
+        notes?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-categories_select".
+ */
+export interface EventCategoriesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  legacy?:
+    | T
+    | {
+        groveId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-submissions_select".
+ */
+export interface EventSubmissionsSelect<T extends boolean = true> {
+  status?: T;
+  concerns?: T;
+  reviewNote?: T;
+  reviewedBy?: T;
+  reviewedAt?: T;
+  event?: T;
+  clientKey?: T;
+  title?: T;
+  categories?: T;
+  description?: T;
+  schedule?:
+    | T
+    | {
+        kind?: T;
+        date?: T;
+        startDate?: T;
+        endDate?: T;
+        start?: T;
+        end?: T;
+        everyWeeks?: T;
+        slots?:
+          | T
+          | {
+              day?: T;
+              start?: T;
+              end?: T;
+              id?: T;
+            };
+        everyMonths?: T;
+        nth?: T;
+        weekday?: T;
+        displayText?: T;
+        startEstimated?: T;
+      };
+  venue?:
+    | T
+    | {
+        name?: T;
+        street?: T;
+        city?: T;
+        state?: T;
+        zip?: T;
+        email?: T;
+        phone?: T;
+        website?: T;
+      };
+  organization?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        phone?: T;
+        website?: T;
+        designation?: T;
+      };
+  artist?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        website?: T;
+      };
+  price?: T;
+  free?: T;
+  priceNotes?: T;
+  ticketUrl?: T;
+  image?: T;
+  submitter?:
+    | T
+    | {
+        name?: T;
+        email?: T;
+        role?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-submission-images_select".
+ */
+export interface EventSubmissionImagesSelect<T extends boolean = true> {
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?: T | {};
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

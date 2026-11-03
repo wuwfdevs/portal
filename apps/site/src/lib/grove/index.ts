@@ -1,6 +1,7 @@
 export { bodyNodes, convertStory } from './story'
 export { convertShowPage, type ConvertedShow, type ConvertShowResult } from './show'
 export { convertContentPage, type ConvertedPage, type ConvertPageResult } from './page'
+export { convertEventPage, type ConvertedEvent, type ConvertEventResult } from './event'
 export { convertLiveBlog, type ConvertedLiveBlog, type ConvertedLiveUpdate, type ConvertLiveResult } from './live'
 export { Ctx } from './context'
 export { DEFAULT_BYLINE, planImport, sectionTitlesBySegment, titleFromSegment, type ImportPlan } from './import-rules'
