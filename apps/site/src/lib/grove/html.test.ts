@@ -187,23 +187,23 @@ describe('the stock "Support Local Stories." line becomes a link-line block', ()
     const { nodes, ctx } = run(html)
     return { nodes, ctx, f: nodes[0]?.type === 'block' ? (nodes[0].fields as Record<string, unknown>) : undefined }
   }
-  it('turns the centred bold sentence and its one link into a block, keeping the words and the address', () => {
+  it('turns the centred bold sentence and its one link into a block, keeping the words and sending it to the Support page', () => {
     const { nodes, f, ctx } = appeal('<p class="cms-textAlign-center"><b>Support Local Stories. </b><a href="https://www.wuwf.org/thanks-for-your-support">Donate Here</a>.</p>')
     expect(nodes).toHaveLength(1)
-    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Donate Here', url: '/thanks-for-your-support' })
+    expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Donate Here', url: '/support' })
     expect(ctx.mapped['block:linkLine']).toBe(1)
     expect(ctx.mapped['linkLine:support']).toBe(1)
     expect(ctx.mapped['paragraph']).toBeUndefined()
-    expect(ctx.entries).toEqual([{ level: 'noted', code: 'support.appeal-points-at-grove-address', detail: '/thanks-for-your-support' }])
+    expect(ctx.entries).toEqual([{ level: 'noted', code: 'support.appeal-sent-to-support-page', detail: '/thanks-for-your-support' }])
   })
   it('fixes the pattern from the real story: the link text arrives with typed <b> tags', () => {
     const { f, ctx } = appeal('<p><b>Support Local Stories. </b><a href="/thanks-for-your-support">&lt;b&gt;Support Public Media&lt;/b&gt;</a>.</p>')
     expect(f).toMatchObject({ blockType: 'linkLine', label: 'Support Local Stories.', linkText: 'Support Public Media' })
     expect(JSON.stringify(f)).not.toContain('<b>')
-    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'support.appeal-points-at-grove-address'])
+    expect(codes(ctx)).toEqual(['link.escaped-markup-repaired', 'support.appeal-sent-to-support-page'])
   })
   it('accepts a line with no full stop after the link, and a trailing slash or query on the address', () => {
-    expect(appeal('<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support/?src=story">Donate Here</a></p>').f).toMatchObject({ blockType: 'linkLine', linkText: 'Donate Here' })
+    expect(appeal('<p><b>Support Local Stories.</b> <a href="/thanks-for-your-support/?src=story">Donate Here</a></p>').f).toMatchObject({ blockType: 'linkLine', linkText: 'Donate Here', url: '/support' })
   })
   it('keeps the paragraphs around it as they were', () => {
     const { nodes } = appeal('<p>Before.</p><p><b>Support Local Stories.</b> <a href="/thanks-for-your-support">Donate Here</a>.</p><p>After.</p>')

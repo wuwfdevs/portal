@@ -222,12 +222,15 @@ function relatedLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
 
 /** The page Grove's stock support line pointed at (50 of the 1,513 census stories). Matched on the path alone. */
 const GROVE_SUPPORT_PATHS = new Set(['/thanks-for-your-support'])
+/** Where every one of those lines goes on this site: the Support page (owner decision, 2026-11-03). */
+const SUPPORT_PAGE_PATH = '/support'
 
 /**
  * Editors typed a short bold sentence and a link to Grove's donation page into a paragraph. A paragraph that is exactly
  * that (plain text of at most 80 characters, one link to that address, nothing after it but a full stop) becomes a
- * `linkLine` block (the sentence is its label). The link keeps its own address; whether that address still leads anywhere on this site is a
- * redirect decision for the owner, and the report names the address so every affected story can be found.
+ * `linkLine` block (the sentence is its label). Grove's donation page does not exist here, so the block links to the Support
+ * page instead, and the report names the address it replaced so every affected story can be found. (`redirects.ts` sends
+ * the old address there too, for any other place it is still used.)
  * A sentence of prose that merely contains such a link is not this line, and stays a paragraph.
  */
 function supportLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
@@ -243,8 +246,8 @@ function supportLineBlock(run: LexNode[], ctx: Ctx): LexNode | null {
   if (!message || message.length > 80 || !linkText || !/^[.!]?$/.test(after) || !isLinkLineUrl(url)) return null
   ctx.count('block:linkLine')
   ctx.count('linkLine:support')
-  ctx.note('support.appeal-points-at-grove-address', path)
-  return lex.block(ctx.id(), 'linkLine', { label: message, linkText, url })
+  ctx.note('support.appeal-sent-to-support-page', path)
+  return lex.block(ctx.id(), 'linkLine', { label: message, linkText, url: SUPPORT_PAGE_PATH })
 }
 
 // ---- pictures, frames, dropped things -------------------------------------------------------------------------

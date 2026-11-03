@@ -49,9 +49,9 @@ describe('link-line block', () => {
   })
 
   it('keeps a support-style line (a sentence as the label) and an outside http address', async () => {
-    const p = await story('Support', body(block({ label: 'Support Local Stories.', linkText: 'Donate Here', url: '/thanks-for-your-support' }), block({ linkText: 'An old page', url: 'http://www.example.org/old' })))
+    const p = await story('Support', body(block({ label: 'Support Local Stories.', linkText: 'Donate Here', url: '/support' }), block({ linkText: 'An old page', url: 'http://www.example.org/old' })))
     const [a, b] = blocksOf(p.content)
-    expect(a?.fields).toMatchObject({ label: 'Support Local Stories.', linkText: 'Donate Here', url: '/thanks-for-your-support' })
+    expect(a?.fields).toMatchObject({ label: 'Support Local Stories.', linkText: 'Donate Here', url: '/support' })
     expect(b?.fields).toMatchObject({ url: 'http://www.example.org/old' })
   })
 
