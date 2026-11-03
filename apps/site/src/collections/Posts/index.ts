@@ -1,16 +1,8 @@
 import type { CollectionConfig } from 'payload'
 
-import {
-  BlocksFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from '@payloadcms/richtext-lexical'
-
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
-import { bodyBlocks, featuredMediaBlocks } from '../../blocks/body'
+import { featuredMediaBlocks } from '../../blocks/body'
+import { bodyEditor } from '../../fields/bodyEditor'
 import { userCan } from '../../access/permissions'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
@@ -87,18 +79,7 @@ export const Posts: CollectionConfig<'posts'> = {
             {
               name: 'content',
               type: 'richText',
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-                    BlocksFeature({ blocks: bodyBlocks }),
-                    FixedToolbarFeature(),
-                    InlineToolbarFeature(),
-                    HorizontalRuleFeature(),
-                  ]
-                },
-              }),
+              editor: bodyEditor,
               label: false,
               required: true,
             },

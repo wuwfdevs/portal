@@ -13,6 +13,8 @@ import { Sections } from './collections/Sections'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
+import { LivePosts } from './collections/Live/LivePosts'
+import { LiveUpdates } from './collections/Live/LiveUpdates'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
 import {
@@ -79,6 +81,8 @@ export default buildConfig({
   collections: [
     Pages,
     Posts,
+    LivePosts,
+    LiveUpdates,
     Media,
     Audio,
     Video,

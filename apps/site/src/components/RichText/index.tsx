@@ -93,6 +93,8 @@ export default function RichText(props: Props) {
       converters={jsxConverters}
       className={cn(
         'payload-richtext',
+        // A long web address used as link text has nowhere to break, and would push the page wider than a phone.
+        'break-words',
         {
           container: enableGutter,
           'max-w-none': !enableGutter,
