@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
     "db:check": "node scripts/check-migrations.mjs",
+    "bootstrap-admin": "node scripts/bootstrap-admin.mjs",
     "eval:program-log": "vitest run -c vitest.eval.config.ts scripts/program-log-eval",
     "eval:agreement": "vitest run -c vitest.eval.config.ts scripts/agreement-eval"
   },
