@@ -238,6 +238,15 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
 - **The converter handles them.** 345 pages from those sections: 131 converted (126 clean, 5 review for NPR Pym scripts), 214 skipped (210 external, 4
   ambiguous), **0 disagreements between the converter and the census classifier**, 0 problems, deterministic. New: 18 stories carry JW Player and
   `wuwf.tv` video (click-to-load, no approval needed).
+- **Update (2026-11-04, same day): the other sections were fetched whole, so these are counts, not estimates** (`probe-manifest.tsv`, every page 200,
+  no blocks). `news` 252 WUWF of 385; `music-arts` 57 WUWF + 2 ambiguous of 616 (the estimate said 43); the nine small sections 116 WUWF of 132
+  (`arts` 30, `science` 20, `civics-101` 14, `blog` 13, `eco` 11, `through-the-lens` 9, `america-250` 7, `election-2024` 6, `live-event` 6). **That is 425
+  more WUWF stories than the local-section census covered, before `florida-news`**, which is being fetched in random order (138 of 4,810 so far: 27
+  WUWF, 6 ambiguous, 105 partner; about 20% WUWF, so roughly 900 to 1,000 more). Converter on the 319 WUWF-host pages of the whole sections
+  (`convert-full-strata-summary.json`): 315 converted (301 clean, 14 review), 0 exceptions, 0 problems, deterministic; 4 skipped as ambiguous.
+  New findings in them: 5 stories (`science` "Skies of the Gulf Coast" and one `news` piece) have a YouTube address **split by Grove's own data**
+  (the embed holds `https://youtu.be/FV4G`, the next paragraph begins `-xis2hM`): the converter refuses the short id and flags it
+  (`embed.unsupported-link`); a person can join them, it is not guessed. 14 stories are bylined "News Service of Florida" and 15 "Staff report".
 - **Watch:** 4 converted stories are bylined "News Service of Florida" (a wire service) and 2 `florida-news` stories have **no source organization**,
   which the classifier reads as WUWF. Owner to say whether those are WUWF's to archive.
 - **Podcast pages: converter built (2026-11-04).** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2

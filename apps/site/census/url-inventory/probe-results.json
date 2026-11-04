@@ -1,37 +1,82 @@
 {
- "podcast": {
-  "wuwf": 38
- },
- "odd:civics-101": {
-  "wuwf": 4,
+ "full:america-250": {
+  "wuwf": 3,
   "external": 1
  },
- "odd:through-the-lens": {
-  "wuwf": 5
+ "full:arts": {
+  "wuwf": 25,
+  "external": 4
+ },
+ "full:blog": {
+  "wuwf": 9
+ },
+ "full:civics-101": {
+  "wuwf": 10,
+  "external": 4
+ },
+ "full:eco": {
+  "wuwf": 6
+ },
+ "full:election-2024": {
+  "wuwf": 1
+ },
+ "full:florida-news": {
+  "ambiguous": 2,
+  "external": 26,
+  "wuwf": 10
+ },
+ "full:live-event": {
+  "wuwf": 1
+ },
+ "full:music-arts": {
+  "external": 464,
+  "wuwf": 50,
+  "ambiguous": 2
+ },
+ "full:news": {
+  "wuwf": 185,
+  "external": 100
+ },
+ "full:science": {
+  "wuwf": 17,
+  "external": 2
+ },
+ "full:through-the-lens": {
+  "wuwf": 4
  },
  "odd:america-250": {
   "wuwf": 4,
   "external": 1
  },
- "odd:eco": {
+ "odd:arts": {
   "wuwf": 5
  },
  "odd:blog": {
   "wuwf": 4,
   "external": 1
  },
- "odd:live-event": {
+ "odd:civics-101": {
+  "wuwf": 4,
+  "external": 1
+ },
+ "odd:eco": {
   "wuwf": 5
  },
  "odd:election-2024": {
   "wuwf": 5
  },
- "odd:arts": {
+ "odd:live-event": {
   "wuwf": 5
  },
  "odd:science": {
   "external": 2,
   "wuwf": 3
+ },
+ "odd:through-the-lens": {
+  "wuwf": 5
+ },
+ "podcast": {
+  "wuwf": 38
  },
  "prefix:florida-news": {
   "external": 79,
