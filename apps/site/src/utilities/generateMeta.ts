@@ -1,51 +1,38 @@
 import type { Metadata } from 'next'
 
-import type { Media, Page, Post, Config } from '../payload-types'
+import type { Page, Post } from '../payload-types'
 
-import { mergeOpenGraph } from './mergeOpenGraph'
+import { SITE_NAME, imageUrlOf, leadImageOf, storyMetadata, storySeoInputOf, trimDescription } from '../lib/seo/meta'
 import { getServerSideURL } from './getURL'
+import { mergeOpenGraph } from './mergeOpenGraph'
 
-const getImageURL = (image?: Media | Config['db']['defaultIDType'] | null) => {
-  const serverUrl = getServerSideURL()
-
-  let url = serverUrl + '/website-template-OG.webp'
-
-  if (image && typeof image === 'object' && 'url' in image) {
-    const ogUrl = image.sizes?.og?.url
-
-    url = ogUrl ? serverUrl + ogUrl : serverUrl + image.url
-  }
-
-  return url
-}
-
-export const generateMeta = async (args: {
-  doc: Partial<Page> | Partial<Post> | null
-}): Promise<Metadata> => {
+/**
+ * The metadata for a standard page: its SEO title if one was written, else its title (the layout adds "| WUWF"); its SEO image, else its first
+ * picture; its description trimmed to what a search result shows. Anything missing falls back to the station's own defaults, never a placeholder.
+ */
+export const generateMeta = async (args: { doc: Partial<Page> | Partial<Post> | null }): Promise<Metadata> => {
   const { doc } = args
-
-  const ogImage = getImageURL(doc?.meta?.image)
-
-  const title = doc?.meta?.title
-    ? doc?.meta?.title + ' | Payload Website Template'
-    : 'Payload Website Template'
+  const siteUrl = getServerSideURL()
+  const image = doc ? imageUrlOf(leadImageOf(doc as Parameters<typeof leadImageOf>[0]), siteUrl) : null
+  const title = doc?.meta?.title?.trim() || doc?.title?.trim() || undefined
+  const description = trimDescription(doc?.meta?.description) ?? undefined
 
   return {
-    description: doc?.meta?.description,
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
     openGraph: mergeOpenGraph({
-      description: doc?.meta?.description || '',
-      images: ogImage
-        ? [
-            {
-              url: ogImage,
-            },
-          ]
-        : undefined,
-      title,
+      ...(description ? { description } : {}),
+      ...(image ? { images: [{ url: image }] } : {}),
+      title: title ?? SITE_NAME,
       url: doc?.path ?? '/',
     }),
     // The canonical address is the path itself (a trailing slash redirects to it; ROADMAP → URL scheme).
     ...(doc?.path ? { alternates: { canonical: doc.path } } : {}),
-    title,
   }
+}
+
+/** The metadata for a story: see `lib/seo/meta.ts` for the fallback chain. */
+export const generateStoryMeta = (post: Post): Metadata => {
+  const meta = storyMetadata(storySeoInputOf(post, getServerSideURL()))
+  return { ...meta, openGraph: mergeOpenGraph(meta.openGraph) }
 }

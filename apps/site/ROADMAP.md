@@ -314,14 +314,27 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   migration. Consequence for the 410 rule: a wire story chosen for publication is a *record*, and a record is looked up before any fallback, so the fallback
   "a bare `/YYYY-MM-DD/slug` that is not a record answers 410" cannot catch a published wire story. If the ingest gives published wire stories the same bare
   shape (the slug rule is the headline in kebab case), recent NPR addresses keep resolving; any other shape works too. Decide the shape before the ingest is built.
-- **Link map built and applied (2026-11-04; owner-approved requests).** `scripts/grove/resolve-links.ts` converted the 1,454 stories fetched today, found 359
-  distinct own-site links, and asked Grove about the 279 that point at a wire story, an old `/post/<slug>` address or a story not in the migrated set (about 340
-  requests, 3 s apart, no errors). Answers: 151 are partner or NPR stories (link repointed to the publisher's address), 54 are old `/post/` addresses that Grove
-  301s to a WUWF story (repointed to its current address), 67 are WUWF stories at their own address (left), 1 is gone (link removed, words kept), 6 are
-  ambiguous WUWF-hosted copies of partner stories (left; `needsDecision` in the file). Map: `census/url-inventory/link-map.json` (206 entries, no page content).
-  `convertStory` takes it as `linkMap`; `convert-corpus.ts` and `import.ts` take `--link-map <file>`. **Run the importer with it.** Effect on the three sets: about
-  150 of 1,454 stories (10%) have a link repointed or removed; 0 problems, 0 exceptions. The 1,500 local-section pages on the owner's computer have not been
-  through this; run `resolve-links.ts --raw <census folders> --cache <file outside the repo> --out <map>` there and merge it with this map (the cache makes it resume).
+- **Link map built and applied (2026-11-04; owner-approved requests), now over the whole corpus.** `scripts/grove/resolve-links.ts` converted all **2,967 stories**
+  (the 1,513 census stories plus the 1,454 fetched today), found 540 distinct own-site links, and asked Grove about the 401 that point at a wire story, an old
+  `/post/<slug>` address or a story not in the migrated set (about 500 requests in all, 3 s apart, no errors). Answers: **189 partner or NPR stories** (link
+  repointed to the publisher's address), **64 old `/post/` addresses that Grove 301s to a WUWF story** (repointed to its current address), 138 WUWF stories at their
+  own address (left), **4 gone** (link removed, words kept), and **6 ambiguous** WUWF-hosted copies of partner stories (left; listed under `needsDecision`). Map:
+  `census/url-inventory/link-map.json` (257 entries, 289 affected links, no page content). `convertStory` takes it as `linkMap`; `convert-corpus.ts` and `import.ts`
+  take `--link-map <file>`: **run the importer with it.** The 1,500 local-section pages are covered (owner's zips, checksums verified).
+- **Census checks on the owner's zips (2026-11-04).** The 1,566 census pages convert exactly as before (1,513 converted, 1,509 clean, 4 review, 0 exceptions, 0
+  problems). **Wire bylines in the local sections: only 4 stories (all News Service of Florida)**, so the roughly 300 are in `news` and `florida-news`. **All 15 episodes had
+  0 words under the old converter and now carry 13 to 92 words each**; 6 of them (`/show/14-59`, whose show page is a 404) have no audio (`episode.no-audio`). The body
+  repair (`repair-bodies.ts`) now also fills a body that holds no words when the Grove page has some, and still leaves any story an editor touched
+  (`filledEmpty`; unit and integration tests, both fail without the rule). **To do on the owner's side: dry run, then `--only` one episode, then all, against staging.**
+  One existing repair test had been failing since the repair began counting picture alt text as words; it now tests what it was written for.
+- **Page metadata fixed (2026-11-04).** `generateMeta` was the Payload starter's placeholder: **every migrated story's browser title was "Payload Website Template"** (the importer
+  sets no SEO title) and every share image the starter's. Now (`src/lib/seo/meta.ts`, pure, tested; `utilities/generateMeta.ts`): title = SEO title, else the story's
+  title (the layout adds "| WUWF"); description = SEO description, else the dek, trimmed at a sentence or word to 160 characters (848 of 2,936 stories had longer);
+  share image = SEO image, else the lead photo (a photo, a gallery's first, a video's poster), else the station logo; `og:type` article with published and modified times
+  (Grove's modified date for a migrated story, never import time), authors and section; a large Twitter card when there is a picture; **`NewsArticle` structured data** on every story;
+  shows get a canonical and a share image; the starter's "Payload Website Template" titles on `/search` and `/posts` are gone. Measured gaps that remain (2,936 stories): 63% of images
+  have no alt text (3,442 of 5,455), 35% of stories no topics, 29% no byline (the "WUWF Staff" rule applies), 5% a short or missing description. **Proposed, not built:** a reviewed,
+  suggest-only LLM pass for alt text, short descriptions and topic suggestions from the existing tags (see the owner's question 2026-11-04); needs the owner's approval and an API key.
 - **Wire story address shape (recommended, awaiting the owner):** keep Grove's `/{YYYY-MM-DD}/{slug}` (no section, Central date, headline slug), with the origin in the
   `source` field, `rel=canonical` to the original publisher, left out of our sitemap and labelled "From NPR". Gives restore-by-address for chosen old stories and
   continuity for the cutover week; needs a collision rule (same headline, same day).

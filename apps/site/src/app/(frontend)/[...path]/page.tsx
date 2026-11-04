@@ -19,7 +19,10 @@ import { listHref, parseListRequest } from '@/lib/lists/route'
 import { pathFromSegments } from '@/lib/paths'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
 import { getCachedGlobal } from '@/utilities/getGlobals'
-import { generateMeta } from '@/utilities/generateMeta'
+import { generateMeta, generateStoryMeta } from '@/utilities/generateMeta'
+import { getServerSideURL } from '@/utilities/getURL'
+import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
+import { imageUrlOf } from '@/lib/seo/meta'
 import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
 
 // One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
@@ -105,7 +108,18 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const { isEnabled: draft } = await draftMode()
   const { path: segments } = await paramsPromise
   const result = await resolveRequest((segments ?? []).join('/'), draft)
-  if (result.kind === 'show') return { title: result.data.show.title, description: result.data.show.summary ?? undefined }
+  if (result.kind === 'post') return generateStoryMeta(result.doc)
+  if (result.kind === 'show') {
+    const { show, heroImage } = result.data
+    const image = imageUrlOf(heroImage, getServerSideURL())
+    const description = show.summary ?? undefined
+    return {
+      title: show.title,
+      description,
+      alternates: { canonical: result.url },
+      openGraph: mergeOpenGraph({ title: show.title, ...(description ? { description } : {}), url: result.url, ...(image ? { images: [{ url: image }] } : {}) }),
+    }
+  }
   if (result.kind === 'event') return { title: result.data.event.title, description: result.data.event.teaser ?? undefined, alternates: { canonical: result.url } }
   if (result.kind === 'list') {
     const { kind, slug, title, blurb, page } = result.data
