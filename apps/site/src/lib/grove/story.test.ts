@@ -216,11 +216,11 @@ describe('an inline link whose text is a template call', () => {
 })
 
 describe('a wire service\'s byline on a story Grove calls WUWF\'s', () => {
-  it('is raised for the owner and the story still converts, with its byline kept', () => {
+  it('is noted, not held back: the story converts clean, with its byline kept (owner decision, 2026-11-04)', () => {
     const r = ok(page({ authorName: 'Ryan Dailey - News Service of Florida', authorUrl: undefined as never }))
     const wire = r.report.entries.find((e) => e.code === 'origin.wire-byline')
-    expect(wire).toMatchObject({ level: 'preserved', detail: 'News Service of Florida' })
-    expect(r.report.status).toBe('review')
+    expect(wire).toMatchObject({ level: 'noted', detail: 'News Service of Florida' })
+    expect(r.report.status).toBe('clean')
     expect(r.story.byline.people.map((p) => p.name)).toEqual(['Ryan Dailey - News Service of Florida'])
   })
   it('is not raised for a station byline', () => {

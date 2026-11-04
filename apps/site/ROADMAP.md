@@ -254,14 +254,11 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   **Totals outside the local sections, all counted:** `news` 252, `music-arts` 57, nine small sections 116, `florida-news` 1,008 = **1,433 WUWF stories**, plus
   36 podcast episodes; with the local sections that is about 6,500 stories to migrate. Raw pages for every WUWF-host page fetched (2,072) went to the owner as
   `census-raw-005` to `-007`.
-- **Decision for the owner: wire-service copy that Grove calls WUWF's.** Grove sets the source organization to WUWF on many stories that carry a
-  wire byline, so the origin check passes them. By byline: **News Service of Florida on 124 of 518 WUWF-classified `florida-news` stories (24%) and 46 of
-  252 `news` stories (18%)**, none in `music-arts` or the small sections; Associated Press on 15 in `florida-news`. The converter's count over every page fetched is **300 stories: 263 in `florida-news` (233 News Service of Florida, 30 AP) and 37 in `news`**, 26% of `florida-news`'s WUWF stories. Whether WUWF may archive and republish them depends on its licence with those services; this repo cannot
-  know. The converter now **raises** each one (`origin.wire-byline`, level preserved, so the story reads `review`) and still converts it; the importer
-  does not hold on it, so **decide before the production import**: (a) archive them as WUWF's, (b) migrate them as wire (headline, teaser,
-  description and a link out, like NPR copy), or (c) hold them. The same check has not been run on the 1,500 local-section pages (raw pages on the owner's
-  computer): re-run `convert-corpus.ts` and read the `origin.wire-byline` count. Also: 78 of the 515 `florida-news` WUWF pages have **no source
-  organization** at all (the classifier reads that as WUWF), 62 of them with no byline either; 67% of the section's WUWF pages have no byline.
+- **Wire-service copy that Grove calls WUWF's: decided (owner, 2026-11-04) — it migrates as WUWF's, "same rights as before".** Grove sets the source
+  organization to WUWF on stories that carry a wire byline, so the origin check passes them. The converter's count over every page fetched is **300 stories:
+  263 in `florida-news` (233 News Service of Florida, 30 AP) and 37 in `news`**, 26% of `florida-news`'s WUWF stories. They convert and import like any story;
+  `origin.wire-byline` is a note (not a hold), so they can be found. Still true: 78 of the 515 sampled `florida-news` WUWF pages have **no source
+  organization** (the classifier reads that as WUWF), and 67% of the section's WUWF pages have no byline.
 - **Watch:** 4 converted stories are bylined "News Service of Florida" (a wire service) and 2 `florida-news` stories have **no source organization**,
   which the classifier reads as WUWF. Owner to say whether those are WUWF's to archive.
 - **Podcast pages: converter built (2026-11-04).** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2
@@ -309,7 +306,15 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   video at all; 65 embed `livestream.com` (a third-party service whose embeds may no longer play; unchecked). The pages with a working Vimeo or YouTube video
   (the CSV marks them `archive-page`) go on one archive page if UWF links to them (Search Console links report), otherwise 410. WUWF still streams UWF meetings
   (`bot-december-2025`, `bot91825`), so a small **webcasts collection** (event type, date, stream) is a justified *new feature*, separate from the migration.
-- **Still open:** News Service of Florida and AP copy (about 300 stories); podcast feed addresses; Search Console access; how CDS stories are addressed.
+- **Podcast feeds: serve a feed at the same address (owner, 2026-11-04).** Grove serves `/podcast/<slug>/rss.xml` per show and podcast apps and directories
+  subscribe to it. The site must answer at the same address with the same `<guid>` for each episode (apps identify an episode by its guid; the audio
+  address may change). Needs: read each old feed once to copy its guids, channel fields and categories; a feed route for a show; the audio in our storage.
+  NPR-distributed shows' feeds are NPR's and are not served here (check first whether Grove serves any under the station's address).
+- **Wire stories going forward: the CMS will import wire stories and let editors choose which to publish (owner, 2026-11-04).** This is new work, separate from the
+  migration. Consequence for the 410 rule: a wire story chosen for publication is a *record*, and a record is looked up before any fallback, so the fallback
+  "a bare `/YYYY-MM-DD/slug` that is not a record answers 410" cannot catch a published wire story. If the ingest gives published wire stories the same bare
+  shape (the slug rule is the headline in kebab case), recent NPR addresses keep resolving; any other shape works too. Decide the shape before the ingest is built.
+- **Still open:** NPR show pages (see below); Search Console access; what the 410 fallback does for addresses CDS has since removed.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
 

@@ -237,10 +237,11 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
   if (arr(j.updatesCorrections).length) ctx.fail('story.corrections-not-supported', 'updatesCorrections is present; the story has no field for it')
 
   const byline = bylineOf(j, ctx)
-  // Grove lists WUWF as the source organization of stories that carry a wire service's byline, so the origin check passes them. Whether
-  // WUWF may archive that copy is a licensing question for the owner, not for the converter: it is raised, never decided here.
+  // Grove lists WUWF as the source organization of stories that carry a wire service's byline (News Service of Florida, AP), so the origin
+  // check passes them. Owner decision (2026-11-04): WUWF has the same rights as before, so they migrate as WUWF's. The byline is still noted,
+  // so the stories can be found and counted.
   const wireName = /news service of florida|associated press/i.exec([...byline.people.map((p) => p.name), byline.text ?? ''].join(' | '))?.[0]
-  if (wireName) ctx.preserve('origin.wire-byline', wireName)
+  if (wireName) ctx.note('origin.wire-byline', wireName)
   // An article keeps its text in `articleBody`; an episode (radio or podcast) keeps it in `body`. Reading the wrong one gave an
   // empty story and no report, which is how the first fifteen episodes lost their text unnoticed.
   const bodyContent = bodyNodes(arr(isEpisode ? j.body : j.articleBody), ctx)
