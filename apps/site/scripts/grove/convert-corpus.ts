@@ -2,7 +2,7 @@
 // database and nothing is fetched. The raw pages stay outside the repository; only the summary is saved.
 //
 //   pnpm exec tsx scripts/grove/convert-corpus.ts --raw <dir> [--raw <dir>...] --manifest census/manifest.jsonl \
-//        [--hosts npr.org,embed.documentcloud.org] [--out census/convert-summary.json]
+//        [--hosts npr.org,embed.documentcloud.org] [--link-map census/url-inventory/link-map.json] [--out census/convert-summary.json]
 //
 // `--raw` takes a folder that holds the `*.json.gz` files, or a folder of such folders (the unzipped census archives).
 
@@ -19,6 +19,9 @@ const rawDirs = flag('raw')
 const manifestPath = flag('manifest')[0]
 const out = flag('out')[0]
 const hosts = (flag('hosts')[0] ?? '').split(',').map((h) => h.trim()).filter(Boolean)
+const linkMapFile = flag('link-map')[0]
+const linkMap: Record<string, string | null> | undefined = linkMapFile ? (JSON.parse(fs.readFileSync(linkMapFile, 'utf8')) as { map: Record<string, string | null> }).map : undefined
+const options = { embedHosts: hosts, ...(linkMap ? { linkMap } : {}) }
 if (!rawDirs.length) throw new Error('Pass --raw <dir> (the unzipped census pages).')
 
 const files: string[] = []
@@ -52,7 +55,7 @@ let bytes = 0
 for (const f of files) {
   const sha = path.basename(f).split('.')[0]!
   const page: unknown = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
-  const r: ConvertResult = convertStory(page, { embedHosts: hosts })
+  const r: ConvertResult = convertStory(page, options)
   const m = manifest.get(sha)
   if (r.status === 'skipped') {
     skipped[r.reason] = (skipped[r.reason] ?? 0) + 1
@@ -61,7 +64,7 @@ for (const f of files) {
   }
   converted++
   reports.push(r.report)
-  const again = convertStory(page, { embedHosts: hosts })
+  const again = convertStory(page, options)
   if (again.status !== 'converted' || JSON.stringify(again.story) !== JSON.stringify(r.story)) nondeterministic++
   if (m) {
     if (m.path !== r.story.path) problems.push(`${m.path}: converted path is ${r.story.path}`)

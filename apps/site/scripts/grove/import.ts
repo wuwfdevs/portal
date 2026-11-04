@@ -5,6 +5,7 @@
 //   pnpm exec tsx scripts/grove/import.ts --raw <dir> [--raw <dir>...] --cache <dir> --phase save [--limit 20] [--dry-run]
 //
 //   --raw        the unzipped census pages (outside the repository)
+//   --link-map   census/url-inventory/link-map.json (from resolve-links.ts): links to wire stories and old /post addresses are repointed or removed
 //   --cache      where downloaded files and the ledger live (outside the repository); the fetch phase writes it, the save
 //                phase reads it. Nothing is downloaded twice: the ledger (`assets.jsonl`) remembers every address.
 //   --phase      fetch | save | all (default all)
@@ -47,6 +48,8 @@ const phase = flag('phase')[0] ?? 'all'
 const intervalMs = Math.max(3000, Number(flag('interval-ms')[0] ?? 3000))
 const limit = flag('limit')[0] ? Number(flag('limit')[0]) : Infinity
 const dryRun = has('dry-run')
+const linkMapFile = flag('link-map')[0]
+const linkMap: Record<string, string | null> | undefined = linkMapFile ? (JSON.parse(fs.readFileSync(linkMapFile, 'utf8')) as { map: Record<string, string | null> }).map : undefined
 if (!raw.length || !cache) throw new Error('Pass --raw <dir> and --cache <dir>.')
 if (!['fetch', 'save', 'all'].includes(phase)) throw new Error('--phase is fetch, save or all.')
 
@@ -84,7 +87,7 @@ const events: ConvertedEvent[] = []
 const authors: ConvertedAuthor[] = []
 for (const f of pages) {
   const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'))
-  const r = convertStory(raw, { embedHosts: [] })
+  const r = convertStory(raw, { embedHosts: [], ...(linkMap ? { linkMap } : {}) })
   if (r.status !== 'converted') {
     // Not a story: it may be a show (a radio program's own page) or a standard page (a title and a body).
     const sh = convertShowPage(raw)

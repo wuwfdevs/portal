@@ -314,6 +314,17 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   migration. Consequence for the 410 rule: a wire story chosen for publication is a *record*, and a record is looked up before any fallback, so the fallback
   "a bare `/YYYY-MM-DD/slug` that is not a record answers 410" cannot catch a published wire story. If the ingest gives published wire stories the same bare
   shape (the slug rule is the headline in kebab case), recent NPR addresses keep resolving; any other shape works too. Decide the shape before the ingest is built.
+- **Link map built and applied (2026-11-04; owner-approved requests).** `scripts/grove/resolve-links.ts` converted the 1,454 stories fetched today, found 359
+  distinct own-site links, and asked Grove about the 279 that point at a wire story, an old `/post/<slug>` address or a story not in the migrated set (about 340
+  requests, 3 s apart, no errors). Answers: 151 are partner or NPR stories (link repointed to the publisher's address), 54 are old `/post/` addresses that Grove
+  301s to a WUWF story (repointed to its current address), 67 are WUWF stories at their own address (left), 1 is gone (link removed, words kept), 6 are
+  ambiguous WUWF-hosted copies of partner stories (left; `needsDecision` in the file). Map: `census/url-inventory/link-map.json` (206 entries, no page content).
+  `convertStory` takes it as `linkMap`; `convert-corpus.ts` and `import.ts` take `--link-map <file>`. **Run the importer with it.** Effect on the three sets: about
+  150 of 1,454 stories (10%) have a link repointed or removed; 0 problems, 0 exceptions. The 1,500 local-section pages on the owner's computer have not been
+  through this; run `resolve-links.ts --raw <census folders> --cache <file outside the repo> --out <map>` there and merge it with this map (the cache makes it resume).
+- **Wire story address shape (recommended, awaiting the owner):** keep Grove's `/{YYYY-MM-DD}/{slug}` (no section, Central date, headline slug), with the origin in the
+  `source` field, `rel=canonical` to the original publisher, left out of our sitemap and labelled "From NPR". Gives restore-by-address for chosen old stories and
+  continuity for the cutover week; needs a collision rule (same headline, same day).
 - **Still open:** NPR show pages (see below); Search Console access; what the 410 fallback does for addresses CDS has since removed.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
