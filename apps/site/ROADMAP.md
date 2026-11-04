@@ -222,6 +222,40 @@ the sandbox. To regenerate: read `https://www.wuwf.org/sitemap.xml` (an index of
 with a neutral User-Agent (no contact information of any kind) and at least 3 s between requests (robots.txt allows all), and tally by
 path shape. Re-fetch the sample below the same way with `?_renderer=json`.
 
+### URL inventory and disposition (2026-11-04): what the census left out
+
+All 276 monthly sitemaps were read again (neutral client, 3 s apart, robots.txt allows all): **200,964 URLs**. Data in `census/url-inventory/`
+(counts `summary.json`; every non-wire URL `ledger-non-wire.csv.gz`; `standalone-dispositions.csv`; the probe `probe-manifest.tsv`; `inventory.py`
+rebuilds it from the sitemaps). Every row's disposition is **undecided or proposed, never decided**. Shapes: wire `/DATE/slug` 185,389; local-section
+stories 5,087; stories in **other sections** 5,959; events 1,477; people 1,147; tags 905; show episodes 501; standalone pages 411; show pages 42;
+live blogs 3; odd shapes 42 (including `/podcast/...`).
+
+**Gap probe (794 pages, all HTTP 200 but one URL with a space).** Origin by the census rule (canonical host, then source organization):
+- `news` (385 URLs, 2016 to 2021): **67 of 100 WUWF** (about 258 stories). `florida-news` (4,810): 17 WUWF, 4 ambiguous, 79 partner (about 820 WUWF, range
+  470 to 1,170, wide because it rests on 17 hits). `music-arts` (616): 7 WUWF (about 43). Odd sections (`civics-101`, `through-the-lens`, `america-250`,
+  `eco`, `blog`, `live-event`, `election-2024`, `arts`, `science`; about 140 URLs): 40 of 45 WUWF. **So roughly 1,100 to 1,500 WUWF stories sit outside
+  the sections the census sampled.** The earlier line "florida-news was a statewide partner" is true of most of it, not all.
+- **The converter handles them.** 345 pages from those sections: 131 converted (126 clean, 5 review for NPR Pym scripts), 214 skipped (210 external, 4
+  ambiguous), **0 disagreements between the converter and the census classifier**, 0 problems, deterministic. New: 18 stories carry JW Player and
+  `wuwf.tv` video (click-to-load, no approval needed).
+- **Watch:** 4 converted stories are bylined "News Service of Florida" (a wire service) and 2 `florida-news` stories have **no source organization**,
+  which the classifier reads as WUWF. Owner to say whether those are WUWF's to archive.
+- **New templates the converter has no entry for:** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2
+  `/podcast/...` pages fetched are all WUWF's), `/core/section/SectionPage.hbs` (16 standalone pages that share a name with a section, e.g. `/news`,
+  `/local-news`) and `/core/page/Page.hbs` (6 pages).
+- **411 standalone pages**, proposed (by name, not yet read): about 125 UWF event webcasts and 51 UWF Board of Trustees pages (UWF content: owner
+  decision), 42 test pages (drop), 32 station-information pages (keep as standard pages), 20 schedule and weather pages (replaced), 16 section
+  landing pages, 119 to read.
+
+**Wire stories: recommendation, not a decision.** (1) A wire story under a local section: 301 to its `canonicalLink` (known from the fetched page),
+checked by script before cutover; a dead target becomes a 410. (2) A bare `/DATE/slug` wire URL (185,389, 92% of the archive): a plain "no longer on
+wuwf.org" page with a search link built from the slug, status 404 at first and 410 after a traffic review; exact redirects only for the pages
+Search Console shows matter. (3) The ambiguous WUWF-hosted copies: redirect to the real publisher when it can be named, else the plain page.
+**Rationale:** the split is by what we know, not by section; no target can be derived for a bare URL without fetching it (about 6.4 days for all).
+**Needs:** Search Console performance by page and the links report (still pinned); how the new site addresses current NPR stories from CDS (if it keeps
+`/DATE/slug`, recent wire URLs resolve for free). A migrated story that links to a non-migrated wire story keeps a relative link, so this
+needs the redirect, not a 404: check how many converted stories do (the raw pages are on the owner's computer).
+
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
 
 Two stories each from 2004 and 2010 (wire), two 2016 wire, `/local-news`, `/local-arts`, `/commentary`, `/people`, four

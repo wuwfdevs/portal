@@ -1,0 +1,52 @@
+{
+ "podcast": {
+  "wuwf": 38
+ },
+ "odd:civics-101": {
+  "wuwf": 4,
+  "external": 1
+ },
+ "odd:through-the-lens": {
+  "wuwf": 5
+ },
+ "odd:america-250": {
+  "wuwf": 4,
+  "external": 1
+ },
+ "odd:eco": {
+  "wuwf": 5
+ },
+ "odd:blog": {
+  "wuwf": 4,
+  "external": 1
+ },
+ "odd:live-event": {
+  "wuwf": 5
+ },
+ "odd:election-2024": {
+  "wuwf": 5
+ },
+ "odd:arts": {
+  "wuwf": 5
+ },
+ "odd:science": {
+  "external": 2,
+  "wuwf": 3
+ },
+ "prefix:florida-news": {
+  "external": 79,
+  "wuwf": 17,
+  "ambiguous": 4
+ },
+ "prefix:music-arts": {
+  "wuwf": 7,
+  "external": 93
+ },
+ "prefix:news": {
+  "external": 33,
+  "wuwf": 67
+ },
+ "standalone": {
+  "wuwf": 410
+ }
+}
