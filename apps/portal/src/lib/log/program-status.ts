@@ -10,7 +10,7 @@ import {
   isScheduleEntryActiveOn,
   type ScheduleEntryLike,
 } from "@/lib/log/schedule";
-import { shiftDateISO } from "@/lib/log/timezone";
+import { shiftDateISO } from "@/lib/station-time";
 
 /**
  * The shared placeholder clock every program without a real network clock is

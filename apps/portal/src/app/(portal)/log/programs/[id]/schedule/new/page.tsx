@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireProgramDirector } from "@/lib/log/access";
 import { getProgram, listClockTemplates, listScheduleEntries } from "@/lib/log/queries";
 import { isScheduleEntryActiveOn } from "@/lib/log/schedule";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { toOverlapOther } from "../to-overlap-other";
 import { createScheduleEntry } from "../../../../program-actions";
 import { ScheduleEditor } from "../schedule-editor";

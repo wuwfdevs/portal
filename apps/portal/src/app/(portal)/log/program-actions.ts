@@ -7,7 +7,7 @@ import { field, optionalField } from "@/lib/form-fields";
 import { assertProgramDirector } from "@/lib/log/access";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { parseNprMapping } from "@/lib/log/program-npr";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import type { LogProgramKind, LogScheduleEntryType } from "@/lib/database.types";
 
 const LIST_PATH = "/log/programs";

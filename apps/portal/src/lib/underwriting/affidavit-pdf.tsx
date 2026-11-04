@@ -19,7 +19,7 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { STATION_TIME_ZONE } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 import { STATION_LETTERHEAD, type AffidavitDocument } from "./affidavits";
 import { colors } from "@/lib/design-tokens";
 

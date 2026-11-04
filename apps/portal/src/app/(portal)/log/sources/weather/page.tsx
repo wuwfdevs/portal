@@ -14,7 +14,7 @@ import {
 import { refreshWeatherAction } from "../../weather-actions";
 import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
 import { RefreshIcon } from "@/components/ui/icons";
 

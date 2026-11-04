@@ -8,7 +8,7 @@
 import { groupBy } from "@/lib/collections";
 import { collapseWhitespace } from "@/lib/text";
 import { trimToNull } from "@/lib/validation";
-import { STATION_TIME_ZONE } from "./timezone";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 
 /** What a host needs to tell apart at a glance — the Badge variant it renders as is danger / warning / neutral. */
 export type AlertTier = "warning" | "watch" | "statement";

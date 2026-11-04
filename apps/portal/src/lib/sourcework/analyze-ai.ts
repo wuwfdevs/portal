@@ -4,6 +4,7 @@ import { humanizeOpenAIError } from "@/lib/openai-error";
 import { RESEARCH_MODEL } from "./model";
 import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./openai-call";
 import { ANALYZE_FRAMING, buildAnalyzeOutputSchema } from "./analyze-prompt";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 
 /** Every page the search tool returned or cited, so an address the model invented can be refused. */
 export function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
@@ -90,7 +91,7 @@ export async function callAnalyzeModel(args: {
                 city: "Pensacola",
                 region: "Florida",
                 country: "US",
-                timezone: "America/Chicago",
+                timezone: STATION_TIME_ZONE,
               },
             },
           ],

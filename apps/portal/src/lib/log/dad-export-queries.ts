@@ -19,7 +19,7 @@ import {
 } from "./dad-export";
 import { entriesInForceOn } from "./schedule";
 import { stationLocalParts, stationLocalToUTC } from "./automated-hours";
-import { shiftDateISO } from "./timezone";
+import { shiftDateISO } from "@/lib/station-time";
 import { listScheduleEntries } from "./queries";
 import type { Database } from "@/lib/database.types";
 

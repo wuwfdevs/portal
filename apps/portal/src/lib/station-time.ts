@@ -1,16 +1,55 @@
 import { addDaysISO } from "@/lib/dates";
 
-// Log operates one physical broadcast studio in Pensacola, FL — Escambia
-// County observes Central time (America/Chicago), not Eastern, despite being
-// in the Florida panhandle. Every wall-clock-facing display in this tool —
-// "today"'s schedule, NPR/weather "last updated" — must be pinned to that
-// timezone explicitly. Left unspecified, Date/Intl formatting falls back to
-// the rendering process's own timezone, which server-side (Vercel) is UTC —
-// five hours off Pensacola in August (CDT), silently showing the wrong hour
-// and, for a bare calendar date, sometimes the wrong day. No Supabase
-// import, colocated test, pure and safe to call from any Server Component.
+// The station's wall clock. Every wall-clock-facing display, and every "today", must be pinned to the
+// station's own time zone explicitly. Left unspecified, Date/Intl formatting falls back to the rendering
+// process's own timezone, which server-side (Vercel) is UTC — five hours off Central in August (CDT),
+// silently showing the wrong hour and, for a bare calendar date, sometimes the wrong day. No Supabase
+// import, colocated test, pure and safe to call from any Server Component or Client Component.
+//
+// Where the zone comes from. These functions are synchronous and run in client components, so they cannot
+// read a database row: the zone is deployment configuration, `NEXT_PUBLIC_STATION_TIME_ZONE` (an IANA
+// name), validated when this module loads and defaulting to WUWF's own. The SQL half of the station's
+// clock (`private.station_time_zone()`, used by the functions that compute "today" and "is this instant
+// automated" in the database) reads `public.station_settings.time_zone`. The two must name the same zone;
+// `getStation()` (lib/station.ts) reports a mismatch and /admin/tools shows it. An install sets both
+// (INSTALL.md).
 
-export const STATION_TIME_ZONE = "America/Chicago";
+/** The zone a deployment gets when it sets none: WUWF's studio in Pensacola, FL (Central time). */
+export const DEFAULT_STATION_TIME_ZONE = "America/Chicago";
+
+/**
+ * Validates a configured zone and falls back to the default when none is set. A zone that is set but
+ * unknown to this runtime throws: a wrong zone silently shows the wrong hour, which is worse than a
+ * deploy that fails loudly with the reason.
+ */
+export function resolveStationTimeZone(configured: string | undefined): string {
+  const candidate = configured?.trim();
+  if (!candidate) return DEFAULT_STATION_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: candidate });
+  } catch {
+    throw new Error(
+      `NEXT_PUBLIC_STATION_TIME_ZONE is "${candidate}", which is not an IANA time zone this runtime knows (for example "America/Chicago").`,
+    );
+  }
+  return candidate;
+}
+
+export const STATION_TIME_ZONE = resolveStationTimeZone(process.env.NEXT_PUBLIC_STATION_TIME_ZONE);
+
+/**
+ * A sentence when the zone the database uses (`public.station_settings.time_zone`) is not the zone this
+ * deployment's clock uses, or null when they agree. They are two settings for one fact (see the note at the
+ * top of this file); a station that changes one and not the other would show "today" from one zone and
+ * compute it in the other.
+ */
+export function stationZoneMismatch(
+  databaseZone: string | null | undefined,
+  deployedZone: string = STATION_TIME_ZONE,
+): string | null {
+  if (!databaseZone || databaseZone === deployedZone) return null;
+  return `The station time zone in settings is ${databaseZone}, but this deployment's clock is ${deployedZone} (NEXT_PUBLIC_STATION_TIME_ZONE). Dates and times shown on pages and the ones the database works out will disagree until they match.`;
+}
 
 /**
  * Today's calendar date (YYYY-MM-DD) in the station's own timezone, not the

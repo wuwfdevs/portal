@@ -3,7 +3,7 @@
 
 import { formatAirTime } from "./schedule";
 import { formatDateShort } from "./program-status";
-import { shiftDateISO } from "./timezone";
+import { shiftDateISO } from "@/lib/station-time";
 import { stationLocalParts, timeToSeconds } from "./automated-hours";
 
 /** "8:00 PM – 5:00 AM"; "12:00 AM" for midnight at either end. */

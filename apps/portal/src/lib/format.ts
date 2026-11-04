@@ -1,6 +1,6 @@
 // Display formatters shared across tools. Pure and dependency-free, so client
 // components can import them. Domain-specific formatters (station time in
-// lib/log/timezone.ts, dollars on a rate card in lib/bookings/rates.ts) stay
+// lib/station-time.ts, dollars on a rate card in lib/bookings/rates.ts) stay
 // with their domain; the generic ones live here.
 
 import { roundCents } from "@/lib/money";

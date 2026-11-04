@@ -2,6 +2,7 @@ import "server-only";
 import OpenAI from "openai";
 import { trimToNull } from "@/lib/validation";
 import { humanizeOpenAIError } from "@/lib/openai-error";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
 // Editorial Inquiry's reasoning engine — one function, runEditorialTurn(),
@@ -437,13 +438,13 @@ ${contextBlock(context)}`;
           search_context_size: "low",
           // Geolocates search toward the coverage area directly, which the
           // prompt could only ask for. Central time, not Eastern — see
-          // lib/log/timezone.ts.
+          // lib/station-time.ts.
           user_location: {
             type: "approximate",
             city: "Pensacola",
             region: "Florida",
             country: "US",
-            timezone: "America/Chicago",
+            timezone: STATION_TIME_ZONE,
           },
         },
         PROPOSE_ACTION_TOOL,

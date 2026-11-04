@@ -70,7 +70,7 @@ import {
   formatStationClockTime,
   formatStationTimeHM,
   formatStationTimestamp,
-} from "@/lib/log/timezone";
+} from "@/lib/station-time";
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";

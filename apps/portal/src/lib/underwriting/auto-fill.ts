@@ -1,5 +1,5 @@
 import "server-only";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { isAutomated } from "@/lib/log/automated-hours";
 import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
 import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";

@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { trimToNull } from "@/lib/validation";
-import { STATION_TIME_ZONE } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 import type { LogRundownStatus, UwServiceLevel, UwTimeMode } from "@/lib/database.types";
 
 /**

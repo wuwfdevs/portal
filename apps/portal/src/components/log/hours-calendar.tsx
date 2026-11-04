@@ -20,7 +20,7 @@ import {
   type UnderwritingHourChange,
 } from "@/lib/log/underwriting-hours";
 import { entriesInForceOn } from "@/lib/log/schedule";
-import { shiftDateISO } from "@/lib/log/timezone";
+import { shiftDateISO } from "@/lib/station-time";
 import { formatWeekRange, weekDates, weekStartISO } from "@/lib/log/week-layout";
 import type { ScheduleEntryWithNames } from "@/lib/log/queries";
 

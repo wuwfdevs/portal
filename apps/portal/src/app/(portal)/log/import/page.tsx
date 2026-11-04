@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { isValidDateISO } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatStationDateLong } from "@/lib/log/timezone";
+import { formatStationDateLong } from "@/lib/station-time";
 import { ImportClient } from "./import-client";
 
 // Program-log import (see docs/log-design.md's "Importing the daily program

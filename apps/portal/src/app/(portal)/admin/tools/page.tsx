@@ -4,6 +4,7 @@ import { unwrapRead } from "@/lib/read-result";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { TOOL_STATUS } from "@/lib/admin-status";
+import { getStation } from "@/lib/station";
 import { toggleToolEnabled } from "./actions";
 import type { ToolDefaultAccess } from "@/lib/database.types";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
@@ -26,9 +27,16 @@ export default async function AdminToolsPage({
     "the tools",
   );
 
+  // The station's database clock and this deployment's clock are two settings for one fact. Say so here,
+  // where an administrator looks after changing either. A failed read must not take the tools page down.
+  const zoneMismatch = await getStation()
+    .then((station) => station.zoneMismatch)
+    .catch(() => null);
+
   return (
     <div className="flex flex-col gap-4">
       {error && <Alert>{error}</Alert>}
+      {zoneMismatch && <Alert>{zoneMismatch}</Alert>}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-ui text-ink-500">
           Rows come from migrations. A <span className="font-semibold">proposed</span> tool is the

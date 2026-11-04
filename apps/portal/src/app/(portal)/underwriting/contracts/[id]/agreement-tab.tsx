@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldHint, Input, Label, Select, CheckboxField } from "@/components/ui/input";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { shortDate } from "@/lib/underwriting/dates";
 import type { ContractDetail, UwAffidavitRow } from "@/lib/underwriting/queries";
 import { updateContractPolicy } from "../../contract-actions";

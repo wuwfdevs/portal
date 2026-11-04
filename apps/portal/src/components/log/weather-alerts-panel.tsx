@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import {
   alertPlaces,
   alertPreview,

@@ -28,7 +28,7 @@ import {
 } from "@/lib/log/program-status";
 import { formatHour } from "@/lib/log/program-npr";
 import { effectiveDays } from "@/lib/log/schedule-overlap";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import {
   getProgram,
   listClockSummaries,

@@ -2,7 +2,7 @@
 // notes by the day they shipped. No Supabase, no React — colocated test.
 
 import type { RcKind } from "@/lib/database.types";
-import { STATION_TIME_ZONE } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
 import { parseRichText, type RichTextNode } from "@/lib/rich-text";
 
 /**

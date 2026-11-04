@@ -16,7 +16,7 @@ import {
   signingQueue,
 } from "@/lib/underwriting/affidavit-month";
 import { monthLabel, shortDate } from "@/lib/underwriting/dates";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { generateAffidavitsForMonth } from "../affidavit-actions";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { EmptyState } from "@/components/ui/empty-state";

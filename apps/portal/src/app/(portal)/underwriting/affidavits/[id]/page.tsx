@@ -10,7 +10,7 @@ import { getAffidavitDetail, getAffidavitMonth } from "@/lib/underwriting/querie
 import { monthOf, signingQueue } from "@/lib/underwriting/affidavit-month";
 import { monthLabel } from "@/lib/underwriting/dates";
 import { STATION_LETTERHEAD, formatCalendarDate } from "@/lib/underwriting/affidavits";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { certifyAffidavit } from "../../affidavit-actions";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";

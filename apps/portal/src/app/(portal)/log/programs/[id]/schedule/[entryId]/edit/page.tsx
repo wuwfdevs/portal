@@ -7,7 +7,7 @@ import {
   listClockTemplates,
   listScheduleEntries,
 } from "@/lib/log/queries";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { updateScheduleEntry } from "../../../../../program-actions";
 import { ScheduleEditor } from "../../schedule-editor";
 import { toOverlapOther } from "../../to-overlap-other";

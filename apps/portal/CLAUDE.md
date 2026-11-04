@@ -1207,7 +1207,7 @@ caught immediately by a user comparing the weather screen's "Last updated"
 against an actual clock: every wall-clock-facing display in Log had been
 built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
 the rendering process's own timezone — UTC on Vercel, five hours off
-Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+Pensacola in August (CDT). `lib/station-time.ts` (pure, tested) is now the
 one place that knows the station is Central time, not Eastern, despite
 being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
 and every timestamp/date Log renders goes through it:
@@ -2538,7 +2538,7 @@ Fixed by `lib/underwriting/auto-fill-plan.ts`'s new `collapseToOnePerDay()`:
 before demand is ever assigned to a break, the eligible-breaks list is
 reduced to at most one candidate per `air_date` — whichever is closest to
 the schedule line's own `target_time` (converted to station-local minutes
-via `lib/log/timezone.ts`, since `target_time` is a plain wall-clock value
+via `lib/station-time.ts`, since `target_time` is a plain wall-clock value
 and `scheduled_at` is UTC) — and any day the line already has an active
 placement on is dropped outright, so a makegood or a later run's fresh
 occurrence always lands on a _different_ day rather than stacking a second
@@ -4397,6 +4397,14 @@ writes that reported success without checking the result.
   `enabled`. A `security definer` function that reads another module's tables must check that
   module is enabled and that the caller can use it (Bookings' airtime reads do both: a module
   that is off is reported as unavailable, and names are replaced for a reader without access).
+- **The station's clock has one name in each half, and a test keeps literals out.** TypeScript:
+  `lib/station-time.ts` (`STATION_TIME_ZONE`, `stationTodayISO`, the `formatStation*` helpers). The
+  functions are synchronous and run in client components, so the zone is deployment configuration,
+  `NEXT_PUBLIC_STATION_TIME_ZONE` (default `America/Chicago`), not a database read. SQL: functions ask
+  `private.station_time_zone()`, which reads `public.station_settings.time_zone`. The two must agree;
+  `getStation()` (`lib/station.ts`) reports a mismatch and `/admin/tools` shows it. Never write a zone
+  name in a function or a TypeScript file (`station-settings.test.ts` fails on it); NPR's Eastern feed
+  clock in `log/npr-story-times.ts` is the one deliberate exception, because it is the network's clock.
 - **Hard dependencies are rare and declared.** A foreign key into another module's table, or
   data a module cannot work without, is a `requires` entry and needs a sentence in the PR saying
   why. Prefer a soft reference (`external_ref`, the Bookings pattern) when the link is optional.

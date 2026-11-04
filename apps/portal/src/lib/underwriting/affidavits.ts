@@ -1,7 +1,7 @@
 // Pure logic for Workflow G (docs/underwriting-design.md) — summarizing an
 // affidavit's line items for display. No Supabase import, colocated test.
 
-import { STATION_TIME_ZONE, shiftDateISO } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE, shiftDateISO } from "@/lib/station-time";
 
 export interface AffidavitLineItemOutcomeInput {
   outcome: string;

@@ -46,7 +46,7 @@ import {
 import type { BkPricingTreatment } from "@/lib/database.types";
 import { isUuid } from "@/lib/form-fields";
 import { formatDateShort } from "@/lib/log/program-status";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { isValidDateISO, weekDates } from "@/lib/log/week-layout";
 import {
   confirmBooking,

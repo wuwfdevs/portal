@@ -9,7 +9,7 @@ import { CONTROL_ROW } from "@/components/ui/control-row";
 import { DATA_SOURCES, formatStaleAfter } from "@/lib/log/data-sources";
 import { loadDataSourceStatuses } from "@/lib/log/data-source-status";
 import { DATA_SOURCE_STATE } from "@/lib/log/status-badges";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { refreshWeatherAction } from "../weather-actions";
 import { LogPoller } from "../log-poller";
 import { RefreshIcon } from "@/components/ui/icons";

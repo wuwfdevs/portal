@@ -23,7 +23,7 @@ import {
   packedHourCount,
   projectStoriesOntoShift,
 } from "@/lib/log/npr-story-times";
-import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/lib/log/timezone";
+import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/lib/station-time";
 import { refreshNprEpisodeAction } from "../../npr-actions";
 import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";

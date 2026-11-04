@@ -151,6 +151,9 @@ through automation and need a human in each dashboard once:
      encrypted env var)
    - `NEXT_PUBLIC_SITE_URL` — the deployment's own URL (`https://tools.wuwf.org` in
      Production)
+   - `NEXT_PUBLIC_STATION_TIME_ZONE` — optional; the station's IANA time zone (default
+     `America/Chicago`, WUWF's). Must match `station_settings.time_zone` in the database;
+     `/admin/tools` warns if it does not
    - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Sourcework's ASR provider
      (**sensitive** — mark both encrypted); see `.env.example` for details
    - `MISTRAL_API_KEY` — Sourcework's document OCR fallback for PDFs whose own embedded
