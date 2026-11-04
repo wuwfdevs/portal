@@ -52,6 +52,15 @@ pnpm dev:portal | build:portal | lint:portal | typecheck:portal | test:portal | 
 pnpm test:pr-text                             the PR-text check's own tests
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`: the Portal's `lint`,
+`typecheck`, `test` and `db:check`, and each package's `typecheck` and `test`. It installs one project at
+a time from that project's own lockfile (never a workspace-wide install; see the lockfile note above).
+It does not cover `apps/site`, and it does not replay migrations on an empty database yet. A red CI is a
+real failure to fix, not noise to skip: the Portal's lint had one stale error that the workflow's first
+run would otherwise have hit, and was fixed with a stated reason rather than left to fail.
+
 ## Things that live outside the repository
 
 - **Vercel:** each app is its own Vercel project. The Portal's project must have its **Root Directory
