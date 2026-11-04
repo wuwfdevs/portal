@@ -214,3 +214,16 @@ describe('an inline link whose text is a template call', () => {
     expect(JSON.stringify(story.content)).not.toContain('html(')
   })
 })
+
+describe('a wire service\'s byline on a story Grove calls WUWF\'s', () => {
+  it('is raised for the owner and the story still converts, with its byline kept', () => {
+    const r = ok(page({ authorName: 'Ryan Dailey - News Service of Florida', authorUrl: undefined as never }))
+    const wire = r.report.entries.find((e) => e.code === 'origin.wire-byline')
+    expect(wire).toMatchObject({ level: 'preserved', detail: 'News Service of Florida' })
+    expect(r.report.status).toBe('review')
+    expect(r.story.byline.people.map((p) => p.name)).toEqual(['Ryan Dailey - News Service of Florida'])
+  })
+  it('is not raised for a station byline', () => {
+    expect(ok(page()).report.entries.map((e) => e.code)).not.toContain('origin.wire-byline')
+  })
+})

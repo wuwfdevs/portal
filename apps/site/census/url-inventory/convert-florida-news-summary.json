@@ -1,0 +1,230 @@
+{
+ "generatedFrom": "577 pages",
+ "converted": 498,
+ "skipped": {
+  "ambiguous": 79
+ },
+ "nondeterministic": 0,
+ "problems": [],
+ "problemCount": 0,
+ "meanStoryJson": 9239,
+ "statuses": {
+  "clean": 364,
+  "review": 134,
+  "exception": 0
+ },
+ "assets": {
+  "distinctImages": 457,
+  "distinctAudio": 7,
+  "distinctVideo": 2,
+  "usesAcrossStories": 555,
+  "perHost": {
+   "npr.brightspotcdn.com": 364,
+   "media.npr.org": 131,
+   "npr-brightspot.s3.amazonaws.com": 35,
+   "www.google-analytics.com": 9,
+   "cpa.ds.npr.org": 7,
+   "mediad.publicbroadcasting.net": 6,
+   "www.wmfe.org": 1,
+   "oceanservice.noaa.gov": 1,
+   "floridastorms.org": 1
+  }
+ },
+ "hostsNeedingApproval": {},
+ "mapped": {
+  "paragraph": 8127,
+  "lead:mediaBlock": 495,
+  "link": 491,
+  "block:linkLine": 66,
+  "linkLine:related": 66,
+  "block:embed": 39,
+  "block:mediaBlock": 38,
+  "embed:x": 30,
+  "list": 13,
+  "image:inline": 9,
+  "quote": 5,
+  "embed:youtube": 4,
+  "embed:facebook": 3,
+  "lead:gallery": 2,
+  "block:videoPlayer": 2,
+  "embed:custom": 2
+ },
+ "codes": [
+  {
+   "code": "origin.wire-byline",
+   "level": "preserved",
+   "occurrences": 132,
+   "stories": 132,
+   "details": {
+    "News Service of Florida": 118,
+    "Associated Press": 14
+   },
+   "examples": [
+    "/florida-news/2025-09-15/counter-proposal-nixed-in-fpl-rate-case",
+    "/florida-news/2026-02-02/proposed-constitutional-amendments-fail-to-gain-ballot-access",
+    "/florida-news/2026-04-01/desantis-signs-missys-law-calls-for-house-impeachment-of-judge"
+   ]
+  },
+  {
+   "code": "embed.unsupported-link",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "www.twitter.com": 1
+   },
+   "examples": [
+    "/florida-news/2023-01-03/desantis-sworn-in-to-begin-second-term-as-floridas-governor"
+   ]
+  },
+  {
+   "code": "html.script-removed",
+   "level": "preserved",
+   "occurrences": 2,
+   "stories": 1,
+   "details": {
+    "inline": 2
+   },
+   "examples": [
+    "/florida-news/2026-05-05/the-lottery-at-large-who-wins-who-gets-hurt"
+   ]
+  },
+  {
+   "code": "byline.none",
+   "level": "noted",
+   "occurrences": 332,
+   "stories": 332,
+   "details": {},
+   "examples": [
+    "/florida-news/2022-09-30/ian-insured-losses-could-total-40-billion",
+    "/florida-news/2024-04-05/very-very-busy-hurricane-season-eyed",
+    "/florida-news/2024-01-08/florida-bill-seeks-to-prevent-minors-under-16-from-having-social-media-accounts"
+   ]
+  },
+  {
+   "code": "byline.person-without-address",
+   "level": "noted",
+   "occurrences": 97,
+   "stories": 97,
+   "details": {
+    "Jim Saunders - News Service of Florida": 13,
+    "Jim Turner - News Service of Florida": 20,
+    "Kylie Williams - Fresh Take Florida": 2,
+    "Ryan Dailey - News Service of Florida": 31,
+    "Tom Urban - News Service of Florida": 2,
+    "News Service of Florida": 11,
+    "Delia Rose Sauer - Fresh Take Florida": 1,
+    "Dara Kam - News Service of Florida": 3,
+    "Jim Turner and Tom Urban - News Service of Florida": 1,
+    "Sara-James Ranta - Fresh Take Florida": 1,
+    "Zoey Thomas | Fresh Take Florida": 1,
+    "The News Service of Florida": 2,
+    "Bea Lunardini - Fresh Take Florida": 2,
+    "Lauren Brensel and Diego Perdomo - Fresh Take Florida": 1,
+    "Bea Anhuci - Fresh Take Florida": 1,
+    "Diego Perdomo - Fresh Take Florida": 1,
+    "Jim Turner and Gray Rohrer - News Service of Florida": 1,
+    "Natanya Friedheim and Ella Thompson | Statehouse Reporting Project and Fresh Take Florida": 1,
+    "Jack Jankowski and Alanna Robbert - Fresh Take Florida": 1,
+    "Zoey Thomas and Vivienne Serret-Fresh Take Florida": 1
+   },
+   "examples": [
+    "/florida-news/2025-09-15/counter-proposal-nixed-in-fpl-rate-case",
+    "/florida-news/2026-02-02/proposed-constitutional-amendments-fail-to-gain-ballot-access",
+    "/florida-news/2025-07-09/florida-immigration-law-to-remain-halted"
+   ]
+  },
+  {
+   "code": "link.escaped-markup-repaired",
+   "level": "noted",
+   "occurrences": 48,
+   "stories": 26,
+   "details": {},
+   "examples": [
+    "/florida-news/2024-10-22/as-early-voting-gets-underway-republicans-across-florida-quickly-surpass-democratic-turnout",
+    "/florida-news/2025-10-07/inmate-in-prison-at-center-of-major-florida-pot-ruling-says-it-gives-him-bit-of-life-and-hope",
+    "/florida-news/2024-02-21/florida-teens-warn-of-consequences-ahead-of-senate-vote-on-social-media-ban"
+   ]
+  },
+  {
+   "code": "byline.from-text",
+   "level": "noted",
+   "occurrences": 14,
+   "stories": 14,
+   "details": {},
+   "examples": [
+    "/florida-news/2024-10-22/as-early-voting-gets-underway-republicans-across-florida-quickly-surpass-democratic-turnout",
+    "/florida-news/2025-10-07/inmate-in-prison-at-center-of-major-florida-pot-ruling-says-it-gives-him-bit-of-life-and-hope",
+    "/florida-news/2026-04-09/citrus-gets-a-slight-uptick-in-forecast"
+   ]
+  },
+  {
+   "code": "sections.secondary-not-migrated",
+   "level": "noted",
+   "occurrences": 7,
+   "stories": 7,
+   "details": {
+    "Local News": 2,
+    "Election 2024": 2,
+    "Florida News": 1,
+    "Apple News": 2
+   },
+   "examples": [
+    "/florida-news/2025-12-15/desantis-and-cabinet-consider-land-deals",
+    "/florida-news/2024-11-06/5-takeaways-from-election-day-in-florida",
+    "/florida-news/2023-07-17/organizations-file-lawsuit-over-floridas-anti-immigration-law"
+   ]
+  },
+  {
+   "code": "text.markup-flattened",
+   "level": "noted",
+   "occurrences": 8,
+   "stories": 6,
+   "details": {
+    "alt text": 2,
+    "caption": 3,
+    "credit": 3
+   },
+   "examples": [
+    "/florida-news/2022-05-16/desantis-targets-protests-outside-homes",
+    "/florida-news/2022-08-26/clinics-and-doctor-go-to-florida-supreme-court-in-abortion-law-fight",
+    "/florida-news/2023-08-09/desantis-suspends-central-florida-prosecutor"
+   ]
+  },
+  {
+   "code": "html.unwrapped-tag",
+   "level": "noted",
+   "occurrences": 11,
+   "stories": 6,
+   "details": {
+    "ps-promo": 5,
+    "li": 6
+   },
+   "examples": [
+    "/florida-news/2022-09-01/florida-sues-the-fda-over-drug-importation-records-as-it-seeks-cheaper-medications-for-floridians",
+    "/florida-news/2022-10-04/florida-citrus-growers-face-a-gamut-of-damages-from-hurricane-ian",
+    "/florida-news/2023-11-27/florida-lawmaker-budget-requests-for-the-2024-legislative-session-are-starting-to-pile-up"
+   ]
+  },
+  {
+   "code": "figure.empty",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/florida-news/2023-07-18/two-states-removed-from-drivers-license-list"
+   ]
+  },
+  {
+   "code": "section.none",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/florida-news/2023-01-03/desantis-sworn-in-to-begin-second-term-as-floridas-governor"
+   ]
+  }
+ ]
+}
