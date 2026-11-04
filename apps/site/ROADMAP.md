@@ -240,9 +240,18 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   `wuwf.tv` video (click-to-load, no approval needed).
 - **Watch:** 4 converted stories are bylined "News Service of Florida" (a wire service) and 2 `florida-news` stories have **no source organization**,
   which the classifier reads as WUWF. Owner to say whether those are WUWF's to archive.
-- **New templates the converter has no entry for:** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2
-  `/podcast/...` pages fetched are all WUWF's), `/core/section/SectionPage.hbs` (16 standalone pages that share a name with a section, e.g. `/news`,
+- **Podcast pages: converter built (2026-11-04).** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2
+  `/podcast/...` pages fetched are all WUWF's) convert like radio episodes and shows, at their exact `/podcast/<slug>` addresses (the show path hook accepts
+  them; `/podcast` is not reserved, only `/podcasts`). On the real pages: 30 episodes clean, 6 `review` (the `ecoheroes` episodes are hollow in Grove too:
+  a title and a description, no audio, body or picture; new codes `episode.no-audio` and `episode.hollow-page`), both shows convert. **Grove's podcast feed
+  address (`/podcast/<slug>/rss.xml`) has nowhere to go yet** and is reported as `show.feed-link-not-kept`: podcast apps subscribe to it, so the feed
+  needs a decision before cutover. Still no entry: `/core/section/SectionPage.hbs` (16 standalone pages that share a name with a section, e.g. `/news`,
   `/local-news`) and `/core/page/Page.hbs` (6 pages).
+- **Bug found and fixed in passing: episodes lost their text.** Radio and podcast episodes keep their text in `body`; the converter read `articleBody` for
+  every page, so an episode's body came out empty with no report. The real `/2021-10-01` episode shows it; the tally confirms `body` on the 15 probe
+  episodes. The existing episode test passed because it never looked at the content (it now does, and was mutation-checked: restoring the old key fails 3
+  tests). **The 15 census episodes, and any episode already on staging, were converted by the old code: re-run the converter and re-import or repair
+  them** (`repair-bodies.ts` skips a story whose words differ, so the bodies need a separate step). The raw pages are on the owner's computer.
 - **411 standalone pages**, proposed (by name, not yet read): about 125 UWF event webcasts and 51 UWF Board of Trustees pages (UWF content: owner
   decision), 42 test pages (drop), 32 station-information pages (keep as standard pages), 20 schedule and weather pages (replaced), 16 section
   landing pages, 119 to read.
@@ -766,6 +775,9 @@ signed-in account page, not CMS content.
   migrations' rollbacks were fixed and tested (`DROP CONSTRAINT IF EXISTS` after a `DROP TABLE ... CASCADE`).
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
+- **A "clean" report on an empty result is not clean.** Episodes read `articleBody`, which they do not have, and converted "clean" with no text for
+  weeks because the converter's test and the corpus summary counted statuses and never looked at content. When a page type is added, assert that its
+  text arrives, and check a real page's key names against the tally (`census/tally.json`, group `probe`), not a fixture written from memory.
 
 - **Restricted blocks need a hook on every collection that takes story-style content.** The story body editor (`fields/bodyEditor.ts`) includes
   the script widget (publisher-only) and preserved HTML (administrator-only), and Payload does not enforce a block's own access inside rich

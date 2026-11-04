@@ -14,6 +14,8 @@ import type { ConvertOptions, ConvertResult, ConvertedStory, Json, JsonObject, L
 const ARTICLE = '/core/article/ArticlePage.hbs'
 /** A radio show or podcast episode: a story with audio that belongs to a show. */
 const EPISODE = '/media/episode/audio/RadioShowEpisodePage.hbs'
+/** A podcast episode (`/podcast/<show>/<date>/<slug>`): the same thing under another template, with its text in `body`. */
+const PODCAST_EPISODE = '/media/episode/audio/PodcastEpisodePage.hbs'
 const tname = (t: string): string => t.split('/').pop()?.replace(/\.hbs$/, '') ?? t
 
 // ---- the body -------------------------------------------------------------------------------------------------
@@ -104,13 +106,13 @@ export function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
 function showOf(j: JsonObject, path: string, ctx: Ctx): ConvertedStory['show'] {
   let showPath: string | null = null
   try {
-    const u = str(j.radioShowUrl)
+    const u = str(j.radioShowUrl) ?? str(j.podcastUrl)
     if (u) showPath = new URL(u).pathname.replace(/\/$/, '')
   } catch {
     /* fall back to the address */
   }
   if (!showPath) {
-    const m = /^(\/show\/[^/]+)\//.exec(path)
+    const m = /^(\/(?:show|podcast)\/[^/]+)\//.exec(path)
     if (m) {
       showPath = m[1]!
       ctx.note('episode.show-from-address', showPath)
@@ -120,7 +122,7 @@ function showOf(j: JsonObject, path: string, ctx: Ctx): ConvertedStory['show'] {
     ctx.fail('episode.no-show')
     return null
   }
-  return { path: showPath, title: plainText(str(j.radioShowTitle)).text || null }
+  return { path: showPath, title: plainText(str(j.radioShowTitle) ?? str(j.podcastTitle)).text || null }
 }
 
 // ---- who wrote it, where it is filed --------------------------------------------------------------------------
@@ -197,10 +199,11 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
     return { status: 'skipped', reason, report: ctx.report(path, groveId) }
   }
 
-  const isEpisode = template(j) === EPISODE
+  const isPodcast = template(j) === PODCAST_EPISODE
+  const isEpisode = template(j) === EPISODE || isPodcast
   if (!j || (template(j) !== ARTICLE && !isEpisode)) return skipped('not-an-article', 'page.not-an-article', template(j) || 'no template')
   // An NPR-distributed show's episodes are NPR's, not WUWF's to archive.
-  if (isEpisode && j.nprShow === true) return skipped('external', 'origin.npr-show', str(j.radioShowTitle) ?? host ?? 'no host')
+  if (isEpisode && j.nprShow === true) return skipped('external', 'origin.npr-show', str(j.radioShowTitle) ?? str(j.podcastTitle) ?? host ?? 'no host')
 
   const origin = classifyOrigin({ organization: str(j.sourceOrganizationName) ?? null, canonicalHost: host })
   if (origin === 'external') return skipped('external', 'origin.not-wuwf', `${str(j.sourceOrganizationName) ?? 'unnamed'} / ${host ?? 'no host'}`)
@@ -233,13 +236,22 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
   if (arr(j.updatesCorrections).length) ctx.fail('story.corrections-not-supported', 'updatesCorrections is present; the story has no field for it')
 
   const byline = bylineOf(j, ctx)
-  const content = lex.root(bodyNodes(arr(j.articleBody), ctx))
+  // An article keeps its text in `articleBody`; an episode (radio or podcast) keeps it in `body`. Reading the wrong one gave an
+  // empty story and no report, which is how the first fifteen episodes lost their text unnoticed.
+  const bodyContent = bodyNodes(arr(isEpisode ? j.body : j.articleBody), ctx)
+  const content = lex.root(bodyContent)
   const featuredMedia = leadItems(arr(j.lead), ctx)
 
   let featuredAudio: ConvertedStory['featuredAudio'] = null
   const players = arr(j.audio).map(obj).filter((x): x is JsonObject => !!x)
   if (players.length > 1) ctx.preserve('audio.extra-players-not-kept', String(players.length - 1))
   if (players[0]) featuredAudio = audioToken(players[0], ctx, { title })
+
+  if (isEpisode && !featuredAudio) {
+    ctx.note('episode.no-audio')
+    // Nothing is lost, but the page would be a title and a description: someone has to attach the audio or decide it goes.
+    if (bodyContent.length === 0 && featuredMedia.length === 0) ctx.preserve('episode.hollow-page', 'only the description is kept (as the meta description)')
+  }
 
   const problems = [...lex.lexicalProblems(content), ...lex.featuredProblems(featuredMedia)]
   for (const p of problems) ctx.fail('output.invalid', p)

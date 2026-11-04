@@ -62,6 +62,24 @@ describe('a radio episode through the story converter', () => {
     expect(r.story.featuredAudio).toEqual({ $asset: 'https://cpa.ds.npr.org/s673/audio/2024/04/randt2024.mp3' })
     expect(r.report.status).toBe('clean')
   })
+  it('keeps the episode text, which Grove stores in `body`, not `articleBody` (it was once dropped without a word)', () => {
+    const r = convertStory(episode())
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(JSON.stringify(r.story.content)).toContain('Idaho born.')
+  })
+  it('reports an episode with no audio, and a page with no text, audio or picture as needing a person', () => {
+    const noAudio = convertStory(episode({ audio: [] }))
+    if (noAudio.status !== 'converted') throw new Error('expected converted')
+    const codes = (r: typeof noAudio) => r.report.entries.map((e) => e.code)
+    expect(codes(noAudio)).toContain('episode.no-audio')
+    expect(codes(noAudio)).not.toContain('episode.hollow-page')
+    expect(noAudio.report.status).toBe('clean')
+    const hollow = convertStory(episode({ audio: null as never, body: null as never }))
+    if (hollow.status !== 'converted') throw new Error('expected converted')
+    expect(codes(hollow)).toEqual(expect.arrayContaining(['episode.no-audio', 'episode.hollow-page']))
+    expect(hollow.report.status).toBe('review')
+    expect(hollow.story.description).toBe('Josh Ritter Plus More')
+  })
   it('finds the show from the address when the page does not name it', () => {
     const r = convertStory(episode({ radioShowUrl: undefined as never, radioShowTitle: undefined as never } as never))
     if (r.status !== 'converted') throw new Error('expected converted')
@@ -76,5 +94,63 @@ describe('a radio episode through the story converter', () => {
     const r = convertStory({ _template: '/core/article/ArticlePage.hbs', canonicalLink: 'https://www.wuwf.org/local-news/2020-01-01/x', contentId: 'c1', headline: 'X', sourceOrganizationName: 'WUWF', datePublishedISO: '2020-01-01T12:00:00Z', articleBody: [], lead: [], audio: [] })
     if (r.status !== 'converted') throw new Error('expected converted')
     expect(r.story).toMatchObject({ format: 'web', show: null })
+  })
+})
+
+describe('a podcast (`/podcast/<slug>`) through the converters', () => {
+  const podcast = (over: JsonObject = {}): JsonObject => ({
+    _template: '/media/show/audio/PodcastPage.hbs',
+    canonicalLink: 'https://www.wuwf.org/podcast/the-ecominutes',
+    contentId: '00000194-cd59-d27a-afd7-cd79fb200000',
+    headline: 'EcoMinutes',
+    title: 'EcoMinutes | WUWF',
+    description: 'An occasional series.',
+    coverArt: [{ _template: '/core/image/Image.hbs', alt: '', image: { src: 'https://npr.brightspotcdn.com/44/47/ecologo1400a.png' } }],
+    fullDescription: [{ items: ['<p>Dr. Enid Sisskin presents The EcoMinutes.</p>'] }],
+    feedLink: '<link type="application/rss+xml" rel="alternate" title="EcoMinutes" href="https://www.wuwf.org/podcast/the-ecominutes/rss.xml">',
+    main: [],
+    nprShow: false,
+    ...over,
+  })
+  const episode = (over: JsonObject = {}): JsonObject => ({
+    _template: '/media/episode/audio/PodcastEpisodePage.hbs',
+    canonicalLink: 'https://www.wuwf.org/podcast/the-ecominutes/2026-09-09/eco-rices-whale',
+    contentId: '000001a0-8633-d332-ade7-f73f7ed60000',
+    headline: "EcoMinutes: Protecting the Rice's whale",
+    description: 'A conversation about the Rice’s whale.',
+    datePublishedISO: '2026-05-27T12:46:00Z',
+    dateModifiedISO: '2026-05-27T13:00:00Z',
+    podcastTitle: 'EcoMinutes',
+    podcastUrl: 'https://www.wuwf.org/podcast/the-ecominutes',
+    authorName: 'Enid Sisskin',
+    body: [{ items: ['<p>Dr. Enid Sisskin sat down with Christian Wagley.</p>'] }],
+    audio: [{ _template: '/core/audio/HTML5AudioPlayer.hbs', duration: '29:23', id: 'a1', sources: [{ src: 'https://cpa.ds.npr.org/s673/audio/2026/09/riceswhalef-1-01.mp3', type: 'audio/mpeg' }] }],
+    lead: [],
+    nprShow: false,
+    ...over,
+  })
+
+  it('a podcast page becomes a show at its exact /podcast address, and says that its feed address is not kept', () => {
+    const r = convertShowPage(podcast())
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(r.show).toMatchObject({ path: '/podcast/the-ecominutes', slug: 'the-ecominutes', title: 'EcoMinutes' })
+    expect(JSON.stringify(r.show.description)).toContain('Enid Sisskin')
+    const feed = r.report.entries.find((e) => e.code === 'show.feed-link-not-kept')
+    expect(feed?.detail).toBe('https://www.wuwf.org/podcast/the-ecominutes/rss.xml')
+  })
+  it('a podcast episode becomes an audio story of its show, with its text, audio and byline', () => {
+    const r = convertStory(episode())
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(r.story).toMatchObject({ format: 'audio', path: '/podcast/the-ecominutes/2026-09-09/eco-rices-whale', show: { path: '/podcast/the-ecominutes', title: 'EcoMinutes' }, section: null })
+    expect(JSON.stringify(r.story.content)).toContain('Christian Wagley')
+    expect(r.story.featuredAudio).toEqual({ $asset: 'https://cpa.ds.npr.org/s673/audio/2026/09/riceswhalef-1-01.mp3' })
+    expect(r.story.byline.people.map((p) => p.name)).toEqual(['Enid Sisskin'])
+  })
+  it('finds the show from the /podcast address, and does not archive an NPR podcast', () => {
+    const r = convertStory(episode({ podcastUrl: undefined as never, podcastTitle: undefined as never } as never))
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(r.story.show).toEqual({ path: '/podcast/the-ecominutes', title: null })
+    expect(convertStory(episode({ nprShow: true })).status).toBe('skipped')
+    expect(convertShowPage(podcast({ nprShow: true })).status).toBe('skipped')
   })
 })
