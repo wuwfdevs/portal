@@ -63,22 +63,31 @@ Both are checked inside the script, before any `truncate`, in one transaction. T
 asserted in CI: the replay job runs the script on an empty database, then runs it a second time and expects
 the second run to refuse.
 
-## Decisions needed
+## Decisions (agreed 2026-11-04)
 
-1. **The 17 guides that name WUWF.** Options: (a) put `{{station}}` in the text and have Resources render the
-   station's short name when it shows an article, so WUWF still reads as WUWF and a pilot reads as itself;
-   (b) leave them, and a pilot reads WUWF's name in some guides; (c) drop those 17 for pilots. I recommend
-   (a) for the cases that are just the name, after I have read all 17 and sorted the ones that describe a
-   WUWF-specific way of working, which are better dropped.
-2. **Release notes.** Drop all 99 on a fresh install (my recommendation: "What's new" should start at the new
-   station's own install) or keep them.
-3. **Editorial Planning pillars and criteria.** These are WUWF's editorial policy. I would not invent a
-   neutral one: clear them and make "set your pillars and criteria" a step in the install guide. The pitch
-   form needs at least one pillar before anyone can pitch.
-4. **Public-form copy (`ap_settings`, `bk_settings`, `ap_email_templates`).** Replace with neutral wording that
-   says "the station" (I can write that), or clear and let the station write its own. Academic Partnerships
-   and Bookings are not pilot tools by default, so either is low stakes.
-5. **Bookings' rate model and salary assumptions.** Cleared in every case; they are WUWF's finances.
+1. **Guides that name WUWF: remove the name where it is not needed**, rather than render a placeholder.
+   Done for the core tool guides in `20261105230000_resources_guides_say_the_station.sql`: Editorial
+   Planning's workflow overview, On Air's content library, Sources, and Read a clock, and Sourcework's
+   overview (the content library at WUWF is flagged for an editor, who had changed it). **Left on
+   purpose:** the ten Bookings guides, whose wording mirrors labels on Bookings screens that still say WUWF
+   (a station without Bookings never sees them, and they change together with the screens); `log-dad-log`,
+   which gives the DAD export's real file name; and `underwriting-migrate-legacy-copy`, which documents
+   WUWF's own one-off migration.
+2. **Release notes: dropped on a fresh install.** "What's new" starts at the new station's own install.
+3. **Editorial Planning pillars and criteria: cleared**, with "set your pillars and criteria" as a step in the
+   install guide. The pitch form needs at least one pillar before anyone can pitch.
+4. **Public-form copy (`ap_settings`, `bk_settings`, `ap_email_templates`): neutral wording** that says "the
+   station", written once and applied by the script.
+5. **Bookings' rate model and salary assumptions: cleared** in every case.
+
+### Two things the script must also do
+
+- **Resources version history.** `rc_article_versions` keeps every earlier revision of each guide, including
+  the wording from before this change. A fresh install keeps only each article's current version.
+- **A fresh install is not production.** The counts above are production's, which include content editors
+  created in the live database (the 26 procedures, a few release notes). A database built from the migrations
+  has only what the migrations write: the guides (68 distinct, from 161 revisions), 92 release-note calls, and
+  the seeded clocks and schedule. The reset is checked against a real replay in CI, not against production.
 
 ## What is not in scope here
 
