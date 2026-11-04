@@ -57,9 +57,15 @@ pnpm test:pr-text                             the PR-text check's own tests
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`: the Portal's `lint`,
 `typecheck`, `test` and `db:check`, and each package's `typecheck` and `test`. It installs one project at
 a time from that project's own lockfile (never a workspace-wide install; see the lockfile note above).
-It does not cover `apps/site`, and it does not replay migrations on an empty database yet. A red CI is a
+It does not cover `apps/site`. A red CI is a
 real failure to fix, not noise to skip: the Portal's lint had one stale error that the workflow's first
 run would otherwise have hit, and was fixed with a stated reason rather than left to fail.
+
+`.github/workflows/fresh-install.yml` is separate: it builds an empty database from the migrations, as a new
+station would, clears WUWF's data with `apps/portal/supabase/install/clear-seed-data-for-new-station.sql` and
+checks the result. It runs when the migrations or install files change, or by hand, in a disposable local
+database with no credentials for any hosted project. That script is never run against WUWF's databases and
+refuses to run against any database that has an account or a named station.
 
 ## Things that live outside the repository
 

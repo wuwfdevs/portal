@@ -1,8 +1,9 @@
 # Starting a new station: what a fresh install must not inherit
 
-**Status: inventory and proposal, written 2026-11-04. Nothing here has been built.** It exists so the
-decisions in the last section can be made before the reset script, the CI replay and the install guide are
-written against them.
+**Status (2026-11-04): the clearing script and the CI job that proves it are written; the first administrator
+bootstrap and the install guide are not.** The script was run, inside a transaction that was rolled back,
+against the preview project's real schema (preview was unchanged afterward). The CI job has not run yet, so
+expect a first run to need small fixes; see "What is built".
 
 ## The constraint
 
@@ -53,15 +54,42 @@ short list of exceptions) rather than by table, so it does not break on every ne
 
 ## The guard
 
-The script is destructive by design, so it must be impossible to run against a station that has data:
+The script is destructive by design, so it must be impossible to run against a station that has data. It
+checks three things, all before it changes anything and inside one transaction:
 
-- it aborts unless `public.profiles` is empty (a fresh database has no one yet; the first administrator is
-  created after it runs), and
-- it aborts if `public.station_settings.display_name` is already set (WUWF's is).
+- `public.station_settings` has its one row (this is a Portal database with every migration applied),
+- `public.profiles` is empty (a fresh database has no one yet; the first administrator is created after it
+  runs), and
+- `public.station_settings.display_name` is not set (WUWF's is).
 
-Both are checked inside the script, before any `truncate`, in one transaction. The same two conditions are
-asserted in CI: the replay job runs the script on an empty database, then runs it a second time and expects
-the second run to refuse.
+A refusal leaves the database exactly as it was. Running it a second time on a database that is still fresh
+is harmless: it finds nothing left to do.
+
+## What is built
+
+- `supabase/install/clear-seed-data-for-new-station.sql` — the script. It keeps 23 tables (the platform
+  tables, Resources guides and what hangs off them, Sourcework's prompts and piece formats, the pitch form,
+  the generic industry categories, and four settings singletons), empties every other table in `public`
+  (`truncate … restart identity`, never `cascade`: a kept table pointing at an emptied one fails loudly),
+  removes Resources release notes and procedures and every superseded article version, and rewrites the
+  starting copy. It also clears `ap_settings.google_appointments_url`, which in production is WUWF's real
+  calendar link, rewords three pitch-form fields and two tool descriptions that named WUWF, and closes the
+  Academic Partnerships and Bookings public forms until the station opens them.
+- `.github/workflows/fresh-install.yml` — builds an empty Postgres 17 database from the migrations with no
+  sample data, checks it, proves both refusals (a named station, an account), runs the script, checks what
+  is left (every other table empty, one version per article, no kept table naming a station except the
+  ten Bookings guides and the two WUWF-tooling guides), and runs it again. It runs only when the migrations
+  or install files change, or by hand. It holds no credentials, and fails at its first step if the database
+  address is ever not this machine.
+- `src/lib/install-script.test.ts` — keeps the script's guard before its first change, forbids `cascade`,
+  forbids a station name in its copy, requires every table prefix in the migrations to be known (so a new
+  module has to be classified before it ships), and keeps the workflow local-only.
+
+**How the script was tested here.** The Docker daemon is not available in this environment, so the CI job
+could not be run. The script's own SQL was instead run against the preview project inside a transaction that
+always rolls back, after emptying `profiles` and the station name so its guard passed. That run exercised the
+real schema, foreign keys and cascades; every non-kept table came back empty and only the guides remained.
+The workflow's shell steps were syntax-checked and its two assertion queries executed against preview.
 
 ## Decisions (agreed 2026-11-04)
 

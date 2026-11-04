@@ -1,0 +1,207 @@
+name: Fresh install
+
+# What a NEW station's database looks like. Builds an empty database from the migrations alone (no sample
+# data), as a station setting itself up would, then runs supabase/install/clear-seed-data-for-new-station.sql
+# against it and checks the result.
+#
+# Everything happens in a disposable database that the Supabase CLI starts inside this job. The job has no
+# credentials for, and no way to reach, any hosted Supabase project: DB_URL below is the only database it ever
+# talks to, and the first step fails the job if that is ever anything but this machine. The clearing script
+# is destructive by design and is never run against WUWF's databases; it also refuses to run against any
+# database that already holds an account or a named station, and this job proves both refusals.
+#
+# It runs when a change touches the migrations or the install files, and by hand (Actions > Fresh install >
+# Run workflow). It does not run on every code change. See apps/portal/docs/new-station-install-data.md.
+
+on:
+  pull_request:
+    paths:
+      - "apps/portal/supabase/migrations/**"
+      - "apps/portal/supabase/install/**"
+      - "apps/portal/supabase/config.toml"
+      - ".github/workflows/fresh-install.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/portal/supabase/migrations/**"
+      - "apps/portal/supabase/install/**"
+      - "apps/portal/supabase/config.toml"
+      - ".github/workflows/fresh-install.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fresh-install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Build from migrations, clear WUWF's data, check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The only database this job talks to: the local one `supabase start` creates below.
+      DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    defaults:
+      run:
+        working-directory: apps/portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse any database that is not on this machine
+        run: |
+          case "$DB_URL" in
+            postgresql://postgres:postgres@127.0.0.1:*) echo "Database is local: ok" ;;
+            *) echo "DB_URL is not the local database. This job must never touch a hosted project."; exit 1 ;;
+          esac
+
+      - uses: supabase/setup-cli@v1
+        with:
+          # Pin to a version after the first green run, so a CLI release cannot change this job on its own.
+          version: latest
+
+      - name: Configure the disposable stack
+        run: |
+          # The hosted projects run Postgres 17; the repo's config.toml says 15 for local development.
+          sed -i 's/^major_version = .*/major_version = 17/' supabase/config.toml
+          # A new station does not get supabase/seed.sql (sample data). Turn it off for this job only.
+          grep -q '^\[db.seed\]' supabase/config.toml || printf '\n[db.seed]\nenabled = false\n' >> supabase/config.toml
+          grep -n 'major_version\|db.seed' -A1 supabase/config.toml
+
+      - name: Start the stack (this applies every migration, in order)
+        run: supabase start
+
+      - name: Helpers
+        run: |
+          cat > "$RUNNER_TEMP/helpers.sh" <<'SH'
+          q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -At -c "$1"; }
+          expect() { # name, query, expected
+            local got; got="$(q "$2")"
+            if [ "$got" = "$3" ]; then echo "ok:   $1"; else echo "FAIL: $1 -- expected '$3', got '$got'"; exit 1; fi
+          }
+          SH
+
+      - name: A database built from the migrations alone
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          expect "the 12 registry rows exist without seed.sql" "select count(*) from public.tools" "12"
+          expect "Editorial Planning and Remote Interview rows come from a migration" \
+            "select count(*) from public.tools where key in ('editorial-planning','remote-interview')" "2"
+          expect "no user accounts yet" "select count(*) from public.profiles" "0"
+          expect "one station settings row" "select count(*) from public.station_settings" "1"
+          expect "the station has no name" "select display_name is null from public.station_settings" "t"
+          # Without these the clearing below would prove nothing.
+          expect "WUWF's data is in the replay (programs)" "select count(*) > 0 from public.log_programs" "t"
+          expect "WUWF's data is in the replay (pillars)" "select count(*) > 0 from public.ep_pillars" "t"
+          expect "WUWF's release notes are in the replay" "select count(*) > 0 from public.rc_articles where kind = 'release_note'" "t"
+
+      - name: The script refuses a database that has a named station
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          before="$(q "select count(*) from public.log_programs")"
+          q "update public.station_settings set display_name = 'Some Station' where id" >/dev/null
+          if psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/install/clear-seed-data-for-new-station.sql; then
+            echo "FAIL: the script ran against a database with a named station"; exit 1
+          fi
+          expect "nothing was cleared" "select count(*) from public.log_programs" "$before"
+          q "update public.station_settings set display_name = null where id" >/dev/null
+
+      - name: The script refuses a database that has an account
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          before="$(q "select count(*) from public.log_programs")"
+          # One transaction: add an account, then try the script. The refusal aborts it all, the account included.
+          if psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction <<'SQL'
+          insert into auth.users (id, email, aud, role) values (gen_random_uuid(), 'someone@example.org', 'authenticated', 'authenticated');
+          \i supabase/install/clear-seed-data-for-new-station.sql
+          SQL
+          then
+            echo "FAIL: the script ran against a database that has an account"; exit 1
+          fi
+          expect "nothing was cleared" "select count(*) from public.log_programs" "$before"
+          expect "the test account was rolled back" "select count(*) from auth.users" "0"
+
+      - name: Clear WUWF's data
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/install/clear-seed-data-for-new-station.sql
+
+      - name: What a new station is left with
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          # The kept list is read from the script itself, so this check cannot drift from it.
+          KEEP="$(awk '/v_keep text\[\] := array\[/,/\];/' supabase/install/clear-seed-data-for-new-station.sql | grep -o "'[a-z_]*'" | paste -sd, -)"
+          [ -n "$KEEP" ] || { echo "FAIL: could not read the kept-table list from the script"; exit 1; }
+          echo "kept tables: $KEEP"
+
+          expect "every table outside the kept list is empty" "
+            do \$\$
+            declare t text; n bigint; bad text := '';
+            begin
+              for t in select c.relname from pg_class c join pg_namespace s on s.oid = c.relnamespace
+                       where s.nspname = 'public' and c.relkind = 'r' and c.relname <> all (array[$KEEP]) loop
+                execute format('select count(*) from public.%I', t) into n;
+                if n > 0 then bad := bad || t || '=' || n || ' '; end if;
+              end loop;
+              if bad <> '' then raise exception 'not empty: %', bad; end if;
+            end \$\$;
+            select 'empty'" "empty"
+
+          expect "the registry is intact" "select count(*) from public.tools" "12"
+          expect "the station row is intact and unnamed" "select count(*) from public.station_settings where display_name is null" "1"
+          expect "no release notes or procedures remain" \
+            "select count(*) from public.rc_articles where kind <> 'guide'" "0"
+          expect "guides remain" "select count(*) > 50 from public.rc_articles where kind = 'guide'" "t"
+          expect "one version per article" \
+            "select count(*) from public.rc_articles a where (select count(*) from public.rc_article_versions v where v.article_id = a.id) <> 1" "0"
+          expect "no version row outlived its article" \
+            "select count(*) from public.rc_article_versions v where not exists (select 1 from public.rc_articles a where a.id = v.article_id)" "0"
+          expect "Academic Partnerships is closed and has no calendar link" \
+            "select (not is_open) and google_appointments_url is null from public.ap_settings" "t"
+          expect "Bookings is closed and offers no packages" \
+            "select (not is_open) and cardinality(offered_packages) = 0 from public.bk_settings" "t"
+
+          # No kept table may name a station. The one exception is a short list of guides that describe
+          # WUWF-specific tooling (the ten Bookings guides, whose screens still say WUWF, the DAD file name,
+          # and WUWF's own legacy-copy migration); a station without that tooling never sees them.
+          expect "no kept table names a station" "
+            do \$\$
+            declare
+              t text; n bigint; bad text := ''; slugs text;
+              pat text := 'WUWF|\mUWF\M|Pensacola|Escambia';
+            begin
+              for t in select unnest(array[$KEEP]) loop
+                if t in ('rc_articles', 'rc_article_versions') then continue; end if;
+                execute format('select count(*) from public.%I x where row_to_json(x)::text ~* %L', t, pat) into n;
+                if n > 0 then bad := bad || t || '=' || n || ' '; end if;
+              end loop;
+              select string_agg(distinct s.slug, ', ') into slugs from (
+                select slug from public.rc_articles
+                where (title || ' ' || coalesce(summary, '') || ' ' || body::text) ~* pat
+                union all
+                select a.slug from public.rc_article_versions v join public.rc_articles a on a.id = v.article_id
+                where row_to_json(v)::text ~* pat
+              ) s
+              where s.slug not like 'bookings-%' and s.slug not in ('log-dad-log', 'underwriting-migrate-legacy-copy');
+              if slugs is not null then bad := bad || 'guides: ' || slugs; end if;
+              if bad <> '' then raise exception 'these still name a station: %', bad; end if;
+            end \$\$;
+            select 'clean'" "clean"
+
+      - name: Running the script again changes nothing
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          before="$(q "select count(*) from public.rc_articles")|$(q "select count(*) from public.tools")"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f supabase/install/clear-seed-data-for-new-station.sql
+          after="$(q "select count(*) from public.rc_articles")|$(q "select count(*) from public.tools")"
+          [ "$before" = "$after" ] && echo "ok:   unchanged ($after)" || { echo "FAIL: $before -> $after"; exit 1; }
+
+      - name: Show what happened, if it failed
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps -a || true
+
+      - name: Stop and discard the stack
+        if: always()
+        run: supabase stop --no-backup || true
