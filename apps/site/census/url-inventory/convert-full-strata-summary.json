@@ -9,8 +9,8 @@
  "problemCount": 0,
  "meanStoryJson": 10170,
  "statuses": {
-  "clean": 301,
-  "review": 14,
+  "clean": 264,
+  "review": 51,
   "exception": 0
  },
  "assets": {
@@ -52,6 +52,20 @@
   "image:inline": 1
  },
  "codes": [
+  {
+   "code": "origin.wire-byline",
+   "level": "preserved",
+   "occurrences": 37,
+   "stories": 37,
+   "details": {
+    "News Service of Florida": 37
+   },
+   "examples": [
+    "/news/2021-04-09/protest-bill-backed-in-senate-after-emotional-debate",
+    "/news/2021-03-31/transgender-athletes-restrictions-move-forward-in-florida-senate",
+    "/news/2021-01-20/trump-pardons-former-wellcare-executives"
+   ]
+  },
   {
    "code": "embed.unsupported-link",
    "level": "preserved",

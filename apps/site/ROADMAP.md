@@ -247,15 +247,16 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   New findings in them: 5 stories (`science` "Skies of the Gulf Coast" and one `news` piece) have a YouTube address **split by Grove's own data**
   (the embed holds `https://youtu.be/FV4G`, the next paragraph begins `-xis2hM`): the converter refuses the short id and flags it
   (`embed.unsupported-link`); a person can join them, it is not guessed. 14 stories are bylined "News Service of Florida" and 15 "Staff report".
-- **Update (2026-11-04, `florida-news` half fetched, still running).** 2,397 of 4,810 `florida-news` pages fetched in random order: **515 WUWF, 83
-  ambiguous, 1,799 partner**, so about **1,030 WUWF (95% range 980 to 1,090) and about 170 ambiguous** in the whole section (2021 on; WUWF-classified
-  pages by year 78 / 112 / 109 / 51 / 72 / 76 for 2021 to 2026). Converter on the 577 WUWF-host pages: 498 converted, 79 ambiguous skipped, **0
-  exceptions, 0 problems**, deterministic (364 clean, 134 review). One gap found and fixed: a newer quote template, `/core/quote/BlockQuote.hbs` (5
-  stories), is now a plain quote (the quotation and its attribution arrive as one string; not split).
+- **Final (2026-11-04): `florida-news` fetched whole** (all 5,598 pages of the extended fetch returned 200; no blocks). Of 4,810 pages: **1,008 WUWF, 189
+  ambiguous, 3,613 partner or NPR**. Converter on the 1,197 WUWF-host pages: **1,008 converted (741 clean, 267 review), 189 ambiguous skipped, 0 exceptions, 0
+  problems**, deterministic. A newer quote template, `/core/quote/BlockQuote.hbs` (5 stories), is now a plain quote (the quotation and its attribution
+  arrive as one string; not split). WUWF stories by year are 2021 to 2026, none earlier.
+  **Totals outside the local sections, all counted:** `news` 252, `music-arts` 57, nine small sections 116, `florida-news` 1,008 = **1,433 WUWF stories**, plus
+  36 podcast episodes; with the local sections that is about 6,500 stories to migrate. Raw pages for every WUWF-host page fetched (2,072) went to the owner as
+  `census-raw-005` to `-007`.
 - **Decision for the owner: wire-service copy that Grove calls WUWF's.** Grove sets the source organization to WUWF on many stories that carry a
   wire byline, so the origin check passes them. By byline: **News Service of Florida on 124 of 518 WUWF-classified `florida-news` stories (24%) and 46 of
-  252 `news` stories (18%)**, none in `music-arts` or the small sections; Associated Press on 15 in `florida-news`. Scaled up that is roughly **300
-  stories** that are NSF or AP copy. Whether WUWF may archive and republish them depends on its licence with those services; this repo cannot
+  252 `news` stories (18%)**, none in `music-arts` or the small sections; Associated Press on 15 in `florida-news`. The converter's count over every page fetched is **300 stories: 263 in `florida-news` (233 News Service of Florida, 30 AP) and 37 in `news`**, 26% of `florida-news`'s WUWF stories. Whether WUWF may archive and republish them depends on its licence with those services; this repo cannot
   know. The converter now **raises** each one (`origin.wire-byline`, level preserved, so the story reads `review`) and still converts it; the importer
   does not hold on it, so **decide before the production import**: (a) archive them as WUWF's, (b) migrate them as wire (headline, teaser,
   description and a link out, like NPR copy), or (c) hold them. The same check has not been run on the 1,500 local-section pages (raw pages on the owner's
