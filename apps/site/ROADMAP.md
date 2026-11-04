@@ -38,6 +38,16 @@ metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle
    each batch. Confirm first that sending News Service of Florida and AP text to a third-party service is allowed by those licences.
 5. Then the earlier build program: short video (5), RadioLive (6), Barefoot Mary and member feeds (7: design with the owner first), and filling the homepage slots (9).
 
+**The cutover pipeline: what is needed and what was dropped (agreed with the owner, 2026-11-04).** The test for what to build is the *silent* failures: a loud one (a held story, an
+exception, a 404) shows up in rehearsal; the one silent failure we had was episode text vanishing while everything said "clean". **Needed, in order:** (1) **the fidelity checker, DONE**
+(`scripts/grove/check-fidelity.ts`, `src/lib/grove/fidelity.ts`, see `IMPORT.md`); (2) **the full fetch** of every WUWF-made page not yet fetched (about 3,590 local stories, 486 show
+episodes, about 1,460 events, and the credited authors; roughly 6,000 requests, about 6 hours; the owner's approval first; the census runner's `pnpm census run` extends along the plan);
+(3) **one full rehearsal on staging**, plus a small **post-import check script** (the story count matches the source; every migrated page answers 200 with a real title and some body text;
+images load); (4) **a database backup before the production import, and a content freeze on Grove during the final run** (a checklist step, not code). **Dropped for now:** a general delta mode
+for the importer (with a freeze, the few changed stories can be replaced one by one), a coverage report for all 200,964 URLs (the policy is decided; spot-check a sample of the 410s), a scripted
+undo (the backup covers rollback), and elaborate pass/fail gates (the rehearsal's report is enough). **Known gaps in the importer, for whoever builds (3):** a story already in (matched by
+Grove id) is left alone, so an edit made on Grove after the import never arrives (the body repair only fixes specific cases); and nothing checks the database after a save.
+
 **Waiting on the owner:** the wire address shape (recommended: keep `/{YYYY-MM-DD}/{slug}`, origin in `source`, canonical to the publisher; *Wire story address shape*);
 Search Console access (page indexing and links exports); how CDS stories are addressed; the licence terms question for News Service of Florida and AP text sent to a third-party
 LLM; the six ambiguous link targets (`needsDecision` in the link map); `programUrl` for each syndicated program (editors, in the admin); whether new EcoMinutes episodes are MP3
@@ -369,6 +379,15 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   repair (`repair-bodies.ts`) now also fills a body that holds no words when the Grove page has some, and still leaves any story an editor touched
   (`filledEmpty`; unit and integration tests, both fail without the rule). **To do on the owner's side: dry run, then `--only` one episode, then all, against staging.**
   One existing repair test had been failing since the repair began counting picture alt text as words; it now tests what it was written for.
+- **Fidelity check built, and it found a real converter bug (2026-11-04).** `check-fidelity.ts` compares each Grove page with its converted story, reading the page without the converter's
+  code (paragraph by paragraph, pictures, audio and video, path, Grove id, title, date). Over the 2,936 real stories we have: **2,915 pass, 21 warn, 0 fail** (the warnings are Grove's own
+  corrupted embed JSON and malformed addresses, which the converter already reports). With the old episode bug put back, it fails all 15 census episodes ("the page has 53 words; the story has none").
+  **The bug it found:** an inline link's text came out with a literal `&amp;` ("Boys &amp; Girls Club of the Emerald Coast", 23 links) because the converter escaped text that Grove had already
+  HTML-encoded. Grove's link text is HTML (of 5,437 inline links: 23 hold `&amp;`, 120 other entities such as `&nbsp;`, 522 real tags such as `<b>Donate Here</b>`); it is now read once and written
+  back balanced (an unclosed `<b>` cannot leak). **75 of 2,936 stories change** (51 only in how text runs are split, formatting identical word for word; 15 lose a stray `&amp;` or `&nbsp;`; 9
+  show `>>>` instead of `&gt;&gt;&gt;` or lose a typed `<h2 label=…>` that was visible as text), and none loses a word. **Grove's corrupted embeds (the `brightspot-cms-external-content`
+  JSON in link text, 10 stories) are deliberately left exactly as they were**: reading them as HTML would have swallowed the video address inside, and the rule is never to drop what cannot be
+  mapped; they still need the owner's decision (each could become an embed). Tests: 20 new (mutation-checked: restoring the old escaping fails 3).
 - **Page metadata fixed (2026-11-04).** `generateMeta` was the Payload starter's placeholder: **every migrated story's browser title was "Payload Website Template"** (the importer
   sets no SEO title) and every share image the starter's. Now (`src/lib/seo/meta.ts`, pure, tested; `utilities/generateMeta.ts`): title = SEO title, else the story's
   title (the layout adds "| WUWF"); description = SEO description, else the dek, trimmed at a sentence or word to 160 characters (848 of 2,936 stories had longer);

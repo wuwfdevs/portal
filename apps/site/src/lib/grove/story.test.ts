@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { convertStory } from './story'
-import { lexicalProblems } from './lexical'
+import { FORMAT, lexicalProblems } from './lexical'
 import type { ConvertedStory, JsonObject } from './types'
 
 const link = (body: string, href: string): JsonObject => ({ _template: '/core/link/Link.hbs', body, href, extraAttributes: '', target: '_blank' })
@@ -248,5 +248,35 @@ describe('links to pages this site will not have', () => {
     const r = convertStory(withLink())
     if (r.status !== 'converted') throw new Error('expected converted')
     expect(JSON.stringify(r.story.content)).toContain('/post/old-slug')
+  })
+})
+
+describe('the words of an inline link are HTML, read once', () => {
+  const inline = (body: string) => ({ _template: '/core/enhancement/InlineEnhancement.hbs', items: [{ _template: '/core/link/Link.hbs', body, href: 'https://example.org/x' }] })
+  const withLink = (body: string) => page({ articleBody: [{ items: ['<p>Said the director of the '] }, inline(body), { items: [' club, a great place for the kids.</p>'] }] })
+  const textOf = (s: ConvertedStory) => JSON.stringify(s.content)
+  it('shows an ampersand as an ampersand, not as the literal text "&amp;" (it was shown that way in 23 real stories)', () => {
+    const { story } = ok(withLink('Boys &amp; Girls Club of the Emerald Coast'))
+    expect(textOf(story)).toContain('Boys & Girls Club of the Emerald Coast')
+    expect(textOf(story)).not.toContain('&amp;')
+  })
+  it('reads a real tag in the link text as formatting, and a non-breaking space as a space', () => {
+    const { story } = ok(withLink('<b>Donate&nbsp;Here</b>'))
+    const link = (body(story)[0]!.children as { type: string; children?: { text: string; format: number }[] }[]).find((c) => c.type === 'link')!
+    expect(link.children!.map((c) => c.text).join('')).toBe('Donate Here')
+    expect(link.children!.every((c) => c.format === FORMAT.bold)).toBe(true)
+  })
+  it('does not let an unclosed tag in the link text bold the rest of the paragraph', () => {
+    const { story } = ok(withLink('<b>Unclosed bold'))
+    const para = body(story)[0]!.children as { type: string; text?: string; format?: number }[]
+    const after = para.filter((c) => c.type === 'text').pop()!
+    expect(after.text).toContain('club, a great place')
+    expect(after.format).toBe(0)
+  })
+  it('keeps Grove\'s corrupted embed text exactly as it was, so the video address inside it is not lost', () => {
+    const junk = 'https://youtu.be/FIOaQHifHSs","_id":"00000179-90c2-d7bf-affb-f8cbe2ad0000"}"><brightspot-cms-external-content data-state="{&quot;url&quot;:&quot;https://youtu.be/FIOaQHifHSs&quot;'
+    const { story } = ok(withLink(junk))
+    expect(textOf(story)).toContain('youtu.be/FIOaQHifHSs')
+    expect(textOf(story)).toContain('brightspot-cms-external-content')
   })
 })

@@ -4,6 +4,8 @@
 // go (`$asset`) and lists every file in `assets`; the asset pipeline stores them and `resolveAssets` fills the ids in.
 // Only WUWF-originated stories are converted: NPR and wire stories are re-pulled from NPR, not migrated as our own.
 
+import { parseFragment, serialize } from 'parse5'
+
 import { classifyOrigin } from '../census/tally'
 import { audioToken, arr, enhancementNodes, leadItems, obj, objectNodes, str, template } from './enhancements'
 import { Ctx, absoluteUrl, escapeHtml, plainText, unwrapTemplates } from './context'
@@ -21,6 +23,18 @@ const tname = (t: string): string => t.split('/').pop()?.replace(/\.hbs$/, '') ?
 
 // ---- the body -------------------------------------------------------------------------------------------------
 
+/**
+ * A link's words as HTML that is safe to put inside an `<a>`. Grove's link text is already HTML, not plain text: of 5,437 inline links in the
+ * census, 23 hold `&amp;`, 120 hold other entities such as `&nbsp;`, and 522 hold real tags such as `<b>Donate Here</b>`. It is read once and
+ * written back balanced (an unclosed `<b>` cannot leak into the rest of the paragraph), and never escaped a second time, which showed readers
+ * a literal "&amp;" in "Boys &amp; Girls Club".
+ */
+const linkBodyHtml = (body: string): string =>
+  // Grove's corrupted embeds (a pasted video link wrapped in a broken `brightspot-cms-external-content` element) put JSON and a half-element in the
+  // link text. Read as HTML, that would swallow the video's address along with the junk. It stays exactly as it was (visible, flagged by the
+  // polluted-address note), until the owner decides whether each becomes an embed (ROADMAP: "polluted source data").
+  /<brightspot-cms-external-content|data-state\s*=|"_id"\s*:/i.test(body) ? escapeHtml(body) : serialize(parseFragment(body))
+
 /** A link that sits between two text chunks, as HTML, so the paragraph around it can be put back together. */
 function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
   const body = unwrapTemplates(str(l.body) ?? '')
@@ -31,9 +45,9 @@ function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
   }
   if (!href) {
     ctx.note('link.without-address')
-    return escapeHtml(body)
+    return linkBodyHtml(body)
   }
-  return `<a href="${escapeHtml(href)}"${str(l.target) === '_blank' ? ' target="_blank"' : ''}>${escapeHtml(body)}</a>`
+  return `<a href="${escapeHtml(href)}"${str(l.target) === '_blank' ? ' target="_blank"' : ''}>${linkBodyHtml(body)}</a>`
 }
 
 /**

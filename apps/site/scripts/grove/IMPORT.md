@@ -103,6 +103,16 @@ converter saved them): 63 would be repaired, 154 needed nothing; after `--apply`
 had no typed markup left and had exactly two versions, every other story was byte-for-byte unchanged with one version, and a second
 run found nothing to repair. The same 63 stories were found by an independent count.
 
+## Before any import: check that nothing was lost in conversion
+
+The converter's report counts statuses ("clean", "review"), and a status cannot show that text arrived: for weeks every episode converted "clean" with no words at all. `check-fidelity.ts` reads each Grove page **without the converter's code** and checks the story against it, so a converter that reads the wrong field, drops a paragraph or loses a picture is caught by something that does not share its mistake. Nothing is fetched and nothing is written to a database.
+
+```bash
+pnpm exec tsx scripts/grove/check-fidelity.ts --raw ~/grove/raw/001 --raw ~/grove/raw/002 --raw ~/grove/raw/003 --raw ~/grove/raw/004 --out ~/grove/fidelity.json
+```
+
+It checks, per story: the body **paragraph by paragraph** (a paragraph the page had and the story lacks is a failure, and a word count alone would miss half a paragraph), every picture and audio or video file (each must be a file the story will fetch), and the path, Grove id, title and publish date. **Fail** (exit code 1): `body.empty`, `body.paragraph-missing`, `body.words-short`, `image.missing`, `audio.missing`, `identity.*`. **Warn** (does not fail the run): `links.not-found` (a link the story does not carry; the converter reports the ones it drops on purpose) and `source.polluted-text` (Grove's own corrupted embed JSON, which the converter keeps as it was). Run it on every page set before an import; **the number to watch is the failures, which should be 0.** Result on 2026-11-04 over 2,936 real stories: 2,915 pass, 21 warn, 0 fail; with the old episode bug put back, it fails all 15 census episodes.
+
 ## 3. The full import into production (owner's approval first)
 
 Production is this project's real database. Apply its migrations deliberately first (`pnpm payload migrate` with the production
