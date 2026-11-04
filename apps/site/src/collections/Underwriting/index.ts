@@ -3,6 +3,7 @@ import { pathField } from '../../fields/path'
 import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { revalidateShow, revalidateShowDelete } from '../../hooks/revalidateShow'
 import { showPathBeforeChange } from '../../hooks/showPath'
+import { syndicatedRules } from '../../hooks/syndicatedRules'
 import { fundableCollection } from './fundable'
 
 export { Sponsors } from './Sponsors'
@@ -54,8 +55,8 @@ export const Productions = fundableCollection({
   slug: 'productions',
   singular: 'Original production',
   plural: 'Original productions',
-  description: 'An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.',
-  beforeChange: [showPathBeforeChange, restrictedBlocksGuard(['description'])],
+  description: 'An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show. A program WUWF only airs (Morning Edition) is also kept here, marked syndicated: it gets a page with its airtime, and no episodes, funders or directory listing.',
+  beforeChange: [showPathBeforeChange, syndicatedRules, restrictedBlocksGuard(['description'])],
   afterChange: [revalidateShow],
   afterDelete: [revalidateShowDelete],
   extraFields: [
@@ -64,7 +65,33 @@ export const Productions = fundableCollection({
     { name: 'schedule', type: 'text', admin: { description: 'When it airs or how often it comes out, e.g. "Sundays at 7 p.m. on WUWF-HD2" or "New episodes every other Friday".' } },
     { name: 'hosts', type: 'relationship', relationTo: 'contributors', hasMany: true },
     { name: 'description', type: 'richText', editor: bodyEditor, admin: { description: 'About the show. Shown on its page.' } },
-    { name: 'listed', type: 'checkbox', defaultValue: true, admin: { position: 'sidebar', description: 'Show this in the podcast directory.' } },
+    { name: 'listed', type: 'checkbox', defaultValue: true, admin: { position: 'sidebar', description: 'Show this in the podcast directory. A syndicated program is never listed there.' } },
+    {
+      name: 'kind',
+      type: 'select',
+      required: true,
+      defaultValue: 'original',
+      index: true,
+      options: [
+        { label: 'Original WUWF production', value: 'original' },
+        { label: 'Syndicated program (WUWF airs it; someone else makes it)', value: 'syndicated' },
+      ],
+      admin: { position: 'sidebar', description: 'A syndicated program has a page with its airtime and a link to its maker. It has no episodes, cannot carry an underwriting agreement, and is not in the podcast directory.' },
+    },
+    {
+      name: 'programUrl',
+      type: 'text',
+      admin: { condition: (data) => data?.kind === 'syndicated', description: "The program's own page, for example on npr.org. Shown as a link on this page." },
+      validate: (value: string | null | undefined) => {
+        if (!value) return true
+        try {
+          const u = new URL(value)
+          return u.protocol === 'https:' || u.protocol === 'http:' ? true : 'Use an http:// or https:// address.'
+        } catch {
+          return 'Use a full address, starting with https://.'
+        }
+      },
+    },
     {
       name: 'legacy',
       type: 'group',

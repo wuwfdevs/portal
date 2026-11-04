@@ -5,6 +5,7 @@ export { convertAuthorPage, type ConvertedAuthor, type ConvertAuthorResult } fro
 export { convertEventPage, type ConvertedEvent, type ConvertEventResult } from './event'
 export { convertLiveBlog, type ConvertedLiveBlog, type ConvertedLiveUpdate, type ConvertLiveResult } from './live'
 export { Ctx } from './context'
+export { SYNDICATED_SHOW_SLUGS, showKindOf, type ShowKind } from './syndicated'
 export { applyLinkMap, internalLinks, linkKind, linkPath, type LinkMap } from './links'
 export { DEFAULT_BYLINE, planImport, sectionTitlesBySegment, splitAuthorsByStories, titleFromSegment, type ImportPlan } from './import-rules'
 export { MissingAssetError, assetRefs, resolveAssets } from './assets'

@@ -154,3 +154,20 @@ describe('a podcast (`/podcast/<slug>`) through the converters', () => {
     expect(convertShowPage(podcast({ nprShow: true })).status).toBe('skipped')
   })
 })
+
+describe('which shows are syndicated', () => {
+  it('marks a national or other-provider program syndicated and a station production original', async () => {
+    const { SYNDICATED_SHOW_SLUGS, showKindOf } = await import('./syndicated')
+    expect(SYNDICATED_SHOW_SLUGS.size).toBe(35)
+    for (const slug of ['morning-edition', 'fresh-air', 'jazz-after-hours', 'the-thistle-shamrock', 'capital-report']) expect(showKindOf(slug)).toBe('syndicated')
+    for (const slug of ['acoustic-interlude', 'classical-24', 'eco-minute', 'five-corners', 'jazz-with-dale-riegle', 'radiolive-encores', 'a-new-show']) expect(showKindOf(slug)).toBe('original')
+  })
+  it('puts the kind on the converted show, whatever the page\'s own NPR flag says', () => {
+    const morning = convertShowPage(show({ canonicalLink: 'https://www.wuwf.org/show/morning-edition', contentId: 'c-me', title: 'Morning Edition | WUWF', nprShow: false }))
+    if (morning.status !== 'converted') throw new Error('expected converted')
+    expect(morning.show.kind).toBe('syndicated')
+    const own = convertShowPage(show())
+    if (own.status !== 'converted') throw new Error('expected converted')
+    expect(own.show.kind).toBe('original')
+  })
+})

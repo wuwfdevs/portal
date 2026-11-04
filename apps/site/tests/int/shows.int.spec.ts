@@ -102,3 +102,67 @@ describe('shows and episodes', () => {
     expect(d.latestEpisodes.every((e) => e.showTitle !== null)).toBe(true)
   })
 })
+
+// A syndicated program is one WUWF airs but does not make (Morning Edition). It keeps a page with its airtime; it has no episodes, no funder and
+// no place in the podcast directory.
+describe('syndicated programs', () => {
+  let program: { id: string | number; path: string }
+  let original: { id: string | number; path: string }
+  let agreementId: string | number
+  const section = { current: null as unknown }
+
+  beforeAll(async () => {
+    payload = await getPayload({ config: await config })
+    const sponsor = await make('sponsors', { name: `Syn Sponsor ${run}` })
+    agreementId = (await make<{ id: string | number }>('underwriting-agreements', { label: `Syn ${run}`, sponsor: sponsor.id, kind: 'recognition', text: `Made possible in part by Syn Sponsor ${run}.`, startsOn: '2026-01-01', endsOn: null, active: true })).id
+    program = await make('productions', { title: `Morning Edition ${run}`, kind: 'syndicated', schedule: 'Weekdays 5:00 a.m. - 9:00 a.m.', programUrl: 'https://www.npr.org/programs/morning-edition/', path: `/show/morning-edition-${run}` })
+    original = await make('productions', { title: `Own Show ${run}`, path: `/show/own-show-${run}` })
+    section.current = await ensureTestSection(payload)
+  }, 90_000)
+
+  afterAll(async () => {
+    for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
+  })
+
+  it('is original unless it is said to be syndicated', async () => {
+    expect(((await payload.findByID({ collection: 'productions', id: original.id, overrideAccess: true })) as { kind: string }).kind).toBe('original')
+    expect(((await payload.findByID({ collection: 'productions', id: program.id, overrideAccess: true })) as { kind: string }).kind).toBe('syndicated')
+  })
+
+  it('has a page at its address with its airtime, and no episodes', async () => {
+    const d = await loadShowByPath(program.path)
+    expect(d?.show.kind).toBe('syndicated')
+    expect(d?.show.programUrl).toBe('https://www.npr.org/programs/morning-edition/')
+    expect(d?.line).toBe('Weekdays 5:00 a.m. - 9:00 a.m.')
+    expect(d?.episodes).toEqual([])
+  })
+
+  it('is not in the podcast directory even when it is listed, and is not offered as one of "More WUWF originals"', async () => {
+    const dir = await loadDirectory()
+    const titles = dir.shows.map((s) => s.show.title)
+    expect(titles).toContain(`Own Show ${run}`)
+    expect(titles).not.toContain(`Morning Edition ${run}`)
+    const o = await loadShowByPath(original.path)
+    expect(o?.others.map((x) => x.title)).not.toContain(`Morning Edition ${run}`)
+  })
+
+  it('cannot carry an underwriting agreement, however it is saved', async () => {
+    await rejectsWith(make('productions', { title: `Funded syndicated ${run}`, kind: 'syndicated', agreements: [agreementId] }), /syndicated program cannot carry/i)
+    const funded = await make<{ id: string | number }>('productions', { title: `Funded original ${run}`, agreements: [agreementId] })
+    await rejectsWith(payload.update({ collection: 'productions', id: funded.id, data: { kind: 'syndicated' } as never, overrideAccess: true, context: ctx }), /syndicated program cannot carry/i)
+    const still = (await payload.findByID({ collection: 'productions', id: funded.id, overrideAccess: true })) as { kind: string }
+    expect(still.kind).toBe('original')
+  })
+
+  it('has no episodes: a story cannot be filed under it', async () => {
+    await rejectsWith(
+      make('posts', { title: `Not an episode ${run}`, content: body, _status: 'published', section: section.current, production: program.id, format: 'audio', publishedAt: '2090-02-01T12:00:00.000Z' }),
+      /production|invalid|not allowed/i,
+    )
+  })
+
+  it('links out only to an http or https address', async () => {
+    await rejectsWith(make('productions', { title: `Bad link ${run}`, kind: 'syndicated', programUrl: 'javascript:alert(1)' }), /programUrl|invalid|http/i)
+    await rejectsWith(make('productions', { title: `Bad link 2 ${run}`, kind: 'syndicated', programUrl: 'not an address' }), /programUrl|invalid|address/i)
+  })
+})

@@ -332,8 +332,15 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   (110) and the two podcasts. **Keep a page for every program (owner, 2026-11-04 reading of "keep pages for NPR podcasts")**: the local airtime is the value and a
   local search ("Morning Edition WUWF") lands there; link out to NPR's own page for the program; no NPR episodes. The 42 programs together are the station's weekly
   schedule, so they also seed the schedule feature. `census/url-inventory/show-pages.csv` lists them with a guessed kind (syndicated / station-made / unsure) for the
-  owner to correct. **Needs a design decision before the import:** how a syndicated program is marked (a `kind` on productions, hidden from `/podcasts` and from
-  underwriting choices) — a schema change and migration, not built.
+  owner to correct. **Built (owner approved the schema change, 2026-11-04): a `kind` on productions.** `original` (default) or `syndicated`, plus an optional `programUrl` (http or https; the
+  program's own page, shown as "More about <program>"). A syndicated program has a page with its airtime and description; it has **no episodes** (a story cannot be filed
+  under it: `posts.production` is limited to originals), **no funder** (a save with an underwriting agreement is refused by `hooks/syndicatedRules.ts`, whoever saves),
+  and is **not in `/podcasts` or "More WUWF originals"**. Migration `20261104_182013_syndicated_programs` (adds the column with default `original`, so existing rows stay
+  original; up, down and up tested on a row; `verify:migrations` passes). The converter marks the owner's list of 35 programs (`src/lib/grove/syndicated.ts`: the 29 I had
+  guessed plus the six "from other providers": `big-bands-and-jazz`, `musical-gumbo`, `jazz-happening-now`, `florida-frontiers`, `capital-report`, `the-thistle-shamrock`);
+  any other show is original, so a new show defaults to original. The importer saves a syndicated program with `kind` and `listed: false` and **corrects one already in**
+  (staging may hold some from the sample). `programUrl` is not filled by the import (Grove has no such address): editors add NPR's page in the admin. 6 new integration
+  tests (mutation-checked: removing the directory filter, the agreement rule or the episode limit fails exactly one each) and 2 converter tests.
   **Feeds: only two exist** — `/podcast/the-ecominutes/rss.xml` (9 items) and `/podcast/acoustic-interlude-sessions/rss.xml` (19 items). No `/show/` page names a feed,
   and `ecoheroes` and `conversation-on` have no show page or feed (404). Format to reproduce: RSS 2.0 with `itunes:` tags (image 1400x1400, category, explicit,
   type `episodic`, author on one), `<guid isPermaLink="false">` equal to the episode's **Grove contentId, which every migrated story already keeps as

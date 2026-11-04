@@ -7,6 +7,7 @@ import { arr, obj, str, template } from './enhancements'
 import * as lex from './lexical'
 import { bodyNodes } from './story'
 import { readModules } from './page'
+import { showKindOf, type ShowKind } from './syndicated'
 import type { AssetRef, AssetToken, LexicalState, StoryReport } from './types'
 
 const SHOW = '/media/show/audio/RadioShowPage.hbs'
@@ -18,6 +19,8 @@ export interface ConvertedShow {
   /** The exact Grove address, e.g. `/show/classical-24`. */
   path: string
   slug: string
+  /** `syndicated` for a program WUWF airs but does not make (see `syndicated.ts`); otherwise `original`. */
+  kind: ShowKind
   title: string
   schedule: string | null
   description: LexicalState | null
@@ -75,6 +78,7 @@ export function convertShowPage(raw: unknown): ConvertShowResult {
     legacy: { groveId, legacyPath: path },
     path,
     slug,
+    kind: showKindOf(slug),
     title,
     schedule: plainText(str(j.mediaSchedule)).text || null,
     description: nodes.length > 0 ? lex.root(nodes) : null,

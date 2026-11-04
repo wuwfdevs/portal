@@ -311,7 +311,7 @@ export const Posts: CollectionConfig<'posts'> = {
       ],
     },
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
-    { name: 'production', type: 'relationship', relationTo: 'productions', admin: { position: 'sidebar' } },
+    { name: 'production', type: 'relationship', relationTo: 'productions', filterOptions: { kind: { equals: 'original' } }, admin: { position: 'sidebar', description: 'The WUWF production this episode belongs to. A syndicated program has no episodes here.' } },
     {
       name: 'site',
       type: 'relationship',

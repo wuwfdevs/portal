@@ -374,6 +374,12 @@ async function savePhase() {
       const existing = await find('productions', { path: { equals: sh.path } })
       if (existing) {
         productionByPath.set(sh.path, existing.id)
+        // A program WUWF only airs may already be in from an earlier run, saved as an original production (the kind did not exist yet).
+        // Mark it, and take it out of the directory. Nothing else about an existing show is touched.
+        if (sh.kind === 'syndicated' && (existing as { kind?: string }).kind !== 'syndicated') {
+          await payload.update({ collection: 'productions', id: existing.id, overrideAccess: true, context: { ...ctx }, data: { kind: 'syndicated', listed: false } as never })
+          noteCounts.set('import.show-marked-syndicated', (noteCounts.get('import.show-marked-syndicated') ?? 0) + 1)
+        }
         continue
       }
       const ids = new Map<string, number | string>()
@@ -383,7 +389,7 @@ async function savePhase() {
         collection: 'productions',
         overrideAccess: true,
         context: { ...ctx },
-        data: { title: sh.title, slug: sh.slug, path: sh.path, ...(sh.schedule ? { schedule: sh.schedule } : {}), ...(r.heroImage ? { heroImage: r.heroImage } : {}), ...(r.description ? { description: r.description } : {}), listed: true, legacy: sh.legacy } as never,
+        data: { title: sh.title, slug: sh.slug, path: sh.path, ...(sh.schedule ? { schedule: sh.schedule } : {}), ...(r.heroImage ? { heroImage: r.heroImage } : {}), ...(r.description ? { description: r.description } : {}), kind: sh.kind, listed: sh.kind === 'original', legacy: sh.legacy } as never,
       })
       productionByPath.set(sh.path, doc.id)
       noteCounts.set('import.show-saved', (noteCounts.get('import.show-saved') ?? 0) + 1)

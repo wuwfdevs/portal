@@ -40,7 +40,7 @@ export const loadShowByPath = cache(async (path: string): Promise<ShowData | nul
   if (!show) return null
   const [eps, others, acknowledgments] = await Promise.all([
     payload.find({ collection: 'posts', depth: 1, draft: false, limit: EPISODES_PER_PAGE, overrideAccess: false, select: EPISODE_FIELDS, sort: '-publishedAt', where: episodesOf(show.id) as never }),
-    payload.find({ collection: 'productions', depth: 0, limit: 8, overrideAccess: false, pagination: false, select: { title: true, path: true, tagline: true }, sort: 'title', where: { and: [{ listed: { equals: true } }, { id: { not_equals: show.id } }, { path: { exists: true } }] } }),
+    payload.find({ collection: 'productions', depth: 0, limit: 8, overrideAccess: false, pagination: false, select: { title: true, path: true, tagline: true }, sort: 'title', where: { and: [{ listed: { equals: true } }, { kind: { equals: 'original' } }, { id: { not_equals: show.id } }, { path: { exists: true } }] } }),
     getProductionHubAcknowledgments(payload, show.id, new Date().toISOString()),
   ])
   const hosts = (show.hosts ?? []).map((h) => named<Contributor>(h)).filter((h): h is Contributor => h !== null)
@@ -64,7 +64,7 @@ export interface DirectoryData {
 /** The podcast directory: every listed show with its episode count and newest episode, and the newest episodes across all of them. */
 export const loadDirectory = cache(async (): Promise<DirectoryData> => {
   const payload = await getPayload({ config: configPromise })
-  const shows = (await payload.find({ collection: 'productions', where: { and: [{ listed: { equals: true } }, { path: { exists: true } }] }, depth: 1, limit: 100, overrideAccess: false, pagination: false, sort: 'title' })).docs
+  const shows = (await payload.find({ collection: 'productions', where: { and: [{ listed: { equals: true } }, { kind: { equals: 'original' } }, { path: { exists: true } }] }, depth: 1, limit: 100, overrideAccess: false, pagination: false, sort: 'title' })).docs
   const rows = await Promise.all(
     shows.map(async (show) => {
       const [count, latest] = await Promise.all([
