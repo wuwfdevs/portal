@@ -26,8 +26,12 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
 - Shows live at `wuwf.org/shows/<slug>`; a marketing domain (e.g. barefootmary.com) redirects into it. A show is an **original production** (the record an underwriting agreement attaches to); an **episode is a story** (`format: audio`) that belongs to it. Migrated shows keep Grove's exact `/show/<slug>` address.
 - **There is no podcast subscription product.** Supporting a show means becoming a WUWF sustaining member;
   member benefits arrive as private podcast feeds. The language is "donate to get", never "subscribe".
-- Audience listening is native to this site, not an embed of the Portal's tool; it reuses the Portal's
-  logic through `@wuwf/listening-core`.
+- **Audience listening is the Portal's system** (decided 2026-11-04, replacing "native to this site"):
+  campaigns, sessions, conversations, queries, answers, consent, audio and review live there, behind its
+  signed public API. This site owns every screen a listener sees and renders them natively over the
+  Portal's contract; it never stores a submission, a consent record or an audio file. The contract is
+  versioned in `@wuwf/portal-contracts`; the pure rules still come from `@wuwf/listening-core`.
+  Not built yet (see ROADMAP item 7): until it is, there is no listening UI to guard.
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
   placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.**
 - **No polls or public tallies on open listening questions. No "sponsor-free" claims about WUWF originals.**
@@ -84,14 +88,18 @@ The resolution logic is pure and tested independently of presentation.
 
 ## Listening rules
 
-Staff read and review listening data **in Payload only**; public read access to those collections is
-none. Public writes do **not** go through Payload's REST API: they go through server actions and route
-handlers that validate on the server and write with the Local API (the equivalent of the Portal's
-security-definer functions). Answers snapshot their question's wording and position; one in-progress
-submission per participant per query, at most three in total; duration and size caps enforced at
-completion; open/close dates checked on every write. Audio goes directly to a **private** bucket through
-signed upload URLs scoped to the participant's submission. One listening component per page. Every send
-names who receives it; nothing promises a reply. Participant identity is a Supabase anonymous session.
+Staff review listening data **in the Portal**, not in Payload; this site stores none of it and has no
+listening collections. The site's server (server actions and route handlers, never the browser) calls the
+Portal's listening API with **signed requests that assert the subject** (the contract in
+`@wuwf/portal-contracts`); the Portal decides what that subject may do. Audio goes straight from the
+browser to **Portal storage** through a signed upload URL the Portal issues for that submission; the site
+never proxies or keeps the file. The rules themselves (answers snapshot their question's wording and
+position; one in-progress submission per participant per query, at most three in total; duration and size
+caps at completion; open/close dates checked on every write) are enforced by the Portal; the site shows
+them through `@wuwf/listening-core` and does not reimplement them. One listening component per page.
+Every send names who receives it; nothing promises a reply. Participant identity on this site is the
+site's own visitor/account; the Portal sees only the asserted subject. Embedding the Portal's public page
+(approved Portal origin plus `microphone` delegation) is a fallback only, not the design.
 
 ## Privacy
 

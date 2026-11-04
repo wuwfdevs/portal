@@ -8,15 +8,40 @@ this directory (`pnpm test`, `pnpm lint`, …) or from the root with `pnpm --fil
 
 ## Product scope
 
-WUWF Tools Portal (`tools.wuwf.org`) is a shared access/administration layer for a small,
-fixed set of internal WUWF tools — not a general-purpose newsroom platform. It provides:
+The Portal (WUWF's runs at `tools.wuwf.org`) is a shared access/administration layer for a
+fixed set of internal station tools — not a general-purpose newsroom platform. It provides:
 authentication, invitation/approval-based access, role-based authorization, a tool
 registry, a dashboard, and admin screens for user/tool management.
 
+**It is a station toolkit, one deployment per station (decided 2026-11-04).** Each station runs
+its own copy with its own Supabase project, Vercel project and domain; WUWF's is the first and
+the reference. Three consequences shape every change:
+
+- **Tools are modules.** `src/lib/modules.ts` is the static manifest (what each module requires,
+  integrates with, exposes publicly, and which environment variables it needs); `public.tools.enabled`
+  is the runtime switch an administrator flips at Administration → Tools. "Disabled" means
+  disabled in the database too (every `private.has_*_access` predicate and every anonymous entry
+  point checks it), not just hidden in the menu. Code reaches another module through its
+  documented seams (capabilities, the handoff helpers), never by assuming it is on.
+- **The station's identity is data, not code.** Name, call sign, place, time zone, weather
+  location and public-page notices come from `public.station_settings`
+  (Administration → Station) and `getStation()` / `useStation()`; the clock's zone is deploy
+  configuration (`NEXT_PUBLIC_STATION_TIME_ZONE`). Do not write a station's name, city or county
+  into a screen, a prompt or an error message — `station-brand.test.ts` fails on it. WUWF's own
+  values live in `supabase/station/wuwf/`, applied by hand, never in a migration.
+- **The Portal does not depend on a CMS.** It talks to the public site only through the signed
+  contracts in `packages/portal-contracts`.
+
 Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
-Listening, Roadmap, Academic Partnerships) is its own focused application area with its
-own schema. The portal's job ends at "Open Tool" — do not build cross-tool abstractions,
-a plugin framework, or speculative integrations. When in doubt, keep scope narrow.
+Listening, Roadmap, Academic Partnerships, On Air, Traffic, Resources) is its own focused
+application area with its own schema. The portal's job ends at "Open Tool" — the anti-speculation
+rule still stands: do not build a plugin framework, a way to register a tool without writing
+one, or integrations nobody has asked for. The manifest describes the modules that exist; it is
+not an extension point. A new module adds its manifest entry, its registry migration and its
+access predicate together. When in doubt, keep scope narrow.
+
+A new station installs from `INSTALL.md`; the data a fresh database must not inherit is
+described in `docs/new-station-install-data.md`.
 
 The registry also carries rows for tools that don't exist: `status = 'proposed'` means an
 idea somebody filed on the Roadmap, so requests can gather under it. That is **not** a
@@ -4620,6 +4645,24 @@ doesn't need to run early. One consequence
 already bit once: `rc_release_note()`'s `p_released_on` was copied from the filename and What's
 new showed November dates in mid-October (fixed by `20261103120000`). Pass the day the change
 actually ships, never the prefix.
+
+**What a migration may seed.** Only what every station needs: the tool registry, the product's
+Resources guides, Sourcework's prompts and formats, the pitch form, generic industry categories.
+**Never a station's own data** — clocks, programs, schedules, rates, underwriters, editorial
+pillars and criteria, procedures, release-note history, names, addresses. That goes in
+`supabase/station/<station>/` as a script an administrator runs by hand (WUWF's is
+`supabase/station/wuwf/`). About 170 existing migrations predate this rule and do seed WUWF's
+data; they are not edited, and a new station clears it with
+`supabase/install/clear-seed-data-for-new-station.sql` (guarded: it refuses a database with any
+account or a named station, and is never run against WUWF's projects). A new `public` table prefix
+must be classified in that script (`install-script.test.ts` fails until it is).
+
+**`APPLIED.md` is WUWF's ledger, not a general mechanism.** It records what was applied to
+WUWF's two projects and why their history differs from the files; it is why `supabase db push`
+must never be run against them. A station installing its own Portal has an empty database, runs
+`supabase db push` (its history is then the CLI's own), and has no `APPLIED.md` to keep. The
+`fresh-install` workflow replays every migration into a disposable database and runs the clearing
+script, so a migration that breaks a from-nothing build fails there.
 
 `APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
 a migration file with no row, a row naming a missing file, or a row where either
