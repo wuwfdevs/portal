@@ -40,6 +40,7 @@ repo and a project's history, not the version number.
 | --------------------------------------------------------------------- | ---------- | ---------- |
 | `20260722120000_platform_schema.sql`                                  | 2026-07-22 | 2026-07-22 |
 | `20260722120001_rls_policies.sql`                                     | 2026-07-22 | 2026-07-22 |
+| `20260722125000_module_registry_rows.sql`                             | 2026-11-04 | 2026-11-04 |
 | `20260722130000_editorial_planning.sql`                               | 2026-07-24 | 2026-07-24 |
 | `20260724120000_private_authz_functions.sql`                          | 2026-07-24 | 2026-07-24 |
 | `20260725000000_transcription_workspace_schema.sql`                   | 2026-07-25 | 2026-07-25 |

@@ -204,8 +204,10 @@ through automation and need a human in each dashboard once:
     Begin fails; reading the questions still works, since that is the one thing `anon`
     may do.
 
-Everything else — schema, RLS, seed data, the tool registry — is already applied to both
-Supabase projects via migrations.
+Everything else — schema, RLS, the tool registry — is already applied to both Supabase
+projects via migrations. (The Editorial Planning and Remote Interview registry rows used to
+exist only in `supabase/seed.sql`; `20260722125000_module_registry_rows.sql` now inserts them,
+so a database built from migrations alone has every module's row.)
 
 ## Authorization model
 

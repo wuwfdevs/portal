@@ -4367,6 +4367,24 @@ writes that reported success without checking the result.
   grant/revoke tool access, edit the tool registry) is a Server Action that calls
   `logAuditEvent()` (`src/lib/audit.ts`) after it succeeds. If you add a new privileged
   action, log it the same way.
+- **Modules are declared in code and switched in the database.** `src/lib/modules.ts` lists
+  every tool's `key` (= `public.tools.key`), `requires` (hard dependencies: a foreign key
+  into another module's tables, or data it cannot work without), `integrates` (optional
+  companions), `publicRoutes` and `env`. `public.tools.enabled` is the station's switch. It is
+  a static list, not a loader: no plugin loading, no per-module migrations or packages. Nothing
+  reads `requires`/`integrates`/`env` at runtime yet; `src/lib/modules.test.ts` checks them
+  against the migrations and the source. Adding a tool means a manifest entry and a registry
+  row in the same change.
+- **A registry row is inserted by a migration, never only by `seed.sql`, and no migration sets
+  `enabled` on a row that already exists.** Insert with `on conflict (key) do nothing`, or
+  update the descriptive columns only. A station's choice to turn a module on or off must
+  survive a replayed migration. `modules.test.ts` fails on both mistakes; the eight older
+  upserts that set `enabled` are listed there as an allowlist and cannot be edited.
+- **Hard dependencies are rare and declared.** A foreign key into another module's table, or
+  data a module cannot work without, is a `requires` entry and needs a sentence in the PR saying
+  why. Prefer a soft reference (`external_ref`, the Bookings pattern) when the link is optional.
+- **Generic helpers don't live in a module's folder.** If a second module needs it, move it to
+  `src/lib/` first (see docs/logic-patterns.md).
 
 ## Directory conventions
 
@@ -4506,8 +4524,9 @@ supabase/migrations/       schema + RLS + functions, source of truth, never edit
 supabase/seed.sql          local/preview-only sample data — never run against production
 ```
 
-A future tool follows the Editorial Planning pattern: its own route segment, its own
-migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
+A new module follows the Editorial Planning pattern: its own route segment, its own
+migration(s) for tool-specific tables (prefixed, e.g. `ep_`), an entry in `src/lib/modules.ts`,
+and a registry row inserted by its own migration (`on conflict (key) do nothing`). It reuses
 `tool_access`/`profiles` for authorization — it should not need portal-schema changes
 beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
 migration.
@@ -4559,7 +4578,11 @@ So a schema change is done when, and only when:
 through `20261103…` were written and applied between 2026-10-09 and 2026-10-15, so a prefix is
 a sequence number, not the date; the real dates are the two columns in `APPLIED.md`. A new
 migration still has to sort after every applied file (a fresh database runs them in prefix
-order), so continue the sequence rather than "correcting" it back to today. One consequence
+order), so continue the sequence rather than "correcting" it back to today. The one deliberate
+exception is `20260722125000_module_registry_rows.sql`: it inserts registry rows that earlier
+migrations already look up, so on a fresh database it has to run before them (it is a no-op on
+both hosted projects, which already had the rows). Do not copy that exception for anything that
+doesn't need to run early. One consequence
 already bit once: `rc_release_note()`'s `p_released_on` was copied from the filename and What's
 new showed November dates in mid-October (fixed by `20261103120000`). Pass the day the change
 actually ships, never the prefix.
