@@ -10,6 +10,7 @@ import {
   defaultAffidavitPeriod,
   newAffidavitHref,
   summarizeAffidavitLineItems,
+  letterheadFor,
 } from "./affidavits";
 
 describe("summarizeAffidavitLineItems", () => {
@@ -250,9 +251,13 @@ describe("certificationSentence", () => {
 
 describe("affidavitFileName", () => {
   it("keeps the report identifier readable and filesystem-safe", () => {
-    expect(affidavitFileName("IO 12/3-2026-03-01-2026-03-31")).toBe(
+    expect(affidavitFileName("IO 12/3-2026-03-01-2026-03-31", "WUWF")).toBe(
       "WUWF affidavit IO-12-3-2026-03-01-2026-03-31.pdf",
     );
+  });
+
+  it("is named for the station", () => {
+    expect(affidavitFileName("2026-001", "KXYZ")).toBe("KXYZ affidavit 2026-001.pdf");
   });
 });
 
@@ -287,5 +292,42 @@ describe("nextAffidavitPeriod", () => {
   it("is never due for a draft or a contract that hasn't reached a full month", () => {
     expect(nextAffidavitPeriod({ ...base, status: "draft" })).toBeNull();
     expect(nextAffidavitPeriod({ ...base, effectiveFrom: "2026-03-02" })).toBeNull();
+  });
+});
+
+describe("letterheadFor", () => {
+  const WUWF_ROW = {
+    call_sign: "WUWF-FM",
+    display_name: "WUWF Public Media",
+    short_name: "WUWF",
+    mailing_address: "11000 University Pkwy, Bldg 88\nPensacola, FL 32514",
+  };
+
+  it("prints exactly what WUWF's affidavits printed before the letterhead moved into settings", () => {
+    expect(letterheadFor(WUWF_ROW)).toEqual({
+      name: "WUWF-FM",
+      addressLines: ["11000 University Pkwy, Bldg 88", "Pensacola, FL 32514"],
+    });
+  });
+
+  it("uses the call sign, then the full name, then the short name", () => {
+    expect(letterheadFor({ ...WUWF_ROW, call_sign: null }).name).toBe("WUWF Public Media");
+    expect(letterheadFor({ ...WUWF_ROW, call_sign: null, display_name: null }).name).toBe("WUWF");
+    expect(
+      letterheadFor({ call_sign: " ", display_name: "", short_name: null, mailing_address: null })
+        .name,
+    ).toBe("Station");
+  });
+
+  it("prints no address rather than another station's when none is set", () => {
+    expect(letterheadFor({ ...WUWF_ROW, mailing_address: null }).addressLines).toEqual([]);
+    expect(letterheadFor({ ...WUWF_ROW, mailing_address: "  \n \n" }).addressLines).toEqual([]);
+  });
+
+  it("drops blank lines and trims the rest", () => {
+    expect(
+      letterheadFor({ ...WUWF_ROW, mailing_address: " 1 Main St \n\n Tulsa, OK 74103 " })
+        .addressLines,
+    ).toEqual(["1 Main St", "Tulsa, OK 74103"]);
   });
 });

@@ -160,6 +160,9 @@ describe("the station's name on the pilot-visible surfaces", () => {
     "src/lib/agent/chat.ts",
     "src/lib/editorial-inquiry/ai.ts",
     "src/lib/sourcework/analyze-ai.ts",
+    "src/lib/underwriting/affidavits.ts",
+    "src/lib/underwriting/affidavit-pdf.tsx",
+    "src/app/(portal)/underwriting/affidavits/[id]/page.tsx",
   ];
 
   for (const file of FILES) {
