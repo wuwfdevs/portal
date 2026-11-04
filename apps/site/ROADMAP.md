@@ -4,10 +4,45 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: work after PR 320 (merged 2026-11-02) continues on `claude/eloquent-thompson-7gpsj2` in `wuwfdevs/portal` (earlier session branches were merged: PRs 322 to 324). The brief this follows (the "project brief") and the
+Branch: the current work is on `claude/practical-brahmagupta-v01n90` in `wuwfdevs/portal` (see *Resume here*); earlier session branches were merged (PRs 320 to 332). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Resume here (end of the 2026-11-03 session)
+## Resume here (end of the 2026-11-04 session: the migration gaps assessment)
+
+**Branch:** `claude/practical-brahmagupta-v01n90` (`wuwfdevs/portal`), pushed; 16+ commits ahead of `claude/main`, 0 behind, a trial merge is clean. **A PR for it is
+the next step** (the repo's PR-text check needs Summary, What changed and Test plan sections; lead the description with *what to review*: about 1,300 lines of code,
+tests and docs; the other ~29,000 added lines are one generated migration snapshot (20,501) and census data (8,424), nothing to read). Full suite: **89 files, 1,123
+tests pass**; typecheck and production build pass; lint 0 errors (4 warnings in the starter's e2e tests); `verify:migrations` passes. Nothing was deleted to shrink it:
+the old migration snapshots (the ROADMAP lesson says keep only the newest) and the probe manifest can be trimmed in a later PR.
+
+**What this session did** (the details are under *URL inventory and disposition*, near the top of *Grove migration*): re-read all 276 sitemaps (200,964 URLs) and probed
+the pages outside the census; found **1,433 more WUWF stories** (`news` 252, `music-arts` 57, nine small sections 116, `florida-news` 1,008) and 36 podcast episodes, so about
+6,500 stories to migrate; the converter handles all of them. Built: podcast converter, **episode text fix** (episodes read the wrong field and saved empty), link map and
+`linkMap` (wire and old `/post/` links repointed or removed), **syndicated programs** (`kind` on productions, migration `20261104_182013`), episode-body repair, **real page
+metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle` data), and the owner decisions recorded below.
+
+**Next, in order** (the first four are code; each is described where noted):
+1. **Podcast feeds** at `/podcast/<slug>/rss.xml` for EcoMinutes and Acoustic Interlude Sessions (guid = the story's `legacy.groveId`; see *Show pages and feeds*).
+2. **Cutover plumbing:** a 410 fallback for a bare `/YYYY-MM-DD/slug` that is not a record (records are looked up first, so a published wire story is safe); the show
+   consolidation to `/shows/<slug>` with permanent redirects (after the import); a **sitemap index** (the current sitemaps read at most 1,000 records); `/show/14-59` is a dead
+   sitemap entry (410).
+3. **Importer to staging** with `--link-map census/url-inventory/link-map.json`, then the rehearsal steps below; and mark the 35 syndicated programs (the importer does it).
+4. **The reviewed LLM pass** for alt text (63% of 5,455 images have none), short or missing descriptions (5%) and topic suggestions (35% have none): **suggest-only**, a staff
+   review queue, checks against the story's own text, a 100-story hand check first. **Needs the owner's go-ahead and an API key.** Not started.
+5. Then the earlier build program: short video (5), RadioLive (6), Barefoot Mary and member feeds (7: design with the owner first), and filling the homepage slots (9).
+
+**Waiting on the owner:** the wire address shape (recommended: keep `/{YYYY-MM-DD}/{slug}`, origin in `source`, canonical to the publisher; *Wire story address shape*);
+Search Console access (page indexing and links exports); how CDS stories are addressed; the licence terms question for News Service of Florida and AP text sent to a third-party
+LLM; the six ambiguous link targets (`needsDecision` in the link map); `programUrl` for each syndicated program (editors, in the admin); whether new EcoMinutes episodes are MP3
+not WAV; **running on the owner's computer:** the episode body repair against staging (dry run, then `--only` one, then all) and the importer rehearsal.
+**Keep `census-raw-005` to `-007`** (the only copy of the 2,072 raw WUWF pages fetched today) with `-001` to `-004`.
+
+**Tooling that survives the sandbox:** `scripts/census/gap-probe/` (how to refresh the inventory and counts before cutover; read its README first),
+`census/url-inventory/` (every count, the link map and its answer cache, the show table), `scripts/grove/resolve-links.ts`. A fresh sandbox needs Postgres brought up (below) and
+`apps/site/.env.local` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site` plus the secrets from `.env.example`; gitignored).
+
+### Previous hand-off (end of the 2026-11-03 session; kept for its staging, infrastructure and sandbox notes; **its branch and PR 325 lines are out of date**: PR 325 and later were merged)
+
 
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
@@ -872,6 +907,16 @@ signed-in account page, not CMS content.
   migrations' rollbacks were fixed and tested (`DROP CONSTRAINT IF EXISTS` after a `DROP TABLE ... CASCADE`).
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
+- **A background fetch runs only while a tool call is active, and a container restart kills it.** Make every long job resumable (a status file per item), start it with `nohup`, keep a
+  watcher alive for it (a watcher is capped at 2 hours), and check `pgrep` after any restart; the disk survives, the process does not. The local Postgres also stops when the sandbox
+  idles (restart command under *Previous hand-off*, "Working in the cloud sandbox"; a missing database shows up as every integration test skipped by a setup error, not as a failure of the test you changed).
+- **Another session's uploads are not visible.** Files shared with a different session are on that session's machine; ask the owner to upload them into the one that needs them
+  (`/root/.claude/uploads/...`), and verify them against the owner's checksum file.
+- **Grove's `nprShow` flag is false on every show page,** Morning Edition included; whether a program is syndicated is the owner's knowledge (`src/lib/grove/syndicated.ts`).
+- **A published story with no body and no audio is refused on save** (a body is required unless audio or a picture carries it): a test that needs an empty body saves a draft.
+- **Payload enforces a relationship's `filterOptions` on save,** not only in the admin picker (an episode cannot be filed under a syndicated program; tested).
+- **A converter that reports "clean" has not shown the text arrived.** See the episode note: assert on content, not on a status count.
+
 - **A "clean" report on an empty result is not clean.** Episodes read `articleBody`, which they do not have, and converted "clean" with no text for
   weeks because the converter's test and the corpus summary counted statuses and never looked at content. When a page type is added, assert that its
   text arrives, and check a real page's key names against the tally (`census/tally.json`, group `probe`), not a fixture written from memory.
