@@ -292,14 +292,23 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   decision), 42 test pages (drop), 32 station-information pages (keep as standard pages), 20 schedule and weather pages (replaced), 16 section
   landing pages, 119 to read.
 
-**Wire stories: recommendation, not a decision.** (1) A wire story under a local section: 301 to its `canonicalLink` (known from the fetched page),
-checked by script before cutover; a dead target becomes a 410. (2) A bare `/DATE/slug` wire URL (185,389, 92% of the archive): a plain "no longer on
-wuwf.org" page with a search link built from the slug, status 404 at first and 410 after a traffic review; exact redirects only for the pages
-Search Console shows matter. (3) The ambiguous WUWF-hosted copies: redirect to the real publisher when it can be named, else the plain page.
-**Rationale:** the split is by what we know, not by section; no target can be derived for a bare URL without fetching it (about 6.4 days for all).
-**Needs:** Search Console performance by page and the links report (still pinned); how the new site addresses current NPR stories from CDS (if it keeps
-`/DATE/slug`, recent wire URLs resolve for free). A migrated story that links to a non-migrated wire story keeps a relative link, so this
-needs the redirect, not a 404: check how many converted stories do (the raw pages are on the owner's computer).
+**Decisions (owner, 2026-11-04, after the SEO reasoning below).**
+- **Wire stories: gone, not archived, not redirected.** Every sampled bare wire page carries a `rel=canonical` to the original publisher (0 of 70 WUWF), so
+  search engines already treat the original as canonical; our copy earns nothing and a redirect would only pass equity to NPR. All wire URLs (bare
+  `/DATE/slug`, and the partner and NPR stories under `news`, `music-arts`, `florida-news` and the local sections) answer **410 Gone** with a plain "no longer on
+  wuwf.org" page (status 410, never a 200 landing page, which would be a soft 404). No redirect-out table is needed (the fetch recorded only the canonical
+  host, not the link). **Exception 1:** a link inside a *migrated* story to a wire story we will not keep is rewritten at conversion time to the original
+  publisher's address, or left as plain text (converter work, not built). **Exception 2:** the ambiguous WUWF-hosted copies (our canonical, another
+  organization named; about 170 in `florida-news`) are decided separately. **Verify once:** Search Console "Page indexing" should list these as "alternate page
+  with proper canonical".
+- **Shows: one pattern.** `/show/<slug>` (older template) and `/podcast/<slug>` (from December 2021) are the same concept. Import with Grove's exact paths first,
+  then consolidate shows and their episodes (about 580 URLs) to `/shows/<slug>` with permanent redirects in one deliberate step (the path-change redirect
+  machinery exists). This reopens "migrated shows keep Grove's exact `/show/<slug>` address". NPR-distributed show pages (about 30 of 42) are not archived: 410.
+- **UWF webcast and Board of Trustees pages (176): 410, with one archive page for the ones that still play.** 173 of 176 are shells under 30 words and 80 have no
+  video at all; 65 embed `livestream.com` (a third-party service whose embeds may no longer play; unchecked). The pages with a working Vimeo or YouTube video
+  (the CSV marks them `archive-page`) go on one archive page if UWF links to them (Search Console links report), otherwise 410. WUWF still streams UWF meetings
+  (`bot-december-2025`, `bot91825`), so a small **webcasts collection** (event type, date, stream) is a justified *new feature*, separate from the migration.
+- **Still open:** News Service of Florida and AP copy (about 300 stories); podcast feed addresses; Search Console access; how CDS stories are addressed.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
 
