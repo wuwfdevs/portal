@@ -113,4 +113,6 @@ export type ConvertResult =
 export interface ConvertOptions {
   /** Hosts approved in Site settings for frames that are not a known provider. */
   embedHosts?: readonly string[]
+  /** Own-site links to pages this site will not have, and where each should go (see `links.ts`). Absent: links are left as Grove has them. */
+  linkMap?: Readonly<Record<string, string | null>>
 }

@@ -3,7 +3,8 @@
 //
 // For every story already in the database that has a Grove id, it compares the stored body with what the converter makes of that
 // story's Grove page today. It writes only the body, and only when ALL of these hold:
-//   - the body still holds markup typed as words, or the page now has "Related" / "Support" lines the stored body has as paragraphs;
+//   - the body still holds markup typed as words, or the page now has "Related" / "Support" lines the stored body has as paragraphs,
+//     or the body holds no words and the page now has some (an episode saved before the converter read its text);
 //   - the words a reader would read are identical before and after;
 //   - nobody has edited the story since the import (the version history has one version, saved when the story was made);
 //   - every picture, audio or video file the new body points at is already in the library (it never creates or fetches a file).
@@ -32,6 +33,8 @@ export interface RepairRow {
   detail?: string
   linkLinesAdded?: number
   typedMarkupPieces?: number
+  /** The stored body had no words and was filled from the Grove page. */
+  filledEmpty?: boolean
 }
 
 export interface RepairOptions {
@@ -92,7 +95,7 @@ export async function repairBodies(payload: Payload, stories: readonly Converted
         row('skipped-words-differ', { detail: 'the words a reader reads would change; left alone' })
         continue
       }
-      const counts = { linkLinesAdded: plan.linkLinesAdded, typedMarkupPieces: plan.typedMarkupPieces }
+      const counts = { linkLinesAdded: plan.linkLinesAdded, typedMarkupPieces: plan.typedMarkupPieces, ...(plan.filledEmpty ? { filledEmpty: true } : {}) }
       try {
         const versions = await payload.findVersions({ collection: 'posts', where: { parent: { equals: doc.id } } as never, limit: 1, depth: 0, overrideAccess: true })
         if (editedSinceImport({ versionCount: versions.totalDocs, createdAt: doc.createdAt, updatedAt: doc.updatedAt })) {

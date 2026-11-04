@@ -1,0 +1,295 @@
+{
+ "generatedFrom": "1197 pages",
+ "converted": 1008,
+ "skipped": {
+  "ambiguous": 189
+ },
+ "nondeterministic": 0,
+ "problems": [],
+ "problemCount": 0,
+ "meanStoryJson": 9367,
+ "statuses": {
+  "clean": 741,
+  "review": 267,
+  "exception": 0
+ },
+ "assets": {
+  "distinctImages": 869,
+  "distinctAudio": 23,
+  "distinctVideo": 3,
+  "usesAcrossStories": 1139,
+  "perHost": {
+   "npr.brightspotcdn.com": 769,
+   "media.npr.org": 243,
+   "npr-brightspot.s3.amazonaws.com": 64,
+   "www.google-analytics.com": 23,
+   "cpa.ds.npr.org": 23,
+   "mediad.publicbroadcasting.net": 10,
+   "www.wmfe.org": 3,
+   "oceanservice.noaa.gov": 1,
+   "news.wfsu.org": 1,
+   "health.wusf.usf.edu": 1,
+   "floridastorms.org": 1
+  }
+ },
+ "hostsNeedingApproval": {},
+ "mapped": {
+  "paragraph": 16550,
+  "link": 1090,
+  "lead:mediaBlock": 1004,
+  "block:linkLine": 146,
+  "linkLine:related": 143,
+  "block:mediaBlock": 84,
+  "block:embed": 64,
+  "embed:x": 51,
+  "list": 39,
+  "image:inline": 23,
+  "quote": 12,
+  "embed:youtube": 6,
+  "embed:custom": 4,
+  "block:audioPlayer": 3,
+  "linkLine:support": 3,
+  "embed:facebook": 3,
+  "block:videoPlayer": 3,
+  "block:gallery": 2,
+  "lead:gallery": 2
+ },
+ "codes": [
+  {
+   "code": "origin.wire-byline",
+   "level": "preserved",
+   "occurrences": 263,
+   "stories": 263,
+   "details": {
+    "News Service of Florida": 233,
+    "Associated Press": 30
+   },
+   "examples": [
+    "/florida-news/2026-08-05/fwc-backs-oyster-restoration-efforts",
+    "/florida-news/2025-09-15/counter-proposal-nixed-in-fpl-rate-case",
+    "/florida-news/2022-02-09/florida-grapples-with-teacher-shortages"
+   ]
+  },
+  {
+   "code": "html.script-removed",
+   "level": "preserved",
+   "occurrences": 4,
+   "stories": 3,
+   "details": {
+    "inline": 3,
+    "www.instagram.com": 1
+   },
+   "examples": [
+    "/florida-news/2023-11-01/florida-law-making-gun-carry-permits-optional-leads-to-dramatic-drop-in-safety-classes",
+    "/florida-news/2023-02-24/retired-cop-never-forgot-unsolved-case-helped-convict-rapist-decades-later",
+    "/florida-news/2026-05-05/the-lottery-at-large-who-wins-who-gets-hurt"
+   ]
+  },
+  {
+   "code": "embed.unsupported-link",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "www.twitter.com": 1
+   },
+   "examples": [
+    "/florida-news/2023-01-03/desantis-sworn-in-to-begin-second-term-as-floridas-governor"
+   ]
+  },
+  {
+   "code": "byline.none",
+   "level": "noted",
+   "occurrences": 665,
+   "stories": 665,
+   "details": {},
+   "examples": [
+    "/florida-news/2022-09-30/ian-insured-losses-could-total-40-billion",
+    "/florida-news/2022-06-27/new-florida-law-could-transform-anti-bias-training-on-the-states-college-campuses",
+    "/florida-news/2021-12-13/judge-set-to-hear-arguments-in-uf-faculty-dispute"
+   ]
+  },
+  {
+   "code": "byline.person-without-address",
+   "level": "noted",
+   "occurrences": 198,
+   "stories": 198,
+   "details": {
+    "Jim Turner - News Service of Florida": 33,
+    "Garrett Shanley - Fresh Take Florida": 1,
+    "Jim Saunders - News Service of Florida": 31,
+    "Ryan Dailey - News Service of Florida": 65,
+    "Kylie Williams - Fresh Take Florida": 2,
+    "News Service of Florida": 24,
+    "Julianna Bendeck - Fresh Take Florida": 1,
+    "Tom Urban - News Service of Florida": 3,
+    "Kairi Lowery - Fresh Take Florida": 1,
+    "Matthew Cupelli - Fresh Take Florida": 1,
+    "Curt Anderson | Associated Press": 2,
+    "Dara Kam - News Service of Florida": 5,
+    "Alissa Gary - Fresh Take Florida": 1,
+    "Delia Rose Sauer - Fresh Take Florida": 1,
+    "Jim Turner and Tom Urban - News Service of Florida": 1,
+    "Sara-James Ranta - Fresh Take Florida": 1,
+    "Valentina Sandoval - Fresh Take Florida": 1,
+    "The News Service of Florida": 5,
+    "Zoey Thomas | Fresh Take Florida": 1,
+    "Vivienne Serret - Fresh Take Florida": 1,
+    "Siena Duncan — Fresh Take Florida": 1,
+    "Bea Lunardini - Fresh Take Florida": 2,
+    "Olivia Evans - Fresh Take Florida": 1,
+    "Zoey Thomas - Fresh Take Florida": 1,
+    "Lauren Brensel and Diego Perdomo - Fresh Take Florida": 1,
+    "Lucille Lannigan - Fresh Take Florida": 1,
+    "Michael Orlando - Fresh Take Florida": 1,
+    "Bea Anhuci - Fresh Take Florida": 1,
+    "Lee Ann Anderson and Kai Johnsen - Fresh Take Florida": 1,
+    "Diego Perdomo - Fresh Take Florida": 1,
+    "Jim Turner and Ana Goñi-Lessan - News Service of Florida": 1,
+    "Jim Turner and Gray Rohrer - News Service of Florida": 1,
+    "Natanya Friedheim and Ella Thompson | Statehouse Reporting Project and Fresh Take Florida": 1,
+    "Jim Saunders and Jim Turner - News Service of Florida": 1,
+    "Jack Jankowski and Alanna Robbert - Fresh Take Florida": 1,
+    "Zoey Thomas and Vivienne Serret-Fresh Take Florida": 1
+   },
+   "examples": [
+    "/florida-news/2026-08-05/fwc-backs-oyster-restoration-efforts",
+    "/florida-news/2025-04-08/florida-universities-face-sweeping-state-audit-under-desantis-doge-mandate",
+    "/florida-news/2025-09-15/counter-proposal-nixed-in-fpl-rate-case"
+   ]
+  },
+  {
+   "code": "link.escaped-markup-repaired",
+   "level": "noted",
+   "occurrences": 100,
+   "stories": 58,
+   "details": {},
+   "examples": [
+    "/florida-news/2024-10-22/as-early-voting-gets-underway-republicans-across-florida-quickly-surpass-democratic-turnout",
+    "/florida-news/2026-11-03/after-living-through-a-century-of-american-politics-floridas-oldest-voters-arent-done-yet",
+    "/florida-news/2025-10-17/prosecutor-defends-dropping-case-against-man-accused-of-abandoning-dog-trooper-ahead-of-hurricane"
+   ]
+  },
+  {
+   "code": "byline.from-text",
+   "level": "noted",
+   "occurrences": 27,
+   "stories": 27,
+   "details": {},
+   "examples": [
+    "/florida-news/2025-04-08/florida-universities-face-sweeping-state-audit-under-desantis-doge-mandate",
+    "/florida-news/2024-10-22/as-early-voting-gets-underway-republicans-across-florida-quickly-surpass-democratic-turnout",
+    "/florida-news/2026-11-03/after-living-through-a-century-of-american-politics-floridas-oldest-voters-arent-done-yet"
+   ]
+  },
+  {
+   "code": "sections.secondary-not-migrated",
+   "level": "noted",
+   "occurrences": 15,
+   "stories": 15,
+   "details": {
+    "Local News": 5,
+    "Election 2024": 6,
+    "Florida News": 1,
+    "Apple News": 2,
+    "Apple News, Local News": 1
+   },
+   "examples": [
+    "/florida-news/2025-12-12/florida-supreme-court-refuses-to-halt-execution-of-okaloosa-county-man-after-disability-arguments",
+    "/florida-news/2025-12-15/desantis-and-cabinet-consider-land-deals",
+    "/florida-news/2024-04-03/6-issues-florida-voters-will-face-on-the-november-ballot"
+   ]
+  },
+  {
+   "code": "html.unwrapped-tag",
+   "level": "noted",
+   "occurrences": 19,
+   "stories": 10,
+   "details": {
+    "ps-promo": 8,
+    "li": 6,
+    "svg": 1,
+    "g": 3,
+    "path": 1
+   },
+   "examples": [
+    "/florida-news/2022-09-01/florida-sues-the-fda-over-drug-importation-records-as-it-seeks-cheaper-medications-for-floridians",
+    "/florida-news/2022-10-04/florida-citrus-growers-face-a-gamut-of-damages-from-hurricane-ian",
+    "/florida-news/2023-09-12/floridas-parental-rights-in-education-law-is-on-hold"
+   ]
+  },
+  {
+   "code": "text.markup-flattened",
+   "level": "noted",
+   "occurrences": 12,
+   "stories": 9,
+   "details": {
+    "credit": 4,
+    "alt text": 3,
+    "caption": 5
+   },
+   "examples": [
+    "/florida-news/2026-08-05/fwc-backs-oyster-restoration-efforts",
+    "/florida-news/2022-05-16/desantis-targets-protests-outside-homes",
+    "/florida-news/2022-08-26/clinics-and-doctor-go-to-florida-supreme-court-in-abortion-law-fight"
+   ]
+  },
+  {
+   "code": "support.appeal-sent-to-support-page",
+   "level": "noted",
+   "occurrences": 3,
+   "stories": 3,
+   "details": {
+    "/thanks-for-your-support": 3
+   },
+   "examples": [
+    "/florida-news/2022-11-30/hurricane-season-has-come-to-an-end",
+    "/florida-news/2023-09-28/uwf-presents-the-state-of-the-university",
+    "/florida-news/2025-10-27/former-state-senator-doug-broxson-tapped-for-florida-board-of-governors"
+   ]
+  },
+  {
+   "code": "figure.empty",
+   "level": "noted",
+   "occurrences": 2,
+   "stories": 2,
+   "details": {},
+   "examples": [
+    "/florida-news/2023-07-18/two-states-removed-from-drivers-license-list",
+    "/florida-news/2021-10-12/desantis-rebuffs-audit-of-2020-election"
+   ]
+  },
+  {
+   "code": "section.none",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/florida-news/2023-01-03/desantis-sworn-in-to-begin-second-term-as-floridas-governor"
+   ]
+  },
+  {
+   "code": "link.around-picture-flattened",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/florida-news/2023-02-24/retired-cop-never-forgot-unsolved-case-helped-convict-rapist-decades-later"
+   ]
+  },
+  {
+   "code": "embed.click-to-load",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "www.google.com": 1
+   },
+   "examples": [
+    "/florida-news/2023-01-17/land-deals-could-aid-wildlife-corridor"
+   ]
+  }
+ ]
+}

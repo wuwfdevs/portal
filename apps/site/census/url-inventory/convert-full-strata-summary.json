@@ -1,0 +1,355 @@
+{
+ "generatedFrom": "319 pages",
+ "converted": 315,
+ "skipped": {
+  "ambiguous": 4
+ },
+ "nondeterministic": 0,
+ "problems": [],
+ "problemCount": 0,
+ "meanStoryJson": 10170,
+ "statuses": {
+  "clean": 264,
+  "review": 51,
+  "exception": 0
+ },
+ "assets": {
+  "distinctImages": 639,
+  "distinctAudio": 56,
+  "distinctVideo": 1,
+  "usesAcrossStories": 839,
+  "perHost": {
+   "npr.brightspotcdn.com": 774,
+   "cpa.ds.npr.org": 56,
+   "media.npr.org": 4,
+   "npr-brightspot.s3.amazonaws.com": 4,
+   "www.wuwf.org": 1
+  }
+ },
+ "hostsNeedingApproval": {},
+ "mapped": {
+  "paragraph": 4700,
+  "link": 740,
+  "lead:mediaBlock": 291,
+  "block:mediaBlock": 276,
+  "list": 171,
+  "block:embed": 133,
+  "embed:youtube": 52,
+  "heading": 47,
+  "embed:custom": 40,
+  "block:linkLine": 26,
+  "lead:gallery": 17,
+  "linkLine:related": 17,
+  "embed:x": 15,
+  "embed:spotify": 12,
+  "embed:facebook": 11,
+  "quote": 10,
+  "linkLine:support": 9,
+  "block:audioPlayer": 3,
+  "embed:vimeo": 3,
+  "block:legacyHtml": 3,
+  "block:videoPlayer": 1,
+  "image:inline": 1
+ },
+ "codes": [
+  {
+   "code": "origin.wire-byline",
+   "level": "preserved",
+   "occurrences": 37,
+   "stories": 37,
+   "details": {
+    "News Service of Florida": 37
+   },
+   "examples": [
+    "/news/2021-04-09/protest-bill-backed-in-senate-after-emotional-debate",
+    "/news/2021-03-31/transgender-athletes-restrictions-move-forward-in-florida-senate",
+    "/news/2021-01-20/trump-pardons-former-wellcare-executives"
+   ]
+  },
+  {
+   "code": "embed.unsupported-link",
+   "level": "preserved",
+   "occurrences": 5,
+   "stories": 5,
+   "details": {
+    "youtu.be": 5
+   },
+   "examples": [
+    "/science/2019-04-10/skies-for-the-gulf-coast",
+    "/news/2021-05-17/oldest-indian-rhinoceros-in-captivity-celebrates-birthday-at-florida-wildlife-rescue-facility",
+    "/science/2020-08-28/september-skies-of-the-gulf-coast"
+   ]
+  },
+  {
+   "code": "html.script-removed",
+   "level": "preserved",
+   "occurrences": 5,
+   "stories": 4,
+   "details": {
+    "pym.nprapps.org": 4,
+    "inline": 1
+   },
+   "examples": [
+    "/news/2016-09-26/live-debate-fact-checking",
+    "/news/2016-10-19/final-presidential-debate-live-fact-check",
+    "/music-arts/2023-09-15/a-conversation-with-demetrius-fuller-of-sinfonia-gulf-coast"
+   ]
+  },
+  {
+   "code": "html.table-preserved",
+   "level": "preserved",
+   "occurrences": 3,
+   "stories": 3,
+   "details": {},
+   "examples": [
+    "/news/2020-10-16/coronavirus-live-blog-week-of-oct-12",
+    "/news/2020-11-06/coronavirus-live-blog-week-of-nov-2",
+    "/news/2020-10-23/coronavirus-live-blog-week-of-oct-19"
+   ]
+  },
+  {
+   "code": "embed.no-address",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "iframe without src": 1
+   },
+   "examples": [
+    "/news/2019-09-21/watch-cokie-roberts-remembered-in-washington-d-c-funeral"
+   ]
+  },
+  {
+   "code": "link.unsafe-address-removed",
+   "level": "preserved",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "http://The Choctaw Clothing Closet is a ": 1
+   },
+   "examples": [
+    "/news/2021-04-07/a-resource-for-students-sros-start-clothing-closet-for-okaloosa-schools"
+   ]
+  },
+  {
+   "code": "byline.from-text",
+   "level": "noted",
+   "occurrences": 95,
+   "stories": 95,
+   "details": {},
+   "examples": [
+    "/news/2021-04-09/protest-bill-backed-in-senate-after-emotional-debate",
+    "/science/2019-04-10/skies-for-the-gulf-coast",
+    "/science/2020-02-04/wayne-wooten-february-skies-of-the-gulf-coast"
+   ]
+  },
+  {
+   "code": "byline.person-without-address",
+   "level": "noted",
+   "occurrences": 95,
+   "stories": 95,
+   "details": {
+    "Dara Kam-News Service of Florida": 7,
+    "Dr. Wayne Wooten": 9,
+    "Wayne Wooten": 11,
+    "Staff report": 15,
+    "Alejandra Zamora Fresh Take Florida": 1,
+    "News Service of Florida": 14,
+    "Jim Turner News Service of Florida": 2,
+    "Jim Saunders-News Service of Florida": 3,
+    "Ryan Dailey-News Service of Florida": 1,
+    "Staff reports": 2,
+    "NPR Staff": 1,
+    "Jim Saunders News Service of Florida": 1,
+    "Manny Diaz, Jr.": 2,
+    "Christine Sexton News Service of Florida": 1,
+    "lmyers": 1,
+    "Peter Rubardt": 3,
+    "WUWF Staff": 5,
+    "Jennie McKeon": 2,
+    "Christine Sexton-News Service of Florida": 2,
+    "Michael Spooneybarger": 1,
+    "Staff Reports": 1,
+    "Daylina Miller": 1,
+    "Staff Report": 1,
+    "Abigail Megginson": 1,
+    "Amy Green": 1,
+    "Jim Turner-News Service of Florida": 2,
+    "Renato Sago": 1,
+    "Athena Masson": 1,
+    "Jim Saunders and Tom Urban News Service of Florida": 1,
+    "Abe Aboraya": 1
+   },
+   "examples": [
+    "/news/2021-04-09/protest-bill-backed-in-senate-after-emotional-debate",
+    "/science/2019-04-10/skies-for-the-gulf-coast",
+    "/science/2020-02-04/wayne-wooten-february-skies-of-the-gulf-coast"
+   ]
+  },
+  {
+   "code": "section.none",
+   "level": "noted",
+   "occurrences": 42,
+   "stories": 42,
+   "details": {},
+   "examples": [
+    "/science/2019-04-10/skies-for-the-gulf-coast",
+    "/science/2020-02-04/wayne-wooten-february-skies-of-the-gulf-coast",
+    "/science/2019-10-01/wayne-wooten-october-skies-of-the-gulf-coast"
+   ]
+  },
+  {
+   "code": "byline.none",
+   "level": "noted",
+   "occurrences": 39,
+   "stories": 39,
+   "details": {},
+   "examples": [
+    "/blog/2015-03-24/seagrass-satsumas-palafox-market-march-21-2015",
+    "/music-arts/2023-12-15/emerald-coast-theatre-company-founders-honored-at-florida-theatre-conference",
+    "/blog/2015-06-03/seagrass-satsumas-palafox-market-may-31-2015"
+   ]
+  },
+  {
+   "code": "embed.click-to-load",
+   "level": "noted",
+   "occurrences": 34,
+   "stories": 34,
+   "details": {
+    "cdn.jwplayer.com": 20,
+    "cdn.knightlab.com": 1,
+    "sinfoniagulfcoast.org": 1,
+    "www.google.com": 1,
+    "content.jwplatform.com": 7,
+    "docs.google.com": 2,
+    "tunein.com": 1,
+    "videos.fisheries.noaa.gov": 1
+   },
+   "examples": [
+    "/news/2019-12-11/house-judiciary-reviews-of-articles-of-impeachment",
+    "/news/2020-03-11/president-trump-remarks-on-coronavirus-as-who-labels-it-a-pandemic",
+    "/news/2019-11-15/trump-impeachment-inquiry-watch-house-hearings-live"
+   ]
+  },
+  {
+   "code": "link.escaped-markup-repaired",
+   "level": "noted",
+   "occurrences": 55,
+   "stories": 33,
+   "details": {},
+   "examples": [
+    "/civics-101/2024-10-18/ballot-explainer-okaloosa-county-referendum-extending-edate",
+    "/news/2020-12-30/january-skies-of-the-gulf-coast",
+    "/news/2021-03-18/florida-refugee-advocacy-week-teaches-others-to-be-a-good-neighbor"
+   ]
+  },
+  {
+   "code": "sections.secondary-not-migrated",
+   "level": "noted",
+   "occurrences": 25,
+   "stories": 25,
+   "details": {
+    "Local News": 16,
+    "Through The Lens": 2,
+    "Local News, Election 2024": 2,
+    "Local News, Apple News": 2,
+    "Apple News": 1,
+    "Florida News": 1,
+    "Music & Arts": 1
+   },
+   "examples": [
+    "/music-arts/2024-04-29/pensacola-ballets-sleeping-beauty-is-the-first-show-for-new-artistic-director",
+    "/music-arts/2024-03-05/when-shows-picked-back-up-after-the-pandemic-he-picked-up-his-camera",
+    "/civics-101/2024-10-18/ballot-explainer-okaloosa-county-referendum-extending-edate"
+   ]
+  },
+  {
+   "code": "text.markup-flattened",
+   "level": "noted",
+   "occurrences": 17,
+   "stories": 11,
+   "details": {
+    "caption": 7,
+    "source": 5,
+    "quote": 2,
+    "alt text": 1,
+    "credit": 2
+   },
+   "examples": [
+    "/music-arts/2024-03-05/when-shows-picked-back-up-after-the-pandemic-he-picked-up-his-camera",
+    "/eco/2026-01-07/ecominutes-new-years-resolutions",
+    "/music-arts/2025-06-03/panama-citys-shore-enough-shares-their-tiny-desk-contest-entry"
+   ]
+  },
+  {
+   "code": "support.appeal-sent-to-support-page",
+   "level": "noted",
+   "occurrences": 9,
+   "stories": 9,
+   "details": {
+    "/thanks-for-your-support": 9
+   },
+   "examples": [
+    "/music-arts/2024-03-05/when-shows-picked-back-up-after-the-pandemic-he-picked-up-his-camera",
+    "/music-arts/2025-07-23/fine-at-50-the-electric-light-orchestras-face-the-music",
+    "/music-arts/2025-08-07/fine-at-50-the-chieftains-5"
+   ]
+  },
+  {
+   "code": "link.polluted-address-dropped",
+   "level": "noted",
+   "occurrences": 8,
+   "stories": 6,
+   "details": {},
+   "examples": [
+    "/news/2020-11-10/veterans-day-highlighted-by-gold-star-families-memorial",
+    "/news/2020-10-22/watch-live-final-presidential-debate",
+    "/arts/2016-10-15/la-frontera-screening-discussion"
+   ]
+  },
+  {
+   "code": "embed.pym-as-frame",
+   "level": "noted",
+   "occurrences": 5,
+   "stories": 4,
+   "details": {},
+   "examples": [
+    "/news/2016-09-26/live-debate-fact-checking",
+    "/news/2016-10-19/final-presidential-debate-live-fact-check",
+    "/news/2016-10-04/vp-debate-live-fact-check"
+   ]
+  },
+  {
+   "code": "link.address-taken-from-text",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/news/2019-09-06/blue-tarps-doc-shows-the-aftermath-of-hurricane-michael"
+   ]
+  },
+  {
+   "code": "link.without-address",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {},
+   "examples": [
+    "/news/2021-01-17/coronavirus-live-blog-week-of-jan-11"
+   ]
+  },
+  {
+   "code": "embed.pym-loader-replaced",
+   "level": "noted",
+   "occurrences": 1,
+   "stories": 1,
+   "details": {
+    "apps.npr.org": 1
+   },
+   "examples": [
+    "/news/2015-06-15/the-truth-about-americas-record-high-graduation-rate"
+   ]
+  }
+ ]
+}

@@ -4,19 +4,36 @@
 // go (`$asset`) and lists every file in `assets`; the asset pipeline stores them and `resolveAssets` fills the ids in.
 // Only WUWF-originated stories are converted: NPR and wire stories are re-pulled from NPR, not migrated as our own.
 
+import { parseFragment, serialize } from 'parse5'
+
 import { classifyOrigin } from '../census/tally'
 import { audioToken, arr, enhancementNodes, leadItems, obj, objectNodes, str, template } from './enhancements'
 import { Ctx, absoluteUrl, escapeHtml, plainText, unwrapTemplates } from './context'
 import { htmlToNodes } from './html'
+import { applyLinkMap } from './links'
 import * as lex from './lexical'
 import type { ConvertOptions, ConvertResult, ConvertedStory, Json, JsonObject, LexNode, PersonRef, StoryReport } from './types'
 
 const ARTICLE = '/core/article/ArticlePage.hbs'
 /** A radio show or podcast episode: a story with audio that belongs to a show. */
 const EPISODE = '/media/episode/audio/RadioShowEpisodePage.hbs'
+/** A podcast episode (`/podcast/<show>/<date>/<slug>`): the same thing under another template, with its text in `body`. */
+const PODCAST_EPISODE = '/media/episode/audio/PodcastEpisodePage.hbs'
 const tname = (t: string): string => t.split('/').pop()?.replace(/\.hbs$/, '') ?? t
 
 // ---- the body -------------------------------------------------------------------------------------------------
+
+/**
+ * A link's words as HTML that is safe to put inside an `<a>`. Grove's link text is already HTML, not plain text: of 5,437 inline links in the
+ * census, 23 hold `&amp;`, 120 hold other entities such as `&nbsp;`, and 522 hold real tags such as `<b>Donate Here</b>`. It is read once and
+ * written back balanced (an unclosed `<b>` cannot leak into the rest of the paragraph), and never escaped a second time, which showed readers
+ * a literal "&amp;" in "Boys &amp; Girls Club".
+ */
+const linkBodyHtml = (body: string): string =>
+  // Grove's corrupted embeds (a pasted video link wrapped in a broken `brightspot-cms-external-content` element) put JSON and a half-element in the
+  // link text. Read as HTML, that would swallow the video's address along with the junk. It stays exactly as it was (visible, flagged by the
+  // polluted-address note), until the owner decides whether each becomes an embed (ROADMAP: "polluted source data").
+  /<brightspot-cms-external-content|data-state\s*=|"_id"\s*:/i.test(body) ? escapeHtml(body) : serialize(parseFragment(body))
 
 /** A link that sits between two text chunks, as HTML, so the paragraph around it can be put back together. */
 function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
@@ -28,9 +45,9 @@ function inlineLinkHtml(l: JsonObject, ctx: Ctx): string {
   }
   if (!href) {
     ctx.note('link.without-address')
-    return escapeHtml(body)
+    return linkBodyHtml(body)
   }
-  return `<a href="${escapeHtml(href)}"${str(l.target) === '_blank' ? ' target="_blank"' : ''}>${escapeHtml(body)}</a>`
+  return `<a href="${escapeHtml(href)}"${str(l.target) === '_blank' ? ' target="_blank"' : ''}>${linkBodyHtml(body)}</a>`
 }
 
 /**
@@ -104,13 +121,13 @@ export function bodyNodes(body: Json[], ctx: Ctx): LexNode[] {
 function showOf(j: JsonObject, path: string, ctx: Ctx): ConvertedStory['show'] {
   let showPath: string | null = null
   try {
-    const u = str(j.radioShowUrl)
+    const u = str(j.radioShowUrl) ?? str(j.podcastUrl)
     if (u) showPath = new URL(u).pathname.replace(/\/$/, '')
   } catch {
     /* fall back to the address */
   }
   if (!showPath) {
-    const m = /^(\/show\/[^/]+)\//.exec(path)
+    const m = /^(\/(?:show|podcast)\/[^/]+)\//.exec(path)
     if (m) {
       showPath = m[1]!
       ctx.note('episode.show-from-address', showPath)
@@ -120,7 +137,7 @@ function showOf(j: JsonObject, path: string, ctx: Ctx): ConvertedStory['show'] {
     ctx.fail('episode.no-show')
     return null
   }
-  return { path: showPath, title: plainText(str(j.radioShowTitle)).text || null }
+  return { path: showPath, title: plainText(str(j.radioShowTitle) ?? str(j.podcastTitle)).text || null }
 }
 
 // ---- who wrote it, where it is filed --------------------------------------------------------------------------
@@ -197,10 +214,11 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
     return { status: 'skipped', reason, report: ctx.report(path, groveId) }
   }
 
-  const isEpisode = template(j) === EPISODE
+  const isPodcast = template(j) === PODCAST_EPISODE
+  const isEpisode = template(j) === EPISODE || isPodcast
   if (!j || (template(j) !== ARTICLE && !isEpisode)) return skipped('not-an-article', 'page.not-an-article', template(j) || 'no template')
   // An NPR-distributed show's episodes are NPR's, not WUWF's to archive.
-  if (isEpisode && j.nprShow === true) return skipped('external', 'origin.npr-show', str(j.radioShowTitle) ?? host ?? 'no host')
+  if (isEpisode && j.nprShow === true) return skipped('external', 'origin.npr-show', str(j.radioShowTitle) ?? str(j.podcastTitle) ?? host ?? 'no host')
 
   const origin = classifyOrigin({ organization: str(j.sourceOrganizationName) ?? null, canonicalHost: host })
   if (origin === 'external') return skipped('external', 'origin.not-wuwf', `${str(j.sourceOrganizationName) ?? 'unnamed'} / ${host ?? 'no host'}`)
@@ -233,13 +251,33 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
   if (arr(j.updatesCorrections).length) ctx.fail('story.corrections-not-supported', 'updatesCorrections is present; the story has no field for it')
 
   const byline = bylineOf(j, ctx)
-  const content = lex.root(bodyNodes(arr(j.articleBody), ctx))
+  // Grove lists WUWF as the source organization of stories that carry a wire service's byline (News Service of Florida, AP), so the origin
+  // check passes them. Owner decision (2026-11-04): WUWF has the same rights as before, so they migrate as WUWF's. The byline is still noted,
+  // so the stories can be found and counted.
+  const wireName = /news service of florida|associated press/i.exec([...byline.people.map((p) => p.name), byline.text ?? ''].join(' | '))?.[0]
+  if (wireName) ctx.note('origin.wire-byline', wireName)
+  // An article keeps its text in `articleBody`; an episode (radio or podcast) keeps it in `body`. Reading the wrong one gave an
+  // empty story and no report, which is how the first fifteen episodes lost their text unnoticed.
+  const bodyContent = bodyNodes(arr(isEpisode ? j.body : j.articleBody), ctx)
+  let content = lex.root(bodyContent)
+  if (options.linkMap) {
+    // Links to wire stories (which answer 410 here) and to old /post/ addresses (Grove 301s them): point them at the original, or remove them.
+    const applied = applyLinkMap(content, options.linkMap)
+    content = applied.state
+    for (const c of applied.changes) ctx.note(c.to === null ? 'link.unlinked-gone-page' : 'link.repointed', `${c.from} -> ${c.to ?? 'removed'}`)
+  }
   const featuredMedia = leadItems(arr(j.lead), ctx)
 
   let featuredAudio: ConvertedStory['featuredAudio'] = null
   const players = arr(j.audio).map(obj).filter((x): x is JsonObject => !!x)
   if (players.length > 1) ctx.preserve('audio.extra-players-not-kept', String(players.length - 1))
   if (players[0]) featuredAudio = audioToken(players[0], ctx, { title })
+
+  if (isEpisode && !featuredAudio) {
+    ctx.note('episode.no-audio')
+    // Nothing is lost, but the page would be a title and a description: someone has to attach the audio or decide it goes.
+    if (bodyContent.length === 0 && featuredMedia.length === 0) ctx.preserve('episode.hollow-page', 'only the description is kept (as the meta description)')
+  }
 
   const problems = [...lex.lexicalProblems(content), ...lex.featuredProblems(featuredMedia)]
   for (const p of problems) ctx.fail('output.invalid', p)

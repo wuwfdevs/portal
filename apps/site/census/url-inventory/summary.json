@@ -1,0 +1,271 @@
+{
+ "total": 200964,
+ "by_shape": [
+  [
+   "wire-story",
+   185389
+  ],
+  [
+   "section-story-other",
+   5959
+  ],
+  [
+   "local-story",
+   5087
+  ],
+  [
+   "event",
+   1477
+  ],
+  [
+   "person",
+   1147
+  ],
+  [
+   "tag",
+   905
+  ],
+  [
+   "show-episode",
+   501
+  ],
+  [
+   "standalone",
+   411
+  ],
+  [
+   "other",
+   42
+  ],
+  [
+   "show-page",
+   42
+  ],
+  [
+   "live-blog",
+   3
+  ],
+  [
+   "home",
+   1
+  ]
+ ],
+ "sections": [
+  [
+   "florida-news",
+   4810
+  ],
+  [
+   "local-news",
+   4662
+  ],
+  [
+   "music-arts",
+   616
+  ],
+  [
+   "news",
+   385
+  ],
+  [
+   "commentary",
+   106
+  ],
+  [
+   "uwf-news",
+   77
+  ],
+  [
+   "local-arts",
+   65
+  ],
+  [
+   "unearthing-florida",
+   59
+  ],
+  [
+   "local-politics",
+   51
+  ],
+  [
+   "arts",
+   34
+  ],
+  [
+   "local-elections",
+   26
+  ],
+  [
+   "local-music",
+   24
+  ],
+  [
+   "science",
+   24
+  ],
+  [
+   "civics-101",
+   19
+  ],
+  [
+   "blog",
+   14
+  ],
+  [
+   "eco",
+   11
+  ],
+  [
+   "america-250",
+   9
+  ],
+  [
+   "through-the-lens",
+   9
+  ],
+  [
+   "fpren",
+   8
+  ],
+  [
+   "local-economy",
+   8
+  ],
+  [
+   "local-news-featured",
+   7
+  ],
+  [
+   "election-2024",
+   6
+  ],
+  [
+   "live-event",
+   6
+  ],
+  [
+   "sports",
+   4
+  ],
+  [
+   "local-music-scene",
+   2
+  ],
+  [
+   "support",
+   2
+  ],
+  [
+   "business",
+   1
+  ],
+  [
+   "space-news",
+   1
+  ]
+ ],
+ "by_year": {
+  "2004": {
+   "wire-story": 3227
+  },
+  "2005": {
+   "wire-story": 4637
+  },
+  "2006": {
+   "wire-story": 4298
+  },
+  "2007": {
+   "wire-story": 2151
+  },
+  "2008": {
+   "wire-story": 2416
+  },
+  "2009": {
+   "wire-story": 1370
+  },
+  "2010": {
+   "wire-story": 626
+  },
+  "2011": {
+   "wire-story": 807
+  },
+  "2012": {
+   "wire-story": 1491
+  },
+  "2013": {
+   "wire-story": 4619,
+   "local-story": 111
+  },
+  "2014": {
+   "wire-story": 14488,
+   "section-story-other": 5,
+   "local-story": 608
+  },
+  "2015": {
+   "wire-story": 14101,
+   "section-story-other": 77,
+   "local-story": 546
+  },
+  "2016": {
+   "wire-story": 13417,
+   "section-story-other": 29,
+   "local-story": 525
+  },
+  "2017": {
+   "wire-story": 13398,
+   "section-story-other": 28,
+   "local-story": 370
+  },
+  "2018": {
+   "wire-story": 12813,
+   "section-story-other": 23,
+   "local-story": 408
+  },
+  "2019": {
+   "wire-story": 10473,
+   "section-story-other": 51,
+   "local-story": 418
+  },
+  "2020": {
+   "wire-story": 11563,
+   "section-story-other": 156,
+   "local-story": 528
+  },
+  "2021": {
+   "wire-story": 7212,
+   "section-story-other": 603,
+   "local-story": 341,
+   "show-episode": 31
+  },
+  "2022": {
+   "wire-story": 13000,
+   "section-story-other": 913,
+   "local-story": 276,
+   "show-episode": 90
+  },
+  "2023": {
+   "wire-story": 13591,
+   "section-story-other": 1142,
+   "local-story": 194,
+   "show-episode": 101
+  },
+  "2024": {
+   "wire-story": 13297,
+   "section-story-other": 1120,
+   "local-story": 241,
+   "show-episode": 98
+  },
+  "2025": {
+   "wire-story": 12577,
+   "section-story-other": 1043,
+   "local-story": 324,
+   "show-episode": 103
+  },
+  "2026": {
+   "wire-story": 9817,
+   "section-story-other": 769,
+   "local-story": 197,
+   "show-episode": 78
+  }
+ }
+}

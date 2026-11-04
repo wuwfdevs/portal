@@ -19,6 +19,9 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
   const { show, hosts, heroImage, line, episodes, totalEpisodes, acknowledgments, others } = data
   const [latest, ...earlier] = episodes
   const latestAudio = latest ? audioOf(latest) : null
+  // A syndicated program (Morning Edition) is one WUWF airs: its page is its airtime, a description and a link to its maker.
+  // It has no episodes here, no funder and no "more originals".
+  const syndicated = show.kind === 'syndicated'
 
   return (
     <article className="pb-20">
@@ -40,13 +43,13 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
         )}
       </header>
 
-      {acknowledgments.length > 0 && (
+      {!syndicated && acknowledgments.length > 0 && (
         <section aria-label="Funding" className="container mt-10 max-w-[52rem]">
           <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} />
         </section>
       )}
 
-      {latest && (
+      {!syndicated && latest && (
         <section aria-labelledby="latest-heading" className="container mt-12 max-w-[52rem]">
           <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700" id="latest-heading">
             Latest episode{latest.publishedAt ? ` · ${formatLongDate(latest.publishedAt)}` : ''}
@@ -67,10 +70,18 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
       {show.description && (
         <section aria-labelledby="about-heading" className="container mt-12 max-w-[52rem]">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-ink-3" id="about-heading">
-            About the show
+            {syndicated ? 'About the program' : 'About the show'}
           </h2>
           <RichText data={show.description} enableGutter={false} />
         </section>
+      )}
+
+      {syndicated && show.programUrl && (
+        <p className="container mt-8 max-w-[52rem] text-base">
+          <a className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={show.programUrl} rel="noopener" target="_blank">
+            More about {show.title}
+          </a>
+        </p>
       )}
 
       {hosts.length > 0 && (
@@ -86,38 +97,40 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
         </section>
       )}
 
-      <section aria-labelledby="episodes-heading" className="container mt-14 max-w-[52rem]">
-        <h2 className="font-serif text-3xl font-bold text-ink" id="episodes-heading">
-          All episodes
-        </h2>
-        {episodes.length === 0 ? (
-          <p className="mt-4 text-base text-ink-3">No episodes have been published yet.</p>
-        ) : (
-          <ol className="mt-4 flex flex-col divide-y divide-rule">
-            {[latest, ...earlier].filter((e): e is NonNullable<typeof e> => Boolean(e)).map((e) => {
-              const length = formatDuration(audioOf(e)?.durationSeconds)
-              return (
-                <li className="relative flex flex-col gap-1 py-4" key={e.id}>
-                  <p className="text-sm text-ink-3">{[e.publishedAt ? formatLongDate(e.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</p>
-                  <h3 className="font-serif text-xl font-bold leading-snug">
-                    {e.path ? (
-                      <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={e.path}>
-                        {e.title}
-                      </Link>
-                    ) : (
-                      e.title
-                    )}
-                  </h3>
-                  {e.meta?.description && <p className="text-base text-ink-2">{e.meta.description}</p>}
-                </li>
-              )
-            })}
-          </ol>
-        )}
-        {totalEpisodes > episodes.length && <p className="mt-4 text-sm text-ink-3">Showing the {episodes.length} newest of {totalEpisodes} episodes.</p>}
-      </section>
+      {!syndicated && (
+        <section aria-labelledby="episodes-heading" className="container mt-14 max-w-[52rem]">
+          <h2 className="font-serif text-3xl font-bold text-ink" id="episodes-heading">
+            All episodes
+          </h2>
+          {episodes.length === 0 ? (
+            <p className="mt-4 text-base text-ink-3">No episodes have been published yet.</p>
+          ) : (
+            <ol className="mt-4 flex flex-col divide-y divide-rule">
+              {[latest, ...earlier].filter((e): e is NonNullable<typeof e> => Boolean(e)).map((e) => {
+                const length = formatDuration(audioOf(e)?.durationSeconds)
+                return (
+                  <li className="relative flex flex-col gap-1 py-4" key={e.id}>
+                    <p className="text-sm text-ink-3">{[e.publishedAt ? formatLongDate(e.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</p>
+                    <h3 className="font-serif text-xl font-bold leading-snug">
+                      {e.path ? (
+                        <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={e.path}>
+                          {e.title}
+                        </Link>
+                      ) : (
+                        e.title
+                      )}
+                    </h3>
+                    {e.meta?.description && <p className="text-base text-ink-2">{e.meta.description}</p>}
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+          {totalEpisodes > episodes.length && <p className="mt-4 text-sm text-ink-3">Showing the {episodes.length} newest of {totalEpisodes} episodes.</p>}
+        </section>
+      )}
 
-      {others.length > 0 && (
+      {!syndicated && others.length > 0 && (
         <section aria-labelledby="more-heading" className="container mt-14 max-w-[52rem]">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-ink-3" id="more-heading">
             More WUWF originals

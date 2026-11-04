@@ -14,9 +14,12 @@ import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { formatLongDate } from '@/lib/format'
+import { jsonLdText } from '@/lib/live/jsonld'
+import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
 import { readingMinutes } from '@/lib/reading'
 import { getAcknowledgments } from '@/lib/underwriting/load'
 import { getCachedGlobal } from '@/utilities/getGlobals'
+import { getServerSideURL } from '@/utilities/getURL'
 
 const named = <T extends object>(value: T | string | number | null | undefined): T | null =>
   value && typeof value === 'object' ? value : null
@@ -46,6 +49,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
 
   return (
     <article className="pb-16">
+      <script type="application/ld+json">{jsonLdText(storySchema(storySeoInputOf(post, getServerSideURL())))}</script>
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
 

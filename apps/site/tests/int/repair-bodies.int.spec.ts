@@ -49,17 +49,17 @@ const oldRelatedBody = (intro: string) =>
     lex.paragraph([lex.text('The end.')]),
   ])
 
-async function importedStory(s: ConvertedStory, content: unknown) {
+async function importedStory(s: ConvertedStory, content: unknown, draft = false) {
   const p = await payload.create({
     collection: 'posts',
-    draft: false,
+    draft,
     overrideAccess: true,
     context: { disableRevalidate: true },
     data: {
       title: s.title, slug: s.slug, path: s.path, publishedAt: s.publishedAt, source: s.source, section, format: s.format,
       meta: { description: s.description },
       legacy: { legacyPath: s.legacy.legacyPath, groveId: s.legacy.groveId, modifiedAt: s.legacy.modifiedAt },
-      content, _status: 'published',
+      content, _status: draft ? 'draft' : 'published',
     } as never,
   })
   created.push(p.id)
@@ -100,6 +100,49 @@ describe('repairing the bodies of stories already imported', () => {
     expect(after._status).toBe('published')
   })
 
+  it('fills an episode saved with an empty body (the converter once read the wrong field), and says it filled it', async () => {
+    const episode = (key: string): ConvertedStory => {
+      const r = convertStory(
+        {
+          _template: '/media/episode/audio/RadioShowEpisodePage.hbs',
+          canonicalLink: `https://www.wuwf.org/show/acoustic-interlude/2026-10-03/repair-${run}-${key}`,
+          contentId: `${run}-${key}`,
+          headline: `Episode ${key} ${run}`,
+          description: 'An episode.',
+          datePublishedISO: '2026-10-04T05:01:00Z',
+          dateModifiedISO: '2026-10-04T17:06:49Z',
+          radioShowTitle: 'Acoustic Interlude',
+          radioShowUrl: 'https://www.wuwf.org/show/acoustic-interlude',
+          body: [{ items: ['<p>Idaho born, Boston bred.</p>'] }],
+          audio: [], lead: [], nprShow: false,
+        },
+        { embedHosts: [] },
+      )
+      if (r.status !== 'converted') throw new Error('expected a converted episode')
+      return r.story
+    }
+    const s = episode('ep1')
+    // A draft: a published story with no body and no audio is refused on save, and the staging episodes had audio. The body is what the old converter saved.
+    const post = await importedStory(s, lex.root([lex.paragraph([])]), true)
+    expect(visibleWords(post.content)).toBe('')
+
+    const dry = await repairBodies(payload, [s], { only: `repair-${run}-ep1` })
+    expect(rowFor(dry, s)).toMatchObject({ verdict: 'would-repair', filledEmpty: true })
+    expect(visibleWords((await read(post.id)).content)).toBe('')
+
+    const done = await repairBodies(payload, [s], { apply: true, only: `repair-${run}-ep1` })
+    expect(rowFor(done, s)).toMatchObject({ verdict: 'repaired', filledEmpty: true })
+    expect(visibleWords((await read(post.id)).content)).toBe('idahobornbostonbred')
+    expect(rowFor(await repairBodies(payload, [s], { apply: true, only: `repair-${run}-ep1` }), s)).toMatchObject({ verdict: 'unchanged' })
+
+    // An editor who has worked on an empty episode since the import keeps their work: it is not filled.
+    const s2 = episode('ep2')
+    const edited = await importedStory(s2, lex.root([lex.paragraph([])]), true)
+    await payload.update({ collection: 'posts', id: edited.id, draft: true, data: { content: lex.root([lex.paragraph([])]) } as never, overrideAccess: true, context: { disableRevalidate: true } })
+    expect(rowFor(await repairBodies(payload, [s2], { apply: true, only: `repair-${run}-ep2` }), s2)).toMatchObject({ verdict: 'skipped-edited' })
+    expect(visibleWords((await read(edited.id)).content)).toBe('')
+  })
+
   it('running it again changes nothing (the repaired story is current)', async () => {
     const s = convert('a', ['<p>Intro.</p>', RELATED, '<p>The end.</p>'])
     const again = await repairBodies(payload, [s], { apply: true, only: `repair-${run}-a` })
@@ -125,7 +168,7 @@ describe('repairing the bodies of stories already imported', () => {
   })
 
   it('leaves a story alone whose pictures are not all in the library, and never creates a file', async () => {
-    const s = convert('d', ['<p>Intro.</p>', '<p><img src="https://npr.brightspotcdn.com/aa/bb/photo.jpg" alt="x"></p>', RELATED, '<p>The end.</p>'])
+    const s = convert('d', ['<p>Intro.</p>', '<p><img src="https://npr.brightspotcdn.com/aa/bb/photo.jpg" alt=""></p>', RELATED, '<p>The end.</p>'])
     expect(s.assets.length).toBeGreaterThan(0)
     const post = await importedStory(s, oldRelatedBody('Intro.'))
     const rows = await repairBodies(payload, [s], { apply: true, only: `repair-${run}-d` })
