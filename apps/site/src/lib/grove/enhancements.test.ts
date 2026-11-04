@@ -90,6 +90,13 @@ describe('audio, quotes and modules', () => {
     expect(plain.nodes[0]).toMatchObject({ type: 'quote' })
     expect(JSON.stringify(plain.nodes[0])).toContain('— Faculty Senate')
   })
+  it('a BlockQuote (the newer quote template) becomes a quote with Grove\'s words, quotation and attribution together', () => {
+    const q = run(enh({ _template: T('quote/BlockQuote'), quote: '\u201cIt would take an unlikely series of events.\u201d Brief by attorneys' }))
+    expect(q.nodes[0]).toMatchObject({ type: 'quote' })
+    expect(JSON.stringify(q.nodes[0])).toContain('Brief by attorneys')
+    expect(q.ctx.entries).toEqual([])
+    expect(run(enh({ _template: T('quote/BlockQuote'), quote: '' })).ctx.entries.map((e) => e.code)).toEqual(['quote.empty'])
+  })
   it('a Facebook plugin frame becomes a link-only Facebook embed of the post itself', () => {
     const { nodes } = run(enh({ _template: T('module/ModuleType'), content: [{ _template: '/module/IframeModule.hbs', width: 500, height: 726, url: '//www.facebook.com/plugins/post.php?href=https%3A%2F%2Fwww.facebook.com%2FOkaloosaCounty%2Fposts%2F2779920965577382&width=500' }] }))
     expect(fields(nodes[0])).toMatchObject({ blockType: 'embed', url: 'https://www.facebook.com/OkaloosaCounty/posts/2779920965577382', title: 'View the post on Facebook' })

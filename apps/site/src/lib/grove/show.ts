@@ -7,15 +7,20 @@ import { arr, obj, str, template } from './enhancements'
 import * as lex from './lexical'
 import { bodyNodes } from './story'
 import { readModules } from './page'
+import { showKindOf, type ShowKind } from './syndicated'
 import type { AssetRef, AssetToken, LexicalState, StoryReport } from './types'
 
 const SHOW = '/media/show/audio/RadioShowPage.hbs'
+/** A podcast's own page (`/podcast/<slug>`): a show under another template, with a feed link Grove's apps subscribe to. */
+const PODCAST = '/media/show/audio/PodcastPage.hbs'
 
 export interface ConvertedShow {
   legacy: { groveId: string; legacyPath: string }
   /** The exact Grove address, e.g. `/show/classical-24`. */
   path: string
   slug: string
+  /** `syndicated` for a program WUWF airs but does not make (see `syndicated.ts`); otherwise `original`. */
+  kind: ShowKind
   title: string
   schedule: string | null
   description: LexicalState | null
@@ -36,7 +41,8 @@ export function convertShowPage(raw: unknown): ConvertShowResult {
   } catch {
     /* reported below */
   }
-  if (!j || template(j) !== SHOW) {
+  const isPodcast = template(j) === PODCAST
+  if (!j || (template(j) !== SHOW && !isPodcast)) {
     const ctx = new Ctx(groveId || 'none')
     ctx.note('page.not-a-show', template(j) || 'no template')
     return { status: 'skipped', reason: 'not-a-show', report: ctx.report(path, groveId) }
@@ -49,7 +55,10 @@ export function convertShowPage(raw: unknown): ConvertShowResult {
 
   const ctx = new Ctx(groveId || path)
   if (!groveId) ctx.fail('show.no-content-id')
-  const slug = /^\/show\/([^/]+)$/.exec(path)?.[1] ?? ''
+  const slug = /^\/(?:show|podcast)\/([^/]+)$/.exec(path)?.[1] ?? ''
+  // The address podcast apps subscribe to. There is no field for it yet, so it is reported, never dropped without a word.
+  const feed = /href="([^"]+)"/.exec(str(j.feedLink) ?? '')?.[1]
+  if (feed) ctx.note('show.feed-link-not-kept', feed)
   if (!slug) ctx.fail('show.no-address', path || 'no canonical address')
   const title = (plainText(str(j.headline)).text || plainText(str(j.title)).text.replace(/\s*\|\s*WUWF\s*$/i, '')).trim()
   if (!title) ctx.fail('show.no-title')
@@ -69,6 +78,7 @@ export function convertShowPage(raw: unknown): ConvertShowResult {
     legacy: { groveId, legacyPath: path },
     path,
     slug,
+    kind: showKindOf(slug),
     title,
     schedule: plainText(str(j.mediaSchedule)).text || null,
     description: nodes.length > 0 ? lex.root(nodes) : null,

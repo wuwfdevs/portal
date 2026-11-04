@@ -60,6 +60,17 @@ describe('planning a repair', () => {
   })
 })
 
+describe('an empty body', () => {
+  const empty = oldBody(para())
+  it('is filled when the converter now finds the story\'s words (an episode saved before the converter read its text)', () => {
+    expect(planRepair(empty, fresh('<p>Idaho born.</p>'))).toEqual({ kind: 'repair', linkLinesAdded: 0, typedMarkupPieces: 0, filledEmpty: true })
+  })
+  it('is left alone when the page has no words either, and a body that has words is never "filled"', () => {
+    expect(planRepair(empty, oldBody(para()))).toEqual({ kind: 'same' })
+    expect(planRepair(oldBody(para(text('Words an editor wrote.'))), fresh('<p>Idaho born.</p>'))).toEqual({ kind: 'same' })
+  })
+})
+
 describe('the words of blocks other than text and link lines count too', () => {
   const quote = (text: string, attribution = 'A neighbour') => ({ type: 'block', version: 2, fields: { id: 'q1', blockType: 'pullQuote', text, attribution } })
   const pic = (caption: string, extra: Record<string, unknown> = {}) => ({ type: 'block', version: 2, fields: { id: 'm1', blockType: 'mediaBlock', media: 7, caption, ...extra } })

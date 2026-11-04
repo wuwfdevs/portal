@@ -4,10 +4,62 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: work after PR 320 (merged 2026-11-02) continues on `claude/eloquent-thompson-7gpsj2` in `wuwfdevs/portal` (earlier session branches were merged: PRs 322 to 324). The brief this follows (the "project brief") and the
+Branch: the current work is on `claude/practical-brahmagupta-v01n90` in `wuwfdevs/portal` (see *Resume here*); earlier session branches were merged (PRs 320 to 332). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Resume here (end of the 2026-11-03 session)
+## Resume here (end of the 2026-11-04 session: the migration gaps assessment)
+
+**Branch:** `claude/practical-brahmagupta-v01n90` (`wuwfdevs/portal`), pushed; 16+ commits ahead of `claude/main`, 0 behind, a trial merge is clean. **A PR for it is
+the next step** (the repo's PR-text check needs Summary, What changed and Test plan sections; lead the description with *what to review*: about 1,300 lines of code,
+tests and docs; the other ~29,000 added lines are one generated migration snapshot (20,501) and census data (8,424), nothing to read). Full suite: **89 files, 1,123
+tests pass**; typecheck and production build pass; lint 0 errors (4 warnings in the starter's e2e tests); `verify:migrations` passes. Nothing was deleted to shrink it:
+the old migration snapshots (the ROADMAP lesson says keep only the newest) and the probe manifest can be trimmed in a later PR.
+
+**What this session did** (the details are under *URL inventory and disposition*, near the top of *Grove migration*): re-read all 276 sitemaps (200,964 URLs) and probed
+the pages outside the census; found **1,433 more WUWF stories** (`news` 252, `music-arts` 57, nine small sections 116, `florida-news` 1,008) and 36 podcast episodes, so about
+6,500 stories to migrate; the converter handles all of them. Built: podcast converter, **episode text fix** (episodes read the wrong field and saved empty), link map and
+`linkMap` (wire and old `/post/` links repointed or removed), **syndicated programs** (`kind` on productions, migration `20261104_182013`), episode-body repair, **real page
+metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle` data), and the owner decisions recorded below.
+
+**Next, in order** (the first four are code; each is described where noted):
+1. **Podcast feeds** at `/podcast/<slug>/rss.xml` for EcoMinutes and Acoustic Interlude Sessions (guid = the story's `legacy.groveId`; see *Show pages and feeds*).
+2. **Cutover plumbing:** a 410 fallback for a bare `/YYYY-MM-DD/slug` that is not a record (records are looked up first, so a published wire story is safe); the show
+   consolidation to `/shows/<slug>` with permanent redirects (after the import); a **sitemap index** (the current sitemaps read at most 1,000 records); `/show/14-59` is a dead
+   sitemap entry (410).
+3. **Importer to staging** with `--link-map census/url-inventory/link-map.json`, then the rehearsal steps below; and mark the 35 syndicated programs (the importer does it).
+4. **The reviewed LLM pass** for alt text (63% of 5,455 images have none), short or missing descriptions (5%) and topic suggestions (35% have none): **suggest-only**, a staff
+   review queue, checks against the story's own text, a 100-story hand check first. **Needs the owner's go-ahead and an API key.** Not started.
+   *Design as proposed to the owner (2026-11-04):* a one-off script, not a runtime feature (the site must not depend on an AI service being up). Output goes to a
+   **staff-only review queue** with provenance (model, date, prompt version); the site uses only approved values and the Grove original is kept for rollback. **Descriptions:**
+   built only from the story's own text, 70 to 160 characters; every name, number, date and quotation in the output must appear in the source or it is dropped, then a
+   second faithfulness check against the source; a wire story may only have its headline, teaser or description changed. **Alt text:** describe what is visible, never name a person
+   from a face (only from a caption, credit or the body), flag low confidence, skip decorative images; review with the picture beside the suggestion. **Topics:** choose only from the
+   existing 905 tags (a closed list, at most three), never invent one. **Before bulk:** hand-check about 100 stories and proceed only if the substantive error rate is low, then sample
+   each batch. Confirm first that sending News Service of Florida and AP text to a third-party service is allowed by those licences.
+5. Then the earlier build program: short video (5), RadioLive (6), Barefoot Mary and member feeds (7: design with the owner first), and filling the homepage slots (9).
+
+**The cutover pipeline: what is needed and what was dropped (agreed with the owner, 2026-11-04).** The test for what to build is the *silent* failures: a loud one (a held story, an
+exception, a 404) shows up in rehearsal; the one silent failure we had was episode text vanishing while everything said "clean". **Needed, in order:** (1) **the fidelity checker, DONE**
+(`scripts/grove/check-fidelity.ts`, `src/lib/grove/fidelity.ts`, see `IMPORT.md`); (2) **the full fetch** of every WUWF-made page not yet fetched (about 3,590 local stories, 486 show
+episodes, about 1,460 events, and the credited authors; roughly 6,000 requests, about 6 hours; the owner's approval first; the census runner's `pnpm census run` extends along the plan);
+(3) **one full rehearsal on staging**, plus a small **post-import check script** (the story count matches the source; every migrated page answers 200 with a real title and some body text;
+images load); (4) **a database backup before the production import, and a content freeze on Grove during the final run** (a checklist step, not code). **Dropped for now:** a general delta mode
+for the importer (with a freeze, the few changed stories can be replaced one by one), a coverage report for all 200,964 URLs (the policy is decided; spot-check a sample of the 410s), a scripted
+undo (the backup covers rollback), and elaborate pass/fail gates (the rehearsal's report is enough). **Known gaps in the importer, for whoever builds (3):** a story already in (matched by
+Grove id) is left alone, so an edit made on Grove after the import never arrives (the body repair only fixes specific cases); and nothing checks the database after a save.
+
+**Waiting on the owner:** the wire address shape (recommended: keep `/{YYYY-MM-DD}/{slug}`, origin in `source`, canonical to the publisher; *Wire story address shape*);
+Search Console access (page indexing and links exports); how CDS stories are addressed; the licence terms question for News Service of Florida and AP text sent to a third-party
+LLM; the six ambiguous link targets (`needsDecision` in the link map); `programUrl` for each syndicated program (editors, in the admin); whether new EcoMinutes episodes are MP3
+not WAV; **running on the owner's computer:** the episode body repair against staging (dry run, then `--only` one, then all) and the importer rehearsal.
+**Keep `census-raw-005` to `-007`** (the only copy of the 2,072 raw WUWF pages fetched today) with `-001` to `-004`.
+
+**Tooling that survives the sandbox:** `scripts/census/gap-probe/` (how to refresh the inventory and counts before cutover; read its README first),
+`census/url-inventory/` (every count, the link map and its answer cache, the show table), `scripts/grove/resolve-links.ts`. A fresh sandbox needs Postgres brought up (below) and
+`apps/site/.env.local` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site` plus the secrets from `.env.example`; gitignored).
+
+### Previous hand-off (end of the 2026-11-03 session; kept for its staging, infrastructure and sandbox notes; **its branch and PR 325 lines are out of date**: PR 325 and later were merged)
+
 
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
@@ -221,6 +273,161 @@ The raw sitemaps and sample responses were kept in the session's scratch space, 
 the sandbox. To regenerate: read `https://www.wuwf.org/sitemap.xml` (an index of `sitemap-YYYYMM.xml` files), fetch each
 with a neutral User-Agent (no contact information of any kind) and at least 3 s between requests (robots.txt allows all), and tally by
 path shape. Re-fetch the sample below the same way with `?_renderer=json`.
+
+### URL inventory and disposition (2026-11-04): what the census left out
+
+All 276 monthly sitemaps were read again (neutral client, 3 s apart, robots.txt allows all): **200,964 URLs**. Data in `census/url-inventory/`
+(counts `summary.json`; every non-wire URL `ledger-non-wire.csv.gz`; `standalone-dispositions.csv`; the probe `probe-manifest.tsv`; `inventory.py`
+rebuilds it from the sitemaps). Every row's disposition is **undecided or proposed, never decided**. Shapes: wire `/DATE/slug` 185,389; local-section
+stories 5,087; stories in **other sections** 5,959; events 1,477; people 1,147; tags 905; show episodes 501; standalone pages 411; show pages 42;
+live blogs 3; odd shapes 42 (including `/podcast/...`).
+
+**Gap probe (794 pages, all HTTP 200 but one URL with a space).** Origin by the census rule (canonical host, then source organization):
+- `news` (385 URLs, 2016 to 2021): **67 of 100 WUWF** (about 258 stories). `florida-news` (4,810): 17 WUWF, 4 ambiguous, 79 partner (about 820 WUWF, range
+  470 to 1,170, wide because it rests on 17 hits). `music-arts` (616): 7 WUWF (about 43). Odd sections (`civics-101`, `through-the-lens`, `america-250`,
+  `eco`, `blog`, `live-event`, `election-2024`, `arts`, `science`; about 140 URLs): 40 of 45 WUWF. **So roughly 1,100 to 1,500 WUWF stories sit outside
+  the sections the census sampled.** The earlier line "florida-news was a statewide partner" is true of most of it, not all.
+- **The converter handles them.** 345 pages from those sections: 131 converted (126 clean, 5 review for NPR Pym scripts), 214 skipped (210 external, 4
+  ambiguous), **0 disagreements between the converter and the census classifier**, 0 problems, deterministic. New: 18 stories carry JW Player and
+  `wuwf.tv` video (click-to-load, no approval needed).
+- **Update (2026-11-04, same day): the other sections were fetched whole, so these are counts, not estimates** (`probe-manifest.tsv`, every page 200,
+  no blocks). `news` 252 WUWF of 385; `music-arts` 57 WUWF + 2 ambiguous of 616 (the estimate said 43); the nine small sections 116 WUWF of 132
+  (`arts` 30, `science` 20, `civics-101` 14, `blog` 13, `eco` 11, `through-the-lens` 9, `america-250` 7, `election-2024` 6, `live-event` 6). **That is 425
+  more WUWF stories than the local-section census covered, before `florida-news`**, which is being fetched in random order (138 of 4,810 so far: 27
+  WUWF, 6 ambiguous, 105 partner; about 20% WUWF, so roughly 900 to 1,000 more). Converter on the 319 WUWF-host pages of the whole sections
+  (`convert-full-strata-summary.json`): 315 converted (301 clean, 14 review), 0 exceptions, 0 problems, deterministic; 4 skipped as ambiguous.
+  New findings in them: 5 stories (`science` "Skies of the Gulf Coast" and one `news` piece) have a YouTube address **split by Grove's own data**
+  (the embed holds `https://youtu.be/FV4G`, the next paragraph begins `-xis2hM`): the converter refuses the short id and flags it
+  (`embed.unsupported-link`); a person can join them, it is not guessed. 14 stories are bylined "News Service of Florida" and 15 "Staff report".
+- **Final (2026-11-04): `florida-news` fetched whole** (all 5,598 pages of the extended fetch returned 200; no blocks). Of 4,810 pages: **1,008 WUWF, 189
+  ambiguous, 3,613 partner or NPR**. Converter on the 1,197 WUWF-host pages: **1,008 converted (741 clean, 267 review), 189 ambiguous skipped, 0 exceptions, 0
+  problems**, deterministic. A newer quote template, `/core/quote/BlockQuote.hbs` (5 stories), is now a plain quote (the quotation and its attribution
+  arrive as one string; not split). WUWF stories by year are 2021 to 2026, none earlier.
+  **Totals outside the local sections, all counted:** `news` 252, `music-arts` 57, nine small sections 116, `florida-news` 1,008 = **1,433 WUWF stories**, plus
+  36 podcast episodes; with the local sections that is about 6,500 stories to migrate. Raw pages for every WUWF-host page fetched (2,072) went to the owner as
+  `census-raw-005` to `-007`.
+- **Wire-service copy that Grove calls WUWF's: decided (owner, 2026-11-04) — it migrates as WUWF's, "same rights as before".** Grove sets the source
+  organization to WUWF on stories that carry a wire byline, so the origin check passes them. The converter's count over every page fetched is **300 stories:
+  263 in `florida-news` (233 News Service of Florida, 30 AP) and 37 in `news`**, 26% of `florida-news`'s WUWF stories. They convert and import like any story;
+  `origin.wire-byline` is a note (not a hold), so they can be found. Still true: 78 of the 515 sampled `florida-news` WUWF pages have **no source
+  organization** (the classifier reads that as WUWF), and 67% of the section's WUWF pages have no byline.
+- **Watch:** 4 converted stories are bylined "News Service of Florida" (a wire service) and 2 `florida-news` stories have **no source organization**,
+  which the classifier reads as WUWF. Owner to say whether those are WUWF's to archive.
+- **Podcast pages: converter built (2026-11-04).** `/media/episode/audio/PodcastEpisodePage.hbs` and `/media/show/audio/PodcastPage.hbs` (the 36 + 2
+  `/podcast/...` pages fetched are all WUWF's) convert like radio episodes and shows, at their exact `/podcast/<slug>` addresses (the show path hook accepts
+  them; `/podcast` is not reserved, only `/podcasts`). On the real pages: 30 episodes clean, 6 `review` (the `ecoheroes` episodes are hollow in Grove too:
+  a title and a description, no audio, body or picture; new codes `episode.no-audio` and `episode.hollow-page`), both shows convert. **Grove's podcast feed
+  address (`/podcast/<slug>/rss.xml`) has nowhere to go yet** and is reported as `show.feed-link-not-kept`: podcast apps subscribe to it, so the feed
+  needs a decision before cutover.
+- **`SectionPage` (16) and `Page.hbs` (6) need no converter.** Read 22 real pages: `main` is containers holding promo lists and, on `/ap`, two
+  iframes; there is no editorial text and no body. They are curated listings. `SectionPage` addresses (`/news`, `/local-news`, `/music-arts`,
+  `/florida-news`, `/eco`, ...) are served by the generated section lists (a real page at an address wins over a list, so create no page for them);
+  `america-250`, `civics-101`, `eco`, `election-2024`, `through-the-lens`, `wake-up` and `your-florida` are hub candidates if the owner wants a
+  curated front (Unearthing Florida's hub exists). `Page.hbs`: `d`, `eb`, `testpage` look like tests, `ecoheroes` should redirect to
+  `/podcast/ecoheroes`, `ap` and `wuwf-coronavirus-live-blog` need a read. Dispositions are in `standalone-dispositions.csv`.
+- **Grove serves redirects that no sitemap lists, and they are not derivable.** Old `/post/<slug>` addresses answer 301 to the story's current address
+  (3 of 3 tried), but the old slug is not the new one (`/post/delta-forecast-become-category-4-hurricane-it-approaches-gulf` goes to
+  `/2020-10-06/delta-forecast-to-become-category-4-hurricane-as-it-approaches-gulf`: the old slug dropped words). The table exists only inside
+  Grove, which has no export. **Our own stories link to them:** in the 131 newly converted stories, 5 of the 30 own-site links are `/post/...`, 3 go
+  to bare wire stories and 9 to `/radiolive`; so a migrated story can carry a link that is a 301 on Grove and would be a 404 here. The full count
+  needs the converted corpus. **Proposed:** at conversion time, resolve each distinct `/post/` link in a migrated story with one request (3 s apart,
+  redirect not followed) and rewrite it to the target when the target is migrated; and use Search Console to find out whether outside sites link to
+  `/post/` addresses at all (that is the only way to size the unlisted redirects).
+- **Bug found and fixed in passing: episodes lost their text.** Radio and podcast episodes keep their text in `body`; the converter read `articleBody` for
+  every page, so an episode's body came out empty with no report. The real `/2021-10-01` episode shows it; the tally confirms `body` on the 15 probe
+  episodes. The existing episode test passed because it never looked at the content (it now does, and was mutation-checked: restoring the old key fails 3
+  tests). **The 15 census episodes, and any episode already on staging, were converted by the old code: re-run the converter and re-import or repair
+  them** (`repair-bodies.ts` skips a story whose words differ, so the bodies need a separate step). The raw pages are on the owner's computer.
+- **411 standalone pages**, proposed (by name, not yet read): about 125 UWF event webcasts and 51 UWF Board of Trustees pages (UWF content: owner
+  decision), 42 test pages (drop), 32 station-information pages (keep as standard pages), 20 schedule and weather pages (replaced), 16 section
+  landing pages, 119 to read.
+
+**Decisions (owner, 2026-11-04, after the SEO reasoning below).**
+- **Wire stories: gone, not archived, not redirected.** Every sampled bare wire page carries a `rel=canonical` to the original publisher (0 of 70 WUWF), so
+  search engines already treat the original as canonical; our copy earns nothing and a redirect would only pass equity to NPR. All wire URLs (bare
+  `/DATE/slug`, and the partner and NPR stories under `news`, `music-arts`, `florida-news` and the local sections) answer **410 Gone** with a plain "no longer on
+  wuwf.org" page (status 410, never a 200 landing page, which would be a soft 404). No redirect-out table is needed (the fetch recorded only the canonical
+  host, not the link). **Exception 1:** a link inside a *migrated* story to a wire story we will not keep is rewritten at conversion time to the original
+  publisher's address, or left as plain text (converter work, not built). **Exception 2:** the ambiguous WUWF-hosted copies (our canonical, another
+  organization named; about 170 in `florida-news`) are decided separately. **Verify once:** Search Console "Page indexing" should list these as "alternate page
+  with proper canonical".
+- **Shows: one pattern.** `/show/<slug>` (older template) and `/podcast/<slug>` (from December 2021) are the same concept. Import with Grove's exact paths first,
+  then consolidate shows and their episodes (about 580 URLs) to `/shows/<slug>` with permanent redirects in one deliberate step (the path-change redirect
+  machinery exists). This reopens "migrated shows keep Grove's exact `/show/<slug>` address". NPR-distributed show pages (about 30 of 42) are not archived: 410.
+- **UWF webcast and Board of Trustees pages (176): 410, with one archive page for the ones that still play.** 173 of 176 are shells under 30 words and 80 have no
+  video at all; 65 embed `livestream.com` (a third-party service whose embeds may no longer play; unchecked). The pages with a working Vimeo or YouTube video
+  (the CSV marks them `archive-page`) go on one archive page if UWF links to them (Search Console links report), otherwise 410. WUWF still streams UWF meetings
+  (`bot-december-2025`, `bot91825`), so a small **webcasts collection** (event type, date, stream) is a justified *new feature*, separate from the migration.
+- **Podcast feeds: serve a feed at the same address (owner, 2026-11-04).** Grove serves `/podcast/<slug>/rss.xml` per show and podcast apps and directories
+  subscribe to it. The site must answer at the same address with the same `<guid>` for each episode (apps identify an episode by its guid; the audio
+  address may change). Needs: read each old feed once to copy its guids, channel fields and categories; a feed route for a show; the audio in our storage.
+  NPR-distributed shows' feeds are NPR's and are not served here (check first whether Grove serves any under the station's address).
+- **Wire stories going forward: the CMS will import wire stories and let editors choose which to publish (owner, 2026-11-04).** This is new work, separate from the
+  migration. Consequence for the 410 rule: a wire story chosen for publication is a *record*, and a record is looked up before any fallback, so the fallback
+  "a bare `/YYYY-MM-DD/slug` that is not a record answers 410" cannot catch a published wire story. If the ingest gives published wire stories the same bare
+  shape (the slug rule is the headline in kebab case), recent NPR addresses keep resolving; any other shape works too. Decide the shape before the ingest is built.
+- **Link map built and applied (2026-11-04; owner-approved requests), now over the whole corpus.** `scripts/grove/resolve-links.ts` converted all **2,967 stories**
+  (the 1,513 census stories plus the 1,454 fetched today), found 540 distinct own-site links, and asked Grove about the 401 that point at a wire story, an old
+  `/post/<slug>` address or a story not in the migrated set (about 500 requests in all, 3 s apart, no errors). Answers: **189 partner or NPR stories** (link
+  repointed to the publisher's address), **64 old `/post/` addresses that Grove 301s to a WUWF story** (repointed to its current address), 138 WUWF stories at their
+  own address (left), **4 gone** (link removed, words kept), and **6 ambiguous** WUWF-hosted copies of partner stories (left; listed under `needsDecision`). Map:
+  `census/url-inventory/link-map.json` (257 entries, 289 affected links, no page content). `convertStory` takes it as `linkMap`; `convert-corpus.ts` and `import.ts`
+  take `--link-map <file>`: **run the importer with it.** The 1,500 local-section pages are covered (owner's zips, checksums verified).
+- **Census checks on the owner's zips (2026-11-04).** The 1,566 census pages convert exactly as before (1,513 converted, 1,509 clean, 4 review, 0 exceptions, 0
+  problems). **Wire bylines in the local sections: only 4 stories (all News Service of Florida)**, so the roughly 300 are in `news` and `florida-news`. **All 15 episodes had
+  0 words under the old converter and now carry 13 to 92 words each**; 6 of them (`/show/14-59`, whose show page is a 404) have no audio (`episode.no-audio`). The body
+  repair (`repair-bodies.ts`) now also fills a body that holds no words when the Grove page has some, and still leaves any story an editor touched
+  (`filledEmpty`; unit and integration tests, both fail without the rule). **To do on the owner's side: dry run, then `--only` one episode, then all, against staging.**
+  One existing repair test had been failing since the repair began counting picture alt text as words; it now tests what it was written for.
+- **Fidelity check built, and it found a real converter bug (2026-11-04).** `check-fidelity.ts` compares each Grove page with its converted story, reading the page without the converter's
+  code (paragraph by paragraph, pictures, audio and video, path, Grove id, title, date). Over the 2,936 real stories we have: **2,915 pass, 21 warn, 0 fail** (the warnings are Grove's own
+  corrupted embed JSON and malformed addresses, which the converter already reports). With the old episode bug put back, it fails all 15 census episodes ("the page has 53 words; the story has none").
+  **The bug it found:** an inline link's text came out with a literal `&amp;` ("Boys &amp; Girls Club of the Emerald Coast", 23 links) because the converter escaped text that Grove had already
+  HTML-encoded. Grove's link text is HTML (of 5,437 inline links: 23 hold `&amp;`, 120 other entities such as `&nbsp;`, 522 real tags such as `<b>Donate Here</b>`); it is now read once and written
+  back balanced (an unclosed `<b>` cannot leak). **75 of 2,936 stories change** (51 only in how text runs are split, formatting identical word for word; 15 lose a stray `&amp;` or `&nbsp;`; 9
+  show `>>>` instead of `&gt;&gt;&gt;` or lose a typed `<h2 label=…>` that was visible as text), and none loses a word. **Grove's corrupted embeds (the `brightspot-cms-external-content`
+  JSON in link text, 10 stories) are deliberately left exactly as they were**: reading them as HTML would have swallowed the video address inside, and the rule is never to drop what cannot be
+  mapped; they still need the owner's decision (each could become an embed). Tests: 20 new (mutation-checked: restoring the old escaping fails 3).
+- **Page metadata fixed (2026-11-04).** `generateMeta` was the Payload starter's placeholder: **every migrated story's browser title was "Payload Website Template"** (the importer
+  sets no SEO title) and every share image the starter's. Now (`src/lib/seo/meta.ts`, pure, tested; `utilities/generateMeta.ts`): title = SEO title, else the story's
+  title (the layout adds "| WUWF"); description = SEO description, else the dek, trimmed at a sentence or word to 160 characters (848 of 2,936 stories had longer);
+  share image = SEO image, else the lead photo (a photo, a gallery's first, a video's poster), else the station logo; `og:type` article with published and modified times
+  (Grove's modified date for a migrated story, never import time), authors and section; a large Twitter card when there is a picture; **`NewsArticle` structured data** on every story;
+  shows get a canonical and a share image; the starter's "Payload Website Template" titles on `/search` and `/posts` are gone. Production build passes; checked on the served pages of a seeded story with a lead photo, byline and dek and one with nothing but a title: browser title, description, `og:` and `article:` tags, Twitter card, canonical and the `NewsArticle` data are right in both, and no placeholder appears anywhere. A story with no description gets the station's tagline from the default Open Graph, not nothing.
+- **A migrated record's modified date is never the import time (review point, 2026-11-04).** `updatedAt` starts as the moment of the import, so `legacy.modifiedAt ?? updatedAt` would present an
+  archived story as just updated (Open Graph `modifiedTime`, `NewsArticle.dateModified`) whenever Grove gave no modified date. One shared rule now (`modifiedAtOf` in `lib/seo/meta.ts`): a migrated
+  record (any of the Grove id, path or modified date set) is dated by **Grove's modified date and nothing else**; with none, the metadata omits `modifiedTime` and the structured data uses the
+  publish date. **The posts and pages sitemaps had the same mistake** (`lastmod: updatedAt`, which would have told search engines all ~6,500 migrated stories changed on import day): they now use
+  `sitemapEntry` (the modified date, else the publish date, else no `lastmod`; never an invented one). In the real data all 2,936 stories have a Grove modified date, so this guards the case rather than
+  fixing a seen one. Still true: an edit an editor makes to a migrated story in the new CMS does not move its modified date (it stays Grove's); that is a known limit, not a decision. Measured gaps that remain (2,936 stories): 63% of images
+  have no alt text (3,442 of 5,455), 35% of stories no topics, 29% no byline (the "WUWF Staff" rule applies), 5% a short or missing description. **Proposed, not built:** a reviewed,
+  suggest-only LLM pass for alt text, short descriptions and topic suggestions from the existing tags (see the owner's question 2026-11-04); needs the owner's approval and an API key.
+- **Wire story address shape (recommended, awaiting the owner):** keep Grove's `/{YYYY-MM-DD}/{slug}` (no section, Central date, headline slug), with the origin in the
+  `source` field, `rel=canonical` to the original publisher, left out of our sitemap and labelled "From NPR". Gives restore-by-address for chosen old stories and
+  continuity for the cutover week; needs a collision rule (same headline, same day).
+- **Show pages and feeds, read (2026-11-04; 44 pages and 2 feed files, owner-approved).** 43 of the 44 show pages answer 200 (`/show/14-59` is a dead sitemap entry:
+  404). **`nprShow` is false on every one of them, including Morning Edition and Fresh Air**, so the converter's "NPR-distributed show is not archived" skip never fires
+  for a show page: all 42 would import as WUWF productions (the record an underwriting agreement attaches to, listed in `/podcasts`). A syndicated program is not
+  that. The pages are thin: a weekly schedule line (`mediaSchedule`, all 42 have one: "Weekdays 5:00 a.m. - 9:00 a.m.") and 0 to 13 words, except Acoustic Interlude
+  (110) and the two podcasts. **Keep a page for every program (owner, 2026-11-04 reading of "keep pages for NPR podcasts")**: the local airtime is the value and a
+  local search ("Morning Edition WUWF") lands there; link out to NPR's own page for the program; no NPR episodes. The 42 programs together are the station's weekly
+  schedule, so they also seed the schedule feature. `census/url-inventory/show-pages.csv` lists them with a guessed kind (syndicated / station-made / unsure) for the
+  owner to correct. **Built (owner approved the schema change, 2026-11-04): a `kind` on productions.** `original` (default) or `syndicated`, plus an optional `programUrl` (http or https; the
+  program's own page, shown as "More about <program>"). A syndicated program has a page with its airtime and description; it has **no episodes** (a story cannot be filed
+  under it: `posts.production` is limited to originals), **no funder** (a save with an underwriting agreement is refused by `hooks/syndicatedRules.ts`, whoever saves),
+  and is **not in `/podcasts` or "More WUWF originals"**. Migration `20261104_182013_syndicated_programs` (adds the column with default `original`, so existing rows stay
+  original; up, down and up tested on a row; `verify:migrations` passes). The converter marks the owner's list of 35 programs (`src/lib/grove/syndicated.ts`: the 29 I had
+  guessed plus the six "from other providers": `big-bands-and-jazz`, `musical-gumbo`, `jazz-happening-now`, `florida-frontiers`, `capital-report`, `the-thistle-shamrock`);
+  any other show is original, so a new show defaults to original. The importer saves a syndicated program with `kind` and `listed: false` and **corrects one already in**
+  (staging may hold some from the sample). `programUrl` is not filled by the import (Grove has no such address): editors add NPR's page in the admin. 6 new integration
+  tests (mutation-checked: removing the directory filter, the agreement rule or the episode limit fails exactly one each) and 2 converter tests. Production build passes; checked in a browser at 1440 and 390 px on a seeded Morning Edition (syndicated) and Acoustic Interlude (original): no overflow, the syndicated page shows only title, summary, airtime and the 44 px link out, and `/podcasts` lists only the original.
+  **Feeds: only two exist** — `/podcast/the-ecominutes/rss.xml` (9 items) and `/podcast/acoustic-interlude-sessions/rss.xml` (19 items). No `/show/` page names a feed,
+  and `ecoheroes` and `conversation-on` have no show page or feed (404). Format to reproduce: RSS 2.0 with `itunes:` tags (image 1400x1400, category, explicit,
+  type `episodic`, author on one), `<guid isPermaLink="false">` equal to the episode's **Grove contentId, which every migrated story already keeps as
+  `legacy.groveId`**, so guids cost nothing to keep; enclosures are NPR-hosted (`cpa.ds.npr.org`) today and will be our storage after the copy (apps identify an
+  episode by guid, so the change is safe); EcoMinutes enclosures are WAV files (about 214 MB for one episode), which is heavy for subscribers and for storage egress:
+  consider MP3 for new episodes (a decision, not made).
+- **Still open:** NPR show pages (see below); Search Console access; what the 410 fallback does for addresses CDS has since removed.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
 
@@ -732,6 +939,19 @@ signed-in account page, not CMS content.
   migrations' rollbacks were fixed and tested (`DROP CONSTRAINT IF EXISTS` after a `DROP TABLE ... CASCADE`).
 - A passing test proves little until you have broken the code and watched it fail. The underwriting tests were
   mutation-checked.
+- **A background fetch runs only while a tool call is active, and a container restart kills it.** Make every long job resumable (a status file per item), start it with `nohup`, keep a
+  watcher alive for it (a watcher is capped at 2 hours), and check `pgrep` after any restart; the disk survives, the process does not. The local Postgres also stops when the sandbox
+  idles (restart command under *Previous hand-off*, "Working in the cloud sandbox"; a missing database shows up as every integration test skipped by a setup error, not as a failure of the test you changed).
+- **Another session's uploads are not visible.** Files shared with a different session are on that session's machine; ask the owner to upload them into the one that needs them
+  (`/root/.claude/uploads/...`), and verify them against the owner's checksum file.
+- **Grove's `nprShow` flag is false on every show page,** Morning Edition included; whether a program is syndicated is the owner's knowledge (`src/lib/grove/syndicated.ts`).
+- **A published story with no body and no audio is refused on save** (a body is required unless audio or a picture carries it): a test that needs an empty body saves a draft.
+- **Payload enforces a relationship's `filterOptions` on save,** not only in the admin picker (an episode cannot be filed under a syndicated program; tested).
+- **A converter that reports "clean" has not shown the text arrived.** See the episode note: assert on content, not on a status count.
+
+- **A "clean" report on an empty result is not clean.** Episodes read `articleBody`, which they do not have, and converted "clean" with no text for
+  weeks because the converter's test and the corpus summary counted statuses and never looked at content. When a page type is added, assert that its
+  text arrives, and check a real page's key names against the tally (`census/tally.json`, group `probe`), not a fixture written from memory.
 
 - **Restricted blocks need a hook on every collection that takes story-style content.** The story body editor (`fields/bodyEditor.ts`) includes
   the script widget (publisher-only) and preserved HTML (administrator-only), and Payload does not enforce a block's own access inside rich

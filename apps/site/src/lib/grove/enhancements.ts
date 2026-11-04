@@ -177,6 +177,17 @@ export function objectNodes(o: JsonObject, ctx: Ctx, align: 'full' | 'left' | 'c
       ctx.count('quote')
       return [lex.quote([lex.text(quote), ...(attribution ? [lex.linebreak(), lex.text(`— ${attribution}`)] : [])])]
     }
+    case 'BlockQuote': {
+      // Newer pages (2021 on) quote with `BlockQuote`: one string that holds the quotation and, after the closing mark, who said it.
+      // The words are kept exactly as Grove has them; they are not split, because where the quotation ends is a guess.
+      const quote = plain(o.quote, ctx, 'quote')
+      if (!quote) {
+        ctx.note('quote.empty')
+        return []
+      }
+      ctx.count('quote')
+      return [lex.quote([lex.text(quote)])]
+    }
     case 'ModuleType': {
       const out: LexNode[] = []
       for (const c of arr(o.content)) {

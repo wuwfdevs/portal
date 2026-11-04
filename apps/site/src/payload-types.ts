@@ -435,6 +435,9 @@ export interface Post {
     };
   };
   series?: (number | null) | Series;
+  /**
+   * The WUWF production this episode belongs to. A syndicated program has no episodes here.
+   */
   production?: (number | null) | Production;
   /**
    * Unearthing Florida: the place this episode is about. Shown on the hub's map.
@@ -1150,7 +1153,7 @@ export interface Series {
   createdAt: string;
 }
 /**
- * An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show.
+ * An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show. A program WUWF only airs (Morning Edition) is also kept here, marked syndicated: it gets a page with its airtime, and no episodes, funders or directory listing.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "productions".
@@ -1200,9 +1203,17 @@ export interface Production {
     [k: string]: unknown;
   } | null;
   /**
-   * Show this in the podcast directory.
+   * Show this in the podcast directory. A syndicated program is never listed there.
    */
   listed?: boolean | null;
+  /**
+   * A syndicated program has a page with its airtime and a link to its maker. It has no episodes, cannot carry an underwriting agreement, and is not in the podcast directory.
+   */
+  kind: 'original' | 'syndicated';
+  /**
+   * The program's own page, for example on npr.org. Shown as a link on this page.
+   */
+  programUrl?: string | null;
   /**
    * Set by the migration. Leave empty for new shows.
    */
@@ -2944,6 +2955,8 @@ export interface ProductionsSelect<T extends boolean = true> {
   hosts?: T;
   description?: T;
   listed?: T;
+  kind?: T;
+  programUrl?: T;
   legacy?:
     | T
     | {

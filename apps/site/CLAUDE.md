@@ -23,7 +23,7 @@ change them to match the Portal, and never touch the Portal's dependencies from 
 The reviewed design canvas ("WUWF.org Home Redesign", 26 boards) and the WUWF Design System are the source
 for layout, copy and tokens. Where the brief and the boards differ, the boards win on layout and copy.
 
-- Shows live at `wuwf.org/shows/<slug>`; a marketing domain (e.g. barefootmary.com) redirects into it. A show is an **original production** (the record an underwriting agreement attaches to); an **episode is a story** (`format: audio`) that belongs to it. Migrated shows keep Grove's exact `/show/<slug>` address.
+- Shows live at `wuwf.org/shows/<slug>`; a marketing domain (e.g. barefootmary.com) redirects into it. A show is an **original production** (the record an underwriting agreement attaches to); an **episode is a story** (`format: audio`) that belongs to it. Migrated shows keep Grove's exact `/show/<slug>` address. A program WUWF airs but does not make (Morning Edition) is a production of kind `syndicated`: a page with its airtime and a link out, no episodes, no underwriting agreement, not in the podcast directory.
 - **There is no podcast subscription product.** Supporting a show means becoming a WUWF sustaining member;
   member benefits arrive as private podcast feeds. The language is "donate to get", never "subscribe".
 - Audience listening is native to this site, not an embed of the Portal's tool; it reuses the Portal's

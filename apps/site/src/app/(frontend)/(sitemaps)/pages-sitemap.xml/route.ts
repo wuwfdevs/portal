@@ -3,6 +3,8 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { unstable_cache } from 'next/cache'
 
+import { sitemapEntry } from '@/lib/seo/meta'
+
 const getPagesSitemap = unstable_cache(
   async () => {
     const payload = await getPayload({ config })
@@ -27,6 +29,8 @@ const getPagesSitemap = unstable_cache(
         slug: true,
         path: true,
         updatedAt: true,
+        publishedAt: true,
+        legacy: { groveId: true, legacyPath: true, modifiedAt: true },
       },
     })
 
@@ -43,16 +47,11 @@ const getPagesSitemap = unstable_cache(
       },
     ]
 
-    const sitemap = results.docs
-      ? results.docs
-          .filter((page) => page?.slug === 'home' || Boolean(page?.path))
-          .map((page) => {
-            return {
-              loc: page?.slug === 'home' ? `${SITE_URL}/` : `${SITE_URL}${page.path}`,
-              lastmod: page.updatedAt || dateFallback,
-            }
-          })
-      : []
+    // `lastmod` is the page's real modified date (Grove's, for a migrated page), never the day it was imported. The home page has no path of its own.
+    const sitemap = (results.docs ?? []).flatMap((page) => {
+      const entry = sitemapEntry(page.slug === 'home' ? { ...page, path: '/' } : page, SITE_URL)
+      return entry ? [entry] : []
+    })
 
     return [...defaultSitemap, ...sitemap]
   },

@@ -3,6 +3,8 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { unstable_cache } from 'next/cache'
 
+import { sitemapEntry } from '@/lib/seo/meta'
+
 const getPostsSitemap = unstable_cache(
   async () => {
     const payload = await getPayload({ config })
@@ -26,19 +28,16 @@ const getPostsSitemap = unstable_cache(
       select: {
         path: true,
         updatedAt: true,
+        publishedAt: true,
+        legacy: { groveId: true, legacyPath: true, modifiedAt: true },
       },
     })
 
-    const dateFallback = new Date().toISOString()
-
-    const sitemap = results.docs
-      ? results.docs
-          .filter((post) => Boolean(post?.path))
-          .map((post) => ({
-            loc: `${SITE_URL}${post.path}`,
-            lastmod: post.updatedAt || dateFallback,
-          }))
-      : []
+    // `lastmod` is the story's real modified date (Grove's, for a migrated story), never the day it was imported.
+    const sitemap = (results.docs ?? []).flatMap((post) => {
+      const entry = sitemapEntry(post, SITE_URL)
+      return entry ? [entry] : []
+    })
 
     return sitemap
   },

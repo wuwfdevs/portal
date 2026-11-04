@@ -4,7 +4,8 @@
 //
 // The rule is to change as little as possible, and to be able to prove it changed nothing the reader sees:
 //   - a body needs repair only if it still holds markup typed as words, or the page now has "Related" / "Support" lines that the
-//     stored body has as plain paragraphs;
+//     stored body has as plain paragraphs, or it holds no words at all and the converter now finds some (an episode: the converter once
+//     read the wrong field for an episode's text and saved it empty);
 //   - the words a reader would read must be identical before and after (case, punctuation, spacing and tags aside);
 //   - whether an editor has touched the story since the import is the script's question (it asks the version history).
 
@@ -80,10 +81,12 @@ export function visibleWords(content: unknown): string {
 export type RepairPlan =
   | { kind: 'same' }
   | { kind: 'words-differ' }
-  | { kind: 'repair'; linkLinesAdded: number; typedMarkupPieces: number }
+  | { kind: 'repair'; linkLinesAdded: number; typedMarkupPieces: number; filledEmpty?: true }
 
 /** What to do with a stored body, given the body the converter makes today. */
 export function planRepair(stored: unknown, fresh: LexNode | unknown): RepairPlan {
+  // A body with no words is filled, never "changed": there is nothing a reader reads that could be lost.
+  if (visibleWords(stored) === '' && visibleWords(fresh) !== '') return { kind: 'repair', linkLinesAdded: 0, typedMarkupPieces: 0, filledEmpty: true }
   const linkLinesAdded = Math.max(0, countLinkLines(fresh) - countLinkLines(stored))
   const typedMarkupPieces = countTypedMarkup(stored)
   if (linkLinesAdded === 0 && typedMarkupPieces === 0) return { kind: 'same' }
