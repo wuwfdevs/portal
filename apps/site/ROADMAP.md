@@ -325,6 +325,21 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
 - **Wire story address shape (recommended, awaiting the owner):** keep Grove's `/{YYYY-MM-DD}/{slug}` (no section, Central date, headline slug), with the origin in the
   `source` field, `rel=canonical` to the original publisher, left out of our sitemap and labelled "From NPR". Gives restore-by-address for chosen old stories and
   continuity for the cutover week; needs a collision rule (same headline, same day).
+- **Show pages and feeds, read (2026-11-04; 44 pages and 2 feed files, owner-approved).** 43 of the 44 show pages answer 200 (`/show/14-59` is a dead sitemap entry:
+  404). **`nprShow` is false on every one of them, including Morning Edition and Fresh Air**, so the converter's "NPR-distributed show is not archived" skip never fires
+  for a show page: all 42 would import as WUWF productions (the record an underwriting agreement attaches to, listed in `/podcasts`). A syndicated program is not
+  that. The pages are thin: a weekly schedule line (`mediaSchedule`, all 42 have one: "Weekdays 5:00 a.m. - 9:00 a.m.") and 0 to 13 words, except Acoustic Interlude
+  (110) and the two podcasts. **Keep a page for every program (owner, 2026-11-04 reading of "keep pages for NPR podcasts")**: the local airtime is the value and a
+  local search ("Morning Edition WUWF") lands there; link out to NPR's own page for the program; no NPR episodes. The 42 programs together are the station's weekly
+  schedule, so they also seed the schedule feature. `census/url-inventory/show-pages.csv` lists them with a guessed kind (syndicated / station-made / unsure) for the
+  owner to correct. **Needs a design decision before the import:** how a syndicated program is marked (a `kind` on productions, hidden from `/podcasts` and from
+  underwriting choices) — a schema change and migration, not built.
+  **Feeds: only two exist** — `/podcast/the-ecominutes/rss.xml` (9 items) and `/podcast/acoustic-interlude-sessions/rss.xml` (19 items). No `/show/` page names a feed,
+  and `ecoheroes` and `conversation-on` have no show page or feed (404). Format to reproduce: RSS 2.0 with `itunes:` tags (image 1400x1400, category, explicit,
+  type `episodic`, author on one), `<guid isPermaLink="false">` equal to the episode's **Grove contentId, which every migrated story already keeps as
+  `legacy.groveId`**, so guids cost nothing to keep; enclosures are NPR-hosted (`cpa.ds.npr.org`) today and will be our storage after the copy (apps identify an
+  episode by guid, so the change is safe); EcoMinutes enclosures are WAV files (about 214 MB for one episode), which is heavy for subscribers and for storage egress:
+  consider MP3 for new episodes (a decision, not made).
 - **Still open:** NPR show pages (see below); Search Console access; what the 410 fallback does for addresses CDS has since removed.
 
 ### The 33-page sample (fetched 2026-11-02, `?_renderer=json`, all 200)
