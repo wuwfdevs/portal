@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { StationProvider } from "@/components/station-provider";
+import { getStationProfile } from "@/lib/station";
+import { toolsTitle } from "@/lib/station-brand";
 
 // Self-hosted rather than next/font/google: Turbopack's Google Fonts fetch
 // has repeatedly failed production builds (a live dependency on Google's
@@ -35,15 +38,25 @@ const jetbrainsMono = localFont({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "WUWF Tools",
-  description: "Internal tools portal for WUWF Public Media staff, students, and partners.",
-};
+// The station's own name, from its settings (shared with the layout below through a per-request cache).
+export async function generateMetadata(): Promise<Metadata> {
+  const station = await getStationProfile();
+  return {
+    title: toolsTitle(station),
+    description: `Internal tools portal for ${station.name} staff, students, and partners.`,
+  };
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const station = await getStationProfile();
   return (
-    <html lang="en" className={`${sourceSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${sourceSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable}`}
+    >
+      <body className="font-sans antialiased">
+        <StationProvider profile={station}>{children}</StationProvider>
+      </body>
     </html>
   );
 }

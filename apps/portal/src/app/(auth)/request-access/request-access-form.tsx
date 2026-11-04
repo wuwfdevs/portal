@@ -6,18 +6,21 @@ import { Input, Label, Textarea, FieldError } from "@/components/ui/input";
 import { submitAccessRequest, type RequestAccessState } from "./actions";
 import { TextLink } from "@/components/ui/primary-link";
 import { Alert } from "@/components/ui/alert";
+import { useStation } from "@/components/station-provider";
+import { emailPlaceholder, toolsTitle } from "@/lib/station-brand";
 
 const initialState: RequestAccessState = { status: "idle" };
 
 export function RequestAccessForm({ initialEmail }: { initialEmail?: string }) {
   const [state, formAction, isPending] = useActionState(submitAccessRequest, initialState);
+  const station = useStation();
 
   if (state.status === "submitted") {
     return (
       <Alert variant="success" className="p-4 text-sm">
         <p>
-          Thanks — your request has been sent to a WUWF Tools administrator. You&apos;ll get an
-          email once it&apos;s reviewed.
+          Thanks — your request has been sent to a {toolsTitle(station)} administrator. You&apos;ll
+          get an email once it&apos;s reviewed.
         </p>
         <TextLink href="/login" className="mt-3 inline-block">
           Back to sign in
@@ -39,7 +42,7 @@ export function RequestAccessForm({ initialEmail }: { initialEmail?: string }) {
           name="email"
           type="email"
           defaultValue={initialEmail}
-          placeholder="you@wuwf.org"
+          placeholder={emailPlaceholder(station)}
           required
         />
       </div>

@@ -87,6 +87,14 @@ describe("tool-access predicates", () => {
  * ship without the check; the participant flow is listed by hand because it is reached by an
  * anonymous *session* (role `authenticated`), which no grant marks out.
  */
+/**
+ * Public functions that belong to the platform, not to a tool, so there is no tool whose switch could close
+ * them. `station_public_profile` is what the login page and the public forms say about the station; it
+ * returns only fields meant for anyone (see its test below) and is useless to an attacker. Adding to this
+ * list is a decision: say why in a comment.
+ */
+const PLATFORM_PUBLIC_FUNCTIONS = new Set(["public.station_public_profile"]);
+
 describe("public entry points and cross-module reads", () => {
   const definitions = latestDefinitions();
   const bodyOf = (qualified: string) => withoutComments(definitions.get(qualified)?.body ?? "");
@@ -118,7 +126,9 @@ describe("public entry points and cross-module reads", () => {
   });
 
   it("closes every function granted to anon when its tool is switched off", () => {
-    const open = anonEntryPoints.filter((name) => !/tool_is_enabled\(/.test(bodyOf(name)));
+    const open = anonEntryPoints
+      .filter((name) => !PLATFORM_PUBLIC_FUNCTIONS.has(name))
+      .filter((name) => !/tool_is_enabled\(/.test(bodyOf(name)));
     expect(open, "add private.tool_is_enabled('<tool key>') to the function").toEqual([]);
   });
 
@@ -137,5 +147,22 @@ describe("public entry points and cross-module reads", () => {
     expect(honored).toMatch(/tool_is_enabled\('log'\)/);
     expect(honored).toMatch(/has_underwriting_access\(auth\.uid\(\)\)/);
     expect(honored).toMatch(/has_log_access\(auth\.uid\(\)\)/);
+  });
+
+  it("keeps the station's public profile to the fields meant for anyone", () => {
+    const body = bodyOf("public.station_public_profile");
+    expect(body.length).toBeGreaterThan(0);
+    // The licensee, mailing address, time zone and who last edited the row are staff-only.
+    for (const private_ of [
+      "licensee",
+      "mailing_address",
+      "time_zone",
+      "updated_by",
+      "updated_at",
+    ]) {
+      expect(body, `station_public_profile must not return ${private_}`).not.toContain(private_);
+    }
+    expect(body).toContain("display_name");
+    expect(body).toContain("support_email");
   });
 });

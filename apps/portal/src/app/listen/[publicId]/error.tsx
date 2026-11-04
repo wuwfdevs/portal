@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
+import { useStation } from "@/components/station-provider";
 import { ListenShell } from "./listen-shell";
 
 /**
@@ -21,12 +22,13 @@ export default function ListenError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const station = useStation();
   return (
     <ListenShell embedded={false}>
       <PageHeader
         size="public"
         title="Something went wrong"
-        description="This is a problem on WUWF's side, not with anything you did."
+        description={`This is a problem on ${station.shortName}'s side, not with anything you did.`}
       />
       <p className="mt-3 break-words rounded border border-line bg-panel-50 px-3 py-2 font-mono text-xs text-ink-500">
         {error.message}

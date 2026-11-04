@@ -4,6 +4,8 @@ import { publicQueryUrl } from "@/lib/audience-listening/embed";
 import { getSiteUrl } from "@/lib/site-url";
 import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/ui/page-header";
+import { getStationProfile } from "@/lib/station";
+import { sentenceStart } from "@/lib/station-brand";
 import { ListenShell } from "./listen-shell";
 import { Participate } from "./participate";
 
@@ -29,6 +31,7 @@ export async function ListenPageContent({
   // "unavailable" card either way, so this leaks nothing — it just avoids
   // asking the database about a string that could never have been stored.
   const query = isValidPublicId(publicId) ? await getPublicQuery(publicId) : null;
+  const station = await getStationProfile();
 
   if (!query) {
     return (
@@ -80,7 +83,8 @@ export async function ListenPageContent({
           {query.public_intro}
         </p>
         <Alert variant="note">
-          WUWF is no longer collecting responses to this. Thank you to everyone who took part.
+          {sentenceStart(station.shortName)} is no longer collecting responses to this. Thank you to
+          everyone who took part.
         </Alert>
       </ListenShell>
     );
@@ -98,8 +102,9 @@ export async function ListenPageContent({
 /** Shared metadata for both routes — the public title, never the internal one. */
 export async function listenMetadata(publicId: string) {
   const query = isValidPublicId(publicId) ? await getPublicQuery(publicId).catch(() => null) : null;
+  const station = await getStationProfile();
   return {
-    title: query ? `${query.public_title} · WUWF` : "WUWF Public Media",
+    title: query ? `${query.public_title} · ${station.shortName}` : station.name,
     description: query?.public_intro?.slice(0, 200) || undefined,
   };
 }

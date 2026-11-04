@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useStation } from "@/components/station-provider";
 import { PublicPolicyNotice } from "@/components/ui/public-policy-notice";
 
 /**
@@ -7,7 +10,7 @@ import { PublicPolicyNotice } from "@/components/ui/public-policy-notice";
  * A participant should not be able to tell this is part of a larger internal
  * tools site — the same call Remote Interview's GuestShell makes for guests,
  * and for the same reason. Two differences from that one: this shell shows a
- * WUWF wordmark when it stands alone (a page you arrive at from a link needs to
+ * wordmark of the station when it stands alone (a page you arrive at from a link needs to
  * say whose it is), and suppresses it inside an embed, where the surrounding
  * article has already said so.
  *
@@ -29,6 +32,7 @@ export function ListenShell({
   progressPct?: number | null;
   children: ReactNode;
 }) {
+  const station = useStation();
   const card = (
     <div className="w-full overflow-hidden rounded border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
       {progressPct !== null && (
@@ -59,10 +63,10 @@ export function ListenShell({
       <div className="w-full max-w-xl">
         <div className="mb-4 flex items-center gap-2.5">
           <span className="flex h-7 w-7 items-center justify-center rounded bg-brand-surface text-xs font-bold text-brand-link">
-            W
+            {station.name.charAt(0).toUpperCase()}
           </span>
           <span className="text-xs font-bold uppercase tracking-wider text-ink-500">
-            WUWF Public Media
+            {station.name}
           </span>
         </div>
         {card}

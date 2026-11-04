@@ -9,6 +9,8 @@ import { helpContextForPath } from "@/lib/resources/screens";
 import { signOutAction } from "@/app/actions/auth";
 import type { Profile } from "@/lib/auth/session";
 import { colors } from "@/lib/design-tokens";
+import { useStation } from "@/components/station-provider";
+import { STATION_LOGO_SRC } from "@/lib/station-brand";
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -19,6 +21,7 @@ function initialsFor(name: string): string {
 }
 
 export function PortalNav({ profile }: { profile: Profile }) {
+  const station = useStation();
   const pathname = usePathname();
   const isAdmin = profile.platform_role === "administrator";
   const isOnAdmin = pathname.startsWith("/admin");
@@ -34,8 +37,8 @@ export function PortalNav({ profile }: { profile: Profile }) {
     <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-line bg-white px-3 sm:gap-7 sm:px-7">
       <Link href="/dashboard" className="flex shrink-0 items-center gap-3.5">
         <Image
-          src="/wuwf-logo.png"
-          alt="WUWF"
+          src={STATION_LOGO_SRC}
+          alt={station.name}
           height={26}
           width={62}
           className="h-[22px] w-auto max-w-none sm:h-[26px]"

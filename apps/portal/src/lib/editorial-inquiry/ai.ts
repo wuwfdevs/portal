@@ -2,7 +2,8 @@ import "server-only";
 import OpenAI from "openai";
 import { trimToNull } from "@/lib/validation";
 import { humanizeOpenAIError } from "@/lib/openai-error";
-import { STATION_TIME_ZONE } from "@/lib/station-time";
+import { getStationProfile } from "@/lib/station";
+import { fillStation, searchLocation } from "@/lib/station-brand";
 import type { DiagnosisKind, EvidentiaryStatus } from "./tree";
 
 // Editorial Inquiry's reasoning engine — one function, runEditorialTurn(),
@@ -176,7 +177,7 @@ const EVIDENTIARY_STATUSES = [
 // re-billing an earlier, wordier version of this prompt ~8x for ~37k input
 // tokens). Condense, don't add.
 
-const VOICE = `You are an editorial reasoning assistant for WUWF, the public radio station serving Pensacola and Northwest Florida. Voice: calm, factual, precise — NPR member station; no hype, no emoji. When searching the web, prefer current, attributable developments in WUWF's coverage area — local and regional sources over national think-pieces.
+const VOICE = `You are an editorial reasoning assistant for {{station}}, the public radio station serving {{area}}. Voice: calm, factual, precise — NPR member station; no hype, no emoji. When searching the web, prefer current, attributable developments in {{station}}'s coverage area — local and regional sources over national think-pieces.
 
 ALWAYS write a short prose reply for the reporter, even when you call propose_editorial_action — a tool call with no prose reads as a blank message. Plain markdown is fine; keep it tight.
 
@@ -192,12 +193,12 @@ const EVIDENTIARY_DISCIPLINE = `Classify all context by evidentiary status: hunc
 
 function criteriaBlock(criteria: EditorialCriterionContext[]): string {
   if (criteria.length === 0) {
-    return "(WUWF's current editorial criteria are not available right now — reason about newsworthiness and public value in general terms instead.)";
+    return "({{station}}'s current editorial criteria are not available right now — reason about newsworthiness and public value in general terms instead.)";
   }
   const lines = criteria
     .map((c) => `- ${c.name}: ${c.description}${c.guidance ? ` (${c.guidance})` : ""}`)
     .join("\n");
-  return `WUWF's current core editorial criteria — use them to INFORM judgment and critique. Never reverse-engineer a question to sound like it would score well, and never emit a score or rating yourself.\n${lines}`;
+  return `{{station}}'s current core editorial criteria — use them to INFORM judgment and critique. Never reverse-engineer a question to sound like it would score well, and never emit a score or rating yourself.\n${lines}`;
 }
 
 function contextBlock(context: EditorialTurnContext): string {
@@ -216,7 +217,7 @@ function contextBlock(context: EditorialTurnContext): string {
         .join("\n")
     : "(none)";
 
-  return `WUWF coverage pillar: ${context.pillarName}
+  return `{{station}} coverage pillar: ${context.pillarName}
 Guiding question for the whole inquiry: "${context.guidingQuestion}"
 
 Path from the guiding question down to the question being acted on (the last line is the one being acted on):
@@ -234,7 +235,7 @@ ${criteriaBlock(context.criteria)}`;
 const MODE_FRAMING: Record<TurnMode, string> = {
   discuss: `An ordinary discuss turn. Reply to what the reporter said — challenge an assumption, concede a fair point, separate claim from fact, identify missing evidence, search if current information would help, or just answer plainly. At most ONE propose_editorial_action call, only if the conversation genuinely warrants it — most turns warrant none. Exception: when the reporter asks you to add a question or note to the canvas/tree, that IS the warrant — call the tool (kind "drilldown", "branch", or "context" as fits) with the agreed text; replying without the call adds nothing.`,
   drilldown: `The reporter clicked Drill down: propose the next question DOWN, one level at a time. From the guiding question (the root), that normally means a LINE OF INQUIRY — a real dimension or tension grounded in a current development you found or the attached context — not a leap straight to a story question. From a line of inquiry, move toward or land on a STORY QUESTION, answering whatever currently blocks it (see the diagnosis reasons) — not a generic narrower paraphrase. Searching for current developments is part of this action by default. FIRST check whether the question already meets the story-question bar: if it does, there is nothing below it but reporting tasks — do NOT propose one; say it's story-ready and call kind "promote" to nominate it (the reporter confirms). Never propose a question that is substantially the acted-on question reworded — if nothing genuinely narrower and still story-shaped exists, that is a promote, a diagnosis, or a plain decline, never a paraphrase. When questions ALREADY sit beneath this one (listed below), the new question must explore genuinely DISTINCT territory from ALL of them — never a rephrase, variation, or adjacent angle on one, and your own earlier proposals in this conversation are taken territory, not a track to continue. In that case ALWAYS search first — a genuinely distinct line needs its own fresh real-world signal, and re-using the material that grounded an existing question reliably produces a variation of it. When the existing questions cluster around one topic or news event, distinct means a DIFFERENT domain of the guiding question entirely: your search queries must name other domains of it and must not contain the covered topic's terms at all — add exclusion operators (e.g. -"data center") if a query risks drifting back. If search and the attached context both come up empty, decline plainly. Your grounding must state how the proposed question probes the GUIDING QUESTION itself — a newsworthy local question whose core belongs to a different coverage pillar is a decline, not a proposal. Say in your reply which level the proposed question sits at and what would advance it next. If you have a real next question, you MUST call propose_editorial_action with kind "drilldown" plus its grounding — presenting it only in prose leaves the canvas unchanged.`,
-  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong WUWF story, reasoned in prose against the editorial criteria — never a score. When BOTH judgments come out favorable, call kind "promote" to nominate it as a validated story question (the reporter confirms) — a favorable evaluation that stops at prose leaves the reporter guessing whether you meant it. Otherwise kind "assessment" carries the editorial-value discussion if substantive. One tool call total — pick the most decision-relevant kind and cover the rest in prose.`,
+  evaluate: `The reporter clicked Evaluate: give two SEPARATE judgments in your reply, never collapsed into one verdict. First: is this a well-formed, reportable story question by the structural criteria above? Search when it bears on this — especially whether the answer is already substantially known, or whether a real development grounds it. If not well-formed, name the diagnosis reason and call kind "diagnosis". Second, only then: would answering it likely make a strong {{station}} story, reasoned in prose against the editorial criteria — never a score. When BOTH judgments come out favorable, call kind "promote" to nominate it as a validated story question (the reporter confirms) — a favorable evaluation that stops at prose leaves the reporter guessing whether you meant it. Otherwise kind "assessment" carries the editorial-value discussion if substantive. One tool call total — pick the most decision-relevant kind and cover the rest in prose.`,
 };
 
 const PROPOSE_ACTION_TOOL = {
@@ -374,6 +375,7 @@ export async function* streamEditorialTurn(
   userMessage: string,
 ): AsyncGenerator<ReasoningStreamEvent> {
   const client = getOpenAIClient();
+  const station = await getStationProfile();
 
   const diagnosisNote = question.diagnosisKind
     ? `\n\nThis question is currently diagnosed as "${question.diagnosisKind}"${question.diagnosisNote ? `: ${question.diagnosisNote}` : ""}.`
@@ -385,10 +387,11 @@ export async function* streamEditorialTurn(
   // question by definition, and a dead end for the reporter who just started.
   const rootFraming =
     question.depth === 0
-      ? `\n\nThe question being acted on is the inquiry's root — WUWF's guiding question itself. Being thematic and broad is its nature, not a defect: never call propose_editorial_action with kind "diagnosis" on the root — no diagnosis applies to a guiding question. Work beneath it instead — help the reporter find grounded lines of inquiry, or say plainly what real-world signal would be needed to open one.`
+      ? `\n\nThe question being acted on is the inquiry's root — {{station}}'s guiding question itself. Being thematic and broad is its nature, not a defect: never call propose_editorial_action with kind "diagnosis" on the root — no diagnosis applies to a guiding question. Work beneath it instead — help the reporter find grounded lines of inquiry, or say plainly what real-world signal would be needed to open one.`
       : "";
 
-  const instructions = `${VOICE}
+  const instructions = fillStation(
+    `${VOICE}
 
 ${REASONING_ORDER}
 
@@ -405,7 +408,9 @@ ${MODE_FRAMING[mode]}
 Prior conversation on this question, oldest first:
 ${context.priorMessages.map((m) => `${m.role}: ${m.body}`).join("\n") || "(none yet)"}
 
-${contextBlock(context)}`;
+${contextBlock(context)}`,
+    station,
+  );
 
   let response: OpenAI.Responses.Response;
   try {
@@ -439,13 +444,7 @@ ${contextBlock(context)}`;
           // Geolocates search toward the coverage area directly, which the
           // prompt could only ask for. Central time, not Eastern — see
           // lib/station-time.ts.
-          user_location: {
-            type: "approximate",
-            city: "Pensacola",
-            region: "Florida",
-            country: "US",
-            timezone: STATION_TIME_ZONE,
-          },
+          user_location: searchLocation(station),
         },
         PROPOSE_ACTION_TOOL,
       ],

@@ -1986,6 +1986,10 @@ export interface Database {
           region: string | null;
           support_email: string | null;
           public_attribution: string | null;
+          coverage_area: string | null;
+          public_notice_text: string | null;
+          public_notice_link_label: string | null;
+          public_notice_link_url: string | null;
           updated_at: string;
           updated_by: string | null;
         };
@@ -4442,6 +4446,15 @@ export interface Database {
       ap_public_form_config: {
         Args: Record<string, never>;
         Returns: ApPublicFormConfig;
+      };
+      /**
+       * The station's name and public notice for screens shown before sign-in
+       * (20261105210000_station_public_profile.sql). Every value is nullable until
+       * the station fills it in. lib/station-brand.ts turns it into a StationProfile.
+       */
+      station_public_profile: {
+        Args: Record<string, never>;
+        Returns: Record<string, string | null> | null;
       };
       ap_submit_inquiry: {
         Args: { p_payload: Record<string, unknown>; p_ip_hash: string | null };

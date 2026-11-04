@@ -6,6 +6,7 @@ import { TabNav } from "@/components/ui/tab-nav";
 const TABS = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/tools", label: "Tools" },
+  { href: "/admin/station", label: "Station" },
   { href: "/admin/audit", label: "Audit log" },
 ] as const;
 

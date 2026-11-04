@@ -4405,6 +4405,14 @@ writes that reported success without checking the result.
   `getStation()` (`lib/station.ts`) reports a mismatch and `/admin/tools` shows it. Never write a zone
   name in a function or a TypeScript file (`station-settings.test.ts` fails on it); NPR's Eastern feed
   clock in `log/npr-story-times.ts` is the one deliberate exception, because it is the network's clock.
+- **A station's name is read, never typed.** Screens and AI prompts get it from the station's settings:
+  `getStationProfile()` (`lib/station.ts`) in a server component, `useStation()` in a client one (the root
+  layout provides it), `fillStation()` for a prompt (`{{station}}`, `{{tools}}`, `{{area}}` placeholders).
+  Every field falls back to neutral wording (`lib/station-brand.ts`), so a fresh install never shows
+  another station's name. Pre-login pages read the narrow `station_public_profile()` function, not the
+  table. `station-brand.test.ts` fails on a station name in the screens and prompts it lists; a new
+  public screen is added to that list. An administrator edits the values at `/admin/station`. WUWF's own
+  are in `supabase/station/wuwf/station-settings.sql`, not in a migration.
 - **Hard dependencies are rare and declared.** A foreign key into another module's table, or
   data a module cannot work without, is a `requires` entry and needs a sentence in the PR saying
   why. Prefer a soft reference (`external_ref`, the Bookings pattern) when the link is optional.

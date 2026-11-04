@@ -313,6 +313,7 @@ repo and a project's history, not the version number.
 | `20261105180000_resources_audience_listening_sourcework_handoff.sql`  | 2026-11-04 | 2026-11-04 |
 | `20261105190000_public_entry_points_respect_enabled.sql`              | 2026-11-04 | 2026-11-04 |
 | `20261105200000_station_settings.sql`                                 | 2026-11-04 | 2026-11-04 |
+| `20261105210000_station_public_profile.sql`                           | 2026-11-04 | 2026-11-04 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
@@ -385,3 +386,15 @@ Do not "repair" the history by inserting rows or reapplying files; if WUWF ever 
 workflow, that is a deliberate task of its own (rewrite the history to the file prefixes, or move to a
 squashed baseline), not a fix to make in passing. A new station that replays every migration through
 the CLI gets a complete history and is not affected.
+
+## Station data scripts
+
+Station data (who WUWF is, its schedule, rates, procedures) is not schema, so it is not a migration and a
+fresh install of the Portal does not run it. WUWF's lives in `supabase/station/wuwf/`, is applied by hand to
+the preview project and then production (the Supabase MCP `execute_sql`, or the SQL editor), and is recorded
+here. Each script only updates rows a migration created and is safe to run again after an edit. `db:check`
+does not read this table (script names are not backticked for that reason: it would take them for migrations).
+
+| Script                    | Preview    | Production |
+| ------------------------- | ---------- | ---------- |
+| wuwf/station-settings.sql | 2026-11-04 | 2026-11-04 |

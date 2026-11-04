@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
 import { stationZoneMismatch } from "@/lib/station-time";
+import { stationProfileFrom, type StationProfile } from "@/lib/station-brand";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -31,4 +32,25 @@ export const getStation = cache(async (): Promise<Station> => {
     );
   }
   return { ...row, zoneMismatch: stationZoneMismatch(row.time_zone) };
+});
+
+/**
+ * What a screen may say about the station, for any visitor: signed in or not. Reads the narrow
+ * `public.station_public_profile()` (names, city, support address, the public notice) rather than the
+ * table, which only staff can read. Never throws: a station whose settings are unreadable gets the
+ * neutral wording instead of a broken login page.
+ */
+export const getStationProfile = cache(async (): Promise<StationProfile> => {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("station_public_profile");
+    if (error) {
+      console.error("Could not read the station profile:", error);
+      return stationProfileFrom(null);
+    }
+    return stationProfileFrom(data);
+  } catch (error) {
+    console.error("Could not read the station profile:", error);
+    return stationProfileFrom(null);
+  }
 });

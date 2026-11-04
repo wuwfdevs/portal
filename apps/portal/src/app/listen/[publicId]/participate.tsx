@@ -45,6 +45,8 @@ import { useBeforeUnloadGuard } from "@/lib/use-event-listener";
 import { uploadObject } from "@/lib/upload-object";
 import { pluralize } from "@/lib/format";
 import { colors } from "@/lib/design-tokens";
+import { useStation } from "@/components/station-provider";
+import { sentenceStart } from "@/lib/station-brand";
 
 /**
  * The whole public participation flow, standalone and embedded alike.
@@ -118,6 +120,9 @@ export function Participate({
   previewMode?: boolean;
 }) {
   const questions = query.questions;
+  const station = useStation();
+  // The station's name, as it opens a sentence ("WUWF", or "The station" before one is set).
+  const stationLead = sentenceStart(station.shortName);
 
   const [screen, setScreen] = useState<Screen>("intro");
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -558,8 +563,8 @@ export function Participate({
     review: "Review your answers",
     info: "A little about you",
     consent: "Permissions and consent",
-    submitting: "Sending your responses to WUWF",
-    done: "WUWF received your response",
+    submitting: `Sending your responses to ${station.shortName}`,
+    done: `${stationLead} received your response`,
   };
 
   // Nothing left to show progress toward once WUWF has the submission.
@@ -622,9 +627,9 @@ export function Participate({
             {pluralize(questions.length, "question")} · one audio answer each
           </p>
           <Alert variant="note">
-            Your answers go to WUWF for editorial review and will not be published automatically.
-            WUWF may use one answer without using the others, and submitting doesn&apos;t guarantee
-            use or a reply.
+            Your answers go to {station.shortName} for editorial review and will not be published
+            automatically. {stationLead} may use one answer without using the others, and submitting
+            doesn&apos;t guarantee use or a reply.
           </Alert>
           {supported ? (
             <Button
@@ -663,8 +668,8 @@ export function Participate({
             </>
           ) : (
             <p className="text-body leading-relaxed text-ink-700">
-              WUWF needs access to your microphone. You&apos;ll only be asked once — recording
-              starts when you press Start recording, and stops when you press Stop.
+              {stationLead} needs access to your microphone. You&apos;ll only be asked once —
+              recording starts when you press Start recording, and stops when you press Stop.
             </p>
           )}
 
@@ -819,7 +824,7 @@ export function Participate({
             </Alert>
           ) : isSaved && !currentAnswer.retake ? (
             <Alert variant="success" className="flex flex-col gap-3 p-4 text-sm">
-              <p className="font-bold">Saved — WUWF has this answer</p>
+              <p className="font-bold">Saved — {station.shortName} has this answer</p>
               <ControlRow>
                 <Button
                   type="button"
@@ -838,8 +843,8 @@ export function Participate({
             <div className="flex flex-col gap-3">
               {isSaved && currentAnswer.retake && (
                 <Alert variant="note">
-                  Recording again replaces the answer WUWF already has for this question. Nothing
-                  else you&apos;ve sent is affected.
+                  Recording again replaces the answer {station.shortName} already has for this
+                  question. Nothing else you&apos;ve sent is affected.
                 </Alert>
               )}
               <div className="flex flex-col items-center gap-4 py-3">
@@ -1027,7 +1032,7 @@ export function Participate({
               <CheckboxField
                 checked={consent.contact}
                 onChange={(event) => setConsent({ ...consent, contact: event.target.checked })}
-                label="WUWF may contact me about my responses."
+                label={`${stationLead} may contact me about my responses.`}
               />
               {consent.contact && !values.email?.trim() && !values.phone?.trim() && (
                 <Alert variant="note">
@@ -1041,7 +1046,7 @@ export function Participate({
             <CheckboxField
               checked={consent.identify}
               onChange={(event) => setConsent({ ...consent, identify: event.target.checked })}
-              label="WUWF may identify me by name if one or more of my responses is used."
+              label={`${stationLead} may identify me by name if one or more of my responses is used.`}
             />
           )}
           {query.allow_anonymous_request && (
@@ -1120,7 +1125,7 @@ export function Participate({
             A reporter may contact you only if you gave permission. Nothing here is published
             automatically, and submitting doesn&apos;t guarantee a reply.
           </Alert>
-          <p className="text-xs text-ink-400">— WUWF Public Media, Pensacola, FL</p>
+          <p className="text-xs text-ink-400">{station.attribution}</p>
         </div>
       )}
     </ListenShell>
