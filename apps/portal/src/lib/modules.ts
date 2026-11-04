@@ -11,8 +11,8 @@
  * anything (CLAUDE.md "Modules"). `modules.test.ts` checks it against the migrations and
  * the source, so a dependency can no longer exist without being written down. At runtime
  * only `requires` is read so far: the /admin/tools switch refuses to break a hard
- * dependency (`dependencyBlock`). `integrates` and `env` are declarations; later work
- * reads them (a missing-configuration panel).
+ * dependency (`dependencyBlock`), and `env` feeds the missing-configuration panel on the
+ * same screen (`missingConfiguration`). `integrates` is a declaration; later work reads it.
  *
  * Ownership split:
  * - here (code): `key`, `requires`, `integrates`, `publicRoutes`, `env`
@@ -30,8 +30,8 @@ export type ModuleEnvVar = {
   /** What breaks or is unavailable without it. */
   for: string;
   /**
-   * True when the module cannot do its core job without it. Advisory until the
-   * missing-configuration panel reads it; false means a feature degrades.
+   * True when the module cannot do its core job without it; false means a feature
+   * degrades. `missingConfiguration` reads it for the /admin/tools panel.
    */
   required: boolean;
 };
@@ -217,4 +217,36 @@ export function dependencyBlock(
     (entry) => entry.requires.includes(key) && enabledKeys.has(entry.key),
   ).map((entry) => entry.key);
   return dependents.length > 0 ? { kind: "needed-by", keys: dependents } : null;
+}
+
+export type MissingConfiguration = {
+  key: string;
+  /** Variables the module cannot do its core job without. */
+  required: ModuleEnvVar[];
+  /** Variables whose absence only turns a feature off. */
+  optional: ModuleEnvVar[];
+};
+
+/**
+ * What each ENABLED module is still missing from the deployment's environment. A variable counts as
+ * set when it is present and not blank. Only names are returned: a value never leaves this function,
+ * so the result is safe to render. Modules that are off, or that miss nothing, are left out.
+ */
+export function missingConfiguration(
+  enabledKeys: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): MissingConfiguration[] {
+  const enabled = new Set(enabledKeys);
+  const result: MissingConfiguration[] = [];
+  for (const entry of MODULES) {
+    if (!enabled.has(entry.key)) continue;
+    const missing = entry.env.filter((variable) => !(env[variable.name] ?? "").trim());
+    if (missing.length === 0) continue;
+    result.push({
+      key: entry.key,
+      required: missing.filter((variable) => variable.required),
+      optional: missing.filter((variable) => !variable.required),
+    });
+  }
+  return result;
 }

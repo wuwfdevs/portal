@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { TOOL_STATUS } from "@/lib/admin-status";
 import { getStation } from "@/lib/station";
+import { getModule, missingConfiguration } from "@/lib/modules";
 import { toggleToolEnabled } from "./actions";
 import type { ToolDefaultAccess } from "@/lib/database.types";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
@@ -33,10 +34,50 @@ export default async function AdminToolsPage({
     .then((station) => station.zoneMismatch)
     .catch(() => null);
 
+  // What each switched-on module still needs from the deployment's environment (names only, never values).
+  // The manifest knows the variables; this deployment's process.env knows which are set.
+  const missing = missingConfiguration(
+    (tools ?? []).filter((tool) => tool.enabled).map((tool) => tool.key),
+    process.env,
+  );
+  const toolName = new Map((tools ?? []).map((tool) => [tool.key, tool.name]));
+
   return (
     <div className="flex flex-col gap-4">
       {error && <Alert>{error}</Alert>}
       {zoneMismatch && <Alert>{zoneMismatch}</Alert>}
+      {missing.length > 0 && (
+        <Alert variant={missing.some((m) => m.required.length > 0) ? "warning" : "note"}>
+          <p className="font-semibold">
+            Settings this deployment is missing for the tools that are on
+          </p>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {missing.map((m) => (
+              <li key={m.key}>
+                <span className="font-semibold">
+                  {toolName.get(m.key) ?? getModule(m.key)?.key}
+                </span>
+                <ul className="ml-4 list-disc">
+                  {m.required.map((v) => (
+                    <li key={v.name}>
+                      <code className="font-mono">{v.name}</code> — needed for {v.for}
+                    </li>
+                  ))}
+                  {m.optional.map((v) => (
+                    <li key={v.name}>
+                      <code className="font-mono">{v.name}</code> — optional, for {v.for}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5">
+            Set these in the deployment&apos;s environment variables (Vercel, then redeploy). A tool
+            stays switched on either way; this is a reminder, not a block.
+          </p>
+        </Alert>
+      )}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-ui text-ink-500">
           Rows come from migrations. A <span className="font-semibold">proposed</span> tool is the

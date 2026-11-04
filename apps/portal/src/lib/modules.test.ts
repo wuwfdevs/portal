@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { MODULES, MODULE_KEYS, dependencyBlock } from "./modules";
+import { MODULES, MODULE_KEYS, dependencyBlock, missingConfiguration } from "./modules";
 
 /**
  * The module manifest (src/lib/modules.ts) is only useful if it cannot drift from
@@ -277,5 +277,45 @@ describe("capability tool keys", () => {
       }
     }
     expect(unknown, "a capability requires a tool that is not a module").toEqual([]);
+  });
+});
+
+describe("missingConfiguration", () => {
+  it("says nothing about a module that is switched off", () => {
+    expect(missingConfiguration([], {})).toEqual([]);
+    expect(missingConfiguration(["roadmap"], {})).toEqual([]);
+  });
+
+  it("splits what is missing into required and optional, by name", () => {
+    const [sourcework] = missingConfiguration(["transcription"], { MISTRAL_API_KEY: "x" });
+    expect(sourcework?.key).toBe("transcription");
+    expect(sourcework?.required.map((v) => v.name)).toEqual([
+      "ASSEMBLYAI_API_KEY",
+      "TRANSCRIPTION_WEBHOOK_SECRET",
+    ]);
+    expect(sourcework?.optional.map((v) => v.name)).toEqual(["OPENAI_API_KEY"]);
+  });
+
+  it("treats a blank or whitespace value as missing, and any other value as set", () => {
+    const env = { DAILY_API_KEY: "   ", DAILY_RECORDINGS_BUCKET_NAME: "b" };
+    const [interview] = missingConfiguration(["remote-interview"], env);
+    expect(interview?.required.map((v) => v.name)).toEqual(["DAILY_API_KEY"]);
+    expect(interview?.optional.map((v) => v.name)).toEqual([
+      "DAILY_RECORDINGS_BUCKET_REGION",
+      "DAILY_RECORDINGS_ASSUME_ROLE_ARN",
+    ]);
+  });
+
+  it("leaves out an enabled module that has everything", () => {
+    const env = Object.fromEntries(
+      MODULES.flatMap((entry) => entry.env.map((v) => [v.name, "set"] as const)),
+    );
+    expect(missingConfiguration(MODULE_KEYS, env)).toEqual([]);
+  });
+
+  it("returns names and purposes only, never a value", () => {
+    const secret = "sk-this-must-not-appear";
+    const found = missingConfiguration(["editorial-inquiry"], { OTHER: secret });
+    expect(JSON.stringify(found)).not.toContain(secret);
   });
 });
