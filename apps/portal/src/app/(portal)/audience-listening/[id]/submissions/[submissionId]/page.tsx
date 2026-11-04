@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireToolAccess } from "@/lib/auth/authz";
+import { canUseTool, requireToolAccess } from "@/lib/auth/authz";
 import {
   getLinkedProjects,
   getQueryById,
@@ -47,9 +47,13 @@ export default async function SubmissionDetailPage({
   params: Promise<{ id: string; submissionId: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireToolAccess("audience-listening");
+  const { profile } = await requireToolAccess("audience-listening");
   const { id, submissionId } = await params;
   const { error } = await searchParams;
+  // The hand-off to Sourcework is an integration, not part of this tool: when
+  // Sourcework is switched off, or this person has no access to it, show neither
+  // the send button nor the link into it (CLAUDE.md, "Modules").
+  const sourceworkUsable = await canUseTool(profile, "transcription");
 
   const [query, submission] = await Promise.all([
     getQueryById(id),
@@ -212,7 +216,10 @@ export default async function SubmissionDetailPage({
               submittedAt: submission.submitted_at,
             });
             const urls = answer ? mediaUrls.get(answer.id) : undefined;
-            const action = answer ? transcriptionActionFor(answer) : ("unavailable" as const);
+            const action =
+              answer && sourceworkUsable
+                ? transcriptionActionFor(answer)
+                : ("unavailable" as const);
             const project = answer?.transcription_project_id
               ? linkedProjects.get(answer.transcription_project_id)
               : undefined;

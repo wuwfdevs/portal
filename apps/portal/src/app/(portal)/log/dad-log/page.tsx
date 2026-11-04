@@ -11,6 +11,7 @@ import { TextLink } from "@/components/ui/primary-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { SegmentedLinks } from "@/components/ui/segmented";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
+import { canUseTool } from "@/lib/auth/authz";
 import { requireLogAccess } from "@/lib/log/access";
 import { automatedSegments, stationLocalParts } from "@/lib/log/automated-hours";
 import { loadAutomatedHours } from "@/lib/log/automated-hours-queries";
@@ -43,12 +44,17 @@ export default async function DadLogPage({
   searchParams: Promise<{ date?: string; show?: string; error?: string; released?: string }>;
 }) {
   const params = await searchParams;
-  const { isTraffic } = await requireLogAccess();
+  const { isTraffic, profile } = await requireLogAccess();
   const today = stationTodayISO();
   const date = isValidDateISO(params.date) ? params.date : today;
   const showFile = params.show === "file";
 
-  const [day, hours] = await Promise.all([loadDadDay(date), loadAutomatedHours()]);
+  const [day, hours] = await Promise.all([
+    canUseTool(profile, "underwriting").then((linkToTraffic) =>
+      loadDadDay(date, { linkToTraffic }),
+    ),
+    loadAutomatedHours(),
+  ]);
   const segments = automatedSegments(date, hours.weekly, hours.changes).filter((s) => s.automated);
   const blocking = day.issues.filter((issue) => issue.severity === "blocking");
   const warnings = day.issues.filter((issue) => issue.severity === "warning");

@@ -7,6 +7,7 @@ import { InlineCreateCard } from "@/components/ui/inline-create-card";
 import { FieldError, FieldHint, Input, Label } from "@/components/ui/input";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { TextLink } from "@/components/ui/primary-link";
+import { canUseTool, requireActiveProfile } from "@/lib/auth/authz";
 import { listInventoryPools } from "@/lib/underwriting/queries";
 import { listProgramOptions } from "@/lib/underwriting/placement";
 import { describeDays } from "@/lib/underwriting/demand";
@@ -48,6 +49,8 @@ export default async function InventoryPoolsPage({
   searchParams: Promise<{ q?: string; new?: string; error?: string; field?: string }>;
 }) {
   const { q, new: newParam, error, field } = await searchParams;
+  const profile = await requireActiveProfile();
+  const canOpenOnAir = await canUseTool(profile, "log");
   const creating = newParam === "1";
   const query = (q ?? "").trim().toLowerCase();
   const [pools, programs] = await Promise.all([listInventoryPools(), listProgramOptions()]);
@@ -239,7 +242,7 @@ export default async function InventoryPoolsPage({
       <p className="text-xs text-ink-500">
         Windows are station-local (Central). A marked opportunity qualifies when its start falls
         inside the window. Program clocks and marked opportunities are managed in{" "}
-        <TextLink href="/log/programs">On Air</TextLink>.
+        {canOpenOnAir ? <TextLink href="/log/programs">On Air</TextLink> : "On Air"}.
       </p>
     </div>
   );

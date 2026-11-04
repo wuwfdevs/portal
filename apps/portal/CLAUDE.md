@@ -4360,7 +4360,7 @@ writes that reported success without checking the result.
     transcription ASR webhook — see that file's comment) — nothing else. Never import it
     into a Client Component.
 - **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
-  `requireAdministrator`, `assertAdministrator`, `hasToolAccess`) is the only place
+  `requireAdministrator`, `assertAdministrator`, `canUseTool`) is the only place
   platform-role/account-status checks should be written. Don't re-implement these checks
   inline in a page or action.
 - **Privileged writes are server-only and audited.** Every admin action (invite, disable,
@@ -4380,6 +4380,17 @@ writes that reported success without checking the result.
   update the descriptive columns only. A station's choice to turn a module on or off must
   survive a replayed migration. `modules.test.ts` fails on both mistakes; the eight older
   upserts that set `enabled` are listed there as an allowlist and cannot be edited.
+- **"Disabled" means disabled everywhere.** Pages and actions: `requireToolAccess` /
+  `assertToolAccess`. SQL: every `private.has_*_access` predicate and `private.has_tool_role`
+  checks `t.enabled`, so a grant on a switched-off tool grants nothing in the database either
+  (a test fails on a predicate whose latest definition omits it). Public security-definer
+  entry points do not check it yet; that is still open.
+- **Integrations degrade, they don't break.** Before rendering or running anything that
+  belongs to another module — a link, a button, a hand-off, a read — call
+  `canUseTool(profile, '<other key>')` from `lib/auth/authz.ts`; if false, render nothing (no
+  dead link, no disabled button). The bare grant lookup is not exported on purpose: it ignores
+  `enabled`. A `security definer` function that reads another module's tables must check that
+  module too.
 - **Hard dependencies are rare and declared.** A foreign key into another module's table, or
   data a module cannot work without, is a `requires` entry and needs a sentence in the PR saying
   why. Prefer a soft reference (`external_ref`, the Bookings pattern) when the link is optional.

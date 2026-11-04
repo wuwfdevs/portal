@@ -1,8 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { hasToolAccess } from "@/lib/auth/authz";
+import { canUseTool } from "@/lib/auth/authz";
 import type { ActionResult } from "@/lib/action-response";
-import { getToolByKey } from "@/lib/tools";
 import { getSiteUrl } from "@/lib/site-url";
 import { TRANSCRIPTION_MEDIA_BUCKET, sourceObjectPath } from "@/lib/transcription/media";
 import { createProjectWithSource, startTranscriptionForProject } from "@/lib/transcription/ingest";
@@ -47,12 +46,11 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Your session expired. Sign in again." };
 
-  const transcriptionTool = await getToolByKey("transcription");
-  if (!transcriptionTool || !(await hasToolAccess(user.id, transcriptionTool.id))) {
+  if (!(await canUseTool(user, "transcription"))) {
     return {
       ok: false,
       error:
-        "Sending an answer to transcription needs Sourcework access as well. Ask an administrator to grant it.",
+        "Sending an answer to transcription needs Sourcework, and either it is switched off or you don't have access to it. Ask an administrator.",
     };
   }
 

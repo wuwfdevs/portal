@@ -43,7 +43,19 @@ export interface DadDay {
   releases: LogDadExportRow[];
 }
 
-export async function loadDadDay(dateISO: string): Promise<DadDay> {
+export async function loadDadDay(
+  dateISO: string,
+  options: {
+    /**
+     * Whether an issue on a credit may link to its copy in Traffic. A caller passes
+     * `canUseTool(profile, "underwriting")`: when Traffic is switched off, or the
+     * viewer has no access to it, the link would be dead, so the issue falls back to
+     * the day's rundown. Defaults to false, the safe answer for a caller (such as the
+     * release action) that never renders the links.
+     */
+    linkToTraffic?: boolean;
+  } = {},
+): Promise<DadDay> {
   const supabase = await createClient();
   const [hours, rundowns, releases, scheduleEntries] = await Promise.all([
     loadAutomatedHours(),
@@ -193,7 +205,9 @@ export async function loadDadDay(dateISO: string): Promise<DadDay> {
           ? copy.effective_from <= airDate &&
             (copy.effective_to === null || copy.effective_to >= airDate)
           : false,
-        fixHref: `/underwriting/copy/${item.underwriting_copy_id}/edit`,
+        fixHref: options.linkToTraffic
+          ? `/underwriting/copy/${item.underwriting_copy_id}/edit`
+          : null,
       };
     } else {
       const content = item.content_item_id ? contentById.get(item.content_item_id) : undefined;

@@ -64,8 +64,14 @@ export async function assertAdministrator(): Promise<Profile> {
   return profile as Profile;
 }
 
-/** Whether the given user currently has an active (non-revoked) grant for a tool. */
-export async function hasToolAccess(userId: string, toolId: string): Promise<boolean> {
+/**
+ * Whether the given user currently has an active (non-revoked) grant for a tool.
+ *
+ * Deliberately not exported: it ignores `tools.enabled`, so a caller that wants
+ * "may this user use that other tool?" would silently get yes for a tool an
+ * administrator has switched off. Use `canUseTool` (below) for that question.
+ */
+async function hasToolAccess(userId: string, toolId: string): Promise<boolean> {
   const supabase = await createClient();
   const data = unwrapRead(
     await supabase
@@ -98,6 +104,22 @@ async function canOpenTool(userId: string, tool: Tool): Promise<boolean> {
   if (!tool.enabled) return false;
   if (!grantRequiredForTool(tool)) return true;
   return hasToolAccess(userId, tool.id);
+}
+
+/**
+ * Whether this user can use the tool with this `tools.key` right now: it exists, it is
+ * enabled, and the user holds a grant (or the tool is open to all active staff).
+ *
+ * This is the only check for "should I show a link, button or hand-off that belongs to
+ * another module?". When it is false render nothing — no dead link, no disabled button —
+ * because the module is either switched off or not this person's to open. Never use a
+ * bare grant lookup for this: it ignores `enabled` (CLAUDE.md, "Modules"). The page or
+ * action that guards the module itself still uses `requireToolAccess` /
+ * `assertToolAccess`.
+ */
+export async function canUseTool(user: { id: string }, toolKey: string): Promise<boolean> {
+  const tool = await getToolByKey(toolKey);
+  return tool ? canOpenTool(user.id, tool) : false;
 }
 
 /**

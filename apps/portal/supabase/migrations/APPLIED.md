@@ -309,6 +309,8 @@ repo and a project's history, not the version number.
 | `20261105140000_website_tool_registry.sql`                            | 2026-10-30 | 2026-10-30 |
 | `20261105150000_resources_dashboard_hides_disabled_tools.sql`         | 2026-11-02 | 2026-11-02 |
 | `20261105160000_resources_sourcework_player_stays_in_view.sql`        | 2026-11-02 | 2026-11-02 |
+| `20261105170000_access_predicates_check_enabled_again.sql`            | 2026-11-04 | 2026-11-04 |
+| `20261105180000_resources_audience_listening_sourcework_handoff.sql`  | 2026-11-04 | 2026-11-04 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
@@ -358,3 +360,26 @@ replacement file and applying it on top.
 
 Deliberately not in the table above: the table is keyed on files that exist, and
 `npm run db:check` treats a row naming a missing file as an error.
+
+## Known discrepancy: the hosted migration history is not this ledger
+
+Checked 2026-11-04. `supabase_migrations.schema_migrations` on the hosted projects
+(preview 213 rows, production 209, counting the first migration applied that day) does
+not line up with the files in this directory (271), and `db:check` does not look at it:
+
+- **About 58 migrations dated after `20261010164631` have no row there on either project**
+  (from `20261010170000_resources_logic_consolidation_notes.sql` through the Nov 2026 files),
+  although this ledger records them as applied and their effects are present (for example the
+  `website` registry row). They were applied some way that does not write that table.
+- **No history version equals a filename's prefix.** Supabase records its own timestamp for each
+  apply (`20260722192412` for `platform_schema`, whose file is `20260722120000`), and a few names
+  differ (`20260925180000_underwriting_opening_closing`), as the note under "How to apply one"
+  already says. The migration name is the join key, not the version.
+
+Consequence: **do not run `supabase db push` against either hosted project.** The CLI matches on
+version, so it would treat nearly every file here as unapplied and try to run them again. Apply with
+the Supabase MCP `apply_migration` (or `execute_sql` for content) as before, and record the row here.
+Do not "repair" the history by inserting rows or reapplying files; if WUWF ever adopts the CLI
+workflow, that is a deliberate task of its own (rewrite the history to the file prefixes, or move to a
+squashed baseline), not a fix to make in passing. A new station that replays every migration through
+the CLI gets a complete history and is not affected.
