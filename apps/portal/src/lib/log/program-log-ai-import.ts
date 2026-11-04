@@ -21,6 +21,8 @@ import "server-only";
 
 import OpenAI from "openai";
 import { humanizeOpenAIError } from "@/lib/openai-error";
+import { getStationProfile } from "@/lib/station";
+import { fillStation } from "@/lib/station-brand";
 import { buildPlanOutputSchema, type ProgramLogModelOutput } from "@/lib/log/program-log-plan";
 import {
   buildImportTools,
@@ -40,14 +42,13 @@ const MAX_OUTPUT_TOKENS = 32768;
 const MAX_ROUNDS = 8;
 
 export type ImportProgramLogResult =
-  | { ok: true; output: ProgramLogModelOutput; toolCalls: number }
-  | { ok: false; error: string };
+  { ok: true; output: ProgramLogModelOutput; toolCalls: number } | { ok: false; error: string };
 
-const INSTRUCTIONS = `You turn a radio station's daily program log — a traffic/automation system's printout of what is scheduled to air, uploaded as a PDF — into a structured import plan for WUWF-FM's Log tool. Read the whole document, use the tools to look up what you need, then answer with the plan in the required JSON shape.
+const INSTRUCTIONS = `You turn a radio station's daily program log — a traffic/automation system's printout of what is scheduled to air, uploaded as a PDF — into a structured import plan for {{callsign}}'s Log tool. Read the whole document, use the tools to look up what you need, then answer with the plan in the required JSON shape.
 
 What a program log contains, in general: rows in broadcast order, each with a scheduled time, sometimes a cart (cut) number, a description, and a length. Some rows start a program (the program's name, usually at the top of an hour). Some mark an underwriting break — a window of a given length that credits are scheduled into. Some are the credits themselves: an underwriter name plus a copy label, often with a cart number, followed by the live-read script. Some are other local fills: a promo, a short feature, a station ID. Some are operational reminders for the host (meter readings, fader cues). Formats differ between traffic systems; read the layout you are given.
 
-WUWF's current export (DAD) looks like this: columns Time | Cart # | Description | Length. A "UW Credit (mm:ss)" row is a break marker with its window. A cart-bearing credit prints as "Underwriter / Copy label" with its cart number and length, and its script prints on the following row — sometimes carried past a page break, where the printout repeats its title row, column headings, and a "Printed … Page n of m" footer in the middle of the script; those repeated rows are not content. A cart-less credit prints its script directly on or right after the marker row, or right after another credit's script with nothing separating them — read the content and count how many distinct advertisers are really there; one advertiser's script that mentions WUWF twice is still one credit. A lone mm:ss value on its own line after a script is a length column value, not content. Program starts are rows naming a program at or near the top of an hour (sometimes with a cart number for an automation cut, like "88 BBC World Service"); other fills are rows naming a specific piece of content (a promo, a short feature). A row like "Play thru ENCO Fader" or "Take Meter Readings" is an operational note.
+{{station}}'s current export (DAD) looks like this: columns Time | Cart # | Description | Length. A "UW Credit (mm:ss)" row is a break marker with its window. A cart-bearing credit prints as "Underwriter / Copy label" with its cart number and length, and its script prints on the following row — sometimes carried past a page break, where the printout repeats its title row, column headings, and a "Printed … Page n of m" footer in the middle of the script; those repeated rows are not content. A cart-less credit prints its script directly on or right after the marker row, or right after another credit's script with nothing separating them — read the content and count how many distinct advertisers are really there; one advertiser's script that mentions {{station}} twice is still one credit. A lone mm:ss value on its own line after a script is a length column value, not content. Program starts are rows naming a program at or near the top of an hour (sometimes with a cart number for an automation cut, like "88 BBC World Service"); other fills are rows naming a specific piece of content (a promo, a short feature). A row like "Play thru ENCO Fader" or "Take Meter Readings" is an operational note.
 
 How to build the plan:
 1. Read the air date from the title row and call ${"schedule_for_date"} with it. Every rundown you return must use a schedule_entry_id from that result. A program in the log that is not on that date's schedule goes in unresolved, with its rows left out.
@@ -79,10 +80,11 @@ export async function importProgramLogWithAI(
   }
 
   const client = new OpenAI({ apiKey });
+  const station = await getStationProfile();
   const underwriterNames = input.data.underwriters.map((row) => row.name);
   const shared = {
     model: MODEL,
-    instructions: INSTRUCTIONS,
+    instructions: fillStation(INSTRUCTIONS, station),
     tools: buildImportTools(),
     tool_choice: "auto" as const,
     parallel_tool_calls: true,

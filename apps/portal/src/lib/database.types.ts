@@ -1990,6 +1990,9 @@ export interface Database {
           public_notice_text: string | null;
           public_notice_link_label: string | null;
           public_notice_link_url: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          alert_counties: string | null;
           updated_at: string;
           updated_by: string | null;
         };

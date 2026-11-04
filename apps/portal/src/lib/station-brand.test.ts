@@ -162,6 +162,17 @@ describe("the station's name on the pilot-visible surfaces", () => {
     "src/lib/sourcework/analyze-ai.ts",
     "src/lib/underwriting/affidavits.ts",
     "src/lib/underwriting/affidavit-pdf.tsx",
+    "src/lib/underwriting/agreement-ai-import.ts",
+    "src/lib/log/program-log-ai-import.ts",
+    "src/lib/log/providers/weather.ts",
+    "src/lib/log/weather-alerts.ts",
+    "src/lib/log/weather.ts",
+    "src/lib/log/clock-face.ts",
+    "src/lib/log/data-sources.ts",
+    "src/components/log/clock-viewer.tsx",
+    "src/app/(portal)/underwriting/copy/script-field.tsx",
+    "src/app/(portal)/log/sources/npr/page.tsx",
+    "src/app/(portal)/log/import/page.tsx",
     "src/app/(portal)/underwriting/affidavits/[id]/page.tsx",
   ];
 

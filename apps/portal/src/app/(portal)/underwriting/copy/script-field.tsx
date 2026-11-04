@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FieldHint, Label, Textarea } from "@/components/ui/input";
 import { countWords, estimateReadSeconds, READ_WORDS_PER_MINUTE } from "@/lib/log/read-time";
 import { pluralize } from "@/lib/format";
+import { useStation } from "@/components/station-provider";
 
 /**
  * The script textarea with its read-time estimate updating as the words
@@ -23,6 +24,7 @@ export function ScriptField({
   defaultValue?: string;
   rows?: number;
 }) {
+  const station = useStation();
   const [script, setScript] = useState(defaultValue ?? "");
   const words = countWords(script);
   const seconds = estimateReadSeconds(script);
@@ -35,7 +37,7 @@ export function ScriptField({
         rows={rows}
         value={script}
         onChange={(event) => setScript(event.target.value)}
-        placeholder="Support for WUWF comes from…"
+        placeholder={`Support for ${station.shortName} comes from…`}
       />
       <FieldHint>
         {seconds === null ? (

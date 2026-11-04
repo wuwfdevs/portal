@@ -24,6 +24,7 @@ import {
   projectStoriesOntoShift,
 } from "@/lib/log/npr-story-times";
 import { stationTodayISO, formatStationTimeHM, formatStationTimestamp } from "@/lib/station-time";
+import { getStationProfile } from "@/lib/station";
 import { refreshNprEpisodeAction } from "../../npr-actions";
 import { LogPoller } from "../../log-poller";
 import { SourceHeader } from "../source-header";
@@ -38,6 +39,7 @@ export default async function NprPage({
   searchParams: Promise<{ program?: string; date?: string; error?: string }>;
 }) {
   const { program: programParam, date: dateParam, error } = await searchParams;
+  const station = await getStationProfile();
   const programs = await listPrograms();
 
   if (programs.length === 0) {
@@ -168,7 +170,7 @@ export default async function NprPage({
       {result.kind === "unmapped" && (
         <EmptyState>
           This program has no NPR CDS mapping. It&apos;s either a local program or a network program
-          WUWF hasn&apos;t linked to an NPR collection yet — see{" "}
+          {station.shortName} hasn&apos;t linked to an NPR collection yet — see{" "}
           <code className="rounded bg-panel-100 px-1 py-0.5 text-xs">
             log_programs.npr_collection_id
           </code>

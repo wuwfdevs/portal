@@ -88,16 +88,25 @@ export function toolsTitle(profile: StationProfile): string {
   return `${profile.named ? profile.shortName : "Station"} Tools`;
 }
 
+/** "Pensacola, Florida"; just the city or the region when only one is set; else the coverage area. */
+export function stationPlace(station: StationProfile): string {
+  if (station.city && station.region) return `${station.city}, ${station.region}`;
+  return station.city ?? station.region ?? station.coverageArea;
+}
+
 /**
- * Fills the placeholders in an AI prompt: {{station}} (the short name), {{tools}} (the portal's title)
- * and {{area}} (who the station serves). Prompts are written with these rather than a station's name so
+ * Fills the placeholders in an AI prompt: {{station}} (the short name), {{tools}} (the portal's title),
+ * {{area}} (who the station serves), {{callsign}} (the call sign, else the name) and {{place}} (where the
+ * studio is). Prompts are written with these rather than a station's name so
  * the same text serves any station; this runs once, where the prompt is assembled.
  */
 export function fillStation(text: string, station: StationProfile): string {
   return text
     .replaceAll("{{station}}", station.shortName)
     .replaceAll("{{tools}}", toolsTitle(station))
-    .replaceAll("{{area}}", station.coverageArea);
+    .replaceAll("{{area}}", station.coverageArea)
+    .replaceAll("{{callsign}}", station.callSign ?? station.name)
+    .replaceAll("{{place}}", stationPlace(station));
 }
 
 /**

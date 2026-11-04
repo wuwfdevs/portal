@@ -5,6 +5,7 @@ import "server-only";
 // display; the last-known current reading stays visible, flagged stale.
 
 import { createClient } from "@/lib/supabase/server";
+import { getStation } from "@/lib/station";
 import { getCurrentWeatherReadingRow, type LogWeatherReadingRow } from "./queries";
 import { fetchWeatherAlerts, fetchWeatherReading } from "./providers/weather";
 import {
@@ -21,6 +22,13 @@ import {
   type AlertsCheckState,
   type WeatherAlert,
 } from "./weather-alerts";
+import {
+  WEATHER_LOCATION_NOT_SET,
+  parseCoverageCounties,
+  weatherLocationFrom,
+  type CoverageCounty,
+  type WeatherLocation,
+} from "./weather-station";
 import type { DailyOutlookEntry, ForecastPeriodSummary } from "./weather-outlook";
 
 /** Typed accessor for the row's jsonb daily_outlook column (stored as `unknown` in database.types.ts, the same convention as every other plain jsonb column here) — this repo's own shape, never user input, so a direct cast is safe. */
@@ -33,15 +41,37 @@ export function getForecastPeriods(reading: LogWeatherReadingRow): ForecastPerio
   return (reading.forecast_periods as ForecastPeriodSummary[] | null) ?? [];
 }
 
+/**
+ * Where this station's weather is read from: its settings, or null when the studio's location has not been
+ * entered. The environment supplies only the fallbacks for the User-Agent NWS requires.
+ */
+export async function getWeatherLocation(): Promise<WeatherLocation | null> {
+  return weatherLocationFrom(await getStation(), {
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+  });
+}
+
+/** The counties whose alerts this station relays, in display order (empty until it lists some). */
+export async function getCoverageCounties(): Promise<CoverageCounty[]> {
+  return parseCoverageCounties((await getStation()).alert_counties);
+}
+
 /** The stored alerts and how far to trust them — the panel's whole input. */
-export function getAlertsView(reading: LogWeatherReadingRow): {
+export function getAlertsView(
+  reading: LogWeatherReadingRow,
+  counties: readonly CoverageCounty[],
+): {
   alerts: WeatherAlert[];
   state: AlertsCheckState;
   checkedAt: string | null;
   nowISO: string;
 } {
   const nowISO = new Date().toISOString();
-  const alerts = consolidateAlerts(activeAlerts(readStoredAlerts(reading.alerts), nowISO));
+  const alerts = consolidateAlerts(
+    activeAlerts(readStoredAlerts(reading.alerts), nowISO),
+    counties,
+  );
   return {
     alerts,
     state: alertsCheckState(alerts, reading.alerts_checked_at, reading.alerts_check_failed),
@@ -58,7 +88,9 @@ export interface WeatherResult {
 
 /** Flips the previous current row to false and inserts the freshly fetched reading as the new current one — the revision-history rule from docs/log-design.md §5/§8. */
 async function replaceCurrentWeatherReading(): Promise<LogWeatherReadingRow> {
-  const fetched = await fetchWeatherReading();
+  const location = await getWeatherLocation();
+  if (!location) throw new Error(WEATHER_LOCATION_NOT_SET);
+  const fetched = await fetchWeatherReading(location);
   const supabase = await createClient();
   const previous = await getCurrentWeatherReadingRow();
   const now = new Date().toISOString();
@@ -108,7 +140,9 @@ async function refreshCurrentAlerts(reading: LogWeatherReadingRow): Promise<LogW
   const now = new Date().toISOString();
   let changes: Partial<LogWeatherReadingRow>;
   try {
-    const alerts = await fetchWeatherAlerts();
+    const location = await getWeatherLocation();
+    if (!location) throw new Error(WEATHER_LOCATION_NOT_SET);
+    const alerts = await fetchWeatherAlerts(location);
     changes = {
       alerts,
       hazards: alertsToHazards(alerts),

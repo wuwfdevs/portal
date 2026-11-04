@@ -136,6 +136,55 @@ export default async function AdminStationPage({
           </Field>
 
           <fieldset className="flex flex-col gap-4 border-t border-line pt-4">
+            <legend className="text-ui font-semibold text-ink-900">Weather</legend>
+            <p className="-mt-2 text-ui text-ink-500">
+              Where the studio is, so the forecast read on air is yours, and which counties&apos;
+              alerts to relay. Leave the location empty and there is no weather reading until it is
+              set.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Studio latitude"
+                htmlFor="latitude"
+                hint="Decimal degrees, for example 30.5433"
+              >
+                <Input
+                  id="latitude"
+                  name="latitude"
+                  inputMode="decimal"
+                  defaultValue={station.latitude ?? ""}
+                />
+              </Field>
+              <Field
+                label="Studio longitude"
+                htmlFor="longitude"
+                hint="Negative in the Americas, for example -87.2169"
+              >
+                <Input
+                  id="longitude"
+                  name="longitude"
+                  inputMode="decimal"
+                  defaultValue={station.longitude ?? ""}
+                />
+              </Field>
+            </div>
+            <Field
+              label="Counties whose alerts to relay"
+              htmlFor="alert_counties"
+              hint="One per line: the county's name, a colon, and its six-digit SAME code, in the order they should be listed. Example: Escambia:012033. Leave empty to relay every alert National Weather Service matches to the studio."
+            >
+              <Textarea
+                id="alert_counties"
+                name="alert_counties"
+                defaultValue={station.alert_counties ?? ""}
+                rows={5}
+                maxLength={1000}
+                className="font-mono"
+              />
+            </Field>
+          </fieldset>
+
+          <fieldset className="flex flex-col gap-4 border-t border-line pt-4">
             <legend className="text-ui font-semibold text-ink-900">
               Notice under public forms
             </legend>

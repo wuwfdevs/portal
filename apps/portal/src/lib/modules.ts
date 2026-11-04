@@ -130,8 +130,6 @@ export const MODULES: readonly ModuleManifestEntry[] = [
     env: [
       { name: "NPR_CDS_TOKEN", for: "importing the NPR schedule", required: false },
       { name: "FNE_FEED_URL", for: "the Florida News Exchange feed", required: false },
-      { name: "WEATHER_LATITUDE", for: "the weather read (needs longitude too)", required: false },
-      { name: "WEATHER_LONGITUDE", for: "the weather read", required: false },
       { name: "OPENAI_API_KEY", for: "importing a program log with AI", required: false },
     ],
   },

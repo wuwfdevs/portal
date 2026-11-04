@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CardHeader, SectionHeading } from "@/components/ui/section-heading";
 import {
   getAlertsView,
+  getCoverageCounties,
   getCurrentWeatherReading,
   getDailyOutlook,
   getForecastPeriods,
@@ -28,7 +29,10 @@ export default async function WeatherPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const { reading, stale, refreshError } = await getCurrentWeatherReading();
+  const [{ reading, stale, refreshError }, coverageCounties] = await Promise.all([
+    getCurrentWeatherReading(),
+    getCoverageCounties(),
+  ]);
   const details: DescriptionItem[] = reading
     ? [
         ...(reading.current_temp !== null || reading.current_conditions !== null
@@ -101,7 +105,7 @@ export default async function WeatherPage({
                   periods: getForecastPeriods(reading),
                   fallbackText: reading.live_read_text,
                 }}
-                alerts={getAlertsView(reading)}
+                alerts={getAlertsView(reading, coverageCounties)}
               />
             </div>
 

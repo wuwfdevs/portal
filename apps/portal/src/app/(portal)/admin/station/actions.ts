@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { assertAdministrator } from "@/lib/auth/authz";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import {
+  coverageCountiesProblem,
+  formatCoverageCounties,
+  parseCoverageCounties,
+} from "@/lib/log/weather-station";
 
 const STATION_PATH = "/admin/station";
 
@@ -46,6 +51,26 @@ export async function updateStation(formData: FormData): Promise<void> {
     values[name] = raw === "" ? null : raw;
   }
 
+  // Where the studio is, for the weather: both coordinates or neither, within range.
+  const coordinate = (name: "latitude" | "longitude", limit: number): number | null => {
+    const raw = String(formData.get(name) ?? "").trim();
+    if (raw === "") return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || Math.abs(value) > limit) {
+      failWith(STATION_PATH, `The ${name} must be a number between -${limit} and ${limit}.`);
+    }
+    return Math.round(value * 100000) / 100000;
+  };
+  const latitude = coordinate("latitude", 90);
+  const longitude = coordinate("longitude", 180);
+  if ((latitude === null) !== (longitude === null)) {
+    failWith(STATION_PATH, "Give both the latitude and the longitude, or neither.");
+  }
+  const countiesText = String(formData.get("alert_counties") ?? "");
+  const countiesProblem = coverageCountiesProblem(countiesText);
+  if (countiesProblem) failWith(STATION_PATH, countiesProblem);
+  const alertCounties = formatCoverageCounties(parseCoverageCounties(countiesText)) || null;
+
   const email = values.support_email;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     failWith(STATION_PATH, "The support email does not look like an email address.");
@@ -70,13 +95,16 @@ export async function updateStation(formData: FormData): Promise<void> {
 
   const { error } = await supabase
     .from("station_settings")
-    .update({ ...values, updated_by: admin.id })
+    .update({ ...values, latitude, longitude, alert_counties: alertCounties, updated_by: admin.id })
     .eq("id", true);
   failIfError(error, STATION_PATH, "Could not save the station settings");
 
-  const changed = (Object.keys(FIELDS) as FieldName[]).filter(
+  const changed: string[] = (Object.keys(FIELDS) as FieldName[]).filter(
     (name) => (before?.[name] ?? null) !== values[name],
   );
+  if ((before?.latitude ?? null) !== latitude) changed.push("latitude");
+  if ((before?.longitude ?? null) !== longitude) changed.push("longitude");
+  if ((before?.alert_counties ?? null) !== alertCounties) changed.push("alert_counties");
   await logAuditEvent({
     actorId: admin.id,
     action: "station.updated",

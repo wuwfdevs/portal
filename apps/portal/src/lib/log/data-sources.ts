@@ -37,7 +37,8 @@ export const DATA_SOURCES: readonly DataSourceDefinition[] = [
   {
     key: "weather",
     label: "Weather",
-    description: "The National Weather Service forecast for Pensacola, written for on-air reading.",
+    description:
+      "The National Weather Service forecast for the studio's location, written for on-air reading.",
     href: "/log/sources/weather",
     staleAfterMs: WEATHER_STALE_THRESHOLD_MS,
   },

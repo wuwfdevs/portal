@@ -1145,8 +1145,9 @@ most one current row; no delete policy granted). The provider layer
 (`lib/log/providers/`) treats the two integrations very differently because
 one has a confirmed API model and default and the other, as of this slice
 landing, didn't yet: weather hits the National Weather Service's free,
-keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
-(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+keyless `api.weather.gov` for the station's own studio coordinates (first WUWF's Pensacola, FL,
+as a default and `WEATHER_LATITUDE`/`WEATHER_LONGITUDE`; since 2026-11-04 the station's
+settings, edited at Administration → Station) — a real, working
 integration, though not necessarily WUWF's final vendor choice
 (`docs/log-design.md` §7). NPR now has a confirmed model too (NPR's
 Content Distribution Service — see the correction note), though WUWF's own

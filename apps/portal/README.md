@@ -179,10 +179,11 @@ through automation and need a human in each dashboard once:
      `docs/log-design.md` §5 — only WUWF's own token is outstanding.
    - `NPR_CDS_API_BASE` — optional override of the CDS base URL, e.g. for testing against
      staging. Defaults to CDS production (`https://content.api.npr.org/v1`).
-   - `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` — Log's weather live-read
-     (`lib/log/providers/weather.ts`). Optional: unset, it defaults to WUWF's Pensacola, FL
-     studio location against the free National Weather Service API, which needs no key.
-     Set these only to point the forecast at a different location.
+   - Log's weather live-read (`lib/log/providers/weather.ts`) needs no key — it reads the free
+     National Weather Service API. Where it reads is the station's own setting (the studio's
+     latitude and longitude, and the counties whose alerts to relay), entered at
+     Administration → Station; until then the weather source says so. (It used to be the
+     `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` variables, which are no longer read.)
    - `RESEND_API_KEY` and `RESEND_FROM_EMAIL` — the portal's transactional email sender
      (`src/lib/email.ts`), currently used only by Academic Partnerships' email actions
      (**sensitive** — mark `RESEND_API_KEY` encrypted). Optional: unset, sending fails

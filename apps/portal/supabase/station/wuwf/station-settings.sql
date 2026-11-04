@@ -7,7 +7,8 @@
 -- so it is safe to run again after an edit.
 --
 -- Every value here was already in the code (the login page, the listening page, the affidavit letterhead,
--- the Editorial Inquiry prompt, the IT-04 notice) before it moved into the row.
+-- the Editorial Inquiry prompt, the IT-04 notice, the weather client's coordinates and alert counties)
+-- before it moved into the row.
 
 update public.station_settings set
   display_name = 'WUWF Public Media',
@@ -22,5 +23,8 @@ update public.station_settings set
   public_attribution = '— WUWF Public Media, Pensacola, FL',
   public_notice_text = 'This page is provided by the University of West Florida under its',
   public_notice_link_label = 'Information Security and Privacy Policy (IT-04)',
-  public_notice_link_url = '/policies/it-04-information-security-and-privacy.pdf'
+  public_notice_link_url = '/policies/it-04-information-security-and-privacy.pdf',
+  latitude = 30.5433,
+  longitude = -87.2169,
+  alert_counties = E'Escambia:012033\nSanta Rosa:012113\nOkaloosa:012091\nMobile:001097'
 where id;
