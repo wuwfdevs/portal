@@ -29,6 +29,13 @@ metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle
 3. **Importer to staging** with `--link-map census/url-inventory/link-map.json`, then the rehearsal steps below; and mark the 35 syndicated programs (the importer does it).
 4. **The reviewed LLM pass** for alt text (63% of 5,455 images have none), short or missing descriptions (5%) and topic suggestions (35% have none): **suggest-only**, a staff
    review queue, checks against the story's own text, a 100-story hand check first. **Needs the owner's go-ahead and an API key.** Not started.
+   *Design as proposed to the owner (2026-11-04):* a one-off script, not a runtime feature (the site must not depend on an AI service being up). Output goes to a
+   **staff-only review queue** with provenance (model, date, prompt version); the site uses only approved values and the Grove original is kept for rollback. **Descriptions:**
+   built only from the story's own text, 70 to 160 characters; every name, number, date and quotation in the output must appear in the source or it is dropped, then a
+   second faithfulness check against the source; a wire story may only have its headline, teaser or description changed. **Alt text:** describe what is visible, never name a person
+   from a face (only from a caption, credit or the body), flag low confidence, skip decorative images; review with the picture beside the suggestion. **Topics:** choose only from the
+   existing 905 tags (a closed list, at most three), never invent one. **Before bulk:** hand-check about 100 stories and proceed only if the substantive error rate is low, then sample
+   each batch. Confirm first that sending News Service of Florida and AP text to a third-party service is allowed by those licences.
 5. Then the earlier build program: short video (5), RadioLive (6), Barefoot Mary and member feeds (7: design with the owner first), and filling the homepage slots (9).
 
 **Waiting on the owner:** the wire address shape (recommended: keep `/{YYYY-MM-DD}/{slug}`, origin in `source`, canonical to the publisher; *Wire story address shape*);
