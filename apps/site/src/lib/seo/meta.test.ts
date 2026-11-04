@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DESCRIPTION_MAX, imageUrlOf, leadImageOf, storyMetadata, storySchema, storySeoInputOf, trimDescription } from './meta'
+import { DESCRIPTION_MAX, imageUrlOf, isMigrated, leadImageOf, modifiedAtOf, sitemapEntry, storyMetadata, storySchema, storySeoInputOf, trimDescription } from './meta'
 
 const SITE = 'https://www.wuwf.org'
 const photo = (url: string, alt = 'A photo') => ({ url, alt })
@@ -118,5 +118,47 @@ describe('storySeoInputOf', () => {
     expect(i.authors).toEqual(['A Reporter'])
     expect(i.section).toBe('Local News')
     expect(i.image).toEqual({ url: `${SITE}/api/media/file/a-og.jpg`, alt: 'Flooded street' })
+  })
+})
+
+describe('when a story was last modified: never the day it was imported', () => {
+  const IMPORTED = '2026-11-04T18:00:00Z'
+  const migrated = { updatedAt: IMPORTED, publishedAt: '2016-03-13T19:39:31Z', legacy: { groveId: 'g-1', legacyPath: '/local-news/2016-03-13/x', modifiedAt: '2016-03-14T01:03:45Z' } }
+  it('uses Grove\'s modified date for a migrated record, and the time it was saved for a native one', () => {
+    expect(modifiedAtOf(migrated)).toBe('2016-03-14T01:03:45Z')
+    expect(modifiedAtOf({ updatedAt: '2026-11-03T12:00:00Z', publishedAt: '2026-11-01T12:00:00Z' })).toBe('2026-11-03T12:00:00Z')
+    expect(modifiedAtOf({ updatedAt: '2026-11-03T12:00:00Z', legacy: {} })).toBe('2026-11-03T12:00:00Z') // a native story's empty legacy group
+  })
+  it('has no answer for a migrated record Grove gave no modified date, and does NOT fall back to the import time', () => {
+    expect(modifiedAtOf({ ...migrated, legacy: { ...migrated.legacy, modifiedAt: null } })).toBeNull()
+    expect(modifiedAtOf({ ...migrated, legacy: { groveId: 'g-1', modifiedAt: null } })).toBeNull()
+    expect(modifiedAtOf({ updatedAt: IMPORTED, legacy: { legacyPath: '/x/2016-03-13/y' } })).toBeNull() // known to be migrated by its path alone
+    expect(isMigrated({ legacy: { groveId: 'g-1' } })).toBe(true)
+    expect(isMigrated({ legacy: { modifiedAt: '2016-03-14T01:03:45Z' } })).toBe(true)
+    expect(isMigrated({ legacy: {} })).toBe(false)
+    expect(isMigrated({})).toBe(false)
+  })
+  it('keeps a migrated story with no Grove modified date out of "modifiedTime", and dates its structured data by its publish date', () => {
+    const post = { title: 'Old story', path: '/local-news/2016-03-13/old', publishedAt: '2016-03-13T19:39:31Z', updatedAt: IMPORTED, legacy: { groveId: 'g-1', modifiedAt: null } }
+    const input = storySeoInputOf(post, SITE)
+    expect(input.modifiedAt).toBeNull()
+    expect(storyMetadata(input).openGraph).not.toHaveProperty('modifiedTime')
+    expect(storySchema(input).dateModified).toBe('2016-03-13T19:39:31Z')
+    expect(JSON.stringify([storyMetadata(input), storySchema(input)])).not.toContain('2026-11-04')
+  })
+})
+
+describe('sitemapEntry', () => {
+  const base = { path: '/local-news/2016-03-13/x', updatedAt: '2026-11-04T18:00:00Z', publishedAt: '2016-03-13T19:39:31Z' }
+  it('dates a migrated story by its Grove modified date, so 6,500 archived stories are not all "modified" on import day', () => {
+    expect(sitemapEntry({ ...base, legacy: { groveId: 'g', modifiedAt: '2016-03-14T01:03:45Z' } }, SITE)).toEqual({ loc: `${SITE}/local-news/2016-03-13/x`, lastmod: '2016-03-14T01:03:45Z' })
+  })
+  it('falls back to the publish date for a migrated story with no modified date (a story is at least as new as its publication), and says nothing when there is no true date', () => {
+    expect(sitemapEntry({ ...base, legacy: { groveId: 'g', modifiedAt: null } }, SITE)?.lastmod).toBe('2016-03-13T19:39:31Z')
+    expect(sitemapEntry({ path: '/x', legacy: { groveId: 'g' } }, SITE)).toEqual({ loc: `${SITE}/x` })
+  })
+  it('dates a native story by when it was saved, tidies a trailing slash on the site address, and skips a record with no path', () => {
+    expect(sitemapEntry(base, `${SITE}/`)).toEqual({ loc: `${SITE}/local-news/2016-03-13/x`, lastmod: '2026-11-04T18:00:00Z' })
+    expect(sitemapEntry({ updatedAt: base.updatedAt }, SITE)).toBeNull()
   })
 })

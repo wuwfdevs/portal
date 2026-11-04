@@ -126,9 +126,34 @@ export function storySchema(i: StorySeoInput): Record<string, unknown> {
   }
 }
 
+export interface DatedRecord {
+  updatedAt?: string | null
+  publishedAt?: string | null
+  legacy?: { groveId?: string | null; legacyPath?: string | null; modifiedAt?: string | null } | null
+}
+
+/** A record that came from Grove: any of the Grove id, the Grove path or Grove's modified date is set (the importer sets them together; a native story has none). */
+export const isMigrated = (doc: Pick<DatedRecord, 'legacy'>): boolean => Boolean(doc.legacy?.groveId || doc.legacy?.legacyPath || doc.legacy?.modifiedAt)
+
+/**
+ * When a story was last changed, as far as a reader or a search engine should be told. A native story: the time it was last saved. A migrated one:
+ * **Grove's modified date, and nothing else.** Its `updatedAt` starts as the moment of the import, so falling back to it would present every
+ * archived story as just updated (ROADMAP: "never use import time"). With no Grove date there is no honest answer, and the answer is null.
+ */
+export function modifiedAtOf(doc: DatedRecord): string | null {
+  return isMigrated(doc) ? (doc.legacy?.modifiedAt ?? null) : (doc.updatedAt ?? null)
+}
+
+/** One entry of a sitemap: the address, and `lastmod` only when there is a true date for it (the modified date, else the publish date). */
+export function sitemapEntry(doc: DatedRecord & { path?: string | null }, siteUrl: string): { loc: string; lastmod?: string } | null {
+  if (!doc.path) return null
+  const lastmod = modifiedAtOf(doc) ?? doc.publishedAt ?? undefined
+  return { loc: `${siteUrl.replace(/\/$/, '')}${doc.path}`, ...(lastmod ? { lastmod } : {}) }
+}
+
 type NamedLike = { name?: string | null; title?: string | null } | number | string | null | undefined
 
-/** The plain inputs for a loaded story (depth 1, so its relations are objects). `modifiedAt` is Grove's date for a migrated story: never import time. */
+/** The plain inputs for a loaded story (depth 1, so its relations are objects). `modifiedAt` is Grove's date for a migrated story: never import time (see `modifiedAtOf`). */
 export function storySeoInputOf(
   post: {
     title: string
@@ -140,7 +165,7 @@ export function storySeoInputOf(
     featuredMedia?: readonly unknown[] | null
     contributors?: readonly NamedLike[] | null
     section?: NamedLike
-    legacy?: { modifiedAt?: string | null } | null
+    legacy?: DatedRecord['legacy']
   },
   siteUrl: string,
 ): StorySeoInput {
@@ -154,7 +179,7 @@ export function storySeoInputOf(
     dek: post.dek,
     path: post.path,
     publishedAt: post.publishedAt,
-    modifiedAt: post.legacy?.modifiedAt ?? post.updatedAt,
+    modifiedAt: modifiedAtOf(post),
     authors: (post.contributors ?? []).map(nameOf).filter((n): n is string => n !== null),
     section: nameOf(post.section),
     image: imageUrl ? { url: imageUrl, alt: media?.alt ?? null } : null,
