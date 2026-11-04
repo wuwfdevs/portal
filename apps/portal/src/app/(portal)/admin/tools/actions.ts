@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertAdministrator } from "@/lib/auth/authz";
 import { logAuditEvent } from "@/lib/audit";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
+import { dependencyBlock } from "@/lib/modules";
 import type { ToolStatus, ToolDefaultAccess } from "@/lib/database.types";
 
 const TOOL_STATUSES: ToolStatus[] = ["available", "in_development", "planned", "proposed"];
@@ -19,6 +20,33 @@ export async function toggleToolEnabled(formData: FormData): Promise<void> {
   const nextEnabled = String(formData.get("next_enabled") ?? "") === "true";
 
   const supabase = await createClient();
+
+  // A hard dependency (src/lib/modules.ts) cannot be broken from here: Traffic needs On Air, Editorial
+  // Inquiry needs Editorial Planning. Refuse with a sentence rather than leave a module on that cannot work.
+  const { data: tools, error: toolsError } = await supabase
+    .from("tools")
+    .select("id, key, name, enabled");
+  failIfError(toolsError, TOOLS_PATH, "Could not read the tools");
+  const target = (tools ?? []).find((tool) => tool.id === toolId);
+  if (target) {
+    const block = dependencyBlock(
+      target.key,
+      nextEnabled,
+      new Set((tools ?? []).filter((tool) => tool.enabled).map((tool) => tool.key)),
+    );
+    if (block) {
+      const names = block.keys
+        .map((key) => (tools ?? []).find((tool) => tool.key === key)?.name ?? key)
+        .join(", ");
+      failWith(
+        TOOLS_PATH,
+        block.kind === "needs"
+          ? `${target.name} needs ${names}, which ${block.keys.length === 1 ? "is" : "are"} switched off. Enable ${block.keys.length === 1 ? "it" : "them"} first.`
+          : `${names} ${block.keys.length === 1 ? "needs" : "need"} ${target.name}. Switch ${block.keys.length === 1 ? "it" : "them"} off first.`,
+      );
+    }
+  }
+
   const { error } = await supabase.from("tools").update({ enabled: nextEnabled }).eq("id", toolId);
   failIfError(error, TOOLS_PATH, "Could not change whether the tool is enabled");
 

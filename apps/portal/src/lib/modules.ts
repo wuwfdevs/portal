@@ -8,11 +8,11 @@
  * variables it needs.
  *
  * It is a static list, not a loader. Nothing here registers, discovers or loads
- * anything (CLAUDE.md "Modules"). Today nothing reads `requires`, `integrates` or `env`
- * at runtime either: they are declarations that `modules.test.ts` checks against the
- * migrations and the source, so a dependency can no longer exist without being written
- * down. Later work reads them (the /admin/tools toggle refusing to break a hard
- * dependency, `canUseTool`, a missing-configuration panel).
+ * anything (CLAUDE.md "Modules"). `modules.test.ts` checks it against the migrations and
+ * the source, so a dependency can no longer exist without being written down. At runtime
+ * only `requires` is read so far: the /admin/tools switch refuses to break a hard
+ * dependency (`dependencyBlock`). `integrates` and `env` are declarations; later work
+ * reads them (a missing-configuration panel).
  *
  * Ownership split:
  * - here (code): `key`, `requires`, `integrates`, `publicRoutes`, `env`
@@ -189,4 +189,34 @@ export const MODULE_KEYS: readonly string[] = MODULES.map((entry) => entry.key);
 
 export function getModule(key: string): ModuleManifestEntry | undefined {
   return MODULES.find((entry) => entry.key === key);
+}
+
+/** Why a module cannot be switched to the requested state, or null when it can. */
+export type DependencyBlock =
+  /** Enabling: these required modules are switched off. */
+  | { kind: "needs"; keys: string[] }
+  /** Disabling: these enabled modules require this one. */
+  | { kind: "needed-by"; keys: string[] };
+
+/**
+ * The hard-dependency rule behind the /admin/tools switch: a module cannot be enabled while a module it
+ * `requires` is off, and cannot be disabled while an enabled module requires it. Soft `integrates`
+ * companions never block: they just stop being offered (see `canUseTool`). A key with no manifest entry
+ * (a `proposed` tool that exists only as a Roadmap target) has no dependencies and is never blocked.
+ *
+ * `enabledKeys` is the set of module keys that are enabled right now, from `public.tools`.
+ */
+export function dependencyBlock(
+  key: string,
+  nextEnabled: boolean,
+  enabledKeys: ReadonlySet<string>,
+): DependencyBlock | null {
+  if (nextEnabled) {
+    const off = (getModule(key)?.requires ?? []).filter((required) => !enabledKeys.has(required));
+    return off.length > 0 ? { kind: "needs", keys: off } : null;
+  }
+  const dependents = MODULES.filter(
+    (entry) => entry.requires.includes(key) && enabledKeys.has(entry.key),
+  ).map((entry) => entry.key);
+  return dependents.length > 0 ? { kind: "needed-by", keys: dependents } : null;
 }

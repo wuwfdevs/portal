@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { MODULES, MODULE_KEYS } from "./modules";
+import { MODULES, MODULE_KEYS, dependencyBlock } from "./modules";
 
 /**
  * The module manifest (src/lib/modules.ts) is only useful if it cannot drift from
@@ -204,5 +204,78 @@ describe("module manifest", () => {
       const names = entry.env.map((v) => v.name);
       expect(new Set(names).size, `${entry.key} repeats an env var`).toBe(names.length);
     }
+  });
+});
+
+describe("dependencyBlock (the /admin/tools switch)", () => {
+  const all = new Set(MODULE_KEYS);
+  const without = (...keys: string[]) => new Set(MODULE_KEYS.filter((key) => !keys.includes(key)));
+
+  it("lets a module with no dependencies be switched either way", () => {
+    expect(dependencyBlock("roadmap", true, all)).toBeNull();
+    expect(dependencyBlock("roadmap", false, all)).toBeNull();
+  });
+
+  it("refuses to enable a module while one it requires is off", () => {
+    expect(dependencyBlock("underwriting", true, without("underwriting", "log"))).toEqual({
+      kind: "needs",
+      keys: ["log"],
+    });
+    expect(
+      dependencyBlock(
+        "editorial-inquiry",
+        true,
+        without("editorial-inquiry", "editorial-planning"),
+      ),
+    ).toEqual({
+      kind: "needs",
+      keys: ["editorial-planning"],
+    });
+  });
+
+  it("allows enabling once what it requires is on", () => {
+    expect(dependencyBlock("underwriting", true, without("underwriting"))).toBeNull();
+  });
+
+  it("refuses to disable a module while an enabled module requires it", () => {
+    expect(dependencyBlock("log", false, all)).toEqual({
+      kind: "needed-by",
+      keys: ["underwriting"],
+    });
+    expect(dependencyBlock("editorial-planning", false, all)).toEqual({
+      kind: "needed-by",
+      keys: ["editorial-inquiry"],
+    });
+  });
+
+  it("allows disabling a module whose dependents are already off", () => {
+    expect(dependencyBlock("log", false, without("underwriting"))).toBeNull();
+  });
+
+  it("never blocks on a soft integration", () => {
+    // Audience Listening and Bookings only integrate with these; they keep working without them.
+    expect(dependencyBlock("transcription", false, all)).toBeNull();
+    expect(dependencyBlock("underwriting", false, all)).toBeNull();
+    expect(
+      dependencyBlock("bookings", true, without("bookings", "underwriting", "log")),
+    ).toBeNull();
+  });
+
+  it("has nothing to say about a key the manifest does not list", () => {
+    expect(dependencyBlock("newsletter-builder", true, new Set())).toBeNull();
+    expect(dependencyBlock("newsletter-builder", false, all)).toBeNull();
+  });
+});
+
+describe("capability tool keys", () => {
+  it("name only manifest modules", () => {
+    const unknown: string[] = [];
+    for (const { path, text } of sourceFiles()) {
+      for (const m of text.matchAll(/\brequires:\s*\{\s*tool:\s*"([^"]+)"/g)) {
+        const key = m[1] ?? "";
+        if (!MODULE_KEYS.includes(key)) unknown.push(`${path}: "${key}"`);
+      }
+    }
+    expect(unknown, "a capability requires a tool that is not a module").toEqual([]);
   });
 });

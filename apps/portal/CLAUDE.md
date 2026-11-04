@@ -4371,10 +4371,13 @@ writes that reported success without checking the result.
   every tool's `key` (= `public.tools.key`), `requires` (hard dependencies: a foreign key
   into another module's tables, or data it cannot work without), `integrates` (optional
   companions), `publicRoutes` and `env`. `public.tools.enabled` is the station's switch. It is
-  a static list, not a loader: no plugin loading, no per-module migrations or packages. Nothing
-  reads `requires`/`integrates`/`env` at runtime yet; `src/lib/modules.test.ts` checks them
-  against the migrations and the source. Adding a tool means a manifest entry and a registry
-  row in the same change.
+  a static list, not a loader: no plugin loading, no per-module migrations or packages.
+  `src/lib/modules.test.ts` checks it against the migrations and the source. At runtime `requires`
+  is enforced by the /admin/tools switch (a module cannot be enabled while one it requires is off,
+  or disabled while an enabled one requires it); `integrates` and `env` are declarations only so
+  far. The assistant and the MCP server advertise only the capabilities whose tool the caller can
+  use (`listCapabilitiesFor`). Adding a tool means a manifest entry and a registry row in the same
+  change.
 - **A registry row is inserted by a migration, never only by `seed.sql`, and no migration sets
   `enabled` on a row that already exists.** Insert with `on conflict (key) do nothing`, or
   update the descriptive columns only. A station's choice to turn a module on or off must
