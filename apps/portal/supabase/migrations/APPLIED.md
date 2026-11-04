@@ -311,6 +311,7 @@ repo and a project's history, not the version number.
 | `20261105160000_resources_sourcework_player_stays_in_view.sql`        | 2026-11-02 | 2026-11-02 |
 | `20261105170000_access_predicates_check_enabled_again.sql`            | 2026-11-04 | 2026-11-04 |
 | `20261105180000_resources_audience_listening_sourcework_handoff.sql`  | 2026-11-04 | 2026-11-04 |
+| `20261105190000_public_entry_points_respect_enabled.sql`              | 2026-11-04 | 2026-11-04 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
