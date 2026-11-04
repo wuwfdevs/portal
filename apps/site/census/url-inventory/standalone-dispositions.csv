@@ -62,9 +62,9 @@ path,template,published,title,cluster,proposed_disposition,note
 /african-burial-ground,/core/page/ContentPage.hbs,,African Burial Ground | WUWF,other-review,proposed:review,Needs a person to read it.
 /all-programs,/core/page/ContentPage.hbs,,All Programs | WUWF,other-review,proposed:review,Needs a person to read it.
 /all-shows,/core/page/ContentPage.hbs,,Shows A-Z | WUWF,other-review,proposed:review,Needs a person to read it.
-/america-250,/core/section/SectionPage.hbs,,America 250 | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/america-250,/core/section/SectionPage.hbs,,America 250 | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /announcement,/core/page/ContentPage.hbs,,Announcement | WUWF,other-review,proposed:review,Needs a person to read it.
-/ap,/core/page/Page.hbs,,Layout A Homepage - WUWF | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
+/ap,/core/page/Page.hbs,,Layout A Homepage - WUWF | WUWF,page-hbs,proposed:review,"Promo lists and two iframes, no text. Read before deciding."
 /archived-webcasts,/core/page/ContentPage.hbs,,Archived Webcasts | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /awell,/core/page/ContentPage.hbs,,Acupuncture and Wellness of Pensacola | WUWF,other-review,proposed:review,Needs a person to read it.
 /baileys-produce-and-nursery,/core/page/ContentPage.hbs,,Bailey's Produce and Nursery | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -115,7 +115,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /cadenceexample,/core/page/ContentPage.hbs,,CadenceExample | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /capitol-steps,/core/page/ContentPage.hbs,,Capitol Steps | WUWF,other-review,proposed:review,Needs a person to read it.
 /celebrating-35-years-of-radiolive,/core/page/ContentPage.hbs,,Celebrating 35 Years of RadioLive | WUWF,other-review,proposed:review,Needs a person to read it.
-/civics-101,/core/section/SectionPage.hbs,,Civics 101 | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/civics-101,/core/section/SectionPage.hbs,,Civics 101 | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /combined-federal-campaign-33728,/core/page/ContentPage.hbs,,Combined Federal Campaign 33728 | WUWF,other-review,proposed:review,Needs a person to read it.
 /commencement,/core/page/ContentPage.hbs,,Commencement | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /community-arts-cultural-hub,/core/page/ContentPage.hbs,,Community Arts & Cultural Hub | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -134,12 +134,12 @@ path,template,published,title,cluster,proposed_disposition,note
 /cs216,/core/page/ContentPage.hbs,,CS216 | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /cspon16bu,/core/page/ContentPage.hbs,,cspon16bu | WUWF,other-review,proposed:review,Needs a person to read it.
 /cspwork,/core/page/ContentPage.hbs,,CSPWork | WUWF,other-review,proposed:review,Needs a person to read it.
-/d,/core/page/Page.hbs,,Layout D Homepage - WUWF | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
+/d,/core/page/Page.hbs,,Layout D Homepage - WUWF | WUWF,page-hbs,proposed:drop,"Promo lists, same layout as /eb: looks like a layout test."
 /daily-schedule-for-wuwf-hd2-classical,/core/page/ContentPage.hbs,,Daily Schedule for WUWF-HD2 (Classical) | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /dauphin-island-sea-lab,/core/page/ContentPage.hbs,,Dauphin Island Sea Lab | WUWF,other-review,proposed:review,Needs a person to read it.
 /day-sponsor-messages,/core/page/ContentPage.hbs,,Day Sponsor Messages | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /dbt,/core/page/ContentPage.hbs,,dbt | WUWF,test-scratch,proposed:drop,Test or scratch page.
-/dc-effect,/core/section/SectionPage.hbs,,The D.C. Effect | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/dc-effect,/core/section/SectionPage.hbs,,The D.C. Effect | WUWF,section-landing,proposed:redirect,"Listing page with an empty main; no content. Drop (test-news) or fold into the section list (dc-effect, a live blog exists at /live-updates/the-d-c-effect)."
 /debate-2,/core/page/ContentPage.hbs,,Debate | WUWF,other-review,proposed:review,Needs a person to read it.
 /dekle-lecture,/core/page/ContentPage.hbs,,Dekle Lecture | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /delta-loses-strength,/core/page/ContentPage.hbs,,Delta Loses Strength | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -150,15 +150,15 @@ path,template,published,title,cluster,proposed_disposition,note
 /dsc-comprehensive,/core/page/ContentPage.hbs,,DSC Comprehensive | WUWF,other-review,proposed:review,Needs a person to read it.
 /dsc-search-strategies,/core/page/ContentPage.hbs,,DSC: Search Strategies | WUWF,other-review,proposed:review,Needs a person to read it.
 /dsqac-information-and-networking,/core/page/ContentPage.hbs,,DSQAC Information and Networking | WUWF,other-review,proposed:review,Needs a person to read it.
-/eb,/core/page/Page.hbs,,Layout EB Homepage - WUWF | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
-/eco,/core/section/SectionPage.hbs,,The EcoMinute | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/eb,/core/page/Page.hbs,,Layout EB Homepage - WUWF | WUWF,page-hbs,proposed:drop,"Promo lists, same layout as /d: looks like a layout test."
+/eco,/core/section/SectionPage.hbs,,The EcoMinute | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /eco-minute,/core/page/ContentPage.hbs,,Eco Minute | WUWF,other-review,proposed:review,Needs a person to read it.
-/ecoheroes,/core/page/Page.hbs,,EcoHeroes | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
+/ecoheroes,/core/page/Page.hbs,,EcoHeroes | WUWF,page-hbs,proposed:redirect,Promo list of the Ecoheroes episodes: redirect to the show page /podcast/ecoheroes.
 /edd-workshop2,/core/page/ContentPage.hbs,,EDD Workshop2 | WUWF,other-review,proposed:review,Needs a person to read it.
 /edd-workshops,/core/page/ContentPage.hbs,,EDD Workshops | WUWF,other-review,proposed:review,Needs a person to read it.
 /eeo,/core/page/ContentPage.hbs,,EEO | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /election,/core/page/ContentPage.hbs,,Election 2024: Meet the candidates | WUWF,other-review,proposed:review,Needs a person to read it.
-/election-2024,/core/section/SectionPage.hbs,,Election 2024 | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/election-2024,/core/section/SectionPage.hbs,,Election 2024 | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /election-2026,/core/page/ContentPage.hbs,,Election 2026 | WUWF,other-review,proposed:review,Needs a person to read it.
 /election-simulator,/core/page/ContentPage.hbs,,Election Simulator | WUWF,other-review,proposed:review,Needs a person to read it.
 /emmanuel-sheppard-condon,/core/page/ContentPage.hbs,,Emmanuel Sheppard & Condon | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -188,7 +188,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /fall-forum-archive,/core/page/ContentPage.hbs,,Fall Forum Archive | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /first-listen,/core/page/ContentPage.hbs,,First Listen | WUWF,other-review,proposed:review,Needs a person to read it.
 /florida-bog-at-uwf,/core/page/ContentPage.hbs,,Florida BOG at UWF | WUWF,other-review,proposed:review,Needs a person to read it.
-/florida-news,/core/section/SectionPage.hbs,,Florida News | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/florida-news,/core/section/SectionPage.hbs,,Florida News | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
 /florida-results,/core/page/ContentPage.hbs,,Florida Results | WUWF,other-review,proposed:review,Needs a person to read it.
 /florida-storms-app,/core/page/ContentPage.hbs,,Florida Storms App | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /forum,/core/page/ContentPage.hbs,,Forum | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
@@ -235,9 +235,9 @@ path,template,published,title,cluster,proposed_disposition,note
 /leave-a-legacy,/core/page/ContentPage.hbs,,Leave A Legacy | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /lecture,/core/page/ContentPage.hbs,,Seligman Lecture | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /live-senate-vote,/core/page/ContentPage.hbs,,Live: Senate Vote | WUWF,other-review,proposed:review,Needs a person to read it.
-/local-music-scene,/core/section/SectionPage.hbs,,Local Music Scene | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
-/local-news,/core/section/SectionPage.hbs,,Local News | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
-/local-news-featured,/core/section/SectionPage.hbs,,Local News  | Featured | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/local-music-scene,/core/section/SectionPage.hbs,,Local Music Scene | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
+/local-news,/core/section/SectionPage.hbs,,Local News | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
+/local-news-featured,/core/section/SectionPage.hbs,,Local News  | Featured | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
 /local-radar,/core/page/ContentPage.hbs,,Local Radar | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /local-weather,/core/page/ContentPage.hbs,,Local Weather | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /look-see-a-portrait-of-wendell-berry,/core/page/ContentPage.hbs,,Look & See: A Portrait of Wendell Berry | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -248,7 +248,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /map-and-directions,/core/page/ContentPage.hbs,,Map and Directions | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /membership-levels-and-benefits,/core/page/ContentPage.hbs,,Membership Levels and Benefits | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /moc-symposium-82126,/core/page/ContentPage.hbs,,MOC Symposium 82126 | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
-/music-arts,/core/section/SectionPage.hbs,,Music & Arts | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/music-arts,/core/section/SectionPage.hbs,,Music & Arts | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
 /my-minute-60a,/core/page/ContentPage.hbs,,My Minute 60a | WUWF,other-review,proposed:review,Needs a person to read it.
 /my-minute-60c,/core/page/ContentPage.hbs,,My Minute 60c | WUWF,other-review,proposed:review,Needs a person to read it.
 /my-minute-60d,/core/page/ContentPage.hbs,,My Minute 60d | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -261,7 +261,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /new-white-house-update-on-coronavirus,/core/page/ContentPage.hbs,,New: White House Update on Coronavirus | WUWF,other-review,proposed:review,Needs a person to read it.
 /newport-2014,/core/page/ContentPage.hbs,,Newport 2014 | WUWF,other-review,proposed:review,Needs a person to read it.
 /newport-folk-festival,/core/page/ContentPage.hbs,,Newport Folk Festival | WUWF,other-review,proposed:review,Needs a person to read it.
-/news,/core/section/SectionPage.hbs,,News | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/news,/core/section/SectionPage.hbs,,News | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
 /newsletter,/core/page/ContentPage.hbs,,Newsletter | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /npr-election-blog,/core/page/ContentPage.hbs,,NPR Election Blog | WUWF,other-review,proposed:review,Needs a person to read it.
 /npr-live-coverage,/core/page/ContentPage.hbs,,NPR Live Coverage | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -327,19 +327,19 @@ path,template,published,title,cluster,proposed_disposition,note
 /t66543,/core/page/ContentPage.hbs,,T66543 | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /test,/core/page/ContentPage.hbs,,test | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /test-30a,/core/page/ContentPage.hbs,,Test 30A | WUWF,test-scratch,proposed:drop,Test or scratch page.
-/test-news,/core/section/SectionPage.hbs,,Test News | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/test-news,/core/section/SectionPage.hbs,,Test News | WUWF,section-landing,proposed:drop,"Listing page with an empty main; no content. Drop (test-news) or fold into the section list (dc-effect, a live blog exists at /live-updates/the-d-c-effect)."
 /test-npr,/core/page/ContentPage.hbs,,TEST NPR | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /test-vim,/core/page/ContentPage.hbs,,test vim | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /test5,/core/page/ContentPage.hbs,,test5 | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /testimonials,/core/page/ContentPage.hbs,,Testimonials | WUWF,test-scratch,proposed:drop,Test or scratch page.
-/testpage,/core/page/Page.hbs,,Homepage - WUWFT | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
+/testpage,/core/page/Page.hbs,,Homepage - WUWFT | WUWF,page-hbs,proposed:drop,Test page.
 /testwebcast,/core/page/ContentPage.hbs,,testwebcast | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /thanks-for-your-support,/core/page/ContentPage.hbs,,Thanks for Your Support! | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /the-capitol-steps,/core/page/ContentPage.hbs,,The Capitol Steps | WUWF,other-review,proposed:review,Needs a person to read it.
 /the-dissertation-process,/core/page/ContentPage.hbs,,The Dissertation Process | WUWF,other-review,proposed:review,Needs a person to read it.
 /the-pulse-of-the-panhandle,/core/page/ContentPage.hbs,,The Pulse Of The Panhandle | WUWF,other-review,proposed:review,Needs a person to read it.
 /three-mt,/core/page/ContentPage.hbs,,Three MT | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
-/through-the-lens,/core/section/SectionPage.hbs,,Through The Lens | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/through-the-lens,/core/section/SectionPage.hbs,,Through The Lens | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /ticket-purchase,/core/page/ContentPage.hbs,,Ticket Purchase | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /tickets,/core/page/ContentPage.hbs,,Tickets | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /tidings-of-comfort-joy,/core/page/ContentPage.hbs,,Tidings of Comfort & Joy | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -348,7 +348,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /todays-schedule-for-wuwf-hd3-sightline,/core/page/ContentPage.hbs,,Today's Schedule for WUWF-HD3 (Sightline) | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /triumph,/core/page/ContentPage.hbs,,Triumph | WUWF,other-review,proposed:review,Needs a person to read it.
 /tropical-weather-outlook,/core/page/ContentPage.hbs,,Tropical Weather Outlook | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
-/unearthing-florida,/core/section/SectionPage.hbs,,Unearthing Florida | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/unearthing-florida,/core/section/SectionPage.hbs,,Unearthing Florida | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section. Unearthing Florida hub already exists."
 /uwf-130,/core/page/ContentPage.hbs,,UWF 130 | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /uwf-530,/core/page/ContentPage.hbs,,UWF 530 | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /uwf-930,/core/page/ContentPage.hbs,,UWF 930 | WUWF,uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
@@ -379,7 +379,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /uwf-town-hall-march-4-2014,/core/page/ContentPage.hbs,,"UWF Town Hall March 4, 2014 | WUWF",uwf-event-webcast,proposed:decide,"UWF event webcast page (commencement, convocation, honors, symposium, forum). Owner decision."
 /vote,/core/page/ContentPage.hbs,,Vote | WUWF,other-review,proposed:review,Needs a person to read it.
 /w23,/core/page/ContentPage.hbs,,w23 | WUWF,test-scratch,proposed:drop,Test or scratch page.
-/wake-up,/core/section/SectionPage.hbs,,Wake Up | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/wake-up,/core/section/SectionPage.hbs,,Wake Up | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /water-on-mars,/core/page/ContentPage.hbs,,Water on Mars | WUWF,other-review,proposed:review,Needs a person to read it.
 /wc428,/core/page/ContentPage.hbs,,WC428 | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /weather,/core/page/ContentPage.hbs,,Weather | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
@@ -399,7 +399,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /wuwf-1-news-talk-grid,/core/page/ContentPage.hbs,,WUWF-1 News/Talk Grid | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /wuwf-2-classical-grid,/core/page/ContentPage.hbs,,WUWF-2 Classical Grid | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /wuwf-3-sightline-grid,/core/page/ContentPage.hbs,,WUWF-3 SightLine Grid | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
-/wuwf-coronavirus-live-blog,/core/page/Page.hbs,,WUWF Coronavirus Live Blog | WUWF,page-hbs,proposed:review,Template (Page.hbs) the converter does not handle.
+/wuwf-coronavirus-live-blog,/core/page/Page.hbs,,WUWF Coronavirus Live Blog | WUWF,page-hbs,proposed:review,"Promo list of the coronavirus live-blog posts; the posts are stories under /news. Redirect to a topic or section list, or drop."
 /wuwf-demographics,/core/page/ContentPage.hbs,,WUWF Demographics | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /wuwf-privacy-statement,/core/page/ContentPage.hbs,,WUWF Privacy Statement | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /wuwf-tv-daily-schedule,/core/page/ContentPage.hbs,,WUWF-TV Daily Schedule | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
@@ -407,6 +407,6 @@ path,template,published,title,cluster,proposed_disposition,note
 /wuwf-tv-new-schedule,/core/page/ContentPage.hbs,,WUWF-TV New Schedule | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /wuwf-tv-program-grid,/core/page/ContentPage.hbs,,WUWF-TV Program Grid | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /you-have-successfully-submitted-an-event,/core/page/ContentPage.hbs,,You have successfully submitted an event. | WUWF,other-review,proposed:review,Needs a person to read it.
-/your-florida,/core/section/SectionPage.hbs,,Your Florida | WUWF,section-landing,proposed:merge,Grove section landing page; becomes the generated section list at the same address (needs a decision on curated content).
+/your-florida,/core/section/SectionPage.hbs,,Your Florida | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /your-right-to-know,/core/page/ContentPage.hbs,,Your Right to Know | WUWF,other-review,proposed:review,Needs a person to read it.
 /zoolander,/core/page/ContentPage.hbs,,Zoolander | WUWF,test-scratch,proposed:drop,Test or scratch page.

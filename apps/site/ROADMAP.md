@@ -245,8 +245,21 @@ live blogs 3; odd shapes 42 (including `/podcast/...`).
   them; `/podcast` is not reserved, only `/podcasts`). On the real pages: 30 episodes clean, 6 `review` (the `ecoheroes` episodes are hollow in Grove too:
   a title and a description, no audio, body or picture; new codes `episode.no-audio` and `episode.hollow-page`), both shows convert. **Grove's podcast feed
   address (`/podcast/<slug>/rss.xml`) has nowhere to go yet** and is reported as `show.feed-link-not-kept`: podcast apps subscribe to it, so the feed
-  needs a decision before cutover. Still no entry: `/core/section/SectionPage.hbs` (16 standalone pages that share a name with a section, e.g. `/news`,
-  `/local-news`) and `/core/page/Page.hbs` (6 pages).
+  needs a decision before cutover.
+- **`SectionPage` (16) and `Page.hbs` (6) need no converter.** Read 22 real pages: `main` is containers holding promo lists and, on `/ap`, two
+  iframes; there is no editorial text and no body. They are curated listings. `SectionPage` addresses (`/news`, `/local-news`, `/music-arts`,
+  `/florida-news`, `/eco`, ...) are served by the generated section lists (a real page at an address wins over a list, so create no page for them);
+  `america-250`, `civics-101`, `eco`, `election-2024`, `through-the-lens`, `wake-up` and `your-florida` are hub candidates if the owner wants a
+  curated front (Unearthing Florida's hub exists). `Page.hbs`: `d`, `eb`, `testpage` look like tests, `ecoheroes` should redirect to
+  `/podcast/ecoheroes`, `ap` and `wuwf-coronavirus-live-blog` need a read. Dispositions are in `standalone-dispositions.csv`.
+- **Grove serves redirects that no sitemap lists, and they are not derivable.** Old `/post/<slug>` addresses answer 301 to the story's current address
+  (3 of 3 tried), but the old slug is not the new one (`/post/delta-forecast-become-category-4-hurricane-it-approaches-gulf` goes to
+  `/2020-10-06/delta-forecast-to-become-category-4-hurricane-as-it-approaches-gulf`: the old slug dropped words). The table exists only inside
+  Grove, which has no export. **Our own stories link to them:** in the 131 newly converted stories, 5 of the 30 own-site links are `/post/...`, 3 go
+  to bare wire stories and 9 to `/radiolive`; so a migrated story can carry a link that is a 301 on Grove and would be a 404 here. The full count
+  needs the converted corpus. **Proposed:** at conversion time, resolve each distinct `/post/` link in a migrated story with one request (3 s apart,
+  redirect not followed) and rewrite it to the target when the target is migrated; and use Search Console to find out whether outside sites link to
+  `/post/` addresses at all (that is the only way to size the unlisted redirects).
 - **Bug found and fixed in passing: episodes lost their text.** Radio and podcast episodes keep their text in `body`; the converter read `articleBody` for
   every page, so an episode's body came out empty with no report. The real `/2021-10-01` episode shows it; the tally confirms `body` on the 15 probe
   episodes. The existing episode test passed because it never looked at the content (it now does, and was mutation-checked: restoring the old key fails 3
