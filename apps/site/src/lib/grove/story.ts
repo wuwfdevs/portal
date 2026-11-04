@@ -8,6 +8,7 @@ import { classifyOrigin } from '../census/tally'
 import { audioToken, arr, enhancementNodes, leadItems, obj, objectNodes, str, template } from './enhancements'
 import { Ctx, absoluteUrl, escapeHtml, plainText, unwrapTemplates } from './context'
 import { htmlToNodes } from './html'
+import { applyLinkMap } from './links'
 import * as lex from './lexical'
 import type { ConvertOptions, ConvertResult, ConvertedStory, Json, JsonObject, LexNode, PersonRef, StoryReport } from './types'
 
@@ -243,7 +244,13 @@ export function convertStory(page: unknown, options: ConvertOptions = {}): Conve
   // An article keeps its text in `articleBody`; an episode (radio or podcast) keeps it in `body`. Reading the wrong one gave an
   // empty story and no report, which is how the first fifteen episodes lost their text unnoticed.
   const bodyContent = bodyNodes(arr(isEpisode ? j.body : j.articleBody), ctx)
-  const content = lex.root(bodyContent)
+  let content = lex.root(bodyContent)
+  if (options.linkMap) {
+    // Links to wire stories (which answer 410 here) and to old /post/ addresses (Grove 301s them): point them at the original, or remove them.
+    const applied = applyLinkMap(content, options.linkMap)
+    content = applied.state
+    for (const c of applied.changes) ctx.note(c.to === null ? 'link.unlinked-gone-page' : 'link.repointed', `${c.from} -> ${c.to ?? 'removed'}`)
+  }
   const featuredMedia = leadItems(arr(j.lead), ctx)
 
   let featuredAudio: ConvertedStory['featuredAudio'] = null

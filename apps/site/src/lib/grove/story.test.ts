@@ -227,3 +227,26 @@ describe('a wire service\'s byline on a story Grove calls WUWF\'s', () => {
     expect(ok(page()).report.entries.map((e) => e.code)).not.toContain('origin.wire-byline')
   })
 })
+
+describe('links to pages this site will not have', () => {
+  const withLink = () => page({ articleBody: [{ items: ['<p>See <a href="https://www.wuwf.org/post/old-slug#stream/0">the earlier report</a> today.</p>'] }] })
+  it('points a mapped link at its new address and says so', () => {
+    const r = convertStory(withLink(), { linkMap: { '/post/old-slug': '/local-news/2020-07-21/new-slug' } })
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(JSON.stringify(r.story.content)).toContain('"url":"/local-news/2020-07-21/new-slug"')
+    expect(r.report.entries).toContainEqual({ level: 'noted', code: 'link.repointed', detail: '/post/old-slug -> /local-news/2020-07-21/new-slug' })
+  })
+  it('removes a link to a page that is gone and keeps its words', () => {
+    const r = convertStory(withLink(), { linkMap: { '/post/old-slug': null } })
+    if (r.status !== 'converted') throw new Error('expected converted')
+    const t = JSON.stringify(r.story.content)
+    expect(t).toContain('the earlier report')
+    expect(t).not.toContain('old-slug')
+    expect(r.report.entries.map((e) => e.code)).toContain('link.unlinked-gone-page')
+  })
+  it('leaves every link alone when there is no map', () => {
+    const r = convertStory(withLink())
+    if (r.status !== 'converted') throw new Error('expected converted')
+    expect(JSON.stringify(r.story.content)).toContain('/post/old-slug')
+  })
+})
