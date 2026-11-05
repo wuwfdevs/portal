@@ -4652,17 +4652,21 @@ Resources guides, Sourcework's prompts and formats, the pitch form, generic indu
 pillars and criteria, procedures, release-note history, names, addresses. That goes in
 `supabase/station/<station>/` as a script an administrator runs by hand (WUWF's is
 `supabase/station/wuwf/`). About 170 existing migrations predate this rule and do seed WUWF's
-data; they are not edited, and a new station clears it with
-`supabase/install/clear-seed-data-for-new-station.sql` (guarded: it refuses a database with any
-account or a named station, and is never run against WUWF's projects). A new `public` table prefix
-must be classified in that script (`install-script.test.ts` fails until it is).
+data; they are not edited. A new station does **not** replay the migrations (they cannot be
+replayed from nothing, and `supabase db push` stops part way): it installs `supabase/baseline/`, a
+generated schema and product-data snapshot that CI proves equal to the history. The clearing script
+(`supabase/install/clear-seed-data-for-new-station.sql`) defines which tables are product and which
+are station data, and is how the baseline is made; it is never run against WUWF's projects, and it
+refuses a database with any account or a named station. A new `public` table prefix must be
+classified in that script (`install-script.test.ts` fails until it is). A migration added after
+`supabase/baseline/BASELINE_THROUGH` needs nothing extra: it applies on top of the baseline.
 
 **`APPLIED.md` is WUWF's ledger, not a general mechanism.** It records what was applied to
 WUWF's two projects and why their history differs from the files; it is why `supabase db push`
-must never be run against them. A station installing its own Portal has an empty database, runs
-`supabase db push` (its history is then the CLI's own), and has no `APPLIED.md` to keep. The
-`fresh-install` workflow replays every migration into a disposable database and runs the clearing
-script, so a migration that breaks a from-nothing build fails there.
+must never be run against them. A station installing its own Portal has an empty database, installs the baseline (which records
+the migrations it contains as applied), and has no `APPLIED.md` to keep. The `fresh-install`
+workflow installs the baseline into a disposable Supabase stack and, separately, replays the history
+to prove the baseline still equals it, so a migration that breaks either fails there.
 
 `APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
 a migration file with no row, a row naming a missing file, or a row where either

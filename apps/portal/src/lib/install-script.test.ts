@@ -153,7 +153,10 @@ describe("the fresh-install workflow", () => {
   it("has no access to any hosted project", () => {
     expect(workflow).not.toMatch(/secrets\./);
     expect(workflow).not.toMatch(/SUPABASE_(ACCESS_TOKEN|SECRET_KEY|DB_PASSWORD)/);
-    expect(workflow).not.toMatch(/--linked|supabase\s+link|db\s+push/);
+    // `db push --local` can only reach the stack this job starts; any other push could reach a linked project.
+    expect(workflow).not.toMatch(/--linked|supabase\s+link/);
+    expect(workflow).not.toMatch(/db\s+push(?!\s+--local)/);
+    expect(workflow).not.toMatch(/--db-url/);
   });
 
   it("builds without the sample-data seed and on the same Postgres major as the hosted projects", () => {
@@ -171,5 +174,18 @@ describe("the fresh-install workflow", () => {
     expect(workflow).toMatch(/workflow_dispatch:/);
     expect(workflow).toMatch(/apps\/portal\/supabase\/migrations\/\*\*/);
     expect(workflow).toMatch(/apps\/portal\/supabase\/install\/\*\*/);
+    expect(workflow).toMatch(/apps\/portal\/supabase\/baseline\/\*\*/);
+  });
+
+  it("keeps every database in both jobs on this machine", () => {
+    for (const url of workflow.match(/postgresql:\/\/[^\s"]+/g) ?? []) {
+      expect(url, url).toMatch(/^postgresql:\/\/postgres:postgres@127\.0\.0\.1:/);
+    }
+  });
+
+  it("installs from the baseline, never by replaying the migrations through the CLI", () => {
+    expect(workflow).toMatch(/supabase\/baseline\/schema\.sql/);
+    expect(workflow).toMatch(/supabase\/baseline\/product-data\.sql/);
+    expect(workflow).toMatch(/mv supabase\/migrations "\$RUNNER_TEMP\/migrations"/);
   });
 });

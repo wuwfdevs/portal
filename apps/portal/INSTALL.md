@@ -4,18 +4,14 @@ This is for a station setting up **its own** Portal: its own Supabase project, i
 own domain. One deployment serves one station. It is not for WUWF, whose two projects have their own
 history (`supabase/migrations/APPLIED.md`) and must never be touched by anything here.
 
-**Status.** This guide is written against the code and checked by reading it, by tests, and by running the
-clearing script's SQL against a copy of the schema. A complete install from nothing has not been done yet,
-and **step 2 does not work today**: replaying the migrations into an empty project stops at
-`20260914130000_rls_initplan_wrapping.sql`, which alters policies on Sourcework tables that the migration
-files create about a month later in prefix order (WUWF's hosted projects applied them in the other order).
-The other 276 migrations replay cleanly. Until that is resolved (see `docs/new-station-install-data.md`,
-"Known blockers"), a new station cannot be installed from the migration files alone. Where a step depends on a
+**Status.** This guide is written against the code and checked by reading it, by tests, and by CI, which installs the
+database files below into an empty local Supabase stack and checks the result. A complete install of a real project
+from nothing has not been done yet; the first one will find things to correct here. Where a step depends on a
 dashboard, the names of settings are given because the labels move.
 
 You will need: a Supabase account (a new project on Postgres 17), a Vercel account, a domain, a GitHub copy
-of this repository, [Node 20+](https://nodejs.org), the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
-and `psql` (or the Supabase SQL editor). Docker is not needed for an install.
+of this repository, [Node 20+](https://nodejs.org) and `psql` (the PostgreSQL command-line client; version 16 or
+newer). Docker and the Supabase CLI are not needed for an install.
 
 ## 1. Create the Supabase project
 
@@ -34,47 +30,37 @@ In **Authentication**, set (these are not optional):
 - **Email:** the built-in sender is rate-limited to a few messages an hour, which is enough to try the
   invitation and not enough to run. Set up your own SMTP provider before you invite staff.
 
-## 2. Build the database from the migrations
+## 2. Install the database
 
-From `apps/portal`, with the CLI signed in:
-
-```bash
-supabase link --project-ref <your-project-ref>
-supabase db push
-```
-
-This applies every file in `supabase/migrations/` in order to your **new, empty** project and records them
-in its own history. Do **not** use `supabase/seed.sql`: it is sample data for local development.
-
-> **Never run `supabase db push` against WUWF's projects.** Their migration history does not line up with
-> the files (see `supabase/migrations/APPLIED.md`), and the CLI would try to apply nearly all of them again.
-
-## 3. Clear WUWF's data from your new database
-
-The migrations replay in order, and many of them insert WUWF's own clocks, schedule, rates, editorial
-pillars and criteria, and Resources content. Applied migrations cannot be edited, so your database starts
-with that data. Remove it, **once, now, before anyone signs in**:
+From `apps/portal`, with the **direct connection string** from Settings → Database (it contains your database password;
+put it in a shell variable, not in a file you will commit):
 
 ```bash
-psql "<your database connection string>" -v ON_ERROR_STOP=1 --single-transaction \
-  -f supabase/install/clear-seed-data-for-new-station.sql
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 --single-transaction -f supabase/baseline/schema.sql
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/baseline/product-data.sql
 ```
 
-(Or paste the file into the SQL editor and run it.) It refuses to run if the database already has any
-account or a named station, and it is one transaction, so a refusal changes nothing. Read the comments at the
-top of the file for exactly what it keeps and clears. In short: the tool registry, the product's Resources
-guides, Sourcework's prompts and formats and the pitch form stay; every clock, program, schedule entry,
-underwriter, contract, rate, pillar, criterion, procedure and release note goes; the Academic Partnerships and
-Bookings public forms are given neutral copy and closed.
+Run each once, in that order, against the **new, empty** project. The first creates every table, security policy, function
+and storage rule; the second adds what every station starts with (the tool registry, the product's Resources guides,
+Sourcework's piece formats, the pitch form, generic industry categories, closed Academic Partnerships and Bookings
+forms with neutral copy). Neither contains any of WUWF's data, an account, or a station name. If the first fails,
+nothing was changed (it is one transaction); fix the cause and run it again.
 
-**If you are not in US Central time,** set your zone in the database now. The deployment has its own setting for
-the same fact (step 4) and the two must match:
+Do **not** replay `supabase/migrations/` into your project, and do not use `supabase/seed.sql` (sample data for local
+development). The migrations are WUWF's own history and cannot be replayed from nothing; `supabase/baseline/README.md`
+says why and how the baseline was checked against them.
+
+> **Never run `supabase db push` against WUWF's projects.** Their migration history does not line up with the files
+> (see `supabase/migrations/APPLIED.md`), and the CLI would try to apply nearly all of them again.
+
+**If you are not in US Central time,** set your zone in the database now. The deployment has its own setting for the
+same fact (step 3) and the two must match:
 
 ```sql
 update public.station_settings set time_zone = 'America/New_York' where id;
 ```
 
-## 4. Deploy to Vercel
+## 3. Deploy to Vercel
 
 Import the repository as a Vercel project and set **Root Directory to `apps/portal`** (a dashboard setting).
 Set these environment variables for Production:
@@ -90,12 +76,12 @@ Set these environment variables for Production:
 | `OPENAI_API_KEY`                       | needed for the assistant, Editorial Inquiry and Sourcework's analysis steps  |
 
 Each module that talks to an outside service has its own keys (AssemblyAI for Sourcework, Daily for Remote
-Interview, and so on). You do not need to memorise them: after step 6, **Administration → Tools** lists what
+Interview, and so on). You do not need to memorise them: after step 5, **Administration → Tools** lists what
 each module is missing. `.env.example` and the README's "Environments" section describe each one.
 
 Point your domain at the project, deploy, and make sure the address matches the Site URL from step 1.
 
-## 5. Create the first administrator
+## 4. Create the first administrator
 
 A new database has nobody who can sign in, and every other way of inviting someone needs an administrator.
 Run this once from `apps/portal`, with the project URL and the secret key in the environment (not on the
@@ -111,7 +97,7 @@ email; the account becomes active the first time you sign in. The script refuses
 already has an administrator or an account for that email, so it cannot add a second administrator behind
 the app's back: after the first, invite people from Administration → Users.
 
-## 6. Set up the station
+## 5. Set up the station
 
 Signed in as the administrator:
 
@@ -125,12 +111,12 @@ Signed in as the administrator:
    still say "WUWF" and model a university licensee. Leave **Website** off unless you run the Payload site.
 3. **Administration → Users.** Invite your staff and give each person access to the tools they need.
 4. **Editorial Planning → Settings** (if you use it). Define your coverage pillars and criteria. The pitch form
-   needs at least one pillar before anyone can pitch. These were cleared in step 3 on purpose: they are your
+   needs at least one pillar before anyone can pitch. They start empty on purpose: they are your
    editorial policy, not the product's.
 5. **On Air and Traffic** (if you use them). Build your clocks and programs (Programs and Clocks), or import a
    day's program log. Traffic places credits into the inventory On Air defines, so On Air comes first.
 
-## 7. Check it worked
+## 6. Check it worked
 
 - The sign-in page and the browser tab say your station's name, and the page footer notice is yours or absent.
 - Administration → Tools shows no unexpected "missing" keys for the modules you switched on.
@@ -141,5 +127,8 @@ Signed in as the administrator:
 
 ## Upgrading
 
-Upgrading an installed station (checking out a newer release, `supabase db push`, deploying) is not written
-up yet, because there are no releases to take. It arrives with the upstream repository.
+Upgrading an installed station is not written up yet, because there are no releases to take; it arrives with the
+upstream repository. What is in place: the baseline records the migrations it contains as applied, so with
+`supabase link` and a newer checkout, `supabase db push` applies only the migrations that came after your baseline
+(`supabase/baseline/BASELINE_THROUGH` names the last one it contains), and CI checks that nothing is left pending.
+Link only **your own** project, never WUWF's.

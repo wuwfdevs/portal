@@ -1,23 +1,23 @@
--- Clears WUWF's data out of a database a NEW station has just built from the migrations.
+-- Clears WUWF's data out of a database built by replaying WUWF's migrations.
 --
--- READ THIS FIRST. This script is destructive, and it is for one situation only: a brand-new Supabase
--- project that has had every migration applied and nothing else, before anyone has signed in. Run it
--- once, before the first administrator is created (INSTALL.md). It is never run against WUWF's
--- databases, which hold WUWF's data on purpose, and it refuses to run against any database that
--- already holds a station:
+-- A NEW STATION DOES NOT RUN THIS. Since 2026-11-05 a station installs supabase/baseline/ (INSTALL.md), which is
+-- this script's output: supabase/baseline/generate.sh runs it on a replay of WUWF's history and writes the
+-- baseline from what is left, and CI runs it again to prove the baseline still equals that. The list of tables it
+-- keeps is therefore what decides which data is the product's and which is a station's.
 --
---   * it stops if any user account exists (a fresh database has none yet), and
+-- READ THIS FIRST. This script is destructive. It is never run against WUWF's databases, which hold WUWF's data
+-- on purpose, and it refuses to run against any database that already holds a station:
+--
+--   * it stops if any user account exists (a database built from the migrations has none), and
 --   * it stops if the station already has a name in public.station_settings (WUWF's does).
 --
 -- Both checks run before anything is deleted. The script is one transaction (run it with
--- `psql --single-transaction -v ON_ERROR_STOP=1 -f`, or paste it into the SQL editor), so a refusal or
--- any error leaves the database exactly as it was.
+-- `psql --single-transaction -v ON_ERROR_STOP=1 -f`), so a refusal or any error leaves the database exactly as
+-- it was.
 --
 -- Why it exists: about 275 migrations replay in order, and roughly 170 of them insert WUWF's clocks,
 -- schedule, rates, editorial pillars and criteria, or Resources content. Applied migrations cannot be
--- edited, so a station replaying them starts with WUWF's operational data. When the upstream repository
--- starts from a squashed baseline schema this script is retired. The classification below is the same
--- one that baseline needs. See docs/new-station-install-data.md.
+-- edited, so a replay of them holds WUWF's operational data. See docs/new-station-install-data.md.
 --
 -- What it does:
 --   1. Keeps the tables that are the product, not a station's data (the list in `v_keep`).

@@ -1,9 +1,10 @@
 # Starting a new station: what a fresh install must not inherit
 
-**Status (2026-11-04): the clearing script and the CI job that proves it are written; the first administrator
-bootstrap and the install guide are not.** The script was run, inside a transaction that was rolled back,
-against the preview project's real schema (preview was unchanged afterward). The CI job has not run yet, so
-expect a first run to need small fixes; see "What is built".
+**Status (2026-11-05): a new station installs from a generated baseline, `supabase/baseline/`, not by replaying
+WUWF's migrations.** The migrations cannot be replayed from nothing (see "Why a baseline"), so the plan below that
+clears WUWF's data from a replayed database is now how the baseline is _made_ and what defines its contents, not what a
+station runs. The first administrator script and `INSTALL.md` are written. CI has not yet run end to end on a real
+Supabase stack; expect a first run to need small fixes.
 
 ## The constraint
 
@@ -67,6 +68,10 @@ is harmless: it finds nothing left to do.
 
 ## What is built
 
+- `supabase/baseline/` — `schema.sql` and `product-data.sql` (what a station installs), the scripts that make and prove
+  them (`replay-history.sh`, `generate.sh`, `verify.sh`, `fingerprint.sql`, `local-stubs.sql`), `BASELINE_THROUGH` (the last
+  migration it contains) and a `README.md`. `src/lib/baseline.test.ts` keeps the recorded migration list exactly equal to
+  the files up to that version.
 - `supabase/install/clear-seed-data-for-new-station.sql` — the script. It keeps 23 tables (the platform
   tables, Resources guides and what hangs off them, Sourcework's prompts and piece formats, the pitch form,
   the generic industry categories, and four settings singletons), empties every other table in `public`
@@ -75,10 +80,11 @@ is harmless: it finds nothing left to do.
   starting copy. It also clears `ap_settings.google_appointments_url`, which in production is WUWF's real
   calendar link, rewords three pitch-form fields and two tool descriptions that named WUWF, and closes the
   Academic Partnerships and Bookings public forms until the station opens them.
-- `.github/workflows/fresh-install.yml` — builds an empty Postgres 17 database from the migrations with no
-  sample data, checks it, proves both refusals (a named station, an account), runs the script, checks what
-  is left (every other table empty, one version per article, no kept table naming a station except the
-  ten Bookings guides and the two WUWF-tooling guides), and runs it again. It runs only when the migrations
+- `.github/workflows/fresh-install.yml` — two jobs. One installs the baseline into a local Supabase stack with no migrations
+  and checks what a station is left with (every other table empty, row level security everywhere, one version per article,
+  no kept table naming a station except the ten Bookings guides and the two WUWF-tooling guides, and `supabase db push
+--local` finding nothing pending). The other replays the history on plain Postgres 17, proves both refusals of the
+  clearing script (a named station, an account), clears, and proves the baseline is the same schema and data. It runs only when the migrations
   or install files change, or by hand. It holds no credentials, and fails at its first step if the database
   address is ever not this machine.
 - `src/lib/install-script.test.ts` — keeps the script's guard before its first change, forbids `cascade`,
@@ -117,24 +123,28 @@ The workflow's shell steps were syntax-checked and its two assertion queries exe
   has only what the migrations write: the guides (68 distinct, from 161 revisions), 92 release-note calls, and
   the seeded clocks and schedule. The reset is checked against a real replay in CI, not against production.
 
-## Known blockers (found by the first CI run and a local replay, 2026-11-05)
+## Why a baseline (2026-11-05)
 
-Replaying the 278 migrations into an empty Postgres (with pgvector) was run locally, then the workflow's
-remaining steps against the result. The refusals, the clearing script, the "kept tables" and "everything else
-is empty" checks all behave as described above. Three things do not:
+Replaying the 278 migrations into an empty Postgres was run for real, then the clearing script and its checks against the
+result. Three findings:
 
 1. **Two migrations cannot replay.** `20260914130000_rls_initplan_wrapping.sql` and
-   `20260914140000_rls_initplan_wrapping_advisor_form.sql` alter policies on `sw_data_point_excerpts` (and
-   other Sourcework research tables). The files that create those tables carry prefixes `20261012…` and later;
-   the hosted projects applied them in August, so the hosted order was creation, then wrapping, then
-   retirement. The files cannot be edited or renumbered without rewriting WUWF's history, so this needs a
-   decision: a squashed baseline for new stations (the intended end state), or a guarded early-prefix scaffold.
-2. **Six guides are marked "edited since release" in a fresh replay** although no person touched them
-   (early migrations updated them directly, which trips the flag). `20261105230000` therefore skipped them, and
-   `log-content-library` still says "WUWF's" after clearing. The CI check that no kept table names a station
-   catches it.
-3. Two bugs in the workflow itself, now fixed: the newest Supabase CLI rejects the old `[inbucket]` section of
-   `config.toml`, and the assertion helper printed the `DO` command tag before its answer.
+   `20260914140000_rls_initplan_wrapping_advisor_form.sql` alter policies on `sw_data_point_excerpts` and other Sourcework
+   research tables. The files that create those tables carry prefixes `20261012…` and later: WUWF's projects had older
+   versions of those tables in August, the files for them were later rewritten, and the September wrapping ran against the
+   old ones. Applied migrations are never edited or renumbered, so the history stays as it is.
+2. **Six guides were marked "edited since release" in a replay although no person touched them** (early migrations updated
+   guides in a way that trips the flag), so every later release migration, including the one that removes the station's
+   name from the core guides, skipped them.
+3. **Two bugs in the CI job itself**, fixed: the newest Supabase CLI rejects the old `[inbucket]` section of `config.toml`,
+   and the assertion helper printed the `DO` command tag before its answer.
+
+The answer is the end state this document always described: a **baseline** schema with only the product's seed rows, with
+WUWF's old migrations kept as WUWF's own history. It lives in `supabase/baseline/` (`README.md` there has how it was made
+and checked). It was compared with WUWF's production database object by object: identical for every table, column,
+constraint, index, enum, view, security policy (including Storage's), function privilege and bucket; function bodies
+differ in comments, line endings and layout only; the remaining differences are Postgres 17's `MAINTAIN` privilege and
+Supabase's own storage triggers. The clearing script is unchanged and is now the definition of what the baseline keeps.
 
 ## What is not in scope here
 
