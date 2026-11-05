@@ -324,9 +324,24 @@ export function certifiedAffidavitObjectPath(affidavitId: string): string {
   return `affidavits/${affidavitId}.pdf`;
 }
 
+/**
+ * The station's name as it can appear in a download file name: ASCII only (the name goes into a
+ * Content-Disposition header, where a curly quote or an accent makes the response throw and a straight quote
+ * ends the quoted string early), accents folded to their base letter, anything else dropped.
+ */
+export function fileNameSafeStation(stationName: string): string {
+  const ascii = stationName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return ascii || "Station";
+}
+
 /** A filesystem-safe download name, e.g. "KXYZ affidavit 2026-001-2026-03-01-2026-03-31.pdf". */
 export function affidavitFileName(reportIdentifier: string, stationName: string): string {
-  return `${stationName} affidavit ${reportIdentifier.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
+  return `${fileNameSafeStation(stationName)} affidavit ${reportIdentifier.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
 }
 
 // Which contracts are due an affidavit ----------------------------------------

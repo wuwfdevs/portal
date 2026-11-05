@@ -8,6 +8,7 @@ import {
   sentenceStart,
   stationProfileFrom,
   toolsTitle,
+  isRemoteLogo,
 } from "./station-brand";
 import { STATION_TIME_ZONE } from "./station-time";
 
@@ -187,4 +188,13 @@ describe("the station's name on the pilot-visible surfaces", () => {
       expect(withoutStorageKey).not.toMatch(/WUWF|\bUWF\b|Pensacola|wuwf\.org/);
     });
   }
+});
+
+describe("isRemoteLogo", () => {
+  it("is true only for an http(s) address", () => {
+    expect(isRemoteLogo("https://cdn.example.org/logo.png")).toBe(true);
+    expect(isRemoteLogo("HTTP://example.org/logo.png")).toBe(true);
+    expect(isRemoteLogo("/wuwf-logo.png")).toBe(false);
+    expect(isRemoteLogo("logo.png")).toBe(false);
+  });
 });

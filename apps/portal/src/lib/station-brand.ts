@@ -16,6 +16,15 @@ import { STATION_TIME_ZONE } from "@/lib/station-time";
 /** The logo file, a path under public/ or an https URL. WUWF's is the default until a station sets its own. */
 export const STATION_LOGO_SRC = process.env.NEXT_PUBLIC_STATION_LOGO?.trim() || "/wuwf-logo.png";
 
+/**
+ * True for a logo set as an https address. `next/image` refuses a host that `next.config.ts` does not list,
+ * and a station's logo host is deployment configuration, not something to hard-code there, so a remote logo
+ * is rendered unoptimized (as given). A path under public/ keeps Next's image optimization.
+ */
+export function isRemoteLogo(src: string): boolean {
+  return /^https?:\/\//i.test(src);
+}
+
 export type StationNotice = {
   text: string | null;
   linkLabel: string | null;

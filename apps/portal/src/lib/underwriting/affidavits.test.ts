@@ -259,6 +259,37 @@ describe("affidavitFileName", () => {
   it("is named for the station", () => {
     expect(affidavitFileName("2026-001", "KXYZ")).toBe("KXYZ affidavit 2026-001.pdf");
   });
+
+  it("is always a valid header value, whatever the station is called", () => {
+    const names = [
+      "Community \u201cVoice\u201d Radio",
+      'Radio "Uno"',
+      "Radio P\u00fablica",
+      "\u4e2d\u6587\u5e7f\u64ad",
+      "",
+      "  ",
+    ];
+    for (const name of names) {
+      const file = affidavitFileName("2026-001", name);
+      // The route puts this inside Content-Disposition: filename="...".
+      expect(file).toMatch(/^[\x20-\x7e]+$/);
+      expect(file).not.toContain('"');
+      expect(
+        () =>
+          new Response(null, { headers: { "Content-Disposition": `inline; filename="${file}"` } }),
+      ).not.toThrow();
+    }
+  });
+
+  it("folds accents to their base letter and drops what has no ASCII form", () => {
+    expect(affidavitFileName("2026-001", "Radio P\u00fablica")).toBe(
+      "Radio Publica affidavit 2026-001.pdf",
+    );
+    expect(affidavitFileName("2026-001", "Community \u201cVoice\u201d Radio")).toBe(
+      "Community Voice Radio affidavit 2026-001.pdf",
+    );
+    expect(affidavitFileName("2026-001", "\u4e2d\u6587")).toBe("Station affidavit 2026-001.pdf");
+  });
 });
 
 describe("nextAffidavitPeriod", () => {

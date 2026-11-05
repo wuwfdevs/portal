@@ -9,7 +9,12 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/ui/page-header";
 import { getStationProfile } from "@/lib/station";
-import { STATION_LOGO_SRC, toolsTitle, type StationProfile } from "@/lib/station-brand";
+import {
+  STATION_LOGO_SRC,
+  isRemoteLogo,
+  toolsTitle,
+  type StationProfile,
+} from "@/lib/station-brand";
 
 export default async function LoginPage({
   searchParams,
@@ -31,6 +36,7 @@ export default async function LoginPage({
       <Card className="w-full max-w-[400px] p-9">
         <Image
           src={STATION_LOGO_SRC}
+          unoptimized={isRemoteLogo(STATION_LOGO_SRC)}
           alt={station.name}
           height={34}
           width={80}
