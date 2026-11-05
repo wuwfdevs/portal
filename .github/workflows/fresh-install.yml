@@ -68,6 +68,12 @@ jobs:
           sed -i 's/^major_version = .*/major_version = 17/' supabase/config.toml
           # A new station does not get supabase/seed.sql (sample data). Turn it off for this job only.
           grep -q '^\[db.seed\]' supabase/config.toml || printf '\n[db.seed]\nenabled = false\n' >> supabase/config.toml
+          # The newest CLI refuses the old [inbucket] section ("no longer supported, use [local_smtp]") and stops
+          # before starting anything. This job sends no mail, so drop the section from this job's copy; the
+          # repo's config.toml is left for local development on whichever CLI a developer has.
+          awk '/^\[/ { skip = ($0 == "[inbucket]") } !skip' supabase/config.toml > supabase/config.toml.job
+          mv supabase/config.toml.job supabase/config.toml
+          ! grep -q 'inbucket' supabase/config.toml
           grep -n 'major_version\|db.seed' -A1 supabase/config.toml
 
       - name: Start the stack (this applies every migration, in order)
