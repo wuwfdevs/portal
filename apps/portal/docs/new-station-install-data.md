@@ -117,6 +117,25 @@ The workflow's shell steps were syntax-checked and its two assertion queries exe
   has only what the migrations write: the guides (68 distinct, from 161 revisions), 92 release-note calls, and
   the seeded clocks and schedule. The reset is checked against a real replay in CI, not against production.
 
+## Known blockers (found by the first CI run and a local replay, 2026-11-05)
+
+Replaying the 278 migrations into an empty Postgres (with pgvector) was run locally, then the workflow's
+remaining steps against the result. The refusals, the clearing script, the "kept tables" and "everything else
+is empty" checks all behave as described above. Three things do not:
+
+1. **Two migrations cannot replay.** `20260914130000_rls_initplan_wrapping.sql` and
+   `20260914140000_rls_initplan_wrapping_advisor_form.sql` alter policies on `sw_data_point_excerpts` (and
+   other Sourcework research tables). The files that create those tables carry prefixes `20261012…` and later;
+   the hosted projects applied them in August, so the hosted order was creation, then wrapping, then
+   retirement. The files cannot be edited or renumbered without rewriting WUWF's history, so this needs a
+   decision: a squashed baseline for new stations (the intended end state), or a guarded early-prefix scaffold.
+2. **Six guides are marked "edited since release" in a fresh replay** although no person touched them
+   (early migrations updated them directly, which trips the flag). `20261105230000` therefore skipped them, and
+   `log-content-library` still says "WUWF's" after clearing. The CI check that no kept table names a station
+   catches it.
+3. Two bugs in the workflow itself, now fixed: the newest Supabase CLI rejects the old `[inbucket]` section of
+   `config.toml`, and the assertion helper printed the `DO` command tag before its answer.
+
 ## What is not in scope here
 
 The ENCO DAD export (parked), the legacy-copy migration for WUWF's own spreadsheet, and WUWF's data scripts

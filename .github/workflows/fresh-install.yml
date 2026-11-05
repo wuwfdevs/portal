@@ -82,7 +82,8 @@ jobs:
       - name: Helpers
         run: |
           cat > "$RUNNER_TEMP/helpers.sh" <<'SH'
-          q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -At -c "$1"; }
+          # -q: without it a "do $$ ... $$; select ..." check also prints the command tag ("DO") before its answer.
+          q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -qAt -c "$1"; }
           expect() { # name, query, expected
             local got; got="$(q "$2")"
             if [ "$got" = "$3" ]; then echo "ok:   $1"; else echo "FAIL: $1 -- expected '$3', got '$got'"; exit 1; fi

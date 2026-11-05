@@ -5,9 +5,13 @@ own domain. One deployment serves one station. It is not for WUWF, whose two pro
 history (`supabase/migrations/APPLIED.md`) and must never be touched by anything here.
 
 **Status.** This guide is written against the code and checked by reading it, by tests, and by running the
-clearing script's SQL against a copy of the schema. A complete install from nothing has not been done yet;
-the first one will find things to correct here. Where a step depends on a dashboard, the names of settings are
-given because the labels move.
+clearing script's SQL against a copy of the schema. A complete install from nothing has not been done yet,
+and **step 2 does not work today**: replaying the migrations into an empty project stops at
+`20260914130000_rls_initplan_wrapping.sql`, which alters policies on Sourcework tables that the migration
+files create about a month later in prefix order (WUWF's hosted projects applied them in the other order).
+The other 276 migrations replay cleanly. Until that is resolved (see `docs/new-station-install-data.md`,
+"Known blockers"), a new station cannot be installed from the migration files alone. Where a step depends on a
+dashboard, the names of settings are given because the labels move.
 
 You will need: a Supabase account (a new project on Postgres 17), a Vercel account, a domain, a GitHub copy
 of this repository, [Node 20+](https://nodejs.org), the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
