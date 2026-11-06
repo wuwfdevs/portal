@@ -63,4 +63,11 @@ describe('buildFeed', () => {
     expect(xml).toContain('<enclosure url="https://x/y.wav" length="0" type="audio/wav"/>')
     expect(buildFeed({ ...show, imageUrl: null, authors: [] }, [])).not.toMatch(/itunes:image|itunes:author|lastBuildDate|<item>/)
   })
+
+  it('carries season, episode and episode type when an episode has them, and nothing when it does not', () => {
+    const tagged = buildFeed(show, [ep({ season: 1, episode: 0 }), ep({ id: 9, season: 1, episode: null, episodeType: 'trailer' }), ep({ id: 10, episodeType: 'full' })])
+    expect(tagged).toContain('<itunes:season>1</itunes:season><itunes:episode>0</itunes:episode></item>')
+    expect(tagged).toContain('<itunes:season>1</itunes:season><itunes:episodeType>trailer</itunes:episodeType></item>')
+    expect(xml).not.toMatch(/itunes:season|itunes:episode>|itunes:episodeType/)
+  })
 })

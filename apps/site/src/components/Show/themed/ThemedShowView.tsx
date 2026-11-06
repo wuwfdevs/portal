@@ -7,6 +7,7 @@ import RichText from '@/components/RichText'
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { formatLongDate } from '@/lib/format'
 import { audioOf } from '@/lib/shows/load'
+import { seasonName } from '@/lib/shows/seasons'
 import type { ThemedShowData } from '@/lib/shows/themed-load'
 import { cn } from '@/utilities/ui'
 
@@ -23,7 +24,9 @@ import { ThemedShell } from './ThemedShell'
  * "Already a member? Get your feed" (sign-in and member feeds, 7b to 7d), and podcast-app buttons.
  */
 export function ThemedShowView({ data, independenceHref }: { data: ThemedShowData; independenceHref: string | null }) {
-  const { show, theme, hosts, heroImage, episodes, totalEpisodes, fieldNotes, totalFieldNotes, archive, totalArchive, acknowledgments } = data
+  const { show, theme, hosts, heroImage: showImage, episodes, fieldNotes, totalFieldNotes, archive, totalArchive, acknowledgments, seasonGroups, current } = data
+  const heroImage = current?.image ?? showImage
+  const episodeCount = seasonGroups.reduce((n, g) => n + g.episodes.length, 0)
   const path = show.path!
   const latest = episodes[0]
   const latestAudio = latest && !latest.membersOnly ? audioOf(latest) : null
@@ -39,9 +42,16 @@ export function ThemedShowView({ data, independenceHref }: { data: ThemedShowDat
           </div>
         )}
         <div className={cn(t.container, 'relative flex flex-col gap-5 py-16 md:py-28')}>
-          {show.tagline && <p className={t.eyebrow}>{show.tagline}</p>}
+          {current ? (
+            <p className={t.eyebrow}>
+              Now airing · {seasonName(current.season.number)}
+              {current.season.title ? ` · ${current.season.title}` : ''}
+            </p>
+          ) : (
+            show.tagline && <p className={t.eyebrow}>{show.tagline}</p>
+          )}
           <h1 className={cn(t.display, 'max-w-[14ch] text-6xl md:text-8xl')}>{show.title}</h1>
-          {show.summary && <p className={cn('max-w-[38rem] text-xl italic leading-relaxed', t.muted)}>{show.summary}</p>}
+          {(current?.season.summary || show.summary) && <p className={cn('max-w-[38rem] text-xl italic leading-relaxed', t.muted)}>{current?.season.summary || show.summary}</p>}
           {latest && (
             <div className="mt-4 flex max-w-[40rem] flex-col gap-3">
               <p className={cn(t.label, 'text-base', t.muted)}>
@@ -68,17 +78,27 @@ export function ThemedShowView({ data, independenceHref }: { data: ThemedShowDat
       </header>
 
       <section aria-labelledby="episodes" className={cn(t.container, 'mt-16 scroll-mt-24')} id="episodes-section">
-        <SectionHeading eyebrow={`${totalEpisodes} ${totalEpisodes === 1 ? 'episode' : 'episodes'}`} id="episodes" title="Episodes" />
+        <SectionHeading eyebrow={`${episodeCount} ${episodeCount === 1 ? 'episode' : 'episodes'}`} id="episodes" title="Episodes" />
         {episodes.length === 0 ? (
           <p className={cn('mt-6 text-lg italic', t.muted)}>The first episode is on its way.</p>
         ) : (
-          <ol className={cn(t.grid, 'mt-8 md:grid-cols-2 lg:grid-cols-3')}>
-            {episodes.map((e) => (
-              <EpisodeCard episode={e} key={e.id} />
-            ))}
-          </ol>
+          seasonGroups.map((g) => {
+            const headingId = `season-${g.season?.id ?? 'other'}`
+            return (
+              <section aria-labelledby={headingId} className="mt-10" key={headingId}>
+                <h3 className={cn(t.label, 'text-lg text-(--color-show-accent)')} id={headingId}>
+                  {g.season ? `${seasonName(g.season.number)}${g.season.title ? ` · ${g.season.title}` : ''}` : seasonGroups.length > 1 ? 'More episodes' : 'All episodes'}
+                </h3>
+                {g.season?.summary && <p className={cn('mt-1 text-base italic', t.muted)}>{g.season.summary}</p>}
+                <ol className={cn(t.grid, 'mt-4 md:grid-cols-2 lg:grid-cols-3')}>
+                  {g.episodes.map((e) => (
+                    <EpisodeCard episode={e} key={e.id} />
+                  ))}
+                </ol>
+              </section>
+            )
+          })
         )}
-        {totalEpisodes > episodes.length && <p className={cn('mt-4 text-sm', t.muted)}>Showing the {episodes.length} newest of {totalEpisodes} episodes.</p>}
       </section>
 
       {firstNote && (

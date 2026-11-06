@@ -29,6 +29,7 @@ import * as migration_20261106_175346_radiolive_visit_and_membership from './202
 import * as migration_20261106_212555_homepage_slots from './20261106_212555_homepage_slots';
 import * as migration_20261106_220832_members_only from './20261106_220832_members_only';
 import * as migration_20261106_221525_show_themes_archive from './20261106_221525_show_themes_archive';
+import * as migration_20261106_223920_seasons from './20261106_223920_seasons';
 
 export const migrations = [
   {
@@ -184,6 +185,11 @@ export const migrations = [
   {
     up: migration_20261106_221525_show_themes_archive.up,
     down: migration_20261106_221525_show_themes_archive.down,
-    name: '20261106_221525_show_themes_archive'
+    name: '20261106_221525_show_themes_archive',
+  },
+  {
+    up: migration_20261106_223920_seasons.up,
+    down: migration_20261106_223920_seasons.down,
+    name: '20261106_223920_seasons'
   },
 ];

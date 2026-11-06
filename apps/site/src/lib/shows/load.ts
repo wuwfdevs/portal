@@ -13,9 +13,9 @@ import { showLine } from './line'
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
 
 /** An episode: a story with audio that belongs to a show. */
-export type Episode = HomeStory & { featuredAudio?: Post['featuredAudio']; membersOnly?: Post['membersOnly'] }
+export type Episode = HomeStory & Partial<Pick<Post, 'featuredAudio' | 'membersOnly' | 'season' | 'episodeNumber' | 'episodeType'>>
 
-const EPISODE_FIELDS = { ...CARD_FIELDS, featuredAudio: true, membersOnly: true } as const
+export const EPISODE_FIELDS = { ...CARD_FIELDS, featuredAudio: true, membersOnly: true, season: true, episodeNumber: true, episodeType: true } as const
 export const EPISODES_PER_PAGE = 20
 
 export interface ShowData {
@@ -31,7 +31,7 @@ export interface ShowData {
   others: Pick<Production, 'id' | 'title' | 'path' | 'tagline'>[]
 }
 
-const episodesOf = (showId: string | number) => ({ production: { equals: showId }, format: { equals: 'audio' } })
+export const episodesOf = (showId: string | number) => ({ production: { equals: showId }, format: { equals: 'audio' } })
 
 /** A show by its address, or null. Reads go through access control; only published episodes appear. */
 export const loadShowByPath = cache(async (path: string): Promise<ShowData | null> => {

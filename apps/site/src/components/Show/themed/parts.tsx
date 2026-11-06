@@ -6,6 +6,7 @@ import type { ArchiveItem, Contributor } from '@/payload-types'
 import { ARCHIVE_KINDS } from '@/lib/shows/archive-kinds'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import { audioOf, type Episode } from '@/lib/shows/load'
+import { episodeLabel } from '@/lib/shows/seasons'
 import type { FieldNote } from '@/lib/shows/themed-load'
 import { cn } from '@/utilities/ui'
 
@@ -43,7 +44,7 @@ export function EpisodeCard({ episode }: { episode: Episode }) {
     <li className={t.card}>
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <AccessLabel membersOnly={episode.membersOnly} />
-        <span className={cn(t.label, 'text-sm', t.muted)}>{[episode.publishedAt ? formatLongDate(episode.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</span>
+        <span className={cn(t.label, 'text-sm', t.muted)}>{[episodeLabel(episode.episodeNumber, episode.episodeType), episode.publishedAt ? formatLongDate(episode.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</span>
       </p>
       <h3 className={cn(t.display, 'text-2xl')}>
         {episode.path ? (

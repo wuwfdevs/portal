@@ -5,6 +5,7 @@ import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { ArchiveItems } from './collections/ArchiveItems'
+import { Seasons } from './collections/Seasons'
 import { Audio } from './collections/Audio'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
@@ -101,6 +102,7 @@ export default buildConfig({
     Audio,
     Video,
     Clips,
+    Seasons,
     ArchiveItems,
     Artists,
     Performances,

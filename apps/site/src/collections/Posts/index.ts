@@ -6,6 +6,7 @@ import { bodyEditor } from '../../fields/bodyEditor'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { membersAudioGuard } from '../../hooks/membersAudioGuard'
+import { episodeSeasonRules } from '../../hooks/seasonRules'
 import { membersOnlyField, readableUnlessMembersOnly } from '../../lib/members/access'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
@@ -321,6 +322,31 @@ export const Posts: CollectionConfig<'posts'> = {
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
     { name: 'production', type: 'relationship', relationTo: 'productions', filterOptions: { kind: { equals: 'original' } }, admin: { position: 'sidebar', description: 'The WUWF production this episode belongs to. A syndicated program has no episodes here.' } },
     {
+      name: 'season',
+      type: 'relationship',
+      relationTo: 'seasons',
+      index: true,
+      filterOptions: ({ data }) => (data?.production ? { production: { equals: typeof data.production === 'object' ? data.production.id : data.production } } : false),
+      admin: { position: 'sidebar', condition: (data) => Boolean(data?.production) && data?.format === 'audio', description: "The show's season this episode belongs to (pick the show first)." },
+    },
+    {
+      name: 'episodeNumber',
+      type: 'number',
+      min: 0,
+      admin: { position: 'sidebar', step: 1, condition: (data) => Boolean(data?.production) && data?.format === 'audio', description: 'Shown as "Ep. 2". 0 is allowed. Used once per season.' },
+    },
+    {
+      name: 'episodeType',
+      type: 'select',
+      defaultValue: 'full',
+      options: [
+        { label: 'Episode', value: 'full' },
+        { label: 'Trailer', value: 'trailer' },
+        { label: 'Bonus', value: 'bonus' },
+      ],
+      admin: { position: 'sidebar', condition: (data) => Boolean(data?.production) && data?.format === 'audio' },
+    },
+    {
       name: 'fieldNoteKind',
       type: 'select',
       label: 'Field Note type',
@@ -360,6 +386,7 @@ export const Posts: CollectionConfig<'posts'> = {
       legacyIdentityWriteOnce,
       restrictedBlocksGuard(['content']),
       membersAudioGuard,
+      episodeSeasonRules,
       stampEnd,
     ],
     afterChange: [redirectOnPathChange, revalidatePost],

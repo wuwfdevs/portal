@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
-import type { Contributor, Post, Production } from '@/payload-types'
+import type { Contributor, Post, Production, Season } from '@/payload-types'
 
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
@@ -10,6 +10,7 @@ import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { formatDuration, formatLongDate } from '@/lib/format'
+import { episodeLabel, seasonName } from '@/lib/shows/seasons'
 import type { ShowTheme } from '@/lib/shows/themes'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 import { cn } from '@/utilities/ui'
@@ -49,15 +50,25 @@ export function ThemedEpisodeView({
   const locked = post.membersOnly !== false && post.content == null
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter(Boolean).join(' and ')
   const length = formatDuration(audio?.durationSeconds)
+  const season = named<Season>(post.season)
+  const label = isEpisode ? episodeLabel(post.episodeNumber, post.episodeType) : null
 
   return (
     <ThemedShell current="episode" hasArchive hasFieldNotes showPath={showPath} showTitle={show.title} theme={theme}>
       <PayloadRedirects disableNotFound url={url} />
       <article className={cn(t.container, 'max-w-[56rem] pt-10 md:pt-14')}>
         <nav aria-label="Breadcrumb" className={cn(t.label, 'text-base', t.muted)}>
-          <Link className={t.link} href={isEpisode ? `${showPath}#episodes` : `${showPath}/field-notes`}>
-            {isEpisode ? 'Episodes' : 'Field Notes'}
-          </Link>
+          <ol className="flex flex-wrap gap-x-2">
+            <li>
+              <Link className={t.link} href={isEpisode ? `${showPath}#episodes` : `${showPath}/field-notes`}>
+                {isEpisode ? 'Episodes' : 'Field Notes'}
+              </Link>
+            </li>
+            {season && <li aria-hidden>/</li>}
+            {season && <li>{seasonName(season.number)}</li>}
+            {label && <li aria-hidden>/</li>}
+            {label && <li aria-current="page">{label}</li>}
+          </ol>
         </nav>
         <p className="mt-4 flex flex-wrap items-center gap-x-3">
           <AccessLabel membersOnly={post.membersOnly} />

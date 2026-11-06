@@ -78,6 +78,7 @@ export interface Config {
     audio: Audio;
     video: Video;
     clips: Clip;
+    seasons: Season;
     'archive-items': ArchiveItem;
     artists: Artist;
     performances: Performance;
@@ -124,6 +125,7 @@ export interface Config {
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
     clips: ClipsSelect<false> | ClipsSelect<true>;
+    seasons: SeasonsSelect<false> | SeasonsSelect<true>;
     'archive-items': ArchiveItemsSelect<false> | ArchiveItemsSelect<true>;
     artists: ArtistsSelect<false> | ArtistsSelect<true>;
     performances: PerformancesSelect<false> | PerformancesSelect<true>;
@@ -449,6 +451,15 @@ export interface Post {
    * The WUWF production this episode belongs to. A syndicated program has no episodes here.
    */
   production?: (number | null) | Production;
+  /**
+   * The show's season this episode belongs to (pick the show first).
+   */
+  season?: (number | null) | Season;
+  /**
+   * Shown as "Ep. 2". 0 is allowed. Used once per season.
+   */
+  episodeNumber?: number | null;
+  episodeType?: ('full' | 'trailer' | 'bonus') | null;
   /**
    * A story that belongs to a themed show and is not an episode is one of its Field Notes (board 21). The type is the label shown on it.
    */
@@ -1293,6 +1304,36 @@ export interface Production {
   agreements?: (number | UnderwritingAgreement)[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * A show's season. Its episodes pick it (Episode details on the story). A season has no address of its own; it appears on the show's page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seasons".
+ */
+export interface Season {
+  id: number;
+  production: number | Production;
+  /**
+   * Shown as "Season One". Used once per show.
+   */
+  number: number;
+  /**
+   * The season's theme, e.g. "Tunnel Vision".
+   */
+  title?: string | null;
+  /**
+   * One line, e.g. "A descent through Pensacola's hidden underground."
+   */
+  summary?: string | null;
+  /**
+   * Optional. Behind the show's title while this season is airing.
+   */
+  image?: (number | null) | Media;
+  label?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * Places Unearthing Florida episodes are about. Each appears as a pin on the hub's map.
@@ -2364,6 +2405,10 @@ export interface PayloadLockedDocument {
         value: number | Clip;
       } | null)
     | ({
+        relationTo: 'seasons';
+        value: number | Season;
+      } | null)
+    | ({
         relationTo: 'archive-items';
         value: number | ArchiveItem;
       } | null)
@@ -2689,6 +2734,9 @@ export interface PostsSelect<T extends boolean = true> {
       };
   series?: T;
   production?: T;
+  season?: T;
+  episodeNumber?: T;
+  episodeType?: T;
   fieldNoteKind?: T;
   membersOnly?: T;
   site?: T;
@@ -3085,6 +3133,21 @@ export interface ClipsSelect<T extends boolean = true> {
   ctaLabel?: T;
   contributors?: T;
   publishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seasons_select".
+ */
+export interface SeasonsSelect<T extends boolean = true> {
+  production?: T;
+  number?: T;
+  title?: T;
+  summary?: T;
+  image?: T;
+  label?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
