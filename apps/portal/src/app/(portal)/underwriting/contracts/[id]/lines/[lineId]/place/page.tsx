@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { checkCompetitiveAdjacency } from "@/lib/underwriting/adjacency";
 import { buildPeriodRows } from "@/lib/underwriting/line-details";
 import {

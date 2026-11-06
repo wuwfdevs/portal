@@ -27,8 +27,9 @@ Share identifiers, not tables. Join through ids.
 
 1. **Editorial publishing** — posts, pages, contributors, publishing identities, topics, fellowships,
    series, productions, media. *Built.*
-2. **Audience identity and participation** — Supabase Auth accounts, audience profile, listening queries,
-   submissions, answers. *Specified* (the rules package is built; the collections and flow are not).
+2. **Audience identity and participation** — Supabase Auth accounts and audience profile *(specified)*.
+   Listening itself is the Portal's system; this site renders it over the Portal's signed API
+   *(specified; the rules package is built, the client and screens are not)*.
 3. **Commercial** — sponsors, underwriting agreements *(built)*; campaigns, placements, products, delivery
    commitments, measurement, entitlements, membership feeds *(specified)*.
 
@@ -113,14 +114,19 @@ and messages were designed, built and then removed rather than left as dead code
 
 ## Audience listening (Specified; rules Built)
 
-`@wuwf/listening-core` holds the Portal's pure rules (115 tests, ported). The site models queries, questions,
-submissions and answers in Payload with **no public read access**. Public writes go through server actions and
-route handlers that validate on the server and use the Local API (the equivalent of the Portal's
-security-definer functions) — never Payload's REST API. Participants use a Supabase anonymous session; audio goes
-straight to a **private** bucket through signed upload URLs scoped to the participant's submission, with size and
-type enforced. Rules carried from the Portal: answers snapshot their question's wording and position; one
-in-progress submission per participant per query and three in total; duration and size caps at completion;
-open/close dates checked on every write; wording editable after responses exist, removal and reordering not.
+Decided 2026-11-04: **listening belongs to the Portal; the site only presents it.** Campaigns, sessions,
+conversations, queries, answers, consent, audio and staff review live in the Portal. The site has **no
+listening collections** and stores no submission, consent record or audio.
+
+`@wuwf/listening-core` holds the Portal's pure rules (115 tests, ported) so the site can show limits and
+states exactly as the Portal enforces them. The call path: the browser talks to this site's server actions
+and route handlers; those call the Portal's listening API with **signed requests that assert the subject**
+(contract in `@wuwf/portal-contracts`, versioned). Audio goes straight to Portal storage through a signed
+upload URL the Portal issues for the submission, with size and type enforced there. Rules carried from the
+Portal and enforced by it: answers snapshot their question's wording and position; one in-progress
+submission per participant per query and three in total; duration and size caps at completion; open/close
+dates checked on every write; wording editable after responses exist, removal and reordering not.
+Embedding the Portal's public page is a fallback, not the design.
 
 ## Membership and entitlements (Specified)
 

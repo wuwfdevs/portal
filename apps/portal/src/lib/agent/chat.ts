@@ -6,6 +6,8 @@ import { connectAgentMcpClient } from "./mcp-client";
 import { buildAgentToolBridge, type AgentToolBridge } from "./tool-bridge";
 import type { Profile } from "@/lib/auth/session";
 import { getCapability } from "@/lib/capabilities/registry";
+import { getStationProfile } from "@/lib/station";
+import { fillStation, type StationProfile } from "@/lib/station-brand";
 
 // The in-portal agent's turn loop (Phase D, docs/agent-capabilities-design.md
 // §7), driven by OpenAI's Responses API (reusing OPENAI_API_KEY — see
@@ -47,7 +49,7 @@ const MODEL = "gpt-5.4-mini";
 const MAX_OUTPUT_TOKENS = 4096;
 const MAX_TOOL_ROUNDS = 6;
 
-const INSTRUCTIONS = `You are the WUWF Tools Portal assistant, embedded in the portal as a chat panel.
+const INSTRUCTIONS = `You are the {{tools}} Portal assistant, embedded in the portal as a chat panel.
 You help staff work across Editorial Planning, Sourcework, Remote Interview, and Audience Listening using the tools available to you.
 
 - Only call a tool when it's needed to answer the current request.
@@ -97,7 +99,14 @@ export interface AgentTurnInput {
 }
 
 /** The instructions for one turn: the standing ones, plus what the person has open. */
-export function instructionsFor(pageContext: AgentPageContext | null | undefined): string {
+export function instructionsFor(
+  pageContext: AgentPageContext | null | undefined,
+  station: StationProfile,
+): string {
+  return fillStation(instructionsTemplate(pageContext), station);
+}
+
+function instructionsTemplate(pageContext: AgentPageContext | null | undefined): string {
   if (!pageContext) return INSTRUCTIONS;
   return `${INSTRUCTIONS}
 
@@ -134,6 +143,7 @@ export async function* streamAgentTurn(
   turn: AgentTurnInput,
 ): AsyncGenerator<AgentStreamEvent> {
   const openai = getOpenAIClient();
+  const station = await getStationProfile();
   const { client: mcp, close } = await connectAgentMcpClient(actor);
 
   try {
@@ -163,7 +173,7 @@ export async function* streamAgentTurn(
       try {
         const stream = openai.responses.stream({
           model: MODEL,
-          instructions: instructionsFor(turn.pageContext),
+          instructions: instructionsFor(turn.pageContext, station),
           input: history,
           tools: bridge.agentTools,
           tool_choice: "auto",

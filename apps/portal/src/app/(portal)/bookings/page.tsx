@@ -37,7 +37,7 @@ import {
   totalCapacity,
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { weekDates } from "@/lib/log/week-layout";
 import { TextLink } from "@/components/ui/primary-link";
 import { StatTile } from "@/components/ui/stat-tile";

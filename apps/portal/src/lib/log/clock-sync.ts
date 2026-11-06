@@ -14,7 +14,7 @@
 // needs a read this module doesn't have.
 
 import { resolveEntryInForce, type ProgramScheduleEntryLike } from "@/lib/log/schedule";
-import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
+import { stationLocalDateTimeToUTC } from "@/lib/station-time";
 
 export interface SyncEntry extends ProgramScheduleEntryLike {
   id: string;

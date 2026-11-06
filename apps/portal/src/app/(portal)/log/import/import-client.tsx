@@ -31,7 +31,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Steps } from "@/components/ui/steps";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
-import { formatStationDateLong } from "@/lib/log/timezone";
+import { formatStationDateLong } from "@/lib/station-time";
 import type {
   BreakPlan,
   CopyPlan,

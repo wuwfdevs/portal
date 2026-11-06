@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_STATION_TIME_ZONE,
+  STATION_TIME_ZONE,
   formatStationClockTime,
   formatStationDateLong,
   formatStationTimeHM,
   formatStationTimestamp,
+  resolveStationTimeZone,
+  stationZoneMismatch,
   shiftDateISO,
   stationLocalDateTimeToUTC,
   stationTodayISO,
-} from "./timezone";
+} from "./station-time";
 
 describe("stationTodayISO", () => {
   it("stays on the same calendar day for a Central-time morning instant", () => {
@@ -99,5 +103,45 @@ describe("stationLocalDateTimeToUTC", () => {
   it("rolls the calendar date forward when the local time is late enough", () => {
     // 11:00 PM CDT on August 7 is already August 8 in UTC.
     expect(stationLocalDateTimeToUTC("2026-08-07", "23:00:00")).toBe("2026-08-08T04:00:00.000Z");
+  });
+});
+
+describe("resolveStationTimeZone", () => {
+  it("defaults to WUWF's zone when none is configured", () => {
+    expect(resolveStationTimeZone(undefined)).toBe(DEFAULT_STATION_TIME_ZONE);
+    expect(resolveStationTimeZone("")).toBe(DEFAULT_STATION_TIME_ZONE);
+    expect(resolveStationTimeZone("   ")).toBe(DEFAULT_STATION_TIME_ZONE);
+    expect(DEFAULT_STATION_TIME_ZONE).toBe("America/Chicago");
+  });
+
+  it("accepts any IANA zone and trims it", () => {
+    expect(resolveStationTimeZone("America/New_York")).toBe("America/New_York");
+    expect(resolveStationTimeZone(" Pacific/Honolulu ")).toBe("Pacific/Honolulu");
+    expect(resolveStationTimeZone("UTC")).toBe("UTC");
+  });
+
+  it("refuses a zone the runtime does not know, naming the setting", () => {
+    expect(() => resolveStationTimeZone("Central")).toThrow(/NEXT_PUBLIC_STATION_TIME_ZONE/);
+    expect(() => resolveStationTimeZone("Not/AZone")).toThrow(/not an IANA time zone/);
+  });
+
+  it("is what the module exports when the setting is absent", () => {
+    // The test run sets no NEXT_PUBLIC_STATION_TIME_ZONE, so this pins the default every test relies on.
+    expect(STATION_TIME_ZONE).toBe(DEFAULT_STATION_TIME_ZONE);
+  });
+});
+
+describe("stationZoneMismatch", () => {
+  it("is null when the database and the deployment agree, or the database has none", () => {
+    expect(stationZoneMismatch("America/Chicago", "America/Chicago")).toBeNull();
+    expect(stationZoneMismatch(null, "America/Chicago")).toBeNull();
+    expect(stationZoneMismatch(undefined, "America/Chicago")).toBeNull();
+  });
+
+  it("names both zones and the setting to change when they differ", () => {
+    const message = stationZoneMismatch("America/New_York", "America/Chicago");
+    expect(message).toContain("America/New_York");
+    expect(message).toContain("America/Chicago");
+    expect(message).toContain("NEXT_PUBLIC_STATION_TIME_ZONE");
   });
 });

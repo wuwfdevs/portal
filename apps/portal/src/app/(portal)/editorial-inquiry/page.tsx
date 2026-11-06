@@ -1,5 +1,4 @@
-import { requireToolAccess, hasToolAccess } from "@/lib/auth/authz";
-import { getToolByKey } from "@/lib/tools";
+import { requireToolAccess, canUseTool } from "@/lib/auth/authz";
 import { getInquiryDetail, listInquiries } from "@/lib/editorial-inquiry/queries";
 import { listGuidingQuestionOptions } from "@/lib/editorial-inquiry/editorial-planning";
 import { Alert } from "@/components/ui/alert";
@@ -15,14 +14,11 @@ export default async function EditorialInquiryPage({
   const { profile } = await requireToolAccess("editorial-inquiry");
   const { inquiry: inquiryParam, error } = await searchParams;
 
-  const [inquiries, guidingQuestionOptions, editorialPlanningTool] = await Promise.all([
+  const [inquiries, guidingQuestionOptions, canDevelopIntoPitch] = await Promise.all([
     listInquiries(),
     listGuidingQuestionOptions(),
-    getToolByKey("editorial-planning"),
+    canUseTool(profile, "editorial-planning"),
   ]);
-  const canDevelopIntoPitch = editorialPlanningTool
-    ? await hasToolAccess(profile.id, editorialPlanningTool.id)
-    : false;
 
   if (inquiries.length === 0) {
     return <EmptyState guidingQuestionOptions={guidingQuestionOptions} error={error} />;

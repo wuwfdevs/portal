@@ -1,4 +1,5 @@
 import type { AffidavitPdfProps } from "./affidavit-pdf";
+import type { Letterhead } from "./affidavits";
 import type { AffidavitDetail } from "./queries";
 
 /** The PDF's props from an affidavit — shared by the draft download and certification, so both render the same thing. */
@@ -7,6 +8,7 @@ export function affidavitPdfProps(
   signature:
     | { certified: false }
     | { certified: true; certifierName: string; certifierTitle: string; certifiedAt: string },
+  letterhead: Letterhead,
 ): AffidavitPdfProps {
   return {
     document: affidavit.document,
@@ -17,5 +19,6 @@ export function affidavitPdfProps(
     certified: signature.certified,
     certifierName: signature.certified ? signature.certifierName : null,
     certifierTitle: signature.certified ? signature.certifierTitle : null,
+    letterhead,
   };
 }

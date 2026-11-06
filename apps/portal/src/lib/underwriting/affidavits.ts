@@ -1,7 +1,7 @@
 // Pure logic for Workflow G (docs/underwriting-design.md) — summarizing an
 // affidavit's line items for display. No Supabase import, colocated test.
 
-import { STATION_TIME_ZONE, shiftDateISO } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE, shiftDateISO } from "@/lib/station-time";
 
 export interface AffidavitLineItemOutcomeInput {
   outcome: string;
@@ -81,11 +81,35 @@ export function newAffidavitHref(prefill: {
 // ordered-against-aired per schedule line and names each makegood, so a
 // sponsor can check delivery without counting rows.
 
-/** The station block every affidavit prints, as WUWF's template has it. */
-export const STATION_LETTERHEAD = {
-  name: "WUWF-FM",
-  addressLines: ["11000 University Pkwy, Bldg 88", "Pensacola, FL 32514"],
-} as const;
+/** The station block every affidavit prints: who is certifying, and where to write to them. */
+export interface Letterhead {
+  name: string;
+  addressLines: string[];
+}
+
+/**
+ * The letterhead from the station's settings: its call sign (the name an affidavit is issued under),
+ * else its full name, and its mailing address one line per line. A station that has set no address
+ * prints none rather than another station's. Takes only the fields it reads so a test can build one.
+ */
+export function letterheadFor(station: {
+  call_sign: string | null;
+  display_name: string | null;
+  short_name: string | null;
+  mailing_address: string | null;
+}): Letterhead {
+  return {
+    name:
+      station.call_sign?.trim() ||
+      station.display_name?.trim() ||
+      station.short_name?.trim() ||
+      "Station",
+    addressLines: (station.mailing_address ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== ""),
+  };
+}
 
 /**
  * Outcomes that count as the credit having aired. aired_different_time is
@@ -300,9 +324,24 @@ export function certifiedAffidavitObjectPath(affidavitId: string): string {
   return `affidavits/${affidavitId}.pdf`;
 }
 
-/** A filesystem-safe download name, e.g. "WUWF affidavit 2026-001-2026-03-01-2026-03-31.pdf". */
-export function affidavitFileName(reportIdentifier: string): string {
-  return `WUWF affidavit ${reportIdentifier.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
+/**
+ * The station's name as it can appear in a download file name: ASCII only (the name goes into a
+ * Content-Disposition header, where a curly quote or an accent makes the response throw and a straight quote
+ * ends the quoted string early), accents folded to their base letter, anything else dropped.
+ */
+export function fileNameSafeStation(stationName: string): string {
+  const ascii = stationName
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return ascii || "Station";
+}
+
+/** A filesystem-safe download name, e.g. "KXYZ affidavit 2026-001-2026-03-01-2026-03-31.pdf". */
+export function affidavitFileName(reportIdentifier: string, stationName: string): string {
+  return `${fileNameSafeStation(stationName)} affidavit ${reportIdentifier.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
 }
 
 // Which contracts are due an affidavit ----------------------------------------

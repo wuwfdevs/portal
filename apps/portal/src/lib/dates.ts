@@ -2,7 +2,7 @@
  * Calendar-date arithmetic on bare `YYYY-MM-DD` strings — the one place the
  * portal does it. A calendar date has no timezone, so every function here
  * works in UTC on a date anchored at noon and never reasons about an offset;
- * the station's own zone (where "today" is) lives in `log/timezone.ts`.
+ * the station's own zone (where "today" is) lives in `station-time.ts`.
  *
  * Validation is strict: a value must round-trip, so "2026-02-30" (which
  * `Date` happily rolls to March 2) is rejected rather than reaching Postgres

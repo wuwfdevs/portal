@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useStation } from "@/components/station-provider";
 import { PublicPolicyNotice } from "@/components/ui/public-policy-notice";
 
 /**
@@ -17,6 +20,7 @@ export function PublicShell({
   children: ReactNode;
   maxWidth?: string;
 }) {
+  const station = useStation();
   const card = (
     <div className="w-full overflow-hidden rounded border border-line bg-white shadow-[0_2px_8px_rgba(15,20,25,0.06)]">
       <div className="px-6 py-8 sm:px-8 sm:py-9">
@@ -43,10 +47,10 @@ export function PublicShell({
       <div className={`w-full ${maxWidth}`}>
         <div className="mb-4 flex items-center gap-2.5">
           <span className="flex h-7 w-7 items-center justify-center rounded bg-brand-surface text-xs font-bold text-brand-link">
-            W
+            {station.name.charAt(0).toUpperCase()}
           </span>
           <span className="text-xs font-bold uppercase tracking-wider text-ink-500">
-            WUWF Public Media
+            {station.name}
           </span>
         </div>
         {card}

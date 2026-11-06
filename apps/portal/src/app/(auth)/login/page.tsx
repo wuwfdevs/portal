@@ -8,8 +8,13 @@ import { LoginForm } from "./login-form";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/ui/page-header";
-
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "tools-support@wuwf.org";
+import { getStationProfile } from "@/lib/station";
+import {
+  STATION_LOGO_SRC,
+  isRemoteLogo,
+  toolsTitle,
+  type StationProfile,
+} from "@/lib/station-brand";
 
 export default async function LoginPage({
   searchParams,
@@ -18,6 +23,9 @@ export default async function LoginPage({
 }) {
   const { error, reason } = await searchParams;
   const profile = await getCurrentProfile();
+  const station = await getStationProfile();
+  // The station's own address; the deployment setting is the older way to set it and still works.
+  const supportEmail = station.supportEmail ?? process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? null;
 
   if (profile?.account_status === "active") {
     redirect("/dashboard");
@@ -27,8 +35,9 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-panel-50 px-6 py-12">
       <Card className="w-full max-w-[400px] p-9">
         <Image
-          src="/wuwf-logo.png"
-          alt="WUWF 88.1"
+          src={STATION_LOGO_SRC}
+          unoptimized={isRemoteLogo(STATION_LOGO_SRC)}
+          alt={station.name}
           height={34}
           width={80}
           className="mb-7 h-[34px] w-auto"
@@ -39,18 +48,18 @@ export default async function LoginPage({
         ) : profile?.account_status === "invited" ? (
           <InvitedPanel />
         ) : profile?.account_status === "disabled" ? (
-          <DisabledPanel />
+          <DisabledPanel station={station} />
         ) : (
           <>
             <PageHeader
               size="page"
               className="mb-6"
-              title="Sign in to WUWF Tools"
+              title={`Sign in to ${toolsTitle(station)}`}
               description={
                 <>
-                  Access is limited to approved WUWF staff, students, faculty collaborators, and
-                  university partners. Having a WUWF or UWF email address does not by itself grant
-                  access.
+                  Access is limited to the staff, students, faculty collaborators, and partners{" "}
+                  {station.shortName} has approved. Having a work or university email address does
+                  not by itself grant access.
                 </>
               }
             />
@@ -63,9 +72,13 @@ export default async function LoginPage({
                 Request access
               </Link>{" "}
               ·{" "}
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold">
-                Get help signing in
-              </a>
+              {supportEmail ? (
+                <a href={`mailto:${supportEmail}`} className="font-semibold">
+                  Get help signing in
+                </a>
+              ) : (
+                "Ask an administrator for help signing in"
+              )}
             </p>
           </>
         )}
@@ -150,7 +163,7 @@ function InvitedPanel() {
   );
 }
 
-function DisabledPanel() {
+function DisabledPanel({ station }: { station: StationProfile }) {
   return (
     <div>
       <PageHeader
@@ -159,8 +172,8 @@ function DisabledPanel() {
         title="Access disabled"
         description={
           <>
-            This account no longer has access to WUWF Tools. Contact an administrator if you believe
-            this is a mistake.
+            This account no longer has access to {toolsTitle(station)}. Contact an administrator if
+            you believe this is a mistake.
           </>
         }
       />

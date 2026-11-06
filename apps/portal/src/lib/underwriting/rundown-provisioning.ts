@@ -8,7 +8,7 @@ import {
   type ContentItemForPlacement,
   type OpportunityAssignmentLike,
 } from "@/lib/log/opportunity-assignments";
-import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/log/timezone";
+import { STATION_TIME_ZONE, stationLocalDateTimeToUTC } from "@/lib/station-time";
 import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import type { LogScheduleEntryType } from "@/lib/database.types";

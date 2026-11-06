@@ -7,7 +7,7 @@ import { computeEndTime, formatAirTime } from "@/lib/log/schedule";
 import { formatDaysOfWeek } from "@/lib/log/program-status";
 import { isValidDateISO, weekStartISO } from "@/lib/dates";
 import { parseTimeToMinutes } from "@/lib/time-of-day";
-import { shiftDateISO } from "@/lib/log/timezone";
+import { shiftDateISO } from "@/lib/station-time";
 
 export const DEFAULT_START_HOUR = 5;
 export const DEFAULT_END_HOUR = 24;

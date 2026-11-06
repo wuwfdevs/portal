@@ -8,15 +8,40 @@ this directory (`pnpm test`, `pnpm lint`, …) or from the root with `pnpm --fil
 
 ## Product scope
 
-WUWF Tools Portal (`tools.wuwf.org`) is a shared access/administration layer for a small,
-fixed set of internal WUWF tools — not a general-purpose newsroom platform. It provides:
+The Portal (WUWF's runs at `tools.wuwf.org`) is a shared access/administration layer for a
+fixed set of internal station tools — not a general-purpose newsroom platform. It provides:
 authentication, invitation/approval-based access, role-based authorization, a tool
 registry, a dashboard, and admin screens for user/tool management.
 
+**It is a station toolkit, one deployment per station (decided 2026-11-04).** Each station runs
+its own copy with its own Supabase project, Vercel project and domain; WUWF's is the first and
+the reference. Three consequences shape every change:
+
+- **Tools are modules.** `src/lib/modules.ts` is the static manifest (what each module requires,
+  integrates with, exposes publicly, and which environment variables it needs); `public.tools.enabled`
+  is the runtime switch an administrator flips at Administration → Tools. "Disabled" means
+  disabled in the database too (every `private.has_*_access` predicate and every anonymous entry
+  point checks it), not just hidden in the menu. Code reaches another module through its
+  documented seams (capabilities, the handoff helpers), never by assuming it is on.
+- **The station's identity is data, not code.** Name, call sign, place, time zone, weather
+  location and public-page notices come from `public.station_settings`
+  (Administration → Station) and `getStation()` / `useStation()`; the clock's zone is deploy
+  configuration (`NEXT_PUBLIC_STATION_TIME_ZONE`). Do not write a station's name, city or county
+  into a screen, a prompt or an error message — `station-brand.test.ts` fails on it. WUWF's own
+  values live in `supabase/station/wuwf/`, applied by hand, never in a migration.
+- **The Portal does not depend on a CMS.** It talks to the public site only through the signed
+  contracts in `packages/portal-contracts`.
+
 Each tool (Editorial Planning, Sourcework, Remote Interview, Audience
-Listening, Roadmap, Academic Partnerships) is its own focused application area with its
-own schema. The portal's job ends at "Open Tool" — do not build cross-tool abstractions,
-a plugin framework, or speculative integrations. When in doubt, keep scope narrow.
+Listening, Roadmap, Academic Partnerships, On Air, Traffic, Resources) is its own focused
+application area with its own schema. The portal's job ends at "Open Tool" — the anti-speculation
+rule still stands: do not build a plugin framework, a way to register a tool without writing
+one, or integrations nobody has asked for. The manifest describes the modules that exist; it is
+not an extension point. A new module adds its manifest entry, its registry migration and its
+access predicate together. When in doubt, keep scope narrow.
+
+A new station installs from `INSTALL.md`; the data a fresh database must not inherit is
+described in `docs/new-station-install-data.md`.
 
 The registry also carries rows for tools that don't exist: `status = 'proposed'` means an
 idea somebody filed on the Roadmap, so requests can gather under it. That is **not** a
@@ -1145,8 +1170,9 @@ most one current row; no delete policy granted). The provider layer
 (`lib/log/providers/`) treats the two integrations very differently because
 one has a confirmed API model and default and the other, as of this slice
 landing, didn't yet: weather hits the National Weather Service's free,
-keyless `api.weather.gov` for WUWF's Pensacola, FL coordinates by default
-(`WEATHER_LATITUDE`/`WEATHER_LONGITUDE` override it) — a real, working
+keyless `api.weather.gov` for the station's own studio coordinates (first WUWF's Pensacola, FL,
+as a default and `WEATHER_LATITUDE`/`WEATHER_LONGITUDE`; since 2026-11-04 the station's
+settings, edited at Administration → Station) — a real, working
 integration, though not necessarily WUWF's final vendor choice
 (`docs/log-design.md` §7). NPR now has a confirmed model too (NPR's
 Content Distribution Service — see the correction note), though WUWF's own
@@ -1207,7 +1233,7 @@ caught immediately by a user comparing the weather screen's "Last updated"
 against an actual clock: every wall-clock-facing display in Log had been
 built with no explicit `timeZone`, so `Date`/`Intl` formatting fell back to
 the rendering process's own timezone — UTC on Vercel, five hours off
-Pensacola in August (CDT). `lib/log/timezone.ts` (pure, tested) is now the
+Pensacola in August (CDT). `lib/station-time.ts` (pure, tested) is now the
 one place that knows the station is Central time, not Eastern, despite
 being in the Florida panhandle (`STATION_TIME_ZONE = "America/Chicago"`),
 and every timestamp/date Log renders goes through it:
@@ -2538,7 +2564,7 @@ Fixed by `lib/underwriting/auto-fill-plan.ts`'s new `collapseToOnePerDay()`:
 before demand is ever assigned to a break, the eligible-breaks list is
 reduced to at most one candidate per `air_date` — whichever is closest to
 the schedule line's own `target_time` (converted to station-local minutes
-via `lib/log/timezone.ts`, since `target_time` is a plain wall-clock value
+via `lib/station-time.ts`, since `target_time` is a plain wall-clock value
 and `scheduled_at` is UTC) — and any day the line already has an active
 placement on is dropped outright, so a makegood or a later run's fresh
 occurrence always lands on a _different_ day rather than stacking a second
@@ -4360,13 +4386,64 @@ writes that reported success without checking the result.
     transcription ASR webhook — see that file's comment) — nothing else. Never import it
     into a Client Component.
 - **Authorization is centralized.** `src/lib/auth/authz.ts` (`requireActiveProfile`,
-  `requireAdministrator`, `assertAdministrator`, `hasToolAccess`) is the only place
+  `requireAdministrator`, `assertAdministrator`, `canUseTool`) is the only place
   platform-role/account-status checks should be written. Don't re-implement these checks
   inline in a page or action.
 - **Privileged writes are server-only and audited.** Every admin action (invite, disable,
   grant/revoke tool access, edit the tool registry) is a Server Action that calls
   `logAuditEvent()` (`src/lib/audit.ts`) after it succeeds. If you add a new privileged
   action, log it the same way.
+- **Modules are declared in code and switched in the database.** `src/lib/modules.ts` lists
+  every tool's `key` (= `public.tools.key`), `requires` (hard dependencies: a foreign key
+  into another module's tables, or data it cannot work without), `integrates` (optional
+  companions), `publicRoutes` and `env`. `public.tools.enabled` is the station's switch. It is
+  a static list, not a loader: no plugin loading, no per-module migrations or packages.
+  `src/lib/modules.test.ts` checks it against the migrations and the source. At runtime `requires`
+  is enforced by the /admin/tools switch (a module cannot be enabled while one it requires is off,
+  or disabled while an enabled one requires it); `integrates` and `env` are declarations only so
+  far. The assistant and the MCP server advertise only the capabilities whose tool the caller can
+  use (`listCapabilitiesFor`). Adding a tool means a manifest entry and a registry row in the same
+  change.
+- **A registry row is inserted by a migration, never only by `seed.sql`, and no migration sets
+  `enabled` on a row that already exists.** Insert with `on conflict (key) do nothing`, or
+  update the descriptive columns only. A station's choice to turn a module on or off must
+  survive a replayed migration. `modules.test.ts` fails on both mistakes; the eight older
+  upserts that set `enabled` are listed there as an allowlist and cannot be edited.
+- **"Disabled" means disabled everywhere.** Pages and actions: `requireToolAccess` /
+  `assertToolAccess`. SQL: every `private.has_*_access` predicate and `private.has_tool_role`
+  checks `t.enabled`, so a grant on a switched-off tool grants nothing in the database either.
+  Every public `security definer` entry point (anything granted to `anon`, and the Audience
+  Listening participant flow) starts from `private.tool_is_enabled('<key>')` and treats a disabled
+  tool as closed. `src/lib/access-predicates.test.ts` fails on a predicate that omits the check and
+  on any function granted to `anon` that omits it, so a new public form cannot ship without it.
+- **Integrations degrade, they don't break.** Before rendering or running anything that
+  belongs to another module — a link, a button, a hand-off, a read — call
+  `canUseTool(profile, '<other key>')` from `lib/auth/authz.ts`; if false, render nothing (no
+  dead link, no disabled button). The bare grant lookup is not exported on purpose: it ignores
+  `enabled`. A `security definer` function that reads another module's tables must check that
+  module is enabled and that the caller can use it (Bookings' airtime reads do both: a module
+  that is off is reported as unavailable, and names are replaced for a reader without access).
+- **The station's clock has one name in each half, and a test keeps literals out.** TypeScript:
+  `lib/station-time.ts` (`STATION_TIME_ZONE`, `stationTodayISO`, the `formatStation*` helpers). The
+  functions are synchronous and run in client components, so the zone is deployment configuration,
+  `NEXT_PUBLIC_STATION_TIME_ZONE` (default `America/Chicago`), not a database read. SQL: functions ask
+  `private.station_time_zone()`, which reads `public.station_settings.time_zone`. The two must agree;
+  `getStation()` (`lib/station.ts`) reports a mismatch and `/admin/tools` shows it. Never write a zone
+  name in a function or a TypeScript file (`station-settings.test.ts` fails on it); NPR's Eastern feed
+  clock in `log/npr-story-times.ts` is the one deliberate exception, because it is the network's clock.
+- **A station's name is read, never typed.** Screens and AI prompts get it from the station's settings:
+  `getStationProfile()` (`lib/station.ts`) in a server component, `useStation()` in a client one (the root
+  layout provides it), `fillStation()` for a prompt (`{{station}}`, `{{tools}}`, `{{area}}` placeholders).
+  Every field falls back to neutral wording (`lib/station-brand.ts`), so a fresh install never shows
+  another station's name. Pre-login pages read the narrow `station_public_profile()` function, not the
+  table. `station-brand.test.ts` fails on a station name in the screens and prompts it lists; a new
+  public screen is added to that list. An administrator edits the values at `/admin/station`. WUWF's own
+  are in `supabase/station/wuwf/station-settings.sql`, not in a migration.
+- **Hard dependencies are rare and declared.** A foreign key into another module's table, or
+  data a module cannot work without, is a `requires` entry and needs a sentence in the PR saying
+  why. Prefer a soft reference (`external_ref`, the Bookings pattern) when the link is optional.
+- **Generic helpers don't live in a module's folder.** If a second module needs it, move it to
+  `src/lib/` first (see docs/logic-patterns.md).
 
 ## Directory conventions
 
@@ -4506,8 +4583,9 @@ supabase/migrations/       schema + RLS + functions, source of truth, never edit
 supabase/seed.sql          local/preview-only sample data — never run against production
 ```
 
-A future tool follows the Editorial Planning pattern: its own route segment, its own
-migration(s) for tool-specific tables (prefixed, e.g. `ep_`), and it reuses
+A new module follows the Editorial Planning pattern: its own route segment, its own
+migration(s) for tool-specific tables (prefixed, e.g. `ep_`), an entry in `src/lib/modules.ts`,
+and a registry row inserted by its own migration (`on conflict (key) do nothing`). It reuses
 `tool_access`/`profiles` for authorization — it should not need portal-schema changes
 beyond narrowly-scoped additive RLS policies like the ones at the end of the editorial
 migration.
@@ -4559,10 +4637,36 @@ So a schema change is done when, and only when:
 through `20261103…` were written and applied between 2026-10-09 and 2026-10-15, so a prefix is
 a sequence number, not the date; the real dates are the two columns in `APPLIED.md`. A new
 migration still has to sort after every applied file (a fresh database runs them in prefix
-order), so continue the sequence rather than "correcting" it back to today. One consequence
+order), so continue the sequence rather than "correcting" it back to today. The one deliberate
+exception is `20260722125000_module_registry_rows.sql`: it inserts registry rows that earlier
+migrations already look up, so on a fresh database it has to run before them (it is a no-op on
+both hosted projects, which already had the rows). Do not copy that exception for anything that
+doesn't need to run early. One consequence
 already bit once: `rc_release_note()`'s `p_released_on` was copied from the filename and What's
 new showed November dates in mid-October (fixed by `20261103120000`). Pass the day the change
 actually ships, never the prefix.
+
+**What a migration may seed.** Only what every station needs: the tool registry, the product's
+Resources guides, Sourcework's prompts and formats, the pitch form, generic industry categories.
+**Never a station's own data** — clocks, programs, schedules, rates, underwriters, editorial
+pillars and criteria, procedures, release-note history, names, addresses. That goes in
+`supabase/station/<station>/` as a script an administrator runs by hand (WUWF's is
+`supabase/station/wuwf/`). About 170 existing migrations predate this rule and do seed WUWF's
+data; they are not edited. A new station does **not** replay the migrations (they cannot be
+replayed from nothing, and `supabase db push` stops part way): it installs `supabase/baseline/`, a
+generated schema and product-data snapshot that CI proves equal to the history. The clearing script
+(`supabase/install/clear-seed-data-for-new-station.sql`) defines which tables are product and which
+are station data, and is how the baseline is made; it is never run against WUWF's projects, and it
+refuses a database with any account or a named station. A new `public` table prefix must be
+classified in that script (`install-script.test.ts` fails until it is). A migration added after
+`supabase/baseline/BASELINE_THROUGH` needs nothing extra: it applies on top of the baseline.
+
+**`APPLIED.md` is WUWF's ledger, not a general mechanism.** It records what was applied to
+WUWF's two projects and why their history differs from the files; it is why `supabase db push`
+must never be run against them. A station installing its own Portal has an empty database, installs the baseline (which records itself
+in the migration history as the single version `BASELINE_THROUGH`), and has no `APPLIED.md` to keep. The `fresh-install`
+workflow installs the baseline into a disposable Supabase stack and, separately, replays the history
+to prove the baseline still equals it, so a migration that breaks either fails there.
 
 `APPLIED.md` is the record of what has actually been applied where; `db:check` fails on
 a migration file with no row, a row naming a missing file, or a row where either

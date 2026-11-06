@@ -26,7 +26,7 @@ UI: one implementation, in a module with a test, that every tool imports.
 | Read one page of a list                       | `lib/pagination-read.ts` — `readPage` (+ `lib/pagination.ts`)                               |
 | Put user text in a filter                     | `lib/list-search.ts` — `likeTerm`, `orIlike`                                                |
 | Names for profile ids                         | `lib/profile-names.ts` — `getDisplayNames`                                                  |
-| A calendar date (`YYYY-MM-DD`)                | `lib/dates.ts`; the station's "today" and zone are in `lib/log/timezone.ts`                 |
+| A calendar date (`YYYY-MM-DD`)                | `lib/dates.ts`; the station's "today" and zone are in `lib/station-time.ts`                 |
 | A time of day                                 | `lib/time-of-day.ts`                                                                        |
 | Money and rounding                            | `lib/money.ts`                                                                              |
 | Text (slug, truncate, word count)             | `lib/text.ts`                                                                               |

@@ -9,8 +9,9 @@ import { requireUnderwritingAccess } from "@/lib/underwriting/access";
 import { getAffidavitDetail, getAffidavitMonth } from "@/lib/underwriting/queries";
 import { monthOf, signingQueue } from "@/lib/underwriting/affidavit-month";
 import { monthLabel } from "@/lib/underwriting/dates";
-import { STATION_LETTERHEAD, formatCalendarDate } from "@/lib/underwriting/affidavits";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatCalendarDate, letterheadFor } from "@/lib/underwriting/affidavits";
+import { getStation } from "@/lib/station";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { certifyAffidavit } from "../../affidavit-actions";
 import { SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { Card } from "@/components/ui/card";
@@ -37,6 +38,7 @@ export default async function AffidavitDetailPage({
     getAffidavitDetail(id),
   ]);
   if (!affidavit) notFound();
+  const letterhead = letterheadFor(await getStation());
 
   // Working through a month's signatures: where this one sits in the
   // month's queue, so Previous / Skip / "Sign and open next" can move on.
@@ -92,8 +94,8 @@ export default async function AffidavitDetailPage({
           <article className="rounded border border-line bg-white p-6 sm:p-8">
             <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
               <div className="text-sm">
-                <div className="font-bold text-ink-900">{STATION_LETTERHEAD.name}</div>
-                {STATION_LETTERHEAD.addressLines.map((line) => (
+                <div className="font-bold text-ink-900">{letterhead.name}</div>
+                {letterhead.addressLines.map((line) => (
                   <div key={line} className="text-ink-500">
                     {line}
                   </div>

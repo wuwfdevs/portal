@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { formatStationClockTime } from "@/lib/log/timezone";
+import { formatStationClockTime } from "@/lib/station-time";
 import { useInterval } from "@/lib/use-poller";
 
 /**

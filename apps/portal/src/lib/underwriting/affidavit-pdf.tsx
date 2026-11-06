@@ -19,8 +19,9 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { STATION_TIME_ZONE } from "@/lib/log/timezone";
-import { STATION_LETTERHEAD, type AffidavitDocument } from "./affidavits";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
+import type { AffidavitDocument, Letterhead } from "./affidavits";
+import { STATION_LOGO_SRC } from "@/lib/station-brand";
 import { colors } from "@/lib/design-tokens";
 
 export interface AffidavitPdfProps {
@@ -33,6 +34,8 @@ export interface AffidavitPdfProps {
   certified: boolean;
   certifierName: string | null;
   certifierTitle: string | null;
+  /** The station block at the top and in the footer, from the station's settings. */
+  letterhead: Letterhead;
 }
 
 const INK = colors.ink[900];
@@ -203,7 +206,10 @@ function formatIssued(iso: string): string {
 // text letterhead rather than failing the document.
 let logoPromise: Promise<Buffer | null> | null = null;
 function loadLogo(): Promise<Buffer | null> {
-  logoPromise ??= readFile(path.join(process.cwd(), "public", "wuwf-logo.png")).catch(() => null);
+  // The station's logo is a file under public/ (STATION_LOGO_SRC); one set as an https address is not read here.
+  logoPromise ??= STATION_LOGO_SRC.startsWith("/")
+    ? readFile(path.join(process.cwd(), "public", STATION_LOGO_SRC)).catch(() => null)
+    : Promise.resolve(null);
   return logoPromise;
 }
 
@@ -217,7 +223,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer | null }) {
-  const { document: doc } = props;
+  const { document: doc, letterhead } = props;
   const showLength = doc.rows.some((row) => row.length !== null);
   const col = {
     date: { width: showLength ? "23%" : "25%" },
@@ -232,7 +238,7 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
   return (
     <Document
       title={`Performance affidavit ${props.reportIdentifier}`}
-      author={STATION_LETTERHEAD.name}
+      author={letterhead.name}
       subject={`${doc.recipientLines[0] ?? ""} — ${doc.periodLabel}`}
     >
       <Page size="LETTER" style={styles.page}>
@@ -242,7 +248,7 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
         </View>
         <View style={styles.footer} fixed>
           <Text>
-            {STATION_LETTERHEAD.name} · Performance affidavit · Report {props.reportIdentifier}
+            {letterhead.name} · Performance affidavit · Report {props.reportIdentifier}
           </Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
@@ -251,8 +257,8 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
           <View>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image, not an HTML img; it has no alt prop. */}
             {logo ? <Image src={logo} style={styles.logo} /> : null}
-            <Text style={styles.stationName}>{STATION_LETTERHEAD.name}</Text>
-            <Text style={styles.stationLine}>{STATION_LETTERHEAD.addressLines.join(" · ")}</Text>
+            <Text style={styles.stationName}>{letterhead.name}</Text>
+            <Text style={styles.stationLine}>{letterhead.addressLines.join(" · ")}</Text>
           </View>
           <View style={styles.titleBlock}>
             <Text style={styles.eyebrow}>
@@ -401,14 +407,14 @@ function AffidavitPdf({ props, logo }: { props: AffidavitPdfProps; logo: Buffer 
           </View>
           {props.certified && (
             <Text style={styles.electronic}>
-              {`Signed electronically in ${STATION_LETTERHEAD.name}’s traffic system`}
+              {`Signed electronically in ${letterhead.name}’s traffic system`}
               {props.certifierName ? ` by ${props.certifierName}` : ""}.
             </Text>
           )}
         </View>
 
         <Text style={styles.thanks} wrap={false}>
-          Thank you for supporting public radio on {STATION_LETTERHEAD.name}.
+          Thank you for supporting public radio on {letterhead.name}.
         </Text>
         {/* Last, so it draws over the cards rather than behind them. */}
         {!props.certified && (

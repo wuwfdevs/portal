@@ -46,7 +46,7 @@ import {
   windowsFor,
 } from "@/lib/bookings/scheduling";
 import { formatDateShort } from "@/lib/log/program-status";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import {
   addReservedBlock,
   approveAgreement,

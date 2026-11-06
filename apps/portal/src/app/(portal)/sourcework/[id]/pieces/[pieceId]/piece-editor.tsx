@@ -90,6 +90,7 @@ export function PieceEditorHost(props: PieceEditorProps) {
   const ownVersion = useRef(props.piece.version);
   const [generation, setGeneration] = useState({ version: props.piece.version, key: 0 });
   if (props.piece.version !== generation.version) {
+    // eslint-disable-next-line react-hooks/refs -- deliberate: the ref holds the newest version this editor itself saved, and comparing against it during render is how an incoming version is told apart from one the editor already has (see the comment above). A state value would re-render on every autosave, which is what the ref avoids.
     const ours = props.piece.version <= ownVersion.current;
     setGeneration({
       version: props.piece.version,

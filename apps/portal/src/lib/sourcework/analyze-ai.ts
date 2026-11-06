@@ -4,6 +4,8 @@ import { humanizeOpenAIError } from "@/lib/openai-error";
 import { RESEARCH_MODEL } from "./model";
 import { NOT_CONFIGURED, openAIClient, withRateLimitRetry } from "./openai-call";
 import { ANALYZE_FRAMING, buildAnalyzeOutputSchema } from "./analyze-prompt";
+import { getStationProfile } from "@/lib/station";
+import { searchLocation } from "@/lib/station-brand";
 
 /** Every page the search tool returned or cited, so an address the model invented can be refused. */
 export function collectSeenUrls(response: OpenAI.Responses.Response): Set<string> {
@@ -61,6 +63,7 @@ export async function callAnalyzeModel(args: {
 }): Promise<AnalyzeCallResult> {
   const client = args.client ?? openAIClient();
   if (!client) return { ok: false, error: NOT_CONFIGURED };
+  const station = await getStationProfile();
 
   let response: OpenAI.Responses.Response;
   try {
@@ -85,13 +88,7 @@ export async function callAnalyzeModel(args: {
               type: "web_search",
               // Context to read a source with, not a research report: a slice of each result is plenty.
               search_context_size: "low",
-              user_location: {
-                type: "approximate",
-                city: "Pensacola",
-                region: "Florida",
-                country: "US",
-                timezone: "America/Chicago",
-              },
+              user_location: searchLocation(station),
             },
           ],
           tool_choice: "auto",

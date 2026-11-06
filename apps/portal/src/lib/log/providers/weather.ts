@@ -6,6 +6,7 @@ import {
   type ForecastPeriodSummary,
 } from "../weather-outlook";
 import { alertsToHazards, mergeAlerts, parseNwsAlerts, type WeatherAlert } from "../weather-alerts";
+import type { WeatherLocation } from "../weather-station";
 
 // Weather integration for log_weather_reading (docs/log-design.md §5, §8).
 // Unlike NPR (see providers/npr.ts), there's a workable default here that
@@ -25,21 +26,12 @@ import { alertsToHazards, mergeAlerts, parseNwsAlerts, type WeatherAlert } from 
 
 const API_BASE = "https://api.weather.gov";
 
-// WUWF's Pensacola, FL studio location (University of West Florida).
-// Override via WEATHER_LATITUDE/WEATHER_LONGITUDE if the forecast area
-// should point somewhere else.
-const DEFAULT_LATITUDE = "30.5433";
-const DEFAULT_LONGITUDE = "-87.2169";
-const DEFAULT_FORECAST_AREA = "Pensacola, FL";
+// Where to look is the station's own: its studio's coordinates and alert counties come from its settings
+// (weather-station.ts), passed in as a WeatherLocation. Nothing here names a place.
 
-function userAgent(): string {
-  const contact = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "tools-support@wuwf.org";
-  return `(tools.wuwf.org Log, ${contact})`;
-}
-
-async function getJson<T>(url: string): Promise<T> {
+async function getJson<T>(url: string, userAgent: string): Promise<T> {
   const res = await fetch(url, {
-    headers: { "User-Agent": userAgent(), Accept: "application/geo+json" },
+    headers: { "User-Agent": userAgent, Accept: "application/geo+json" },
     cache: "no-store",
   });
   if (!res.ok) {
@@ -103,39 +95,42 @@ export interface WeatherReading {
 }
 
 /**
- * Active watches, warnings and statements for WUWF's coverage. The point
- * query for the studio is the required half: everything NWS says covers
- * Pensacola, so a failure there throws and the caller can tell "no alerts"
- * from "couldn't check". The state-wide query (Florida and Alabama, filtered
- * to the coverage counties by their SAME codes) is best-effort and adds
- * what the point query cannot see, such as a warning for Mobile County alone.
+ * Active watches, warnings and statements for the station's coverage. The point query for the studio is
+ * the required half: everything NWS says covers the studio's point, so a failure there throws and the
+ * caller can tell "no alerts" from "couldn't check". The state-wide query (the states of the coverage
+ * counties, filtered to those counties by their SAME codes) is best-effort and adds what the point query
+ * cannot see, such as a warning for a neighbouring county alone. A station with no counties listed skips it.
  */
-export async function fetchWeatherAlerts(
-  latitude: string = process.env.WEATHER_LATITUDE || DEFAULT_LATITUDE,
-  longitude: string = process.env.WEATHER_LONGITUDE || DEFAULT_LONGITUDE,
-): Promise<WeatherAlert[]> {
+export async function fetchWeatherAlerts(location: WeatherLocation): Promise<WeatherAlert[]> {
   type Response = Parameters<typeof parseNwsAlerts>[0];
+  const { latitude, longitude, counties, states, userAgent } = location;
   const point = parseNwsAlerts(
-    await getJson<Response>(`${API_BASE}/alerts/active?point=${latitude},${longitude}`),
+    await getJson<Response>(`${API_BASE}/alerts/active?point=${latitude},${longitude}`, userAgent),
+    counties,
   );
   let region: WeatherAlert[] = [];
-  try {
-    region = parseNwsAlerts(await getJson<Response>(`${API_BASE}/alerts/active?area=FL,AL`)).filter(
-      (alert) => alert.places.length > 0,
-    );
-  } catch {
-    // The point query already answered for the studio's own county.
+  if (counties.length > 0 && states.length > 0) {
+    try {
+      region = parseNwsAlerts(
+        await getJson<Response>(`${API_BASE}/alerts/active?area=${states.join(",")}`, userAgent),
+        counties,
+      ).filter((alert) => alert.places.length > 0);
+    } catch {
+      // The point query already answered for the studio's own county.
+    }
   }
   return mergeAlerts(point, region);
 }
 
 /** Fetches the current live-read from NWS. Throws with a clear message on any failure — lib/log/weather.ts catches it and falls back to the last-known reading, per §6/§22's "never make the display unreadable." */
-export async function fetchWeatherReading(): Promise<WeatherReading> {
-  const latitude = process.env.WEATHER_LATITUDE || DEFAULT_LATITUDE;
-  const longitude = process.env.WEATHER_LONGITUDE || DEFAULT_LONGITUDE;
+export async function fetchWeatherReading(location: WeatherLocation): Promise<WeatherReading> {
+  const { latitude, longitude, userAgent } = location;
 
-  const points = await getJson<PointsResponse>(`${API_BASE}/points/${latitude},${longitude}`);
-  const forecast = await getJson<ForecastResponse>(points.properties.forecast);
+  const points = await getJson<PointsResponse>(
+    `${API_BASE}/points/${latitude},${longitude}`,
+    userAgent,
+  );
+  const forecast = await getJson<ForecastResponse>(points.properties.forecast, userAgent);
   const periods = forecast.properties.periods;
   if (periods.length === 0) {
     throw new Error("The weather service returned no forecast periods.");
@@ -153,10 +148,13 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   try {
     const stationsUrl = points.properties.observationStations;
     if (stationsUrl) {
-      const stations = await getJson<StationsResponse>(stationsUrl);
+      const stations = await getJson<StationsResponse>(stationsUrl, userAgent);
       const stationUrl = stations.features.find((feature) => feature.id)?.id;
       if (stationUrl) {
-        const observation = await getJson<ObservationResponse>(`${stationUrl}/observations/latest`);
+        const observation = await getJson<ObservationResponse>(
+          `${stationUrl}/observations/latest`,
+          userAgent,
+        );
         const temperature = observation.properties.temperature;
         if (typeof temperature?.value === "number") {
           currentTemp = temperature.unitCode?.endsWith("degF")
@@ -176,7 +174,7 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   // presenting "no alerts".
   let alerts: WeatherAlert[] | null = null;
   try {
-    alerts = await fetchWeatherAlerts(latitude, longitude);
+    alerts = await fetchWeatherAlerts(location);
   } catch {
     alerts = null;
   }
@@ -186,7 +184,7 @@ export async function fetchWeatherReading(): Promise<WeatherReading> {
   const forecastArea =
     cityState?.city && cityState?.state
       ? `${cityState.city}, ${cityState.state}`
-      : DEFAULT_FORECAST_AREA;
+      : location.fallbackArea;
 
   // Each period's detailedForecast is already a complete, self-contained
   // paragraph from NWS (its own precipitation-chance sentence and all) — a

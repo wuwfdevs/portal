@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { isValidDateISO } from "@/lib/dates";
 import { PageHeader } from "@/components/ui/page-header";
-import { formatStationDateLong } from "@/lib/log/timezone";
+import { getStationProfile } from "@/lib/station";
+import { formatStationDateLong } from "@/lib/station-time";
 import { ImportClient } from "./import-client";
 
 // Program-log import (see docs/log-design.md's "Importing the daily program
@@ -18,6 +19,7 @@ export default async function ImportPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const { date } = await searchParams;
+  const station = await getStationProfile();
   const fromDate = isValidDateISO(date) ? date : null;
   return (
     <div className="max-w-3xl">
@@ -40,11 +42,11 @@ export default async function ImportPage({
         className="mb-5"
         description={
           <>
-            Upload a daily WUWF-FM program log exported from the traffic system as a PDF. The AI
-            reading step turns it into a plan — every break and item, each credit&apos;s underwriter
-            and script copied from the document — which you review below. Nothing is written until
-            you confirm; underwriting credits already in the library are reused, and only genuinely
-            new underwriters and copy are created.
+            Upload a daily {station.callSign ?? station.name} program log exported from the traffic
+            system as a PDF. The AI reading step turns it into a plan — every break and item, each
+            credit&apos;s underwriter and script copied from the document — which you review below.
+            Nothing is written until you confirm; underwriting credits already in the library are
+            reused, and only genuinely new underwriters and copy are created.
           </>
         }
       />

@@ -36,7 +36,7 @@ import { closedSegments } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import { isValidDateISO } from "@/lib/dates";
 import { parseTimeToMinutes } from "@/lib/time-of-day";
-import { shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { shiftDateISO, stationTodayISO } from "@/lib/station-time";
 import {
   describeEntryDays,
   formatTimeRange,

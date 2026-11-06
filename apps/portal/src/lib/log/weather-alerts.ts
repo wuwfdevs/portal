@@ -8,7 +8,8 @@
 import { groupBy } from "@/lib/collections";
 import { collapseWhitespace } from "@/lib/text";
 import { trimToNull } from "@/lib/validation";
-import { STATION_TIME_ZONE } from "./timezone";
+import { STATION_TIME_ZONE } from "@/lib/station-time";
+import type { CoverageCounty } from "./weather-station";
 
 /** What a host needs to tell apart at a glance — the Badge variant it renders as is danger / warning / neutral. */
 export type AlertTier = "warning" | "watch" | "statement";
@@ -62,22 +63,19 @@ const URGENCY_RANK: Record<string, number> = {
 const TIER_RANK: Record<AlertTier, number> = { warning: 0, watch: 1, statement: 2 };
 
 /**
- * The counties WUWF covers, with their SAME (FIPS) codes — NWS tags every
- * alert with the counties it touches, which is a precise match where the
- * zone names are not ("Escambia" is also a county in Alabama; "Mobile Coastal"
- * and "Baldwin Coastal" are zones, not counties). Order is the display order.
+ * The counties the station covers come from its settings (weather-station.ts), in display order. NWS tags
+ * every alert with the counties it touches by SAME (FIPS) code, which is a precise match where the zone
+ * names are not ("Escambia" is also a county in Alabama; "Mobile Coastal" and "Baldwin Coastal" are zones,
+ * not counties).
  */
-export const COVERAGE_COUNTIES: ReadonlyArray<{ name: string; same: string }> = [
-  { name: "Escambia", same: "012033" },
-  { name: "Santa Rosa", same: "012113" },
-  { name: "Okaloosa", same: "012091" },
-  { name: "Mobile", same: "001097" },
-];
 
 /** The coverage counties named in an alert's SAME codes, in display order. */
-export function coveragePlaces(same: readonly string[] | null | undefined): string[] {
+export function coveragePlaces(
+  same: readonly string[] | null | undefined,
+  counties: readonly CoverageCounty[],
+): string[] {
   const codes = new Set(same ?? []);
-  return COVERAGE_COUNTIES.filter((county) => codes.has(county.same)).map((county) => county.name);
+  return counties.filter((county) => codes.has(county.same)).map((county) => county.name);
 }
 
 /**
@@ -125,6 +123,7 @@ interface NwsAlertFeature {
 /** Reads NWS's /alerts/active response. Drops tests/exercises, cancellations, and anything without an event name. */
 export function parseNwsAlerts(
   response: { features?: NwsAlertFeature[] } | null | undefined,
+  counties: readonly CoverageCounty[],
 ): WeatherAlert[] {
   const alerts: WeatherAlert[] = [];
   for (const feature of response?.features ?? []) {
@@ -138,13 +137,15 @@ export function parseNwsAlerts(
     // Products that are not hazards: a test, the routine short-term forecast,
     // and NWS-internal administrative traffic.
     if (/^(test|short term forecast|administrative message)$/i.test(event)) continue;
-    // Only WUWF's coverage. NWS lists the counties an alert touches; one that
+    // Only the station's coverage. NWS lists the counties an alert touches; one that
     // names counties and none of ours does not apply here and is dropped. An
     // alert with no county codes at all (some marine products) cannot be
-    // judged and is kept, since NWS matched it to the studio's point.
+    // judged and is kept, since NWS matched it to the studio's point. A station
+    // that has listed no counties filters nothing: it relays what NWS matched
+    // to its point.
     const same = p.geocode?.SAME ?? [];
-    const places = coveragePlaces(same);
-    if (same.length > 0 && places.length === 0) continue;
+    const places = coveragePlaces(same, counties);
+    if (counties.length > 0 && same.length > 0 && places.length === 0) continue;
     const severity = p.severity ?? "Unknown";
     alerts.push({
       id: p.id ?? `${event}:${p.sent ?? ""}`,
@@ -436,9 +437,12 @@ export function mergeAlerts(...lists: WeatherAlert[][]): WeatherAlert[] {
  * header. A "Local Statement" is the one exception: it is a single running
  * statement NWS reissues, so only the newest is kept.
  */
-export function consolidateAlerts(alerts: WeatherAlert[]): WeatherAlert[] {
+export function consolidateAlerts(
+  alerts: WeatherAlert[],
+  counties: readonly CoverageCounty[],
+): WeatherAlert[] {
   const groups = groupBy(removeSuperseded(alerts), (alert) => alert.event.trim().toLowerCase());
-  return sortAlerts([...groups.values()].map(mergeEventGroup));
+  return sortAlerts([...groups.values()].map((group) => mergeEventGroup(group, counties)));
 }
 
 const RUNNING_STATEMENT = /local statement$/i;
@@ -447,7 +451,7 @@ function strongest(values: string[], rank: Record<string, number>): string {
   return values.reduce((best, value) => ((rank[value] ?? 4) < (rank[best] ?? 4) ? value : best));
 }
 
-function mergeEventGroup(group: WeatherAlert[]): WeatherAlert {
+function mergeEventGroup(group: WeatherAlert[], counties: readonly CoverageCounty[]): WeatherAlert {
   const newest = group.reduce((best, alert) =>
     timeMs(alert.issuedAt) > timeMs(best.issuedAt) ? alert : best,
   );
@@ -458,7 +462,7 @@ function mergeEventGroup(group: WeatherAlert[]): WeatherAlert {
   const order = (alert: WeatherAlert) =>
     Math.min(
       ...alert.places
-        .map((place) => COVERAGE_COUNTIES.findIndex((c) => c.name === place))
+        .map((place) => counties.findIndex((c) => c.name === place))
         .filter((i) => i >= 0),
       99,
     );
@@ -488,7 +492,7 @@ function mergeEventGroup(group: WeatherAlert[]): WeatherAlert {
       group.map((alert) => alert.urgency),
       URGENCY_RANK,
     ),
-    places: COVERAGE_COUNTIES.map((county) => county.name).filter((name) => named.has(name)),
+    places: counties.map((county) => county.name).filter((name) => named.has(name)),
     endsAt: openEnded || !latestEnd ? null : latestEnd,
     members,
   };

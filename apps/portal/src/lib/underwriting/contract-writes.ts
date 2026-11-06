@@ -7,7 +7,7 @@ import "server-only";
 // hand-entered one does.
 
 import type { createClient } from "@/lib/supabase/server";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import type { DraftContractFacts } from "./agreement-import";
 
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;

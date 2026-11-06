@@ -20,6 +20,8 @@ import {
 } from "@/lib/underwriting/affidavits";
 import { renderAffidavitPdf } from "@/lib/underwriting/affidavit-pdf";
 import { affidavitPdfProps } from "@/lib/underwriting/affidavit-pdf-props";
+import { letterheadFor } from "@/lib/underwriting/affidavits";
+import { getStation } from "@/lib/station";
 import { field } from "@/lib/form-fields";
 
 const LIST_PATH = "/underwriting/affidavits";
@@ -193,13 +195,18 @@ export async function certifyAffidavit(formData: FormData): Promise<void> {
   if (affidavit.status === "certified") failWith(path, "This affidavit is already certified.");
 
   const certifiedAt = new Date().toISOString();
+  const letterhead = letterheadFor(await getStation());
   const pdf = await renderAffidavitPdf(
-    affidavitPdfProps(affidavit, {
-      certified: true,
-      certifierName: profile.display_name,
-      certifierTitle: title,
-      certifiedAt,
-    }),
+    affidavitPdfProps(
+      affidavit,
+      {
+        certified: true,
+        certifierName: profile.display_name,
+        certifierTitle: title,
+        certifiedAt,
+      },
+      letterhead,
+    ),
   );
   const sha256 = createHash("sha256").update(pdf).digest("hex");
   const objectPath = certifiedAffidavitObjectPath(id);

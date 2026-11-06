@@ -6,6 +6,8 @@ import { getAffidavitDetail } from "@/lib/underwriting/queries";
 import { affidavitFileName } from "@/lib/underwriting/affidavits";
 import { affidavitPdfProps } from "@/lib/underwriting/affidavit-pdf-props";
 import { renderAffidavitPdf } from "@/lib/underwriting/affidavit-pdf";
+import { letterheadFor } from "@/lib/underwriting/affidavits";
+import { getStation } from "@/lib/station";
 
 /**
  * The affidavit as a PDF. A route handler rather than a Server Action
@@ -42,7 +44,11 @@ export async function GET(
   if (!affidavit) {
     return NextResponse.json({ error: "That affidavit no longer exists." }, { status: 404 });
   }
-  const fileName = affidavitFileName(affidavit.report_identifier);
+  const station = await getStation();
+  const fileName = affidavitFileName(
+    affidavit.report_identifier,
+    station.short_name?.trim() || station.display_name?.trim() || "Station",
+  );
 
   if (affidavit.status === "certified") {
     // uw_affidavits_certified_document_check guarantees the path is set.
@@ -60,6 +66,9 @@ export async function GET(
     return pdfResponse(new Uint8Array(await data.arrayBuffer()), fileName);
   }
 
-  const pdf = await renderAffidavitPdf(affidavitPdfProps(affidavit, { certified: false }));
+  const letterhead = letterheadFor(station);
+  const pdf = await renderAffidavitPdf(
+    affidavitPdfProps(affidavit, { certified: false }, letterhead),
+  );
   return pdfResponse(new Uint8Array(pdf), `DRAFT ${fileName}`);
 }

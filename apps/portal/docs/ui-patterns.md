@@ -399,7 +399,7 @@ writing the class string again; all live in `src/components/ui` unless noted.
   items, optimistic update and rollback). **Public screens**: `PublicShell`.
 - **Plumbing**: `src/lib/format.ts` (`formatBytes`, `formatClock`, `formatShortDate`,
   `formatShortDateTime`, `formatUsd`) before a local formatter; `useRefreshPoller` and `useNow` in
-  `src/lib`. Station time stays in `lib/log/timezone.ts`.
+  `src/lib`. Station time stays in `lib/station-time.ts`.
 
 Not yet covered, deliberately: a multi-segment or tone-aware `ProgressBar`, a button-style
 `FilterChips`, and a `ConfirmAction` that wraps a server-action form.

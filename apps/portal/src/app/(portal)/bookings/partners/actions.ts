@@ -30,7 +30,7 @@ import {
   partnerHref,
 } from "@/lib/bookings/paths";
 import type { BkPartnerKind } from "@/lib/database.types";
-import { shiftDateISO } from "@/lib/log/timezone";
+import { shiftDateISO } from "@/lib/station-time";
 import { field, isUuid } from "@/lib/form-fields";
 import { pathIsUnder } from "@/lib/storage-paths";
 import { signedUrl } from "@/lib/storage-sign";

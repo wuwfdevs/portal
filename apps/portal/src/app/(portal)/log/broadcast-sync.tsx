@@ -23,7 +23,7 @@ import {
   type QueueEntry,
 } from "@/lib/log/broadcast-queue";
 import { openBroadcastQueueStore, type BroadcastQueueStore } from "@/lib/log/broadcast-queue-store";
-import { formatStationClockTime } from "@/lib/log/timezone";
+import { formatStationClockTime } from "@/lib/station-time";
 import { pingLog, syncBroadcastAction } from "./broadcast-actions";
 
 // The live rundown screen's offline queue — the React half. The rules live

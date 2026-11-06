@@ -34,7 +34,7 @@ async function handle(request: Request): Promise<Response> {
   const profile = guard.value;
 
   const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
-  const server = buildMcpServer(profile);
+  const server = await buildMcpServer(profile);
   await server.connect(transport);
   return transport.handleRequest(request);
 }

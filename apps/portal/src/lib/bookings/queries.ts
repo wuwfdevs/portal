@@ -14,7 +14,7 @@ import type { Database } from "@/lib/database.types";
 import { readPage } from "@/lib/pagination-read";
 import { pageRange } from "@/lib/pagination";
 import { ilikeTerm } from "@/lib/list-search";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import {
   agreementConsumption,
   reservedBlockState,
@@ -355,7 +355,12 @@ export async function readUniversityAvails(
     p_plan_id: planId,
   });
   if (error) return { payload: null, error: error.message };
-  if (data && "error" in data) return { payload: null, error: String(data.error) };
+  if (data && "error" in data) {
+    // The function says On Air is switched off in a code; the Calendar prints this as is.
+    const reason =
+      data.error === "on_air_unavailable" ? "On Air is switched off" : String(data.error);
+    return { payload: null, error: reason };
+  }
   return { payload: data, error: null };
 }
 

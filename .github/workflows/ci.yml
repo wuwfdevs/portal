@@ -1,0 +1,83 @@
+name: CI
+
+# The Portal's own checks and the shared packages' checks, on every pull request and every push to
+# main. Until this existed nothing ran lint, typecheck, tests or the migration-ledger check
+# automatically: a Vercel deploy builds the app but runs none of them, and `npm run db:check`
+# exists precisely because "did anyone remember?" is not a safe answer.
+#
+# Deliberately not here yet:
+#   * apps/site: it has its own dependencies and test setup (Payload, Playwright) and its own CLAUDE.md.
+#   * A from-zero replay of every migration on an empty database. That needs a Supabase stack in CI and
+#     is its own change (see "Fresh-install path" in the modular architecture plan).
+#
+# Every project keeps its own pnpm-lock.yaml (sharedWorkspaceLockfile: false, see pnpm-workspace.yaml),
+# so each job installs one project's dependencies from that project's lockfile, never the whole
+# workspace. Do not "simplify" this to a single root install.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portal:
+    name: Portal (lint, typecheck, test, migration ledger)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/portal
+    steps:
+      - uses: actions/checkout@v4
+      # The pnpm version comes from "packageManager" in the root package.json.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/portal/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      # Fails if a migration file has no row in supabase/migrations/APPLIED.md, or a row names a missing
+      # file. It reads the repository only; it never touches a database.
+      - name: Migration ledger
+        run: pnpm db:check
+
+  packages:
+    name: Package ${{ matrix.package }} (typecheck, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [portal-contracts, listening-core, design-tokens]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: packages/${{ matrix.package }}/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test

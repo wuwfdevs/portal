@@ -8,7 +8,7 @@ import "server-only";
 // reports the most recently retrieved episode, and refreshing happens on the
 // NPR page for a chosen program and date.
 
-import { formatStationTimestamp } from "./timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { deriveDataSourceState, type DataSourceKey, type DataSourceState } from "./data-sources";
 import { getLatestNprEpisodeSummary } from "./queries";
 import { isNprCdsConfigured } from "./providers/npr";

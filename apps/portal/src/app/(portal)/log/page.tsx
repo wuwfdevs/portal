@@ -13,7 +13,7 @@ import { isValidDateISO } from "@/lib/dates";
 import { listPrograms, listRundownsForDate, listScheduleEntries } from "@/lib/log/queries";
 import { computeEndTime, entriesInForceOn, formatAirTime } from "@/lib/log/schedule";
 import { RUNDOWN_STATUS } from "@/lib/log/status-badges";
-import { formatStationDateLong, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { formatStationDateLong, shiftDateISO, stationTodayISO } from "@/lib/station-time";
 import { generateRundown } from "./rundown-actions";
 
 const COUNT_PARAM = /^\d{1,4}$/;

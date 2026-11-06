@@ -1972,6 +1972,34 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ri_session_events"]["Row"]>;
         Relationships: [];
       };
+      // Singleton. Staff read it; only an administrator updates it; the one row is created by the migration.
+      station_settings: {
+        Row: {
+          id: boolean;
+          time_zone: string;
+          display_name: string | null;
+          short_name: string | null;
+          call_sign: string | null;
+          licensee: string | null;
+          mailing_address: string | null;
+          primary_city: string | null;
+          region: string | null;
+          support_email: string | null;
+          public_attribution: string | null;
+          coverage_area: string | null;
+          public_notice_text: string | null;
+          public_notice_link_label: string | null;
+          public_notice_link_url: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          alert_counties: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["station_settings"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["station_settings"]["Row"]>;
+        Relationships: [];
+      };
       ap_settings: {
         Row: {
           id: boolean;
@@ -4421,6 +4449,15 @@ export interface Database {
       ap_public_form_config: {
         Args: Record<string, never>;
         Returns: ApPublicFormConfig;
+      };
+      /**
+       * The station's name and public notice for screens shown before sign-in
+       * (20261105210000_station_public_profile.sql). Every value is nullable until
+       * the station fills it in. lib/station-brand.ts turns it into a StationProfile.
+       */
+      station_public_profile: {
+        Args: Record<string, never>;
+        Returns: Record<string, string | null> | null;
       };
       ap_submit_inquiry: {
         Args: { p_payload: Record<string, unknown>; p_ip_hash: string | null };

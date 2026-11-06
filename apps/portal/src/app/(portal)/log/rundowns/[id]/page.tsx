@@ -59,6 +59,7 @@ import {
 import { isWrapUpVisible, listUnresolvedEntries } from "@/lib/log/submission";
 import {
   getAlertsView,
+  getCoverageCounties,
   getCurrentWeatherReading,
   getDailyOutlook,
   getForecastPeriods,
@@ -70,7 +71,7 @@ import {
   formatStationClockTime,
   formatStationTimeHM,
   formatStationTimestamp,
-} from "@/lib/log/timezone";
+} from "@/lib/station-time";
 import { StationClock } from "@/components/log/station-clock";
 import { Countdown } from "@/components/log/countdown";
 import { WeatherOutlookStrip } from "@/components/log/weather-outlook-strip";
@@ -169,6 +170,7 @@ export default async function RundownDetailPage({
     rawOpportunities,
     clockSlots,
     weather,
+    coverageCounties,
     npr,
     fne,
     events,
@@ -179,6 +181,7 @@ export default async function RundownDetailPage({
     listLocalOpportunitiesForVersion(rundown.clock_version_id),
     listClockSlotsForVersion(rundown.clock_version_id),
     getCurrentWeatherReading(),
+    getCoverageCounties(),
     getNprEpisodeForProgramOnDate(rundown.program_id, rundown.air_date),
     getFneStories(new Date(), FNE_SIDEBAR_TIMEOUT_MS),
     live
@@ -784,7 +787,7 @@ export default async function RundownDetailPage({
                     overrideText: item.override_script,
                     onAir: true,
                   }}
-                  alerts={getAlertsView(weather.reading)}
+                  alerts={getAlertsView(weather.reading, coverageCounties)}
                 />
               </div>
             ) : (
@@ -1171,7 +1174,10 @@ export default async function RundownDetailPage({
                 a warning must not need a click to be seen. The weather item's
                 card and the Sources page render the same panel under the strip. */}
             <div className="mt-2.5">
-              <WeatherAlertsPanel view={getAlertsView(weather.reading)} textClassName="text-xs" />
+              <WeatherAlertsPanel
+                view={getAlertsView(weather.reading, coverageCounties)}
+                textClassName="text-xs"
+              />
             </div>
             <details className="mt-2">
               <summary className="cursor-pointer text-xs font-semibold text-brand-link">

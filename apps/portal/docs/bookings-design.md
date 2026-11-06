@@ -366,7 +366,7 @@ remaining open capacity **warns, never blocks** (so January cannot
 quietly sell April); and student hours are checked against the
 agreement's funded hours and the term's OPS budget, not individual
 timetables. Dates are the station's, Central time, through
-`lib/log/timezone.ts`.
+`lib/station-time.ts`.
 
 ### 6.5 The airtime boundary
 

@@ -6,7 +6,7 @@ import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-li
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 import { unwrapRead } from "@/lib/read-result";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { requireAgreementMigrationAccess } from "@/lib/underwriting/access";
 import {
   emptyCategoryCounts,

@@ -17,7 +17,7 @@ import { logAuditEvent } from "@/lib/audit";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
 import { alignBreaksToClock } from "@/lib/log/program-log-clock-alignment";
 import { placeAssignedContentIntoBreaks } from "@/lib/log/opportunity-assignment-placement";
-import { stationLocalDateTimeToUTC } from "@/lib/log/timezone";
+import { stationLocalDateTimeToUTC } from "@/lib/station-time";
 import { importProgramLogWithAI } from "@/lib/log/program-log-ai-import";
 import type { ImportLookupData } from "@/lib/log/program-log-lookups";
 import {

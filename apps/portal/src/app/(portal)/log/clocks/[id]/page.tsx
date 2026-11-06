@@ -23,7 +23,7 @@ import { PERMITTED_CONTENT_TYPE_OPTIONS } from "@/lib/log/content-library";
 import { clampHour, shiftInfoFromEntries } from "@/lib/log/clock-view";
 import { formatDateShort, isPlaceholderClockName } from "@/lib/log/program-status";
 import { resolveCurrentVersion } from "@/lib/log/clock-versions";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import {
   describeGap,
   stationIdCoverage,

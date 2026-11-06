@@ -21,7 +21,7 @@ import { parsePlacementListFilter } from "@/lib/underwriting/placement-list";
 import { FULFILLMENT_STATUS_LABEL, type FulfillmentStatus } from "@/lib/underwriting/demand";
 import { computeReadiness, countReady } from "@/lib/underwriting/readiness";
 import { defaultAffidavitPeriod, newAffidavitHref } from "@/lib/underwriting/affidavits";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { setContractStatus } from "../../contract-actions";
 import { autoFillContractAction } from "../../auto-fill-actions";
 import { AgreementTab, separationSummary } from "./agreement-tab";

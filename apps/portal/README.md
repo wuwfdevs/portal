@@ -151,6 +151,9 @@ through automation and need a human in each dashboard once:
      encrypted env var)
    - `NEXT_PUBLIC_SITE_URL` — the deployment's own URL (`https://tools.wuwf.org` in
      Production)
+   - `NEXT_PUBLIC_STATION_TIME_ZONE` — optional; the station's IANA time zone (default
+     `America/Chicago`, WUWF's). Must match `station_settings.time_zone` in the database;
+     `/admin/tools` warns if it does not
    - `ASSEMBLYAI_API_KEY` and `TRANSCRIPTION_WEBHOOK_SECRET` — Sourcework's ASR provider
      (**sensitive** — mark both encrypted); see `.env.example` for details
    - `MISTRAL_API_KEY` — Sourcework's document OCR fallback for PDFs whose own embedded
@@ -176,10 +179,11 @@ through automation and need a human in each dashboard once:
      `docs/log-design.md` §5 — only WUWF's own token is outstanding.
    - `NPR_CDS_API_BASE` — optional override of the CDS base URL, e.g. for testing against
      staging. Defaults to CDS production (`https://content.api.npr.org/v1`).
-   - `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` — Log's weather live-read
-     (`lib/log/providers/weather.ts`). Optional: unset, it defaults to WUWF's Pensacola, FL
-     studio location against the free National Weather Service API, which needs no key.
-     Set these only to point the forecast at a different location.
+   - Log's weather live-read (`lib/log/providers/weather.ts`) needs no key — it reads the free
+     National Weather Service API. Where it reads is the station's own setting (the studio's
+     latitude and longitude, and the counties whose alerts to relay), entered at
+     Administration → Station; until then the weather source says so. (It used to be the
+     `WEATHER_LATITUDE` and `WEATHER_LONGITUDE` variables, which are no longer read.)
    - `RESEND_API_KEY` and `RESEND_FROM_EMAIL` — the portal's transactional email sender
      (`src/lib/email.ts`), currently used only by Academic Partnerships' email actions
      (**sensitive** — mark `RESEND_API_KEY` encrypted). Optional: unset, sending fails
@@ -204,8 +208,10 @@ through automation and need a human in each dashboard once:
     Begin fails; reading the questions still works, since that is the one thing `anon`
     may do.
 
-Everything else — schema, RLS, seed data, the tool registry — is already applied to both
-Supabase projects via migrations.
+Everything else — schema, RLS, the tool registry — is already applied to both Supabase
+projects via migrations. (The Editorial Planning and Remote Interview registry rows used to
+exist only in `supabase/seed.sql`; `20260722125000_module_registry_rows.sql` now inserts them,
+so a database built from migrations alone has every module's row.)
 
 ## Authorization model
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { canUseTool } from "@/lib/auth/authz";
 import * as editorialCapabilities from "@/lib/editorial/capabilities";
 import * as transcriptionCapabilities from "@/lib/transcription/capabilities";
 import * as pieceCapabilities from "@/lib/sourcework/piece-capabilities";
@@ -56,6 +57,25 @@ if (REGISTRY.size !== ALL_CAPABILITIES.length) {
 
 export function listCapabilities(): AnyCapability[] {
   return Array.from(REGISTRY.values());
+}
+
+/**
+ * The capabilities this person could actually run: those whose tool is enabled and that they hold
+ * access to (`canUseTool`). What the MCP server and the assistant advertise. Advertising everything
+ * made a switched-off tool's operations discoverable; the handlers refused correctly, but the list
+ * leaked which modules exist. This is discovery only — each handler still checks access itself.
+ * A role inside the tool is not checked here (`requires.role` is metadata), so a capability that
+ * needs a role the person lacks is still listed and refused when called.
+ */
+export async function listCapabilitiesFor(user: { id: string }): Promise<AnyCapability[]> {
+  const all = listCapabilities();
+  const toolKeys = [...new Set(all.map((capability) => capability.requires.tool))];
+  const usable = new Set(
+    (
+      await Promise.all(toolKeys.map(async (key) => ((await canUseTool(user, key)) ? key : null)))
+    ).filter((key): key is string => key !== null),
+  );
+  return all.filter((capability) => usable.has(capability.requires.tool));
 }
 
 export function getCapability(id: string): AnyCapability | undefined {

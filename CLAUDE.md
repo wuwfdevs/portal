@@ -35,6 +35,10 @@ dependencies" true. Never run `pnpm install` with a different lockfile setting, 
   needs React or Next it belongs in an app. Each package carries its own tests.
 - **Apps do not import from each other.** Shared code goes in a package; the only thing that crosses
   between apps at runtime is a documented, versioned, signed contract.
+- **The Portal is CMS-agnostic.** It knows nothing of Payload or any other CMS, and the site is one
+  consumer among possible others. The only things between them are the versioned, signed contracts
+  in `packages/portal-contracts`. A change that makes the Portal import, query or name the site's
+  CMS is wrong.
 - **Do not change one app's dependencies to suit another.** Versions are per app; do not hoist.
 - **Build rules are per app.** The Portal's lint/test rules (design tokens, UI primitives, migration
   ledger, Resources release notes) apply to `apps/portal` only.
@@ -51,6 +55,22 @@ pnpm --filter wuwf-tools-portal <script>      run a Portal script from the root
 pnpm dev:portal | build:portal | lint:portal | typecheck:portal | test:portal | db:check:portal
 pnpm test:pr-text                             the PR-text check's own tests
 ```
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`: the Portal's `lint`,
+`typecheck`, `test` and `db:check`, and each package's `typecheck` and `test`. It installs one project at
+a time from that project's own lockfile (never a workspace-wide install; see the lockfile note above).
+It does not cover `apps/site`. A red CI is a
+real failure to fix, not noise to skip: the Portal's lint had one stale error that the workflow's first
+run would otherwise have hit, and was fixed with a stated reason rather than left to fail.
+
+`.github/workflows/fresh-install.yml` is separate: a new station installs `apps/portal/supabase/baseline/` (a schema and the
+product's starter data, generated from WUWF's migrations and checked against them), not the migrations themselves. One job
+installs the baseline into a disposable local Supabase stack and checks the result; the other replays WUWF's history,
+clears it with `apps/portal/supabase/install/clear-seed-data-for-new-station.sql`, and proves the baseline equals it. It
+runs when the migrations, the baseline or the install files change, or by hand, with no credentials for any hosted
+project. That script is never run against WUWF's databases and refuses any database that has an account or a named station.
 
 ## Things that live outside the repository
 

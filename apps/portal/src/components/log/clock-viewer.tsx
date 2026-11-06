@@ -20,6 +20,7 @@ import { Cell, HeaderRow, Row, Table, Th } from "@/components/ui/table";
 import { CONTROL_ROW } from "@/components/ui/control-row";
 import { cn } from "@/lib/cn";
 import { describeRingSegment, pointOnCircle } from "@/lib/log/clock-face";
+import { useStation } from "@/components/station-provider";
 import {
   HOUR_SECONDS,
   SLOT_VISUAL_COLORS,
@@ -421,6 +422,7 @@ function Timeline({
   hour: number;
   legend: ReactNode;
 }) {
+  const station = useStation();
   const fixed = slots.filter((slot) => !slot.float);
   const floats = slots.filter((slot) => slot.float);
   const locals = fixed.filter((slot) => slot.local);
@@ -496,7 +498,9 @@ function Timeline({
         </div>
 
         <div className="mt-2 flex items-center">
-          <div className="w-24 shrink-0 text-ui font-bold text-brand-link">WUWF local</div>
+          <div className="w-24 shrink-0 text-ui font-bold text-brand-link">
+            {station.shortName} local
+          </div>
           <div className="relative h-11 flex-1 rounded-sm bg-panel-50">
             {locals.map((slot) => {
               const required = slot.local?.requirement === "required";
@@ -617,7 +621,7 @@ function Ring({
       viewBox="0 0 62 62"
       className="h-auto w-full max-w-[520px]"
       role="group"
-      aria-label="Clock ring for one hour. The inner ring is the network; the outer arcs are WUWF local opportunities."
+      aria-label="Clock ring for one hour. The inner ring is the network; the outer arcs are local opportunities."
     >
       <circle
         cx={RING_CENTER}
@@ -973,6 +977,7 @@ function SlotPanel({
   removeOpportunityAction: (formData: FormData) => Promise<void>;
   removePinAction: (formData: FormData) => Promise<void>;
 }) {
+  const station = useStation();
   if (!slot) return null;
   const isLocal = Boolean(slot.local);
   // Actions belong to the selected slot; while previewing another, the panel is read-only.
@@ -1084,7 +1089,9 @@ function SlotPanel({
         ) : (
           <p className="text-sm text-ink-700">
             The network carries this slot.
-            {acting && !slot.float && " Mark it eligible to let WUWF fill it with local content."}
+            {acting &&
+              !slot.float &&
+              ` Mark it eligible to let ${station.shortName} fill it with local content.`}
           </p>
         )}
       </div>

@@ -5,7 +5,7 @@ import { TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { listCopy, type CopyListRow } from "@/lib/underwriting/queries";
 import { isPortalAssignedCut, needsRecording } from "@/lib/underwriting/dad-cut";
-import { stationTodayISO } from "@/lib/log/timezone";
+import { stationTodayISO } from "@/lib/station-time";
 import { Button } from "@/components/ui/button";
 import { setCopyRecorded } from "../copy-actions";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";

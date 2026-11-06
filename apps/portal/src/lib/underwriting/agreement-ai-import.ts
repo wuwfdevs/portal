@@ -18,6 +18,8 @@ import "server-only";
 import OpenAI from "openai";
 import { humanizeOpenAIError, isOpenAIRateLimit } from "@/lib/openai-error";
 import { parseRetryAfterMs } from "@/lib/openai-retry";
+import { getStationProfile } from "@/lib/station";
+import { fillStation } from "@/lib/station-brand";
 import {
   buildAgreementOutputSchema,
   isAgreementModelOutput,
@@ -64,7 +66,7 @@ export interface ReadAgreementInput {
   };
 }
 
-const INSTRUCTIONS = `You read a signed radio underwriting agreement or insertion order for WUWF-FM (a public radio station in Pensacola, Florida), uploaded as a document, and express it in the station's traffic tool's own terms. Answer only with the JSON the schema requires.
+const INSTRUCTIONS = `You read a signed radio underwriting agreement or insertion order for {{callsign}} (a public radio station in {{place}}), uploaded as a document, and express it in the station's traffic tool's own terms. Answer only with the JSON the schema requires.
 
 What an order contains: the underwriter (sponsor) and agency if any; an order or contract number; run dates; a schedule of credits (spots) — one or more instructions, each saying how many credits air, on which days, in which daypart or program, at what time, over which dates; the credit length (usually :30); the total number of spots and the dollar amount; and policy language (affidavits, makegoods, separation, preemption).
 
@@ -87,7 +89,7 @@ The station's vocabulary, which the schema enforces:
 - Dates are YYYY-MM-DD. An order that prints dates without a year takes the year from its run dates. A line with no dates of its own runs the order's full run.
 - flights: only for an order organised around events or productions with their own dates and spots (a symphony season, a theatre's productions). Name each once in flights and put its name on its lines. Otherwise leave flights empty and every line's flight null.
 
-What WUWF files for a direct sponsor is usually a packet: the one-page WUWF Sponsorship Agreement (sponsor, dates, sponsorship total, a "Spot Schedule" line such as "Carpools: 26 weeks each: Mon 7:49 am; Tues 4:48 pm; Wed 8:06 am; Thurs 8:06 am", and the standard comments on preemption and adjacency), then WUWF's own internal Insertion Order restating the schedule with its total ("Total: 104 spots", "1 spot each week for 26 weeks in: Carpool: Mon 7:49 am; …", "Affidavits Needed - NO"), then the traffic system's contract printout (one row per line with a day mask like 0,1,0,0,0,0,0 for Sun..Sat, a four-minute window such as 07:47:00-07:51:00, and a quantity). Read all three as one order: the agreement and insertion order are the instruction — a time printed as "7:49 am" is a preferred time, and the printout's four-minute window is how the traffic system booked that same time, not a window rule — and the printout's quantities and day masks confirm the counts and days. An agency client's insertion order is the agency's own form (weeks, days, a time range, cost, spots per week, a list of the weeks the schedule repeats): a time range there is a window rule, and a list of repeating weeks is a week grid with the missing weeks at zero.
+What {{station}} files for a direct sponsor is usually a packet: the one-page {{station}} Sponsorship Agreement (sponsor, dates, sponsorship total, a "Spot Schedule" line such as "Carpools: 26 weeks each: Mon 7:49 am; Tues 4:48 pm; Wed 8:06 am; Thurs 8:06 am", and the standard comments on preemption and adjacency), then {{station}}'s own internal Insertion Order restating the schedule with its total ("Total: 104 spots", "1 spot each week for 26 weeks in: Carpool: Mon 7:49 am; …", "Affidavits Needed - NO"), then the traffic system's contract printout (one row per line with a day mask like 0,1,0,0,0,0,0 for Sun..Sat, a four-minute window such as 07:47:00-07:51:00, and a quantity). Read all three as one order: the agreement and insertion order are the instruction — a time printed as "7:49 am" is a preferred time, and the printout's four-minute window is how the traffic system booked that same time, not a window rule — and the printout's quantities and day masks confirm the counts and days. An agency client's insertion order is the agency's own form (weeks, days, a time range, cost, spots per week, a list of the weeks the schedule repeats): a time range there is a window rule, and a list of repeating weeks is a week grid with the missing weeks at zero.
 
 Transcribe; do not correct. If the order says "Oct. 3, Friday" and Oct. 3 is a Saturday, keep the date the order prints and say so in notes. If the order's per-line counts don't add to its total, keep the printed numbers and say so in notes. If the document prints the credit copy (the script), mention that in notes — copy is entered elsewhere. If it says one message should air more often than another ("Copy 1 twice as often", "rotate 2:1", "favor the spring message"), quote that wording in notes — rotation weights are set on the contract's Copy tab, not read here.
 
@@ -151,7 +153,7 @@ export async function readAgreementWithAI(input: ReadAgreementInput): Promise<Re
   try {
     response = await client.responses.create({
       model: MODEL,
-      instructions: INSTRUCTIONS,
+      instructions: fillStation(INSTRUCTIONS, await getStationProfile()),
       input: [
         {
           role: "user",

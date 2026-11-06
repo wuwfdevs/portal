@@ -8,7 +8,7 @@ import { FieldHint, Label, Select } from "@/components/ui/input";
 import { getCopyDetail } from "@/lib/underwriting/queries";
 import { setCopyRecorded, setCopyStatus } from "../../copy-actions";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
-import { formatStationTimestamp } from "@/lib/log/timezone";
+import { formatStationTimestamp } from "@/lib/station-time";
 import { isPortalAssignedCut } from "@/lib/underwriting/dad-cut";
 import { CopyCutButton } from "./copy-cut-button";
 import { TextLink } from "@/components/ui/primary-link";

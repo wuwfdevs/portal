@@ -21,7 +21,7 @@ export interface AgentMcpConnection {
 }
 
 export async function connectAgentMcpClient(actor: Profile): Promise<AgentMcpConnection> {
-  const server = buildMcpServer(actor);
+  const server = await buildMcpServer(actor);
   const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "wuwf-tools-portal-agent", version: "1.0.0" });
 

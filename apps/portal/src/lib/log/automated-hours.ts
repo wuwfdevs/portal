@@ -9,13 +9,13 @@
 //     normally automated.
 // A one-time change wins over the weekly windows; one-time changes never
 // overlap (an exclusion constraint); weekly windows may, and their union
-// counts. Pure, station time (America/Chicago). The SQL twin is
+// counts. Pure, in the station's time zone (lib/station-time.ts). The SQL twin is
 // private.log_is_automated() — keep them in step. The weekly-window and
 // day-segment logic is shared with underwriting-hours.ts (hours closed to
 // underwriting auto-fill), which has the same shape of record.
 
 import { dayOfWeekISO } from "@/lib/dates";
-import { STATION_TIME_ZONE, shiftDateISO, stationLocalDateTimeToUTC } from "./timezone";
+import { STATION_TIME_ZONE, shiftDateISO, stationLocalDateTimeToUTC } from "@/lib/station-time";
 
 export interface WeeklyAutomatedWindow {
   id: string;

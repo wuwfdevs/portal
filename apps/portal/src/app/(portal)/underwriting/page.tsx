@@ -36,9 +36,8 @@ import { isClosedToUnderwriting } from "@/lib/log/underwriting-hours";
 import { loadUnderwritingHours } from "@/lib/log/underwriting-hours-queries";
 import { needsRecording } from "@/lib/underwriting/dad-cut";
 import { listDadReleaseDays } from "@/lib/log/dad-release-status";
-import { hasToolAccess } from "@/lib/auth/authz";
-import { getToolByKey } from "@/lib/tools";
-import { formatStationTimestamp, shiftDateISO, stationTodayISO } from "@/lib/log/timezone";
+import { canUseTool } from "@/lib/auth/authz";
+import { formatStationTimestamp, shiftDateISO, stationTodayISO } from "@/lib/station-time";
 import { countByExceptionFilter } from "@/lib/underwriting/exception-filters";
 import { defaultAffidavitMonth } from "@/lib/underwriting/affidavit-month";
 import { requireUnderwritingAccess } from "@/lib/underwriting/access";
@@ -120,8 +119,7 @@ export default async function UnderwritingDashboardPage({
   const todayISO = stationTodayISO();
   // The log of record lives in On Air; show its state only to someone who
   // can open it (log_dad_exports is On Air's).
-  const logTool = await getToolByKey("log");
-  const canOpenOnAir = logTool ? await hasToolAccess(profile.id, logTool.id) : false;
+  const canOpenOnAir = await canUseTool(profile, "log");
   const dadDays = canOpenOnAir
     ? await listDadReleaseDays([0, 1, 2].map((offset) => shiftDateISO(todayISO, offset)))
     : [];
