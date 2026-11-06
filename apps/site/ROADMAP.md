@@ -12,7 +12,7 @@ design canvas are described under *Sources* below.
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
 per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page; then seasons, and **7b, audience
-sign-in (built; needs the Supabase settings under *Phase 7*)**. **Next for phase 7:** 7c, entitlements and the membership claim. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
+sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). **Next for phase 7:** 7d, private feeds. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
@@ -793,6 +793,32 @@ sessions on `/account` pages only (Supabase rotates refresh tokens; a page canno
 the Portal's wording and its local copy of the policy, `public/policies/`). Tests: `tests/int/audience-sign-in.int.spec.ts` (8, with a fake
 in place of Supabase), `lib/audience/rules.test.ts`. **Not tested against Supabase itself:** no real sign-in has been made; that needs the
 settings below.
+
+**7c, members' listening (built 2026-11-06).** *Owner's model (do not reopen):* a regular WUWF sustaining membership at the
+station's qualifying level carries members' listening (members-only episodes, Field Notes and archive files on every WUWF original);
+**no show has a level of its own**. *Decisions:* claim emails are sent by the site through Resend (owner, option a); access continues
+**14 days** past the end date (card retries); only `membership.manage` (the Membership role, administrators) can grant (Claude's judgment,
+owner delegated).
+- **Records** (`collections/Memberships.ts`, admin "Membership → Members' listening"; migration `20261106_234554_memberships`, up, down and
+  up tested): name, the address on the membership, end date, source (`manual` now, `sync` for 7e), note, the connected account, and the
+  claim (sent, works until, connected; only the **hash** of the link's token, never readable). Not the ledger: no gift, no payment.
+- **The station's level** is one setting, *Support page → Members' listening comes with* (e.g. "a sustaining membership of $8 a month or
+  more"), quoted by the members' panel, the show support pages and `/account`.
+- **Claim:** ticking *Send the claim email when I save* emails a single-use link (14 days) through Resend's HTTP API (`lib/email/mailer.ts`;
+  `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, **not yet set on Vercel**: until they are, sending says "email is not set up" and saves nothing).
+  `/account/claim?token=…` (no-referrer) shows which account the membership will connect to; the **button** connects it (a mail scanner
+  opening the link claims nothing). The account the link is opened in is connected, whatever address it signed in with; never an email
+  match. A new link cannot be sent for a connected membership until staff clear the account.
+- **Access** (`lib/members/entitlement.ts`, `lib/members/claim.ts` → `hasMembersListening`): the one check every members' read goes through.
+- **Unlocking** (7c-2): public story pages stay cached; the members' panel links to `/account/listen/<id>` (private, never cached; checks
+  the membership each request; `lib/members/listen.ts`), and members' audio and archive files go through `/account/files/<library>/<id>`,
+  which checks again and redirects to a **10-minute signed address in the private bucket** (`lib/members/files.ts`; streamed from disk in
+  development). Tests: `memberships.int.spec.ts` (9), `members-unlock.int.spec.ts` (7, mutation-checked), unit tests.
+- **Not done:** audio *blocks inside a body* that point at a members-only file still use the staff-only file address (only the featured
+  audio is rewritten); a members' Field Note's own address shows the panel with a "Sign in to read" link, as an episode does; staff have
+  no list of "claims not yet used" beyond sorting by the claim fields; the claim email's wording is for Member Services to confirm.
+- **To try it on staging:** set the Supabase settings below and `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (Preview) on Vercel, fill *Members'
+  listening comes with*, mark an episode and its audio members-only, add a membership with your own address and send the claim.
 
 **Supabase settings the owner sets (dashboard; nothing in the repository can).** On `wuwf-site-staging` now, the same on `wuwf-site-production` at go-live:
 1. *Authentication → Emails → SMTP settings:* custom SMTP on; host `smtp.resend.com`, port `465`, username `resend`, password **a Resend
