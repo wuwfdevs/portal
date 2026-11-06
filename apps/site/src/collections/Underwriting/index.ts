@@ -1,5 +1,6 @@
 import { bodyEditor } from '../../fields/bodyEditor'
 import { pathField } from '../../fields/path'
+import { redirectOnShowPathChange } from '../../hooks/pathHooks'
 import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { revalidateShow, revalidateShowDelete } from '../../hooks/revalidateShow'
 import { showPathBeforeChange } from '../../hooks/showPath'
@@ -57,7 +58,7 @@ export const Productions = fundableCollection({
   plural: 'Original productions',
   description: 'An ongoing WUWF production: a show or podcast. Its page lists its episodes; an episode is a story with audio attached to the show. A program WUWF only airs (Morning Edition) is also kept here, marked syndicated: it gets a page with its airtime, and no episodes, funders or directory listing.',
   beforeChange: [showPathBeforeChange, syndicatedRules, restrictedBlocksGuard(['description'])],
-  afterChange: [revalidateShow],
+  afterChange: [redirectOnShowPathChange, revalidateShow],
   afterDelete: [revalidateShowDelete],
   extraFields: [
     pathField,

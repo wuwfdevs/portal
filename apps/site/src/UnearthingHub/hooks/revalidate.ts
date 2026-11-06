@@ -7,6 +7,7 @@ export const revalidateUnearthingHub: GlobalAfterChangeHook = ({ doc, req: { pay
     payload.logger.info('Revalidating the Unearthing Florida hub')
     revalidateTag('global_unearthing-hub', 'max')
     revalidatePath('/unearthing-florida')
+    revalidatePath('/') // the home page's Unearthing Florida panel
   }
   return doc
 }

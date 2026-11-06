@@ -7,6 +7,7 @@ export const revalidateRadioLiveHub: GlobalAfterChangeHook = ({ doc, req: { payl
     payload.logger.info('Revalidating the RadioLive page')
     revalidateTag('global_radiolive-hub', 'max')
     revalidatePath('/radiolive')
+    revalidatePath('/') // the home page's RadioLive panel
   }
   return doc
 }

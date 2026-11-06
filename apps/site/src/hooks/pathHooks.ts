@@ -3,7 +3,8 @@ import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, Payload, Pa
 import { APIError, ValidationError } from 'payload'
 
 import { userCan } from '../access/permissions'
-import { LIVE_FIRST_SEGMENT, checkPath, livePath, pagePath, storyPath } from '../lib/paths'
+import { LIVE_FIRST_SEGMENT, checkPath, livePath, localDate, pagePath, storyPath } from '../lib/paths'
+import { newEpisodePath } from '../lib/shows/consolidate'
 
 /** The collections whose records are served by path (a production is a show). One registry, so the resolver and the uniqueness check agree. */
 export const PATH_COLLECTIONS = ['posts', 'pages', 'productions', 'events'] as const
@@ -34,9 +35,25 @@ export async function pathTaken(payload: Payload, req: PayloadRequest, path: str
 }
 
 /**
+ * A new episode's address under its show (`/shows/<show>/<YYYY-MM-DD>/<slug>`), when the story is audio, belongs to a show, and
+ * that show is already at `/shows/...`. Null otherwise, and the story gets an ordinary story address.
+ */
+async function episodePathFor(data: Record<string, unknown>, originalDoc: Record<string, unknown> | undefined, req: PayloadRequest, slug: string | undefined): Promise<string | null> {
+  const productionId = idOf(data.production ?? originalDoc?.production)
+  if (!slug || productionId === null || (data.format ?? originalDoc?.format) !== 'audio') return null
+  const show = await req.payload.findByID({ collection: 'productions', id: productionId, depth: 0, overrideAccess: true, req, disableErrors: true, select: { path: true } })
+  if (!show?.path) return null
+  const publishedAt: string = (data.publishedAt ?? originalDoc?.publishedAt ?? new Date().toISOString()) as string
+  const path = newEpisodePath({ showPath: show.path, date: localDate(publishedAt), slug })
+  if (path) data.publishedAt = publishedAt // the date in the address and the published date must be the same moment
+  return path
+}
+
+/**
  * Runs after `enforcePublishPermission`. Three jobs:
  *  1. only a publisher may set or change a path (a script or the importer, with no signed-in user, may);
- *  2. a record being published with no path gets one, once (stories: section + date + slug; pages: /slug);
+ *  2. a record being published with no path gets one, once (stories: section + date + slug; an episode of a show at
+ *     /shows/<show>: /shows/<show>/date/slug; pages: /slug);
  *  3. whatever path ends up stored is valid and not used by any other page or story.
  */
 export const pathBeforeChange =
@@ -66,6 +83,9 @@ export const pathBeforeChange =
         data.publishedAt = publishedAt // when the blog started
         path = livePath(slug)
       } else {
+        if (kind === 'posts') path = await episodePathFor(data, originalDoc, req, slug)
+      }
+      if (!path && kind !== 'pages' && !isLive) {
         const sectionId = idOf(data.section ?? originalDoc?.section)
         if (sectionId === null) invalid(kind, req, 'section', 'Choose a section before publishing: the story\'s address is built from it and then fixed.')
         if (!slug) invalid(kind, req, 'slug', 'A story needs an address name before it is published.')
@@ -91,17 +111,10 @@ export const pathBeforeChange =
   }
 
 /**
- * A live record whose address changes leaves a redirect from the old one to the new, so nothing that was linked
- * to or indexed breaks. Redirects that already pointed at the old address are repointed (no chains), and one that
- * sat on the new address is removed (no loop). A record that was never published had no public address to keep.
+ * Leaves a permanent redirect from `from` to `to`. Redirects that already pointed at the old address are repointed (no
+ * chains), and one that sat on the new address is removed (no loop).
  */
-export const redirectOnPathChange: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
-  if (operation !== 'update') return doc
-  const from = blank(previousDoc?.path)
-  const to = blank(doc?.path)
-  if (!from || !to || from === to || previousDoc?._status !== 'published') return doc
-
-  const { payload } = req
+export async function writeRedirect(payload: Payload, req: PayloadRequest, from: string, to: string): Promise<void> {
   const redirect = { overrideAccess: true, req } as const
 
   const onNewAddress = await payload.find({ collection: 'redirects', where: { from: { equals: to } }, limit: 10, pagination: false, depth: 0, ...redirect })
@@ -116,6 +129,28 @@ export const redirectOnPathChange: CollectionAfterChangeHook = async ({ doc, pre
   const data = { from, to: { type: 'custom' as const, url: to } }
   if (existing.docs[0]) await payload.update({ collection: 'redirects', id: existing.docs[0].id, data, ...redirect })
   else await payload.create({ collection: 'redirects', data, ...redirect })
+}
+
+/**
+ * A live record whose address changes leaves a redirect from the old one to the new, so nothing that was linked
+ * to or indexed breaks. A record that was never published had no public address to keep.
+ */
+export const redirectOnPathChange: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
+  if (operation !== 'update') return doc
+  const from = blank(previousDoc?.path)
+  const to = blank(doc?.path)
+  if (!from || !to || from === to || previousDoc?._status !== 'published') return doc
+  await writeRedirect(req.payload, req, from, to)
+  return doc
+}
+
+/** The same for a show: a show has no drafts, so any address it had was public. */
+export const redirectOnShowPathChange: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
+  if (operation !== 'update') return doc
+  const from = blank(previousDoc?.path)
+  const to = blank(doc?.path)
+  if (!from || !to || from === to) return doc
+  await writeRedirect(req.payload, req, from, to)
   return doc
 }
 
