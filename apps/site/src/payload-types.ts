@@ -1254,12 +1254,12 @@ export interface Production {
    */
   theme?: 'barefoot-mary' | null;
   /**
-   * The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member: there is no subscription. The station's levels come from the Support page settings; describe here only what is the show's own.
+   * The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.
    */
   showSupport?: {
     eyebrow?: string | null;
     /**
-     * e.g. "Join the Descent".
+     * e.g. "Support Barefoot Mary".
      */
     heading?: string | null;
     /**
@@ -1271,20 +1271,6 @@ export interface Production {
      */
     donateUrl?: string | null;
     donateLabel?: string | null;
-    /**
-     * Thanks from the show itself, at a station level (e.g. at $25 a month: a credit in the episode roll). Only list what WUWF actually delivers today.
-     */
-    perks?:
-      | {
-          /**
-           * e.g. "$25 a month".
-           */
-          level: string;
-          title: string;
-          description?: string | null;
-          id?: string | null;
-        }[]
-      | null;
     questions?:
       | {
           question: string;
@@ -3400,14 +3386,6 @@ export interface ProductionsSelect<T extends boolean = true> {
         intro?: T;
         donateUrl?: T;
         donateLabel?: T;
-        perks?:
-          | T
-          | {
-              level?: T;
-              title?: T;
-              description?: T;
-              id?: T;
-            };
         questions?:
           | T
           | {

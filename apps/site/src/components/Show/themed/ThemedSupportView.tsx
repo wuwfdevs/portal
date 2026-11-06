@@ -11,8 +11,8 @@ import { ThemedShell } from './ThemedShell'
 /**
  * A themed show's support page, the membership pathway (board 24). There is no subscription: supporting the show is a
  * WUWF sustaining membership, given on WUWF's own donation form (this page only links there, with the show's attribution
- * code in the address an editor sets). The levels are the station's, from the Support page settings; the show adds only
- * its own thank-yous and questions.
+ * code in the address an editor sets). The levels are the station's, from the Support page settings; a show never has a level
+ * or a thank-you of its own (owner, 2026-11-06). The show adds only its own words and questions.
  *
  * Not here (ROADMAP → Phase 7): the amount picker (the gift is chosen on WUWF's form), "Sign in to claim your feed",
  * and the three steps to the members' feed (7b to 7d). Nothing on this page promises a feed.
@@ -22,7 +22,6 @@ export function ThemedSupportView({ data, levels }: { data: ThemedShowData; leve
   const path = show.path!
   const s = show.showSupport ?? {}
   const donate = supportHref(s.donateUrl)
-  const perks = s.perks ?? []
   const questions = s.questions ?? []
 
   return (
@@ -59,23 +58,6 @@ export function ThemedSupportView({ data, levels }: { data: ThemedShowData; leve
                 {l.amount && <p className={cn(t.label, 'text-base text-(--color-show-accent)')}>{l.amount}</p>}
                 <h3 className={cn(t.display, 'text-2xl')}>{l.name}</h3>
                 <p className={cn('text-base leading-relaxed', t.muted)}>{l.description}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {perks.length > 0 && (
-        <section aria-labelledby="perks-heading" className={cn(t.container, 'mt-16')}>
-          <h2 className={cn(t.display, 'border-b pb-4 text-4xl', t.rule)} id="perks-heading">
-            Thanks from {show.title}
-          </h2>
-          <ul className={cn(t.grid, 'mt-8 md:grid-cols-2 lg:grid-cols-3')}>
-            {perks.map((p) => (
-              <li className={t.card} key={p.id ?? p.title}>
-                <p className={cn(t.label, 'text-base text-(--color-show-accent)')}>At {p.level}</p>
-                <h3 className={cn(t.display, 'text-2xl')}>{p.title}</h3>
-                {p.description && <p className={cn('text-base leading-relaxed', t.muted)}>{p.description}</p>}
               </li>
             ))}
           </ul>

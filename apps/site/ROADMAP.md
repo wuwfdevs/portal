@@ -709,13 +709,15 @@ hub (the board shows only a thin WUWF bar); a themed layout per publishing ident
 ### Phase 7: Barefoot Mary and member feeds (boards 21-25; 7a built 2026-11-06)
 
 **Owner decisions (2026-11-06, do not reopen).** Barefoot Mary's old app (Stripe tiers "descender" $8 and "patron" $25) was never live
-and has no subscribers; that approach is **abandoned** for a normal WUWF sustaining membership that includes the podcast entitlement. The
+and has no subscribers; that approach is **abandoned** for a normal WUWF sustaining membership that includes the podcast entitlement.
+**There are no show levels** (owner, 2026-11-06, restated): the system is regular WUWF sustaining membership at a qualifying level. The
+boards' "$25 Descender" level and its show perks are **not real** and are not built (the show support page's "thank-yous" field was removed). The
 membership database sync waits: **entitlements are granted by hand** first. Phase 7 starts with 7a.
 
 **Read before building (boards 21-25 of the canvas; the Barefoot Mary Design System artifact).** The show keeps its identity (Chenier
 display, League Gothic labels, Lora body; amber on black) at `/shows/barefoot-mary`. Every episode, Field Note and archive item is **Free**
-or **Members**. $8 a month (Sustaining) opens the members' feed for every WUWF original; $25 (the show calls it Descender) adds the show's
-own thanks. The gift is made on WUWF's donation form with an attribution code. Board 25 is a signed-in account page: one private feed per
+or **Members**. A WUWF sustaining membership at the qualifying level opens members' listening on every WUWF original (the boards say $8 a
+month; the level is a station setting, see 7c). The boards' $25 "Descender" level is not real (above). The gift is made on WUWF's donation form with an attribution code. Board 25 is a signed-in account page: one private feed per
 person per show, with a reset; NPR+ is activated from the same page.
 
 **The split.** 7a: the show's look and public pages, members' content held back (built). 7b: audience sign-in (Supabase Auth in the site's
@@ -745,7 +747,7 @@ fetch; enclosures are short-lived signed addresses, checked again. On wuwf.org a
 - **Themed pages** (migration `20261106_221525_show_themes_archive`, up, down and up tested): the show home (board 21: hero, latest
   episode, episodes with Free/Members, Field Notes, Archive, membership band, about, funder panel in the station's neutral look), the
   episode or Field Note page (board 23, with the members' panel), `<show>/field-notes`, `<show>/archive`, and `<show>/support` (board 24:
-  the station's levels from the Support page settings, the show's own thank-yous and questions, a link to WUWF's donation form with the
+  the station's levels from the Support page settings, the show's own questions, a link to WUWF's donation form with the
   show's attribution code; validated like the giving page's links). A Field Note is a story of the show that is not an episode, with a
   type (essay, primary source, analysis, interview, deep dive). `archive-items` is a new upload collection (PDF, image, audio, text; drafts):
   the catalogue is public, a members-only item's file has no address for the public and is refused at its own.

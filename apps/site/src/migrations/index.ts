@@ -31,6 +31,7 @@ import * as migration_20261106_220832_members_only from './20261106_220832_membe
 import * as migration_20261106_221525_show_themes_archive from './20261106_221525_show_themes_archive';
 import * as migration_20261106_223920_seasons from './20261106_223920_seasons';
 import * as migration_20261106_232627_audience_profiles from './20261106_232627_audience_profiles';
+import * as migration_20261106_234035_remove_show_level_perks from './20261106_234035_remove_show_level_perks';
 
 export const migrations = [
   {
@@ -196,6 +197,11 @@ export const migrations = [
   {
     up: migration_20261106_232627_audience_profiles.up,
     down: migration_20261106_232627_audience_profiles.down,
-    name: '20261106_232627_audience_profiles'
+    name: '20261106_232627_audience_profiles',
+  },
+  {
+    up: migration_20261106_234035_remove_show_level_perks.up,
+    down: migration_20261106_234035_remove_show_level_perks.down,
+    name: '20261106_234035_remove_show_level_perks'
   },
 ];
