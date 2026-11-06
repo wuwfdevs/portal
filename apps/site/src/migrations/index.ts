@@ -23,6 +23,7 @@ import * as migration_20261103_172011_event_review_fields from './20261103_17201
 import * as migration_20261103_172027_remove_event_submissions from './20261103_172027_remove_event_submissions';
 import * as migration_20261104_182013_syndicated_programs from './20261104_182013_syndicated_programs';
 import * as migration_20261106_150459_clips from './20261106_150459_clips';
+import * as migration_20261106_154058_radiolive from './20261106_154058_radiolive';
 
 export const migrations = [
   {
@@ -148,6 +149,11 @@ export const migrations = [
   {
     up: migration_20261106_150459_clips.up,
     down: migration_20261106_150459_clips.down,
-    name: '20261106_150459_clips'
+    name: '20261106_150459_clips',
+  },
+  {
+    up: migration_20261106_154058_radiolive.up,
+    down: migration_20261106_154058_radiolive.down,
+    name: '20261106_154058_radiolive'
   },
 ];

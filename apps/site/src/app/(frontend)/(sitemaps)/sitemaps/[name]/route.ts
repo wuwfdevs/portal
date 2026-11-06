@@ -1,9 +1,9 @@
 import { getServerSideSitemap } from 'next-sitemap'
 
-import { getListEntries, getPagesEntries, getPostsChunk, getShowEntries, getVideoEntries, type SitemapUrl } from '@/lib/seo/sitemap-data'
+import { getListEntries, getPagesEntries, getPostsChunk, getRadioLiveEntries, getShowEntries, getVideoEntries, type SitemapUrl } from '@/lib/seo/sitemap-data'
 import { parseSitemapName } from '@/lib/seo/sitemap-plan'
 
-// One child sitemap: `/sitemaps/posts-<n>.xml`, `pages.xml`, `lists.xml`, `shows.xml` or `video.xml`. Anything else, or a story file past the last, is a 404.
+// One child sitemap: `/sitemaps/posts-<n>.xml`, `pages.xml`, `lists.xml`, `shows.xml`, `video.xml` or `radiolive.xml`. Anything else, or a story file past the last, is a 404.
 export async function GET(_request: Request, { params }: { params: Promise<{ name: string }> }) {
   const { name } = await params
   const request = parseSitemapName(name)
@@ -25,6 +25,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
       break
     case 'video':
       entries = await getVideoEntries()
+      break
+    case 'radiolive':
+      entries = await getRadioLiveEntries()
       break
   }
   if (entries.length === 0) return new Response('Not found', { status: 404 })

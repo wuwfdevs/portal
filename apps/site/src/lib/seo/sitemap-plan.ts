@@ -10,11 +10,11 @@ export const CHUNK_SIZE = 2000
 /** The protocol's hard limit on addresses in one file. */
 export const PROTOCOL_MAX_URLS = 50_000
 
-export type SitemapKind = 'pages' | 'lists' | 'shows' | 'video'
+export type SitemapKind = 'pages' | 'lists' | 'shows' | 'video' | 'radiolive'
 
 export type SitemapRequest = { kind: 'posts'; page: number } | { kind: SitemapKind }
 
-const SINGLE_FILES: readonly SitemapKind[] = ['pages', 'lists', 'shows', 'video']
+const SINGLE_FILES: readonly SitemapKind[] = ['pages', 'lists', 'shows', 'video', 'radiolive']
 
 /** How many story files `total` stories need. None when there are no stories. */
 export function chunkCount(total: number, size: number = CHUNK_SIZE): number {
@@ -43,12 +43,13 @@ export function sitemapUrl(request: SitemapRequest, siteUrl: string): string {
 }
 
 /** Every file the index lists, in order: the single files, then the story files. A single file with nothing in it is left out. */
-export function indexRequests(counts: { posts: number; pages: number; lists: number; shows: number; video: number }): SitemapRequest[] {
+export function indexRequests(counts: { posts: number; pages: number; lists: number; shows: number; video: number; radiolive: number }): SitemapRequest[] {
   const out: SitemapRequest[] = []
   if (counts.pages > 0) out.push({ kind: 'pages' })
   for (let page = 1; page <= chunkCount(counts.posts); page++) out.push({ kind: 'posts', page })
   if (counts.lists > 0) out.push({ kind: 'lists' })
   if (counts.shows > 0) out.push({ kind: 'shows' })
   if (counts.video > 0) out.push({ kind: 'video' })
+  if (counts.radiolive > 0) out.push({ kind: 'radiolive' })
   return out
 }

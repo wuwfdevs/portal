@@ -129,8 +129,23 @@ export const getVideoEntries = unstable_cache(
   { tags: ['clips-sitemap'], revalidate: SLOW_REVALIDATE },
 )
 
+/** The RadioLive page, each published show and each artist who has played one. `lastmod` is the show\'s start date, never import time. */
+export const getRadioLiveEntries = unstable_cache(
+  async (): Promise<SitemapUrl[]> => {
+    const payload = await getPayload({ config })
+    const base = siteUrl()
+    const found = await payload.find({ collection: 'performances', overrideAccess: false, draft: false, depth: 1, limit: 5000, pagination: false, sort: '-startsAt', where: published, select: { slug: true, startsAt: true, lineup: true } })
+    const shows = found.docs.flatMap((p) => (p.slug ? [{ loc: `${base}/radiolive/${p.slug}`, lastmod: p.startsAt }] : []))
+    const artists = new Set<string>()
+    for (const p of found.docs) for (const a of p.lineup ?? []) if (typeof a === 'object' && a?.slug) artists.add(a.slug)
+    return shows.length > 0 ? [{ loc: `${base}/radiolive` }, ...shows, ...[...artists].sort().map((slug) => ({ loc: `${base}/radiolive/artists/${slug}` }))] : []
+  },
+  ['sitemap-radiolive'],
+  { tags: ['radiolive-sitemap'], revalidate: SLOW_REVALIDATE },
+)
+
 /** The files the index lists right now. */
 export async function getIndexRequests(): Promise<SitemapRequest[]> {
-  const [posts, pages, lists, shows, video] = await Promise.all([countPosts(), getPagesEntries(), getListEntries(), getShowEntries(), getVideoEntries()])
-  return indexRequests({ posts, pages: pages.length, lists: lists.length, shows: shows.length, video: video.length })
+  const [posts, pages, lists, shows, video, radiolive] = await Promise.all([countPosts(), getPagesEntries(), getListEntries(), getShowEntries(), getVideoEntries(), getRadioLiveEntries()])
+  return indexRequests({ posts, pages: pages.length, lists: lists.length, shows: shows.length, video: video.length, radiolive: radiolive.length })
 }
