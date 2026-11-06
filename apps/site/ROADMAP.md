@@ -766,6 +766,15 @@ tested; its `down()` drops the stories' season keys with `IF EXISTS`, since drop
 `tests/int/seasons.int.spec.ts` (4), `lib/shows/seasons.test.ts`, a feed test. The themed home lists up to 300 episodes. Not done: the
 board's large watermark season numeral (decoration), and filling seasons or numbers from Grove (not checked whether its episode data carries them).
 
+**Podcast feed settings per show (agreed with the owner 2026-11-06; to do before any show's feed is submitted to Apple or Spotify, and
+before the two Grove feeds move).** One small "Podcast feed" group on the show: Apple category (required for a listing; today there is none),
+explicit (today always false), and feed type, episodic (newest first: Acoustic Interlude Sessions, EcoMinutes) or serial (heard in order,
+by season: Barefoot Mary). Today every feed says `episodic` (`lib/shows/feed.ts`). **Nothing is live:** Barefoot Mary has no feed in Apple
+Podcasts or Spotify from its old app or any host (owner, 2026-11-06), so no `itunes:new-feed-url` hand-over is needed for it; the two Grove
+feeds keep their addresses (`/podcast/<slug>/rss.xml`). Seasons are optional: shows with dated episodes (Acoustic Interlude's weekly
+airings) leave them empty and keep today's date order. If an unthemed show ever uses seasons, move the season grouping into the plain
+show page too (today only the themed page groups; the plain page shows "Ep. 2" labels in date order).
+
 **Left out of 7a on purpose (and why).**
 - The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot
   drop it without splitting the layout (every route moves into a route group). The show's own section band sits under the station header.
