@@ -5,6 +5,8 @@
 // address (a wire story chosen for publication) wins, so the proxy asks `/api/gone-check` first and only answers 410 when nothing owns the address.
 // Pure: no framework, no database.
 
+import { pathFromSegments } from './paths'
+
 /** A bare wire address: a date, then one segment. Section stories have a section first and never match. */
 const BARE_WIRE = /^\/\d{4}-\d{2}-\d{2}\/[^/]+\/?$/
 
@@ -16,8 +18,16 @@ export function isGoneCandidate(pathname: string): boolean {
   return BARE_WIRE.test(pathname) || DEAD_ADDRESSES.has(pathname.replace(/\/$/, ''))
 }
 
-/** The address without a trailing slash, as records store it. */
-export const recordPathOf = (pathname: string): string => (pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname)
+/**
+ * The stored address for a request's pathname, or null when it cannot be one. A request's path is percent-encoded and a record's is not
+ * (`/2026-11-06/caf%C3%A9` is the record `/2026-11-06/café`), so it is decoded the way the catch-all route decodes it, with the same shape rules.
+ */
+export function recordPathOf(pathname: string): string | null {
+  return pathFromSegments(pathname.split('/').filter((s) => s !== ''))
+}
+
+/** Next's draft-mode cookie. Staff previewing an unpublished record at its own address carry it; the catch-all route checks it properly. */
+export const PREVIEW_COOKIE = '__prerender_bypass'
 
 /** The body of a 410 response: plain, no scripts, no tracking, a way back. */
 export const GONE_HTML = `<!doctype html>

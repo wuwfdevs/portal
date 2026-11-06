@@ -9,6 +9,7 @@ describe('validateVtt', () => {
     expect(validateVtt(VTT)).toBe(true)
     expect(validateVtt('WEBVTT - title\n\n01:00:01.000 --> 01:00:03.500\nHi')).toBe(true)
     expect(validateVtt('﻿' + VTT)).toBe(true)
+    expect(validateVtt('WEBVTT\r\n\r\n00:00:01.000 --> 00:00:03.000\r\nEight feet.\r\n')).toBe(true) // an API client may send Windows line endings
   })
   it('refuses nothing, the wrong format and a header with no cues', () => {
     for (const bad of [null, undefined, '', '   ', '1\n00:00:01,000 --> 00:00:03,000\nSRT', 'WEBVTTX\n\n00:00:01.000 --> 00:00:02.000\nx', 'WEBVTT\n\nno cues here']) {

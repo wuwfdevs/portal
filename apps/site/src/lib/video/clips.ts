@@ -5,7 +5,7 @@
 export function validateVtt(value: string | null | undefined): true | string {
   const text = (value ?? '').replace(/^﻿/, '').trim()
   if (text === '') return 'Captions are required. Paste a WebVTT file (it starts with the word WEBVTT).'
-  if (!/^WEBVTT(?:[ \t\n]|$)/.test(text)) return 'Captions must be a WebVTT file: the first line is the word WEBVTT.'
+  if (!/^WEBVTT(?:[ \t\r\n]|$)/.test(text)) return 'Captions must be a WebVTT file: the first line is the word WEBVTT.'
   if (!/\d{1,2}:\d{2}(?::\d{2})?\.\d{3}\s+-->\s+\d{1,2}:\d{2}(?::\d{2})?\.\d{3}/.test(text)) return 'The captions have no timed lines (like 00:00:01.000 --> 00:00:03.000).'
   return true
 }
