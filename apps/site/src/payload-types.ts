@@ -95,6 +95,7 @@ export interface Config {
     users: User;
     'portal-sign-ins': PortalSignIn;
     'audience-profiles': AudienceProfile;
+    memberships: Membership;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -143,6 +144,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
     'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
+    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -2172,6 +2174,48 @@ export interface AudienceProfile {
   createdAt: string;
 }
 /**
+ * Sustaining members at the station's qualifying level, with members' listening on wuwf.org. Add one, tick "Send the claim email", and the member gets a link that connects the membership to their wuwf.org account. Access ends 14 days after the end date.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships".
+ */
+export interface Membership {
+  id: number;
+  /**
+   * As on the membership. Used to greet them in the claim email.
+   */
+  name: string;
+  /**
+   * The address on the membership. The claim link goes here; it is never used to connect an account by itself.
+   */
+  email: string;
+  /**
+   * The last day the membership is paid through. Move it forward when it renews.
+   */
+  endsOn: string;
+  source: 'manual' | 'sync';
+  /**
+   * For Member Services only.
+   */
+  note?: string | null;
+  /**
+   * Emails a single-use link (good for 14 days) to the address above. Sending again replaces any earlier link.
+   */
+  sendClaimEmail?: boolean | null;
+  /**
+   * Set when the member opens the claim link. Clear it to disconnect the account.
+   */
+  account?: (number | null) | AudienceProfile;
+  claim?: {
+    sentAt?: string | null;
+    expiresAt?: string | null;
+    claimedAt?: string | null;
+    tokenHash?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -2473,6 +2517,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'audience-profiles';
         value: number | AudienceProfile;
+      } | null)
+    | ({
+        relationTo: 'memberships';
+        value: number | Membership;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3489,6 +3537,29 @@ export interface AudienceProfilesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships_select".
+ */
+export interface MembershipsSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  endsOn?: T;
+  source?: T;
+  note?: T;
+  sendClaimEmail?: T;
+  account?: T;
+  claim?:
+    | T
+    | {
+        sentAt?: T;
+        expiresAt?: T;
+        claimedAt?: T;
+        tokenHash?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects_select".
  */
 export interface RedirectsSelect<T extends boolean = true> {
@@ -4045,6 +4116,10 @@ export interface SupportPage {
    * One short line under the levels (vehicle and property gifts, the Combined Federal Campaign number).
    */
   otherWays?: string | null;
+  /**
+   * The qualifying level, in words, e.g. "a sustaining membership of $8 a month or more". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.
+   */
+  membersListeningLevel?: string | null;
   showBusinesses?: boolean | null;
   businessesEyebrow?: string | null;
   businessesHeading?: string | null;
@@ -4451,6 +4526,7 @@ export interface SupportPageSelect<T extends boolean = true> {
         id?: T;
       };
   otherWays?: T;
+  membersListeningLevel?: T;
   showBusinesses?: T;
   businessesEyebrow?: T;
   businessesHeading?: T;

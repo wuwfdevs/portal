@@ -11,12 +11,15 @@ export function MembersOnlyPanel({
   supportHref,
   showHref,
   showTitle,
+  level,
   classNames,
 }: {
   isEpisode: boolean
   supportHref: string
   showHref?: string | null
   showTitle?: string | null
+  /** The station's qualifying level in words ("a sustaining membership of $8 a month or more"), when set. */
+  level?: string | null
   classNames?: { box?: string; eyebrow?: string; heading?: string; text?: string; primary?: string; secondary?: string }
 }) {
   const what = isEpisode ? 'episode' : 'piece'
@@ -32,6 +35,14 @@ export function MembersOnlyPanel({
       <p className={classNames?.text ?? 'max-w-[40rem] text-base text-ink-2'}>
         {showTitle ? `${showTitle} is made by WUWF Public Media. ` : ''}
         Supporting the show is supporting the station: a sustaining membership is a tax-deductible gift to WUWF.
+        {level ? ` Members' listening comes with ${level}.` : ''}
+      </p>
+      <p className={classNames?.text ?? 'max-w-[40rem] text-base text-ink-2'}>
+        Already a member?{' '}
+        <Link className="font-semibold underline" href="/account">
+          Connect your membership in your account
+        </Link>
+        .
       </p>
       <div className="flex flex-wrap gap-3">
         <Link

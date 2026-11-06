@@ -59,3 +59,10 @@ export const loadStationLevels = cache(async (): Promise<StationLevel[]> => {
   const page = await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null)
   return page?.levels ?? []
 })
+
+/** The station's qualifying level for members' listening, in words, from the Support page settings; null when unset. */
+export const loadMembersListeningLevel = cache(async (): Promise<string | null> => {
+  const payload = await getPayload({ config: configPromise })
+  const page = await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null)
+  return page?.membersListeningLevel?.trim() || null
+})

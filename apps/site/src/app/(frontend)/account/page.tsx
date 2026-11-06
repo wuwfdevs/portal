@@ -1,22 +1,35 @@
+import configPromise from '@payload-config'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { getPayload } from 'payload'
 import React from 'react'
 
 import { supabaseAudienceAuth } from '@/lib/audience/supabase'
+import { formatLongDate } from '@/lib/format'
+import { membershipStatus } from '@/lib/members/claim'
 
 import { signOut } from './actions'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Your account', robots: { index: false, follow: false } }
 
+type Args = { searchParams: Promise<{ connected?: string }> }
+
 /**
- * A reader's account (phase 7b; board 25 is its fuller form). Today: who is signed in, and signing out. Member feeds (7d) and the
- * membership link (7c) arrive here when they exist; until then this page promises neither.
+ * A reader's account (phases 7b, 7c; board 25 is its fuller form): who is signed in, their members' listening, and signing out.
+ * Member feeds (7d) arrive here when they exist; until then this page does not promise them.
  */
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: Args) {
   const user = await supabaseAudienceAuth.currentUser()
   if (!user) redirect('/account/sign-in')
+  const { connected } = await searchParams
+  const payload = await getPayload({ config: configPromise })
+  const [status, support] = await Promise.all([
+    membershipStatus(payload, user.id, new Date()),
+    payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null),
+  ])
+  const level = support?.membersListeningLevel?.trim() || null
 
   return (
     <main className="container flex max-w-[44rem] flex-col gap-8 py-12 md:py-16">
@@ -34,9 +47,31 @@ export default async function AccountPage() {
         <h2 className="font-serif text-2xl font-bold text-ink" id="membership-heading">
           Membership
         </h2>
-        <p className="text-base text-ink-2">
-          Your account is not linked to a WUWF membership. Questions about a membership or a gift go to WUWF Member Services.
-        </p>
+        {connected === '1' && status.state === 'active' && (
+          <p className="text-base font-semibold text-ink" role="status">
+            Your membership is connected. Thank you for supporting WUWF.
+          </p>
+        )}
+        {status.state === 'active' && status.inGrace ? (
+          <p className="text-base text-ink-2">
+            Your membership ended on <strong className="text-ink">{formatLongDate(status.endsOn)}</strong>. Members&rsquo; listening keeps working for a few more days
+            while it renews.
+          </p>
+        ) : status.state === 'active' ? (
+          <p className="text-base text-ink-2">
+            Members&rsquo; listening is on: members-only episodes and more from WUWF originals. Your membership runs through{' '}
+            <strong className="text-ink">{formatLongDate(status.endsOn)}</strong>.
+          </p>
+        ) : status.state === 'ended' ? (
+          <p className="text-base text-ink-2">
+            Your membership ended on <strong className="text-ink">{formatLongDate(status.endsOn)}</strong>, so members&rsquo; listening is off. Renewing your sustaining membership turns it back on.
+          </p>
+        ) : (
+          <p className="text-base text-ink-2">
+            Your account is not connected to a WUWF membership.
+            {level ? ` Members' listening comes with ${level}.` : ''} If you are a sustaining member, WUWF Member Services can email you a link that connects it.
+          </p>
+        )}
         <Link className="self-start text-base font-semibold text-wuwf-blue-700 underline" href="/support">
           Ways to support WUWF
         </Link>

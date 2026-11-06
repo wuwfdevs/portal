@@ -17,7 +17,7 @@ import { ThemedShell } from './ThemedShell'
  * Not here (ROADMAP → Phase 7): the amount picker (the gift is chosen on WUWF's form), "Sign in to claim your feed",
  * and the three steps to the members' feed (7b to 7d). Nothing on this page promises a feed.
  */
-export function ThemedSupportView({ data, levels }: { data: ThemedShowData; levels: StationLevel[] }) {
+export function ThemedSupportView({ data, levels, membersLevel }: { data: ThemedShowData; levels: StationLevel[]; membersLevel?: string | null }) {
   const { show, theme, totalArchive, totalFieldNotes } = data
   const path = show.path!
   const s = show.showSupport ?? {}
@@ -38,6 +38,7 @@ export function ThemedSupportView({ data, levels }: { data: ThemedShowData; leve
             <a className={t.primary} href={donate}>
               {s.donateLabel || "Give on WUWF's secure form"}
             </a>
+            {membersLevel && <p className={cn('text-base', t.muted)}>Members&rsquo; listening on every WUWF original, {show.title} included, comes with {membersLevel}.</p>}
             <p className={cn('text-sm', t.muted)}>You give on WUWF&rsquo;s own donation form. Monthly gifts are WUWF sustaining memberships, which you can change or cancel at any time through WUWF Member Services.</p>
           </div>
         ) : (

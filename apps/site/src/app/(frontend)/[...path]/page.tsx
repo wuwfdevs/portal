@@ -22,7 +22,7 @@ import { listHref, parseListRequest } from '@/lib/lists/route'
 import { pathFromSegments } from '@/lib/paths'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
 import { parseShowSubpage, type ShowSubpage } from '@/lib/shows/subpaths'
-import { loadStationLevels, loadThemedShow, type ThemedShowData } from '@/lib/shows/themed-load'
+import { loadMembersListeningLevel, loadStationLevels, loadThemedShow, type ThemedShowData } from '@/lib/shows/themed-load'
 import { showThemeOf } from '@/lib/shows/themes'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { generateMeta, generateStoryMeta } from '@/utilities/generateMeta'
@@ -119,7 +119,7 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
   if (result.kind === 'themed-subpage') {
-    if (result.subpage === 'support') return <ThemedSupportView data={result.data} levels={await loadStationLevels()} />
+    if (result.subpage === 'support') return <ThemedSupportView data={result.data} levels={await loadStationLevels()} membersLevel={await loadMembersListeningLevel()} />
     return <ThemedListView data={result.data} list={result.subpage} />
   }
   if (result.kind === 'show') {
