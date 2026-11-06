@@ -11,8 +11,8 @@ design canvas are described under *Sources* below.
 
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
-per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page. **Next for phase 7:** 7b, audience
-sign-in. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
+per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page; then seasons, and **7b, audience
+sign-in (built; needs the Supabase settings under *Phase 7*)**. **Next for phase 7:** 7c, entitlements and the membership claim. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
@@ -774,6 +774,40 @@ Podcasts or Spotify from its old app or any host (owner, 2026-11-06), so no `itu
 feeds keep their addresses (`/podcast/<slug>/rss.xml`). Seasons are optional: shows with dated episodes (Acoustic Interlude's weekly
 airings) leave them empty and keep today's date order. If an unthemed show ever uses seasons, move the season grouping into the plain
 show page too (today only the themed page groups; the plain page shows "Ep. 2" labels in date order).
+
+**7b, audience sign-in (built 2026-11-06).** Passwordless email sign-in with Supabase Auth on the site's own project; Resend is
+WUWF's mail service (owner). **Design:** Supabase sends the sign-in email itself through Resend's SMTP, so the site holds **no new
+secret** (no Resend key, no service-role key): it uses only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+already set on Vercel (Preview: staging; Production: production). Code: `lib/audience/` (rules, the `AudienceAuth` interface, the
+Supabase implementation, the request flow, the session refresh), `app/(frontend)/account/` (`/account`, `/account/sign-in`,
+`/account/confirm`), `collections/AudienceProfiles.ts` (one per Supabase user id; **no email address**; readable by membership staff
+only; never created by hand; migration `20261106_232627_audience_profiles`, up, down and up tested). The sign-in form works without a
+script, has a hidden field for bots, limits a client to 6 requests an hour and 20 a day (counted under a keyed hash of its address in the
+calendar's `submission-rate-limits` ledger, never the address or the email), and answers the same whether or not an address has an
+account. The emailed link returns to `/account/confirm` (built from the deployment's own address, never the Host header), which takes only
+the sign-in link types, goes on only to a path on this site (remembered in a one-hour cookie), and records the sign-in. The proxy renews
+sessions on `/account` pages only (Supabase rotates refresh tokens; a page cannot save cookies), so the rest of the site stays cacheable.
+`/account` is reserved (Grove has no such address). The sign-in page carries the **UWF IT-04 notice** (`components/Account/PolicyNotice.tsx`,
+the Portal's wording and its local copy of the policy, `public/policies/`). Tests: `tests/int/audience-sign-in.int.spec.ts` (8, with a fake
+in place of Supabase), `lib/audience/rules.test.ts`. **Not tested against Supabase itself:** no real sign-in has been made; that needs the
+settings below.
+
+**Supabase settings the owner sets (dashboard; nothing in the repository can).** On `wuwf-site-staging` now, the same on `wuwf-site-production` at go-live:
+1. *Authentication → Emails → SMTP settings:* custom SMTP on; host `smtp.resend.com`, port `465`, username `resend`, password **a Resend
+   API key** (create one with sending access only, for the verified wuwf.org sending domain; the Portal's `RESEND_FROM_EMAIL` shows which
+   domain is verified); sender address on that domain (suggested `no-reply@`), sender name `WUWF Public Media`.
+2. *Authentication → Emails → Templates,* both **Magic link** and **Confirm signup** (a first-time address gets the second): the link
+   must be `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`. Suggested subject "Your WUWF sign-in link"; body: "Use this link
+   to sign in to wuwf.org. It works once and expires in an hour. If you did not ask for it, ignore this email." (owner to confirm the words).
+3. *Authentication → URL configuration:* Site URL = the staging site's address; Redirect URLs: `https://wuwf-site-*-wuwf.vercel.app/account/confirm`
+   (previews; Vercel's addresses for this project) and the stable staging address + `/account/confirm`. **If the return address is not on this
+   list, Supabase swaps in the Site URL and the emailed link breaks.** Production at go-live: `https://www.wuwf.org/account/confirm` (or the final host).
+4. *Authentication → Rate limits:* emails per hour (Supabase's cap for the whole project; with custom SMTP it can be raised) to what member
+   sign-ins need; the one-link-per-address-per-minute default can stay.
+5. Leave *Allow new users to sign up* on (the first link makes the account).
+
+**Found on the way:** (1) the community calendar's public submission form collects names and emails but does **not** carry the IT-04 notice
+(CLAUDE.md says every such page must). `PolicyNotice` can be added to it in one line. (2) **Fixed:** that form's error messages and red field borders used `var(--on-air-red)`, which does not exist (the token is `--color-on-air-red`), so errors showed in black; both forms now use `text-on-air-red` / `border-on-air-red` (4.58:1 on white).
 
 **Left out of 7a on purpose (and why).**
 - The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot

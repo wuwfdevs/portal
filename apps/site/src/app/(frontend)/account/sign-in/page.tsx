@@ -29,7 +29,7 @@ export default async function SignInPage({ searchParams }: Args) {
         </p>
       </header>
       {error === 'link' && (
-        <p className="rounded-sm border-2 border-[var(--on-air-red)] p-4 text-base text-ink" role="alert">
+        <p className="rounded-sm border-2 border-on-air-red p-4 text-base text-ink" role="alert">
           That sign-in link did not work. Links work once and expire after an hour. Ask for a new one below.
         </p>
       )}

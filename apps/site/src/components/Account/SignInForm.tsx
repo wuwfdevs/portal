@@ -6,7 +6,7 @@ import { askForSignInLink, type SignInState } from '@/app/(frontend)/account/act
 import { HONEYPOT } from '@/lib/audience/fields'
 
 const control =
-  'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-[var(--on-air-red)]'
+  'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-on-air-red'
 
 /**
  * Ask for a sign-in link (phase 7b). Posts to a server action, so it works without a script. The answer never says whether the
@@ -49,7 +49,7 @@ export function SignInForm({ next }: { next: string }) {
           type="email"
         />
         {error ? (
-          <p aria-live="assertive" className="text-sm font-semibold text-[var(--on-air-red)]" id="signin-error">
+          <p aria-live="assertive" className="text-sm font-semibold text-on-air-red" id="signin-error">
             {error}
           </p>
         ) : (
