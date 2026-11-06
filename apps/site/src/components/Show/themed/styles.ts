@@ -8,8 +8,9 @@ export const t = {
   display: 'font-(family-name:--font-show-display) font-normal leading-[1.02] tracking-[-0.015em]',
   muted: 'text-(--color-show-muted)',
   rule: 'border-(--color-show-rule)',
-  card: 'relative flex flex-col gap-2 bg-(--color-show-surface) p-5 transition-colors duration-200 hover:bg-(--color-show-raised)',
-  grid: 'grid gap-px border border-(--color-show-border) bg-(--color-show-border)',
+  card: 'relative flex flex-col gap-2 border border-(--color-show-border) bg-(--color-show-surface) p-5 transition-colors duration-200 hover:bg-(--color-show-raised)',
+  // Separate bordered cards: a seam-line grid (gap over a coloured ground) paints its empty cells when a row is not full.
+  grid: 'grid gap-3',
   link: 'text-(--color-show-accent) underline-offset-4 hover:text-(--color-show-accent-hover) hover:underline',
   primary:
     'inline-flex min-h-12 items-center justify-center bg-(--color-show-accent) px-6 font-(family-name:--font-show-label) text-lg uppercase tracking-[0.18em] text-(--color-show-on-accent) hover:bg-(--color-show-accent-hover) hover:text-(--color-show-on-accent) hover:no-underline',

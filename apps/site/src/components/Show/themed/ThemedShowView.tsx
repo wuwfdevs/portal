@@ -85,7 +85,7 @@ export function ThemedShowView({ data, independenceHref }: { data: ThemedShowDat
         <section aria-labelledby="field-notes" className={cn(t.container, 'mt-20')}>
           <SectionHeading eyebrow="Research and writing" id="field-notes" more={totalFieldNotes > fieldNotes.length ? { href: `${path}/field-notes`, label: 'All Field Notes' } : null} title="Field Notes" />
           <ul className={cn(t.grid, 'mt-8 md:grid-cols-2')}>
-            <FieldNoteCard featured note={firstNote} />
+            <FieldNoteCard featured={otherNotes.length >= 2} note={firstNote} />
             {otherNotes.map((n) => (
               <FieldNoteCard key={n.id} note={n} />
             ))}
