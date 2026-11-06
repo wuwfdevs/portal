@@ -1,18 +1,20 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { Acknowledgment } from '@/components/Acknowledgment'
 import { Media } from '@/components/Media'
 import { dateParts, hasHappened, performanceTitle } from '@/lib/radiolive/arrange'
 import type { ArtistView, ShowView } from '@/lib/radiolive/load'
-import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
 import { RecordingPlayer } from './parts'
 
 const kicker = 'text-xs font-bold uppercase tracking-widest'
 
-/** One RadioLive show: before it, the lineup and how to get tickets; after it, the recorded set. Same dark look as the RadioLive page. */
-export function ShowPageView({ show, acknowledgments, independenceHref }: { show: ShowView; acknowledgments: AcknowledgmentLine[]; independenceHref: string | null }) {
+/**
+ * One RadioLive show: before it, the lineup and how to get tickets; after it, the recorded set. Same dark look as the RadioLive page.
+ * It carries no funder line on purpose: which sponsor is tied to which night (and whether to an archive) is a contract question not yet settled,
+ * so only the RadioLive page itself shows the production's running funders (ROADMAP, RadioLive follow-up).
+ */
+export function ShowPageView({ show }: { show: ShowView }) {
   const d = dateParts(show.startsAt)
   const over = hasHappened(show.startsAt, new Date())
   return (
@@ -80,12 +82,6 @@ export function ShowPageView({ show, acknowledgments, independenceHref }: { show
               ))}
             </ul>
           </section>
-        )}
-
-        {acknowledgments.length > 0 && (
-          <div className="max-w-[40rem] text-ink">
-            <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} subject="program" />
-          </div>
         )}
       </div>
     </div>

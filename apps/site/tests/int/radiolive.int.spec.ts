@@ -86,6 +86,7 @@ describe('RadioLive', () => {
     const a = await loadArtist(artistA.slug)
     expect(a?.shows.map((x) => x.slug).sort()).toEqual([pastShow.slug, futureShow.slug].sort())
     expect(a?.artist.link).toBe('https://angel.example.com')
+    expect(s).not.toHaveProperty('acknowledgments') // a show page carries no funder line until the contract question is settled
     expect(await loadShow('nope-' + run)).toBeNull()
     expect(await loadArtist('nope-' + run)).toBeNull()
   })

@@ -150,13 +150,10 @@ export const loadRadioLive = cache(async (): Promise<RadioLiveData> => {
   }
 })
 
-export const loadShow = cache(async (slug: string): Promise<{ show: ShowView; acknowledgments: AcknowledgmentLine[] } | null> => {
+/** A published show by its address. No funder line: see `ShowPageView`. */
+export const loadShow = cache(async (slug: string): Promise<{ show: ShowView } | null> => {
   const show = (await loadShows()).find((s) => s.slug === slug)
-  if (!show) return null
-  const payload = await getPayload({ config: configPromise })
-  const settings = await payload.findGlobal({ slug: 'radiolive-hub', depth: 0, overrideAccess: false })
-  const productionId = typeof settings.production === 'object' ? settings.production?.id : settings.production
-  return { show, acknowledgments: productionId ? await getProductionHubAcknowledgments(payload, productionId, new Date().toISOString()) : [] }
+  return show ? { show } : null
 })
 
 export const loadArtist = cache(async (slug: string): Promise<{ artist: ArtistView; shows: ShowView[]; appearance: ArtistAppearance | null } | null> => {
