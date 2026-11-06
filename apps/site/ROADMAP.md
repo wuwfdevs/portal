@@ -12,7 +12,7 @@ design canvas are described under *Sources* below.
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
 per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page; then seasons, and **7b, audience
-sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). **Next for phase 7:** 7d, private feeds. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
+sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). **Next for phase 7:** 7d, private feeds. **Full suite 116 files, 1,367 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
