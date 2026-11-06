@@ -58,7 +58,7 @@ describe('RadioLive', () => {
   }, 90_000)
 
   afterAll(async () => {
-    await payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { production: null } as never }).catch(() => undefined)
+    await payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { production: null, visit: { items: [] }, membership: { heading: null, text: null, contactName: null, contactEmail: null, contactPhone: null, href: null } } as never }).catch(() => undefined)
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
     void original
   })
@@ -96,6 +96,16 @@ describe('RadioLive', () => {
     expect((await loadRadioLive()).watch.some((x) => x.slug === hostedShow.slug)).toBe(true)
     for (const bad of ['https://example.com/set', 'https://www.youtube.com/playlist?list=PL7wabVdOsi0NL7ozG7c702xTmikRYGwEJ', 'http://youtu.be/hVgWH8kF_RQ']) {
       await expect(payload.create({ collection: 'performances', overrideAccess: true, context: ctx, data: { title: `Bad ${run}`, startsAt: day(-9), recordingUrl: bad, _status: 'published' } as never })).rejects.toThrow()
+    }
+  })
+
+  it('shows plan-your-visit facts and a membership level with checked contact links, and refuses a bad email or phone', async () => {
+    await payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { visit: { items: [{ label: 'Show', text: 'Starts at 6 p.m.' }, { label: 'Where', text: 'Museum of Commerce' }] }, membership: { heading: 'RadioLive 25', text: `$1,000 annually ${run}.`, contactName: 'The membership office', contactEmail: 'members@example.org', contactPhone: '850-555-0123' } } as never })
+    const data = await loadRadioLive()
+    expect(data.visit.items.map((i) => i.label)).toEqual(['Show', 'Where'])
+    expect(data.membership).toMatchObject({ heading: 'RadioLive 25', mailto: 'mailto:members@example.org', tel: 'tel:8505550123' })
+    for (const bad of [{ contactEmail: 'Name <a@b.org>' }, { contactPhone: 'call us' }]) {
+      await expect(payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { membership: { heading: 'x', ...bad } } as never })).rejects.toThrow()
     }
   })
 

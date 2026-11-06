@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { requirePermission } from '@/access/permissions'
+import { validateEmail, validatePhone } from '@/lib/radiolive/contact'
 import { validateSupportHref } from '@/lib/support-link'
 
 import { revalidateRadioLiveHub } from './hooks/revalidate'
@@ -51,6 +52,39 @@ export const RadioLiveHub: GlobalConfig = {
         { name: 'buttonLabel', type: 'text', defaultValue: 'Give to RadioLive' },
         { name: 'href', type: 'text', label: 'Link', validate: validateSupportHref, defaultValue: '/support', admin: { description: 'The donation page. Empty hides the button.' } },
         { name: 'note', type: 'text', defaultValue: 'On the donation form, choose "Count my gift as support for RadioLive."', admin: { description: 'Say only what the donation form really offers.' } },
+      ],
+    },
+    {
+      name: 'visit',
+      type: 'group',
+      label: 'Plan your visit',
+      fields: [
+        { name: 'heading', type: 'text', defaultValue: 'Plan your visit' },
+        {
+          name: 'items',
+          type: 'array',
+          maxRows: 12,
+          labels: { singular: 'Fact', plural: 'Facts' },
+          admin: { description: 'Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.' },
+          fields: [
+            { name: 'label', type: 'text', required: true, admin: { description: 'e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".' } },
+            { name: 'text', type: 'textarea', required: true },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'membership',
+      type: 'group',
+      label: 'Membership level (e.g. RadioLive 25)',
+      admin: { description: 'A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.' },
+      fields: [
+        { name: 'heading', type: 'text', admin: { description: 'The level\'s name, e.g. "RadioLive 25".' } },
+        { name: 'text', type: 'textarea', admin: { description: 'The price and what members receive, exactly as the station sells it.' } },
+        { name: 'contactName', type: 'text', admin: { description: 'Who to contact. Prefer a role (e.g. "the membership office") if the station has one.' } },
+        { name: 'contactEmail', type: 'text', validate: validateEmail },
+        { name: 'contactPhone', type: 'text', validate: validatePhone },
+        { name: 'href', type: 'text', label: 'Link', validate: validateSupportHref, admin: { description: 'An optional page to join or learn more.' } },
       ],
     },
   ],

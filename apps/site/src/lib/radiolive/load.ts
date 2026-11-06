@@ -9,6 +9,7 @@ import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 import { supportHref } from '@/lib/support-link'
 
 import { appearances, performanceTitle, splitPerformances, ticketInfo, type ArtistAppearance } from './arrange'
+import { mailtoOf, telOf } from './contact'
 import { recordingEmbed } from './recording'
 
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
@@ -89,6 +90,10 @@ export interface RadioLiveData {
   host: { kicker: string | null; heading: string | null; text: string | null; portrait: Media | null; href: string | null }
   encores: { heading: string | null; text: string | null; linkLabel: string | null; href: string | null }
   support: { heading: string | null; text: string | null; buttonLabel: string | null; href: string | null; note: string | null }
+  /** Short facts for people coming to a show. Empty hides the panel. */
+  visit: { heading: string | null; items: { label: string; text: string }[] }
+  /** A membership level sold for RadioLive, with a contact. Null when none is set. */
+  membership: { heading: string; text: string | null; contactName: string | null; mailto: string | null; email: string | null; tel: string | null; phone: string | null; href: string | null } | null
   acknowledgments: AcknowledgmentLine[]
   /** Soonest first. */
   upcoming: ShowView[]
@@ -121,6 +126,20 @@ export const loadRadioLive = cache(async (): Promise<RadioLiveData> => {
     host: { kicker: text(settings.host?.kicker), heading: text(settings.host?.heading), text: text(settings.host?.text), portrait: named<Media>(settings.host?.portrait), href: supportHref(settings.host?.href) },
     encores: { heading: text(settings.encores?.heading), text: text(settings.encores?.text), linkLabel: text(settings.encores?.linkLabel), href: supportHref(settings.encores?.href) },
     support: { heading: text(settings.support?.heading), text: text(settings.support?.text), buttonLabel: text(settings.support?.buttonLabel), href: supportHref(settings.support?.href), note: text(settings.support?.note) },
+    visit: { heading: text(settings.visit?.heading), items: (settings.visit?.items ?? []).flatMap((i) => (i.label?.trim() && i.text?.trim() ? [{ label: i.label.trim(), text: i.text.trim() }] : [])) },
+    membership: settings.membership?.heading?.trim()
+      ? {
+          heading: settings.membership.heading.trim(),
+          text: text(settings.membership.text),
+          contactName: text(settings.membership.contactName),
+          // A contact is shown only as a link that passed its check, so a value typed before the rule existed cannot become a bad link.
+          mailto: mailtoOf(settings.membership.contactEmail),
+          email: mailtoOf(settings.membership.contactEmail) ? settings.membership.contactEmail!.trim() : null,
+          tel: telOf(settings.membership.contactPhone),
+          phone: telOf(settings.membership.contactPhone) ? settings.membership.contactPhone!.trim() : null,
+          href: supportHref(settings.membership.href),
+        }
+      : null,
     acknowledgments,
     upcoming,
     latest: recorded[0] ?? null,

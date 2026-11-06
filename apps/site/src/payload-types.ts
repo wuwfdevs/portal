@@ -3964,6 +3964,45 @@ export interface RadioliveHub {
      */
     note?: string | null;
   };
+  visit?: {
+    heading?: string | null;
+    /**
+     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
+     */
+    items?:
+      | {
+          /**
+           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
+           */
+          label: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
+   */
+  membership?: {
+    /**
+     * The level's name, e.g. "RadioLive 25".
+     */
+    heading?: string | null;
+    /**
+     * The price and what members receive, exactly as the station sells it.
+     */
+    text?: string | null;
+    /**
+     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
+     */
+    contactName?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    /**
+     * An optional page to join or learn more.
+     */
+    href?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4241,6 +4280,28 @@ export interface RadioliveHubSelect<T extends boolean = true> {
         buttonLabel?: T;
         href?: T;
         note?: T;
+      };
+  visit?:
+    | T
+    | {
+        heading?: T;
+        items?:
+          | T
+          | {
+              label?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membership?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        contactName?: T;
+        contactEmail?: T;
+        contactPhone?: T;
+        href?: T;
       };
   updatedAt?: T;
   createdAt?: T;

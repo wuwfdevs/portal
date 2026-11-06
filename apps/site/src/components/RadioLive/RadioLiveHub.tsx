@@ -16,7 +16,7 @@ const kicker = 'text-xs font-bold uppercase tracking-widest'
  * when tickets go on sale", and the board's giving levels (the donation form takes the gift; the board marks its extras "proposed").
  */
 export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; independenceHref: string | null }) {
-  const { upcoming, latest, watch, watchTotal, artists, host, encores, support, acknowledgments } = data
+  const { upcoming, latest, watch, watchTotal, artists, host, encores, support, visit, membership, acknowledgments } = data
   const next = upcoming[0] ?? null
   const nextWhen = next ? dateParts(next.startsAt) : null
   return (
@@ -102,7 +102,8 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
       )}
 
       <section aria-labelledby="shows-heading" className="bg-surface text-ink" id="shows">
-        <div className="container py-12">
+        <div className="container flex flex-wrap gap-x-12 gap-y-8 py-12">
+          <div className="min-w-0 flex-[999_1_32rem]">
           <p className={`${kicker} text-wuwf-blue-700`}>Upcoming</p>
           <h2 className="mb-4 mt-1 font-serif text-3xl font-bold" id="shows-heading">
             Save your seat
@@ -144,6 +145,22 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
                 )
               })}
             </ul>
+          )}
+          </div>
+          {visit.items.length > 0 && (
+            <aside aria-labelledby="visit-heading" className="flex-[1_1_18rem] self-start rounded-sm border border-rule bg-surface-2 p-5">
+              <h2 className="font-serif text-xl font-bold" id="visit-heading">
+                {visit.heading ?? 'Plan your visit'}
+              </h2>
+              <dl className="mt-3 flex flex-col gap-3">
+                {visit.items.map((i) => (
+                  <div key={i.label}>
+                    <dt className="text-xs font-bold uppercase tracking-widest text-ink-3">{i.label}</dt>
+                    <dd className="text-base text-ink">{i.text}</dd>
+                  </div>
+                ))}
+              </dl>
+            </aside>
           )}
         </div>
       </section>
@@ -228,7 +245,7 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
         )}
       </section>
 
-      {(support.heading || support.text) && (
+      {(support.heading || support.text || membership) && (
         <section aria-label="Support RadioLive" className="bg-surface text-ink" id="support">
           <div className="container flex flex-wrap items-start gap-x-10 gap-y-4 py-14">
             <div className="flex min-w-0 flex-[1_1_26rem] flex-col gap-3">
@@ -244,6 +261,39 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
               )}
               {support.note && <p className="text-sm text-ink-3">{support.note}</p>}
             </div>
+            {membership && (
+              <div className="flex basis-full flex-col gap-2 rounded-sm border border-rule bg-surface-2 p-6">
+                <h3 className="font-serif text-2xl font-bold">{membership.heading}</h3>
+                {membership.text && <p className="max-w-[48rem] text-base text-ink-2">{membership.text}</p>}
+                {(membership.contactName || membership.mailto || membership.tel) && (
+                  <p className="text-base text-ink">
+                    For more information, contact {membership.contactName ?? 'us'}
+                    {membership.mailto && (
+                      <>
+                        {' at '}
+                        <a className="font-semibold text-wuwf-blue-700 underline" href={membership.mailto}>
+                          {membership.email}
+                        </a>
+                      </>
+                    )}
+                    {membership.tel && (
+                      <>
+                        {membership.mailto ? ' or ' : ' at '}
+                        <a className="font-semibold text-wuwf-blue-700 underline" href={membership.tel}>
+                          {membership.phone}
+                        </a>
+                      </>
+                    )}
+                    .
+                  </p>
+                )}
+                {membership.href && (
+                  <Link className="inline-flex min-h-11 items-center self-start font-bold text-wuwf-blue-700 underline" href={membership.href}>
+                    Learn more
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}

@@ -25,6 +25,7 @@ import * as migration_20261104_182013_syndicated_programs from './20261104_18201
 import * as migration_20261106_150459_clips from './20261106_150459_clips';
 import * as migration_20261106_154058_radiolive from './20261106_154058_radiolive';
 import * as migration_20261106_174248_radiolive_virtual_and_hosted_recording from './20261106_174248_radiolive_virtual_and_hosted_recording';
+import * as migration_20261106_175346_radiolive_visit_and_membership from './20261106_175346_radiolive_visit_and_membership';
 
 export const migrations = [
   {
@@ -160,6 +161,11 @@ export const migrations = [
   {
     up: migration_20261106_174248_radiolive_virtual_and_hosted_recording.up,
     down: migration_20261106_174248_radiolive_virtual_and_hosted_recording.down,
-    name: '20261106_174248_radiolive_virtual_and_hosted_recording'
+    name: '20261106_174248_radiolive_virtual_and_hosted_recording',
+  },
+  {
+    up: migration_20261106_175346_radiolive_visit_and_membership.up,
+    down: migration_20261106_175346_radiolive_visit_and_membership.down,
+    name: '20261106_175346_radiolive_visit_and_membership'
   },
 ];
