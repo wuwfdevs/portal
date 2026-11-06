@@ -448,6 +448,10 @@ export interface Post {
    */
   production?: (number | null) | Production;
   /**
+   * For WUWF members only (a members' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.
+   */
+  membersOnly?: boolean | null;
+  /**
    * Unearthing Florida: the place this episode is about. Shown on the hub's map.
    */
   site?: (number | null) | Site;
@@ -778,6 +782,10 @@ export interface Audio {
    */
   title: string;
   description?: string | null;
+  /**
+   * Only WUWF members may hear it (a members' episode). The public cannot play or download it from its address.
+   */
+  membersOnly?: boolean | null;
   /**
    * Who produced it, e.g. "WUWF News".
    */
@@ -2584,6 +2592,7 @@ export interface PostsSelect<T extends boolean = true> {
       };
   series?: T;
   production?: T;
+  membersOnly?: T;
   site?: T;
   period?: T;
   generateSlug?: T;
@@ -2911,6 +2920,7 @@ export interface MediaSelect<T extends boolean = true> {
 export interface AudioSelect<T extends boolean = true> {
   title?: T;
   description?: T;
+  membersOnly?: T;
   credit?: T;
   durationSeconds?: T;
   legacy?:

@@ -13,9 +13,9 @@ import { showLine } from './line'
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
 
 /** An episode: a story with audio that belongs to a show. */
-export type Episode = HomeStory & { featuredAudio?: Post['featuredAudio'] }
+export type Episode = HomeStory & { featuredAudio?: Post['featuredAudio']; membersOnly?: Post['membersOnly'] }
 
-const EPISODE_FIELDS = { ...CARD_FIELDS, featuredAudio: true } as const
+const EPISODE_FIELDS = { ...CARD_FIELDS, featuredAudio: true, membersOnly: true } as const
 export const EPISODES_PER_PAGE = 20
 
 export interface ShowData {

@@ -27,7 +27,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     pagination: false,
     sort: '-publishedAt',
     select: { title: true, dek: true, path: true, publishedAt: true, featuredAudio: true, legacy: { groveId: true } },
-    where: { and: [{ production: { equals: show.id } }, { format: { equals: 'audio' } }, { _status: { equals: 'published' } }] },
+    // Members' episodes are never in the public feed (their audio is not readable anyway); they arrive in member feeds (phase 7d).
+    where: { and: [{ production: { equals: show.id } }, { format: { equals: 'audio' } }, { _status: { equals: 'published' } }, { membersOnly: { equals: false } }] },
   })
 
   const episodes = (posts.docs as Pick<Post, 'id' | 'title' | 'dek' | 'path' | 'publishedAt' | 'featuredAudio' | 'legacy'>[]).flatMap((p): FeedEpisode[] => {

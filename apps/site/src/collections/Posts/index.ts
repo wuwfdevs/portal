@@ -5,6 +5,8 @@ import { featuredMediaBlocks } from '../../blocks/body'
 import { bodyEditor } from '../../fields/bodyEditor'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
+import { membersAudioGuard } from '../../hooks/membersAudioGuard'
+import { membersOnlyField, readableUnlessMembersOnly } from '../../lib/members/access'
 import { legacyIdentityWriteOnce, pathBeforeChange, redirectOnPathChange } from '../../hooks/pathHooks'
 import { pathField } from '../../fields/path'
 import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
@@ -34,8 +36,11 @@ export const Posts: CollectionConfig<'posts'> = {
   // This config controls what's populated by default when a post is referenced
   // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property
   // Type safe if the collection slug generic is passed to `CollectionConfig` - `CollectionConfig<'posts'>
+  // The members-only flag is always read, so the field rules below never see a story without it (they fail closed).
+  forceSelect: { membersOnly: true },
   defaultPopulate: {
     title: true,
+    membersOnly: true,
     slug: true,
     path: true,
     categories: true,
@@ -77,6 +82,7 @@ export const Posts: CollectionConfig<'posts'> = {
               type: 'upload',
               relationTo: 'audio',
               label: 'Featured audio',
+              access: { read: readableUnlessMembersOnly },
               admin: { description: 'The audio version of this story, for the main player. Optional.' },
             },
             {
@@ -85,6 +91,8 @@ export const Posts: CollectionConfig<'posts'> = {
               editor: bodyEditor,
               label: false,
               required: true,
+              // A members-only story's body is never read out to the public (its title, teaser and picture are).
+              access: { read: readableUnlessMembersOnly },
               // Required, except for a story carried by its audio, video or photo (Grove has audio-only pieces).
               validate: (async (value, options) => {
                 if (storyBodyMayBeEmpty(options.data as never)) return true
@@ -312,6 +320,7 @@ export const Posts: CollectionConfig<'posts'> = {
     },
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
     { name: 'production', type: 'relationship', relationTo: 'productions', filterOptions: { kind: { equals: 'original' } }, admin: { position: 'sidebar', description: 'The WUWF production this episode belongs to. A syndicated program has no episodes here.' } },
+    membersOnlyField('For WUWF members only (a members\' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.'),
     {
       name: 'site',
       type: 'relationship',
@@ -333,6 +342,7 @@ export const Posts: CollectionConfig<'posts'> = {
       pathBeforeChange('posts'),
       legacyIdentityWriteOnce,
       restrictedBlocksGuard(['content']),
+      membersAudioGuard,
       stampEnd,
     ],
     afterChange: [redirectOnPathChange, revalidatePost],

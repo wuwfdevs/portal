@@ -10,6 +10,7 @@ import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
+import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
@@ -46,6 +47,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
   const featuredAudio = named(post.featuredAudio)
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
+  // A members-only story read by the public comes back without its body and audio (field access, fail closed).
+  const locked = post.membersOnly !== false && post.content == null
 
   return (
     <article className="pb-16">
@@ -98,11 +101,17 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       )}
 
       <div className="container mt-8 flex flex-col gap-10">
-        <RichText
-          className="mx-auto w-full max-w-[47.5rem] font-serif prose-p:text-xl prose-p:leading-relaxed"
-          data={post.content}
-          enableGutter={false}
-        />
+        {locked ? (
+          <div className="mx-auto w-full max-w-[47.5rem]">
+            <MembersOnlyPanel isEpisode={post.format === 'audio'} showHref={production?.path} showTitle={production?.title} supportHref="/support" />
+          </div>
+        ) : (
+          <RichText
+            className="mx-auto w-full max-w-[47.5rem] font-serif prose-p:text-xl prose-p:leading-relaxed"
+            data={post.content}
+            enableGutter={false}
+          />
+        )}
 
         <div className="mx-auto flex w-full max-w-[47.5rem] flex-col gap-8">
           {fellowship && (
