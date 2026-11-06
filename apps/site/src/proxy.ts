@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+import { refreshAudienceSession } from '@/lib/audience/refresh'
 import { GONE_HTML, PREVIEW_COOKIE, isGoneCandidate, recordPathOf } from '@/lib/gone'
 
 // 410 Gone for a bare wire address nothing owns (see `lib/gone.ts`). A page cannot set its own status in the App Router, so this is
@@ -8,6 +9,8 @@ import { GONE_HTML, PREVIEW_COOKIE, isGoneCandidate, recordPathOf } from '@/lib/
 // the normal route (a 404 at worst): an error must never turn a live story into "gone".
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  // A reader's sign-in session is refreshed here, on account pages only (a page cannot save the renewed cookies itself).
+  if (pathname === '/account' || pathname.startsWith('/account/')) return refreshAudienceSession(request)
   if (!isGoneCandidate(pathname)) return NextResponse.next()
   // Staff previewing an unpublished record at its own address carry the draft-mode cookie; the catch-all route decides what they may see.
   if (request.cookies.has(PREVIEW_COOKIE)) return NextResponse.next()
@@ -29,5 +32,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/:date(\\d{4}-\\d{2}-\\d{2})/:slug', '/show/14-59'],
+  matcher: ['/:date(\\d{4}-\\d{2}-\\d{2})/:slug', '/show/14-59', '/account', '/account/:path*'],
 }

@@ -30,6 +30,7 @@ import * as migration_20261106_212555_homepage_slots from './20261106_212555_hom
 import * as migration_20261106_220832_members_only from './20261106_220832_members_only';
 import * as migration_20261106_221525_show_themes_archive from './20261106_221525_show_themes_archive';
 import * as migration_20261106_223920_seasons from './20261106_223920_seasons';
+import * as migration_20261106_232627_audience_profiles from './20261106_232627_audience_profiles';
 
 export const migrations = [
   {
@@ -190,6 +191,11 @@ export const migrations = [
   {
     up: migration_20261106_223920_seasons.up,
     down: migration_20261106_223920_seasons.down,
-    name: '20261106_223920_seasons'
+    name: '20261106_223920_seasons',
+  },
+  {
+    up: migration_20261106_232627_audience_profiles.up,
+    down: migration_20261106_232627_audience_profiles.down,
+    name: '20261106_232627_audience_profiles'
   },
 ];

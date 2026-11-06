@@ -94,6 +94,7 @@ export interface Config {
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
     'portal-sign-ins': PortalSignIn;
+    'audience-profiles': AudienceProfile;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -141,6 +142,7 @@ export interface Config {
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
+    'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -2170,6 +2172,20 @@ export interface PortalSignIn {
   createdAt: string;
 }
 /**
+ * Readers who have signed in to wuwf.org. Email addresses stay in the sign-in service, not here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audience-profiles".
+ */
+export interface AudienceProfile {
+  id: number;
+  supabaseUserId: string;
+  firstSignInAt?: string | null;
+  lastSignInAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -2467,6 +2483,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'portal-sign-ins';
         value: number | PortalSignIn;
+      } | null)
+    | ({
+        relationTo: 'audience-profiles';
+        value: number | AudienceProfile;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3475,6 +3495,17 @@ export interface PortalSignInsSelect<T extends boolean = true> {
   jti?: T;
   portalUserId?: T;
   expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audience-profiles_select".
+ */
+export interface AudienceProfilesSelect<T extends boolean = true> {
+  supabaseUserId?: T;
+  firstSignInAt?: T;
+  lastSignInAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
