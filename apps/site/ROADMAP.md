@@ -24,7 +24,7 @@ metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle
 **Next, in order** (the first four are code; each is described where noted):
 1. **Podcast feeds** at `/podcast/<slug>/rss.xml` for EcoMinutes and Acoustic Interlude Sessions (guid = the story's `legacy.groveId`; see *Show pages and feeds*).
 2. **Cutover plumbing:** a 410 fallback for a bare `/YYYY-MM-DD/slug` that is not a record (records are looked up first, so a published wire story is safe); the show
-   consolidation to `/shows/<slug>` with permanent redirects (after the import); a **sitemap index** (the current sitemaps read at most 1,000 records); `/show/14-59` is a dead
+   consolidation to `/shows/<slug>` with permanent redirects (after the import); a **sitemap index** (**built 2026-11-06**: `/sitemap.xml` lists `/sitemaps/posts-<n>.xml` (2,000 stories each, cut by id, so the file count follows the story count), `pages.xml`, `lists.xml` (sections, topics, people: page 1 only) and `shows.xml`; `lib/seo/sitemap-plan.ts` is pure and tested, `sitemap-data.ts` does the reads; `robots.txt` is now `app/robots.ts` and the `next-sitemap` postbuild is gone. **Not run against a database yet; check `/sitemap.xml` on the staging preview.** Not in it yet: events, live blogs beyond their story record, and the wire/NPR exclusion, which waits on the owner's address-shape decision); `/show/14-59` is a dead
    sitemap entry (410).
 3. **Importer to staging** with `--link-map census/url-inventory/link-map.json`, then the rehearsal steps below; and mark the 35 syndicated programs (the importer does it).
 4. **The reviewed LLM pass** for alt text (63% of 5,455 images have none), short or missing descriptions (5%) and topic suggestions (35% have none): **suggest-only**, a staff

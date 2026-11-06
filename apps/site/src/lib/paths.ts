@@ -28,6 +28,7 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'favicon.svg',
   'robots.txt',
   'sitemap.xml',
+  'sitemaps',
   'ie-incompatible.html',
 ])
 

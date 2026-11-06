@@ -36,6 +36,7 @@ describe('checkPath', () => {
     ['/admin/anything', /belongs to the site/],
     ['/posts/a-story', /belongs to the site/],
     ['/pages-sitemap.xml', /belongs to the site/],
+    ['/sitemaps/posts-1.xml', /belongs to the site/],
     ['/_draft/posts/1', /belongs to the site/],
   ])('rejects %j', (p, reason) => {
     const r = checkPath(p)
