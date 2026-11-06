@@ -752,8 +752,7 @@ fetch; enclosures are short-lived signed addresses, checked again. On wuwf.org a
 - Tests: `tests/int/members-only.int.spec.ts` (8), `tests/int/themed-show.int.spec.ts` (6), unit tests for the rules, themes and sub-paths.
   Checked in a browser at 1440 and 390 px with scratch demo content (not committed): no duplicate ids, and the members-only body never
   appears in the HTML. Field Notes take the story's normal address (`/<section>/<date>/<slug>`), not one under the show: only
-  episodes move under `/shows/<slug>`. **Found, not caused here:** before the header logo loads, its `width="450"` attribute makes every
-  page wider than a 390 px phone (`components/Logo/Logo.tsx`; seen on `/podcasts`, `/support`, `/radiolive` too). Worth a `max-w-full` fix.
+  episodes move under `/shows/<slug>`. (A header-logo overflow at 390 px reported in this session was an artifact of a stale server whose stylesheets a rebuild had replaced; on a correctly served build the logo is 85 px wide with or without its image. Stop a server before rebuilding: `lsof -i` did not see it here, `pkill -f next-server` did.)
 
 **Left out of 7a on purpose (and why).**
 - The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot
