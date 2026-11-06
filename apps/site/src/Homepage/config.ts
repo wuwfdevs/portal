@@ -126,6 +126,83 @@ export const Homepage: GlobalConfig = {
             },
           ],
         },
+        {
+          label: 'Short videos',
+          description: 'A row of the newest published short videos. It is left out while there are none.',
+          fields: [
+            {
+              name: 'videoRow',
+              type: 'group',
+              fields: [
+                { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show the short-video row' },
+                {
+                  name: 'series',
+                  type: 'relationship',
+                  relationTo: 'series',
+                  admin: { condition: (_, s) => Boolean(s?.enabled), description: "Optional. Put this series' videos first, e.g. during a big story. Leave empty for the newest from every series." },
+                },
+                {
+                  name: 'count',
+                  type: 'number',
+                  defaultValue: 6,
+                  min: 3,
+                  max: 10,
+                  admin: { condition: (_, s) => Boolean(s?.enabled), description: 'How many videos the row holds (3 to 10).' },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Podcasts',
+          description: 'One show with its newest episode, and three more shows beside it. Only shows listed in the podcast directory appear. It is left out while no listed show has an episode.',
+          fields: [
+            {
+              name: 'podcasts',
+              type: 'group',
+              fields: [
+                { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show the podcasts section' },
+                {
+                  name: 'featuredShow',
+                  type: 'relationship',
+                  relationTo: 'productions',
+                  filterOptions: { and: [{ kind: { equals: 'original' } }, { listed: { equals: true } }] },
+                  admin: { condition: (_, s) => Boolean(s?.enabled), description: 'Optional. The show to feature. Leave empty to feature the show with the newest episode.' },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'RadioLive and Unearthing Florida',
+          description: 'Two panels side by side. RadioLive shows the next show and the newest recorded set, from the RadioLive shows. Unearthing Florida shows an episode of the series chosen on the Unearthing Florida page. Each is left out while it has nothing to show.',
+          fields: [
+            {
+              name: 'radioLive',
+              type: 'group',
+              label: 'RadioLive',
+              fields: [{ name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show the RadioLive panel' }],
+            },
+            {
+              name: 'unearthing',
+              type: 'group',
+              label: 'Unearthing Florida',
+              fields: [
+                { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show the Unearthing Florida panel' },
+                {
+                  name: 'episode',
+                  type: 'relationship',
+                  relationTo: 'posts',
+                  filterOptions: publishedOnly,
+                  admin: {
+                    condition: (_, s) => Boolean(s?.enabled),
+                    description: "Optional. An Unearthing Florida episode to feature. Leave empty for the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.",
+                  },
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
   ],

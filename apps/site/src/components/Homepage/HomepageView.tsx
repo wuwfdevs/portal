@@ -11,8 +11,11 @@ import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
+import type { HomepageSlots } from '@/lib/homepage/load-slots'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
+
+import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
 const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
   href.startsWith('/') ? (
@@ -28,11 +31,13 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
 /**
  * The home page (boards 1 and 2), filled from the Home page global and the newest published work.
  *
- * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, podcasts,
- * RadioLive and Unearthing Florida features, short videos, newsletters, "From NPR", and sponsor placements. They are left
- * out rather than drawn as controls that do nothing; each arrives with its feature.
+ * Below the news, in the board's order: short videos, the local list, podcasts, then RadioLive and Unearthing Florida side by side
+ * (`./Slots`). Each slot is left out when it is switched off or has nothing to show.
+ *
+ * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, newsletters,
+ * "From NPR", and sponsor placements. They are left out rather than drawn as controls that do nothing; each arrives with its feature.
  */
-export function HomepageView({ data }: { data: HomepageData }) {
+export function HomepageView({ data, slots, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; independenceHref?: string | null }) {
   const { emergency, lead, leadKicker, top, feature, local } = data
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
@@ -148,10 +153,17 @@ export function HomepageView({ data }: { data: HomepageData }) {
                 )}
               </div>
             </div>
-            <Acknowledgment hubHref={feature.fellowship.slug ? `/fellowships/${feature.fellowship.slug}` : null} lines={feature.acknowledgments} />
+            <Acknowledgment
+              headingId="feature-support-heading"
+              hubHref={feature.fellowship.slug ? `/fellowships/${feature.fellowship.slug}` : null}
+              independenceHref={independenceHref}
+              lines={feature.acknowledgments}
+            />
           </div>
         </section>
       )}
+
+      {slots.video && <VideoRow slot={slots.video} />}
 
       {local.stories.length > 0 && (
         <section aria-labelledby="local-heading" className="container mt-16">
@@ -173,6 +185,15 @@ export function HomepageView({ data }: { data: HomepageData }) {
             </p>
           )}
         </section>
+      )}
+
+      {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
+
+      {(slots.unearthing || slots.radioLive) && (
+        <div className={cn('container mt-16 grid gap-6', slots.unearthing && slots.radioLive && 'lg:grid-cols-2')}>
+          {slots.unearthing && <UnearthingPanel slot={slots.unearthing} />}
+          {slots.radioLive && <RadioLivePanel slot={slots.radioLive} />}
+        </div>
       )}
 
       <section className="container mt-16 max-w-[60rem]">

@@ -3703,6 +3703,34 @@ export interface Homepage {
      */
     count?: number | null;
   };
+  videoRow?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. Put this series' videos first, e.g. during a big story. Leave empty for the newest from every series.
+     */
+    series?: (number | null) | Series;
+    /**
+     * How many videos the row holds (3 to 10).
+     */
+    count?: number | null;
+  };
+  podcasts?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. The show to feature. Leave empty to feature the show with the newest episode.
+     */
+    featuredShow?: (number | null) | Production;
+  };
+  radioLive?: {
+    enabled?: boolean | null;
+  };
+  unearthing?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. An Unearthing Florida episode to feature. Leave empty for the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.
+     */
+    episode?: (number | null) | Post;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4117,6 +4145,30 @@ export interface HomepageSelect<T extends boolean = true> {
         heading?: T;
         section?: T;
         count?: T;
+      };
+  videoRow?:
+    | T
+    | {
+        enabled?: T;
+        series?: T;
+        count?: T;
+      };
+  podcasts?:
+    | T
+    | {
+        enabled?: T;
+        featuredShow?: T;
+      };
+  radioLive?:
+    | T
+    | {
+        enabled?: T;
+      };
+  unearthing?:
+    | T
+    | {
+        enabled?: T;
+        episode?: T;
       };
   updatedAt?: T;
   createdAt?: T;

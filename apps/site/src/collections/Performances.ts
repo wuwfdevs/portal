@@ -22,6 +22,7 @@ const notArtists: CollectionBeforeValidateHook = ({ data }) => {
 
 const refresh = (slug: unknown): void => {
   revalidatePath('/radiolive')
+  revalidatePath('/') // the home page's RadioLive panel
   if (typeof slug === 'string' && slug) revalidatePath(`/radiolive/${slug}`)
   revalidateTag('radiolive-sitemap', 'max')
 }

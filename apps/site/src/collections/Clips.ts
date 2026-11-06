@@ -35,6 +35,7 @@ export const Clips: CollectionConfig = {
       ({ doc, previousDoc, req: { context } }) => {
         if (!context.disableRevalidate) {
           revalidatePath('/video')
+          revalidatePath('/') // the home page's short-video row
           for (const slug of new Set([doc?.slug, previousDoc?.slug])) if (typeof slug === 'string' && slug) revalidatePath(`/video/${slug}`)
           revalidateTag('clips-sitemap', 'max')
         }
@@ -45,6 +46,7 @@ export const Clips: CollectionConfig = {
       ({ doc, req: { context } }) => {
         if (!context.disableRevalidate) {
           revalidatePath('/video')
+          revalidatePath('/')
           if (typeof doc?.slug === 'string') revalidatePath(`/video/${doc.slug}`)
           revalidateTag('clips-sitemap', 'max')
         }

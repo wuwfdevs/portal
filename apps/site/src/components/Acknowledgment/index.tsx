@@ -17,12 +17,14 @@ export const Acknowledgment: React.FC<{
   independenceHref?: string | null
   /** What the support is for. A music or entertainment program is not "reporting", and the panel should not say it is. */
   subject?: 'reporting' | 'program'
-}> = ({ lines, hubHref, independenceHref, subject = 'reporting' }) => {
+  /** The heading's id. A page that shows more than one panel (the home page) gives each its own. */
+  headingId?: string
+}> = ({ lines, hubHref, independenceHref, subject = 'reporting', headingId = 'support-heading' }) => {
   if (lines.length === 0) return null
 
   return (
-    <aside aria-labelledby="support-heading" className="rounded-sm border border-rule bg-surface-2 p-4">
-      <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="support-heading">
+    <aside aria-labelledby={headingId} className="rounded-sm border border-rule bg-surface-2 p-4">
+      <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id={headingId}>
         {subject === 'program' ? 'Support for this program' : 'Support for this reporting'}
       </h2>
       <div className="mt-2 flex flex-col gap-2">
