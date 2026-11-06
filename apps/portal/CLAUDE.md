@@ -4663,8 +4663,8 @@ classified in that script (`install-script.test.ts` fails until it is). A migrat
 
 **`APPLIED.md` is WUWF's ledger, not a general mechanism.** It records what was applied to
 WUWF's two projects and why their history differs from the files; it is why `supabase db push`
-must never be run against them. A station installing its own Portal has an empty database, installs the baseline (which records
-the migrations it contains as applied), and has no `APPLIED.md` to keep. The `fresh-install`
+must never be run against them. A station installing its own Portal has an empty database, installs the baseline (which records itself
+in the migration history as the single version `BASELINE_THROUGH`), and has no `APPLIED.md` to keep. The `fresh-install`
 workflow installs the baseline into a disposable Supabase stack and, separately, replays the history
 to prove the baseline still equals it, so a migration that breaks either fails there.
 

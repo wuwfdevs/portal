@@ -32,7 +32,9 @@ KEEP="$(awk '/v_keep text\[\] := array\[/,/\];/' ../install/clear-seed-data-for-
 --
 -- It is the result of WUWF's migrations through $THROUGH, with the exceptions below, and was checked against
 -- WUWF's production database object by object (see README.md). Apply it to an EMPTY Supabase project, once,
--- then product-data.sql. It records those migrations as applied so a later "supabase db push" only applies newer ones.
+-- then product-data.sql. It records itself in Supabase's migration history as version $THROUGH ("baseline"), so in a
+-- repository whose migrations folder starts at the baseline the CLI applies only newer migrations. (WUWF's own folder
+-- cannot be used that way: three pairs of its files share a version, which the history table cannot record.)
 --
 -- Postgres owners are left out (the connecting role owns everything, as it does for migrations), and the
 -- default privileges Supabase sets up itself are not repeated here.
@@ -72,15 +74,14 @@ EXTRA
   Q "select pg_get_triggerdef(t.oid) || ';' from pg_trigger t where t.tgrelid = 'auth.users'::regclass and not t.tgisinternal order by t.tgname"
   cat <<'EXTRA'
 
--- Record WUWF's migration history as applied, so "supabase db push" treats these files as already run.
+-- Record this baseline as one applied migration (below), so a later "supabase db push" in a repository whose
+-- migrations folder starts at the baseline applies only newer files.
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (
   version text primary key, statements text[], name text
 );
-insert into supabase_migrations.schema_migrations (version, name) values
 EXTRA
-  ls "$MIG"/*.sql | sort | while read -r f; do b="$(basename "$f" .sql)"; printf "  ('%s', '%s'),\n" "${b%%_*}" "${b#*_}"; done | sed '$ s/,$//'
-  echo "on conflict (version) do nothing;"
+  echo "insert into supabase_migrations.schema_migrations (version, name) values ('$THROUGH', 'baseline') on conflict (version) do nothing;"
   cat <<'EXTRA'
 
 -- Supabase's standard defaults for new objects in public, restored for the migrations that come after this file.

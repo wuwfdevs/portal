@@ -18,15 +18,13 @@ const migrationFiles = readdirSync(resolve(root, "migrations"))
   .filter((f) => f.endsWith(".sql"))
   .sort();
 
-describe("the baseline's record of the migrations it contains", () => {
-  const recorded = [...schema.matchAll(/^\s+\('(\d{14})', '([^']+)'\),?$/gm)].map(
-    (m) => `${m[1]}_${m[2]}.sql`,
-  );
+describe("the baseline's record of itself", () => {
   const included = migrationFiles.filter((f) => f.slice(0, 14) <= through);
 
   it("stops at a migration that exists", () => {
     expect(through).toMatch(/^\d{14}$/);
     expect(migrationFiles.some((f) => f.startsWith(through))).toBe(true);
+    expect(included.length).toBeGreaterThan(0);
   });
 
   it("names the same version in both headers", () => {
@@ -34,8 +32,15 @@ describe("the baseline's record of the migrations it contains", () => {
     expect(data).toContain(`migrations through ${through}`);
   });
 
-  it("lists exactly the migration files up to that version, so `supabase db push` applies only newer ones", () => {
-    expect(recorded).toEqual(included);
+  it("records itself in the migration history as ONE version, the last it contains", () => {
+    // Not one row per file: WUWF's folder has pairs of files that share a version, and the history table holds one
+    // row per version. The CLI check in the workflow proves a newer migration applies on top of this row.
+    const rows = [
+      ...schema.matchAll(
+        /insert into supabase_migrations\.schema_migrations \(version, name\) values \(([^)]*)\)/g,
+      ),
+    ];
+    expect(rows.map((m) => m[1])).toEqual([`'${through}', 'baseline'`]);
   });
 });
 

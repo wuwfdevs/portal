@@ -82,8 +82,8 @@ is harmless: it finds nothing left to do.
   Academic Partnerships and Bookings public forms until the station opens them.
 - `.github/workflows/fresh-install.yml` — two jobs. One installs the baseline into a local Supabase stack with no migrations
   and checks what a station is left with (every other table empty, row level security everywhere, one version per article,
-  no kept table naming a station except the ten Bookings guides and the two WUWF-tooling guides, and `supabase db push
---local` finding nothing pending). The other replays the history on plain Postgres 17, proves both refusals of the
+  no kept table naming a station except the ten Bookings guides and the two WUWF-tooling guides, and a migration newer than the
+  baseline applying on top of it through the CLI). The other replays the history on plain Postgres 17, proves both refusals of the
   clearing script (a named station, an account), clears, and proves the baseline is the same schema and data. It runs only when the migrations
   or install files change, or by hand. It holds no credentials, and fails at its first step if the database
   address is ever not this machine.

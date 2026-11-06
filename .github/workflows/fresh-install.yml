@@ -6,8 +6,8 @@ name: Fresh install
 #
 #   install-from-baseline    A real local Supabase stack (the Supabase CLI starts it inside this job) gets the baseline,
 #                            then any migration newer than the baseline, and the result is checked: only the product's
-#                            own data, row level security everywhere, nobody signed in, and `supabase db push --local`
-#                            sees nothing left to apply.
+#                            own data, row level security everywhere, nobody signed in, and a migration newer than the
+#                            baseline applies on top of it through the CLI.
 #   baseline-matches-history Plain Postgres 17 with pgvector replays WUWF's history, clears WUWF's data with
 #                            apps/portal/supabase/install/clear-seed-data-for-new-station.sql, and proves the baseline is
 #                            the same schema (every object) and the same product data (every row).
@@ -197,15 +197,24 @@ jobs:
             end \$\$;
             select 'clean'" "clean"
 
-      - name: The installed history leaves nothing for the CLI to apply
+      - name: A newer migration applies on top of the installed baseline, through the CLI
         run: |
-          # Put the files back; the baseline recorded them as applied, so the CLI must find nothing pending.
-          rmdir supabase/migrations
-          mv "$RUNNER_TEMP/migrations" supabase/migrations
-          # `|| rc=$?` keeps bash -e from exiting before the CLI's own message is printed.
-          rc=0; out="$(supabase db push --local --dry-run 2>&1)" || rc=$?
-          echo "$out"; echo "CLI exit code: $rc"
-          [ "$rc" -eq 0 ] && echo "$out" | grep -qi "up to date" || { echo "FAIL: the CLI did not report the database as up to date"; exit 1; }
+          # The layout the upstream repository will have: a migrations folder that starts at the baseline. (WUWF's own
+          # folder cannot be used for this: three pairs of its files share a version, which the history cannot record.)
+          # The baseline recorded itself in the history as version $THROUGH, so the CLI must see that file as applied
+          # and offer only the newer probe.
+          set -o pipefail
+          THROUGH="$(cat supabase/baseline/BASELINE_THROUGH)"
+          probe=$((THROUGH + 1))
+          printf -- '-- stands in for the baseline in this check; it is recorded as applied and must not run again\nselect 1;\n' > "supabase/migrations/${THROUGH}_baseline.sql"
+          echo "create table public.ci_probe (id int primary key);" > "supabase/migrations/${probe}_ci_probe.sql"
+          supabase db push --local --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.txt"
+          grep -q "${probe}_ci_probe.sql" "$RUNNER_TEMP/dry-run.txt" || { echo "FAIL: the newer migration was not offered"; exit 1; }
+          ! grep -q "_baseline.sql" "$RUNNER_TEMP/dry-run.txt" || { echo "FAIL: the CLI wants to run the baseline again"; exit 1; }
+          supabase db push --local --yes
+          . "$RUNNER_TEMP/helpers.sh"
+          expect "the newer migration was applied" "select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'ci_probe'" "1"
+          expect "the history holds the baseline and the newer migration" "select count(*) from supabase_migrations.schema_migrations" "2"
 
       - name: Show what happened, if it failed
         if: failure()

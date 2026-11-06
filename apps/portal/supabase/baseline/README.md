@@ -3,7 +3,7 @@
 A station that sets up its own Portal does **not** replay WUWF's migrations. It installs two files:
 
 - `schema.sql` — the whole database schema (tables, policies, functions, grants, triggers, storage policies), and a
-  record of WUWF's migrations as applied so a later `supabase db push` applies only newer ones.
+  note in Supabase's migration history that the baseline is applied (one row, version `BASELINE_THROUGH`).
 - `product-data.sql` — what every station starts with: the tool registry, the product's Resources guides, Sourcework's
   piece formats, the pitch form, generic industry categories, neutral settings rows and the storage buckets. No
   account, no station name, none of WUWF's data.
@@ -41,18 +41,26 @@ including Storage's), function privileges, table list and storage buckets. Diffe
 - **Triggers**: production has eight more, all Supabase's own on `storage.objects` and `storage.buckets`. The two on
   `auth.users` that the Portal adds are in the baseline.
 
+## Not usable with the CLI from this repository
+
+WUWF's `supabase/migrations/` cannot be used with `supabase db push` for any project: besides the order problem above, three
+pairs of its files share a version prefix (`20260928180000`, `20260928200000`, `20260928210000`) and the history table holds
+one row per version. That is why the baseline records itself as one migration, and why the CLI works only in a repository
+whose migrations folder starts at the baseline.
+
 ## What CI checks
 
 `.github/workflows/fresh-install.yml` runs two jobs when migrations, the baseline or the install files change:
 
 - **Install from the baseline** — a local Supabase stack with no migrations gets `schema.sql` and `product-data.sql`,
   then any migration newer than `BASELINE_THROUGH`; the result must hold only product data, have row level security on
-  every table and no accounts, and `supabase db push --local --dry-run` must find nothing left to apply.
+  every table and no accounts, and, in the layout the upstream repository will have (a migrations folder that starts at the baseline), the Supabase CLI
+  must offer only a newer migration and apply it.
 - **Baseline equals WUWF's history** — plain Postgres 17 replays the history up to `BASELINE_THROUGH`, proves the clearing
   script's refusals, clears, and runs `verify.sh` against a database built from the baseline.
 
-`src/lib/baseline.test.ts` checks without a database that the files still have their safeguards and that the list of
-recorded migrations is exactly the files up to `BASELINE_THROUGH`.
+`src/lib/baseline.test.ts` checks without a database that the files still have their safeguards and that the baseline
+records itself in the history as the single version `BASELINE_THROUGH`.
 
 ## Keeping it current
 

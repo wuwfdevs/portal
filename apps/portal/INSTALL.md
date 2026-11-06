@@ -50,8 +50,8 @@ Do **not** replay `supabase/migrations/` into your project, and do not use `supa
 development). The migrations are WUWF's own history and cannot be replayed from nothing; `supabase/baseline/README.md`
 says why and how the baseline was checked against them.
 
-> **Never run `supabase db push` against WUWF's projects.** Their migration history does not line up with the files
-> (see `supabase/migrations/APPLIED.md`), and the CLI would try to apply nearly all of them again.
+> **Never run `supabase db push` from this repository, against WUWF's projects or your own.** Their migration history does
+> not line up with the files (see `supabase/migrations/APPLIED.md`), and the CLI would try to apply nearly all of them again.
 
 **If you are not in US Central time,** set your zone in the database now. The deployment has its own setting for the
 same fact (step 3) and the two must match:
@@ -128,7 +128,9 @@ Signed in as the administrator:
 ## Upgrading
 
 Upgrading an installed station is not written up yet, because there are no releases to take; it arrives with the
-upstream repository. What is in place: the baseline records the migrations it contains as applied, so with
-`supabase link` and a newer checkout, `supabase db push` applies only the migrations that came after your baseline
-(`supabase/baseline/BASELINE_THROUGH` names the last one it contains), and CI checks that nothing is left pending.
-Link only **your own** project, never WUWF's.
+upstream repository. What is true today: a migration newer than the baseline (`supabase/baseline/BASELINE_THROUGH` names
+the last migration the baseline contains) applies on top of it, and you apply it yourself, in order, with
+`psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -f <file>`. **Do not use `supabase db push` from a
+checkout of this repository**: its `supabase/migrations/` folder is WUWF's whole history, which the CLI would try to
+apply to your project, and three pairs of those files share a version that the CLI's history cannot record. In the
+upstream repository the migrations folder starts at the baseline, and there the CLI works as usual (CI checks exactly that).
