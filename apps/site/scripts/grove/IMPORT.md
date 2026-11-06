@@ -128,6 +128,25 @@ The report (`import-report.json` in the cache folder) lists what was saved, what
 why, and every decision the importer made for the owner to review (stories filed by path, credited to "WUWF Staff", extra
 byline names). A held story is fixed or decided by a person, then the same command is run again.
 
+## 4. After the import: move shows to /shows (staging first, then production)
+
+The import keeps Grove's exact show addresses (`/show/<slug>`, `/podcast/<slug>`, and each episode under its show). Then, in one
+deliberate step, `scripts/shows/consolidate.ts` moves every show and its episodes to `/shows/<slug>` and `/shows/<slug>/<date>/<episode>`;
+each old address leaves a permanent redirect. Dry run first; read the list; try one show; then all:
+
+```bash
+set -a; source ~/grove/staging.env; set +a
+pnpm exec tsx scripts/shows/consolidate.ts                          # dry run: every move, nothing written
+pnpm exec tsx scripts/shows/consolidate.ts --only the-ecominutes --apply
+pnpm exec tsx scripts/shows/consolidate.ts --apply --report ~/grove/shows-moved.json
+```
+
+Then open a few old addresses on the preview (each should answer 308 to its `/shows/...` address) and a feed at
+`/podcast/<slug>/rss.xml` (it stays at that address; its links now point at `/shows/...`). Redeploy or revalidate so cached pages at the
+old addresses give way to their redirects. On production the same commands, with the production env file and `--production` added.
+The script skips and lists: two shows that would share an address (`/show/x` and `/podcast/x`: rename one first), an address another
+record already has, and an episode not under its show's address (left where it is). It is safe to run again.
+
 ## Author profiles follow the stories
 
 A profile is saved only when a story in the run credits that person (matched on `/people/<slug>`). Other people (NPR or other-station contributors who never wrote for WUWF) are skipped by rule and counted as `authorsSkippedByRule` in the report, not held. Their `/people/` addresses are not carried over; owner to decide whether they redirect.
