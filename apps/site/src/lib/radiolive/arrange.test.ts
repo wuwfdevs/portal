@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { appearanceLine, appearances, centralDay, dateParts, joinNames, performanceTitle, splitPerformances, ticketInfo, type PerformanceLike } from './arrange'
+import { appearanceLine, appearances, centralDay, hasHappened, dateParts, joinNames, performanceTitle, splitPerformances, ticketInfo, type PerformanceLike } from './arrange'
 
 const a = (slug: string) => ({ slug, name: slug.toUpperCase() })
 const show = (slug: string, startsAt: string, lineup: string[] = [], title?: string): PerformanceLike => ({ slug, startsAt, title, lineup: lineup.map(a) })
@@ -35,6 +35,14 @@ describe('splitPerformances', () => {
   })
   it('calls it past the next Central day', () => {
     expect(splitPerformances(list, '2026-12-04T07:00:00Z').upcoming.map((p) => p.slug)).toEqual(['future'])
+  })
+})
+
+describe('hasHappened', () => {
+  it('is false on the show day itself and true the day after, in Central time', () => {
+    expect(hasHappened('2026-12-04T00:00:00Z', '2026-12-04T03:00:00Z')).toBe(false) // 9 p.m. Central, Dec. 3
+    expect(hasHappened('2026-12-04T00:00:00Z', '2026-12-04T07:00:00Z')).toBe(true) // 1 a.m. Central, Dec. 4
+    expect(hasHappened('2027-01-08T00:00:00Z', '2026-12-04T00:00:00Z')).toBe(false)
   })
 })
 

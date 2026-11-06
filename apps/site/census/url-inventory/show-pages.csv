@@ -31,7 +31,7 @@ path,schedule,description_words,feed,kind,note
 /show/on-the-media,Saturday 3:00 p.m. - Monday at Noon,4,no,syndicated (owner-confirmed list),
 /show/open-to-debate,Sundays at 10:00 a.m.,4,no,syndicated (owner-confirmed list),
 /show/putumayo-world-music-hour,Fridays 7:00 p.m. - 8:00 p.m.,5,no,syndicated (owner-confirmed list),
-/show/radiolive-encores,Thursday 7:00 - 8:00 p.m. Except first Thursday of the month.,0,no,original (station-made),
+/show/radiolive-encores,Thursday 7:00 - 8:00 p.m. Except first Thursday of the month.,0,no,original (station-made),"Owner decision 2026-11-06: import as its own small show (original, listed=false: no episodes, stays out of the podcast directory); the RadioLive page's Encores button points to it. Owner to confirm Encores is a separate program."
 /show/science-friday,"Fridays, 1:00 p.m. - 3:00 p.m.",3,no,syndicated (owner-confirmed list),
 /show/selected-shorts,Sundays 5:00 p.m.,3,no,syndicated (owner-confirmed list),
 /show/ted-radio-hour,Saturday 2:00 p.m. - Tuesday at Noon,4,no,syndicated (owner-confirmed list),

@@ -29,6 +29,9 @@ export function centralDay(iso: string | Date): string {
   return `${get('year')}-${get('month')}-${get('day')}`
 }
 
+/** Whether the show's Central day is before today's: a show is not "past" while it is on tonight. */
+export const hasHappened = (startsAt: string, now: string | Date): boolean => centralDay(startsAt) < centralDay(now)
+
 const time = (iso: string): number => {
   const t = new Date(iso).getTime()
   return Number.isNaN(t) ? 0 : t

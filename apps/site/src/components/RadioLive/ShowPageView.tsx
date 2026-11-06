@@ -3,7 +3,7 @@ import React from 'react'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Media } from '@/components/Media'
-import { dateParts, performanceTitle } from '@/lib/radiolive/arrange'
+import { dateParts, hasHappened, performanceTitle } from '@/lib/radiolive/arrange'
 import type { ArtistView, ShowView } from '@/lib/radiolive/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
@@ -14,6 +14,7 @@ const kicker = 'text-xs font-bold uppercase tracking-widest'
 /** One RadioLive show: before it, the lineup and how to get tickets; after it, the recorded set. Same dark look as the RadioLive page. */
 export function ShowPageView({ show, acknowledgments, independenceHref }: { show: ShowView; acknowledgments: AcknowledgmentLine[]; independenceHref: string | null }) {
   const d = dateParts(show.startsAt)
+  const over = hasHappened(show.startsAt, new Date())
   return (
     <div className="min-h-[60vh] bg-surface-dark pb-16 text-surface">
       <div className="container flex flex-col gap-8 py-10 md:py-14">
@@ -35,6 +36,8 @@ export function ShowPageView({ show, acknowledgments, independenceHref }: { show
           <div className="max-w-[56rem]">
             <RecordingPlayer show={show} />
           </div>
+        ) : over ? (
+          <p className="max-w-[52rem] rounded-sm border border-surface-dark-line px-4 py-3 text-surface-dark-text">This show took place on {d.long}. Its recording is not posted yet.</p>
         ) : (
           <div className="flex max-w-[52rem] flex-col items-start gap-3">
             {show.tickets.href ? (
@@ -76,7 +79,7 @@ export function ShowPageView({ show, acknowledgments, independenceHref }: { show
 
         {acknowledgments.length > 0 && (
           <div className="max-w-[40rem] text-ink">
-            <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} />
+            <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} subject="program" />
           </div>
         )}
       </div>

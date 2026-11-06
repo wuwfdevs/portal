@@ -241,7 +241,7 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
       {acknowledgments.length > 0 && (
         <section aria-label="Funding" className="bg-surface text-ink">
           <div className="container max-w-[52rem] pb-12">
-            <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} />
+            <Acknowledgment independenceHref={independenceHref} lines={acknowledgments} subject="program" />
           </div>
         </section>
       )}

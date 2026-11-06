@@ -114,7 +114,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /bot91825,/core/page/ContentPage.hbs,,BOT91825 | WUWF,uwf-board-of-trustees,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
 /cadenceexample,/core/page/ContentPage.hbs,,CadenceExample | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /capitol-steps,/core/page/ContentPage.hbs,,Capitol Steps | WUWF,other-review,proposed:review,Needs a person to read it.
-/celebrating-35-years-of-radiolive,/core/page/ContentPage.hbs,,Celebrating 35 Years of RadioLive | WUWF,other-review,proposed:review,Needs a person to read it.
+/celebrating-35-years-of-radiolive,/core/page/ContentPage.hbs,,Celebrating 35 Years of RadioLive | WUWF,radiolive,proposed:keep,"Import as an ordinary page; the RadioLive page's ""story of RadioLive"" link points here."
 /civics-101,/core/section/SectionPage.hbs,,Civics 101 | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; hub candidate: becomes a hub page if the owner wants a curated front for this section."
 /combined-federal-campaign-33728,/core/page/ContentPage.hbs,,Combined Federal Campaign 33728 | WUWF,other-review,proposed:review,Needs a person to read it.
 /commencement,/core/page/ContentPage.hbs,,Commencement | WUWF,uwf-event-webcast,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
@@ -287,7 +287,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /q1232,/core/page/ContentPage.hbs,,q1232 | WUWF,other-review,proposed:review,Needs a person to read it.
 /questions,/core/page/ContentPage.hbs,,Questions | WUWF,other-review,proposed:review,Needs a person to read it.
 /radicalism-isis-and-national-security,/core/page/ContentPage.hbs,,"Radicalism, ISIS, and National Security | WUWF",other-review,proposed:review,Needs a person to read it.
-/radiolive,/core/page/ContentPage.hbs,,RadioLive | WUWF,other-review,proposed:review,Needs a person to read it.
+/radiolive,/core/page/ContentPage.hbs,,RadioLive | WUWF,radiolive,proposed:replace,"Replaced by the new RadioLive page (app route /radiolive, reserved). Do not import. Read 2026-11-06 (owner-approved): facts and gaps kept in ROADMAP."
 /real-estate-donation,/core/page/ContentPage.hbs,,Real Estate Donation | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /rlnext,/core/page/ContentPage.hbs,,rlnext | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /rltixw,/core/page/ContentPage.hbs,,rltixw | WUWF,test-scratch,proposed:drop,Test or scratch page.
