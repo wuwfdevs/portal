@@ -14,8 +14,12 @@ import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
 import { Sites } from './collections/Sites'
+import { Clips } from './collections/Clips'
+import { Artists } from './collections/Artists'
+import { Performances } from './collections/Performances'
 import { UnearthingHub } from './UnearthingHub/config'
 import { VoyagerHub } from './VoyagerHub/config'
+import { RadioLiveHub } from './RadioLiveHub/config'
 import { EventCategories } from './collections/Events/EventCategories'
 import { EventSubmissionImages } from './collections/Events/EventSubmissionImages'
 import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
@@ -95,6 +99,9 @@ export default buildConfig({
     Media,
     Audio,
     Video,
+    Clips,
+    Artists,
+    Performances,
     Sections,
     Categories,
     Contributors,
@@ -109,7 +116,7 @@ export default buildConfig({
     PortalSignIns,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

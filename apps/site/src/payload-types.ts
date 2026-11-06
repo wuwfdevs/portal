@@ -77,6 +77,9 @@ export interface Config {
     media: Media;
     audio: Audio;
     video: Video;
+    clips: Clip;
+    artists: Artist;
+    performances: Performance;
     sections: Section;
     categories: Category;
     contributors: Contributor;
@@ -119,6 +122,9 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
+    clips: ClipsSelect<false> | ClipsSelect<true>;
+    artists: ArtistsSelect<false> | ArtistsSelect<true>;
+    performances: PerformancesSelect<false> | PerformancesSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
@@ -154,6 +160,7 @@ export interface Config {
     'support-page': SupportPage;
     'unearthing-hub': UnearthingHub;
     'voyager-hub': VoyagerHub;
+    'radiolive-hub': RadioliveHub;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -163,6 +170,7 @@ export interface Config {
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
+    'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
   };
   locale: null;
   widgets: {
@@ -1870,6 +1878,144 @@ export interface SubmissionRateLimit {
   createdAt: string;
 }
 /**
+ * Short vertical video. Needs captions to publish.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips".
+ */
+export interface Clip {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences under the title.
+   */
+  description?: string | null;
+  /**
+   * The clip, from the video library. Vertical (9:16) video fits best. Its poster picture is used before it plays.
+   */
+  video: number | Video;
+  /**
+   * Required. Paste the WebVTT file: it starts with the word WEBVTT, then timed lines. Shown by default.
+   */
+  captionsVtt: string;
+  /**
+   * The row it appears in, e.g. "After Isaias". Its funder line, if it has one, shows with the clip.
+   */
+  series?: (number | null) | Series;
+  /**
+   * The story or episode this clip came from. Gives the clip its "Read the story" button.
+   */
+  story?: (number | null) | Post;
+  /**
+   * The button's words. Default: "Read the story". For an episode: "Hear the episode".
+   */
+  ctaLabel?: string | null;
+  /**
+   * Who made it. If empty, the video file's credit is shown.
+   */
+  contributors?: (number | Contributor)[] | null;
+  /**
+   * Set when published, if empty.
+   */
+  publishedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Musicians who play RadioLive. Add one here, then put them in a show's lineup.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "artists".
+ */
+export interface Artist {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * A portrait, ideally 4:5. Give it alt text in the media library.
+   */
+  photo?: (number | null) | Media;
+  /**
+   * A few sentences. Only what the artist has approved.
+   */
+  bio?: string | null;
+  /**
+   * The artist's own site. A secure https:// address.
+   */
+  link?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * A RadioLive night. Add the lineup before it, the recording after.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "performances".
+ */
+export interface Performance {
+  id: number;
+  /**
+   * Usually the lineup, e.g. "Nicholas Edward Williams, Pat Byrn & Julie Patcouli".
+   */
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * When the show starts, in Central time.
+   */
+  startsAt: string;
+  venue?: string | null;
+  /**
+   * The artists, in the order they play.
+   */
+  lineup?: (number | Artist)[] | null;
+  /**
+   * One or two sentences about the night.
+   */
+  description?: string | null;
+  /**
+   * A picture from the night, or of the lineup. Give it alt text in the media library.
+   */
+  photo?: (number | null) | Media;
+  ticketsStatus?: ('soon' | 'onSale' | 'soldOut' | 'free') | null;
+  /**
+   * Where tickets are sold (the ticketing site's address, https://). WUWF sells nothing here.
+   */
+  ticketsUrl?: string | null;
+  /**
+   * A ticket page for the virtual (online) show, if there is one. https://. Shown as a second button.
+   */
+  virtualTicketsUrl?: string | null;
+  /**
+   * The address of the recorded set on YouTube or Vimeo, once it is edited (one video, not a playlist). Turn captions on in the video there; the site cannot check. If you also upload a file below, the file is shown.
+   */
+  recordingUrl?: string | null;
+  /**
+   * Or a recording uploaded to the video library. An uploaded recording needs captions to publish.
+   */
+  video?: (number | null) | Video;
+  /**
+   * Required when there is a recording. Paste the WebVTT file.
+   */
+  captionsVtt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "portal-sign-ins".
  */
@@ -2111,6 +2257,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'video';
         value: number | Video;
+      } | null)
+    | ({
+        relationTo: 'clips';
+        value: number | Clip;
+      } | null)
+    | ({
+        relationTo: 'artists';
+        value: number | Artist;
+      } | null)
+    | ({
+        relationTo: 'performances';
+        value: number | Performance;
       } | null)
     | ({
         relationTo: 'sections';
@@ -2802,6 +2960,63 @@ export interface VideoSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips_select".
+ */
+export interface ClipsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
+  video?: T;
+  captionsVtt?: T;
+  series?: T;
+  story?: T;
+  ctaLabel?: T;
+  contributors?: T;
+  publishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "artists_select".
+ */
+export interface ArtistsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  photo?: T;
+  bio?: T;
+  link?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "performances_select".
+ */
+export interface PerformancesSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  startsAt?: T;
+  venue?: T;
+  lineup?: T;
+  description?: T;
+  photo?: T;
+  ticketsStatus?: T;
+  ticketsUrl?: T;
+  virtualTicketsUrl?: T;
+  recordingUrl?: T;
+  video?: T;
+  captionsVtt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3704,6 +3919,95 @@ export interface VoyagerHub {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub".
+ */
+export interface RadioliveHub {
+  id: number;
+  /**
+   * The RadioLive production. Its funder lines ("RadioLive is made possible by...") come from its underwriting agreements.
+   */
+  production?: (number | null) | Production;
+  tagline?: string | null;
+  /**
+   * The wide picture at the top. Give it alt text in the media library.
+   */
+  heroPhoto?: (number | null) | Media;
+  host?: {
+    kicker?: string | null;
+    heading?: string | null;
+    text?: string | null;
+    portrait?: (number | null) | Media;
+    /**
+     * Where "The story of RadioLive" goes. Empty hides it.
+     */
+    href?: string | null;
+  };
+  encores?: {
+    heading?: string | null;
+    text?: string | null;
+    linkLabel?: string | null;
+    /**
+     * Where the audio archive is. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  support?: {
+    heading?: string | null;
+    text?: string | null;
+    buttonLabel?: string | null;
+    /**
+     * The donation page. Empty hides the button.
+     */
+    href?: string | null;
+    /**
+     * Say only what the donation form really offers.
+     */
+    note?: string | null;
+  };
+  visit?: {
+    heading?: string | null;
+    /**
+     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
+     */
+    items?:
+      | {
+          /**
+           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
+           */
+          label: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
+   */
+  membership?: {
+    /**
+     * The level's name, e.g. "RadioLive 25".
+     */
+    heading?: string | null;
+    /**
+     * The price and what members receive, exactly as the station sells it.
+     */
+    text?: string | null;
+    /**
+     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
+     */
+    contactName?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    /**
+     * An optional page to join or learn more.
+     */
+    href?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -3939,6 +4243,66 @@ export interface VoyagerHubSelect<T extends boolean = true> {
         href?: T;
       };
   footnote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub_select".
+ */
+export interface RadioliveHubSelect<T extends boolean = true> {
+  production?: T;
+  tagline?: T;
+  heroPhoto?: T;
+  host?:
+    | T
+    | {
+        kicker?: T;
+        heading?: T;
+        text?: T;
+        portrait?: T;
+        href?: T;
+      };
+  encores?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        linkLabel?: T;
+        href?: T;
+      };
+  support?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        buttonLabel?: T;
+        href?: T;
+        note?: T;
+      };
+  visit?:
+    | T
+    | {
+        heading?: T;
+        items?:
+          | T
+          | {
+              label?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membership?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        contactName?: T;
+        contactEmail?: T;
+        contactPhone?: T;
+        href?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

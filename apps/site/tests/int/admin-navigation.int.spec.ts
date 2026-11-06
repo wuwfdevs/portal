@@ -27,7 +27,7 @@ describe('admin navigation', async () => {
 
   it('groups the page-like globals together and offers live preview on each', () => {
     const hubs = globals.filter((g) => g.admin?.group === 'Pages & hubs')
-    expect(hubs.map((g) => g.slug).sort()).toEqual(['homepage', 'support-page', 'unearthing-hub', 'voyager-hub'])
+    expect(hubs.map((g) => g.slug).sort()).toEqual(['homepage', 'radiolive-hub', 'support-page', 'unearthing-hub', 'voyager-hub'])
     for (const g of hubs) expect(typeof g.admin?.livePreview === 'object' && g.admin.livePreview !== null && 'url' in g.admin.livePreview, g.slug).toBe(true)
   })
 

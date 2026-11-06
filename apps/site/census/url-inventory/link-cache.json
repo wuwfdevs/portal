@@ -1077,8 +1077,9 @@
   "to": "/local-music/2014-07-17/radiolive-videos"
  },
  "/post/radiolive-schedule": {
-  "result": "gone",
-  "status": 404
+  "result": "moved",
+  "to": "/radiolive",
+  "note": "Dead (404) on Grove. Owner decision 2026-11-06: point at the new RadioLive page."
  },
  "/local-news/2025-05-08/the-latest-uwf-trustee-will-continue-to-serve-on-the-pensacola-state-college-board": {
   "result": "own"
@@ -1207,8 +1208,9 @@
   "result": "own"
  },
  "/post/radiolive-archive-1": {
-  "result": "gone",
-  "status": 404
+  "result": "moved",
+  "to": "/radiolive",
+  "note": "Dead (404) on Grove. Owner decision 2026-11-06: point at the new RadioLive page."
  },
  "/local-news/2026-02-12/uwf-breaks-ground-on-a-new-football-stadium": {
   "result": "own"
@@ -1478,8 +1480,9 @@
   "result": "own"
  },
  "/post/radiolive-audio-archive": {
-  "result": "gone",
-  "status": 404
+  "result": "moved",
+  "to": "/radiolive",
+  "note": "Dead (404) on Grove. Owner decision 2026-11-06: point at the new RadioLive page."
  },
  "/local-news/2019-12-06/4-dead-8-wounded-in-nas-pensacola-shooting": {
   "result": "own"
