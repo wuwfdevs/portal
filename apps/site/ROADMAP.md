@@ -754,11 +754,23 @@ fetch; enclosures are short-lived signed addresses, checked again. On wuwf.org a
   appears in the HTML. Field Notes take the story's normal address (`/<section>/<date>/<slug>`), not one under the show: only
   episodes move under `/shows/<slug>`. (A header-logo overflow at 390 px reported in this session was an artifact of a stale server whose stylesheets a rebuild had replaced; on a correctly served build the logo is 85 px wide with or without its image. Stop a server before rebuilding: `lsof -i` did not see it here, `pkill -f next-server` did.)
 
+**Seasons and episode numbers (built 2026-11-06, after 7a).** `seasons` is a collection (a show, a number used once per show, a title such
+as "Tunnel Vision", a one-line summary, an optional picture; drafts). An episode picks one of **its own show's** seasons, an episode
+number (0 allowed, used once per season among full episodes) and a type (episode, trailer, bonus; trailers and bonus episodes may repeat a
+number). Pure rules in `lib/shows/seasons.ts` ("Season One", "Ep. 2", grouping, which season is airing); the save rules in
+`hooks/seasonRules.ts`. The themed show home groups episodes by season (newest season first, trailer then episode order then bonus;
+episodes with no season last) and says "Now airing · Season One · Tunnel Vision" for the season holding the newest episode, using its
+summary and picture; the episode page's breadcrumb reads "Episodes / Season One / Ep. 2"; the plain show page shows "Ep. 2" too. The
+podcast feed carries `itunes:season`, `itunes:episode` and `itunes:episodeType`. Migration `20261106_223920_seasons` (up, down and up
+tested; its `down()` drops the stories' season keys with `IF EXISTS`, since dropping the table already took them). Tests:
+`tests/int/seasons.int.spec.ts` (4), `lib/shows/seasons.test.ts`, a feed test. The themed home lists up to 300 episodes. Not done: the
+board's large watermark season numeral (decoration), and filling seasons or numbers from Grove (not checked whether its episode data carries them).
+
 **Left out of 7a on purpose (and why).**
 - The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot
   drop it without splitting the layout (every route moves into a route group). The show's own section band sits under the station header.
   Owner's call whether the split is worth it.
-- Seasons, episode numbers and "Now airing · Season One": no season model yet. Share Your Story (listening is deferred). NPR+ activation
+- Share Your Story (listening is deferred). NPR+ activation
   (depends on NPR's system: find out how it works first). "Sign in", "Get your feed", "Playing from your members' feed" (7b-7d). Transcripts
   and "related archive items" on the episode page. Podcast-app buttons and the show's own podcast feed link.
 - The amount picker on the support page (the gift is chosen on WUWF's form). Nothing on the support page promises a feed until 7d exists.
