@@ -77,6 +77,7 @@ export interface Config {
     media: Media;
     audio: Audio;
     video: Video;
+    clips: Clip;
     sections: Section;
     categories: Category;
     contributors: Contributor;
@@ -119,6 +120,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
+    clips: ClipsSelect<false> | ClipsSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
@@ -1870,6 +1872,56 @@ export interface SubmissionRateLimit {
   createdAt: string;
 }
 /**
+ * Short vertical video. Needs captions to publish.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips".
+ */
+export interface Clip {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences under the title.
+   */
+  description?: string | null;
+  /**
+   * The clip, from the video library. Vertical (9:16) video fits best. Its poster picture is used before it plays.
+   */
+  video: number | Video;
+  /**
+   * Required. Paste the WebVTT file: it starts with the word WEBVTT, then timed lines. Shown by default.
+   */
+  captionsVtt: string;
+  /**
+   * The row it appears in, e.g. "After Isaias". Its funder line, if it has one, shows with the clip.
+   */
+  series?: (number | null) | Series;
+  /**
+   * The story or episode this clip came from. Gives the clip its "Read the story" button.
+   */
+  story?: (number | null) | Post;
+  /**
+   * The button's words. Default: "Read the story". For an episode: "Hear the episode".
+   */
+  ctaLabel?: string | null;
+  /**
+   * Who made it. If empty, the video file's credit is shown.
+   */
+  contributors?: (number | Contributor)[] | null;
+  /**
+   * Set when published, if empty.
+   */
+  publishedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "portal-sign-ins".
  */
@@ -2111,6 +2163,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'video';
         value: number | Video;
+      } | null)
+    | ({
+        relationTo: 'clips';
+        value: number | Clip;
       } | null)
     | ({
         relationTo: 'sections';
@@ -2802,6 +2858,26 @@ export interface VideoSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips_select".
+ */
+export interface ClipsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
+  video?: T;
+  captionsVtt?: T;
+  series?: T;
+  story?: T;
+  ctaLabel?: T;
+  contributors?: T;
+  publishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

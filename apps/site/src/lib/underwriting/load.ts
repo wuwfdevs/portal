@@ -123,3 +123,10 @@ export async function getProductionHubAcknowledgments(payload: Payload, producti
   const ref = toCollectionRef('production', doc as unknown as CollectionDoc)
   return ref ? resolveHubUnderwriting(ref, { now }) : []
 }
+
+/** The funder lines on a series' short video: the series' agreements whose term is running, read server-side (same rules as a show page). */
+export async function getSeriesHubAcknowledgments(payload: Payload, seriesId: string | number, now: string): Promise<AcknowledgmentLine[]> {
+  const doc = await payload.findByID({ collection: 'series', id: seriesId, depth: 3, overrideAccess: true })
+  const ref = toCollectionRef('series', doc as unknown as CollectionDoc)
+  return ref ? resolveHubUnderwriting(ref, { now }) : []
+}

@@ -116,8 +116,21 @@ export const getShowEntries = unstable_cache(
   { revalidate: SLOW_REVALIDATE },
 )
 
+/** The short-video page and each published clip. `lastmod` is the clip's publish date, or none. */
+export const getVideoEntries = unstable_cache(
+  async (): Promise<SitemapUrl[]> => {
+    const payload = await getPayload({ config })
+    const base = siteUrl()
+    const found = await payload.find({ collection: 'clips', overrideAccess: false, draft: false, depth: 0, limit: 5000, pagination: false, sort: '-publishedAt', where: published, select: { slug: true, publishedAt: true } })
+    const clips = found.docs.flatMap((c) => (c.slug ? [{ loc: `${base}/video/${c.slug}`, ...(c.publishedAt ? { lastmod: c.publishedAt } : {}) }] : []))
+    return clips.length > 0 ? [{ loc: `${base}/video` }, ...clips] : []
+  },
+  ['sitemap-video'],
+  { tags: ['clips-sitemap'], revalidate: SLOW_REVALIDATE },
+)
+
 /** The files the index lists right now. */
 export async function getIndexRequests(): Promise<SitemapRequest[]> {
-  const [posts, pages, lists, shows] = await Promise.all([countPosts(), getPagesEntries(), getListEntries(), getShowEntries()])
-  return indexRequests({ posts, pages: pages.length, lists: lists.length, shows: shows.length })
+  const [posts, pages, lists, shows, video] = await Promise.all([countPosts(), getPagesEntries(), getListEntries(), getShowEntries(), getVideoEntries()])
+  return indexRequests({ posts, pages: pages.length, lists: lists.length, shows: shows.length, video: video.length })
 }

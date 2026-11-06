@@ -14,6 +14,7 @@ import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
 import { Sites } from './collections/Sites'
+import { Clips } from './collections/Clips'
 import { UnearthingHub } from './UnearthingHub/config'
 import { VoyagerHub } from './VoyagerHub/config'
 import { EventCategories } from './collections/Events/EventCategories'
@@ -95,6 +96,7 @@ export default buildConfig({
     Media,
     Audio,
     Video,
+    Clips,
     Sections,
     Categories,
     Contributors,

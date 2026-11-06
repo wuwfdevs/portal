@@ -22,6 +22,7 @@ import * as migration_20261103_170521_remove_live_blogs_collection from './20261
 import * as migration_20261103_172011_event_review_fields from './20261103_172011_event_review_fields';
 import * as migration_20261103_172027_remove_event_submissions from './20261103_172027_remove_event_submissions';
 import * as migration_20261104_182013_syndicated_programs from './20261104_182013_syndicated_programs';
+import * as migration_20261106_150459_clips from './20261106_150459_clips';
 
 export const migrations = [
   {
@@ -142,6 +143,11 @@ export const migrations = [
   {
     up: migration_20261104_182013_syndicated_programs.up,
     down: migration_20261104_182013_syndicated_programs.down,
-    name: '20261104_182013_syndicated_programs'
+    name: '20261104_182013_syndicated_programs',
+  },
+  {
+    up: migration_20261106_150459_clips.up,
+    down: migration_20261106_150459_clips.down,
+    name: '20261106_150459_clips'
   },
 ];
