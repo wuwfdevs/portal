@@ -7,7 +7,25 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/practical-brahmagupta-v01n90` in `wuwfdevs/portal` (see *Resume here*); earlier session branches were merged (PRs 320 to 332). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Resume here (end of the 2026-11-04 session: the migration gaps assessment)
+## Resume here (end of the 2026-11-06 session)
+
+**Branch:** `claude/eloquent-cori-1mgpm8` (`wuwfdevs/portal`), pushed, **no PR opened** (the owner said none is needed; ask before opening one). Everything below is committed. Full suite **100 files, 1,228 tests pass**; typecheck and lint (0 errors) pass; `verify:migrations` passes; four new migrations, each tested up, down and up.
+
+**Built this session** (details are in *Next, in order* items 1, 2, 5 and 6 below): a **sitemap index** (`/sitemap.xml`, chunked story files, `robots.ts`), **podcast feeds**, the **410 fallback** (`src/proxy.ts` + `/api/gone-check`), **short video** (`clips`, `/video`), and **RadioLive** (`artists`, `performances`, the RadioLive page global, `/radiolive`), with RadioLive's migration decisions and its follow-up.
+
+**Next, in order:**
+1. **Homepage slots** (roadmap item 9): short video, RadioLive and the podcasts now exist to fill them. Not started.
+2. **Show consolidation** to `/shows/<slug>` with permanent redirects (after the import), and the **staging import** (runs on the owner's computer; the cloud sandbox cannot reach hosted Postgres).
+3. **RadioLive:** the artist and show **backfill** from Grove's old page (a converter, plus an owner-approved photo fetch); calendar merge (list shows in the community calendar from `performances`, never copy them into `events`) and `Event` structured data; check migrated Grove events for RadioLive duplicates first.
+4. **Sponsorship design** is open and **not a site-only job**: see below. Do not extend the site's `underwriting-agreements` schema or build booking or placement logic in Payload.
+
+**Waiting on the owner:** the wording of the funder panel's independence sentence for programs ("...what WUWF airs"); whether Encores (`/show/radiolive-encores`) is a separate program; entering the RadioLive page content (RadioLive 25 text and the staff contact, the plan-your-visit facts, the real artist spellings: Pat Byrne, Julie Patchouli); a **Video and RadioLive link in the site header** (a global, edited in the admin); and the sponsorship product list (below).
+
+**Sponsorship direction (a recommendation, not decided; the owner says an existing design may cover it and it was not found in the repository: ask for the project brief or the design doc before building).** The Portal holds the deal (contract, sponsor, typed lines, approved wording, proof of performance); broadcast and digital sponsorship are two line families on one contract, each line anchored either to **a span of time** or to **a specific thing** (a performance sponsor stays on that night's record for good); the site is the delivery surface and defines **placements** as a typed registry in code, with an immutable reference key on each sellable thing; entitlements reach the site as a signed, versioned **snapshot pulled after a signed notice, cached with a last-known-good copy** (never a per-request call; the site must stay usable if sponsorship serving is down); the site's own agreements collection is the interim manual source behind the same resolver. **Stopgap in force:** a RadioLive show page carries no funder line, only `/radiolive` does. The resolver's header still cites a canvas board; point it at a repo document once one exists.
+
+**Working in the cloud sandbox, new this session:** the local Postgres stops when the sandbox idles (restart with the command under *Running things in a fresh sandbox*, after `rm -f /var/tmp/wuwf-site-pg/postmaster.pid`); scripts that use Payload need `.env.local` sourced (`set -a; . ./.env.local; set +a`) and run from inside `apps/site`; integration tests that upload files need `// @vitest-environment node`; run route handlers in tests with `next/cache`'s `unstable_cache` mocked; `.env.local` and demo data are local only (gitignored).
+
+### Earlier hand-off (end of the 2026-11-04 session: the migration gaps assessment)
 
 **Branch:** `claude/eloquent-cori-1mgpm8` (`wuwfdevs/portal`). The earlier branch (`claude/practical-brahmagupta-v01n90`, the migration gaps assessment) **was merged into `claude/main`**; this one carries the sitemap index, podcast feeds and the 410 fallback below, and has no PR yet.
 
