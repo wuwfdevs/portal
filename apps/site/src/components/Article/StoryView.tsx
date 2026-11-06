@@ -10,6 +10,8 @@ import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
+import { ThemedEpisodeView } from '@/components/Show/themed/ThemedEpisodeView'
+import { showThemeOf } from '@/lib/shows/themes'
 import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
@@ -49,6 +51,18 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
   // A members-only story read by the public comes back without its body and audio (field access, fail closed).
   const locked = post.membersOnly !== false && post.content == null
+
+  // An episode or Field Note of a themed show is shown in the show's own look (board 23).
+  const showTheme = production?.kind === 'original' && production.path ? showThemeOf(production.theme) : null
+  if (showTheme && production) {
+    return (
+      <>
+        <script type="application/ld+json">{jsonLdText(storySchema(storySeoInputOf(post, getServerSideURL())))}</script>
+        {draft && <LivePreviewListener />}
+        <ThemedEpisodeView acknowledgments={acknowledgments.lines} independenceHref={independenceHref} post={post} show={production} theme={showTheme} url={url} />
+      </>
+    )
+  }
 
   return (
     <article className="pb-16">

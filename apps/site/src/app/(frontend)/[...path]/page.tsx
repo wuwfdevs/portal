@@ -12,12 +12,18 @@ import { PageView } from '@/components/PageView'
 import { EventView } from '@/components/Events/EventView'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { ShowView } from '@/components/Show/ShowView'
+import { ThemedListView } from '@/components/Show/themed/ThemedListView'
+import { ThemedShowView } from '@/components/Show/themed/ThemedShowView'
+import { ThemedSupportView } from '@/components/Show/themed/ThemedSupportView'
 import { StoryListView } from '@/components/StoryList/StoryListView'
 import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
 import { pathFromSegments } from '@/lib/paths'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
+import { parseShowSubpage, type ShowSubpage } from '@/lib/shows/subpaths'
+import { loadStationLevels, loadThemedShow, type ThemedShowData } from '@/lib/shows/themed-load'
+import { showThemeOf } from '@/lib/shows/themes'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { generateMeta, generateStoryMeta } from '@/utilities/generateMeta'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -48,6 +54,8 @@ type Result =
   | { kind: 'page'; doc: Pick<Page, 'hero' | 'layout' | 'meta'> & Partial<Page>; url: string }
   | { kind: 'list'; data: StoryListData; url: string }
   | { kind: 'show'; data: ShowData; url: string }
+  | { kind: 'themed-show'; data: ThemedShowData; url: string }
+  | { kind: 'themed-subpage'; data: ThemedShowData; subpage: ShowSubpage; url: string }
   | { kind: 'event'; data: EventPageData; url: string }
   | { kind: 'miss'; url: string }
 
@@ -74,7 +82,20 @@ const resolveRequest = cache(async (joined: string, draft: boolean): Promise<Res
 
   // A show (an original production) at its own address.
   const show = await loadShowByPath(path)
-  if (show) return { kind: 'show', data: show, url: path }
+  if (show) {
+    // A show with its own theme gets its own look and sub-pages (phase 7a, boards 21-24).
+    const themed = show.show.kind === 'original' && showThemeOf(show.show.theme) ? await loadThemedShow(path) : null
+    return themed ? { kind: 'themed-show', data: themed, url: path } : { kind: 'show', data: show, url: path }
+  }
+
+  // A themed show's Field Notes, Archive or support page, at the show's address plus /field-notes, /archive or /support.
+  const sub = parseShowSubpage(path)
+  if (sub) {
+    // Only the counts are needed for the lists a page does not show (a limit of 0 would mean "all" to Payload).
+    const full = { notes: sub.subpage === 'field-notes' ? 100 : 1, archive: sub.subpage === 'archive' ? 200 : 1 }
+    const themed = await loadThemedShow(sub.showPath, full)
+    if (themed) return { kind: 'themed-subpage', data: themed, subpage: sub.subpage, url: path }
+  }
 
   // A community-calendar event at its own address.
   const event = await loadEventByPath(path)
@@ -96,6 +117,11 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
   if (result.kind === 'list') return <StoryListView data={result.data} />
   if (result.kind === 'event') return <EventView data={result.data} />
+  if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
+  if (result.kind === 'themed-subpage') {
+    if (result.subpage === 'support') return <ThemedSupportView data={result.data} levels={await loadStationLevels()} />
+    return <ThemedListView data={result.data} list={result.subpage} />
+  }
   if (result.kind === 'show') {
     const settings = await getCachedGlobal('site-settings', 1)()
     const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
@@ -109,7 +135,12 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const { path: segments } = await paramsPromise
   const result = await resolveRequest((segments ?? []).join('/'), draft)
   if (result.kind === 'post') return generateStoryMeta(result.doc)
-  if (result.kind === 'show') {
+  if (result.kind === 'themed-subpage') {
+    const { show } = result.data
+    const title = result.subpage === 'support' ? `Support ${show.title}` : `${result.subpage === 'archive' ? 'The Archive' : 'Field Notes'} · ${show.title}`
+    return { title, alternates: { canonical: result.url }, openGraph: mergeOpenGraph({ title, url: result.url }) }
+  }
+  if (result.kind === 'show' || result.kind === 'themed-show') {
     const { show, heroImage } = result.data
     const image = imageUrlOf(heroImage, getServerSideURL())
     const description = show.summary ?? undefined
@@ -131,4 +162,10 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
     }
   }
   return generateMeta({ doc: result.kind === 'miss' ? null : result.doc })
+}
+
+async function independenceHrefOf(): Promise<string | null> {
+  const settings = await getCachedGlobal('site-settings', 1)()
+  const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
+  return policy?.slug ? `/${policy.slug}` : null
 }

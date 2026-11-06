@@ -320,6 +320,23 @@ export const Posts: CollectionConfig<'posts'> = {
     },
     { name: 'series', type: 'relationship', relationTo: 'series', admin: { position: 'sidebar' } },
     { name: 'production', type: 'relationship', relationTo: 'productions', filterOptions: { kind: { equals: 'original' } }, admin: { position: 'sidebar', description: 'The WUWF production this episode belongs to. A syndicated program has no episodes here.' } },
+    {
+      name: 'fieldNoteKind',
+      type: 'select',
+      label: 'Field Note type',
+      options: [
+        { label: 'Essay', value: 'essay' },
+        { label: 'Primary source', value: 'primary-source' },
+        { label: 'Analysis', value: 'analysis' },
+        { label: 'Interview', value: 'interview' },
+        { label: 'Deep dive', value: 'deep-dive' },
+      ],
+      admin: {
+        position: 'sidebar',
+        condition: (data) => Boolean(data?.production) && data?.format !== 'audio',
+        description: "A story that belongs to a themed show and is not an episode is one of its Field Notes (board 21). The type is the label shown on it.",
+      },
+    },
     membersOnlyField('For WUWF members only (a members\' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.'),
     {
       name: 'site',

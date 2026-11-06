@@ -78,6 +78,7 @@ export interface Config {
     audio: Audio;
     video: Video;
     clips: Clip;
+    'archive-items': ArchiveItem;
     artists: Artist;
     performances: Performance;
     sections: Section;
@@ -123,6 +124,7 @@ export interface Config {
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
     clips: ClipsSelect<false> | ClipsSelect<true>;
+    'archive-items': ArchiveItemsSelect<false> | ArchiveItemsSelect<true>;
     artists: ArtistsSelect<false> | ArtistsSelect<true>;
     performances: PerformancesSelect<false> | PerformancesSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
@@ -447,6 +449,10 @@ export interface Post {
    * The WUWF production this episode belongs to. A syndicated program has no episodes here.
    */
   production?: (number | null) | Production;
+  /**
+   * A story that belongs to a themed show and is not an episode is one of its Field Notes (board 21). The type is the label shown on it.
+   */
+  fieldNoteKind?: ('essay' | 'primary-source' | 'analysis' | 'interview' | 'deep-dive') | null;
   /**
    * For WUWF members only (a members' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.
    */
@@ -1231,6 +1237,50 @@ export interface Production {
    */
   programUrl?: string | null;
   /**
+   * The show's own look on wuwf.org (its colours and type, set by a developer and checked for contrast). Empty uses the station's look. A themed show also gets its own support page at its address + /support.
+   */
+  theme?: 'barefoot-mary' | null;
+  /**
+   * The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member: there is no subscription. The station's levels come from the Support page settings; describe here only what is the show's own.
+   */
+  showSupport?: {
+    eyebrow?: string | null;
+    /**
+     * e.g. "Join the Descent".
+     */
+    heading?: string | null;
+    /**
+     * Why supporting the station supports the show. Say the gift is a tax-deductible donation to WUWF; never call it a subscription.
+     */
+    intro?: string | null;
+    /**
+     * WUWF's donation form, with this show's attribution code ("count my gift as support for …") built in. Empty hides the button.
+     */
+    donateUrl?: string | null;
+    donateLabel?: string | null;
+    /**
+     * Thanks from the show itself, at a station level (e.g. at $25 a month: a credit in the episode roll). Only list what WUWF actually delivers today.
+     */
+    perks?:
+      | {
+          /**
+           * e.g. "$25 a month".
+           */
+          level: string;
+          title: string;
+          description?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    questions?:
+      | {
+          question: string;
+          answer: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
    * Set by the migration. Leave empty for new shows.
    */
   legacy?: {
@@ -1936,6 +1986,49 @@ export interface Clip {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * A show's Archive: documents, maps, photographs and recordings behind its episodes. The catalogue is public; a members-only item's file is not.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "archive-items".
+ */
+export interface ArchiveItem {
+  id: number;
+  title: string;
+  production: number | Production;
+  kind: 'document' | 'image' | 'map' | 'audio' | 'transcript';
+  /**
+   * Only members may open the file. Its title, description and source stay public in the catalogue.
+   */
+  membersOnly?: boolean | null;
+  /**
+   * Where it came from and when, e.g. "U.S. Army Corps of Engineers, 1903" or "Recorded 1996".
+   */
+  source?: string | null;
+  description?: string | null;
+  /**
+   * The episode it is cited in, if any.
+   */
+  episode?: (number | null) | Post;
+  /**
+   * Orders the catalogue, newest first. Defaults to when it was added.
+   */
+  sortDate?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
  * Musicians who play RadioLive. Add one here, then put them in a show's lineup.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2271,6 +2364,10 @@ export interface PayloadLockedDocument {
         value: number | Clip;
       } | null)
     | ({
+        relationTo: 'archive-items';
+        value: number | ArchiveItem;
+      } | null)
+    | ({
         relationTo: 'artists';
         value: number | Artist;
       } | null)
@@ -2592,6 +2689,7 @@ export interface PostsSelect<T extends boolean = true> {
       };
   series?: T;
   production?: T;
+  fieldNoteKind?: T;
   membersOnly?: T;
   site?: T;
   period?: T;
@@ -2993,6 +3091,34 @@ export interface ClipsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "archive-items_select".
+ */
+export interface ArchiveItemsSelect<T extends boolean = true> {
+  title?: T;
+  production?: T;
+  kind?: T;
+  membersOnly?: T;
+  source?: T;
+  description?: T;
+  episode?: T;
+  sortDate?: T;
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "artists_select".
  */
 export interface ArtistsSelect<T extends boolean = true> {
@@ -3182,6 +3308,31 @@ export interface ProductionsSelect<T extends boolean = true> {
   listed?: T;
   kind?: T;
   programUrl?: T;
+  theme?: T;
+  showSupport?:
+    | T
+    | {
+        eyebrow?: T;
+        heading?: T;
+        intro?: T;
+        donateUrl?: T;
+        donateLabel?: T;
+        perks?:
+          | T
+          | {
+              level?: T;
+              title?: T;
+              description?: T;
+              id?: T;
+            };
+        questions?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
+      };
   legacy?:
     | T
     | {

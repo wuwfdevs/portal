@@ -28,6 +28,7 @@ import * as migration_20261106_174248_radiolive_virtual_and_hosted_recording fro
 import * as migration_20261106_175346_radiolive_visit_and_membership from './20261106_175346_radiolive_visit_and_membership';
 import * as migration_20261106_212555_homepage_slots from './20261106_212555_homepage_slots';
 import * as migration_20261106_220832_members_only from './20261106_220832_members_only';
+import * as migration_20261106_221525_show_themes_archive from './20261106_221525_show_themes_archive';
 
 export const migrations = [
   {
@@ -178,6 +179,11 @@ export const migrations = [
   {
     up: migration_20261106_220832_members_only.up,
     down: migration_20261106_220832_members_only.down,
-    name: '20261106_220832_members_only'
+    name: '20261106_220832_members_only',
+  },
+  {
+    up: migration_20261106_221525_show_themes_archive.up,
+    down: migration_20261106_221525_show_themes_archive.down,
+    name: '20261106_221525_show_themes_archive'
   },
 ];

@@ -1,3 +1,4 @@
+import { showPagePaths } from '@/lib/shows/subpaths'
 import type { Payload } from 'payload'
 
 import { listHref } from './route'
@@ -31,7 +32,7 @@ export async function listPathsForStory(payload: Payload, story: StoryRefs | nul
     const productionId = idOf(story.production)
     const showPaths = productionId === null ? [] : (await payload.find({ collection: 'productions', where: { id: { equals: productionId } }, depth: 0, limit: 1, overrideAccess: true, pagination: false, select: { path: true } })).docs.map((d) => d.path).filter((p): p is string => typeof p === 'string')
     const [sections, topics, people] = await Promise.all([slugs('sections', sectionId === null ? [] : [sectionId]), slugs('categories', topicIds), slugs('contributors', personIds)])
-    return [...sections.map((s) => listHref('section', s)), ...topics.map((s) => listHref('topic', s)), ...people.map((s) => listHref('person', s)), ...showPaths, ...(productionId === null ? [] : ['/podcasts'])]
+    return [...sections.map((s) => listHref('section', s)), ...topics.map((s) => listHref('topic', s)), ...people.map((s) => listHref('person', s)), ...showPaths.flatMap(showPagePaths), ...(productionId === null ? [] : ['/podcasts'])]
   } catch {
     return []
   }

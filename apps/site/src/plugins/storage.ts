@@ -19,7 +19,7 @@ import { s3Storage } from '@payloadcms/storage-s3'
 const bucket = process.env.S3_BUCKET
 
 /** The folder each upload collection stores under. The importer reads these to check a file really landed where the site will look. */
-export const STORAGE_PREFIXES = { media: 'media', audio: 'audio', video: 'video', 'event-submission-images': 'event-submission-images' } as const
+export const STORAGE_PREFIXES = { media: 'media', audio: 'audio', video: 'video', 'archive-items': 'archive', 'event-submission-images': 'event-submission-images' } as const
 
 export const storagePlugin = s3Storage({
   enabled: Boolean(bucket),
