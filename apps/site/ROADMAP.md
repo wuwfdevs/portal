@@ -12,7 +12,7 @@ design canvas are described under *Sources* below.
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
 per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page. **Next for phase 7:** 7b, audience
-sign-in. Full suite: see *Phase 7*.
+sign-in. **Full suite 109 files, 1,315 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
@@ -750,6 +750,10 @@ fetch; enclosures are short-lived signed addresses, checked again. On wuwf.org a
   type (essay, primary source, analysis, interview, deep dive). `archive-items` is a new upload collection (PDF, image, audio, text; drafts):
   the catalogue is public, a members-only item's file has no address for the public and is refused at its own.
 - Tests: `tests/int/members-only.int.spec.ts` (8), `tests/int/themed-show.int.spec.ts` (6), unit tests for the rules, themes and sub-paths.
+  Checked in a browser at 1440 and 390 px with scratch demo content (not committed): no duplicate ids, and the members-only body never
+  appears in the HTML. Field Notes take the story's normal address (`/<section>/<date>/<slug>`), not one under the show: only
+  episodes move under `/shows/<slug>`. **Found, not caused here:** before the header logo loads, its `width="450"` attribute makes every
+  page wider than a 390 px phone (`components/Logo/Logo.tsx`; seen on `/podcasts`, `/support`, `/radiolive` too). Worth a `max-w-full` fix.
 
 **Left out of 7a on purpose (and why).**
 - The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot
