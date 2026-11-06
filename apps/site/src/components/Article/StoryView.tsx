@@ -119,7 +119,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       <div className="container mt-8 flex flex-col gap-10">
         {locked ? (
           <div className="mx-auto w-full max-w-[47.5rem]">
-            <MembersOnlyPanel isEpisode={post.format === 'audio'} level={level} showHref={production?.path} showTitle={production?.title} supportHref="/support" />
+            <MembersOnlyPanel isEpisode={post.format === 'audio'} level={level} memberHref={`/account/listen/${post.id}`} showHref={production?.path} showTitle={production?.title} supportHref="/support" />
           </div>
         ) : (
           <RichText

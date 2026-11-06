@@ -3,8 +3,8 @@ import React from 'react'
 
 /**
  * Shown in place of a members-only story's body and audio (board 23's "For WUWF members" panel), in the station's look.
- * A themed show passes its own class names. Until sign-in and member feeds exist (phase 7b to 7d) it promises nothing
- * about how members will listen: it says who the work is for and where to support it. The owner confirms the wording.
+ * A themed show passes its own class names. The page it sits on is cached and the same for everyone; a member follows the link to
+ * the private member view, which checks their membership (phase 7c-2). The owner confirms the wording.
  */
 export function MembersOnlyPanel({
   isEpisode,
@@ -12,6 +12,7 @@ export function MembersOnlyPanel({
   showHref,
   showTitle,
   level,
+  memberHref,
   classNames,
 }: {
   isEpisode: boolean
@@ -20,6 +21,8 @@ export function MembersOnlyPanel({
   showTitle?: string | null
   /** The station's qualifying level in words ("a sustaining membership of $8 a month or more"), when set. */
   level?: string | null
+  /** The private member view of this piece (/account/listen/<id>): it signs a reader in, or explains how to connect a membership. */
+  memberHref?: string | null
   classNames?: { box?: string; eyebrow?: string; heading?: string; text?: string; primary?: string; secondary?: string }
 }) {
   const what = isEpisode ? 'episode' : 'piece'
@@ -39,8 +42,8 @@ export function MembersOnlyPanel({
       </p>
       <p className={classNames?.text ?? 'max-w-[40rem] text-base text-ink-2'}>
         Already a member?{' '}
-        <Link className="font-semibold underline" href="/account">
-          Connect your membership in your account
+        <Link className="font-semibold underline" href={memberHref ?? '/account'}>
+          {memberHref ? `Sign in to ${isEpisode ? 'listen' : 'read'}` : 'Go to your account'}
         </Link>
         .
       </p>

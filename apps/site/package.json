@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",
+    "@aws-sdk/s3-request-presigner": "3.1161.0",
     "@payloadcms/admin-bar": "3.92.1",
     "@payloadcms/db-postgres": "3.92.1",
     "@payloadcms/live-preview-react": "3.92.1",

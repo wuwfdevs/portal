@@ -88,7 +88,7 @@ export function ThemedEpisodeView({
 
         {locked ? (
           <div className="mt-10">
-            <MembersOnlyPanel classNames={membersPanelClasses} level={level} isEpisode={isEpisode} showHref={showPath} showTitle={show.title} supportHref={`${showPath}/support`} />
+            <MembersOnlyPanel classNames={membersPanelClasses} level={level} memberHref={`/account/listen/${post.id}`} isEpisode={isEpisode} showHref={showPath} showTitle={show.title} supportHref={`${showPath}/support`} />
           </div>
         ) : (
           <>

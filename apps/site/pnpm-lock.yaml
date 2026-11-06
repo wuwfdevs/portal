@@ -11,6 +11,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 3.1161.0
         version: 3.1161.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 3.1161.0
+        version: 3.1161.0
       '@payloadcms/admin-bar':
         specifier: 3.92.1
         version: 3.92.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

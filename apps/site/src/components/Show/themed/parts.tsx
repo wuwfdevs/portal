@@ -93,7 +93,8 @@ const KIND_LABEL = Object.fromEntries(ARCHIVE_KINDS.map((k) => [k.value, k.label
  */
 export function ArchiveCard({ item }: { item: ArchiveItem }) {
   const episode = named<{ title?: string | null; path?: string | null }>(item.episode as never)
-  const fileHref = !item.membersOnly && item.url ? item.url : null
+  // A free file opens at its own address; a members' file through the route that checks the reader's membership (7c-2).
+  const fileHref = item.membersOnly ? `/account/files/archive-items/${item.id}` : (item.url ?? null)
   return (
     <li className={t.card}>
       <p className="flex flex-wrap items-center gap-x-2">
@@ -112,7 +113,7 @@ export function ArchiveCard({ item }: { item: ArchiveItem }) {
       {item.source && <p className={cn('text-sm italic', t.muted)}>{item.source}</p>}
       {item.description && <p className={cn('text-sm leading-relaxed', t.muted)}>{item.description}</p>}
       {episode?.title && <p className={cn(t.label, 'text-sm', t.muted)}>Cited in: {episode.title}</p>}
-      {item.membersOnly && <p className={cn('text-sm', t.muted)}>The full item is for WUWF members.</p>}
+      {item.membersOnly && <p className={cn('text-sm', t.muted)}>The full item is for WUWF members: open it to sign in.</p>}
     </li>
   )
 }
