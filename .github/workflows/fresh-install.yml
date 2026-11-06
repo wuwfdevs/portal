@@ -202,8 +202,10 @@ jobs:
           # Put the files back; the baseline recorded them as applied, so the CLI must find nothing pending.
           rmdir supabase/migrations
           mv "$RUNNER_TEMP/migrations" supabase/migrations
-          out="$(supabase db push --local --dry-run 2>&1)"; echo "$out"
-          echo "$out" | grep -qi "up to date" || { echo "FAIL: the CLI found migrations still to apply"; exit 1; }
+          # `|| rc=$?` keeps bash -e from exiting before the CLI's own message is printed.
+          rc=0; out="$(supabase db push --local --dry-run 2>&1)" || rc=$?
+          echo "$out"; echo "supabase db push exit code: $rc"
+          [ "$rc" -eq 0 ] && echo "$out" | grep -qi "up to date" || { echo "FAIL: the CLI did not report the database as up to date"; exit 1; }
 
       - name: Show what happened, if it failed
         if: failure()
