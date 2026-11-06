@@ -9,6 +9,7 @@ import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 import { supportHref } from '@/lib/support-link'
 
 import { appearances, performanceTitle, splitPerformances, ticketInfo, type ArtistAppearance } from './arrange'
+import { recordingEmbed } from './recording'
 
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
 
@@ -29,8 +30,15 @@ export interface ShowView {
   description: string | null
   photo: Media | null
   tickets: { label: string; href: string | null }
-  recording: { url: string; mimeType: string | null; posterUrl: string | null; seconds: number | null; captionsHref: string } | null
+  /** A second ticket page for the virtual show, when there is one. */
+  virtualTickets: { label: string; href: string } | null
+  /** A file with captions kept here, or a video on YouTube or Vimeo shown through the site's embed rules. */
+  recording: RecordingView | null
 }
+
+export type RecordingView =
+  | { kind: 'file'; url: string; mimeType: string | null; posterUrl: string | null; seconds: number | null; captionsHref: string }
+  | { kind: 'embed'; src: string; load: 'auto' | 'click'; provider: string }
 
 function toArtist(a: Artist): ArtistView | null {
   return a.slug ? { slug: a.slug, name: a.name, photo: named<Media>(a.photo), bio: a.bio ?? null, link: supportHref(a.link) } : null
@@ -43,6 +51,7 @@ function toShow(p: Performance): ShowView | null {
   const file = named<Video>(p.video)
   const poster = named<Media>(file?.poster)
   const hasCaptions = Boolean(p.captionsVtt && p.captionsVtt.trim())
+  const embedded = recordingEmbed(p.recordingUrl)
   return {
     slug: p.slug,
     title: p.title,
@@ -52,8 +61,15 @@ function toShow(p: Performance): ShowView | null {
     description: p.description ?? null,
     photo,
     tickets: ticketInfo(p.ticketsStatus, supportHref(p.ticketsUrl)),
-    // A recording is shown only with its captions: the editor cannot publish one without them, and a record that predates the rule shows none.
-    recording: file?.url && hasCaptions ? { url: file.url, mimeType: file.mimeType ?? null, posterUrl: (poster ?? photo)?.sizes?.large?.url ?? (poster ?? photo)?.url ?? null, seconds: file.durationSeconds ?? null, captionsHref: `/radiolive/${p.slug}/captions.vtt` } : null,
+    virtualTickets: supportHref(p.virtualTicketsUrl) ? { label: 'Get virtual tickets', href: supportHref(p.virtualTicketsUrl)! } : null,
+    // An uploaded recording is shown only with its captions: the editor cannot publish one without them, and a record that predates the rule shows none.
+    // Otherwise a YouTube or Vimeo address, if it is still one the embed rules accept.
+    recording:
+      file?.url && hasCaptions
+        ? { kind: 'file', url: file.url, mimeType: file.mimeType ?? null, posterUrl: (poster ?? photo)?.sizes?.large?.url ?? (poster ?? photo)?.url ?? null, seconds: file.durationSeconds ?? null, captionsHref: `/radiolive/${p.slug}/captions.vtt` }
+        : embedded.ok
+          ? { kind: 'embed', src: embedded.embed.src, load: embedded.embed.load, provider: embedded.embed.provider }
+          : null,
   }
 }
 

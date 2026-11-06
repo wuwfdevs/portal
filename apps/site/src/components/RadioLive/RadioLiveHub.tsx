@@ -69,6 +69,11 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
                 ) : (
                   <p className="rounded-sm border border-surface-dark-line px-4 py-3 text-center font-bold">{next.tickets.label}</p>
                 )}
+                {next.virtualTickets && (
+                  <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-surface-dark-text px-4 font-bold text-surface hover:no-underline" href={next.virtualTickets.href} rel="noopener noreferrer">
+                    {next.virtualTickets.label}
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -130,6 +135,11 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
                     ) : (
                       <span className="rounded-full bg-surface-3 px-3 py-1 text-xs font-bold text-ink-2">{s.tickets.label}</span>
                     )}
+                    {s.virtualTickets && (
+                      <a className="inline-flex min-h-11 items-center text-sm font-bold text-wuwf-blue-700 underline" href={s.virtualTickets.href} rel="noopener noreferrer">
+                        {s.virtualTickets.label}
+                      </a>
+                    )}
                   </li>
                 )
               })}
@@ -143,7 +153,7 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
           <h2 className="font-serif text-3xl font-bold md:text-4xl" id="watch-heading">
             Watch recent shows
           </h2>
-          <span className="text-sm text-surface-dark-text">Full sets with captions · {watchTotal} in the archive</span>
+          <span className="text-sm text-surface-dark-text">Full sets · {watchTotal} in the archive</span>
         </div>
         {watch.length === 0 ? (
           <p className="text-lg text-surface-dark-text">Full sets appear here once each show is edited.</p>

@@ -6,6 +6,7 @@ import { enforcePublishPermission } from '../hooks/enforcePublishPermission'
 import { ensureSlug } from '../hooks/ensureSlug'
 import { revalidatePath, revalidateTag } from '../lib/revalidate'
 import { validateSupportHref } from '../lib/support-link'
+import { validateRecordingUrl } from '../lib/radiolive/recording'
 import { normalizeVtt, validateVtt } from '../lib/video/clips'
 
 const tidyCaptions: CollectionBeforeChangeHook = ({ data }) => {
@@ -74,7 +75,15 @@ export const Performances: CollectionConfig = {
         { name: 'ticketsUrl', type: 'text', validate: validateSupportHref, admin: { width: '60%', description: 'Where tickets are sold (the ticketing site\'s address, https://). WUWF sells nothing here.' } },
       ],
     },
-    { name: 'video', type: 'upload', relationTo: 'video', admin: { description: 'The recorded set, once it is edited. From the video library. A recording needs captions to publish.' } },
+    { name: 'virtualTicketsUrl', type: 'text', validate: validateSupportHref, admin: { description: 'A ticket page for the virtual (online) show, if there is one. https://. Shown as a second button.' } },
+    {
+      name: 'recordingUrl',
+      type: 'text',
+      label: 'Recording on YouTube or Vimeo',
+      validate: validateRecordingUrl,
+      admin: { description: 'The address of the recorded set on YouTube or Vimeo, once it is edited (one video, not a playlist). Turn captions on in the video there; the site cannot check. If you also upload a file below, the file is shown.' },
+    },
+    { name: 'video', type: 'upload', relationTo: 'video', admin: { description: 'Or a recording uploaded to the video library. An uploaded recording needs captions to publish.' } },
     {
       name: 'captionsVtt',
       type: 'textarea',

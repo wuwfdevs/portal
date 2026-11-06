@@ -1996,7 +1996,15 @@ export interface Performance {
    */
   ticketsUrl?: string | null;
   /**
-   * The recorded set, once it is edited. From the video library. A recording needs captions to publish.
+   * A ticket page for the virtual (online) show, if there is one. https://. Shown as a second button.
+   */
+  virtualTicketsUrl?: string | null;
+  /**
+   * The address of the recorded set on YouTube or Vimeo, once it is edited (one video, not a playlist). Turn captions on in the video there; the site cannot check. If you also upload a file below, the file is shown.
+   */
+  recordingUrl?: string | null;
+  /**
+   * Or a recording uploaded to the video library. An uploaded recording needs captions to publish.
    */
   video?: (number | null) | Video;
   /**
@@ -3002,6 +3010,8 @@ export interface PerformancesSelect<T extends boolean = true> {
   photo?: T;
   ticketsStatus?: T;
   ticketsUrl?: T;
+  virtualTicketsUrl?: T;
+  recordingUrl?: T;
   video?: T;
   captionsVtt?: T;
   updatedAt?: T;

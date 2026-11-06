@@ -38,6 +38,7 @@ describe('RadioLive', () => {
   let artistB: { id: string | number; slug: string }
   let pastShow: { id: string | number; slug: string }
   let futureShow: { id: string | number; slug: string }
+  let hostedShow: { id: string | number; slug: string }
   let original: unknown
 
   beforeAll(async () => {
@@ -51,7 +52,8 @@ describe('RadioLive', () => {
     artistB = await make('artists', { name: `Joe ${run}` })
     const file = await make<{ id: string | number }>('video', { title: `Set ${run}` }, { file: await mp4() })
     pastShow = await make('performances', { title: `Past night ${run}`, startsAt: day(-30), lineup: [artistA.id, artistB.id], video: file.id, captionsVtt: VTT, _status: 'published' })
-    futureShow = await make('performances', { title: `Coming night ${run}`, startsAt: day(20), lineup: [artistA.id], ticketsStatus: 'onSale', ticketsUrl: 'https://tix.example.com/x', _status: 'published' })
+    futureShow = await make('performances', { title: `Coming night ${run}`, startsAt: day(20), lineup: [artistA.id], ticketsStatus: 'onSale', ticketsUrl: 'https://tix.example.com/x', virtualTicketsUrl: 'https://virtual.example.com/y', _status: 'published' })
+    hostedShow = await make('performances', { title: `Hosted set ${run}`, startsAt: day(-60), recordingUrl: 'https://youtu.be/hVgWH8kF_RQ', _status: 'published' })
     await make('performances', { title: `Draft night ${run}`, startsAt: day(40), _status: 'draft' })
   }, 90_000)
 
@@ -65,6 +67,7 @@ describe('RadioLive', () => {
     const data = await loadRadioLive()
     const coming = data.upcoming.find((s) => s.slug === futureShow.slug)
     expect(coming?.tickets).toEqual({ label: 'Get tickets', href: 'https://tix.example.com/x' })
+    expect(coming?.virtualTickets).toEqual({ label: 'Get virtual tickets', href: 'https://virtual.example.com/y' })
     expect(data.upcoming.some((s) => s.title.startsWith('Draft night'))).toBe(false)
     expect(data.watch.some((s) => s.slug === pastShow.slug)).toBe(true)
     expect(data.upcoming.some((s) => s.slug === pastShow.slug)).toBe(false)
@@ -79,12 +82,21 @@ describe('RadioLive', () => {
   it('loads a show with its lineup and recording, and an artist with their shows', async () => {
     const s = await loadShow(pastShow.slug)
     expect(s?.show.lineup.map((a) => a.slug)).toEqual([artistA.slug, artistB.slug])
-    expect(s?.show.recording?.captionsHref).toBe(`/radiolive/${pastShow.slug}/captions.vtt`)
+    expect(s?.show.recording).toMatchObject({ kind: 'file', captionsHref: `/radiolive/${pastShow.slug}/captions.vtt` })
     const a = await loadArtist(artistA.slug)
     expect(a?.shows.map((x) => x.slug).sort()).toEqual([pastShow.slug, futureShow.slug].sort())
     expect(a?.artist.link).toBe('https://angel.example.com')
     expect(await loadShow('nope-' + run)).toBeNull()
     expect(await loadArtist('nope-' + run)).toBeNull()
+  })
+
+  it('shows a recording hosted on YouTube without needing captions here, and refuses an address that is not one video on YouTube or Vimeo', async () => {
+    const s = await loadShow(hostedShow.slug)
+    expect(s?.show.recording).toMatchObject({ kind: 'embed', provider: 'youtube' })
+    expect((await loadRadioLive()).watch.some((x) => x.slug === hostedShow.slug)).toBe(true)
+    for (const bad of ['https://example.com/set', 'https://www.youtube.com/playlist?list=PL7wabVdOsi0NL7ozG7c702xTmikRYGwEJ', 'http://youtu.be/hVgWH8kF_RQ']) {
+      await expect(payload.create({ collection: 'performances', overrideAccess: true, context: ctx, data: { title: `Bad ${run}`, startsAt: day(-9), recordingUrl: bad, _status: 'published' } as never })).rejects.toThrow()
+    }
   })
 
   it('cannot publish a recording without captions, or a show at the word "artists"', async () => {

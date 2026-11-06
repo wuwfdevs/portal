@@ -47,6 +47,11 @@ export function ShowPageView({ show, acknowledgments, independenceHref }: { show
             ) : (
               <p className="rounded-sm border border-surface-dark-line px-4 py-3 font-bold">{show.tickets.label}</p>
             )}
+            {show.virtualTickets && (
+              <a className="inline-flex min-h-11 items-center rounded-sm border border-surface-dark-text px-4 font-bold text-surface hover:no-underline" href={show.virtualTickets.href} rel="noopener noreferrer">
+                {show.virtualTickets.label}
+              </a>
+            )}
             <p className="text-sm text-surface-dark-text">Tickets are sold through the venue&apos;s ticketing site, not by WUWF. Every show is also on the air on 88.1 FM.</p>
           </div>
         )}
