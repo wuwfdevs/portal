@@ -5,20 +5,21 @@ import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
 import { MenuBar } from '@/components/SiteNav/MenuBar'
 import { supabaseAuthConfig } from '@/lib/audience/supabase'
+import { liveChannels } from '@/lib/live/channels'
 import { drawableItems, headerButtons } from '@/lib/nav/header'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
 /**
  * The site header (boards 27 and 27b). Everything after the logo comes from the Header global: the items across the
  * top (links and menus, in the editors' order), the buttons on the right (shown, hidden, relabelled) and the optional
- * second row. Listen live joins the buttons once the player exists (board 26): a link to a player that is not there
- * would do nothing.
+ * second row. Listen live shows while the Listen live settings have a channel (board 26).
  */
 export async function Header() {
   const header = await getCachedGlobal('header', 1)()
   const items = drawableItems(header?.navItems)
   const sections = header?.sections ?? []
-  const buttons = headerButtons(header?.actions, supabaseAuthConfig() !== null)
+  const listen = await getCachedGlobal('listen-live', 0)().catch(() => null)
+  const buttons = headerButtons(header?.actions, supabaseAuthConfig() !== null, liveChannels(listen?.channels).length > 0)
 
   return (
     <header className="relative border-b border-rule bg-surface">
@@ -30,6 +31,12 @@ export async function Header() {
         {items.length > 0 && <MenuBar items={items} />}
 
         <div className="ml-auto flex items-center gap-1">
+          {buttons.listen && (
+            <Link className="inline-flex min-h-11 items-center gap-2 px-1 text-base font-bold text-ink hover:text-wuwf-blue-700" href="/listen">
+              <span aria-hidden="true" className="size-2.5 rounded-full bg-on-air-red" />
+              {buttons.listen.label}
+            </Link>
+          )}
           {buttons.search && (
             <Link aria-label={buttons.search.label} className="flex size-11 items-center justify-center rounded-sm text-ink hover:bg-surface-2" href="/search">
               <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" width="20">

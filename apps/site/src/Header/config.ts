@@ -95,8 +95,12 @@ export const Header: GlobalConfig = {
       name: 'actions',
       type: 'group',
       label: 'Buttons on the right',
-      admin: { description: 'Each can be hidden or relabelled. Sign in shows only while audience sign-in is set up.' },
+      admin: {
+        description:
+          'Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.',
+      },
       fields: [
+        action('listen', 'Listen live', 'Listen live'),
         action('search', 'Search', 'Search'),
         action('signIn', 'Sign in', 'Sign in'),
         action('donate', 'Donate', 'Donate', [

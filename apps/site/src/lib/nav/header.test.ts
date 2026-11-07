@@ -4,7 +4,8 @@ import { drawableItems, headerButtons, isHeaderHref, validateHeaderHref } from '
 
 describe('headerButtons', () => {
   it('shows all three with their defaults when nothing is set', () => {
-    expect(headerButtons(undefined, true)).toEqual({
+    expect(headerButtons(undefined, true, true)).toEqual({
+      listen: { label: 'Listen live' },
       search: { label: 'Search' },
       signIn: { label: 'Sign in' },
       donate: { label: 'Donate', href: '/support' },
@@ -20,6 +21,11 @@ describe('headerButtons', () => {
 
   it('never shows Sign in while sign-in is not configured', () => {
     expect(headerButtons({ signIn: { show: true } }, false).signIn).toBeNull()
+  })
+
+  it('never shows Listen live without a live channel', () => {
+    expect(headerButtons({ listen: { show: true } }, true, false).listen).toBeNull()
+    expect(headerButtons({ listen: { show: false } }, true, true).listen).toBeNull()
   })
 
   it('falls back to the Give page for a bad Donate address, and to the default for a blank label', () => {

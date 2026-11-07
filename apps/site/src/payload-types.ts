@@ -171,6 +171,7 @@ export interface Config {
     'unearthing-hub': UnearthingHub;
     'voyager-hub': VoyagerHub;
     'radiolive-hub': RadioliveHub;
+    'listen-live': ListenLive;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -181,6 +182,7 @@ export interface Config {
     'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
+    'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
   };
   locale: null;
   widgets: {
@@ -3941,9 +3943,13 @@ export interface Header {
       }[]
     | null;
   /**
-   * Each can be hidden or relabelled. Sign in shows only while audience sign-in is set up.
+   * Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.
    */
   actions?: {
+    listen?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
     search?: {
       show?: boolean | null;
       label?: string | null;
@@ -4456,6 +4462,58 @@ export interface RadioliveHub {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "listen-live".
+ */
+export interface ListenLive {
+  id: number;
+  /**
+   * The live streams, in the order listeners see them. The first is the default. With no channels, the player, the Listen live button and the /listen page are hidden.
+   */
+  channels?:
+    | {
+        /**
+         * e.g. "WUWF 88.1".
+         */
+        name: string;
+        /**
+         * For the player bar, e.g. "88.1". Empty uses the name.
+         */
+        short?: string | null;
+        /**
+         * The stream’s https address from StreamGuys, e.g. https://wuwf.streamguys1.com/WUWFFM.mp3.
+         */
+        streamUrl: string;
+        /**
+         * Where "On now" and "Up next" come from: the channel’s ID in NPR Cadence (it appears in the address of Cadence’s schedule widget, after channelId=). Empty shows no schedule for this channel.
+         */
+        cadenceChannelId?: string | null;
+        /**
+         * One line, e.g. "News and information from NPR and WUWF."
+         */
+        description?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Cards under the player: on the radio, the app, smart speakers. Empty hides the section.
+   */
+  otherWays?:
+    | {
+        title: string;
+        text: string;
+        linkLabel?: string | null;
+        /**
+         * A page on this site ("/podcasts") or a full https address.
+         */
+        linkUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -4494,6 +4552,12 @@ export interface HeaderSelect<T extends boolean = true> {
   actions?:
     | T
     | {
+        listen?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
         search?:
           | T
           | {
@@ -4823,6 +4887,34 @@ export interface RadioliveHubSelect<T extends boolean = true> {
         contactEmail?: T;
         contactPhone?: T;
         href?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "listen-live_select".
+ */
+export interface ListenLiveSelect<T extends boolean = true> {
+  channels?:
+    | T
+    | {
+        name?: T;
+        short?: T;
+        streamUrl?: T;
+        cadenceChannelId?: T;
+        description?: T;
+        id?: T;
+      };
+  otherWays?:
+    | T
+    | {
+        title?: T;
+        text?: T;
+        linkLabel?: T;
+        linkUrl?: T;
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;

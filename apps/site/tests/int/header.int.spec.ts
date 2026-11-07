@@ -40,7 +40,7 @@ describe('header settings', () => {
     const items = drawableItems(header.navItems)
     expect(items.map((i) => (i.kind === 'menu' ? `menu:${i.label}` : `link:${i.link?.label}`))).toEqual(['menu:News', 'link:Podcasts', 'menu:About'])
     expect(items[0].links?.map((l) => l.link.label)).toEqual(['Latest', 'Weather'])
-    expect(headerButtons(header.actions, true)).toEqual({ search: null, signIn: { label: 'Account' }, donate: { label: 'Give', href: '/support' } })
+    expect(headerButtons(header.actions, true)).toEqual({ listen: null, search: null, signIn: { label: 'Account' }, donate: { label: 'Give', href: '/support' } })
   })
 
   it('treats an item saved without a kind as a link', async () => {

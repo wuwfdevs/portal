@@ -35,6 +35,7 @@ import * as migration_20261106_234035_remove_show_level_perks from './20261106_2
 import * as migration_20261106_234554_memberships from './20261106_234554_memberships';
 import * as migration_20261107_002936_member_feeds from './20261107_002936_member_feeds';
 import * as migration_20261107_043501_board27_header_search_public_file from './20261107_043501_board27_header_search_public_file';
+import * as migration_20261107_055404_listen_live from './20261107_055404_listen_live';
 
 export const migrations = [
   {
@@ -220,6 +221,11 @@ export const migrations = [
   {
     up: migration_20261107_043501_board27_header_search_public_file.up,
     down: migration_20261107_043501_board27_header_search_public_file.down,
-    name: '20261107_043501_board27_header_search_public_file'
+    name: '20261107_043501_board27_header_search_public_file',
+  },
+  {
+    up: migration_20261107_055404_listen_live.up,
+    down: migration_20261107_055404_listen_live.down,
+    name: '20261107_055404_listen_live'
   },
 ];

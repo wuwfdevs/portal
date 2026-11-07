@@ -4,9 +4,10 @@
  */
 
 type Action = { show?: boolean | null; label?: string | null } | null | undefined
-type HeaderActions = { search?: Action; signIn?: Action; donate?: (Action & { href?: string | null }) | null } | null | undefined
+type HeaderActions = { listen?: Action; search?: Action; signIn?: Action; donate?: (Action & { href?: string | null }) | null } | null | undefined
 
 export type HeaderButtons = {
+  listen: { label: string } | null
   search: { label: string } | null
   signIn: { label: string } | null
   donate: { label: string; href: string } | null
@@ -32,10 +33,14 @@ export function validateHeaderHref(value: string | null | undefined): true | str
 const shown = (action: Action) => action?.show !== false
 const label = (action: Action, fallback: string) => action?.label?.trim() || fallback
 
-/** Which buttons sit on the right, with their words. Sign in needs audience sign-in to be configured as well. */
-export function headerButtons(actions: HeaderActions, signInAvailable: boolean): HeaderButtons {
+/**
+ * Which buttons sit on the right, with their words. Sign in needs audience sign-in to be configured as well, and Listen
+ * live needs at least one live channel: a button to a player that is not there would do nothing.
+ */
+export function headerButtons(actions: HeaderActions, signInAvailable: boolean, listenAvailable = false): HeaderButtons {
   const href = actions?.donate?.href?.trim()
   return {
+    listen: listenAvailable && shown(actions?.listen) ? { label: label(actions?.listen, 'Listen live') } : null,
     search: shown(actions?.search) ? { label: label(actions?.search, 'Search') } : null,
     signIn: signInAvailable && shown(actions?.signIn) ? { label: label(actions?.signIn, 'Sign in') } : null,
     donate: shown(actions?.donate)
