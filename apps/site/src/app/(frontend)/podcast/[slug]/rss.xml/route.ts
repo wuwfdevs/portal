@@ -26,11 +26,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, dek: true, path: true, publishedAt: true, featuredAudio: true, legacy: { groveId: true } },
-    where: { and: [{ production: { equals: show.id } }, { format: { equals: 'audio' } }, { _status: { equals: 'published' } }] },
+    select: { title: true, dek: true, path: true, publishedAt: true, featuredAudio: true, legacy: { groveId: true }, season: true, episodeNumber: true, episodeType: true },
+    // Members' episodes are never in the public feed (their audio is not readable anyway); they arrive in member feeds (phase 7d).
+    where: { and: [{ production: { equals: show.id } }, { format: { equals: 'audio' } }, { _status: { equals: 'published' } }, { membersOnly: { equals: false } }] },
   })
 
-  const episodes = (posts.docs as Pick<Post, 'id' | 'title' | 'dek' | 'path' | 'publishedAt' | 'featuredAudio' | 'legacy'>[]).flatMap((p): FeedEpisode[] => {
+  const episodes = (posts.docs as Pick<Post, 'id' | 'title' | 'dek' | 'path' | 'publishedAt' | 'featuredAudio' | 'legacy' | 'season' | 'episodeNumber' | 'episodeType'>[]).flatMap((p): FeedEpisode[] => {
     const audio = named<Audio>(p.featuredAudio as never)
     if (!audio?.url || !p.path) return []
     return [
@@ -42,6 +43,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
         summary: p.dek,
         publishedAt: p.publishedAt,
         audio: { url: audio.url.startsWith('http') ? audio.url : `${base}${audio.url}`, mimeType: audio.mimeType, bytes: audio.filesize, seconds: audio.durationSeconds },
+        season: named<{ number: number }>(p.season as never)?.number ?? null,
+        episode: p.episodeNumber ?? null,
+        episodeType: p.episodeType ?? null,
       },
     ]
   })

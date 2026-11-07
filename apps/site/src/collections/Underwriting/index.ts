@@ -5,6 +5,8 @@ import { restrictedBlocksGuard } from '../../hooks/restrictedBlocksGuard'
 import { revalidateShow, revalidateShowDelete } from '../../hooks/revalidateShow'
 import { showPathBeforeChange } from '../../hooks/showPath'
 import { syndicatedRules } from '../../hooks/syndicatedRules'
+import { SHOW_THEME_OPTIONS } from '../../lib/shows/themes'
+import { validateSupportHref } from '../../lib/support-link'
 import { fundableCollection } from './fundable'
 
 export { Sponsors } from './Sponsors'
@@ -92,6 +94,48 @@ export const Productions = fundableCollection({
           return 'Use a full address, starting with https://.'
         }
       },
+    },
+    {
+      name: 'theme',
+      type: 'select',
+      options: SHOW_THEME_OPTIONS,
+      admin: {
+        position: 'sidebar',
+        condition: (data) => data?.kind !== 'syndicated',
+        description: "The show's own look on wuwf.org (its colours and type, set by a developer and checked for contrast). Empty uses the station's look. A themed show also gets its own support page at its address + /support.",
+      },
+    },
+    {
+      name: 'showSupport',
+      type: 'group',
+      label: 'Support page (themed shows)',
+      admin: {
+        condition: (data) => Boolean(data?.theme),
+        description: "The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.",
+      },
+      fields: [
+        { name: 'eyebrow', type: 'text', defaultValue: 'Support the work' },
+        { name: 'heading', type: 'text', admin: { description: 'e.g. "Support Barefoot Mary".' } },
+        { name: 'intro', type: 'textarea', maxLength: 600, admin: { description: 'Why supporting the station supports the show. Say the gift is a tax-deductible donation to WUWF; never call it a subscription.' } },
+        {
+          name: 'donateUrl',
+          type: 'text',
+          label: 'Donation form address',
+          validate: validateSupportHref,
+          admin: { description: "WUWF's donation form, with this show's attribution code (\"count my gift as support for …\") built in. Empty hides the button." },
+        },
+        { name: 'donateLabel', type: 'text', label: 'Donation button text', defaultValue: "Give on WUWF's secure form" },
+        {
+          name: 'questions',
+          type: 'array',
+          maxRows: 10,
+          labels: { singular: 'Question', plural: 'Questions' },
+          fields: [
+            { name: 'question', type: 'text', required: true },
+            { name: 'answer', type: 'textarea', required: true, maxLength: 800 },
+          ],
+        },
+      ],
     },
     {
       name: 'legacy',

@@ -13,6 +13,10 @@ export interface FeedEpisode {
   summary?: string | null
   publishedAt?: string | null
   audio: { url: string; mimeType?: string | null; bytes?: number | null; seconds?: number | null }
+  /** Apple's season and episode numbers, and its episode type (full, trailer, bonus). */
+  season?: number | null
+  episode?: number | null
+  episodeType?: 'full' | 'trailer' | 'bonus' | null
 }
 
 export interface FeedShow {
@@ -78,6 +82,9 @@ function itemXml(e: FeedEpisode): string {
     date ? `<pubDate>${date}</pubDate>` : '',
     `<enclosure url="${xmlEscape(e.audio.url)}"${bytes} type="${xmlEscape(type)}"/>`,
     tag('itunes:duration', duration),
+    e.season != null && Number.isInteger(e.season) ? `<itunes:season>${e.season}</itunes:season>` : '',
+    e.episode != null && Number.isInteger(e.episode) ? `<itunes:episode>${e.episode}</itunes:episode>` : '',
+    e.episodeType && e.episodeType !== 'full' ? `<itunes:episodeType>${e.episodeType}</itunes:episodeType>` : '',
     '</item>',
   ]
     .filter(Boolean)

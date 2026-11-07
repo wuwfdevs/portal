@@ -27,6 +27,13 @@ import * as migration_20261106_154058_radiolive from './20261106_154058_radioliv
 import * as migration_20261106_174248_radiolive_virtual_and_hosted_recording from './20261106_174248_radiolive_virtual_and_hosted_recording';
 import * as migration_20261106_175346_radiolive_visit_and_membership from './20261106_175346_radiolive_visit_and_membership';
 import * as migration_20261106_212555_homepage_slots from './20261106_212555_homepage_slots';
+import * as migration_20261106_220832_members_only from './20261106_220832_members_only';
+import * as migration_20261106_221525_show_themes_archive from './20261106_221525_show_themes_archive';
+import * as migration_20261106_223920_seasons from './20261106_223920_seasons';
+import * as migration_20261106_232627_audience_profiles from './20261106_232627_audience_profiles';
+import * as migration_20261106_234035_remove_show_level_perks from './20261106_234035_remove_show_level_perks';
+import * as migration_20261106_234554_memberships from './20261106_234554_memberships';
+import * as migration_20261107_002936_member_feeds from './20261107_002936_member_feeds';
 
 export const migrations = [
   {
@@ -172,6 +179,41 @@ export const migrations = [
   {
     up: migration_20261106_212555_homepage_slots.up,
     down: migration_20261106_212555_homepage_slots.down,
-    name: '20261106_212555_homepage_slots'
+    name: '20261106_212555_homepage_slots',
+  },
+  {
+    up: migration_20261106_220832_members_only.up,
+    down: migration_20261106_220832_members_only.down,
+    name: '20261106_220832_members_only',
+  },
+  {
+    up: migration_20261106_221525_show_themes_archive.up,
+    down: migration_20261106_221525_show_themes_archive.down,
+    name: '20261106_221525_show_themes_archive',
+  },
+  {
+    up: migration_20261106_223920_seasons.up,
+    down: migration_20261106_223920_seasons.down,
+    name: '20261106_223920_seasons',
+  },
+  {
+    up: migration_20261106_232627_audience_profiles.up,
+    down: migration_20261106_232627_audience_profiles.down,
+    name: '20261106_232627_audience_profiles',
+  },
+  {
+    up: migration_20261106_234035_remove_show_level_perks.up,
+    down: migration_20261106_234035_remove_show_level_perks.down,
+    name: '20261106_234035_remove_show_level_perks',
+  },
+  {
+    up: migration_20261106_234554_memberships.up,
+    down: migration_20261106_234554_memberships.down,
+    name: '20261106_234554_memberships',
+  },
+  {
+    up: migration_20261107_002936_member_feeds.up,
+    down: migration_20261107_002936_member_feeds.down,
+    name: '20261107_002936_member_feeds'
   },
 ];

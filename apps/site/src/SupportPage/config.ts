@@ -108,6 +108,15 @@ export const SupportPage: GlobalConfig = {
               label: 'Other ways to give',
               admin: { description: 'One short line under the levels (vehicle and property gifts, the Combined Federal Campaign number).' },
             },
+            {
+              name: 'membersListeningLevel',
+              type: 'text',
+              label: "Members' listening comes with",
+              admin: {
+                description:
+                  "The qualifying level, in words, e.g. \"a sustaining membership of $8 a month or more\". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.",
+              },
+            },
           ],
         },
         {

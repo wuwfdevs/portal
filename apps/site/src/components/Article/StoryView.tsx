@@ -10,6 +10,10 @@ import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
+import { ThemedEpisodeView } from '@/components/Show/themed/ThemedEpisodeView'
+import { showThemeOf } from '@/lib/shows/themes'
+import { loadMembersListeningLevel } from '@/lib/shows/themed-load'
+import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
@@ -46,6 +50,21 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
   const featuredAudio = named(post.featuredAudio)
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
+  // A members-only story read by the public comes back without its body and audio (field access, fail closed).
+  const locked = post.membersOnly !== false && post.content == null
+  const level = locked ? await loadMembersListeningLevel() : null
+
+  // An episode or Field Note of a themed show is shown in the show's own look (board 23).
+  const showTheme = production?.kind === 'original' && production.path ? showThemeOf(production.theme) : null
+  if (showTheme && production) {
+    return (
+      <>
+        <script type="application/ld+json">{jsonLdText(storySchema(storySeoInputOf(post, getServerSideURL())))}</script>
+        {draft && <LivePreviewListener />}
+        <ThemedEpisodeView level={level} acknowledgments={acknowledgments.lines} independenceHref={independenceHref} post={post} show={production} theme={showTheme} url={url} />
+      </>
+    )
+  }
 
   return (
     <article className="pb-16">
@@ -98,11 +117,17 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       )}
 
       <div className="container mt-8 flex flex-col gap-10">
-        <RichText
-          className="mx-auto w-full max-w-[47.5rem] font-serif prose-p:text-xl prose-p:leading-relaxed"
-          data={post.content}
-          enableGutter={false}
-        />
+        {locked ? (
+          <div className="mx-auto w-full max-w-[47.5rem]">
+            <MembersOnlyPanel isEpisode={post.format === 'audio'} level={level} memberHref={`/account/listen/${post.id}`} showHref={production?.path} showTitle={production?.title} supportHref="/support" />
+          </div>
+        ) : (
+          <RichText
+            className="mx-auto w-full max-w-[47.5rem] font-serif prose-p:text-xl prose-p:leading-relaxed"
+            data={post.content}
+            enableGutter={false}
+          />
+        )}
 
         <div className="mx-auto flex w-full max-w-[47.5rem] flex-col gap-8">
           {fellowship && (

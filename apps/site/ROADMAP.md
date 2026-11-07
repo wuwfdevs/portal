@@ -4,10 +4,15 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: the current work is on `claude/whats-next-oxili3` in `wuwfdevs/portal` (see *Resume here*); earlier session branches were merged (PRs 320 to 332). The brief this follows (the "project brief") and the
+Branch: the current work is on `claude/sharp-fermi-fmy9un` in `wuwfdevs/portal` (phase 7a, see *Resume here* and *Phase 7*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
 ## Resume here (end of the 2026-11-06 session; homepage slots added later the same day)
+
+**Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
+decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
+per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page; then seasons, and **7b, audience
+sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). then **7d, private member feeds**. **Next for phase 7:** 7e, the membership database sync (needs the system's name and how it exports), and the per-show podcast feed settings. **Full suite 118 files, 1,381 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
@@ -53,7 +58,7 @@ metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle
 5. **Short video (boards 7, 8): built 2026-11-06.** New collection `clips` ("Short videos", migration `20261106_150459_clips`, up, down and up tested, `verify:migrations` passes): a file from the `video` library, **WebVTT captions kept as text and required to publish** (validated; served at `/video/<slug>/captions.vtt`), a `series` (the board's rows: "After Isaias", "RadioLive moments"), an optional `story` with its own button label, contributors (else the file's credit), drafts. Pages: `/video` (newest clip, Up next, a row per series, then "More video" for clips with no series) and `/video/<slug>` (`first segment video` is now reserved). Native player, captions on by default, nothing loads before play, no autoplay. The series' running funder line shows with the clip (`getSeriesHubAcknowledgments`). In `video.xml` of the sitemap. 18 unit and 5 integration tests; checked in a browser at 1440 and 390 px (no overflow, captions track showing). **Not built, on purpose:** Share and Save (no service behind either), "audio description available" (no recordings exist), the board's swipe viewer (the phone gets the same page with a "Next video" button), and a Video link in the header (the header is a global: add it in the admin). **To go live:** create the series, upload vertical clips with posters, write captions.
 6. **RadioLive (board 12): built 2026-11-06.** Two collections and a global (migration `20261106_154058_radiolive`, up, down and up tested, `verify:migrations` passes): `artists` (name, photo, short bio, own link), `performances` ("RadioLive shows": title, start time in Central, venue, lineup of artists, photo, ticket status and the **ticketing site's address** (WUWF sells nothing), and after the night the recorded `video` with **captions required**, drafts), and the **RadioLive page** global (the production, whose agreements give the funder line; hero photo; host; Encores; the support call, whose link is validated like the giving page's). Pages: `/radiolive` (next show with its ticket button, latest recorded set, upcoming list, past sets to watch, artists, host and Encores, support, funders), `/radiolive/<slug>` (lineup, tickets or the recording), `/radiolive/artists/<slug>` and `/radiolive/<slug>/captions.vtt`; `radiolive.xml` in the sitemap; `radiolive` is a reserved path and no show may take the slug `artists`. A show stays "upcoming" for its whole Central day. Artists appear on the page only after a show they played is over. 8 unit and 6 integration tests; checked in a browser at 1440 and 390 px (no overflow). **Left out on purpose (nothing stands behind them):** "tell me when tickets go on sale", the Lineup email signup, the board's giving levels (its extras are marked "proposed"; a gift is made on the donation form), "Every artist, A-Z" and a page for the story of RadioLive (the host block takes a link). **To go live:** create the RadioLive production, then artists and shows, and fill the RadioLive page settings.
    **RadioLive follow-up (2026-11-06).** *Stopgap (2026-11-06, owner approved):* **a show page carries no funder line; only `/radiolive` shows the production's running funders**, so a recording is never credited to a sponsor who did not fund that night (and a sponsor whose term ended is not dropped from archives); revisit when the sponsorship design says which sponsor is tied to which night. *Fixed:* a past show with no recording no longer offers tickets (it says the recording is not posted yet), and the funder panel says "Support for this program" on RadioLive pages (`subject="program"`; **its independence sentence now reads "...what WUWF airs": owner to confirm the wording**). *Migration decisions (owner):* Grove's `/radiolive` page is **replaced, not imported** (the path is reserved; `standalone-dispositions.csv` says `proposed:replace`); `/celebrating-35-years-of-radiolive` imports as an ordinary page and is the target for the host block's "story of RadioLive" link (set it in the RadioLive page settings once it exists); `/show/radiolive-encores` imports as its own small original show with `listed: false`, and the Encores button should point at it (owner to confirm it is a separate program); the three `/post/radiolive-*` addresses that were 404 on Grove (`schedule`, `archive-1`, `audio-archive`) now map to `/radiolive` in the link map and its cache (**they were dead links on Grove, not redirects, so no inbound redirects are added**); `/post/radiolive-videos` still maps to its story. *Reading of the old page (one page, owner-approved, robots.txt allowed it, raw JSON kept outside the repository), what it says that the new build lacks:* (1) a show can have **two ticket links**, in person (radiolive.org) and **virtual** (a ticketing-service page): **done 2026-11-06**, `virtualTicketsUrl` (a second button on the page, the list and the show page); (2) recordings are on **YouTube** (a RadioLive playlist): **done 2026-11-06**, `recordingUrl` accepts one YouTube or Vimeo video (not a playlist) and shows it through the site's embed rules (privacy-enhanced YouTube address, sandboxed frame, nothing of ours runs in it); an uploaded file still wins if both are given. **The site cannot check that a YouTube video has captions, so only an uploaded file is labelled "with captions"**; the admin field tells editors to turn captions on there (migration `20261106_174248_radiolive_virtual_and_hosted_recording`, up, down and up tested); (3) **RadioLive 25**, a $1,000-a-year membership (two lanyards for the year, event invitations, artist updates) handled by a named staff contact: **done 2026-11-06**, a *Membership level* group on the RadioLive page settings (heading, text, contact name, email, phone, optional link; hidden when the heading is empty; email and phone are checked on save and again on render, and shown only as links that passed). **The wording and the staff contact are entered in the admin, not in code**: the old page (public) names a staff member with an email and phone, and the owner chose to publish them; prefer a role address if one exists; (4) "plan your visit" facts (first Thursday, show at 6 p.m., soundcheck from 4 p.m. for 30-45 minutes, first-come seating after soundcheck, tickets $10, email confirmation, check in under your name, Museum of Commerce, 201 Zaragoza St.): **done 2026-11-06**, a *Plan your visit* panel (label and text rows) beside the upcoming list, hidden when empty; **the facts are for an editor to enter** (migration `20261106_175346_radiolive_visit_and_membership`, up, down and up tested); (5) the design canvas misspells two artists (**Pat Byrne**, **Julie Patchouli**; the old page and their own sites use these): use the real spellings; (6) the old page lists the coming schedule (Dec. 3, 2026; Jan. 7, 2027) and about 25 past shows from Oct. 2024 with lineups and each artist's own site: a **backfill source for artists and performances** (a converter plus an owner-approved fetch of the photos); (7) the page carries four partner promos (image plus link): **existing digital placements, for the sponsorship product list**, and not content to import.
-7. Then the earlier build program: Barefoot Mary and member feeds (7: design with the owner first). Filling the homepage slots (9) is **done** (see *Resume here*).
+7. Then the earlier build program: Barefoot Mary and member feeds (7: **7a built 2026-11-06**, see *Phase 7*; 7b to 7e next). Filling the homepage slots (9) is **done** (see *Resume here*).
 
 **The cutover pipeline: what is needed and what was dropped (agreed with the owner, 2026-11-04).** The test for what to build is the *silent* failures: a loud one (a held story, an
 exception, a 404) shows up in rehearsal; the one silent failure we had was episode text vanishing while everything said "clean". **Needed, in order:** (1) **the fidelity checker, DONE**
@@ -700,6 +705,166 @@ canvas and is not reader content. The masthead prints the date in America/Chicag
 Both hubs return 404 until their global names a production or identity. Story saves refresh both. Browser-checked at 1440 and 390 px: no
 horizontal overflow; the map and filter work with a keyboard-reachable button per pin. The site header and footer still wrap the Voyager
 hub (the board shows only a thin WUWF bar); a themed layout per publishing identity is a later decision.
+
+### Phase 7: Barefoot Mary and member feeds (boards 21-25; 7a built 2026-11-06)
+
+**Owner decisions (2026-11-06, do not reopen).** Barefoot Mary's old app (Stripe tiers "descender" $8 and "patron" $25) was never live
+and has no subscribers; that approach is **abandoned** for a normal WUWF sustaining membership that includes the podcast entitlement.
+**There are no show levels** (owner, 2026-11-06, restated): the system is regular WUWF sustaining membership at a qualifying level. The
+boards' "$25 Descender" level and its show perks are **not real** and are not built (the show support page's "thank-yous" field was removed). The
+membership database sync waits: **entitlements are granted by hand** first. Phase 7 starts with 7a.
+
+**Read before building (boards 21-25 of the canvas; the Barefoot Mary Design System artifact).** The show keeps its identity (Chenier
+display, League Gothic labels, Lora body; amber on black) at `/shows/barefoot-mary`. Every episode, Field Note and archive item is **Free**
+or **Members**. A WUWF sustaining membership at the qualifying level opens members' listening on every WUWF original (the boards say $8 a
+month; the level is a station setting, see 7c). The boards' $25 "Descender" level is not real (above). The gift is made on WUWF's donation form with an attribution code. Board 25 is a signed-in account page: one private feed per
+person per show, with a reset; NPR+ is activated from the same page.
+
+**The split.** 7a: the show's look and public pages, members' content held back (built). 7b: audience sign-in (Supabase Auth in the site's
+own project, passwordless) and the audience profile; members are **not** Payload users (Payload users are staff). 7c: entitlements, granted
+by hand in the admin, and the claim. 7d: private feeds. 7e: the membership database sync.
+
+**Recommended for 7c and 7d (given to the owner 2026-11-06; to confirm when 7c starts).** *Claiming:* Member Services records the
+membership in the admin; the site emails a **single-use claim link** to the address on that membership; opening it while signed in (with
+any email) links that account. Never link on an email match alone (CLAUDE.md). *Feeds:* podcast apps cannot sign in (they fetch on a
+schedule with no cookies; Spotify takes no private feeds), so the account is the source of truth and a per-person, per-show secret feed
+address is only the credential the app carries: issued from the account, revoked by a reset, and checked against the entitlement on every
+fetch; enclosures are short-lived signed addresses, checked again. On wuwf.org a signed-in member just plays in the page.
+
+**Built in 7a.**
+- **Members-only work** (`lib/members/access.ts`, migration `20261106_220832_members_only`; existing rows become free). A story and an
+  audio file have a `membersOnly` flag. Public reads of a members-only story get its title, teaser and picture but **not its body or
+  featured audio** (field read access, **fail closed**: readable only when the flag is explicitly false; `forceSelect` makes every query
+  read the flag; mutation-checked). A members-only audio file is not readable by the public and **its file is refused at its own address**
+  (the file route applies the collection's read access). A members-only story may only carry members-only audio (`hooks/membersAudioGuard`).
+  Members' episodes are left out of the public podcast feed. Every audio and archive file is served `Cache-Control: private` (a shared cache
+  must never keep one). Staff with `content.write` see everything. The story page shows a "For WUWF members" panel in place of the body.
+  **Hosted storage:** the bucket must stay **private** (files are served through Payload's route, which checks access); a public bucket
+  would serve members' files directly. Check the site's Supabase bucket setting before marking anything members-only on staging.
+- **Per-show themes in code** (`lib/shows/themes.ts`, contrast-tested pairs, 4.5:1): a show's `theme` select picks one; nothing about
+  colour or CSS is stored in the CMS. Themed components read `--color-show-*` and `--font-show-*` (`components/Show/themed/`).
+  League Gothic and Lora are self-hosted (OFL). **Chenier is not**: its web licence is unconfirmed, so display text uses Lora (owner).
+- **Themed pages** (migration `20261106_221525_show_themes_archive`, up, down and up tested): the show home (board 21: hero, latest
+  episode, episodes with Free/Members, Field Notes, Archive, membership band, about, funder panel in the station's neutral look), the
+  episode or Field Note page (board 23, with the members' panel), `<show>/field-notes`, `<show>/archive`, and `<show>/support` (board 24:
+  the station's levels from the Support page settings, the show's own questions, a link to WUWF's donation form with the
+  show's attribution code; validated like the giving page's links). A Field Note is a story of the show that is not an episode, with a
+  type (essay, primary source, analysis, interview, deep dive). `archive-items` is a new upload collection (PDF, image, audio, text; drafts):
+  the catalogue is public, a members-only item's file has no address for the public and is refused at its own.
+- Tests: `tests/int/members-only.int.spec.ts` (8), `tests/int/themed-show.int.spec.ts` (6), unit tests for the rules, themes and sub-paths.
+  Checked in a browser at 1440 and 390 px with scratch demo content (not committed): no duplicate ids, and the members-only body never
+  appears in the HTML. Field Notes take the story's normal address (`/<section>/<date>/<slug>`), not one under the show: only
+  episodes move under `/shows/<slug>`. (A header-logo overflow at 390 px reported in this session was an artifact of a stale server whose stylesheets a rebuild had replaced; on a correctly served build the logo is 85 px wide with or without its image. Stop a server before rebuilding: `lsof -i` did not see it here, `pkill -f next-server` did.)
+
+**Seasons and episode numbers (built 2026-11-06, after 7a).** `seasons` is a collection (a show, a number used once per show, a title such
+as "Tunnel Vision", a one-line summary, an optional picture; drafts). An episode picks one of **its own show's** seasons, an episode
+number (0 allowed, used once per season among full episodes) and a type (episode, trailer, bonus; trailers and bonus episodes may repeat a
+number). Pure rules in `lib/shows/seasons.ts` ("Season One", "Ep. 2", grouping, which season is airing); the save rules in
+`hooks/seasonRules.ts`. The themed show home groups episodes by season (newest season first, trailer then episode order then bonus;
+episodes with no season last) and says "Now airing · Season One · Tunnel Vision" for the season holding the newest episode, using its
+summary and picture; the episode page's breadcrumb reads "Episodes / Season One / Ep. 2"; the plain show page shows "Ep. 2" too. The
+podcast feed carries `itunes:season`, `itunes:episode` and `itunes:episodeType`. Migration `20261106_223920_seasons` (up, down and up
+tested; its `down()` drops the stories' season keys with `IF EXISTS`, since dropping the table already took them). Tests:
+`tests/int/seasons.int.spec.ts` (4), `lib/shows/seasons.test.ts`, a feed test. The themed home lists up to 300 episodes. Not done: the
+board's large watermark season numeral (decoration), and filling seasons or numbers from Grove (not checked whether its episode data carries them).
+
+**Podcast feed settings per show (agreed with the owner 2026-11-06; to do before any show's feed is submitted to Apple or Spotify, and
+before the two Grove feeds move).** One small "Podcast feed" group on the show: Apple category (required for a listing; today there is none),
+explicit (today always false), and feed type, episodic (newest first: Acoustic Interlude Sessions, EcoMinutes) or serial (heard in order,
+by season: Barefoot Mary). Today every feed says `episodic` (`lib/shows/feed.ts`). **Nothing is live:** Barefoot Mary has no feed in Apple
+Podcasts or Spotify from its old app or any host (owner, 2026-11-06), so no `itunes:new-feed-url` hand-over is needed for it; the two Grove
+feeds keep their addresses (`/podcast/<slug>/rss.xml`). Seasons are optional: shows with dated episodes (Acoustic Interlude's weekly
+airings) leave them empty and keep today's date order. If an unthemed show ever uses seasons, move the season grouping into the plain
+show page too (today only the themed page groups; the plain page shows "Ep. 2" labels in date order).
+
+**7b, audience sign-in (built 2026-11-06).** Passwordless email sign-in with Supabase Auth on the site's own project; Resend is
+WUWF's mail service (owner). **Design:** Supabase sends the sign-in email itself through Resend's SMTP, so the site holds **no new
+secret** (no Resend key, no service-role key): it uses only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+already set on Vercel (Preview: staging; Production: production). Code: `lib/audience/` (rules, the `AudienceAuth` interface, the
+Supabase implementation, the request flow, the session refresh), `app/(frontend)/account/` (`/account`, `/account/sign-in`,
+`/account/confirm`), `collections/AudienceProfiles.ts` (one per Supabase user id; **no email address**; readable by membership staff
+only; never created by hand; migration `20261106_232627_audience_profiles`, up, down and up tested). The sign-in form works without a
+script, has a hidden field for bots, limits a client to 6 requests an hour and 20 a day (counted under a keyed hash of its address in the
+calendar's `submission-rate-limits` ledger, never the address or the email), and answers the same whether or not an address has an
+account. The emailed link returns to `/account/confirm` (built from the deployment's own address, never the Host header), which takes only
+the sign-in link types, goes on only to a path on this site (remembered in a one-hour cookie), and records the sign-in. The proxy renews
+sessions on `/account` pages only (Supabase rotates refresh tokens; a page cannot save cookies), so the rest of the site stays cacheable.
+`/account` is reserved (Grove has no such address). The sign-in page carries the **UWF IT-04 notice** (`components/Account/PolicyNotice.tsx`,
+the Portal's wording and its local copy of the policy, `public/policies/`). Tests: `tests/int/audience-sign-in.int.spec.ts` (8, with a fake
+in place of Supabase), `lib/audience/rules.test.ts`. **Not tested against Supabase itself:** no real sign-in has been made; that needs the
+settings below.
+
+**7c, members' listening (built 2026-11-06).** *Owner's model (do not reopen):* a regular WUWF sustaining membership at the
+station's qualifying level carries members' listening (members-only episodes, Field Notes and archive files on every WUWF original);
+**no show has a level of its own**. *Decisions:* claim emails are sent by the site through Resend (owner, option a); access continues
+**14 days** past the end date (card retries); only `membership.manage` (the Membership role, administrators) can grant (Claude's judgment,
+owner delegated).
+- **Records** (`collections/Memberships.ts`, admin "Membership → Members' listening"; migration `20261106_234554_memberships`, up, down and
+  up tested): name, the address on the membership, end date, source (`manual` now, `sync` for 7e), note, the connected account, and the
+  claim (sent, works until, connected; only the **hash** of the link's token, never readable). Not the ledger: no gift, no payment.
+- **The station's level** is one setting, *Support page → Members' listening comes with* (e.g. "a sustaining membership of $8 a month or
+  more"), quoted by the members' panel, the show support pages and `/account`.
+- **Claim:** ticking *Send the claim email when I save* emails a single-use link (14 days) through Resend's HTTP API (`lib/email/mailer.ts`;
+  `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, **not yet set on Vercel**: until they are, sending says "email is not set up" and saves nothing).
+  `/account/claim?token=…` (no-referrer) shows which account the membership will connect to; the **button** connects it (a mail scanner
+  opening the link claims nothing). The account the link is opened in is connected, whatever address it signed in with; never an email
+  match. A new link cannot be sent for a connected membership until staff clear the account.
+- **Access** (`lib/members/entitlement.ts`, `lib/members/claim.ts` → `hasMembersListening`): the one check every members' read goes through.
+- **Unlocking** (7c-2): public story pages stay cached; the members' panel links to `/account/listen/<id>` (private, never cached; checks
+  the membership each request; `lib/members/listen.ts`), and members' audio and archive files go through `/account/files/<library>/<id>`,
+  which checks again and redirects to a **10-minute signed address in the private bucket** (`lib/members/files.ts`; streamed from disk in
+  development). Tests: `memberships.int.spec.ts` (9), `members-unlock.int.spec.ts` (7, mutation-checked), unit tests.
+- **Not done:** audio *blocks inside a body* that point at a members-only file still use the staff-only file address (only the featured
+  audio is rewritten); a members' Field Note's own address shows the panel with a "Sign in to read" link, as an episode does; staff have
+  no list of "claims not yet used" beyond sorting by the claim fields; the claim email's wording is for Member Services to confirm.
+- **To try it on staging:** set the Supabase settings below and `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (Preview) on Vercel, fill *Members'
+  listening comes with*, mark an episode and its audio members-only, add a membership with your own address and send the claim.
+
+**7d, private member feeds (built 2026-11-07).** A member with members' listening gets, per show that has members-only episodes,
+a private feed `/feeds/<show>/<token>.xml`, shown on `/account` (board 25: copy button; Apple Podcasts, Overcast, Pocket Casts buttons;
+reset). **Spotify is not offered**: it takes no private feeds (the board showed it). NPR+ activation is not built. The token is
+`<profile>-<version>-<signature>`, signed (HMAC, key derived from the site secret) over profile, show and version, so **nothing secret is
+stored** and the address can always be shown again; *reset* raises the version (`member-feeds` rows exist only after a reset; migration
+`20261107_002936_member_feeds`, up, down and up tested) and every earlier address answers **410**. The feed carries every published episode
+(season and episode tags included); a members-only episode's enclosure is `/feeds/<show>/<token>/audio/<id>`, which checks the token, the
+membership, and that the audio is the featured audio of a published members-only episode **of that show**, on every play, then gives a
+10-minute signed storage address. A **lapsed** member's feed keeps working with the free episodes only and says why; its members-only audio
+answers 403. Feeds are `private, no-store` and `noindex`. `/feeds` is reserved (Grove had none). Code: `lib/members/feeds.ts` (pure),
+`lib/members/feed-service.ts`, `lib/members/deliver.ts` (shared with 7c's file route). Tests: `member-feeds.int.spec.ts` (7, the reset guard
+mutation-checked), `feeds.test.ts`. **Checked over HTTP on a production build** against a database built only from the committed migrations:
+feed 200 RSS, private and noindex, members' enclosure through the member route, its audio 200, a tampered address 410, the same file at its
+public address 403. *Known limits:* a lapsed-then-renewed member's app picks the members' episodes up again at its next fetch; feed
+fetches are not counted (`feed_activated` in `ANALYTICS.md` is not wired); the per-show feed settings (Apple category, explicit, serial)
+above still apply to these feeds too.
+
+**Supabase settings the owner sets (dashboard; nothing in the repository can).** On `wuwf-site-staging` now, the same on `wuwf-site-production` at go-live:
+1. *Authentication → Emails → SMTP settings:* custom SMTP on; host `smtp.resend.com`, port `465`, username `resend`, password **a Resend
+   API key** (create one with sending access only, for the verified wuwf.org sending domain; the Portal's `RESEND_FROM_EMAIL` shows which
+   domain is verified); sender address on that domain (suggested `no-reply@`), sender name `WUWF Public Media`.
+2. *Authentication → Emails → Templates,* both **Magic link** and **Confirm signup** (a first-time address gets the second): the link
+   must be `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`. Suggested subject "Your WUWF sign-in link"; body: "Use this link
+   to sign in to wuwf.org. It works once and expires in an hour. If you did not ask for it, ignore this email." (owner to confirm the words).
+3. *Authentication → URL configuration:* Site URL = the staging site's address; Redirect URLs: `https://wuwf-site-*-wuwf.vercel.app/account/confirm`
+   (previews; Vercel's addresses for this project) and the stable staging address + `/account/confirm`. **If the return address is not on this
+   list, Supabase swaps in the Site URL and the emailed link breaks.** Production at go-live: `https://www.wuwf.org/account/confirm` (or the final host).
+4. *Authentication → Rate limits:* emails per hour (Supabase's cap for the whole project; with custom SMTP it can be raised) to what member
+   sign-ins need; the one-link-per-address-per-minute default can stay.
+5. Leave *Allow new users to sign up* on (the first link makes the account).
+
+**Found on the way:** (1) the community calendar's public submission form collects names and emails but does **not** carry the IT-04 notice
+(CLAUDE.md says every such page must). `PolicyNotice` can be added to it in one line. (2) **Fixed:** that form's error messages and red field borders used `var(--on-air-red)`, which does not exist (the token is `--color-on-air-red`), so errors showed in black; both forms now use `text-on-air-red` / `border-on-air-red` (4.58:1 on white).
+
+**Left out of 7a on purpose (and why).**
+- The board's navy "A WUWF original" strip **replacing** the station header: the site header lives in the root layout, so a show cannot
+  drop it without splitting the layout (every route moves into a route group). The show's own section band sits under the station header.
+  Owner's call whether the split is worth it.
+- Share Your Story (listening is deferred). NPR+ activation
+  (depends on NPR's system: find out how it works first). "Sign in", "Get your feed", "Playing from your members' feed" (7b-7d). Transcripts
+  and "related archive items" on the episode page. Podcast-app buttons and the show's own podcast feed link.
+- The amount picker on the support page (the gift is chosen on WUWF's form). Nothing on the support page promises a feed until 7d exists.
+
+**Owner to confirm:** the members' panel wording ("This episode is for WUWF sustaining members…"); the Chenier licence (or keep Lora); the
+header-strip layout split; whether a members-only story should exist on staging before 7b (today nobody outside the staff can read it).
 
 ### Admin organization and merged collections (2026-11-03)
 

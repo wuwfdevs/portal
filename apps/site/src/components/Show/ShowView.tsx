@@ -8,6 +8,7 @@ import RichText from '@/components/RichText'
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import { audioOf, type ShowData } from '@/lib/shows/load'
+import { episodeLabel } from '@/lib/shows/seasons'
 
 /**
  * A show's page (board 10): what it is, who funds it, the newest episode with its player, who hosts it, every episode.
@@ -110,7 +111,7 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
                 const length = formatDuration(audioOf(e)?.durationSeconds)
                 return (
                   <li className="relative flex flex-col gap-1 py-4" key={e.id}>
-                    <p className="text-sm text-ink-3">{[e.publishedAt ? formatLongDate(e.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</p>
+                    <p className="text-sm text-ink-3">{[episodeLabel(e.episodeNumber, e.episodeType), e.publishedAt ? formatLongDate(e.publishedAt) : null, length || null].filter(Boolean).join(' · ')}</p>
                     <h3 className="font-serif text-xl font-bold leading-snug">
                       {e.path ? (
                         <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={e.path}>

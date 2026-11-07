@@ -20,7 +20,7 @@ const STATES: [string, string][] = [
 ]
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-const control = 'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-[var(--on-air-red)] aria-[invalid=true]:border-2'
+const control = 'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-on-air-red aria-[invalid=true]:border-2'
 const legend = 'px-1 font-serif text-xl font-bold text-ink'
 const set = 'flex flex-col gap-4 rounded-sm border border-rule p-4 md:p-6'
 
@@ -95,7 +95,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
           type={opts.type ?? 'text'}
         />
         {err && (
-          <p className="text-sm font-semibold text-[var(--on-air-red)]" id={`${id}-err`}>
+          <p className="text-sm font-semibold text-on-air-red" id={`${id}-err`}>
             {err}
           </p>
         )}
@@ -115,7 +115,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
         </p>
         <textarea aria-describedby={`${id}-hint${err ? ` ${id}-err` : ''}`} aria-invalid={err ? true : undefined} className={control} defaultValue={v(name)} id={id} name={name} rows={rows} />
         {err && (
-          <p className="text-sm font-semibold text-[var(--on-air-red)]" id={`${id}-err`}>
+          <p className="text-sm font-semibold text-on-air-red" id={`${id}-err`}>
             {err}
           </p>
         )}
@@ -135,7 +135,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
   return (
     <form action={action} className="flex flex-col gap-8" encType="multipart/form-data">
       {state.status === 'error' && (
-        <div ref={summary} className="rounded-sm border-2 border-[var(--on-air-red)] bg-surface p-4" role="alert" tabIndex={-1}>
+        <div ref={summary} className="rounded-sm border-2 border-on-air-red bg-surface p-4" role="alert" tabIndex={-1}>
           <p className="text-base font-bold text-ink">{state.message}</p>
           {errorList.length > 0 && (
             <ul className="mt-2 list-disc pl-6 text-base text-ink-2">
@@ -178,7 +178,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             ))}
           </div>
           {errors['event-category'] && (
-            <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['event-category']}</p>
+            <p className="text-sm font-semibold text-on-air-red">{errors['event-category']}</p>
           )}
         </div>
         {textarea('event-description', 'Description', 'Plain text. Leave a blank line between paragraphs. Say who is putting it on, what it is, and a phone number or email for questions.', 7)}
@@ -191,7 +191,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
           {radio('event-type', 'et-recurring', 'recurring-event', 'Recurring event', v('event-type') === 'recurring-event')}
         </div>
         {errors['event-type'] && (
-          <p className="text-sm font-semibold text-[var(--on-air-red)]" id="f-event-type-err">
+          <p className="text-sm font-semibold text-on-air-red" id="f-event-type-err">
             {errors['event-type']}
           </p>
         )}
@@ -211,7 +211,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             {radio('recurring-event-repeats', 'rp-weekly', 'recurring-event-repeats-weekly', 'Repeats weekly', checked('recurring-event-repeats', 'recurring-event-repeats-weekly'))}
             {radio('recurring-event-repeats', 'rp-monthly', 'recurring-event-repeats-monthly', 'Repeats monthly', checked('recurring-event-repeats', 'recurring-event-repeats-monthly'))}
           </div>
-          {errors['recurring-event-repeats'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['recurring-event-repeats']}</p>}
+          {errors['recurring-event-repeats'] && <p className="text-sm font-semibold text-on-air-red">{errors['recurring-event-repeats']}</p>}
 
           <div className="hidden flex-col gap-4 group-has-[#rp-daily:checked]/rep:flex">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -238,13 +238,13 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
                     </option>
                   ))}
                 </select>
-                {errors['weekly-interval'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['weekly-interval']}</p>}
+                {errors['weekly-interval'] && <p className="text-sm font-semibold text-on-air-red">{errors['weekly-interval']}</p>}
               </div>
             </div>
             <div className="flex flex-col gap-2" id="f-weekly-day-0">
               <p className="text-base font-semibold text-ink">Days and times</p>
               <p className="text-sm text-ink-3">Tick each day it happens and give that day&apos;s start and end.</p>
-              {errors['weekly-day-0'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['weekly-day-0']}</p>}
+              {errors['weekly-day-0'] && <p className="text-sm font-semibold text-on-air-red">{errors['weekly-day-0']}</p>}
               {WEEKDAYS.map((name, d) => (
                 <div className="grid items-end gap-3 sm:grid-cols-[10rem_1fr_1fr]" key={name}>
                   <label className="flex min-h-11 items-center gap-3 text-base text-ink">
@@ -276,7 +276,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
                     </option>
                   ))}
                 </select>
-                {errors['monthly-frequency'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['monthly-frequency']}</p>}
+                {errors['monthly-frequency'] && <p className="text-sm font-semibold text-on-air-red">{errors['monthly-frequency']}</p>}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-base font-semibold text-ink" htmlFor="f-monthly-day-of-week">
@@ -290,7 +290,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
                     </option>
                   ))}
                 </select>
-                {errors['monthly-day-of-week'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['monthly-day-of-week']}</p>}
+                {errors['monthly-day-of-week'] && <p className="text-sm font-semibold text-on-air-red">{errors['monthly-day-of-week']}</p>}
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-base font-semibold text-ink" htmlFor="f-monthly-every">
@@ -304,7 +304,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
                     </option>
                   ))}
                 </select>
-                {errors['monthly-every'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['monthly-every']}</p>}
+                {errors['monthly-every'] && <p className="text-sm font-semibold text-on-air-red">{errors['monthly-every']}</p>}
               </div>
             </div>
           </div>
@@ -329,7 +329,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
                 </option>
               ))}
             </select>
-            {errors['venue-state'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['venue-state']}</p>}
+            {errors['venue-state'] && <p className="text-sm font-semibold text-on-air-red">{errors['venue-state']}</p>}
           </div>
           {field('venue-zip', 'Zip code', { inputMode: 'numeric' })}
         </div>
@@ -350,7 +350,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             Optional. A JPEG, PNG, WebP or GIF, at least 300 by 300 pixels and no bigger than 2000 by 2000, up to 4 MB. A chosen file is not kept if the form comes back with a question for you.
           </p>
           <input accept="image/jpeg,image/png,image/webp,image/gif" aria-describedby="f-event-image-hint" aria-invalid={errors['event-image'] ? true : undefined} className={`${control} file:mr-3 file:rounded-sm file:border-0 file:bg-surface-3 file:px-3 file:py-2`} id="f-event-image" name="event-image" type="file" />
-          {errors['event-image'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['event-image']}</p>}
+          {errors['event-image'] && <p className="text-sm font-semibold text-on-air-red">{errors['event-image']}</p>}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {field('price-price-range', 'Price or price range', { hint: 'For example $10 or $25-40.', maxLength: 60 })}
@@ -359,7 +359,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             This is a free event
           </label>
         </div>
-        {errors['price-price-range'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['price-price-range']}</p>}
+        {errors['price-price-range'] && <p className="text-sm font-semibold text-on-air-red">{errors['price-price-range']}</p>}
         {textarea('additional-pricing-information', 'Additional pricing information', 'For example: tickets must be bought online.', 3)}
         {field('ticketing-website', 'Ticket or registration website', { inputMode: 'url', placeholder: 'https://example.org' })}
       </fieldset>
@@ -381,7 +381,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             {radio('presenting-organization-designation', 'ds-np', 'not-for-profit', 'Not for profit', v('presenting-organization-designation') === 'not-for-profit')}
             {radio('presenting-organization-designation', 'ds-fp', 'for-profit', 'For profit', v('presenting-organization-designation') === 'for-profit')}
           </div>
-          {errors['presenting-organization-designation'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['presenting-organization-designation']}</p>}
+          {errors['presenting-organization-designation'] && <p className="text-sm font-semibold text-on-air-red">{errors['presenting-organization-designation']}</p>}
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {field('artist-name', 'Artist or performer', { maxLength: 120 })}
@@ -411,7 +411,7 @@ export function SubmissionForm({ categories, initialToken, today }: { categories
             <option value="artist">An artist</option>
             <option value="promoter">A promoter</option>
           </select>
-          {errors['your-information-submitting-as'] && <p className="text-sm font-semibold text-[var(--on-air-red)]">{errors['your-information-submitting-as']}</p>}
+          {errors['your-information-submitting-as'] && <p className="text-sm font-semibold text-on-air-red">{errors['your-information-submitting-as']}</p>}
         </div>
       </fieldset>
 

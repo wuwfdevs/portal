@@ -4,6 +4,11 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { ArchiveItems } from './collections/ArchiveItems'
+import { AudienceProfiles } from './collections/AudienceProfiles'
+import { Memberships } from './collections/Memberships'
+import { MemberFeeds } from './collections/MemberFeeds'
+import { Seasons } from './collections/Seasons'
 import { Audio } from './collections/Audio'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
@@ -100,6 +105,8 @@ export default buildConfig({
     Audio,
     Video,
     Clips,
+    Seasons,
+    ArchiveItems,
     Artists,
     Performances,
     Sections,
@@ -114,6 +121,9 @@ export default buildConfig({
     UnderwritingAgreements,
     Users,
     PortalSignIns,
+    AudienceProfiles,
+    Memberships,
+    MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub],

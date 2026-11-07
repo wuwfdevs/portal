@@ -3,8 +3,8 @@ import type { CollectionConfig } from 'payload'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-import { anyone } from '../access/anyone'
 import { requirePermission } from '../access/permissions'
+import { membersOnlyField, privateFileHeaders, publicUnlessMembersOnly } from '../lib/members/access'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -12,8 +12,8 @@ const dirname = path.dirname(filename)
 /**
  * The audio library: station audio that stories, shows and the player reuse. Kept apart from `media` so it takes
  * audio files only, has no image sizes to generate, and can have its own upload limits and storage settings.
- * Public: anything published here is meant to be heard. (Audio that must stay private belongs in a different
- * collection with its own access, not here.)
+ * Public, except a file marked members-only (a members' episode): the public cannot read its record or fetch the file
+ * from its address (the file route applies the same read access).
  */
 export const Audio: CollectionConfig = {
   slug: 'audio',
@@ -21,7 +21,7 @@ export const Audio: CollectionConfig = {
   access: {
     create: requirePermission('content.write'),
     delete: requirePermission('content.write'),
-    read: anyone,
+    read: publicUnlessMembersOnly,
     update: requirePermission('content.write'),
   },
   admin: {
@@ -30,6 +30,8 @@ export const Audio: CollectionConfig = {
     defaultColumns: ['title', 'credit', 'durationSeconds', 'updatedAt'],
     listSearchableFields: ['title', 'filename', 'credit'],
   },
+  // The members-only flag is always read, so the access rules never see a file without it.
+  forceSelect: { membersOnly: true },
   fields: [
     {
       name: 'title',
@@ -39,6 +41,7 @@ export const Audio: CollectionConfig = {
       admin: { description: 'What a listener sees on the player, e.g. "Listen to this story".' },
     },
     { name: 'description', type: 'textarea' },
+    membersOnlyField('Only WUWF members may hear it (a members\' episode). The public cannot play or download it from its address.'),
     {
       name: 'credit',
       type: 'text',
@@ -75,5 +78,6 @@ export const Audio: CollectionConfig = {
     staticDir: path.resolve(dirname, '../../public/audio'),
     // Audio only. Naming the types also skips Payload's blocked-file-type list, which would otherwise be irrelevant here.
     mimeTypes: ['audio/*'],
+    modifyResponseHeaders: privateFileHeaders,
   },
 }

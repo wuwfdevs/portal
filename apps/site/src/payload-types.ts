@@ -78,6 +78,8 @@ export interface Config {
     audio: Audio;
     video: Video;
     clips: Clip;
+    seasons: Season;
+    'archive-items': ArchiveItem;
     artists: Artist;
     performances: Performance;
     sections: Section;
@@ -92,6 +94,9 @@ export interface Config {
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
     'portal-sign-ins': PortalSignIn;
+    'audience-profiles': AudienceProfile;
+    memberships: Membership;
+    'member-feeds': MemberFeed;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -123,6 +128,8 @@ export interface Config {
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
     clips: ClipsSelect<false> | ClipsSelect<true>;
+    seasons: SeasonsSelect<false> | SeasonsSelect<true>;
+    'archive-items': ArchiveItemsSelect<false> | ArchiveItemsSelect<true>;
     artists: ArtistsSelect<false> | ArtistsSelect<true>;
     performances: PerformancesSelect<false> | PerformancesSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
@@ -137,6 +144,9 @@ export interface Config {
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
+    'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
+    memberships: MembershipsSelect<false> | MembershipsSelect<true>;
+    'member-feeds': MemberFeedsSelect<false> | MemberFeedsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -447,6 +457,23 @@ export interface Post {
    * The WUWF production this episode belongs to. A syndicated program has no episodes here.
    */
   production?: (number | null) | Production;
+  /**
+   * The show's season this episode belongs to (pick the show first).
+   */
+  season?: (number | null) | Season;
+  /**
+   * Shown as "Ep. 2". 0 is allowed. Used once per season.
+   */
+  episodeNumber?: number | null;
+  episodeType?: ('full' | 'trailer' | 'bonus') | null;
+  /**
+   * A story that belongs to a themed show and is not an episode is one of its Field Notes (board 21). The type is the label shown on it.
+   */
+  fieldNoteKind?: ('essay' | 'primary-source' | 'analysis' | 'interview' | 'deep-dive') | null;
+  /**
+   * For WUWF members only (a members' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.
+   */
+  membersOnly?: boolean | null;
   /**
    * Unearthing Florida: the place this episode is about. Shown on the hub's map.
    */
@@ -778,6 +805,10 @@ export interface Audio {
    */
   title: string;
   description?: string | null;
+  /**
+   * Only WUWF members may hear it (a members' episode). The public cannot play or download it from its address.
+   */
+  membersOnly?: boolean | null;
   /**
    * Who produced it, e.g. "WUWF News".
    */
@@ -1223,6 +1254,36 @@ export interface Production {
    */
   programUrl?: string | null;
   /**
+   * The show's own look on wuwf.org (its colours and type, set by a developer and checked for contrast). Empty uses the station's look. A themed show also gets its own support page at its address + /support.
+   */
+  theme?: 'barefoot-mary' | null;
+  /**
+   * The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.
+   */
+  showSupport?: {
+    eyebrow?: string | null;
+    /**
+     * e.g. "Support Barefoot Mary".
+     */
+    heading?: string | null;
+    /**
+     * Why supporting the station supports the show. Say the gift is a tax-deductible donation to WUWF; never call it a subscription.
+     */
+    intro?: string | null;
+    /**
+     * WUWF's donation form, with this show's attribution code ("count my gift as support for …") built in. Empty hides the button.
+     */
+    donateUrl?: string | null;
+    donateLabel?: string | null;
+    questions?:
+      | {
+          question: string;
+          answer: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
    * Set by the migration. Leave empty for new shows.
    */
   legacy?: {
@@ -1235,6 +1296,36 @@ export interface Production {
   agreements?: (number | UnderwritingAgreement)[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * A show's season. Its episodes pick it (Episode details on the story). A season has no address of its own; it appears on the show's page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seasons".
+ */
+export interface Season {
+  id: number;
+  production: number | Production;
+  /**
+   * Shown as "Season One". Used once per show.
+   */
+  number: number;
+  /**
+   * The season's theme, e.g. "Tunnel Vision".
+   */
+  title?: string | null;
+  /**
+   * One line, e.g. "A descent through Pensacola's hidden underground."
+   */
+  summary?: string | null;
+  /**
+   * Optional. Behind the show's title while this season is airing.
+   */
+  image?: (number | null) | Media;
+  label?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * Places Unearthing Florida episodes are about. Each appears as a pin on the hub's map.
@@ -1928,6 +2019,49 @@ export interface Clip {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * A show's Archive: documents, maps, photographs and recordings behind its episodes. The catalogue is public; a members-only item's file is not.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "archive-items".
+ */
+export interface ArchiveItem {
+  id: number;
+  title: string;
+  production: number | Production;
+  kind: 'document' | 'image' | 'map' | 'audio' | 'transcript';
+  /**
+   * Only members may open the file. Its title, description and source stay public in the catalogue.
+   */
+  membersOnly?: boolean | null;
+  /**
+   * Where it came from and when, e.g. "U.S. Army Corps of Engineers, 1903" or "Recorded 1996".
+   */
+  source?: string | null;
+  description?: string | null;
+  /**
+   * The episode it is cited in, if any.
+   */
+  episode?: (number | null) | Post;
+  /**
+   * Orders the catalogue, newest first. Defaults to when it was added.
+   */
+  sortDate?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
  * Musicians who play RadioLive. Add one here, then put them in a show's lineup.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2024,6 +2158,76 @@ export interface PortalSignIn {
   jti: string;
   portalUserId: string;
   expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Readers who have signed in to wuwf.org. Email addresses stay in the sign-in service, not here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audience-profiles".
+ */
+export interface AudienceProfile {
+  id: number;
+  supabaseUserId: string;
+  firstSignInAt?: string | null;
+  lastSignInAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Sustaining members at the station's qualifying level, with members' listening on wuwf.org. Add one, tick "Send the claim email", and the member gets a link that connects the membership to their wuwf.org account. Access ends 14 days after the end date.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships".
+ */
+export interface Membership {
+  id: number;
+  /**
+   * As on the membership. Used to greet them in the claim email.
+   */
+  name: string;
+  /**
+   * The address on the membership. The claim link goes here; it is never used to connect an account by itself.
+   */
+  email: string;
+  /**
+   * The last day the membership is paid through. Move it forward when it renews.
+   */
+  endsOn: string;
+  source: 'manual' | 'sync';
+  /**
+   * For Member Services only.
+   */
+  note?: string | null;
+  /**
+   * Emails a single-use link (good for 14 days) to the address above. Sending again replaces any earlier link.
+   */
+  sendClaimEmail?: boolean | null;
+  /**
+   * Set when the member opens the claim link. Clear it to disconnect the account.
+   */
+  account?: (number | null) | AudienceProfile;
+  claim?: {
+    sentAt?: string | null;
+    expiresAt?: string | null;
+    claimedAt?: string | null;
+    tokenHash?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Members who have reset a private feed. Each reset stops every earlier address for that show.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-feeds".
+ */
+export interface MemberFeed {
+  id: number;
+  account: number | AudienceProfile;
+  production: number | Production;
+  version: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -2263,6 +2467,14 @@ export interface PayloadLockedDocument {
         value: number | Clip;
       } | null)
     | ({
+        relationTo: 'seasons';
+        value: number | Season;
+      } | null)
+    | ({
+        relationTo: 'archive-items';
+        value: number | ArchiveItem;
+      } | null)
+    | ({
         relationTo: 'artists';
         value: number | Artist;
       } | null)
@@ -2317,6 +2529,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'portal-sign-ins';
         value: number | PortalSignIn;
+      } | null)
+    | ({
+        relationTo: 'audience-profiles';
+        value: number | AudienceProfile;
+      } | null)
+    | ({
+        relationTo: 'memberships';
+        value: number | Membership;
+      } | null)
+    | ({
+        relationTo: 'member-feeds';
+        value: number | MemberFeed;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -2584,6 +2808,11 @@ export interface PostsSelect<T extends boolean = true> {
       };
   series?: T;
   production?: T;
+  season?: T;
+  episodeNumber?: T;
+  episodeType?: T;
+  fieldNoteKind?: T;
+  membersOnly?: T;
   site?: T;
   period?: T;
   generateSlug?: T;
@@ -2911,6 +3140,7 @@ export interface MediaSelect<T extends boolean = true> {
 export interface AudioSelect<T extends boolean = true> {
   title?: T;
   description?: T;
+  membersOnly?: T;
   credit?: T;
   durationSeconds?: T;
   legacy?:
@@ -2980,6 +3210,49 @@ export interface ClipsSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seasons_select".
+ */
+export interface SeasonsSelect<T extends boolean = true> {
+  production?: T;
+  number?: T;
+  title?: T;
+  summary?: T;
+  image?: T;
+  label?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "archive-items_select".
+ */
+export interface ArchiveItemsSelect<T extends boolean = true> {
+  title?: T;
+  production?: T;
+  kind?: T;
+  membersOnly?: T;
+  source?: T;
+  description?: T;
+  episode?: T;
+  sortDate?: T;
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3172,6 +3445,23 @@ export interface ProductionsSelect<T extends boolean = true> {
   listed?: T;
   kind?: T;
   programUrl?: T;
+  theme?: T;
+  showSupport?:
+    | T
+    | {
+        eyebrow?: T;
+        heading?: T;
+        intro?: T;
+        donateUrl?: T;
+        donateLabel?: T;
+        questions?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
+      };
   legacy?:
     | T
     | {
@@ -3251,6 +3541,51 @@ export interface PortalSignInsSelect<T extends boolean = true> {
   jti?: T;
   portalUserId?: T;
   expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audience-profiles_select".
+ */
+export interface AudienceProfilesSelect<T extends boolean = true> {
+  supabaseUserId?: T;
+  firstSignInAt?: T;
+  lastSignInAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "memberships_select".
+ */
+export interface MembershipsSelect<T extends boolean = true> {
+  name?: T;
+  email?: T;
+  endsOn?: T;
+  source?: T;
+  note?: T;
+  sendClaimEmail?: T;
+  account?: T;
+  claim?:
+    | T
+    | {
+        sentAt?: T;
+        expiresAt?: T;
+        claimedAt?: T;
+        tokenHash?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-feeds_select".
+ */
+export interface MemberFeedsSelect<T extends boolean = true> {
+  account?: T;
+  production?: T;
+  version?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3812,6 +4147,10 @@ export interface SupportPage {
    * One short line under the levels (vehicle and property gifts, the Combined Federal Campaign number).
    */
   otherWays?: string | null;
+  /**
+   * The qualifying level, in words, e.g. "a sustaining membership of $8 a month or more". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.
+   */
+  membersListeningLevel?: string | null;
   showBusinesses?: boolean | null;
   businessesEyebrow?: string | null;
   businessesHeading?: string | null;
@@ -4218,6 +4557,7 @@ export interface SupportPageSelect<T extends boolean = true> {
         id?: T;
       };
   otherWays?: T;
+  membersListeningLevel?: T;
   showBusinesses?: T;
   businessesEyebrow?: T;
   businessesHeading?: T;
