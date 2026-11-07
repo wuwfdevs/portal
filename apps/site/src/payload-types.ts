@@ -2284,10 +2284,21 @@ export interface Search {
   id: number;
   title?: string | null;
   priority?: number | null;
-  doc: {
-    relationTo: 'posts';
-    value: number | Post;
-  };
+  doc:
+    | {
+        relationTo: 'posts';
+        value: number | Post;
+      }
+    | {
+        relationTo: 'productions';
+        value: number | Production;
+      }
+    | {
+        relationTo: 'clips';
+        value: number | Clip;
+      };
+  kind?: ('story' | 'live' | 'episode' | 'show' | 'program' | 'video') | null;
+  publishedAt?: string | null;
   slug?: string | null;
   path?: string | null;
   meta?: {
@@ -3762,6 +3773,8 @@ export interface SearchSelect<T extends boolean = true> {
   title?: T;
   priority?: T;
   doc?: T;
+  kind?: T;
+  publishedAt?: T;
   slug?: T;
   path?: T;
   meta?:
@@ -3872,7 +3885,45 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface Header {
   id: number;
   /**
-   * The primary navigation, left to right.
+   * The menus across the top (board 27: News, Shows, Watch, Community, About). Each opens a panel under the header. Listen live, Search, Sign in and Donate stay outside them. While this is empty the plain links below are shown instead.
+   */
+  menus?:
+    | {
+        /**
+         * The word in the header, e.g. "News".
+         */
+        label: string;
+        /**
+         * The panel's title, e.g. "Shows and podcasts". Empty uses the label.
+         */
+        heading?: string | null;
+        /**
+         * One sentence under the title.
+         */
+        blurb?: string | null;
+        links: {
+          link: {
+            type?: ('reference' | 'custom') | null;
+            newTab?: boolean | null;
+            reference?:
+              | ({
+                  relationTo: 'pages';
+                  value: number | Page;
+                } | null)
+              | ({
+                  relationTo: 'posts';
+                  value: number | Post;
+                } | null);
+            url?: string | null;
+            label: string;
+          };
+          id?: string | null;
+        }[];
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Plain links, shown only while there are no menus above. Kept so the header is never empty during the change.
    */
   navItems?:
     | {
@@ -3978,6 +4029,20 @@ export interface Footer {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.
+   */
+  publicFile: {
+    /**
+     * The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.
+     */
+    url?: string | null;
+    label: string;
+    /**
+     * Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."
+     */
+    accessibilityContact?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4378,6 +4443,28 @@ export interface RadioliveHub {
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
+  menus?:
+    | T
+    | {
+        label?: T;
+        heading?: T;
+        blurb?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
   navItems?:
     | T
     | {
@@ -4448,6 +4535,13 @@ export interface FooterSelect<T extends boolean = true> {
               label?: T;
             };
         id?: T;
+      };
+  publicFile?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        accessibilityContact?: T;
       };
   updatedAt?: T;
   createdAt?: T;

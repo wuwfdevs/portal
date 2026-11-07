@@ -45,6 +45,41 @@ export const Footer: GlobalConfig = {
         },
       },
     },
+    {
+      name: 'publicFile',
+      type: 'group',
+      label: 'FCC public file',
+      admin: {
+        description:
+          "Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.",
+      },
+      fields: [
+        {
+          name: 'url',
+          type: 'text',
+          label: 'Public file address',
+          validate: (value: string | null | undefined) => {
+            if (!value) return true
+            try {
+              const u = new URL(value)
+              return u.protocol === 'https:' && u.hostname === 'publicfiles.fcc.gov'
+                ? true
+                : 'Use the station’s page on https://publicfiles.fcc.gov/.'
+            } catch {
+              return 'Use a full address, starting with https://publicfiles.fcc.gov/.'
+            }
+          },
+          admin: { description: 'The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.' },
+        },
+        { name: 'label', type: 'text', defaultValue: 'FCC Public File', required: true },
+        {
+          name: 'accessibilityContact',
+          type: 'textarea',
+          maxLength: 300,
+          admin: { description: 'Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."' },
+        },
+      ],
+    },
   ],
   hooks: {
     afterChange: [revalidateFooter],

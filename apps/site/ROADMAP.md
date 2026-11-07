@@ -4,10 +4,71 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: the current work is on `claude/sharp-fermi-fmy9un` in `wuwfdevs/portal` (phase 7a, see *Resume here* and *Phase 7*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
+Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Resume here (end of the 2026-11-06 session; homepage slots added later the same day)
+## Resume here (2026-11-07: board 27 built; board 26 designed, not built)
+
+**Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
+**120 files, 1,398 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
+passes; migration `20261107_042509_board27_menus_search_public_file` tested up, down and up.
+
+**Board 27 and 27b, menus, search and footer: built 2026-11-07.**
+- *Header.* The Header global gains **menus** (up to 6, each a label, a panel heading, one sentence and up to 16 links), edited
+  in the admin. Each menu is a real button with `aria-expanded` that opens one panel under the header; Escape closes it and returns
+  focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row of menus
+  scrolls sideways under the logo, as on board 27b. Search (a link to `/search`), Sign in (to `/account`, shown only when audience
+  sign-in is configured) and Donate (to `/support`) sit outside the menus. **While no menus are entered, the old plain links show
+  as before**, so the header is never empty during the change; remove `navItems` once the menus are in. Listen live is still left
+  out until the player exists (board 26).
+- *Search* (`/search?q=…&type=stories|shows|video&page=…`): a page, not a popup, built to the board. It is a plain GET form (it
+  works without JavaScript). Every word must match the title or the description. Results show their kind and date, with a
+  count line, a "nothing matched" state, paging, and a message if search fails. Results pages are `noindex`. The search index now
+  covers **stories, episodes, shows, syndicated programs and short video** (`posts`, `productions`, `clips`), each indexed with a
+  `kind` and `publishedAt` (`search/beforeSync.ts`; pure rules in `lib/search/query.ts`). Drafts are never indexed. The
+  migration backfills the kind and date of stories already in the index. **After deploying, press Reindex on the Search
+  collection in the admin once**, so existing shows and clips enter the index (or they enter on their next save). 12 unit and 3
+  integration tests (`tests/int/search.int.spec.ts`).
+- *Footer.* A new **FCC public file** group: the address (only `https://publicfiles.fcc.gov/...` is accepted), its label
+  (default "FCC Public File") and the **accessibility contact**. The link shows on every page, and is a field of its own so
+  reordering the legal row cannot drop it. Research (2026-11-07, from secondary sources; the eCFR text could not be read from
+  the sandbox): WUWF is noncommercial, so **47 CFR 73.3527** applies. It requires the link from the home page. No link wording
+  is required. A contact for people with disabilities who need help with the file must be on the website. A separate rule,
+  **47 CFR 73.2080(c)(6)**, requires the current EEO public file report on the website if the employment unit has 5 or more
+  full-time staff: link it from the legal row. An amendment to these rules is listed as pending, so have counsel confirm.
+- Checked in a browser at 1440 and 390 px (menu opens, Escape returns focus, no overflow, FCC link shows).
+- **Not built:** the board's "Ask WUWF" and "Schedule" boxes beside results (listening is deferred, and the schedule arrives with
+  board 26); the About and footer text pages (Staff, Ethics and corrections, Contact, Privacy, Accessibility, Terms) are ordinary
+  `pages` for editors to write.
+- **To go live (owner/editors):** enter the five menus in Header; set the public file address (check whether the FCC lists the
+  station as `WUWF` or `WUWF-FM` at `publicfiles.fcc.gov/fm-profile/...`) and the accessibility contact; add the EEO report to the
+  legal row if it applies; press Reindex.
+
+**Board 26, Listen live: the design, revised from research (2026-11-07; not built).** The canvas note took "now playing" from the
+program log; the owner doubted it and guessed the stream. The research (vendor docs, trade press and other stations' APIs; some
+StreamGuys pages could not be read from the sandbox) supports neither alone:
+- **"On now" and "Up next" (the program) come from the schedule, not the stream.** The stream cannot know what is next, and during talk
+  and NPR programs its title is often a station ID or stale. Public stations drive "On now" from a schedule database. WUWF's Grove site
+  very likely uses **NPR Composer** for its schedule. Composer has an undocumented widget API that returns a week per station
+  (sources disagree on whether it needs a key). **Read it on the server, one channel at a time (88.1, HD2, HD3), cache it for a few minutes,
+  and keep the last good copy.** If it fails, work out "on now" from the cached week, or hide the line. Never show a program after its
+  scheduled end.
+- **"Now playing" (a song) only when there is fresh song data**, in this order: a playlist log, if hosts log songs (Composer "On
+  Now", or Spinitron); otherwise the stream's own title, read **on the server** (StreamGuys SGmetadata, a paid API with a key and a
+  scraper per stream; or Icecast `status-json.xsl`, deprecated and sometimes turned off). Show a song only during a music program, only
+  when the data changed recently (about 10 minutes), and never a station-ID string. Otherwise show the program. Nothing for NPR's
+  news magazines unless PRSS MetaPub is wired in.
+- **Never read metadata in the browser:** in-band ICY metadata needs CORS headers most servers do not send and at least 16 KB of
+  audio before the first title; one server fetch serves every listener and keeps any vendor key private.
+- **The player** stays as the board has it: a player in front of StreamGuys stream URLs, one per channel, in the site layout so it
+  keeps playing between pages, with a bar at the bottom once started.
+- **Questions before building.** For StreamGuys: the mount URLs and formats for FM, HD2 and HD3 (Icecast/ICY, or HLS with ID3);
+  whether status-json is public, and which CORS and `Icy-*` headers are set; whether SGmetadata is on the contract, with its key
+  and scraper UUIDs. For the engineer: which automation system and encoder send titles, and what they send during talk; whether
+  MetaPub is used; whether Composer is the master schedule for each channel and logs songs; each channel's Composer UCS; whether
+  any NPR program airs on delay.
+
+### Earlier: end of the 2026-11-06 session (homepage slots added later the same day)
 
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),

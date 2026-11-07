@@ -98,7 +98,8 @@ export const plugins: Plugin[] = [
     },
   }),
   searchPlugin({
-    collections: ['posts'],
+    // Board 27: stories (and episodes), shows and programs, and short video. Drafts never reach the index.
+    collections: ['posts', 'productions', 'clips'],
     beforeSync: beforeSyncWithSearch,
     searchOverrides: {
       admin: { group: 'System' },
