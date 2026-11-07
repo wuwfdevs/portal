@@ -47,6 +47,13 @@ passes; migration `20261107_043501_board27_header_search_public_file` tested up,
   station as `WUWF` or `WUWF-FM` at `publicfiles.fcc.gov/fm-profile/...`) and the accessibility contact; add the EEO report to the
   legal row if it applies; press Reindex.
 
+**Fix, 2026-11-07: story text pale and links invisible on phones in dark mode** (reported by the owner from the staging
+preview on an iPhone). There is no dark theme, but Tailwind's `dark:` variant followed the system setting, and the starter's
+`dark:prose-invert` on story bodies turned text pale grey and links (inline and the link-line block) white on the white page. The
+variant is now tied to a class nothing sets, `color-scheme: light` is set, every `prose-invert` is removed, and
+`lib/no-system-dark-mode.test.ts` fails if either comes back. Checked on an emulated iPhone in dark mode. It reaches staging when this
+branch is deployed.
+
 **Board 26, Listen live: the design, revised from research (2026-11-07; not built).** The canvas note took "now playing" from the
 program log; the owner doubted it and guessed the stream. The research (vendor docs, trade press and other stations' APIs; some
 StreamGuys pages could not be read from the sandbox) supports neither alone:

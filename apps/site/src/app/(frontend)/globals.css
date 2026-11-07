@@ -10,6 +10,11 @@
 @custom-variant xl (@media (width >= theme(--breakpoint-xl)));
 @custom-variant 2xl (@media (width >= theme(--breakpoint-2xl)));
 
+/* There is no dark theme. Tailwind's `dark:` variant otherwise follows the reader's phone or computer setting, and the
+   starter's `dark:prose-invert` then turned story text pale grey and links white on the white page (2026-11-07, seen
+   on an iPhone in dark mode). Tie `dark:` to a class nothing sets, so no rule can follow the system setting. */
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
 @layer base {
   h1,
   h2,
@@ -68,8 +73,10 @@
 
 /* The starter's component library (shadcn-style) reads these semantic names. They are mapped onto the WUWF
    tokens here, so those components look like WUWF without being rewritten. There is no dark theme: the design
-   system defines none, and dark surfaces (the player, the footer) are explicit tokens. */
+   system defines none, and dark surfaces (the player, the footer) are explicit tokens. `color-scheme: light` keeps the
+   browser's own form controls and scrollbars light in a reader's dark mode too. */
 :root {
+  color-scheme: light;
   --background: var(--color-surface);
   --foreground: var(--color-ink);
   --card: var(--color-surface-2);
