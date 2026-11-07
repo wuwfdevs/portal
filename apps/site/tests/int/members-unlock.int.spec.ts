@@ -56,6 +56,7 @@ describe("members' listening: unlocking members' work", () => {
   let freeAudio: { id: string | number; url: string }
   let locked: { id: string | number; path: string }
   let free: { id: string | number; path: string }
+  let archiveItem: { id: string | number }
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
@@ -65,6 +66,8 @@ describe("members' listening: unlocking members' work", () => {
     freeAudio = await make('audio', { title: `Free audio ${run}` }, { file: wav('free') })
     locked = await make('posts', { title: `Members ep ${run}`, content: body(secret), _status: 'published', section, production: show.id, format: 'audio', featuredAudio: audio.id, membersOnly: true, publishedAt: '2090-06-01T12:00:00.000Z' })
     free = await make('posts', { title: `Free ep ${run}`, content: body('Free body'), _status: 'published', section, production: show.id, format: 'audio', featuredAudio: freeAudio.id, publishedAt: '2090-06-02T12:00:00.000Z' })
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\nxref\n0 1\ntrailer<<>>\nstartxref\n0\n%%EOF\n')
+    archiveItem = await make('archive-items', { title: `Members doc ${run}`, production: show.id, kind: 'document', membersOnly: true, _status: 'published' }, { file: { data: pdf, mimetype: 'application/pdf', name: `doc-${run}.pdf`, size: pdf.length } })
     // Connect the member the real way: a claim link, opened in their account.
     const outbox: Mail[] = []
     setMailerForTests({ isConfigured: () => true, send: async (m) => (outbox.push(m), { ok: true }) })
@@ -111,6 +114,15 @@ describe("members' listening: unlocking members' work", () => {
     expect(res.headers.get('content-type')).toBe('audio/wav')
     expect(res.headers.get('cache-control')).toBe('private, no-store')
     expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(44)
+  })
+
+  it('serves a member a members-only archive file too (its file address is kept for the trusted server read)', async () => {
+    signedIn.user = member
+    const res = await get(`/account/files/archive-items/${archiveItem.id}`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    signedIn.user = stranger
+    expect((await get(`/account/files/archive-items/${archiveItem.id}`)).headers.get('location')).toBe('http://localhost:3000/account')
   })
 
   it('sends free work and free files to their ordinary addresses', async () => {

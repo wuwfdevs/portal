@@ -25,9 +25,13 @@ const readArchive: Access = ({ req, isReadingStaticFile }) => {
   return isReadingStaticFile ? NOT_MEMBERS_ONLY : { _status: { equals: 'published' } }
 }
 
-/** A members' item read by the public comes back without any address for its file (fail closed, like a story's body). */
-const hideMembersFile: CollectionAfterReadHook = ({ doc, req }) => {
-  if (staff(req) || isOpenToEveryone(doc)) return doc
+/**
+ * A members' item read through access control (the public catalogue) comes back without any address for its file (fail closed,
+ * like a story's body). A trusted server read (`overrideAccess`, e.g. the member file route, which checks the membership itself)
+ * keeps it, or it could not deliver the file.
+ */
+const hideMembersFile: CollectionAfterReadHook = ({ doc, req, overrideAccess }) => {
+  if (overrideAccess === true || staff(req) || isOpenToEveryone(doc)) return doc
   const { url: _url, filename: _f, thumbnailURL: _t, filesize: _s, ...rest } = doc as Record<string, unknown>
   return rest
 }
