@@ -10,17 +10,20 @@ design canvas are described under *Sources* below.
 ## Resume here (2026-11-07: board 27 built; board 26 designed, not built)
 
 **Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
-**120 files, 1,398 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
-passes; migration `20261107_042509_board27_menus_search_public_file` tested up, down and up.
+**122 files, 1,407 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
+passes; migration `20261107_043501_board27_header_search_public_file` tested up, down and up.
 
 **Board 27 and 27b, menus, search and footer: built 2026-11-07.**
-- *Header.* The Header global gains **menus** (up to 6, each a label, a panel heading, one sentence and up to 16 links), edited
-  in the admin. Each menu is a real button with `aria-expanded` that opens one panel under the header; Escape closes it and returns
-  focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row of menus
-  scrolls sideways under the logo, as on board 27b. Search (a link to `/search`), Sign in (to `/account`, shown only when audience
-  sign-in is configured) and Donate (to `/support`) sit outside the menus. **While no menus are entered, the old plain links show
-  as before**, so the header is never empty during the change; remove `navItems` once the menus are in. Listen live is still left
-  out until the player exists (board 26).
+- *Header: everything after the logo is configured in the admin (Header global), nothing is fixed in code.* **Header
+  items** (up to 10, any order, drag to reorder) are each a **link** or a **menu**. A menu has a label, a panel heading, one
+  sentence and up to 20 links, and opens a panel under the header. It is a real button with `aria-expanded`; Escape closes it and
+  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row
+  scrolls sideways under the logo, as on board 27b (this replaces the old phone menu, `SiteNav/MobileMenu.tsx`, removed). The
+  items are the old `navItems` list, extended, so links already entered stay as items of kind "link". **Buttons on the right:**
+  Search, Sign in and Donate can each be hidden or relabelled, and Donate's address set (a site path or an https address; anything
+  else falls back to `/support`). Sign in shows only while audience sign-in is configured. The optional second row
+  (`sections`) is unchanged. A menu with no label or no links cannot be saved. Pure rules: `lib/nav/header.ts` (7 tests);
+  `tests/int/header.int.spec.ts` (3). Listen live is still left out until the player exists (board 26).
 - *Search* (`/search?q=…&type=stories|shows|video&page=…`): a page, not a popup, built to the board. It is a plain GET form (it
   works without JavaScript). Every word must match the title or the description. Results show their kind and date, with a
   count line, a "nothing matched" state, paging, and a message if search fails. Results pages are `noindex`. The search index now
@@ -40,7 +43,7 @@ passes; migration `20261107_042509_board27_menus_search_public_file` tested up, 
 - **Not built:** the board's "Ask WUWF" and "Schedule" boxes beside results (listening is deferred, and the schedule arrives with
   board 26); the About and footer text pages (Staff, Ethics and corrections, Contact, Privacy, Accessibility, Terms) are ordinary
   `pages` for editors to write.
-- **To go live (owner/editors):** enter the five menus in Header; set the public file address (check whether the FCC lists the
+- **To go live (owner/editors):** set up the header items (the board's five menus) and buttons in Header; set the public file address (check whether the FCC lists the
   station as `WUWF` or `WUWF-FM` at `publicfiles.fcc.gov/fm-profile/...`) and the accessibility contact; add the EEO report to the
   legal row if it applies; press Reindex.
 
@@ -1086,8 +1089,13 @@ signed-in account page, not CMS content.
 - A story previewed as an unsaved draft does not show its acknowledgment (it resolves from the saved story).
 - **"Listen live"** is deliberately not in the header: it would be a button that does nothing until the persistent
   player exists (Milestone 2). Do not add it as a link to nowhere.
-- The header links only to pages that exist. The boards' full navigation (Podcasts, Video, RadioLive, Unearthing
-  Florida, WUWF Listens, The Voyager) arrives with those pages, as header-global entries.
+- The header is entirely the Header global's (board 27, 2026-11-07): editors add links and menus as pages exist. Link only to
+  pages that exist; WUWF Listens waits for the listening work.
+- **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
+  had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
+  Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
+  through `getPayload` outside the tests also marks the dev database as pushed (a `dev` row in `payload_migrations`), after which
+  `payload migrate` stops at a prompt: rebuild that database from the migrations.
 - Dev-mode Payload pushes schema changes and can stop at an interactive prompt (a script then hangs silently with
   its database session idle). Rebuild a dev database with `pnpm payload migrate` on an empty one instead.
 

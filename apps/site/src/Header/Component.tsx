@@ -4,24 +4,21 @@ import React from 'react'
 import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
 import { MenuBar } from '@/components/SiteNav/MenuBar'
-import { MobileMenu } from '@/components/SiteNav/MobileMenu'
 import { supabaseAuthConfig } from '@/lib/audience/supabase'
+import { drawableItems, headerButtons } from '@/lib/nav/header'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
-const primaryLink = 'inline-flex min-h-11 items-center text-base font-semibold text-ink hover:text-wuwf-blue-700'
-
 /**
- * The site header (boards 27 and 27b). The menus and their links are the Header global's (editors change them in the
- * admin); nothing is listed here. Search, Sign in and Donate sit outside the menus; Donate is one click to the Give
- * page, never a menu. Listen live joins them once the player exists (board 26): a link to a player that is not there
- * would do nothing. While no menus are set, the global's plain links are shown as before.
+ * The site header (boards 27 and 27b). Everything after the logo comes from the Header global: the items across the
+ * top (links and menus, in the editors' order), the buttons on the right (shown, hidden, relabelled) and the optional
+ * second row. Listen live joins the buttons once the player exists (board 26): a link to a player that is not there
+ * would do nothing.
  */
 export async function Header() {
   const header = await getCachedGlobal('header', 1)()
-  const menus = header?.menus ?? []
-  const nav = header?.navItems ?? []
+  const items = drawableItems(header?.navItems)
   const sections = header?.sections ?? []
-  const signIn = supabaseAuthConfig() !== null
+  const buttons = headerButtons(header?.actions, supabaseAuthConfig() !== null)
 
   return (
     <header className="relative border-b border-rule bg-surface">
@@ -30,42 +27,29 @@ export async function Header() {
           <Logo priority />
         </Link>
 
-        {menus.length > 0 ? (
-          <MenuBar menus={menus} />
-        ) : (
-          <nav aria-label="Primary" className="hidden flex-1 flex-wrap gap-x-5 lg:flex">
-            {nav.map(({ link, id }) => (
-              <CMSLink className={primaryLink} key={id ?? link.label} {...link} />
-            ))}
-          </nav>
-        )}
+        {items.length > 0 && <MenuBar items={items} />}
 
         <div className="ml-auto flex items-center gap-1">
-          <Link aria-label="Search wuwf.org" className="flex size-11 items-center justify-center rounded-sm text-ink hover:bg-surface-2" href="/search">
-            <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" width="20">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-4-4" />
-            </svg>
-          </Link>
-          {signIn && (
-            <Link className="hidden min-h-11 items-center px-1 text-base font-semibold text-ink-2 hover:text-wuwf-blue-700 sm:inline-flex" href="/account">
-              Sign in
+          {buttons.search && (
+            <Link aria-label={buttons.search.label} className="flex size-11 items-center justify-center rounded-sm text-ink hover:bg-surface-2" href="/search">
+              <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" width="20">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-4-4" />
+              </svg>
             </Link>
           )}
-          <Link
-            className="inline-flex min-h-11 items-center rounded-sm bg-wuwf-blue-700 px-4 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
-            href="/support"
-          >
-            Donate
-          </Link>
-          {menus.length === 0 && (
-            <MobileMenu>
-              <nav aria-label="Primary" className="flex flex-col">
-                {nav.map(({ link, id }) => (
-                  <CMSLink className={`${primaryLink} px-3`} key={id ?? link.label} {...link} />
-                ))}
-              </nav>
-            </MobileMenu>
+          {buttons.signIn && (
+            <Link className="hidden min-h-11 items-center px-1 text-base font-semibold text-ink-2 hover:text-wuwf-blue-700 sm:inline-flex" href="/account">
+              {buttons.signIn.label}
+            </Link>
+          )}
+          {buttons.donate && (
+            <Link
+              className="inline-flex min-h-11 items-center rounded-sm bg-wuwf-blue-700 px-4 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
+              href={buttons.donate.href}
+            >
+              {buttons.donate.label}
+            </Link>
           )}
         </div>
       </div>

@@ -3885,49 +3885,12 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 export interface Header {
   id: number;
   /**
-   * The menus across the top (board 27: News, Shows, Watch, Community, About). Each opens a panel under the header. Listen live, Search, Sign in and Donate stay outside them. While this is empty the plain links below are shown instead.
-   */
-  menus?:
-    | {
-        /**
-         * The word in the header, e.g. "News".
-         */
-        label: string;
-        /**
-         * The panel's title, e.g. "Shows and podcasts". Empty uses the label.
-         */
-        heading?: string | null;
-        /**
-         * One sentence under the title.
-         */
-        blurb?: string | null;
-        links: {
-          link: {
-            type?: ('reference' | 'custom') | null;
-            newTab?: boolean | null;
-            reference?:
-              | ({
-                  relationTo: 'pages';
-                  value: number | Page;
-                } | null)
-              | ({
-                  relationTo: 'posts';
-                  value: number | Post;
-                } | null);
-            url?: string | null;
-            label: string;
-          };
-          id?: string | null;
-        }[];
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Plain links, shown only while there are no menus above. Kept so the header is never empty during the change.
+   * Left to right, after the logo. Each item is a plain link, or a menu that opens a panel of links under the header (board 27: News, Shows, Watch, Community, About). Drag to reorder.
    */
   navItems?:
     | {
-        link: {
+        kind: 'link' | 'menu';
+        link?: {
           type?: ('reference' | 'custom') | null;
           newTab?: boolean | null;
           reference?:
@@ -3942,11 +3905,64 @@ export interface Header {
           url?: string | null;
           label: string;
         };
+        /**
+         * The word in the header, e.g. "News".
+         */
+        label?: string | null;
+        /**
+         * The panel’s title, e.g. "Shows and podcasts". Empty uses the label.
+         */
+        heading?: string | null;
+        /**
+         * One sentence under the title. Optional.
+         */
+        blurb?: string | null;
+        links?:
+          | {
+              link: {
+                type?: ('reference' | 'custom') | null;
+                newTab?: boolean | null;
+                reference?:
+                  | ({
+                      relationTo: 'pages';
+                      value: number | Page;
+                    } | null)
+                  | ({
+                      relationTo: 'posts';
+                      value: number | Post;
+                    } | null);
+                url?: string | null;
+                label: string;
+              };
+              id?: string | null;
+            }[]
+          | null;
         id?: string | null;
       }[]
     | null;
   /**
-   * The second row: fellowships, series and topics to feature. Editors curate it; nothing is hard-coded.
+   * Each can be hidden or relabelled. Sign in shows only while audience sign-in is set up.
+   */
+  actions?: {
+    search?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    signIn?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    donate?: {
+      show?: boolean | null;
+      label?: string | null;
+      /**
+       * Where Donate goes: a page on this site ("/support") or a full https:// address.
+       */
+      href?: string | null;
+    };
+  };
+  /**
+   * An optional second row: fellowships, series and topics to feature. Empty hides the row.
    */
   sections?:
     | {
@@ -4443,9 +4459,19 @@ export interface RadioliveHub {
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
-  menus?:
+  navItems?:
     | T
     | {
+        kind?: T;
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
         label?: T;
         heading?: T;
         blurb?: T;
@@ -4465,19 +4491,28 @@ export interface HeaderSelect<T extends boolean = true> {
             };
         id?: T;
       };
-  navItems?:
+  actions?:
     | T
     | {
-        link?:
+        search?:
           | T
           | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
+              show?: T;
               label?: T;
             };
-        id?: T;
+        signIn?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        donate?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+              href?: T;
+            };
       };
   sections?:
     | T
