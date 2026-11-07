@@ -72,11 +72,37 @@ StreamGuys pages could not be read from the sandbox) supports neither alone:
   audio before the first title; one server fetch serves every listener and keeps any vendor key private.
 - **The player** stays as the board has it: a player in front of StreamGuys stream URLs, one per channel, in the site layout so it
   keeps playing between pages, with a bar at the bottom once started.
-- **Questions before building.** For StreamGuys: the mount URLs and formats for FM, HD2 and HD3 (Icecast/ICY, or HLS with ID3);
-  whether status-json is public, and which CORS and `Icy-*` headers are set; whether SGmetadata is on the contract, with its key
-  and scraper UUIDs. For the engineer: which automation system and encoder send titles, and what they send during talk; whether
-  MetaPub is used; whether Composer is the master schedule for each channel and logs songs; each channel's Composer UCS; whether
-  any NPR program airs on delay.
+- **Found on wuwf.org and the stream server (2026-11-07).** robots.txt allows everything; requests spaced 3 s apart with a
+  neutral User-Agent. Grove's persistent player (`persistentPlayer.streams`, every page) lists three streams, all plain MP3
+  served by StreamGuys' **AIS Streaming Server 9.1.4**:
+
+  | Channel (Grove name) | Stream | Bitrate | `icy-genre` |
+  |---|---|---|---|
+  | WUWF – News and Information (88.1) | `https://wuwf.streamguys1.com/WUWFFM.mp3` | 64 kbps | News |
+  | WUWF HD2 – Classical | `https://wuwf.streamguys1.com/WUWFHD2.mp3` | 96 kbps | Classical |
+  | WUWF HD3 ("Gatewave", a radio reading service; its schedule page says "Sightline") | `https://wuwf.streamguys1.com/WUWFHD3.mp3` | 64 kbps | Reader |
+
+  Grove labels two of them `audio/mp4`; the server sends `audio/mpeg`. Each stream answers with
+  `Access-Control-Allow-Origin: *` and offers in-stream ICY metadata (`icy-metaint: 1024`), but does **not** expose
+  `icy-metaint` to scripts (no `Access-Control-Expose-Headers`), so a browser cannot read titles even if they were sent.
+  **No titles are sent:** 20 s of 88.1 and HD2 (Fri. 11:24 p.m. Central) carried 553 empty metadata slots and no title, on
+  the music channel too. So the stream cannot supply "now playing" today; the automation would have to start sending
+  titles (a question for the engineer). Grove's player carries an empty `schedule` for every channel.
+- **The schedule is NPR Cadence** (NPR's replacement for Composer). wuwf.org's schedule pages (`/schedule-for-wuwf`, and
+  weekly and daily pages for HD2 and HD3) embed `cadence.nprstations.org/widgets/iframe/daily|weekly?channelId=...`. The
+  88.1 channel is `eed45825-935f-4185-8b47-059fcc96a6a6`, the same ID as the 88.1 stream's `channelId` in Grove's player;
+  HD2 is `ad7c1f78-645e-4cf2-8b38-88f8519b7464`, HD3 `75d8ec9d-cfc5-45b8-aec9-5bdeb6cd1fd4`. Cadence also serves a
+  "now" widget (`/widgets/iframe/now?channelId=...`: the current program and what is next). **No public Cadence API is
+  documented**; the next step is to read the "now" widget's own data request (needs `cadence.nprstations.org` allowed in
+  the session's network), then ask NPR whether a station may use it server-side. Until then, "On now" can be the Cadence
+  "now" widget itself, or nothing; never a guess.
+- The session's cloud environment for this repository is **`wuwf-portal`** (personal): the Default plus `www.wuwf.org`,
+  `wuwf.org` and `wuwf.streamguys1.com`.
+- **Questions still open.** For StreamGuys: whether SGmetadata (or another metadata service) is on the contract, and whether
+  an HLS or AAC version of each stream exists. For the engineer: whether the automation system can send titles into the
+  streams, and what it would send during talk; whether MetaPub is used; whether Cadence holds every channel's schedule and logs
+  songs on HD2; whether any NPR program airs on delay. For NPR: whether a station may read Cadence's schedule data from its own
+  server. Answered: the stream addresses, formats and headers (above).
 
 ### Earlier: end of the 2026-11-06 session (homepage slots added later the same day)
 
