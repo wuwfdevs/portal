@@ -1175,6 +1175,11 @@ signed-in account page, not CMS content.
 - **"Listen live"** is in the header since board 26 was built (2026-11-07), shown only while Listen live has a channel.
 - The header is entirely the Header global's (board 27, 2026-11-07): editors add links and menus as pages exist. Link only to
   pages that exist; WUWF Listens waits for the listening work.
+- **A migration pushed to a branch is applied to staging by its preview build** (`MIGRATE_ON_BUILD=1`), so it is not "unreleased"
+  once pushed (2026-11-07). Deleting and regenerating one broke the next preview build ("type enum_search_kind already exists"): staging
+  still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
+  deletes its record, keeps the shared search and footer objects so search rows keep their links). After a push, **never rewrite a
+  migration: add a new one**. Test a migration change against staging's state, not only a fresh database.
 - **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
   had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
   Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
