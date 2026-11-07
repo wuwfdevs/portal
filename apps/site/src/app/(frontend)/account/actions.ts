@@ -12,7 +12,8 @@ import { safeNext } from '@/lib/audience/rules'
 import { NEXT_COOKIE, requestSignIn } from '@/lib/audience/sign-in'
 import { supabaseAudienceAuth } from '@/lib/audience/supabase'
 import { derivedSecret } from '@/lib/audience/secret'
-import { claimMembership } from '@/lib/members/claim'
+import { claimMembership, hasMembersListening } from '@/lib/members/claim'
+import { resetMemberFeed } from '@/lib/members/feed-service'
 
 export interface SignInState {
   status: 'idle' | 'sent' | 'error'
@@ -77,4 +78,16 @@ export async function connectMembership(formData: FormData): Promise<void> {
   })
   if (result?.kind === 'ok') redirect('/account?connected=1')
   redirect(result ? back : `${back}&error=failed`)
+}
+
+/** Replaces a member's private feed address for one show; every earlier address stops working (phase 7d). */
+export async function resetFeed(formData: FormData): Promise<void> {
+  const production = Number(formData.get('production'))
+  const user = await supabaseAudienceAuth.currentUser()
+  if (!user) redirect('/account/sign-in?next=%2Faccount')
+  if (!Number.isInteger(production) || production <= 0) redirect('/account')
+  const payload = await getPayload({ config: configPromise })
+  const profile = (await payload.find({ collection: 'audience-profiles', where: { supabaseUserId: { equals: user.id } }, limit: 1, depth: 0, overrideAccess: true, pagination: false })).docs[0]
+  if (profile && (await hasMembersListening(payload, user.id, new Date()))) await resetMemberFeed(payload, profile.id, production)
+  redirect('/account?reset=1#feeds')
 }

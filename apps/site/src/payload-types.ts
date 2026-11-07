@@ -96,6 +96,7 @@ export interface Config {
     'portal-sign-ins': PortalSignIn;
     'audience-profiles': AudienceProfile;
     memberships: Membership;
+    'member-feeds': MemberFeed;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -145,6 +146,7 @@ export interface Config {
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
     'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
     memberships: MembershipsSelect<false> | MembershipsSelect<true>;
+    'member-feeds': MemberFeedsSelect<false> | MemberFeedsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -2216,6 +2218,20 @@ export interface Membership {
   createdAt: string;
 }
 /**
+ * Members who have reset a private feed. Each reset stops every earlier address for that show.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-feeds".
+ */
+export interface MemberFeed {
+  id: number;
+  account: number | AudienceProfile;
+  production: number | Production;
+  version: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "redirects".
  */
@@ -2521,6 +2537,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'memberships';
         value: number | Membership;
+      } | null)
+    | ({
+        relationTo: 'member-feeds';
+        value: number | MemberFeed;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3555,6 +3575,17 @@ export interface MembershipsSelect<T extends boolean = true> {
         claimedAt?: T;
         tokenHash?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "member-feeds_select".
+ */
+export interface MemberFeedsSelect<T extends boolean = true> {
+  account?: T;
+  production?: T;
+  version?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -8,28 +8,35 @@ import React from 'react'
 import { supabaseAudienceAuth } from '@/lib/audience/supabase'
 import { formatLongDate } from '@/lib/format'
 import { membershipStatus } from '@/lib/members/claim'
+import { memberFeedsFor } from '@/lib/members/feed-service'
+import { podcastAppLinks } from '@/lib/members/feeds'
+import { siteOrigin } from '@/lib/audience/origin'
+import { derivedSecret } from '@/lib/audience/secret'
+import { CopyFeedLink } from '@/components/Account/CopyFeedLink'
 
-import { signOut } from './actions'
+import { resetFeed, signOut } from './actions'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Your account', robots: { index: false, follow: false } }
 
-type Args = { searchParams: Promise<{ connected?: string }> }
+type Args = { searchParams: Promise<{ connected?: string; reset?: string }> }
 
 /**
  * A reader's account (phases 7b, 7c; board 25 is its fuller form): who is signed in, their members' listening, and signing out.
- * Member feeds (7d) arrive here when they exist; until then this page does not promise them.
+ * A member also gets their private podcast feeds here (7d): one per show with members-only episodes, each with a reset.
  */
 export default async function AccountPage({ searchParams }: Args) {
   const user = await supabaseAudienceAuth.currentUser()
   if (!user) redirect('/account/sign-in')
-  const { connected } = await searchParams
+  const { connected, reset } = await searchParams
   const payload = await getPayload({ config: configPromise })
   const [status, support] = await Promise.all([
     membershipStatus(payload, user.id, new Date()),
     payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null),
   ])
   const level = support?.membersListeningLevel?.trim() || null
+  const profile = status.state === 'active' ? (await payload.find({ collection: 'audience-profiles', where: { supabaseUserId: { equals: user.id } }, limit: 1, depth: 0, overrideAccess: true, pagination: false })).docs[0] : undefined
+  const feeds = profile ? await memberFeedsFor(payload, profile.id as number, siteOrigin(), derivedSecret('member-feed')) : []
 
   return (
     <main className="container flex max-w-[44rem] flex-col gap-8 py-12 md:py-16">
@@ -76,6 +83,50 @@ export default async function AccountPage({ searchParams }: Args) {
           Ways to support WUWF
         </Link>
       </section>
+
+      {status.state === 'active' && (
+        <section aria-labelledby="feeds-heading" className="flex scroll-mt-24 flex-col gap-4" id="feeds">
+          <h2 className="font-serif text-2xl font-bold text-ink" id="feeds-heading">
+            Your member feeds
+          </h2>
+          {reset === '1' && (
+            <p className="text-base font-semibold text-ink" role="status">
+              Done. The old address no longer works; add the new one below to your podcast app.
+            </p>
+          )}
+          {feeds.length === 0 ? (
+            <p className="text-base text-ink-2">No WUWF show has members-only episodes yet. When one does, its feed appears here.</p>
+          ) : (
+            <>
+              <p className="text-base text-ink-2">
+                Each feed below is yours alone. Add it to your podcast app once and members-only episodes arrive like any other show. The address carries your membership,
+                so please do not share it. Spotify does not accept private feeds; Apple Podcasts, Overcast, Pocket Casts and most other apps do.
+              </p>
+              <ul className="flex flex-col gap-4">
+                {feeds.map(({ show, url }) => (
+                  <li className="flex flex-col gap-3 rounded-sm border border-rule p-5" key={show.id}>
+                    <h3 className="font-serif text-xl font-bold text-ink">{show.title}</h3>
+                    <CopyFeedLink label={`Your private feed address for ${show.title}`} url={url} />
+                    <div className="flex flex-wrap gap-2">
+                      {podcastAppLinks(url).map((l) => (
+                        <a className="inline-flex min-h-11 items-center rounded-sm bg-ink px-4 text-sm font-bold text-surface hover:no-underline hover:opacity-90" href={l.href} key={l.app}>
+                          Add to {l.app}
+                        </a>
+                      ))}
+                    </div>
+                    <form action={resetFeed}>
+                      <input name="production" type="hidden" value={String(show.id)} />
+                      <button className="min-h-11 text-sm font-semibold text-wuwf-blue-700 underline" type="submit">
+                        Reset this feed (if the address was shared, or stopped working)
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
 
       <form action={signOut}>
         <button className="inline-flex min-h-12 items-center rounded-sm border border-rule-strong px-6 text-base font-bold text-ink hover:bg-surface-2" type="submit">

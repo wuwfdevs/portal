@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import { ArchiveItems } from './collections/ArchiveItems'
 import { AudienceProfiles } from './collections/AudienceProfiles'
 import { Memberships } from './collections/Memberships'
+import { MemberFeeds } from './collections/MemberFeeds'
 import { Seasons } from './collections/Seasons'
 import { Audio } from './collections/Audio'
 import { Categories } from './collections/Categories'
@@ -122,6 +123,7 @@ export default buildConfig({
     PortalSignIns,
     AudienceProfiles,
     Memberships,
+    MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub],
