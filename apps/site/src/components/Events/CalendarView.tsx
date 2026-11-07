@@ -9,7 +9,7 @@ import type { EventCategory } from '@/payload-types'
 
 import { dayHeading, where } from './format'
 
-const field = 'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 text-base text-ink'
+const field = 'min-h-11 w-full min-w-0 max-w-full rounded-sm border border-rule-strong bg-surface px-3 text-base text-ink'
 const pill = 'inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm border px-4 text-base font-semibold'
 
 /**
@@ -37,7 +37,7 @@ export function CalendarView({ query, result, categories, now }: { query: Calend
         </p>
       </header>
 
-      <div className="container mt-10 grid gap-10 lg:grid-cols-[18rem_1fr]">
+      <div className="container mt-10 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[18rem_minmax(0,1fr)]">
         <form action="/community-calendar" aria-label="Filter events" className="flex flex-col gap-5 self-start rounded-sm border border-rule p-4" method="get">
           <div className="flex flex-col gap-1">
             <label className="text-base font-semibold text-ink" htmlFor="cal-q">
@@ -45,14 +45,14 @@ export function CalendarView({ query, result, categories, now }: { query: Calend
             </label>
             <input autoComplete="off" className={field} defaultValue={query.q} id="cal-q" maxLength={80} name="q" type="search" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
               <label className="text-base font-semibold text-ink" htmlFor="cal-from">
                 From
               </label>
               <input className={field} defaultValue={query.from ?? ''} id="cal-from" name="from" type="date" />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-col gap-1">
               <label className="text-base font-semibold text-ink" htmlFor="cal-to">
                 To
               </label>

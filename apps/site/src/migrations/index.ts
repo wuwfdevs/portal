@@ -37,6 +37,7 @@ import * as migration_20261107_002936_member_feeds from './20261107_002936_membe
 import * as migration_20261107_043501_board27_header_search_public_file from './20261107_043501_board27_header_search_public_file';
 import * as migration_20261107_055404_listen_live from './20261107_055404_listen_live';
 import * as migration_20261107_070000_header_starting_menus from './20261107_070000_header_starting_menus';
+import * as migration_20261107_080000_unearthing_hub_start from './20261107_080000_unearthing_hub_start';
 
 export const migrations = [
   {
@@ -233,5 +234,10 @@ export const migrations = [
     up: migration_20261107_070000_header_starting_menus.up,
     down: migration_20261107_070000_header_starting_menus.down,
     name: '20261107_070000_header_starting_menus',
+  },
+  {
+    up: migration_20261107_080000_unearthing_hub_start.up,
+    down: migration_20261107_080000_unearthing_hub_start.down,
+    name: '20261107_080000_unearthing_hub_start',
   },
 ];
