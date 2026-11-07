@@ -24,7 +24,7 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
       <div className="border-b border-surface-dark-line">
         <div className="container flex min-h-[3.75rem] flex-wrap items-center gap-x-7 gap-y-2 py-2">
           <span className="font-serif text-2xl font-bold">RadioLive</span>
-          <nav aria-label="RadioLive" className="flex flex-1 flex-wrap gap-x-5 gap-y-1 text-sm font-bold">
+          <nav aria-label="RadioLive" className="flex w-full flex-wrap gap-x-5 gap-y-0 text-sm font-bold md:w-auto md:flex-1">
             {[['shows', 'Shows'], ['watch', 'Watch'], ['artists', 'Artists'], ['encores', 'Encores'], ['about', 'About'], ['support', 'Support']].map(([id, label]) => (
               <a className="inline-flex min-h-11 items-center text-surface" href={`#${id}`} key={id}>
                 {label}
