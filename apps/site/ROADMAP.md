@@ -1179,6 +1179,11 @@ signed-in account page, not CMS content.
 - **"Listen live"** is in the header since board 26 was built (2026-11-07), shown only while Listen live has a channel.
 - The header is entirely the Header global's (board 27, 2026-11-07): editors add links and menus as pages exist. Link only to
   pages that exist; WUWF Listens waits for the listening work.
+- **Vercel's data cache outlives a deployment** (2026-11-07). The header's starting menus were in staging's database, but the preview
+  kept serving the header cached while it was empty: a migration cannot revalidate a cache tag, and Vercel's tag-invalidation API
+  covers its CDN cache, not this one. `getCachedGlobal` now keys each global by slug, depth and deployment
+  (`utilities/getGlobals.ts`), so a new deployment reads fresh; saving a global still revalidates at once. Also: `claude/main` is
+  the production branch and production builds are skipped, so merges do not deploy; previews of branches are what staging shows.
 - **A migration pushed to a branch is applied to staging by its preview build** (`MIGRATE_ON_BUILD=1`), so it is not "unreleased"
   once pushed (2026-11-07). Deleting and regenerating one broke the next preview build ("type enum_search_kind already exists"): staging
   still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
