@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import { currentPrograms, formatClock, formatSpan, isCadenceChannelId, nextChange, parseCadenceWidget } from './schedule'
+import {
+  currentPrograms,
+  dayNames,
+  formatClock,
+  formatSpan,
+  isCadenceChannelId,
+  nextChange,
+  parseCadenceWeek,
+  parseCadenceWidget,
+  programsOn,
+  stationDate,
+  stationWeek,
+} from './schedule'
 
 // The shape Cadence's "now" widget returned for WUWF 88.1 on 2026-11-07 (trimmed).
 const sample = {
@@ -91,5 +103,51 @@ describe('isCadenceChannelId', () => {
     expect(isCadenceChannelId('eed45825-935f-4185-8b47-059fcc96a6a6')).toBe(true)
     expect(isCadenceChannelId('../../admin')).toBe(false)
     expect(isCadenceChannelId(undefined)).toBe(false)
+  })
+})
+
+
+const ep = (name: string, start: string, end: string, extra: Record<string, unknown> = {}) => ({
+  episode: { programName: name, priority: 0, songs: [], start: { utc: start }, end: { utc: end }, ...extra },
+  programLink: `https://wuwf.org/programs/${name.toLowerCase().replace(/\W+/g, '-')}`,
+})
+
+describe('the week', () => {
+  it('reads and sorts Cadence’s week, with descriptions', () => {
+    const week = parseCadenceWeek({
+      total: 2,
+      episodes: [
+        { ...ep('1A', '2026-11-02T15:00:00Z', '2026-11-02T17:00:00Z'), programDescription: ' A conversation. ' },
+        ep('Morning Edition', '2026-11-02T11:00:00Z', '2026-11-02T15:00:00Z'),
+      ],
+    })
+    expect(week.map((p) => [p.name, p.description])).toEqual([
+      ['Morning Edition', null],
+      ['1A', 'A conversation.'],
+    ])
+  })
+
+  it('lets a higher priority win an overlap, and drops the other', () => {
+    const week = parseCadenceWeek({
+      episodes: [ep('Regular', '2026-11-02T20:00:00Z', '2026-11-02T22:00:00Z'), ep('Special', '2026-11-02T20:00:00Z', '2026-11-02T21:00:00Z', { priority: 4 })],
+    })
+    expect(week.map((p) => p.name)).toEqual(['Special'])
+  })
+
+  it('never throws on junk', () => {
+    expect(parseCadenceWeek({ episodes: [null, 3, { episode: {} }] })).toEqual([])
+    expect(parseCadenceWeek('x')).toEqual([])
+  })
+
+  it('works in station time: days, the week, and which day a program starts', () => {
+    // 11:30 p.m. Friday in Pensacola is already Saturday in UTC.
+    expect(stationDate('2026-11-07T05:30:00Z')).toEqual({ date: '2026-11-06', weekday: 4 })
+    expect(stationWeek(Date.parse('2026-11-07T05:30:00Z'))).toMatchObject({ startDate: '2026-11-02', endDate: '2026-11-08' })
+    // Sunday night still belongs to the week that began on Monday.
+    expect(stationWeek(Date.parse('2026-11-09T05:00:00Z')).startDate).toBe('2026-11-02')
+    const week = parseCadenceWeek({ episodes: [ep('Echoes', '2026-11-07T04:00:00Z', '2026-11-07T05:59:00Z'), ep('BBC World', '2026-11-07T06:00:00Z', '2026-11-07T11:00:00Z')] })
+    expect(programsOn(week, '2026-11-06').map((p) => p.name)).toEqual(['Echoes'])
+    expect(programsOn(week, '2026-11-07').map((p) => p.name)).toEqual(['BBC World'])
+    expect(dayNames('2026-11-06')).toEqual({ short: 'Fri', long: 'Friday, November 6' })
   })
 })

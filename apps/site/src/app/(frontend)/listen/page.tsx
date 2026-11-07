@@ -4,9 +4,10 @@ import { notFound } from 'next/navigation'
 import React from 'react'
 
 import { ListenPanel } from '@/components/ListenLive/ListenPanel'
-import { fetchNowNext } from '@/lib/live/cadence'
-import { liveChannels } from '@/lib/live/channels'
-import type { NowNext } from '@/lib/live/schedule'
+import { WeekSchedule } from '@/components/ListenLive/WeekSchedule'
+import { cachedWeek, fetchNowNext } from '@/lib/live/cadence'
+import { liveChannels, type LiveChannel } from '@/lib/live/channels'
+import { stationDate, stationWeek, type NowNext, type ScheduledProgram } from '@/lib/live/schedule'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
 export const revalidate = 60
@@ -19,21 +20,32 @@ export const metadata: Metadata = {
 /**
  * Listen live (board 26). The player is the site-wide one (in the layout), so pressing play here keeps playing on every
  * other page. The streams and the "Other ways to listen" cards come from the Listen live settings; "On now" from NPR
- * Cadence through the site's server. Not built yet: the board's week schedule (Cadence's week data is not read yet) and
- * the pop-out player.
+ * Cadence through the site's server, and so does the week's schedule. Not built: the pop-out player.
  */
+/** On now for each channel, and this week's programs, in station time. Outside the component: it reads the clock. */
+async function loadSchedules(channels: LiveChannel[]) {
+  const now = Date.now()
+  const { startDate, endDate, days } = stationWeek(now)
+  const initial: Record<string, NowNext> = {}
+  const weeks: Record<string, ScheduledProgram[]> = {}
+  await Promise.all(
+    channels.map(async (c) => {
+      if (!c.cadenceChannelId) return
+      const [nowNext, week] = await Promise.all([fetchNowNext(c.cadenceChannelId), cachedWeek(c.cadenceChannelId, startDate, endDate)])
+      initial[c.key] = nowNext.data
+      weeks[c.key] = week
+    }),
+  )
+  return { initial, weeks, days, today: stationDate(now).date }
+}
+
 export default async function ListenPage() {
   const settings = await getCachedGlobal('listen-live', 0)()
   const channels = liveChannels(settings?.channels)
   if (channels.length === 0) notFound()
 
-  // The first answer is rendered on the server, so "On now" is there before any script runs.
-  const initial: Record<string, NowNext> = {}
-  await Promise.all(
-    channels.map(async (c) => {
-      if (c.cadenceChannelId) initial[c.key] = (await fetchNowNext(c.cadenceChannelId)).data
-    }),
-  )
+  // The first answers are rendered on the server, so "On now" and the schedule are there before any script runs.
+  const { initial, weeks, days, today } = await loadSchedules(channels)
   const ways = settings?.otherWays ?? []
 
   return (
@@ -77,8 +89,10 @@ export default async function ListenPage() {
         </div>
       </section>
 
+      <WeekSchedule days={days} today={today} weeks={weeks} />
+
       {ways.length > 0 && (
-        <section aria-labelledby="ways-title" className="container flex flex-col gap-6 pb-14" id="ways">
+        <section aria-labelledby="ways-title" className="container flex flex-col gap-6 py-14" id="ways">
           <h2 className="font-serif text-3xl font-bold text-ink md:text-4xl" id="ways-title">
             Other ways to listen
           </h2>

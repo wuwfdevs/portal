@@ -10,7 +10,7 @@ design canvas are described under *Sources* below.
 ## Resume here (2026-11-07: boards 27 and 26 built)
 
 **Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
-**126 files, 1,436 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
+**126 files, 1,444 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
 passes; migrations `20261107_043501_board27_header_search_public_file` and `20261107_055404_listen_live` tested up, down and up.
 
 **Board 27 and 27b, menus, search and footer: built 2026-11-07.**
@@ -78,8 +78,18 @@ branch is deployed.
   Checked in a browser at 1440 px and on an emulated iPhone: the real 88.1 stream plays, keeps playing after moving to another page,
   the bar shows the program (Echoes), close stops it, no overflow. With Cadence unreachable the page and bar show the channel name
   and nothing invented.
-- **Not built:** the board's week schedule (Cadence's week data has not been read yet; its weekly widget would show the address the
-  same way), the pop-out player, a "Listen live" slot on the home page, and song titles (none exist; see below).
+- *The week's schedule* (built later the same day; `components/ListenLive/WeekSchedule.tsx`), to the board: Monday to Sunday in
+  Central time, a button per day (today selected, labelled "Today"), the programs in order with their descriptions and links, and
+  "On now" on the one airing (rechecked every minute). It follows the player's channel. Data: Cadence's weekly widget POSTs
+  `{"channelId","startDate","endDate","from","size"}` to `https://cadence.nprstations.org/api/cadence/widget/` (no key; read
+  2026-11-07: 95 programs that week on 88.1, no overlaps, one-minute gaps after Echoes; one block a day on HD2 and HD3).
+  `lib/live/cadence.ts` `fetchWeek` (4 s timeout, last good week kept) and `cachedWeek` (15 minutes; a failed read is never
+  cached); `parseCadenceWeek` sorts and, if two programs overlap, keeps Cadence's higher `priority`; station-date helpers
+  (`stationWeek`, `programsOn`) work in Central time, so 11:30 p.m. Friday is still Friday. If Cadence is down and nothing was
+  read before: "The schedule is not available right now. The stream above still plays." 4 more unit tests in `schedule.test.ts`,
+  3 in `cadence.test.ts`; checked in a browser at 1440 px and on an emulated iPhone with the real week.
+- **Not built:** the pop-out player, a "Listen live" slot on the home page, next week's schedule (the page shows this week), and
+  song titles (none exist; see below).
 - **Before go-live:** ask NPR whether a station may read Cadence's widget data from its own server (it is undocumented; if not,
   `/listen` falls back to the channel names, or embed Cadence's own "now" widget). Check the HD3 name and description with the
   station (Grove says "WUWF HD3", the stream "Gatewave", the schedule page "Sightline").

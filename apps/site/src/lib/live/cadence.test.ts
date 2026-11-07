@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { clearLastGood, fetchNowNext } from './cadence'
+import { clearLastGood, fetchNowNext, fetchWeek } from './cadence'
 
 const ID = 'eed45825-935f-4185-8b47-059fcc96a6a6'
 const body = {
@@ -37,5 +37,42 @@ describe('fetchNowNext', () => {
     await fetchNowNext(ID, ok(body))
     const r = await fetchNowNext(ID, down)
     expect([r.fresh, r.data.onNow?.name]).toEqual([false, 'Echoes'])
+  })
+})
+
+describe('fetchWeek', () => {
+  afterEach(() => {
+    clearLastGood()
+    vi.restoreAllMocks()
+  })
+
+  const week = {
+    total: 1,
+    episodes: [{ episode: { programName: 'Morning Edition', priority: 0, start: { utc: '2026-11-02T11:00:00Z' }, end: { utc: '2026-11-02T15:00:00Z' } } }],
+  }
+
+  it('asks Cadence for the channel and dates in the body, as its weekly widget does', async () => {
+    const f = ok(week)
+    const r = await fetchWeek(ID, '2026-11-02', '2026-11-08', f)
+    expect(r.programs.map((p) => p.name)).toEqual(['Morning Edition'])
+    const [url, init] = (f as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls[0]
+    expect(url).toBe('https://cadence.nprstations.org/api/cadence/widget/')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(String(init.body))).toEqual({ channelId: ID, startDate: '2026-11-02', endDate: '2026-11-08', from: 0, size: 1000 })
+  })
+
+  it('refuses anything but a channel ID and real dates', async () => {
+    const f = ok(week)
+    expect((await fetchWeek('x', '2026-11-02', '2026-11-08', f)).programs).toEqual([])
+    expect((await fetchWeek(ID, '2026-11-02"}', '2026-11-08', f)).programs).toEqual([])
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('keeps the last good week when Cadence fails', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    await fetchWeek(ID, '2026-11-02', '2026-11-08', ok(week))
+    const down = vi.fn(async () => new Response('nope', { status: 500 })) as unknown as typeof fetch
+    const r = await fetchWeek(ID, '2026-11-02', '2026-11-08', down)
+    expect([r.fresh, r.programs.length]).toEqual([false, 1])
   })
 })

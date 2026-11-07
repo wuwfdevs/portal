@@ -109,3 +109,76 @@ export function formatSpan(p: Pick<LiveProgram, 'start' | 'end'>): string {
   const suffix = (s: string) => s.slice(-4)
   return suffix(a) === suffix(b) ? `${a.slice(0, -5)} – ${b}` : `${a} – ${b}`
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The week (board 26's schedule): Cadence's weekly widget data, one channel, Monday to Sunday in station time.
+
+export type ScheduledProgram = LiveProgram & { description: string | null; priority: number }
+
+/**
+ * Reads Cadence's week response: `{ total, episodes: [{ episode: { programName, start, end, priority }, programLink,
+ * programDescription }] }`. Sorted by start. Where two programs overlap (Cadence has a priority for overrides; none
+ * overlapped on 2026-11-07), the higher priority wins and the other is dropped. Never throws.
+ */
+export function parseCadenceWeek(json: unknown): ScheduledProgram[] {
+  const episodes = json && typeof json === 'object' ? (json as { episodes?: unknown }).episodes : null
+  if (!Array.isArray(episodes)) return []
+  const programs = episodes.flatMap((item): ScheduledProgram[] => {
+    if (!item || typeof item !== 'object') return []
+    const wrapper = item as Record<string, unknown>
+    const ep = wrapper.episode as Record<string, unknown> | undefined
+    const p = program(ep ? { ...ep, programLink: wrapper.programLink } : null)
+    if (!p) return []
+    const description = typeof wrapper.programDescription === 'string' ? wrapper.programDescription.trim().slice(0, 300) || null : null
+    const priority = typeof ep?.priority === 'number' ? ep.priority : 0
+    return [{ ...p, description, priority }]
+  })
+  programs.sort((a, b) => Date.parse(a.start) - Date.parse(b.start) || b.priority - a.priority)
+  const kept: ScheduledProgram[] = []
+  for (const p of programs) {
+    const last = kept.at(-1)
+    if (last && Date.parse(p.start) < Date.parse(last.end)) {
+      if (p.priority > last.priority) kept[kept.length - 1] = p
+      continue
+    }
+    kept.push(p)
+  }
+  return kept
+}
+
+const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: STATION_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })
+
+/** The station's calendar date ("2026-11-06") and weekday (0 = Monday) at an instant. */
+export function stationDate(at: number | string): { date: string; weekday: number } {
+  const parts = Object.fromEntries(dateParts.formatToParts(new Date(at)).map((p) => [p.type, p.value]))
+  const weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(parts.weekday)
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, weekday }
+}
+
+function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** This week, Monday to Sunday, in station time: the dates Cadence's week is asked for. */
+export function stationWeek(now: number): { startDate: string; endDate: string; days: string[] } {
+  const { date, weekday } = stationDate(now)
+  const startDate = addDays(date, -weekday)
+  const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i))
+  return { startDate, endDate: days[6], days }
+}
+
+/** The programs that start on a station date, in order. */
+export function programsOn(programs: ScheduledProgram[], date: string): ScheduledProgram[] {
+  return programs.filter((p) => stationDate(p.start).date === date)
+}
+
+const dayLabel = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' })
+const longDay = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' })
+
+/** "Fri" and "Friday, November 6" for a station date. */
+export function dayNames(date: string): { short: string; long: string } {
+  const d = new Date(`${date}T12:00:00Z`)
+  return { short: dayLabel.format(d), long: longDay.format(d) }
+}
