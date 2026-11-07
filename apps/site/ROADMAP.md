@@ -43,7 +43,11 @@ passes; migrations `20261107_043501_board27_header_search_public_file` and `2026
 - **Not built:** the board's "Ask WUWF" and "Schedule" boxes beside results (listening is deferred, and the schedule arrives with
   board 26); the About and footer text pages (Staff, Ethics and corrections, Contact, Privacy, Accessibility, Terms) are ordinary
   `pages` for editors to write.
-- **To go live (owner/editors):** set up the header items (the board's five menus) and buttons in Header; set the public file address (check whether the FCC lists the
+- **Starting menus** (migration `20261107_070000_header_starting_menus`, data only): the board's five menus, News, Shows, Watch,
+  Community, About, added only where the header has no items yet, with links only to pages that exist (fixed pages by address; a
+  section at `/<slug>` or a fellowship at `/fellowships/<slug>` only where that record exists). `down` removes only these
+  (`start-` ids). Not yet linked because the pages do not exist: Staff, Contact, Ethics, Privacy, the FCC file (footer), Weather.
+- **To go live (owner/editors):** review the starting menus and the buttons in Header; set the public file address (check whether the FCC lists the
   station as `WUWF` or `WUWF-FM` at `publicfiles.fcc.gov/fm-profile/...`) and the accessibility contact; add the EEO report to the
   legal row if it applies; press Reindex.
 
