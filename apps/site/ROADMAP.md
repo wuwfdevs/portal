@@ -4,10 +4,159 @@ This file is how a new session picks up without the previous conversation. Rules
 `ARCHITECTURE.md`; the event spec in `ANALYTICS.md`. This file holds **state, order of work, and lessons**.
 Keep it current: update it in the same commit as the work.
 
-Branch: the current work is on `claude/sharp-fermi-fmy9un` in `wuwfdevs/portal` (phase 7a, see *Resume here* and *Phase 7*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
+Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Resume here (end of the 2026-11-06 session; homepage slots added later the same day)
+## Resume here (2026-11-07: boards 27 and 26 built)
+
+**Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
+**127 files, 1,447 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
+passes; migrations `20261107_043501_board27_header_search_public_file` and `20261107_055404_listen_live` tested up, down and up.
+
+**Board 27 and 27b, menus, search and footer: built 2026-11-07.**
+- *Header: everything after the logo is configured in the admin (Header global), nothing is fixed in code.* **Header
+  items** (up to 10, any order, drag to reorder) are each a **link** or a **menu**. A menu has a label, a panel heading, one
+  sentence and up to 20 links, and opens a panel under the header. It is a real button with `aria-expanded`; Escape closes it and
+  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row
+  scrolls sideways under the logo, as on board 27b (this replaces the old phone menu, `SiteNav/MobileMenu.tsx`, removed). The
+  items are the old `navItems` list, extended, so links already entered stay as items of kind "link". **Buttons on the right:**
+  Search, Sign in and Donate can each be hidden or relabelled, and Donate's address set (a site path or an https address; anything
+  else falls back to `/support`). Sign in shows only while audience sign-in is configured. The optional second row
+  (`sections`) is unchanged. A menu with no label or no links cannot be saved. Pure rules: `lib/nav/header.ts` (7 tests);
+  `tests/int/header.int.spec.ts` (3). Listen live joined them with board 26 (below).
+- *Search* (`/search?q=…&type=stories|shows|video&page=…`): a page, not a popup, built to the board. It is a plain GET form (it
+  works without JavaScript). Every word must match the title or the description. Results show their kind and date, with a
+  count line, a "nothing matched" state, paging, and a message if search fails. Results pages are `noindex`. The search index now
+  covers **stories, episodes, shows, syndicated programs and short video** (`posts`, `productions`, `clips`), each indexed with a
+  `kind` and `publishedAt` (`search/beforeSync.ts`; pure rules in `lib/search/query.ts`). Drafts are never indexed. The
+  migration backfills the kind and date of stories already in the index. **After deploying, press Reindex on the Search
+  collection in the admin once**, so existing shows and clips enter the index (or they enter on their next save). 12 unit and 3
+  integration tests (`tests/int/search.int.spec.ts`).
+- *Footer.* A new **FCC public file** group: the address (only `https://publicfiles.fcc.gov/...` is accepted), its label
+  (default "FCC Public File") and the **accessibility contact**. The link shows on every page, and is a field of its own so
+  reordering the legal row cannot drop it. Research (2026-11-07, from secondary sources; the eCFR text could not be read from
+  the sandbox): WUWF is noncommercial, so **47 CFR 73.3527** applies. It requires the link from the home page. No link wording
+  is required. A contact for people with disabilities who need help with the file must be on the website. A separate rule,
+  **47 CFR 73.2080(c)(6)**, requires the current EEO public file report on the website if the employment unit has 5 or more
+  full-time staff: link it from the legal row. An amendment to these rules is listed as pending, so have counsel confirm.
+- Checked in a browser at 1440 and 390 px (menu opens, Escape returns focus, no overflow, FCC link shows).
+- **Not built:** the board's "Ask WUWF" and "Schedule" boxes beside results (listening is deferred, and the schedule arrives with
+  board 26); the About and footer text pages (Staff, Ethics and corrections, Contact, Privacy, Accessibility, Terms) are ordinary
+  `pages` for editors to write.
+- **To go live (owner/editors):** set up the header items (the board's five menus) and buttons in Header; set the public file address (check whether the FCC lists the
+  station as `WUWF` or `WUWF-FM` at `publicfiles.fcc.gov/fm-profile/...`) and the accessibility contact; add the EEO report to the
+  legal row if it applies; press Reindex.
+
+**Fix, 2026-11-07: story text pale and links invisible on phones in dark mode** (reported by the owner from the staging
+preview on an iPhone). There is no dark theme, but Tailwind's `dark:` variant followed the system setting, and the starter's
+`dark:prose-invert` on story bodies turned text pale grey and links (inline and the link-line block) white on the white page. The
+variant is now tied to a class nothing sets, `color-scheme: light` is set, every `prose-invert` is removed, and
+`lib/no-system-dark-mode.test.ts` fails if either comes back. Checked on an emulated iPhone in dark mode. It reaches staging when this
+branch is deployed.
+
+**Board 26, Listen live: built 2026-11-07** (the design and the research behind it follow this paragraph).
+- *Settings, not code:* a **Listen live** global (Site settings): channels (name, short name for the bar, the stream's https
+  address, the NPR Cadence channel ID, one line) and the "Other ways to listen" cards. Migration `20261107_055404_listen_live`
+  (up, down and up tested) **seeds WUWF's three streams and their Cadence IDs** as read from wuwf.org and Cadence (below), and two
+  cards (on the radio; podcasts). With no channels, the player, the header's Listen live button and `/listen` are all hidden.
+- *The player:* one `<audio>` in the site layout (`components/ListenLive/PlayerProvider.tsx`), so it keeps playing between pages;
+  nothing loads before the reader presses play (`preload="none"`, no autoplay); pause drops the connection and play reconnects, so
+  the listener hears the station now, not a stale buffer; lock-screen controls through the Media Session API; state in words
+  ("Connecting…", "Playing", "The stream stopped. Press play to try again.") in a polite live region. **The bar**
+  (`PlayerBar.tsx`) shows at the bottom of every page once started (not on `/listen`), with a spacer so it never covers the
+  footer or a form, and a close button that stops the stream.
+- *`/listen`* (`app/(frontend)/listen/page.tsx`), to the board: channel buttons, the large play button, on now with its time and a
+  link to the program, up next, volume, the three side boxes, Other ways to listen. On now is rendered on the server first.
+- *On now / up next:* `/listen/now?channel=<Cadence ID>` answers **only for a configured channel** (never a general Cadence proxy),
+  from `lib/live/cadence.ts`: a server read of Cadence, cached 60 s, 4 s timeout, **last good answer kept** if Cadence fails, else
+  nothing. Pure rules in `lib/live/schedule.ts`: a program is never shown after its end; a started "up next" moves up; "up next" is
+  left out when the same program continues (HD2's all-day Classical 24); times in Central, AP style. The browser re-asks when the
+  current program ends and every 5 minutes while visible. **Fixed after review on PR 339:** the refresh timer plans from the latest
+  answer (it had planned from the answer captured at mount, so the bar refreshed only on the 5-minute poll and an ended program
+  could stay "On now" that long), the shown time moves on at each program boundary without a request, and each answer belongs to
+  its channel (a switch had kept the previous channel's program while the new fetch failed). `useNowNext.test.ts` (3) fails on the
+  old hook.
+- *Header:* a **Listen live** button (red dot, like the board) among the right-hand buttons: shown or hidden and relabelled in Header
+  like the others, and only while there is a channel.
+- Tests: `lib/live/schedule.test.ts` (11), `cadence.test.ts` (3), `tests/int/listen-live.int.spec.ts` (5), header tests updated.
+  Checked in a browser at 1440 px and on an emulated iPhone: the real 88.1 stream plays, keeps playing after moving to another page,
+  the bar shows the program (Echoes), close stops it, no overflow. With Cadence unreachable the page and bar show the channel name
+  and nothing invented.
+- *The week's schedule* (built later the same day; `components/ListenLive/WeekSchedule.tsx`), to the board: Monday to Sunday in
+  Central time, a button per day (today selected, labelled "Today"), the programs in order with their descriptions and links, and
+  "On now" on the one airing (rechecked every minute). It follows the player's channel. Data: Cadence's weekly widget POSTs
+  `{"channelId","startDate","endDate","from","size"}` to `https://cadence.nprstations.org/api/cadence/widget/` (no key; read
+  2026-11-07: 95 programs that week on 88.1, no overlaps, one-minute gaps after Echoes; one block a day on HD2 and HD3).
+  `lib/live/cadence.ts` `fetchWeek` (4 s timeout, last good week kept) and `cachedWeek` (15 minutes; a failed read is never
+  cached); `parseCadenceWeek` sorts and, if two programs overlap, keeps Cadence's higher `priority`; station-date helpers
+  (`stationWeek`, `programsOn`) work in Central time, so 11:30 p.m. Friday is still Friday. If Cadence is down and nothing was
+  read before: "The schedule is not available right now. The stream above still plays." 4 more unit tests in `schedule.test.ts`,
+  3 in `cadence.test.ts`; checked in a browser at 1440 px and on an emulated iPhone with the real week.
+- **Not built:** the pop-out player, a "Listen live" slot on the home page, next week's schedule (the page shows this week), and
+  song titles (none exist; see below).
+- **Before go-live:** ask NPR whether a station may read Cadence's widget data from its own server (it is undocumented; if not,
+  `/listen` falls back to the channel names, or embed Cadence's own "now" widget). Check the HD3 name and description with the
+  station (Grove says "WUWF HD3", the stream "Gatewave", the schedule page "Sightline").
+- **Sandbox lesson:** Node's own `fetch` ignores the sandbox's HTTPS proxy, so a server-side read of any outside host fails with
+  "fetch failed" when testing here. Start the server with `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`. Not
+  needed on Vercel.
+
+**Board 26, the design, revised from research (2026-11-07).** The canvas note took "now playing" from the
+program log; the owner doubted it and guessed the stream. The research (vendor docs, trade press and other stations' APIs; some
+StreamGuys pages could not be read from the sandbox) supports neither alone:
+- **"On now" and "Up next" (the program) come from the schedule, not the stream.** The stream cannot know what is next, and during talk
+  and NPR programs its title is often a station ID or stale. Public stations drive "On now" from a schedule database. WUWF's Grove site
+  very likely uses **NPR Composer** for its schedule. Composer has an undocumented widget API that returns a week per station
+  (sources disagree on whether it needs a key). **Read it on the server, one channel at a time (88.1, HD2, HD3), cache it for a few minutes,
+  and keep the last good copy.** If it fails, work out "on now" from the cached week, or hide the line. Never show a program after its
+  scheduled end.
+- **"Now playing" (a song) only when there is fresh song data**, in this order: a playlist log, if hosts log songs (Composer "On
+  Now", or Spinitron); otherwise the stream's own title, read **on the server** (StreamGuys SGmetadata, a paid API with a key and a
+  scraper per stream; or Icecast `status-json.xsl`, deprecated and sometimes turned off). Show a song only during a music program, only
+  when the data changed recently (about 10 minutes), and never a station-ID string. Otherwise show the program. Nothing for NPR's
+  news magazines unless PRSS MetaPub is wired in.
+- **Never read metadata in the browser:** in-band ICY metadata needs CORS headers most servers do not send and at least 16 KB of
+  audio before the first title; one server fetch serves every listener and keeps any vendor key private.
+- **The player** stays as the board has it: a player in front of StreamGuys stream URLs, one per channel, in the site layout so it
+  keeps playing between pages, with a bar at the bottom once started.
+- **Found on wuwf.org and the stream server (2026-11-07).** robots.txt allows everything; requests spaced 3 s apart with a
+  neutral User-Agent. Grove's persistent player (`persistentPlayer.streams`, every page) lists three streams, all plain MP3
+  served by StreamGuys' **AIS Streaming Server 9.1.4**:
+
+  | Channel (Grove name) | Stream | Bitrate | `icy-genre` |
+  |---|---|---|---|
+  | WUWF – News and Information (88.1) | `https://wuwf.streamguys1.com/WUWFFM.mp3` | 64 kbps | News |
+  | WUWF HD2 – Classical | `https://wuwf.streamguys1.com/WUWFHD2.mp3` | 96 kbps | Classical |
+  | WUWF HD3 ("Gatewave", a radio reading service; its schedule page says "Sightline") | `https://wuwf.streamguys1.com/WUWFHD3.mp3` | 64 kbps | Reader |
+
+  Grove labels two of them `audio/mp4`; the server sends `audio/mpeg`. Each stream answers with
+  `Access-Control-Allow-Origin: *` and offers in-stream ICY metadata (`icy-metaint: 1024`), but does **not** expose
+  `icy-metaint` to scripts (no `Access-Control-Expose-Headers`), so a browser cannot read titles even if they were sent.
+  **No titles are sent:** 20 s of 88.1 and HD2 (Fri. 11:24 p.m. Central) carried 553 empty metadata slots and no title, on
+  the music channel too. So the stream cannot supply "now playing" today; the automation would have to start sending
+  titles (a question for the engineer). Grove's player carries an empty `schedule` for every channel.
+- **The schedule is NPR Cadence** (NPR's replacement for Composer). wuwf.org's schedule pages (`/schedule-for-wuwf`, and
+  weekly and daily pages for HD2 and HD3) embed `cadence.nprstations.org/widgets/iframe/daily|weekly?channelId=...`. The
+  88.1 channel is `eed45825-935f-4185-8b47-059fcc96a6a6`, the same ID as the 88.1 stream's `channelId` in Grove's player;
+  HD2 is `ad7c1f78-645e-4cf2-8b38-88f8519b7464`, HD3 `75d8ec9d-cfc5-45b8-aec9-5bdeb6cd1fd4`. Cadence also serves a
+  "now" widget (`/widgets/iframe/now?channelId=...`: the current program and what is next). **No public Cadence API is
+  documented**; the next step is to read the "now" widget's own data request (needs `cadence.nprstations.org` allowed in
+  the session's network), then ask NPR whether a station may use it server-side. Until then, "On now" can be the Cadence
+  "now" widget itself, or nothing; never a guess.
+- The session's cloud environment for this repository is **`wuwf-portal`** (personal): the Default plus `www.wuwf.org`,
+  `wuwf.org`, `wuwf.streamguys1.com` and `cadence.nprstations.org`.
+- **Cadence's data, read 2026-11-07** (with that host allowed): its "now" widget reads
+  `https://cadence.nprstations.org/api/cadence/widget/<channelId>` (no key; JSON; `cache-control: public, max-age=15`; **no CORS
+  header**, so only a server can read it). It returns `onNow`, `upNext` and `upcoming`, each with the program's name, its start and
+  end in UTC and Central, and a program link. **No song data on any channel**, even with `?show_song=true`. HD2 is one all-day
+  "Classical 24" block; HD3 a placeholder named "HD 3". The address is undocumented: ask NPR (above).
+- **Questions still open.** For StreamGuys: whether SGmetadata (or another metadata service) is on the contract, and whether
+  an HLS or AAC version of each stream exists. For the engineer: whether the automation system can send titles into the
+  streams, and what it would send during talk; whether MetaPub is used; whether Cadence holds every channel's schedule and logs
+  songs on HD2; whether any NPR program airs on delay. For NPR: whether a station may read Cadence's schedule data from its own
+  server. Answered: the stream addresses, formats and headers (above).
+
+### Earlier: end of the 2026-11-06 session (homepage slots added later the same day)
 
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
@@ -1023,10 +1172,19 @@ signed-in account page, not CMS content.
 - The acknowledgment's "Our editorial independence policy" link shows only once an administrator sets the page in
   **Site settings**; until then it is absent rather than a link to nowhere.
 - A story previewed as an unsaved draft does not show its acknowledgment (it resolves from the saved story).
-- **"Listen live"** is deliberately not in the header: it would be a button that does nothing until the persistent
-  player exists (Milestone 2). Do not add it as a link to nowhere.
-- The header links only to pages that exist. The boards' full navigation (Podcasts, Video, RadioLive, Unearthing
-  Florida, WUWF Listens, The Voyager) arrives with those pages, as header-global entries.
+- **"Listen live"** is in the header since board 26 was built (2026-11-07), shown only while Listen live has a channel.
+- The header is entirely the Header global's (board 27, 2026-11-07): editors add links and menus as pages exist. Link only to
+  pages that exist; WUWF Listens waits for the listening work.
+- **A migration pushed to a branch is applied to staging by its preview build** (`MIGRATE_ON_BUILD=1`), so it is not "unreleased"
+  once pushed (2026-11-07). Deleting and regenerating one broke the next preview build ("type enum_search_kind already exists"): staging
+  still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
+  deletes its record, keeps the shared search and footer objects so search rows keep their links). After a push, **never rewrite a
+  migration: add a new one**. Test a migration change against staging's state, not only a fresh database.
+- **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
+  had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
+  Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
+  through `getPayload` outside the tests also marks the dev database as pushed (a `dev` row in `payload_migrations`), after which
+  `payload migrate` stops at a prompt: rebuild that database from the migrations.
 - Dev-mode Payload pushes schema changes and can stop at an interactive prompt (a script then hangs silently with
   its database session idle). Rebuild a dev database with `pnpm payload migrate` on an empty one instead.
 

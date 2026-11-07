@@ -1,6 +1,21 @@
 import { Field } from 'payload'
 
+import { KIND_LABELS, SEARCH_KINDS } from '@/lib/search/query'
+
 export const searchFields: Field[] = [
+  {
+    name: 'kind',
+    type: 'select',
+    index: true,
+    options: SEARCH_KINDS.map((value) => ({ label: KIND_LABELS[value], value })),
+    admin: { readOnly: true },
+  },
+  {
+    name: 'publishedAt',
+    type: 'date',
+    index: true,
+    admin: { readOnly: true },
+  },
   {
     name: 'slug',
     type: 'text',

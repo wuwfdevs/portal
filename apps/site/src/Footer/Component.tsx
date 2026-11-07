@@ -12,6 +12,9 @@ export async function Footer() {
   const footer = await getCachedGlobal('footer', 1)()
   const columns = footer?.columns ?? []
   const legal = footer?.navItems ?? []
+  // The FCC public file link (47 CFR 73.3527: from the home page; the footer puts it on every page) and its
+  // accessibility contact. Its own setting, not a legal-row link, so it cannot be dropped by reordering that row.
+  const publicFile = footer?.publicFile
 
   return (
     <footer className="mt-auto bg-surface-dark text-surface-dark-text">
@@ -45,9 +48,19 @@ export async function Footer() {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-surface-dark-line pt-6 text-sm md:flex-row md:justify-between">
-          <p>© {new Date().getFullYear()} WUWF Public Media</p>
-          {legal.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p>© {new Date().getFullYear()} WUWF Public Media</p>
+            {publicFile?.url && publicFile.accessibilityContact && <p className="max-w-xl">{publicFile.accessibilityContact}</p>}
+          </div>
+          {(legal.length > 0 || publicFile?.url) && (
             <ul className="flex flex-wrap gap-x-5">
+              {publicFile?.url && (
+                <li>
+                  <a className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" href={publicFile.url}>
+                    {publicFile.label || 'FCC Public File'}
+                  </a>
+                </li>
+              )}
               {legal.map(({ link, id }) => (
                 <li key={id ?? link.label}>
                   <CMSLink className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" {...link} />

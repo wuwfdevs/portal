@@ -43,6 +43,7 @@ import { Footer } from './Footer/config'
 import { Header } from './Header/config'
 import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
+import { ListenLive } from './globals/ListenLive'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
 import { storagePlugin } from './plugins/storage'
@@ -126,7 +127,7 @@ export default buildConfig({
     MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

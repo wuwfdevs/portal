@@ -4,8 +4,12 @@ import { draftMode } from 'next/headers'
 import React from 'react'
 
 import { AdminBar } from '@/components/AdminBar'
+import { PlayerBar } from '@/components/ListenLive/PlayerBar'
+import { PlayerProvider } from '@/components/ListenLive/PlayerProvider'
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
+import { liveChannels } from '@/lib/live/channels'
+import { getCachedGlobal } from '@/utilities/getGlobals'
 import { cn } from '@/utilities/ui'
 import { getServerSideURL } from '@/utilities/getURL'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
@@ -37,6 +41,14 @@ const sourceSerif = localFont({
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { isEnabled } = await draftMode()
+  // The live player lives here, outside page content, so it keeps playing across page loads (board 26). With no
+  // channels set there is no player at all.
+  const channels = await getCachedGlobal('listen-live', 0)()
+    .then((settings) => liveChannels(settings?.channels))
+    .catch((error: unknown) => {
+      console.error('Listen live settings could not be read; the page renders without the player.', error)
+      return []
+    })
 
   return (
     <html className={cn(sourceSans.variable, sourceSerif.variable)} lang="en">
@@ -52,11 +64,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to content
         </a>
         <AdminBar adminBarProps={{ preview: isEnabled }} />
-        <Header />
-        <main id="main" tabIndex={-1}>
-          {children}
-        </main>
-        <Footer />
+        <PlayerProvider channels={channels}>
+          <Header />
+          <main id="main" tabIndex={-1}>
+            {children}
+          </main>
+          <Footer />
+          <PlayerBar />
+        </PlayerProvider>
       </body>
     </html>
   )

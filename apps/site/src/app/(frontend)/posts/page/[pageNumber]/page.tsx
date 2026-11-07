@@ -35,7 +35,7 @@ export default async function Page({ params: paramsPromise }: Args) {
   return (
     <div className="pt-24 pb-24">
       <div className="container mb-16">
-        <div className="prose dark:prose-invert max-w-none">
+        <div className="prose max-w-none">
           <h1>Posts</h1>
         </div>
       </div>

@@ -29,7 +29,7 @@ export default function RichTextPlain(props: Props) {
       converters={jsxConverters}
       className={cn(
         'payload-richtext',
-        { container: enableGutter, 'max-w-none': !enableGutter, 'mx-auto prose md:prose-md dark:prose-invert': enableProse },
+        { container: enableGutter, 'max-w-none': !enableGutter, 'mx-auto prose md:prose-md': enableProse },
         className,
       )}
       {...rest}
