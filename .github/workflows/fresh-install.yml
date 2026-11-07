@@ -203,18 +203,38 @@ jobs:
           # folder cannot be used for this: three pairs of its files share a version, which the history cannot record.)
           # The baseline recorded itself in the history as version $THROUGH, so the CLI must see that file as applied
           # and offer only the newer probe.
+          #
+          # Migrations newer than the baseline were applied and recorded in the history by the step above, so the CLI
+          # must see their files too (a history entry with no file makes it stop: "Remote migration versions not found").
+          # They are copied in as the layout will have them, and the probe sorts after the newest of them.
           set -o pipefail
           THROUGH="$(cat supabase/baseline/BASELINE_THROUGH)"
-          probe=$((THROUGH + 1))
+          newest="$THROUGH"
+          applied=0
+          for f in $(ls "$RUNNER_TEMP"/migrations/*.sql | sort); do
+            v="$(basename "$f" | cut -d_ -f1)"
+            if [[ "$v" > "$THROUGH" ]]; then
+              cp "$f" "supabase/migrations/$(basename "$f")"
+              newest="$v"
+              applied=$((applied + 1))
+            fi
+          done
+          probe=$((newest + 1))
           printf -- '-- stands in for the baseline in this check; it is recorded as applied and must not run again\nselect 1;\n' > "supabase/migrations/${THROUGH}_baseline.sql"
           echo "create table public.ci_probe (id int primary key);" > "supabase/migrations/${probe}_ci_probe.sql"
           supabase db push --local --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.txt"
           grep -q "${probe}_ci_probe.sql" "$RUNNER_TEMP/dry-run.txt" || { echo "FAIL: the newer migration was not offered"; exit 1; }
           ! grep -q "_baseline.sql" "$RUNNER_TEMP/dry-run.txt" || { echo "FAIL: the CLI wants to run the baseline again"; exit 1; }
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            v="$(basename "$f" | cut -d_ -f1)"
+            if [[ "$v" > "$THROUGH" && "$v" != "$probe" ]]; then
+              ! grep -q "$(basename "$f")" "$RUNNER_TEMP/dry-run.txt" || { echo "FAIL: the CLI wants to run $(basename "$f") again"; exit 1; }
+            fi
+          done
           supabase db push --local --yes
           . "$RUNNER_TEMP/helpers.sh"
           expect "the newer migration was applied" "select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'ci_probe'" "1"
-          expect "the history holds the baseline and the newer migration" "select count(*) from supabase_migrations.schema_migrations" "2"
+          expect "the history holds the baseline, the migrations applied above, and the probe" "select count(*) from supabase_migrations.schema_migrations" "$((2 + applied))"
 
       - name: Show what happened, if it failed
         if: failure()
