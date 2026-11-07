@@ -22,6 +22,10 @@ const PUBLIC_PATHS = [
   // itself, and only when they press Begin (see
   // src/lib/audience-listening/participant.ts).
   "/listen",
+  // The public site's signed listening API (docs/audience-listening-suite-design.md §4). A server-to-server call
+  // carries no Supabase session; it is authenticated by an HMAC signature over the exact request, checked before
+  // anything else in lib/audience-listening/site-api.ts, so it must never hit the login redirect below.
+  "/api/site/listening",
   // Academic Partnerships' public inquiry form and its iframe variant. A
   // faculty submitter has no profile and never signs in at all — unlike
   // /join and /listen, there is no session here to establish, not even an

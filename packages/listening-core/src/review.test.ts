@@ -145,3 +145,37 @@ describe("badge maps", () => {
     expect(REVIEW_STATE_BADGE.new.variant).toBe("warning");
   });
 });
+
+describe("written answers", () => {
+  it("offers no transcription for a written answer, even one that is complete", () => {
+    expect(
+      transcriptionActionFor({
+        status: "uploaded",
+        transcription_state: "none",
+        transcription_project_id: null,
+        answer_kind: "text",
+      }),
+    ).toBe("unavailable");
+  });
+
+  it("still offers sending for a recording that says so, and for one that says nothing", () => {
+    const base = { status: "uploaded" as const, transcription_state: "none" as const, transcription_project_id: null };
+    expect(transcriptionActionFor({ ...base, answer_kind: "audio" })).toBe("send");
+    expect(transcriptionActionFor(base)).toBe("send");
+  });
+
+  it("does not count written answers when summarizing a submission's transcription", () => {
+    expect(
+      summarizeSubmissionTranscription([
+        { status: "uploaded", transcription_state: "sent", answer_kind: "audio" },
+        { status: "uploaded", transcription_state: "none", answer_kind: "text" },
+      ]),
+    ).toEqual({ label: "All sent", variant: "accent" });
+  });
+
+  it("says nothing to send when every answer is written", () => {
+    expect(
+      summarizeSubmissionTranscription([{ status: "uploaded", transcription_state: "none", answer_kind: "text" }]),
+    ).toEqual({ label: "—", variant: "muted" });
+  });
+});

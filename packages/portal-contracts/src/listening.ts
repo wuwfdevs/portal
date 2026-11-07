@@ -19,10 +19,24 @@ export const LISTENING_PATHS = {
   start: "/api/site/listening/start",
   progress: "/api/site/listening/progress",
   reserveAnswer: "/api/site/listening/reserve-answer",
+  saveTextAnswer: "/api/site/listening/save-text-answer",
   completeAnswer: "/api/site/listening/complete-answer",
   saveDetails: "/api/site/listening/save-details",
   finalize: "/api/site/listening/finalize",
+  forgetSubject: "/api/site/listening/forget-subject",
 } as const;
+
+/**
+ * Fields every request may carry. `clientHash` is the site's own hash of the visitor's network address, so the
+ * Portal can rate-limit without ever receiving or storing an address. Optional; omitting it leaves only the
+ * subject's own limit.
+ */
+export interface ListeningRequestBase {
+  clientHash?: string;
+}
+
+/** The longest `clientHash` the Portal accepts. */
+export const MAX_CLIENT_HASH_LENGTH = 128;
 
 export type ListeningPath = (typeof LISTENING_PATHS)[keyof typeof LISTENING_PATHS];
 
@@ -74,6 +88,12 @@ export interface ListeningQuery {
   publicId: string;
   title: string;
   intro: string;
+  /** Who is asking ("Leigh Ostrander"), where the question is from ("from the WUWF News desk"), and what it belongs to ("After Isaias"). */
+  askedBy: string | null;
+  fromLabel: string | null;
+  contextLabel: string | null;
+  /** Whether the site may offer "Write" beside "Record". */
+  allowTextAnswers: boolean;
   state: ListeningQueryState;
   opensAt: string | null;
   closesAt: string | null;
@@ -122,19 +142,19 @@ export interface ListeningFailure {
 export type ListeningResult<T> = ({ ok: true } & T) | ListeningFailure;
 
 /** Reading a query needs no subject: it is the one public read. `null` query = not available. */
-export interface ListeningQueryRequest {
+export interface ListeningQueryRequest extends ListeningRequestBase {
   publicId: string;
 }
 export type ListeningQueryResponse = ListeningResult<{ query: ListeningQuery }>;
 
 /** Opens this subject's in-progress submission, or resumes it. */
-export interface ListeningStartRequest {
+export interface ListeningStartRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   publicId: string;
 }
 export type ListeningStartResponse = ListeningResult<{ submissionId: string; resumed: boolean }>;
 
-export interface ListeningProgressRequest {
+export interface ListeningProgressRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   submissionId: string;
 }
@@ -142,8 +162,11 @@ export type ListeningAnswerStatus = "pending" | "uploaded" | "failed";
 export interface ListeningProgressAnswer {
   answerId: string;
   questionId: string | null;
+  kind: "audio" | "text";
   status: ListeningAnswerStatus;
   durationMs: number | null;
+  /** A written answer's words, so a reopened page can show them. Null for a recording. */
+  text: string | null;
 }
 export type ListeningProgressResponse = ListeningResult<{ status: "in_progress" | "submitted"; answers: ListeningProgressAnswer[] }>;
 
@@ -151,7 +174,7 @@ export type ListeningProgressResponse = ListeningResult<{ status: "in_progress" 
  * Creates (or resets, on a redo) the answer row and snapshots the question's wording, position and required flag
  * itself: the site never supplies them. The reply carries a signed upload address for the audio.
  */
-export interface ListeningReserveAnswerRequest {
+export interface ListeningReserveAnswerRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   submissionId: string;
   questionId: string;
@@ -159,18 +182,31 @@ export interface ListeningReserveAnswerRequest {
   contentType: string;
 }
 export interface ListeningUpload {
-  /** The audio goes straight from the browser to this address, never through the site. */
+  /** The audio goes straight from the browser to this address, never through the site. A raw body, not a form. */
   url: string;
   method: "PUT";
-  /** Sent with the upload exactly as given. */
+  /** Sent with the upload exactly as given (the content type is pinned to the one reserved). */
   headers: Record<string, string>;
-  /** ISO time after which the address stops working. */
+  /** ISO time after which the address stops working. Storage fixes this at two hours; the row must still be open. */
   expiresAt: string;
 }
 export type ListeningReserveAnswerResponse = ListeningResult<{ answerId: string; upload: ListeningUpload; maxDurationSeconds: number }>;
 
+/** A written answer, where the query allows it (`allowTextAnswers`). Replaces a recording or an earlier written answer. */
+export interface ListeningSaveTextAnswerRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  submissionId: string;
+  questionId: string;
+  /** Plain text, 1 to 4,000 characters. */
+  text: string;
+}
+export type ListeningSaveTextAnswerResponse = ListeningResult<{ answerId: string }>;
+
+/** Longest written answer. */
+export const MAX_TEXT_ANSWER_LENGTH = 4000;
+
 /** Tells the Portal the browser's upload finished, so it can check the object and mark the answer uploaded. */
-export interface ListeningCompleteAnswerRequest {
+export interface ListeningCompleteAnswerRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   answerId: string;
   sizeBytes: number;
@@ -179,7 +215,7 @@ export interface ListeningCompleteAnswerRequest {
 export type ListeningCompleteAnswerResponse = ListeningResult<Record<never, never>>;
 
 /** Only the participant and consent columns of the subject's own open submission. */
-export interface ListeningSaveDetailsRequest {
+export interface ListeningSaveDetailsRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   submissionId: string;
   details: { name: string | null; email: string | null; phone: string | null; city: string | null; note: string | null };
@@ -188,9 +224,18 @@ export interface ListeningSaveDetailsRequest {
 export type ListeningSaveDetailsResponse = ListeningResult<Record<never, never>>;
 
 /** Validates everything and flips the submission to submitted. `consentAgreed` is the terms checkbox. */
-export interface ListeningFinalizeRequest {
+export interface ListeningFinalizeRequest extends ListeningRequestBase {
   subject: ListeningSubject;
   submissionId: string;
   consentAgreed: boolean;
 }
 export type ListeningFinalizeResponse = ListeningResult<{ answers: number }>;
+
+/**
+ * Erases what a subject has not yet sent and detaches the rest (used when a site account is deleted). Submitted
+ * answers stay as editorial records without the subject.
+ */
+export interface ListeningForgetSubjectRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+}
+export type ListeningForgetSubjectResponse = ListeningResult<Record<never, never>>;
