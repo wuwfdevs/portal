@@ -10,7 +10,7 @@ design canvas are described under *Sources* below.
 ## Resume here (2026-11-07: boards 27 and 26 built)
 
 **Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
-**126 files, 1,444 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
+**127 files, 1,447 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations`
 passes; migrations `20261107_043501_board27_header_search_public_file` and `20261107_055404_listen_live` tested up, down and up.
 
 **Board 27 and 27b, menus, search and footer: built 2026-11-07.**
@@ -71,7 +71,11 @@ branch is deployed.
   from `lib/live/cadence.ts`: a server read of Cadence, cached 60 s, 4 s timeout, **last good answer kept** if Cadence fails, else
   nothing. Pure rules in `lib/live/schedule.ts`: a program is never shown after its end; a started "up next" moves up; "up next" is
   left out when the same program continues (HD2's all-day Classical 24); times in Central, AP style. The browser re-asks when the
-  current program ends and every 5 minutes while visible.
+  current program ends and every 5 minutes while visible. **Fixed after review on PR 339:** the refresh timer plans from the latest
+  answer (it had planned from the answer captured at mount, so the bar refreshed only on the 5-minute poll and an ended program
+  could stay "On now" that long), the shown time moves on at each program boundary without a request, and each answer belongs to
+  its channel (a switch had kept the previous channel's program while the new fetch failed). `useNowNext.test.ts` (3) fails on the
+  old hook.
 - *Header:* a **Listen live** button (red dot, like the board) among the right-hand buttons: shown or hidden and relabelled in Header
   like the others, and only while there is a channel.
 - Tests: `lib/live/schedule.test.ts` (11), `cadence.test.ts` (3), `tests/int/listen-live.int.spec.ts` (5), header tests updated.
