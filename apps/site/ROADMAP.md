@@ -12,7 +12,7 @@ design canvas are described under *Sources* below.
 **Phase 7a, Barefoot Mary on wuwf.org (built 2026-11-06, branch `claude/sharp-fermi-fmy9un`, pushed, no PR opened).** The design, the owner's
 decisions and what is left are under *Phase 7* below. In short: members-only stories and audio (public reads never get the body or the audio),
 per-show themes in code, and a themed show's home, episode page, Field Notes, Archive and support page; then seasons, and **7b, audience
-sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). **Next for phase 7:** 7d, private feeds. **Full suite 116 files, 1,367 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
+sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, members' listening** (memberships granted by hand, the claim link, unlocking members' work). then **7d, private member feeds**. **Next for phase 7:** 7e, the membership database sync (needs the system's name and how it exports), and the per-show podcast feed settings. **Full suite 118 files, 1,381 tests pass**; typecheck, lint (0 errors, the 4 old warnings) and the production build pass; `verify:migrations` passes.
 
 **Branch:** `claude/whats-next-oxili3` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). The earlier session branch (`claude/eloquent-cori-1mgpm8`) was merged (PRs 335 and 336). Full suite **104 files, 1,271 tests pass**; typecheck, lint (0 errors) and the production build pass; `verify:migrations` passes.
 
@@ -819,6 +819,23 @@ owner delegated).
   no list of "claims not yet used" beyond sorting by the claim fields; the claim email's wording is for Member Services to confirm.
 - **To try it on staging:** set the Supabase settings below and `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (Preview) on Vercel, fill *Members'
   listening comes with*, mark an episode and its audio members-only, add a membership with your own address and send the claim.
+
+**7d, private member feeds (built 2026-11-07).** A member with members' listening gets, per show that has members-only episodes,
+a private feed `/feeds/<show>/<token>.xml`, shown on `/account` (board 25: copy button; Apple Podcasts, Overcast, Pocket Casts buttons;
+reset). **Spotify is not offered**: it takes no private feeds (the board showed it). NPR+ activation is not built. The token is
+`<profile>-<version>-<signature>`, signed (HMAC, key derived from the site secret) over profile, show and version, so **nothing secret is
+stored** and the address can always be shown again; *reset* raises the version (`member-feeds` rows exist only after a reset; migration
+`20261107_002936_member_feeds`, up, down and up tested) and every earlier address answers **410**. The feed carries every published episode
+(season and episode tags included); a members-only episode's enclosure is `/feeds/<show>/<token>/audio/<id>`, which checks the token, the
+membership, and that the audio is the featured audio of a published members-only episode **of that show**, on every play, then gives a
+10-minute signed storage address. A **lapsed** member's feed keeps working with the free episodes only and says why; its members-only audio
+answers 403. Feeds are `private, no-store` and `noindex`. `/feeds` is reserved (Grove had none). Code: `lib/members/feeds.ts` (pure),
+`lib/members/feed-service.ts`, `lib/members/deliver.ts` (shared with 7c's file route). Tests: `member-feeds.int.spec.ts` (7, the reset guard
+mutation-checked), `feeds.test.ts`. **Checked over HTTP on a production build** against a database built only from the committed migrations:
+feed 200 RSS, private and noindex, members' enclosure through the member route, its audio 200, a tampered address 410, the same file at its
+public address 403. *Known limits:* a lapsed-then-renewed member's app picks the members' episodes up again at its next fetch; feed
+fetches are not counted (`feed_activated` in `ANALYTICS.md` is not wired); the per-show feed settings (Apple category, explicit, serial)
+above still apply to these feeds too.
 
 **Supabase settings the owner sets (dashboard; nothing in the repository can).** On `wuwf-site-staging` now, the same on `wuwf-site-production` at go-live:
 1. *Authentication → Emails → SMTP settings:* custom SMTP on; host `smtp.resend.com`, port `465`, username `resend`, password **a Resend
