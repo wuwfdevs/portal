@@ -18,9 +18,24 @@ async function getGlobal<T extends Global>(slug: T, depth = 0): Promise<DataFrom
 }
 
 /**
- * Returns a unstable_cache function mapped with the cache tag for the slug
+ * Which deployment a cached global belongs to. Vercel's data cache outlives a deployment, and a deployment's build runs
+ * its migrations, which can change a global (the header's starting menus did, 2026-11-07) without any save to revalidate
+ * it. Keying by deployment means a new deployment never serves a global cached before its own migrations ran.
+ */
+export function cacheGeneration(env: Record<string, string | undefined> = process.env): string {
+  return env.VERCEL_DEPLOYMENT_ID || env.VERCEL_GIT_COMMIT_SHA || 'local'
+}
+
+/** The cache key of a global: its slug, the depth it is read at, and the deployment. */
+export function globalCacheKey(slug: string, depth: number, generation = cacheGeneration()): string[] {
+  return [slug, `depth-${depth}`, generation]
+}
+
+/**
+ * A global, cached. Saving it in the admin revalidates its tag (`global_<slug>`), so editors' changes show at once;
+ * a new deployment reads it fresh.
  */
 export const getCachedGlobal = <T extends Global>(slug: T, depth = 0) =>
-  unstable_cache(async () => getGlobal<T>(slug, depth), [slug], {
+  unstable_cache(async () => getGlobal<T>(slug, depth), globalCacheKey(slug, depth), {
     tags: [`global_${slug}`],
   })
