@@ -304,7 +304,10 @@ Where it stands (2026-11-09):
 (table join, 5d) and "Text or leave a voice message any time: [Listener line]" (the hub footer) are left out when those screens are
 built, and no SMS provider is chosen. Staff re-issue a link and hand it over (above). Revisit if the station later picks a provider.
 
-Recommendations below are advice, not decisions, and nothing in code assumes them.
+**Adopted as the working defaults (owner, 2026-11-09): every recommendation below, for now.** They are what the Portal and the site
+are built toward, and each is revisited before the first real session: the consent wording and the purge schedule with UWF counsel and
+the records officer, the notification and approval choices with whoever will do the work. Nothing in code assumes them yet; each lands
+with the phase that needs it (consent and retention with D, notifications and approval with C and D).
 
 1. **Group-consent wording.** Stored as `consent_text_version` on the table; a change is a new version, never an edit. Before the first
    session, with whoever holds the IT-04 policy and UWF counsel:
