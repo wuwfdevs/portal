@@ -58,7 +58,10 @@ export function transcriptionActionFor(answer: {
   status: AlAnswerStatus;
   transcription_state: AlTranscriptionState;
   transcription_project_id: string | null;
+  /** A written answer has nothing to transcribe. Absent means a recording, as before written answers existed. */
+  answer_kind?: "audio" | "text";
 }): TranscriptionAction {
+  if (answer.answer_kind === "text") return "unavailable";
   if (answer.status !== "uploaded") return "unavailable";
   if (answer.transcription_state === "sent" && answer.transcription_project_id) return "open";
   if (answer.transcription_state === "failed") return "retry";
@@ -72,9 +75,9 @@ export function transcriptionActionFor(answer: {
  * is the thing a reporter needs and a green tick would be a lie.
  */
 export function summarizeSubmissionTranscription(
-  answers: { status: AlAnswerStatus; transcription_state: AlTranscriptionState }[],
+  answers: { status: AlAnswerStatus; transcription_state: AlTranscriptionState; answer_kind?: "audio" | "text" }[],
 ): { label: string; variant: BadgeVariant } {
-  const eligible = answers.filter((answer) => answer.status === "uploaded");
+  const eligible = answers.filter((answer) => answer.status === "uploaded" && answer.answer_kind !== "text");
   if (eligible.length === 0) return { label: "—", variant: "muted" };
 
   const failed = eligible.filter((answer) => answer.transcription_state === "failed").length;

@@ -1583,6 +1583,11 @@ export interface Database {
           ask_attribution_permission: boolean;
           allow_anonymous_request: boolean;
           transcription_mode: AlTranscriptionMode;
+          /** Public display fields and the written-answers switch (20261107120000_audience_listening_site_api.sql). */
+          asked_by: string | null;
+          from_label: string | null;
+          context_label: string | null;
+          allow_text_answers: boolean;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -1622,6 +1627,8 @@ export interface Database {
           id: string;
           query_id: string;
           participant_user_id: string | null;
+          /** `site:visitor:<id>` or `site:account:<id>`; a row has at most one of this and participant_user_id. */
+          participant_subject: string | null;
           status: AlSubmissionStatus;
           participant_name: string | null;
           participant_email: string | null;
@@ -1658,8 +1665,11 @@ export interface Database {
           question_position: number;
           question_required: boolean;
           status: AlAnswerStatus;
-          storage_path: string;
-          content_type: string;
+          /** `audio` has storage_path and content_type; `text` has answer_text instead. */
+          answer_kind: "audio" | "text";
+          answer_text: string | null;
+          storage_path: string | null;
+          content_type: string | null;
           size_bytes: number | null;
           duration_ms: number | null;
           review_state: AlReviewState;
@@ -1676,8 +1686,6 @@ export interface Database {
           query_id: string;
           question_prompt: string;
           question_position: number;
-          storage_path: string;
-          content_type: string;
         };
         Update: Partial<Database["public"]["Tables"]["al_answers"]["Row"]>;
         Relationships: [];
@@ -4386,6 +4394,61 @@ export interface Database {
       al_finalize_submission: {
         Args: { p_submission_id: string; p_consent_agreed: boolean };
         Returns: { ok: true; answers: number } | { error: string };
+      };
+      /**
+       * The site's signed API (20261107120000_audience_listening_site_api.sql). service_role only; the subject is
+       * `site:visitor:<id>` or `site:account:<id>`, built by lib/audience-listening/site-api-shapes.ts.
+       */
+      al_site_rate_hit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
+      al_site_query: {
+        Args: { p_public_id: string };
+        Returns: Record<string, unknown> | null;
+      };
+      al_site_start_submission: {
+        Args: { p_subject: string; p_public_id: string };
+        Returns: { submission_id: string; resumed: boolean } | { error: string };
+      };
+      al_site_progress: {
+        Args: { p_subject: string; p_submission_id: string };
+        Returns: Record<string, unknown> | null;
+      };
+      al_site_reserve_answer: {
+        Args: { p_subject: string; p_submission_id: string; p_question_id: string; p_content_type: string };
+        Returns: { answer_id: string; storage_path: string; max_duration_seconds: number } | { error: string };
+      };
+      al_site_save_text_answer: {
+        Args: { p_subject: string; p_submission_id: string; p_question_id: string; p_text: string };
+        Returns: { answer_id: string } | { error: string };
+      };
+      al_site_complete_answer: {
+        Args: { p_subject: string; p_answer_id: string; p_size_bytes: number; p_duration_ms: number | null };
+        Returns: { ok: true } | { error: string };
+      };
+      al_site_save_details: {
+        Args: {
+          p_subject: string;
+          p_submission_id: string;
+          p_name: string | null;
+          p_email: string | null;
+          p_phone: string | null;
+          p_city: string | null;
+          p_note: string | null;
+          p_consent_contact: boolean;
+          p_consent_identify: boolean;
+          p_request_anonymous: boolean;
+        };
+        Returns: { ok: true } | { error: string };
+      };
+      al_site_finalize: {
+        Args: { p_subject: string; p_submission_id: string; p_consent_agreed: boolean };
+        Returns: { ok: true; answers: number } | { error: string };
+      };
+      al_site_forget_subject: {
+        Args: { p_subject: string };
+        Returns: { ok: true; storage_paths: string[] } | { error: string };
       };
       /**
        * Guest-join entry point (20260729180000_remote_interview_waiting_room.sql).

@@ -115,6 +115,34 @@ export function SettingsTab({
         </Card>
 
         <Card className="p-5">
+          <SectionHeading className="mb-1">Shown on the website</SectionHeading>
+          <p className="mb-4 text-meta leading-relaxed text-ink-400">
+            The public website shows these beside the question. Leave any of them blank to show
+            nothing.
+          </p>
+          <div className="mb-4 grid gap-4 sm:grid-cols-3">
+            <Field label="Asked by" htmlFor="asked_by" hint="A person, e.g. a reporter's name.">
+              <Input id="asked_by" name="asked_by" defaultValue={query.asked_by ?? ""} maxLength={120} />
+            </Field>
+            <Field label="From" htmlFor="from_label" hint="A desk or program, e.g. the news desk.">
+              <Input id="from_label" name="from_label" defaultValue={query.from_label ?? ""} maxLength={120} />
+            </Field>
+            <Field label="Part of" htmlFor="context_label" hint="A series or project this belongs to.">
+              <Input id="context_label" name="context_label" defaultValue={query.context_label ?? ""} maxLength={120} />
+            </Field>
+          </div>
+          <CheckboxField
+            name="allow_text_answers"
+            defaultChecked={query.allow_text_answers}
+            label="Let people write an answer as well as record one"
+          />
+          <p className="mt-2 text-meta leading-relaxed text-ink-400">
+            A written answer is read here like any other, but it has no audio, so it can&apos;t be
+            sent to transcription.
+          </p>
+        </Card>
+
+        <Card className="p-5">
           <SectionHeading className="mb-1">Consent and attribution</SectionHeading>
           <p className="mb-4 text-xs leading-relaxed text-ink-400">
             These are three separate questions and stay separate on the record: permission to be

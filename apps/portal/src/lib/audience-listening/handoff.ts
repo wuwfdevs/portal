@@ -67,6 +67,9 @@ export async function sendAnswerToTranscription(answerId: string): Promise<Hando
   if (answer.status !== "uploaded") {
     return { ok: false, error: "That answer has no completed audio to transcribe." };
   }
+  if (answer.answer_kind === "text" || !answer.storage_path || !answer.content_type) {
+    return { ok: false, error: "That answer is written, so there is no audio to transcribe." };
+  }
 
   const [submissionResult, queryResult, questionCountResult] = await Promise.all([
     supabase.from("al_submissions").select("*").eq("id", answer.submission_id).maybeSingle(),

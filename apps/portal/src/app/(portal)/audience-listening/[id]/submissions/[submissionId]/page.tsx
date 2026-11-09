@@ -83,6 +83,7 @@ export default async function SubmissionDetailPage({
   const mediaUrls = new Map<string, { play: string | null; download: string | null }>();
   for (const answer of answers) {
     if (answer.status !== "uploaded") continue;
+    if (answer.answer_kind === "text" || !answer.storage_path || !answer.content_type) continue;
     const filename = answerDownloadFilename({
       questionPosition: answer.question_position,
       participantLabel: submission.participant_name,
@@ -263,7 +264,16 @@ export default async function SubmissionDetailPage({
                   </Alert>
                 )}
 
-                {outcome === "answered" && answer && (
+                {outcome === "answered" && answer && answer.answer_kind === "text" && (
+                  <>
+                    <p className="whitespace-pre-wrap text-body text-ink-700">{answer.answer_text}</p>
+                    <p className="mt-2 text-meta text-ink-400">
+                      Written answer. There is no audio to transcribe.
+                    </p>
+                  </>
+                )}
+
+                {outcome === "answered" && answer && answer.answer_kind !== "text" && (
                   <>
                     {urls?.play ? (
                       <audio controls preload="none" src={urls.play} className="w-full">
