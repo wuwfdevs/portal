@@ -132,6 +132,17 @@ export function SettingsTab({
             </Field>
           </div>
           <CheckboxField
+            name="listed_on_hub"
+            defaultChecked={query.listed_on_hub}
+            label="List on the website's listening page"
+          />
+          <p className="mb-4 mt-2 text-meta leading-relaxed text-ink-400">
+            While the query is open it appears there with the words above and no count. Once you add
+            an outcome it also appears with what came of it and the number of people who answered;
+            a question with no outcome never shows a number. A query that isn&apos;t listed still
+            works from its own link.
+          </p>
+          <CheckboxField
             name="allow_text_answers"
             defaultChecked={query.allow_text_answers}
             label="Let people write an answer as well as record one"

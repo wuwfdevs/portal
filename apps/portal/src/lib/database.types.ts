@@ -342,6 +342,8 @@ export type RiTrackStatus =
 
 // Audience Listening (al_*) — see supabase/migrations/20260730170000_audience_listening.sql.
 export type AlQueryStatus = "draft" | "open" | "closed" | "archived";
+/** What came of a query (al_outcomes.kind). */
+export type AlOutcomeKind = "story" | "episode" | "report";
 export type AlFieldMode = "hidden" | "optional" | "required";
 export type AlTranscriptionMode = "automatic" | "manual";
 export type AlSubmissionStatus = "in_progress" | "submitted";
@@ -1588,6 +1590,8 @@ export interface Database {
           from_label: string | null;
           context_label: string | null;
           allow_text_answers: boolean;
+          /** Whether the website's listening page may list this query and its outcomes (20261109120000_audience_listening_hub_outcomes.sql). */
+          listed_on_hub: boolean;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -1599,6 +1603,30 @@ export interface Database {
           created_by: string;
         };
         Update: Partial<Database["public"]["Tables"]["al_queries"]["Row"]>;
+        Relationships: [];
+      };
+      al_outcomes: {
+        Row: {
+          id: string;
+          query_id: string;
+          kind: AlOutcomeKind;
+          title: string;
+          url: string;
+          summary: string | null;
+          /** A calendar date, YYYY-MM-DD. */
+          published_at: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_outcomes"]["Row"]> & {
+          query_id: string;
+          kind: AlOutcomeKind;
+          title: string;
+          url: string;
+          published_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_outcomes"]["Row"]>;
         Relationships: [];
       };
       al_questions: {
@@ -4449,6 +4477,10 @@ export interface Database {
       al_site_forget_subject: {
         Args: { p_subject: string };
         Returns: { ok: true; storage_paths: string[] } | { error: string };
+      };
+      al_site_hub: {
+        Args: Record<string, never>;
+        Returns: { open: Record<string, unknown>[]; answered: Record<string, unknown>[] };
       };
       /**
        * Guest-join entry point (20260729180000_remote_interview_waiting_room.sql).

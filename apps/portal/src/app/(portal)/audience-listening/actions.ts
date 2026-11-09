@@ -15,6 +15,7 @@ import {
   validateQuestionInput,
 } from "@/lib/audience-listening/query-state";
 import { listQuestions } from "@/lib/audience-listening/queries";
+import { normalizeOutcomeUrl, validateOutcomeInput } from "@/lib/audience-listening/outcomes";
 import { sendQueuedAnswers } from "@/lib/audience-listening/handoff";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { sendAnswerToSourcework } from "@/lib/audience-listening/capabilities";
@@ -107,6 +108,7 @@ export async function updateQuerySettings(formData: FormData): Promise<void> {
       from_label: optionalField(formData, "from_label"),
       context_label: optionalField(formData, "context_label"),
       allow_text_answers: checkboxField(formData, "allow_text_answers"),
+      listed_on_hub: checkboxField(formData, "listed_on_hub"),
       opens_at: opensAt,
       closes_at: closesAt,
       field_name: fieldMode(formData, "field_name"),
@@ -576,6 +578,79 @@ export async function sendQueuedAnswersAction(formData: FormData): Promise<void>
       `Sent ${result.sent}, but ${result.failed} failed. First failure: ${result.message ?? "unknown"}`,
     );
   }
+
+  redirect(path);
+}
+
+/**
+ * Record what came of a query: a title and an address. The website's listening page shows it once the query is
+ * listed there. Nothing here is fetched or checked against any CMS; the address is text a person pasted.
+ */
+export async function addOutcome(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const queryId = field(formData, "query_id");
+  const path = queryPath(queryId, "outcomes");
+
+  const input = {
+    kind: field(formData, "kind"),
+    title: field(formData, "title"),
+    url: field(formData, "url"),
+    summary: optionalField(formData, "summary"),
+    publishedAt: field(formData, "published_at"),
+  };
+  const problem = validateOutcomeInput(input);
+  if (problem) failWith(path, problem);
+  const url = normalizeOutcomeUrl(input.url);
+  if (!url) failWith(path, "That address isn't a usable link.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("al_outcomes")
+    .insert({
+      query_id: queryId,
+      kind: input.kind as "story" | "episode" | "report",
+      title: input.title,
+      url,
+      summary: input.summary,
+      published_at: input.publishedAt,
+      created_by: profile.id,
+    })
+    .select("id")
+    .single();
+  failIfError(error, path, "Could not save the outcome");
+  if (!data) failWith(path, "Could not save the outcome — no row was created.");
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "al.outcome.added",
+    targetType: "al_query",
+    targetId: queryId,
+    metadata: { outcome_id: data.id, kind: input.kind },
+  });
+
+  redirect(path);
+}
+
+export async function removeOutcome(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const queryId = field(formData, "query_id");
+  const outcomeId = field(formData, "outcome_id");
+  const path = queryPath(queryId, "outcomes");
+
+  const supabase = await createClient();
+  await deleteOrFail(
+    supabase.from("al_outcomes").delete().eq("id", outcomeId).eq("query_id", queryId).select("id"),
+    path,
+    "Could not remove the outcome",
+  );
+
+  await logAuditEvent({
+    actorId: profile.id,
+    action: "al.outcome.removed",
+    targetType: "al_query",
+    targetId: queryId,
+    metadata: { outcome_id: outcomeId },
+  });
 
   redirect(path);
 }
