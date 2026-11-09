@@ -317,6 +317,9 @@ repo and a project's history, not the version number.
 | `20261105220000_station_weather_location.sql`                         | 2026-11-04 | 2026-11-04 |
 | `20261105230000_resources_guides_say_the_station.sql`                 | 2026-11-04 | 2026-11-04 |
 | `20261107120000_audience_listening_site_api.sql`                      | 2026-11-09 | 2026-11-09 |
+| `20261109120000_audience_listening_hub_outcomes.sql`                  | 2026-11-09 | 2026-11-09 |
+| `20261109130000_resources_audience_listening_website.sql`             | 2026-11-09 | 2026-11-09 |
+| `20261109140000_audience_listening_query_outcome.sql`                 | 2026-11-09 | 2026-11-09 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
