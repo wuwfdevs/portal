@@ -65,7 +65,9 @@ records itself in the history as the single version `BASELINE_THROUGH`.
 ## Keeping it current
 
 A migration added after `BASELINE_THROUGH` needs nothing here: it applies on top of the baseline (CI does this) and on top
-of WUWF's history. Regenerate the baseline (a Postgres 16+ server with `local-stubs.sql` applied, then
+of WUWF's history. The one thing CI treats differently is Resources content: the baseline must hold no release notes or procedures,
+but a later migration may add a release note (the Portal's rules require one for any change a user would notice), never a
+procedure. Regenerate the baseline (a Postgres 16+ server with `local-stubs.sql` applied, then
 `replay-history.sh`, the clearing script and `generate.sh`; `verify.sh` to confirm) when you want newer installs to
 start from newer files, and always before an upstream repository is cut. The upstream repository keeps only the
 baseline as its first migration; the replay scripts here stay with WUWF's history.
