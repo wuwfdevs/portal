@@ -1,7 +1,7 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
-Status: **Design, 2026-11-07. Nothing here is built yet** except the contract's first draft
-(`packages/portal-contracts/src/listening.ts`). The build order is in §10.
+Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09) and phase B is built on the site (2026-11-09);
+phases C to F are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -286,6 +286,16 @@ update and release note, and works before the next begins.
 - **D. Campaigns, events, tables, conversations** in the Portal, with staff screens and table cards.
 - **E. Site screens for D** (5c to 5i) and site accounts for organizers.
 - **F. Reports and outcomes polish**, the monthly report (board G), follow-through components E and F.
+
+Where it stands (2026-11-09):
+
+- **A is built.** The subject-keyed functions, the receiver and the written answers (`20261107120000`, applied to both projects); the hub
+  read, `al_outcomes`, `al_queries.listed_on_hub` and the staff Outcomes tab (`20261109120000`, with its Resources content in
+  `20261109130000`). The hub returns open and answered questions only: campaigns and closed-campaign reports do not exist until D, and
+  join the message as additive fields. A query is on the hub only when a staff member turns on "List on the website's listening page"
+  (off by default, so nothing is published automatically). A count of answers is returned only beside an outcome.
+- **B is built on the site** (`apps/site`, `ROADMAP.md` -> *Listening: where it stands*): the full set, the inline asks B, C and D, the
+  invitation A and the hub. Still to do for B: an editor block to place the inline asks in a story, a topic page and an episode.
 
 ## 11. Open items for the owner
 

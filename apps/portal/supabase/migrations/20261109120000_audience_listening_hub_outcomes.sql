@@ -90,6 +90,7 @@ as $$
             'from_label', q.from_label,
             'context_label', q.context_label,
             'closes_at', q.closes_at,
+            'allow_text_answers', q.allow_text_answers,
             'question_count', (select count(*) from public.al_questions x where x.query_id = q.id)
           )
           order by coalesce(q.opens_at, q.created_at) desc

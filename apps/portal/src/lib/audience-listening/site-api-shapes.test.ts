@@ -305,7 +305,7 @@ describe("requiresEnabledTool", () => {
 });
 
 describe("the hub", () => {
-  const open = { public_id: PUBLIC_ID, public_title: "After the storm", public_intro: "Tell us.", asked_by: null, from_label: "from the news desk", context_label: null, closes_at: null, question_count: 3 };
+  const open = { public_id: PUBLIC_ID, public_title: "After the storm", public_intro: "Tell us.", asked_by: null, from_label: "from the news desk", context_label: null, closes_at: null, allow_text_answers: true, question_count: 3 };
   const outcome = { kind: "story", title: "What the storm left", url: "https://example.org/a", published_at: "2026-11-01", summary: null };
 
   it("takes no subject and calls its function with no arguments", () => {
@@ -323,7 +323,7 @@ describe("the hub", () => {
   it("shapes open questions without any count of responses", () => {
     const { open: shaped } = shapeHub({ open: [open], answered: [] });
     expect(shaped).toEqual([
-      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, questionCount: 3 },
+      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3 },
     ]);
     expect(Object.keys(shaped[0] ?? {})).not.toContain("responseCount");
   });

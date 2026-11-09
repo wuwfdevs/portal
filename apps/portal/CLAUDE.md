@@ -278,6 +278,20 @@ tools call one place — there is no second ASR pipeline, webhook, or transcript
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
+**Audience Listening: the site's signed API (suite phase A, 2026-11-07 and 2026-11-09).** A pointer; read
+`docs/audience-listening-suite-design.md` first. WUWF.org renders every public screen and calls
+`/api/site/listening/[action]` from its server with requests signed by `LISTENING_SIGNING_SECRET`
+(`lib/audience-listening/site-api.ts`, pure half `site-api-shapes.ts`, contract in `packages/portal-contracts/src/listening.ts`).
+Four things are load-bearing: (1) **the route verifies the signature before anything else, then calls one `al_site_*` function
+through the admin client; no table is touched directly, and every `al_site_*` function is `execute` for `service_role` only**
+(revoke from `public, anon, authenticated` by name); (2) **a participant is a subject**, `al_submissions.participant_subject`
+(`site:visitor:<id>` or `site:account:<id>`), never an auth user, and a row has at most one of that and `participant_user_id`; the
+Portal's own `/listen` page still uses the auth user; (3) **a request body is never logged**: only the action, the refusal code
+and the subject's namespace; (4) **nothing is public until staff say so**: a query appears on the website's hub only with
+`al_queries.listed_on_hub`, and the hub returns a response count only beside an outcome (`al_outcomes`, a title and an https
+address staff paste, edited on the query's Outcomes tab; the Portal knows no CMS). Written answers are built and off by default
+(`al_queries.allow_text_answers`). The routes answer "unavailable" until the secret is set.
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the

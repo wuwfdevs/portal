@@ -263,6 +263,8 @@ export interface ListeningHubOpen {
   fromLabel: string | null;
   contextLabel: string | null;
   closesAt: string | null;
+  /** Whether the question also takes a written answer, for the card's "by voice or in writing". */
+  allowTextAnswers: boolean;
   questionCount: number;
 }
 

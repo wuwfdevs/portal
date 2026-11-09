@@ -307,6 +307,7 @@ export function shapeHub(payload: unknown): ListeningHub {
         fromLabel: asString(q["from_label"]),
         contextLabel: asString(q["context_label"]),
         closesAt: asString(q["closes_at"]),
+        allowTextAnswers: q["allow_text_answers"] === true,
         questionCount: asNumber(q["question_count"]) ?? 0,
       },
     ];
