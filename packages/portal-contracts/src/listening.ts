@@ -24,6 +24,7 @@ export const LISTENING_PATHS = {
   saveDetails: "/api/site/listening/save-details",
   finalize: "/api/site/listening/finalize",
   forgetSubject: "/api/site/listening/forget-subject",
+  hub: "/api/site/listening/hub",
 } as const;
 
 /**
@@ -103,6 +104,11 @@ export interface ListeningQuery {
   allowAnonymousRequest: boolean;
   fields: { name: ListeningFieldMode; email: ListeningFieldMode; phone: ListeningFieldMode; city: ListeningFieldMode; note: ListeningFieldMode };
   questions: ListeningQuestion[];
+  /**
+   * What came of this question, when it is listed on the hub and has an outcome (the newest one), with how many people answered. Null
+   * otherwise: an open question's count never leaves the Portal.
+   */
+  outcome: (ListeningOutcome & { responseCount: number }) | null;
 }
 
 /** Every refusal the Portal can give. The site turns each into a sentence; the codes are the contract. */
@@ -239,3 +245,56 @@ export interface ListeningForgetSubjectRequest extends ListeningRequestBase {
   subject: ListeningSubject;
 }
 export type ListeningForgetSubjectResponse = ListeningResult<Record<never, never>>;
+
+/** What came of a question: the kind of piece, its title, and where it lives. Staff paste the address; the Portal knows no CMS. */
+export type ListeningOutcomeKind = "story" | "episode" | "report";
+
+export interface ListeningOutcome {
+  kind: ListeningOutcomeKind;
+  title: string;
+  /** An https address. */
+  url: string;
+  /** A calendar date, `YYYY-MM-DD`. */
+  publishedAt: string;
+  summary: string | null;
+}
+
+/** A question that is open now and listed for the hub. It carries no count: an open question's tally never leaves the Portal. */
+export interface ListeningHubOpen {
+  publicId: string;
+  title: string;
+  intro: string;
+  askedBy: string | null;
+  fromLabel: string | null;
+  contextLabel: string | null;
+  closesAt: string | null;
+  /** Whether the question also takes a written answer, for the card's "by voice or in writing". */
+  allowTextAnswers: boolean;
+  questionCount: number;
+}
+
+/** A listed question with at least one outcome. The count is allowed here, and only here. */
+export interface ListeningHubAnswered {
+  publicId: string;
+  title: string;
+  askedBy: string | null;
+  fromLabel: string | null;
+  contextLabel: string | null;
+  responseCount: number;
+  /** Newest first; never empty. */
+  outcomes: ListeningOutcome[];
+}
+
+/**
+ * The website's listening page: what is being asked now, and what came of what was asked. Campaigns and their
+ * reports join this message as additive fields when they exist (phase D of the suite design); a reader ignores
+ * fields it does not know.
+ */
+export interface ListeningHub {
+  open: ListeningHubOpen[];
+  answered: ListeningHubAnswered[];
+}
+
+/** The hub needs no subject: it is a public read, like `query`. */
+export type ListeningHubRequest = ListeningRequestBase;
+export type ListeningHubResponse = ListeningResult<{ hub: ListeningHub }>;

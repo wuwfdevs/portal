@@ -18,6 +18,7 @@ export type AlQuery = Database["public"]["Tables"]["al_queries"]["Row"];
 export type AlQuestion = Database["public"]["Tables"]["al_questions"]["Row"];
 export type AlSubmission = Database["public"]["Tables"]["al_submissions"]["Row"];
 export type AlAnswer = Database["public"]["Tables"]["al_answers"]["Row"];
+export type AlOutcome = Database["public"]["Tables"]["al_outcomes"]["Row"];
 
 export interface QueryListRow {
   query: AlQuery;
@@ -217,5 +218,21 @@ export async function getLinkedProjects(
         { id: project.id, title: project.title, status: computeProjectStatus(source, transcript) },
       ];
     }),
+  );
+}
+
+/** What came of a query, newest first. */
+export async function listOutcomes(queryId: string): Promise<AlOutcome[]> {
+  const supabase = await createClient();
+  return (
+    unwrapRead(
+      await supabase
+        .from("al_outcomes")
+        .select("*")
+        .eq("query_id", queryId)
+        .order("published_at", { ascending: false })
+        .order("created_at", { ascending: false }),
+      "this query's outcomes",
+    ) ?? []
   );
 }

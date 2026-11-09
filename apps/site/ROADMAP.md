@@ -332,7 +332,7 @@ sponsorship and listening are deferred.
 | **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, newsletters, "From NPR", sponsor placements. (Podcasts, RadioLive, Unearthing Florida and short videos were added 2026-11-06: see *Resume here*.) The membership band's wording is the Article page's; the owner should confirm the front-page copy |
 | **Author profiles and the Unearthing Florida and Voyager hubs** (Grove `AuthorPage`; boards 11, 13) | **Built** (2026-11-03). See *Phase 4*. |
-| Audience listening: screens over the Portal's signed listening API (decided 2026-11-04: the Portal owns the data; the site has no listening collections) | **Contract drafted (2026-11-07)** in `packages/portal-contracts/src/listening.ts` (7 signed POSTs mirroring the Portal's 7 participant functions; 31 tests in the package). **Not built:** the Portal endpoints and the site screens. See *Listening: next steps and open decisions* below |
+| Audience listening: screens over the Portal's signed listening API (decided 2026-11-04: the Portal owns the data; the site has no listening collections) | **Phase B built (2026-11-09):** the full question set (`/listens/<publicId>`, boards 5b and 6-H), the inline asks B, C and D, the invitation A, and the hub (`/listens`, board 5, as far as the Portal serves it). Verified in a real browser at 1440 and 390 px against a stand-in Portal that checks every signature; **not yet against the real Portal**: it needs `PORTAL_ORIGIN` and `PORTAL_LISTENING_SECRET` set here and the matching secret in the Portal, and the Portal's two 2026-11-09 migrations applied. Unverified until the first real upload: the raw `PUT` to the signed upload address. **Not built:** an editor block to place B, C or D in a story, topic page or episode (needs a Payload migration; `components/Listening/ListeningInline` is what the block will render), Ask WUWF, host requests, sessions, tables, and the campaign and report bands (suite phases C to E). See *Listening: where it stands* below |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
 | Starter lint errors (Header, Card, Theme provider) | **Fixed** (components replaced); 3 warnings remain in the starter's e2e tests |
@@ -370,15 +370,38 @@ in them has been started.
 9. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
 10. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
 
-## Listening: next steps and open decisions
+## Listening: where it stands
 
-The contract covers the **Portal's Milestone 1 only**: one query, ordered voice answers, details and consent, finalize. Build order:
+The Portal is the system and the site is the screen (suite design: `apps/portal/docs/audience-listening-suite-design.md`). The site stores
+no submission, consent record, audio or transcript: it calls the Portal's signed API from its server, and audio goes from the browser to
+the signed upload address the Portal issues.
 
-1. **Portal endpoints** (`apps/portal`, `/api/site/listening/*`): verify the signature with a listening-only secret, then call the existing `al_*` logic. **Decision needed:** `al_submissions.participant_user_id` references `auth.users` (an anonymous Supabase session) and the functions read `auth.uid()`. A site subject is not an auth user, so this needs either new subject-keyed twins of the seven functions or a `participant_subject` column; either is a Portal migration through its ledger. The one-in-progress and three-in-total limits must key on the subject.
-2. **Signed upload address:** `reserve-answer` must return one the browser can PUT to. Storage policies today admit only an `auth.uid()` that owns the submission, so this means a Portal-issued signed upload URL (as the site's CLAUDE.md already requires).
-3. **Site screens** from boards 5 and 6: the full set (H), then Inline ask (B, C), voice-first (D). One listening component per page.
+**Built (suite phase B, 2026-11-09).**
 
-**Not in the contract because the Portal has nothing behind it** (each needs Portal design first): written answers (the Inline ask has "Write" beside "Record"; Milestone 1 is audio only); the free-form **Ask WUWF** box (question or story idea); **hosted sessions, events, tables and participant cards** (boards 5c-5i); **follow-through** (boards E-G: "this story started with your answers", asked-by counts, the monthly report). Owner to decide which of these are in scope before any is designed.
+- `src/lib/listening`: `config.ts` (the two environment variables), `portal-call.ts` and `portal.ts` (the one signed door to the Portal;
+  a body is never logged), `visitor.ts` (the `wuwf_listening_visitor` cookie, 30 days, and the keyed per-day address hash), `flow.ts` (what
+  each screen says and what blocks it), `send-answer.ts` (reserve, upload, complete: "saved" is said only after the Portal confirms),
+  `inline.ts` (when a question can be answered inline), `hub.ts` (the hub's sentences), `messages.ts` (one sentence per refusal code).
+- `src/components/Listening`: `QuestionSet` (the full set), `InlineAsk` (B in a story, C at the head of a topic page, D after an
+  episode), `Invite` (A), `HubView`, `ListeningInline` (the server component that places one of them and renders nothing when the question
+  is closed or listening is not set up), `useRecorder` (native `MediaRecorder`; the microphone is asked for once).
+- Routes: `/listens` (the hub) and `/listens/<publicId>` (the full set). Server actions: `listens/actions.ts`.
+- Decisions made while building, to confirm: the hub lives at `/listens`; text buttons use `--wuwf-blue-700`, not the boards' `--wuwf-blue`
+  (white on it is 3.4:1, under the site's 4.5:1); the full set offers Record and Write only when the query turns written answers on;
+  an inline ask answers the query's first question and is replaced by the invitation when another question is required or a detail
+  other than name and email is; no hub card shows a count of answers unless the question has an outcome.
+
+**Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
+`LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
+this server yet".
+
+**Next.**
+
+1. Set the two variables and the Portal's secret; apply the Portal's migrations; make a first real recording and confirm the raw `PUT`.
+2. An editor block (Payload, with its migration) that renders `ListeningInline` in a story body, a topic page and the end of an episode,
+   and a link to `/listens` in the header and footer.
+3. Phase C: Ask WUWF, host requests and seats. Phase D (in the Portal) then phase E here: campaigns, events, tables and conversations,
+   site accounts for organizers, and the campaign and report bands of the hub.
 
 ## Deferred
 

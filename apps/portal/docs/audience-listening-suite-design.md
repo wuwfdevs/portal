@@ -1,7 +1,7 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
-Status: **Design, 2026-11-07. Nothing here is built yet** except the contract's first draft
-(`packages/portal-contracts/src/listening.ts`). The build order is in §10.
+Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09) and phase B is built on the site (2026-11-09);
+phases C to F are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -113,7 +113,8 @@ night**), `facilitator_first_name`, `state` (`waiting | agreed | recording | pau
 The link opens the recorder already bound to the table. Redeeming it sets `join_token_used_at` and issues a
 **table session** (a signed, expiring value held by the site for that phone). A second redemption from a
 different phone is refused. If a phone is lost or can't scan, **staff re-issue a link** from the console, which
-replaces the hash and invalidates the old session. "The welcome table can text the link" is that same re-issue.
+replaces the hash and invalidates the old session. There is no texting: a phone that cannot scan gets the re-issued link from
+staff, who read it out, show its QR code on the console or copy it for the person to send themselves.
 
 ### Conversation, segments, speakers, highlights
 
@@ -287,14 +288,55 @@ update and release note, and works before the next begins.
 - **E. Site screens for D** (5c to 5i) and site accounts for organizers.
 - **F. Reports and outcomes polish**, the monthly report (board G), follow-through components E and F.
 
+Where it stands (2026-11-09):
+
+- **A is built.** The subject-keyed functions, the receiver and the written answers (`20261107120000`, applied to both projects); the hub
+  read, `al_outcomes`, `al_queries.listed_on_hub` and the staff Outcomes tab (`20261109120000`, with its Resources content in
+  `20261109130000`). The hub returns open and answered questions only: campaigns and closed-campaign reports do not exist until D, and
+  join the message as additive fields. A query is on the hub only when a staff member turns on "List on the website's listening page"
+  (off by default, so nothing is published automatically). A count of answers is returned only beside an outcome.
+- **B is built on the site** (`apps/site`, `ROADMAP.md` -> *Listening: where it stands*): the full set, the inline asks B, C and D, the
+  invitation A and the hub. Still to do for B: an editor block to place the inline asks in a story, a topic page and an episode.
+
 ## 11. Open items for the owner
 
-1. **Group-consent wording** is the board's ("WUWF is recording this conversation…"). It is stored as
-   `consent_text_version` on the table; changing the wording means a new version, never an edit of an old one.
-   Confirm it with whoever holds the IT-04 policy before the first real session.
-2. **Retention.** How long are recordings, segments and unsubmitted cards kept? Proposed: unsubmitted work
-   deleted after 30 days; submitted audio kept under the station's records policy. Not assumed in code.
-3. **Staff notification** when a host request arrives or a table asks for a hand (email, or only the console).
-4. **Who may approve a public event** for listing (any audience-listening grant, or an editor role).
-5. **SMS for "text the link"** — a service this station must choose and pay for. Until then, staff copy the
-   re-issued link and send it themselves.
+**Dropped (2026-11-09): everything that sends a text message.** The board's "Can't scan? The welcome table can text you the link"
+(table join, 5d) and "Text or leave a voice message any time: [Listener line]" (the hub footer) are left out when those screens are
+built, and no SMS provider is chosen. Staff re-issue a link and hand it over (above). Revisit if the station later picks a provider.
+
+**Adopted as the working defaults (owner, 2026-11-09): every recommendation below, for now.** They are what the Portal and the site
+are built toward, and each is revisited before the first real session: the consent wording and the purge schedule with UWF counsel and
+the records officer, the notification and approval choices with whoever will do the work. Nothing in code assumes them yet; each lands
+with the phase that needs it (consent and retention with D, notifications and approval with C and D).
+
+1. **Group-consent wording.** Stored as `consent_text_version` on the table; a change is a new version, never an edit. Before the first
+   session, with whoever holds the IT-04 policy and UWF counsel:
+   - *The board's promise and the board's model disagree.* The text says "Nothing anyone says goes on air or online without WUWF
+     asking that person first." The canvas model says someone WUWF cannot reach "still counts and can be quoted without identifying
+     detail". Both cannot be kept. Either narrow the sentence to what the Portal enforces ("Nothing you say is broadcast or published
+     with your name without asking you first") or make people who left no contact card unusable. Recommended: narrow the sentence.
+   - *Put the agreement on the tape.* Florida requires every party's consent to record a private conversation (Fla. Stat. 934.03; counsel
+     should confirm). The facilitator's tap is a record, but the table's recording starts after it. Add to the first prompt, "say your
+     first name, where you live, and that you're okay being recorded", so each voice agrees on the recording itself.
+   - *Say what the text now leaves out:* that the recording is transcribed by software, that the University keeps it under its records
+     policy, and that anyone under 18 needs a parent or guardian to say yes.
+2. **Retention.** Software cannot purge on its own (there is no job queue), so each rule below is a staff-run "Purge what is due" screen
+   with a visible due list, not a background job.
+   - Unsubmitted answers, segments and unsent cards: delete after 30 days (as proposed; the site's visitor cookie also lasts 30 days).
+   - Contact cards: keep until the campaign's report is published plus 12 months, then delete unless the person was named in published
+     work (keep the consent record for as long as that work is up).
+   - Raw audio and transcripts of material never used: delete 24 months after the campaign's report, unless the station's records
+     officer sets a different schedule. Excerpts used in published work follow the station's archive rules.
+   - Ask the transcription vendor to keep nothing beyond processing, and record that setting.
+3. **Staff notification.**
+   - Host requests: one email to a shared Audience & Engagement mailbox (not a person), through the Portal's existing Resend sender;
+     the staff list flags any request older than five days because the site promises a week.
+   - "Table asked for a hand": the console only, with a visible and audible alert, because it must reach someone in the room. Show the
+     table "Help is coming" only while a console has polled in the last minute; otherwise say "We've flagged this. If it's urgent, ask the
+     front", so the page never promises help nobody can see the request for.
+   - Ask WUWF items: no per-item email; one daily digest to editors, sent only when something is new.
+4. **Who may approve a public event for listing.** A named role, not any grant: a `coordinator` tool role (the Audience & Engagement lead
+   and one backup), as Academic Partnerships does. Listing puts a stranger's event on WUWF's name, so the approval screen is a checklist:
+   a public place, an identified organizer with a verified email, a date inside the campaign, accessibility details, nothing that is a
+   fundraiser or campaign event, and the consent reading acknowledged. Approving and declining are audited, and a decline sends the
+   organizer a reason. Every public event is reviewed, including a returning organizer's.

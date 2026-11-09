@@ -31,7 +31,9 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
   signed public API. This site owns every screen a listener sees and renders them natively over the
   Portal's contract; it never stores a submission, a consent record or an audio file. The contract is
   versioned in `@wuwf/portal-contracts`; the pure rules still come from `@wuwf/listening-core`.
-  Not built yet (see ROADMAP item 7): until it is, there is no listening UI to guard.
+  Built so far (ROADMAP item 7): the full question set at `/listens/<publicId>`, the inline asks (components B, C, D) and the hub at
+  `/listens`. The rest of the suite (Ask WUWF, host requests, sessions, tables) is later phases of
+  `apps/portal/docs/audience-listening-suite-design.md`.
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
   placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.**
 - **No polls or public tallies on open listening questions. No "sponsor-free" claims about WUWF originals.**
@@ -99,7 +101,11 @@ caps at completion; open/close dates checked on every write) are enforced by the
 them through `@wuwf/listening-core` and does not reimplement them. One listening component per page.
 Every send names who receives it; nothing promises a reply. Participant identity on this site is the
 site's own visitor/account; the Portal sees only the asserted subject. Embedding the Portal's public page
-(approved Portal origin plus `microphone` delegation) is a fallback only, not the design.
+(approved Portal origin plus `microphone` delegation) is a fallback only, not the design. The code is `src/lib/listening` (pure rules,
+the signed client, the visitor cookie), `src/components/Listening` and `src/app/(frontend)/listens`; the server reaches the Portal
+only through `lib/listening/portal.ts`, configured by `PORTAL_ORIGIN` and `PORTAL_LISTENING_SECRET`. A visitor is our own
+random-id cookie (`wuwf_listening_visitor`, 30 days), the only thing the Portal learns about them; the client address goes to the
+Portal only as a keyed, per-day hash.
 
 ## Privacy
 

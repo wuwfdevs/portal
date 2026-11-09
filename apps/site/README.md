@@ -48,6 +48,8 @@ No production credentials are needed. Without Docker, point `DATABASE_URL` at an
 | `CRON_SECRET` | Authenticates scheduled-job requests. |
 | `PREVIEW_SECRET` | Validates draft preview requests. |
 | `PORTAL_IDENTITY_SECRET` | Verifies the Portal's staff sign-in token. Must equal the Portal's `WEBSITE_IDENTITY_SECRET`; at least 32 characters; used for this channel only. |
+| `PORTAL_ORIGIN` | The Portal's address (scheme and host only, no trailing slash; https, or http for localhost), where the listening pages send their signed requests. Server only. |
+| `PORTAL_LISTENING_SECRET` | Signs the listening requests. Must equal the Portal's `LISTENING_SIGNING_SECRET`; at least 32 characters; used for this channel only; a different value per environment. Either listening variable missing means the pages say listening is not set up and send nothing. |
 | `TEST_DATABASE_URL` | Optional. Integration tests default to `wuwf_site_test` on localhost and **refuse any non-local host**. |
 
 Variables for the Portal contracts (signing secrets, one per channel and direction, each at least 32

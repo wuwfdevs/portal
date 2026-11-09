@@ -8,6 +8,7 @@ import {
   parseListeningRequest,
   rateKeys,
   requiresEnabledTool,
+  shapeHub,
   shapeQuery,
   shapeResponse,
   statusForError,
@@ -299,5 +300,68 @@ describe("requiresEnabledTool", () => {
     expect(requiresEnabledTool("query")).toBe(false);
     expect(requiresEnabledTool("progress")).toBe(false);
     expect(requiresEnabledTool("forget-subject")).toBe(false);
+    expect(requiresEnabledTool("hub")).toBe(false);
+  });
+});
+
+describe("a query's outcome", () => {
+  const base = { public_id: PUBLIC_ID, public_title: "T", state: "open" };
+  const outcome = { kind: "story", title: "What we found", url: "https://example.org/s", published_at: "2026-10-23", summary: null, response_count: 41 };
+
+  it("is null when the query has none, so no count leaves the Portal", () => {
+    expect(shapeQuery(base)?.outcome).toBeNull();
+    expect(shapeQuery({ ...base, outcome: null })?.outcome).toBeNull();
+  });
+
+  it("carries the newest outcome and the number who answered", () => {
+    expect(shapeQuery({ ...base, outcome })?.outcome).toEqual({ kind: "story", title: "What we found", url: "https://example.org/s", publishedAt: "2026-10-23", summary: null, responseCount: 41 });
+  });
+
+  it("drops an outcome whose link is not https or whose kind is unknown", () => {
+    expect(shapeQuery({ ...base, outcome: { ...outcome, url: "http://example.org" } })?.outcome).toBeNull();
+    expect(shapeQuery({ ...base, outcome: { ...outcome, kind: "ad" } })?.outcome).toBeNull();
+  });
+});
+
+describe("the hub", () => {
+  const open = { public_id: PUBLIC_ID, public_title: "After the storm", public_intro: "Tell us.", asked_by: null, from_label: "from the news desk", context_label: null, closes_at: null, allow_text_answers: true, question_count: 3 };
+  const outcome = { kind: "story", title: "What the storm left", url: "https://example.org/a", published_at: "2026-11-01", summary: null };
+
+  it("takes no subject and calls its function with no arguments", () => {
+    expect(ok("hub", {}).rpc).toEqual({ fn: "al_site_hub", args: {} });
+    expect(ok("hub", {}).subjectKey).toBeNull();
+    expect(parseListeningRequest("hub", "nope")).toEqual({ ok: false, error: "invalid_request" });
+  });
+
+  it("is rate limited by the client address only", () => {
+    expect(RATE_RULES.hub.every((rule) => rule.by === "client")).toBe(true);
+    expect(rateKeys(ok("hub", { clientHash: "abc" }))).toHaveLength(1);
+    expect(rateKeys(ok("hub", {}))).toHaveLength(0);
+  });
+
+  it("shapes open questions without any count of responses", () => {
+    const { open: shaped } = shapeHub({ open: [open], answered: [] });
+    expect(shaped).toEqual([
+      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3 },
+    ]);
+    expect(Object.keys(shaped[0] ?? {})).not.toContain("responseCount");
+  });
+
+  it("gives a count only to an answered question, and only with its outcomes", () => {
+    const { answered } = shapeHub({ open: [], answered: [{ public_id: PUBLIC_ID, public_title: "T", response_count: 41, outcomes: [outcome] }] });
+    expect(answered).toHaveLength(1);
+    expect(answered[0]?.responseCount).toBe(41);
+    expect(answered[0]?.outcomes[0]).toEqual({ kind: "story", title: "What the storm left", url: "https://example.org/a", publishedAt: "2026-11-01", summary: null });
+  });
+
+  it("drops an answered question whose outcomes are not usable, and any link that is not https", () => {
+    const bad = [{ ...outcome, url: "http://example.org/a" }, { ...outcome, url: "javascript:alert(1)" }, { ...outcome, kind: "ad" }, { ...outcome, url: "https://user:pw@example.org/" }];
+    expect(shapeHub({ open: [], answered: [{ public_id: PUBLIC_ID, public_title: "T", response_count: 3, outcomes: bad }] }).answered).toEqual([]);
+  });
+
+  it("is empty, not an error, for a payload it cannot read", () => {
+    expect(shapeHub(null)).toEqual({ open: [], answered: [] });
+    expect(shapeResponse("hub", { error: "nope" }).ok).toBe(false);
+    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [] } } });
   });
 });

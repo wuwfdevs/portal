@@ -7,6 +7,7 @@ import {
   listSubmissions,
   getQueryById,
   getLinkedProjects,
+  listOutcomes,
 } from "@/lib/audience-listening/queries";
 import { QUERY_STATUS_BADGE } from "@/lib/audience-listening/review";
 import {
@@ -24,11 +25,12 @@ import { SecondaryLink } from "@/components/ui/primary-link";
 import { setQueryStatus } from "../actions";
 import { OverviewTab } from "./overview-tab";
 import { QuestionsTab } from "./questions-tab";
+import { OutcomesTab } from "./outcomes-tab";
 import { SettingsTab } from "./settings-tab";
 import { ShareTab } from "./share-tab";
 import { SubmissionsTab } from "./submissions-tab";
 
-const TABS = ["overview", "questions", "settings", "submissions", "share"] as const;
+const TABS = ["overview", "questions", "settings", "submissions", "outcomes", "share"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABEL: Record<Tab, string> = {
@@ -36,6 +38,7 @@ const TAB_LABEL: Record<Tab, string> = {
   questions: "Questions",
   settings: "Settings",
   submissions: "Submissions",
+  outcomes: "Outcomes",
   share: "Share",
 };
 
@@ -76,10 +79,11 @@ export default async function QueryWorkspacePage({
 
   const activeTab: Tab = TABS.includes(tab as Tab) ? (tab as Tab) : "overview";
 
-  const [questions, submissions, answers] = await Promise.all([
+  const [questions, submissions, answers, outcomes] = await Promise.all([
     listQuestions(id),
     listSubmissions(id),
     listAnswersForQuery(id),
+    listOutcomes(id),
   ]);
 
   const linkedProjects = await getLinkedProjects([
@@ -135,7 +139,9 @@ export default async function QueryWorkspacePage({
           label:
             candidate === "submissions" && submissions.length > 0
               ? `${TAB_LABEL[candidate]} (${submissions.length})`
-              : TAB_LABEL[candidate],
+              : candidate === "outcomes" && outcomes.length > 0
+                ? `${TAB_LABEL[candidate]} (${outcomes.length})`
+                : TAB_LABEL[candidate],
           active: candidate === activeTab,
         }))}
       />
@@ -162,6 +168,7 @@ export default async function QueryWorkspacePage({
           linkedProjects={linkedProjects}
         />
       )}
+      {activeTab === "outcomes" && <OutcomesTab query={query} outcomes={outcomes} />}
       {activeTab === "share" && (
         <ShareTab
           publicId={query.public_id}

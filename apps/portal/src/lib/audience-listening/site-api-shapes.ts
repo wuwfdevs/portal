@@ -13,6 +13,8 @@ import {
   isListeningErrorCode,
   isListeningSubject,
   type ListeningErrorCode,
+  type ListeningHub,
+  type ListeningOutcomeKind,
   type ListeningQuery,
   type ListeningSubject,
 } from "@wuwf/portal-contracts";
@@ -28,6 +30,7 @@ export const LISTENING_ACTIONS = [
   "save-details",
   "finalize",
   "forget-subject",
+  "hub",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -108,7 +111,12 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
     clientHash = h;
   }
 
-  // The one public read carries no subject.
+  // The hub is the other public read: no subject, no arguments.
+  if (action === "hub") {
+    return { ok: true, request: { action, subjectKey: null, clientHash, rpc: { fn: "al_site_hub", args: {} } } };
+  }
+
+  // The query read carries no subject.
   if (action === "query") {
     const publicId = body["publicId"];
     if (typeof publicId !== "string" || !PUBLIC_ID.test(publicId)) return BAD;
@@ -228,6 +236,17 @@ function asNumber(value: unknown): number | null {
   return typeof value === "number" ? value : null;
 }
 
+/** The newest outcome al_site_query attaches, or null if it is absent or not usable (no https link, unknown kind). */
+function shapeQueryOutcome(value: unknown): ListeningQuery["outcome"] {
+  if (!isObj(value)) return null;
+  const kind = OUTCOME_KINDS.find((k) => k === value["kind"]);
+  const title = asString(value["title"]);
+  const url = httpsUrl(value["url"]);
+  const publishedAt = asString(value["published_at"]);
+  if (!kind || !title || !url || !publishedAt) return null;
+  return { kind, title, url, publishedAt, summary: asString(value["summary"]), responseCount: asNumber(value["response_count"]) ?? 0 };
+}
+
 /** Maps al_site_query's payload onto the contract's ListeningQuery. `null` means a draft or an unknown id. */
 export function shapeQuery(payload: unknown): ListeningQuery | null {
   if (!isObj(payload)) return null;
@@ -257,6 +276,7 @@ export function shapeQuery(payload: unknown): ListeningQuery | null {
       city: mode(fields["city"]),
       note: mode(fields["note"]),
     },
+    outcome: shapeQueryOutcome(payload["outcome"]),
     questions: questions.filter(isObj).map((q) => ({
       id: asString(q["id"]) ?? "",
       position: asNumber(q["position"]) ?? 0,
@@ -266,6 +286,72 @@ export function shapeQuery(payload: unknown): ListeningQuery | null {
       maxDurationSeconds: asNumber(q["max_duration_seconds"]) ?? 120,
     })),
   };
+}
+
+const OUTCOME_KINDS: readonly ListeningOutcomeKind[] = ["story", "episode", "report"];
+
+/** Only an https address leaves the Portal as a link; the database checks this too, and a stored row is not trusted blindly. */
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Maps al_site_hub's payload onto the contract's ListeningHub. A malformed row is dropped, never passed on half-formed. */
+export function shapeHub(payload: unknown): ListeningHub {
+  const rows = (value: unknown) => (Array.isArray(value) ? value.filter(isObj) : []);
+  const source = isObj(payload) ? payload : {};
+
+  const open = rows(source["open"]).flatMap((q) => {
+    const publicId = asString(q["public_id"]);
+    const title = asString(q["public_title"]);
+    if (!publicId || !title) return [];
+    return [
+      {
+        publicId,
+        title,
+        intro: asString(q["public_intro"]) ?? "",
+        askedBy: asString(q["asked_by"]),
+        fromLabel: asString(q["from_label"]),
+        contextLabel: asString(q["context_label"]),
+        closesAt: asString(q["closes_at"]),
+        allowTextAnswers: q["allow_text_answers"] === true,
+        questionCount: asNumber(q["question_count"]) ?? 0,
+      },
+    ];
+  });
+
+  const answered = rows(source["answered"]).flatMap((q) => {
+    const publicId = asString(q["public_id"]);
+    const title = asString(q["public_title"]);
+    const outcomes = rows(q["outcomes"]).flatMap((o) => {
+      const kind = OUTCOME_KINDS.find((k) => k === o["kind"]);
+      const outcomeTitle = asString(o["title"]);
+      const url = httpsUrl(o["url"]);
+      const publishedAt = asString(o["published_at"]);
+      if (!kind || !outcomeTitle || !url || !publishedAt) return [];
+      return [{ kind, title: outcomeTitle, url, publishedAt, summary: asString(o["summary"]) }];
+    });
+    // An answered question with nothing to link to is not answered yet.
+    if (!publicId || !title || outcomes.length === 0) return [];
+    return [
+      {
+        publicId,
+        title,
+        askedBy: asString(q["asked_by"]),
+        fromLabel: asString(q["from_label"]),
+        contextLabel: asString(q["context_label"]),
+        responseCount: asNumber(q["response_count"]) ?? 0,
+        outcomes,
+      },
+    ];
+  });
+
+  return { open, answered };
 }
 
 /**
@@ -281,6 +367,8 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
       const query = shapeQuery(payload);
       return query ? { ok: true, body: { query } } : fail("not_available");
     }
+    case "hub":
+      return { ok: true, body: { hub: shapeHub(payload) } };
     case "start": {
       if (!isObj(payload) || typeof payload["submission_id"] !== "string") return fail("unavailable");
       return { ok: true, body: { submissionId: payload["submission_id"], resumed: payload["resumed"] === true } };
@@ -368,6 +456,7 @@ export interface RateRule {
  */
 export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
   query: [{ by: "client", limit: 600, windowSeconds: 600 }],
+  hub: [{ by: "client", limit: 600, windowSeconds: 600 }],
   start: [
     { by: "subject", limit: 20, windowSeconds: 600 },
     { by: "client", limit: 200, windowSeconds: 600 },
@@ -394,7 +483,10 @@ export function rateKeys(request: ParsedListeningRequest): { key: string; rule: 
   return out;
 }
 
-/** Messages that create or change a submission need the tool switched on. `query` reports `closed` itself, and reading progress or erasing a subject stay possible. */
+/**
+ * Messages that create or change a submission need the tool switched on. `query` reports `closed` itself, `hub`
+ * answers empty (al_site_hub checks the registry), and reading progress or erasing a subject stay possible.
+ */
 export function requiresEnabledTool(action: ListeningAction): boolean {
-  return action !== "query" && action !== "forget-subject" && action !== "progress";
+  return action !== "query" && action !== "hub" && action !== "forget-subject" && action !== "progress";
 }

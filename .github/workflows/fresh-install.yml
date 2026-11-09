@@ -113,6 +113,15 @@ jobs:
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 --single-transaction -f supabase/baseline/schema.sql
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/baseline/product-data.sql
 
+      - name: The baseline itself holds no release notes or procedures
+        run: |
+          . "$RUNNER_TEMP/helpers.sh"
+          # Checked here, before anything newer is applied: release-note history and procedures are a station's own, and a
+          # baseline must never carry them. A migration written after the baseline may add a release note (the Resources rule
+          # in apps/portal/CLAUDE.md requires one for any change a user would notice), so the check after those migrations
+          # below only forbids procedures.
+          expect "the baseline holds no release notes or procedures" "select count(*) from public.rc_articles where kind <> 'guide'" "0"
+
       - name: Apply the migrations newer than the baseline
         run: |
           THROUGH="$(cat supabase/baseline/BASELINE_THROUGH)"
@@ -152,7 +161,9 @@ jobs:
           expect "the registry is intact" "select count(*) from public.tools" "12"
           expect "nobody has an account" "select (select count(*) from public.profiles) + (select count(*) from auth.users)" "0"
           expect "the station row is intact and unnamed" "select count(*) from public.station_settings where display_name is null" "1"
-          expect "no release notes or procedures" "select count(*) from public.rc_articles where kind <> 'guide'" "0"
+          # A migration newer than the baseline may add a release note; it may never add a procedure (the baseline itself is
+          # checked for both in the step before the newer migrations are applied).
+          expect "no procedures" "select count(*) from public.rc_articles where kind = 'procedure'" "0"
           expect "guides are present" "select count(*) > 50 from public.rc_articles where kind = 'guide'" "t"
           expect "one version per article" \
             "select count(*) from public.rc_articles a where (select count(*) from public.rc_article_versions v where v.article_id = a.id) <> 1" "0"
