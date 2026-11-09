@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_CONSENT,
   EMPTY_DETAILS,
+  answerMode,
   answersFromProgress,
   availabilityMessage,
   consentToWire,
@@ -37,6 +38,21 @@ describe('answersFromProgress', () => {
     expect(Object.keys(out).sort()).toEqual(['a', 'c'])
     expect(out['a']).toEqual({ state: 'saved', seconds: 42, text: null, retake: false })
     expect(out['c']).toEqual({ state: 'saved', seconds: null, text: 'Hello', retake: false })
+  })
+})
+
+describe('answerMode', () => {
+  const written: LocalAnswer = { state: 'saved', seconds: null, text: 'Hello', retake: true }
+
+  it('replaces a written answer in writing unless the participant chooses otherwise', () => {
+    expect(answerMode(true, undefined, written)).toBe('text')
+    expect(answerMode(true, 'audio', written)).toBe('audio')
+  })
+
+  it('is a recording for a recorded or empty answer, and always a recording where writing is off', () => {
+    expect(answerMode(true, undefined, saved())).toBe('audio')
+    expect(answerMode(true, undefined, { state: 'unanswered', seconds: null, text: null, retake: false })).toBe('audio')
+    expect(answerMode(false, 'text', written)).toBe('audio')
   })
 })
 

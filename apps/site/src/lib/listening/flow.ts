@@ -52,6 +52,15 @@ export function answersFromProgress(questions: ListeningQuestion[], saved: Liste
   return out
 }
 
+/**
+ * Which way a question is being answered: what the participant chose, else the way the saved answer was given (a written answer is
+ * replaced in writing by default), else a recording. Without written answers it is always a recording.
+ */
+export function answerMode(writingAllowed: boolean, chosen: 'audio' | 'text' | undefined, answer: LocalAnswer): 'audio' | 'text' {
+  if (!writingAllowed) return 'audio'
+  return chosen ?? (answer.text !== null ? 'text' : 'audio')
+}
+
 export function questionProgress(questions: ListeningQuestion[], answers: Record<string, LocalAnswer>): QuestionProgress[] {
   return questions.map((question) => ({
     questionId: question.id,

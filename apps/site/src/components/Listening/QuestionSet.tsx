@@ -11,7 +11,9 @@ import { PolicyNotice } from '@/components/Account/PolicyNotice'
 import {
   EMPTY_CONSENT,
   EMPTY_DETAILS,
+  EMPTY_ANSWER,
   answerFor,
+  answerMode,
   answersFromProgress,
   consentChoices,
   consentToWire,
@@ -73,7 +75,7 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
   }, [screen, index])
 
   const current = answerFor(answers, question.id)
-  const mode = writing ? (modes[question.id] ?? 'audio') : 'audio'
+  const mode = answerMode(writing, modes[question.id], current)
   const ready = readiness(questions, answers)
   const fields = useMemo(() => participantFields(query.fields), [query.fields])
   const asks = consentChoices(query)
@@ -109,6 +111,13 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
     setScreen('mic')
   }
 
+  /** Re-reads this question's answer from the Portal, which is the only place that knows whether one is saved. */
+  const resyncQuestion = async () => {
+    const again = await startResponse(query.publicId)
+    const fromPortal = again.ok ? answersFromProgress(questions, again.answers)[question.id] : undefined
+    setAnswers((all) => ({ ...all, [question.id]: fromPortal ?? EMPTY_ANSWER }))
+  }
+
   // -- question: save the take or the written words ---------------------------------------------------------------
   const saveRecording = async () => {
     if (!submissionId || !recorder.take) return
@@ -116,8 +125,14 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
     setError(null)
     const take = recorder.take
     const saved = await saveAudioAnswer(answerSteps, { submissionId, questionId: question.id, blob: take.blob, durationMs: take.durationMs })
+    if (!saved.ok) {
+      // Reserving a replacement resets the answer the Portal already held, so a failure after that point leaves it with none.
+      // Ask the Portal what it holds rather than keep saying "Saved" about an answer that may be gone.
+      if (current.state === 'saved') await resyncQuestion()
+      setBusy(false)
+      return setError(saved.message)
+    }
     setBusy(false)
-    if (!saved.ok) return setError(saved.message)
     patch(question.id, { state: 'saved', seconds: take.seconds, text: null, retake: false })
     advance()
   }
@@ -264,7 +279,7 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
             <p className="font-serif text-xl font-bold leading-snug text-ink">{question.prompt}</p>
             {question.guidance && <p className="text-sm leading-relaxed text-ink-3">{question.guidance}</p>}
 
-            {writing && current.state !== 'saved' && !recorder.take && recorder.phase !== 'recording' && (
+            {writing && (current.state !== 'saved' || current.retake) && !recorder.take && recorder.phase !== 'recording' && (
               <div aria-label="How to answer" className="inline-flex self-start rounded-full bg-surface-2 p-1" role="tablist">
                 {(['audio', 'text'] as const).map((choice) => (
                   <button
