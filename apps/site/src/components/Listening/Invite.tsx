@@ -3,7 +3,7 @@ import React from 'react'
 
 import type { ListeningQuery } from '@wuwf/portal-contracts'
 
-import { openMeta } from '@/lib/listening/hub'
+import { inviteMeta } from '@/lib/listening/hub'
 import { inlineEyebrow } from '@/lib/listening/inline'
 
 import { eyebrow } from './styles'
@@ -16,9 +16,9 @@ import { eyebrow } from './styles'
 export const Invite: React.FC<{ query: Pick<ListeningQuery, 'title' | 'intro' | 'contextLabel' | 'fromLabel' | 'allowTextAnswers' | 'closesAt' | 'questions'>; href: string }> = ({ query, href }) => (
   <section aria-label="WUWF Listens" className="flex flex-col gap-2.5 rounded-lg border border-rule-strong bg-surface p-6">
     <span className={eyebrow}>{inlineEyebrow(query)}</span>
-    <h2 className="font-serif text-[1.5625rem] leading-tight text-ink">{query.title}</h2>
+    <h2 className="font-serif text-[1.5625rem] font-bold leading-tight text-ink">{query.title}</h2>
     {query.intro && <p className="text-[0.9375rem] text-ink-2">{query.intro}</p>}
-    <span className="text-[0.8125rem] text-ink-3">{openMeta({ questionCount: query.questions.length, allowTextAnswers: query.allowTextAnswers, closesAt: query.closesAt })}</span>
+    <span className="text-[0.8125rem] text-ink-3">{inviteMeta(query)}</span>
     <div className="mt-1 flex flex-wrap items-center gap-3">
       <Link className="inline-flex min-h-12 items-center rounded-sm bg-wuwf-blue-700 px-[22px] text-[0.9375rem] font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline" href={href}>
         Take part

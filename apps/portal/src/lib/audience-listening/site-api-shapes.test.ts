@@ -304,6 +304,25 @@ describe("requiresEnabledTool", () => {
   });
 });
 
+describe("a query's outcome", () => {
+  const base = { public_id: PUBLIC_ID, public_title: "T", state: "open" };
+  const outcome = { kind: "story", title: "What we found", url: "https://example.org/s", published_at: "2026-10-23", summary: null, response_count: 41 };
+
+  it("is null when the query has none, so no count leaves the Portal", () => {
+    expect(shapeQuery(base)?.outcome).toBeNull();
+    expect(shapeQuery({ ...base, outcome: null })?.outcome).toBeNull();
+  });
+
+  it("carries the newest outcome and the number who answered", () => {
+    expect(shapeQuery({ ...base, outcome })?.outcome).toEqual({ kind: "story", title: "What we found", url: "https://example.org/s", publishedAt: "2026-10-23", summary: null, responseCount: 41 });
+  });
+
+  it("drops an outcome whose link is not https or whose kind is unknown", () => {
+    expect(shapeQuery({ ...base, outcome: { ...outcome, url: "http://example.org" } })?.outcome).toBeNull();
+    expect(shapeQuery({ ...base, outcome: { ...outcome, kind: "ad" } })?.outcome).toBeNull();
+  });
+});
+
 describe("the hub", () => {
   const open = { public_id: PUBLIC_ID, public_title: "After the storm", public_intro: "Tell us.", asked_by: null, from_label: "from the news desk", context_label: null, closes_at: null, allow_text_answers: true, question_count: 3 };
   const outcome = { kind: "story", title: "What the storm left", url: "https://example.org/a", published_at: "2026-11-01", summary: null };

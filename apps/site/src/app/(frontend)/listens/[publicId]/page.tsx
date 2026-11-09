@@ -6,7 +6,7 @@ import React, { cache } from 'react'
 import { PolicyNotice } from '@/components/Account/PolicyNotice'
 import { QuestionSet } from '@/components/Listening/QuestionSet'
 import { eyebrow } from '@/components/Listening/styles'
-import { availabilityMessage } from '@/lib/listening/flow'
+import { availabilityMessage, pageMeta } from '@/lib/listening/flow'
 import { loadQuery } from '@/lib/listening/load'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { isPublicId } from '@/lib/listening/results'
@@ -50,6 +50,7 @@ export default async function QuestionSetPage({ params }: { params: Promise<Para
         </div>
         <div className="mx-auto flex w-full max-w-xl flex-col gap-1">
           <span className={eyebrow}>Help us report{byline ? ` · ${byline}` : ''}</span>
+          {!unavailable && query.questions.length > 0 && <span className="text-[0.9375rem] text-ink-3">{pageMeta(query)}</span>}
         </div>
         {unavailable || query.questions.length === 0 ? (
           <div className="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-md border border-rule bg-surface p-8 shadow-2">

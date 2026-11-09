@@ -148,6 +148,16 @@ export function questionFooter(questionIndex: number, questionCount: number, sav
   return savedCount > 0 ? `${base} · ${plural(savedCount, 'answer')} saved` : base
 }
 
+/** The most a person could take: the questions' time limits added up, in whole minutes. An upper bound, never a promise. */
+export function maxMinutes(questions: Pick<ListeningQuestion, 'maxDurationSeconds'>[]): number {
+  return Math.max(1, Math.ceil(questions.reduce((sum, question) => sum + question.maxDurationSeconds, 0) / 60))
+}
+
+/** The line under the page's eyebrow (board 5b): "3 questions · up to 4 minutes · by voice". */
+export function pageMeta(query: Pick<ListeningQuery, 'questions' | 'allowTextAnswers'>): string {
+  return [plural(query.questions.length, 'question'), `up to ${plural(maxMinutes(query.questions), 'minute')}`, query.allowTextAnswers ? 'by voice or in writing' : 'by voice'].join(' · ')
+}
+
 export function limitLabel(question: Pick<ListeningQuestion, 'maxDurationSeconds'>): string {
   return describeDuration(question.maxDurationSeconds)
 }

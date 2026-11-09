@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import React from 'react'
 
 import { HubView } from '@/components/Listening/Hub'
-import { PolicyNotice } from '@/components/Account/PolicyNotice'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { loadHub } from '@/lib/listening/load'
 
@@ -23,14 +22,8 @@ export default async function ListensPage() {
     )
   }
 
-  return (
-    <>
-      <HubView hub={loaded.hub} />
-      <div className="container py-6">
-        <PolicyNotice />
-      </div>
-    </>
-  )
+  // The hub collects nothing today, so it carries no IT-04 notice; the Ask WUWF box brings it back (suite phase C).
+  return <HubView hub={loaded.hub} />
 }
 
 export const metadata: Metadata = {

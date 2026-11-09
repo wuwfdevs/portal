@@ -11,6 +11,8 @@ import {
   detailsToWire,
   doneText,
   introSummary,
+  maxMinutes,
+  pageMeta,
   missingDetails,
   progressPercent,
   questionFooter,
@@ -83,6 +85,19 @@ describe('copy', () => {
     expect(availabilityMessage('closed', null)).toMatch(/closed/)
     expect(availabilityMessage('not_yet_open', '2026-12-01T15:00:00Z')).toBe('This question opens December 1.')
     expect(availabilityMessage('not_yet_open', null)).toMatch(/not opened/)
+  })
+})
+
+describe('time', () => {
+  it('adds the limits up to whole minutes, never under one', () => {
+    expect(maxMinutes([{ maxDurationSeconds: 120 }, { maxDurationSeconds: 60 }, { maxDurationSeconds: 60 }])).toBe(4)
+    expect(maxMinutes([{ maxDurationSeconds: 15 }])).toBe(1)
+    expect(maxMinutes([{ maxDurationSeconds: 61 }])).toBe(2)
+  })
+
+  it('writes the line under the eyebrow', () => {
+    expect(pageMeta({ questions: QUESTIONS, allowTextAnswers: false })).toBe('3 questions · up to 6 minutes · by voice')
+    expect(pageMeta({ questions: [q('a', 1, false)], allowTextAnswers: true })).toBe('1 question · up to 2 minutes · by voice or in writing')
   })
 })
 

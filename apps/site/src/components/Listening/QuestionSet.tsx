@@ -522,7 +522,7 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
               <button className={cn(buttonSecondary, 'flex-1')} onClick={() => go('info')} type="button">
                 Back
               </button>
-              <button className={cn(buttonPrimary, 'flex-1')} disabled={!consent.agreed} onClick={submit} type="button">
+              <button className={cn(buttonPrimary, 'flex-1 px-2')} disabled={!consent.agreed} onClick={submit} type="button">
                 Submit my response
               </button>
             </div>

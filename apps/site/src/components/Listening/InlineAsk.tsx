@@ -230,7 +230,7 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
         )}
         {sent && (
           <p className="rounded-sm border border-surface/25 bg-surface/10 p-3.5 text-[0.9375rem]">
-            <strong>Sent to {to}.</strong> Nothing airs without your OK.
+            <strong>Sent to the {to} team.</strong> They listen to every message. Nothing airs without your OK.
           </p>
         )}
         <div className="text-sm text-surface/80 [&_a]:text-surface [&_p]:text-surface/80">
@@ -241,8 +241,18 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
   }
 
   // ---- C · topic header ---------------------------------------------------------------------------------------------------
+  // The board's footer line: what came of this question, when it has an outcome the Portal lists.
+  const followThrough = query.outcome && (
+    <p className="border-t border-rule px-6 py-3.5 text-sm text-ink-2">
+      You asked, we reported:{' '}
+      <a className="font-bold" href={query.outcome.url} rel="noopener">
+        {query.outcome.title}
+      </a>
+    </p>
+  )
   if (variant === 'topic' && !opened && !sent) {
     return (
+      <div>
       <section aria-label="WUWF Listens" className="flex flex-wrap items-center gap-2.5 bg-wuwf-blue-100 px-6 py-3.5">
         <span className="shrink-0 text-[0.9375rem] font-bold text-ink">{question.prompt}</span>
         {writeAllowed ? (
@@ -254,6 +264,8 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
           {writeAllowed ? 'Ask' : 'Record an answer'}
         </button>
       </section>
+      {followThrough}
+      </div>
     )
   }
 
@@ -320,13 +332,16 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
 
   if (variant === 'topic') {
     return (
-      <section aria-label="WUWF Listens" className="flex flex-col gap-3 bg-wuwf-blue-100 px-6 py-5">
-        <span className={eyebrow}>
-          {inlineEyebrow(query)}
-          {query.askedBy ? ` · asked by ${query.askedBy}` : ''}
-        </span>
-        {body}
-      </section>
+      <div>
+        <section aria-label="WUWF Listens" className="flex flex-col gap-3 bg-wuwf-blue-100 px-6 py-5">
+          <span className={eyebrow}>
+            {inlineEyebrow(query)}
+            {query.askedBy ? ` · asked by ${query.askedBy}` : ''}
+          </span>
+          {body}
+        </section>
+        {followThrough}
+      </div>
     )
   }
 
@@ -339,7 +354,7 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
         </span>
         {query.askedBy && <span className="text-[0.8125rem] text-ink-3">Asked by {query.askedBy}</span>}
       </div>
-      <h2 className="font-serif text-[1.5625rem] leading-tight text-ink">{question.prompt}</h2>
+      <h2 className="font-serif text-[1.5625rem] font-bold leading-tight text-ink">{question.prompt}</h2>
       {body}
     </section>
   )

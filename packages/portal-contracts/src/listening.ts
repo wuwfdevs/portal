@@ -104,6 +104,11 @@ export interface ListeningQuery {
   allowAnonymousRequest: boolean;
   fields: { name: ListeningFieldMode; email: ListeningFieldMode; phone: ListeningFieldMode; city: ListeningFieldMode; note: ListeningFieldMode };
   questions: ListeningQuestion[];
+  /**
+   * What came of this question, when it is listed on the hub and has an outcome (the newest one), with how many people answered. Null
+   * otherwise: an open question's count never leaves the Portal.
+   */
+  outcome: (ListeningOutcome & { responseCount: number }) | null;
 }
 
 /** Every refusal the Portal can give. The site turns each into a sentence; the codes are the contract. */

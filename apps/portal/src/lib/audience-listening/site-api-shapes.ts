@@ -236,6 +236,17 @@ function asNumber(value: unknown): number | null {
   return typeof value === "number" ? value : null;
 }
 
+/** The newest outcome al_site_query attaches, or null if it is absent or not usable (no https link, unknown kind). */
+function shapeQueryOutcome(value: unknown): ListeningQuery["outcome"] {
+  if (!isObj(value)) return null;
+  const kind = OUTCOME_KINDS.find((k) => k === value["kind"]);
+  const title = asString(value["title"]);
+  const url = httpsUrl(value["url"]);
+  const publishedAt = asString(value["published_at"]);
+  if (!kind || !title || !url || !publishedAt) return null;
+  return { kind, title, url, publishedAt, summary: asString(value["summary"]), responseCount: asNumber(value["response_count"]) ?? 0 };
+}
+
 /** Maps al_site_query's payload onto the contract's ListeningQuery. `null` means a draft or an unknown id. */
 export function shapeQuery(payload: unknown): ListeningQuery | null {
   if (!isObj(payload)) return null;
@@ -265,6 +276,7 @@ export function shapeQuery(payload: unknown): ListeningQuery | null {
       city: mode(fields["city"]),
       note: mode(fields["note"]),
     },
+    outcome: shapeQueryOutcome(payload["outcome"]),
     questions: questions.filter(isObj).map((q) => ({
       id: asString(q["id"]) ?? "",
       position: asNumber(q["position"]) ?? 0,

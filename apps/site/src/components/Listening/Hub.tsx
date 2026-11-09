@@ -33,7 +33,7 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
           </span>
           <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.04] tracking-tight md:text-6xl">Your questions shape our reporting.</h1>
           <p className="max-w-3xl font-serif text-xl leading-snug text-ink-2">
-            Answer a reporter by voice or in writing. Your answers go to WUWF for editorial review and are never published automatically.
+            Answer a reporter. A person at WUWF reads every word. Your answers go to WUWF for editorial review and are never published automatically.
           </p>
           {!empty && (
             <ul className="mt-2 flex flex-col gap-1.5 text-base font-semibold">
@@ -64,16 +64,17 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
 
       {hub.open.length > 0 && (
         <section aria-labelledby="help-us-report-title" className="container py-12" id="help-us-report">
-          <h2 className="font-serif text-3xl" id="help-us-report-title">
+          <h2 className="font-serif text-3xl font-bold" id="help-us-report-title">
             A reporter would like to hear from you
           </h2>
-          <p className="mb-5 mt-2 max-w-2xl text-base text-ink-2">One reporter, one story, a few minutes.</p>
+          <p className="mb-5 mt-2 max-w-2xl text-base text-ink-2">
+            One reporter, one story, a few minutes {hub.open.some((item) => item.allowTextAnswers) ? 'by voice or in writing' : 'by voice'}.
+          </p>
           <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
             {hub.open.map((item) => (
               <li className="flex flex-col gap-2.5 rounded-lg border border-rule-strong bg-surface p-5" key={item.publicId}>
                 {deskLabel(item) && <span className={eyebrow}>{deskLabel(item)}</span>}
                 <span className="flex-auto font-serif text-[1.3125rem] font-semibold leading-snug">{item.title}</span>
-                {item.intro && <span className="text-[0.9375rem] text-ink-2">{item.intro}</span>}
                 <span className="text-sm text-ink-3">{openMeta(item)}</span>
                 <Link className={answerLink} href={`/listens/${item.publicId}`}>
                   Answer
@@ -87,7 +88,7 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
       {hub.answered.length > 0 && (
         <section aria-labelledby="came-of-it-title" className="bg-surface-dark text-surface" id="came-of-it">
           <div className="container flex flex-col gap-6 py-14">
-            <h2 className="font-serif text-3xl md:text-4xl" id="came-of-it-title">
+            <h2 className="font-serif text-3xl font-bold md:text-4xl" id="came-of-it-title">
               You asked. Here&apos;s what came of it.
             </h2>
             <ul className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
