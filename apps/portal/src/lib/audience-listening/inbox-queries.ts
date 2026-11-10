@@ -14,7 +14,7 @@ import {
 } from "./inboxes";
 
 /**
- * Staff-side reads for Ask WUWF and host requests. Through the RLS-scoped server client, so
+ * Staff-side reads for the questions and ideas inbox, and host requests. Through the RLS-scoped server client, so
  * `private.has_audience_listening_access` decides what comes back; these add shape and paging, not authorization.
  * A failed read throws (caught by the route's error.tsx) rather than showing an empty list.
  */
@@ -46,7 +46,7 @@ async function stateCounts<State extends string>(table: "al_inbox" | "al_host_re
   return Object.fromEntries(entries) as Record<State, number>;
 }
 
-/** Newest first for Ask WUWF; a person reads them in the order they came in. */
+/** Newest first for questions and ideas; a person reads them in the order they came in. */
 export async function listInboxPage(filter: InboxFilter, page: number): Promise<InboxPage<AlInboxItem, AlInboxState>> {
   const supabase = await createClient();
   const states = INBOX_STATES.filter((s) => inboxMatches(s, filter));
@@ -55,7 +55,7 @@ export async function listInboxPage(filter: InboxFilter, page: number): Promise<
     supabase.from("al_inbox").select("*", { count: "exact" }).in("state", states).order("created_at", { ascending: false }).range(from, to),
     stateCounts("al_inbox", INBOX_STATES),
   ]);
-  const rows = unwrapRead(result, "Ask WUWF") ?? [];
+  const rows = unwrapRead(result, "questions and ideas") ?? [];
   return { rows, total: result.count ?? 0, counts };
 }
 
@@ -79,7 +79,7 @@ export interface InboxWorkCounts {
 }
 
 /**
- * What waits for a person, for the section's navigation: new Ask WUWF items, new host requests, and those past the warning.
+ * What waits for a person, for the section's navigation: new questions and ideas, new host requests, and those past the warning.
  * A courtesy on every page of the tool, so a failure here is logged and the counts are left off rather than taking the query
  * list down with it (the pages that are about the inboxes still read strictly and say what failed).
  */
@@ -92,7 +92,7 @@ export async function getInboxWorkCounts(now: Date = new Date()): Promise<InboxW
       supabase.from("al_host_requests").select("id", { count: "exact", head: true }).eq("state", "new"),
       supabase.from("al_host_requests").select("id", { count: "exact", head: true }).eq("state", "new").lte("created_at", cutoff),
     ]);
-    unwrapRead(inboxNew, "the Ask WUWF count");
+    unwrapRead(inboxNew, "the questions and ideas count");
     unwrapRead(hostNew, "the host request count");
     unwrapRead(hostOverdue, "the overdue host request count");
     return { inboxNew: inboxNew.count ?? 0, hostNew: hostNew.count ?? 0, hostOverdue: hostOverdue.count ?? 0 };

@@ -302,7 +302,7 @@ Where it stands (2026-11-09):
 
 - **C is built on the Portal** (`20261110120000`, with its Resources content in `20261110130000`; applied to both projects the same day, with the table privileges of `anon` and `authenticated` revoked first so the column grant for staff actually limits what they can edit): `al_inbox` and `al_host_requests` (staff-only RLS, staff may change only state, notes and
   who and when), `al_site_inbox_send` and `al_site_host_request` (service_role only), the contract's `inbox-send` and `host-request`
-  messages, hourly rate limits (5 messages and 3 requests per subject, 30 and 15 per client address), and the staff pages Ask WUWF and
+  messages, hourly rate limits (5 messages and 3 requests per subject, 30 and 15 per client address), and the staff pages Questions and ideas (the site calls it Ask WUWF; the Portal never names a station) and
   Host requests at `/audience-listening/inbox` and `/audience-listening/host-requests` with a count in the section navigation. Host
   requests list oldest first and flag any still new after five days. **Not built:** the host-request email and the daily Ask WUWF digest
   (they need the Resend wiring; until then the counts are the signal), and the site's Ask WUWF box and host-request form (board 5c).

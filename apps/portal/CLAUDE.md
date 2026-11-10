@@ -296,7 +296,7 @@ address staff paste, edited on the query's Outcomes tab; the Portal knows no CMS
 `inbox-send` and `host-request` messages call `al_site_inbox_send` and `al_site_host_request` (service_role only, like the rest). Two
 things are load-bearing: (1) **the sender's subject is checked and not stored** on either row, so nothing staff see ties a message to a
 visitor; the route's rate limit is what counts the subject; (2) **staff may update only `state`, `internal_notes`, `handled_by` and
-`handled_at`** (a column grant, not only a policy), never the words a person sent. The staff pages are `audience-listening/inbox` and
+`handled_at`** (a column grant, not only a policy), never the words a person sent. The staff pages are `audience-listening/inbox` (titled **Questions and ideas**: the Portal never names a station, so the website's "Ask WUWF" is the site's name for it, and the guide and release note are station-neutral because the fresh-install check fails on any kept guide that names one) and
 `audience-listening/host-requests`; `ListeningNav` shows the counts and leaves them off, rather than failing the page, if the tables are
 missing. Nothing emails staff yet.
 

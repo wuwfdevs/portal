@@ -51,7 +51,7 @@ export default async function AskWuwfPage({
       <PageHeader
         size="page"
         className="mb-6"
-        title="Ask WUWF"
+        title="Questions and ideas"
         description="Questions and story ideas sent from the website. A person reads every one. Nothing promises a reply or a date, so say so if you write back."
       />
       <ListeningNav current="inbox" />

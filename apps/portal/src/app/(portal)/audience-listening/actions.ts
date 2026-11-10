@@ -656,7 +656,7 @@ export async function removeOutcome(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-// Ask WUWF and host requests ----------------------------------------------------
+// Questions and ideas, and host requests ----------------------------------------------------
 
 const INBOX_PATH = `${LIST_PATH}/inbox`;
 const HOST_REQUESTS_PATH = `${LIST_PATH}/host-requests`;
@@ -670,7 +670,7 @@ function backTo(formData: FormData, base: string): string {
   return value === base || value.startsWith(`${base}?`) ? value : base;
 }
 
-/** The staff member's change to one Ask WUWF item: where they have got to with it, and a private note. */
+/** The staff member's change to one question or idea: where they have got to with it, and a private note. */
 export async function updateInboxItem(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("audience-listening");
   const id = field(formData, "id");
@@ -701,7 +701,7 @@ export async function updateInboxItem(formData: FormData): Promise<void> {
   redirect(path);
 }
 
-/** Removes an Ask WUWF item for good (spam, or something that should not be kept). */
+/** Removes a question or idea for good (spam, or something that should not be kept). */
 export async function deleteInboxItem(formData: FormData): Promise<void> {
   const { profile } = await assertToolAccess("audience-listening");
   const id = field(formData, "id");

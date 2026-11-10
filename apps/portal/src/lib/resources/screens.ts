@@ -145,7 +145,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
   },
   {
     key: "audience-listening.inboxes",
-    name: "Ask WUWF and host requests",
+    name: "Questions, ideas and host requests",
     toolKey: "audience-listening",
     paths: ["/audience-listening/inbox", "/audience-listening/host-requests"],
   },

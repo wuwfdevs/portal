@@ -127,7 +127,7 @@ export default async function HostRequestsPage({
                     <Detail label="Seats">{request.seats}</Detail>
                     <Detail label="Expected">{HOST_EXPECTED_LABEL[request.expected]}</Detail>
                     {request.invitees_text && <Detail label="Would invite">{request.invitees_text}</Detail>}
-                    <Detail label="WUWF journalist">{request.journalist_requested ? "Asked for one to join" : "Not asked for"}</Detail>
+                    <Detail label="Journalist">{request.journalist_requested ? "Asked for one to join" : "Not asked for"}</Detail>
                   </dl>
                   <form action={updateHostRequest} className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
                     <input type="hidden" name="id" value={request.id} />

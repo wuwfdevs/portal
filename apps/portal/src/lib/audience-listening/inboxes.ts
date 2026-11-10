@@ -1,4 +1,4 @@
-// Pure rules for the two standing inboxes (Ask WUWF and host requests): how each state reads, which filter shows which
+// Pure rules for the two standing inboxes (questions and ideas, and host requests): how each state reads, which filter shows which
 // rows, and when a host request has waited too long. No Supabase, no React. The database checks the same shapes
 // (al_inbox and al_host_requests constraints); this is for the screen and the tests.
 
