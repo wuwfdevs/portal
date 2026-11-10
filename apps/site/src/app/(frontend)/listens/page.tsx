@@ -22,7 +22,7 @@ export default async function ListensPage() {
     )
   }
 
-  // The hub collects nothing today, so it carries no IT-04 notice; the Ask WUWF box brings it back (suite phase C).
+  // The Ask WUWF box on the hub collects an email, so it carries the IT-04 notice itself (and the host form does).
   return <HubView hub={loaded.hub} />
 }
 

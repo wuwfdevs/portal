@@ -401,6 +401,15 @@ The block adds no schema (a story body is rich-text JSON). One listening compone
 `20261110_172000` adds "WUWF Listens" (`/listens`) to the seeded Community menu in the header only; the footer has no seeded content, so
 its link is placed in Site settings → Footer.
 
+**Built (suite phase C, 2026-11-10): Ask WUWF and host requests.** `components/Listening/AskWuwf` is a section of the hub (a question or a
+story idea, 2,000 characters, an optional email "only to tell you what came of it", the IT-04 notice); `HostForm` is board 5c at
+`/listens/host` (name, email, invitation or open session, seats 12/30/60, people expected, where, when in the sender's own words, who they
+would invite, whether they would like a journalist to join). Both go through the server actions `sendAsk` and `sendHostRequest`, which check
+with `lib/listening/inbox.ts` (pure, tested; each field picked by name, nothing spread into the signed body) and then the Portal's
+`inbox-send` and `host-request` messages. Nothing promises a reply: Ask WUWF says a person reads every one and that no reply, story or date
+is promised; the host form says someone will write back within a week because the board does, and the Portal's staff list flags a request
+still new after five days. Seats and the `event` page wait for phase D. Needs the Portal's `20261110120000` (applied to both Portal projects).
+
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
 `LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
 this server yet".
@@ -410,7 +419,7 @@ this server yet".
 1. Set the two variables and the Portal's secret; apply the Portal's migrations; make a first real recording and confirm the raw `PUT`.
    Apply this site's two new migrations (`pnpm verify:migrations` has not been run on them: it needs a local Postgres).
 2. Add the Footer link to `/listens` in Site settings → Footer, and check the story and topic pages still build ahead (`pnpm build`) with a question placed.
-3. Phase C: Ask WUWF and host requests (seats move to phase D with events). Phase D (in the Portal) then phase E here: campaigns, events, tables and
+3. Phase D (in the Portal) then phase E here: seats and the `event` page, campaigns, events, tables and
    conversations, site accounts for organizers, and the campaign and report bands of the hub.
 
 ## Deferred

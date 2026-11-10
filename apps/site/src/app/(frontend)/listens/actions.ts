@@ -7,6 +7,7 @@ import {
   type ListeningUpload,
 } from '@wuwf/portal-contracts'
 
+import { checkAskMessage, checkHostRequest } from '@/lib/listening/inbox'
 import { callListening } from '@/lib/listening/portal'
 import { currentClientHash, currentVisitorSubject } from '@/lib/listening/request-context'
 import { failure, isPublicId, isUuid, pickConsent, pickDetails, type ActionResult } from '@/lib/listening/results'
@@ -121,4 +122,44 @@ export async function finalizeResponse(input: { submissionId: string; consentAgr
     ...base,
   })
   return result.ok ? { ok: true, answers: result.answers } : failure(result.error)
+}
+
+/**
+ * Ask WUWF: a question or a story idea, with an email only if the sender wants to hear what came of it. No account and no box
+ * to tick. What is sent is checked here (a browser can send anything) and picked field by field into the signed body; the Portal
+ * stores the message and the email, and does not keep the visitor id.
+ */
+export async function sendAsk(input: { kind: string; body: string; email: string | null }): Promise<ActionResult<Record<never, never>>> {
+  const checked = checkAskMessage(input)
+  if (!checked.ok) return { ...failure('invalid_request'), message: checked.message }
+  const base = await authored()
+  const result = await callListening<Record<never, never>>(LISTENING_PATHS.inboxSend, {
+    kind: checked.value.kind,
+    body: checked.value.body,
+    email: checked.value.email,
+    ...base,
+  })
+  return result.ok ? { ok: true } : failure(result.error)
+}
+
+/** Board 5c: a request to host a listening session. A person at WUWF reads it; the Portal flags one that waits past five days. */
+export async function sendHostRequest(input: unknown): Promise<ActionResult<Record<never, never>>> {
+  const checked = checkHostRequest(input)
+  if (!checked.ok) return { ...failure('invalid_request'), message: checked.message }
+  const base = await authored()
+  const { name, email, kind, organization, seats, address, expected, whenText, inviteesText, journalistRequested } = checked.value
+  const result = await callListening<Record<never, never>>(LISTENING_PATHS.hostRequest, {
+    name,
+    email,
+    kind,
+    organization,
+    seats,
+    address,
+    expected,
+    whenText,
+    inviteesText,
+    journalistRequested,
+    ...base,
+  })
+  return result.ok ? { ok: true } : failure(result.error)
 }
