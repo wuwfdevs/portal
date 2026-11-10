@@ -5,6 +5,7 @@ import { cache } from 'react'
 import type { Contributor, Media } from '@/payload-types'
 
 import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { publicIdFromInput } from '@/lib/listening/placement'
 
 import { PAGE_SIZE, type ListKind, type ListRequest } from './route'
 
@@ -25,6 +26,8 @@ export interface StoryListData {
   /** For a person: their bio. */
   bio: string | null
   profile: PersonProfile | null
+  /** A topic's WUWF Listens question (its public id), asked at the head of the first page. Only a topic has one. */
+  listeningQuestion: string | null
   stories: HomeStory[]
   page: number
   totalPages: number
@@ -42,6 +45,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
   let blurb: string | null = null
   let bio: string | null = null
   let profile: PersonProfile | null = null
+  let listeningQuestion: string | null = null
   let id: string | number
   let where: Record<string, unknown>
 
@@ -55,6 +59,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
     const t = (await payload.find({ collection: 'categories', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: false })).docs[0]
     if (!t) return null
     ;({ id, title } = t)
+    listeningQuestion = publicIdFromInput(t.listeningQuestion)
     where = { categories: { equals: id } }
   } else {
     const p = (await payload.find({ collection: 'contributors', where: { slug: { equals: slug } }, limit: 1, depth: 1, overrideAccess: false })).docs[0] as Contributor | undefined
@@ -85,7 +90,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
   })
   // A page past the last is a 404, but an empty first page is a real (empty) list.
   if (page > 1 && result.docs.length === 0) return null
-  return { kind, slug, title, blurb, bio, profile, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
+  return { kind, slug, title, blurb, bio, profile, listeningQuestion, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
 })
 
 export const loadStoryListFor = (req: ListRequest) => loadStoryList(req.kind, req.slug, req.page)

@@ -854,6 +854,10 @@ export interface Category {
    */
   generateSlug?: boolean | null;
   slug: string;
+  /**
+   * Optional. A WUWF Listens question to ask at the head of this topic’s page: its 16-character code, or its address (…/listens/<code>), from the Portal. Shows nothing once the question closes.
+   */
+  listeningQuestion?: string | null;
   parent?: (number | null) | Category;
   breadcrumbs?:
     | {
@@ -3324,6 +3328,7 @@ export interface CategoriesSelect<T extends boolean = true> {
   title?: T;
   generateSlug?: T;
   slug?: T;
+  listeningQuestion?: T;
   parent?: T;
   breadcrumbs?:
     | T
@@ -5031,6 +5036,28 @@ export interface LinkLineBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'linkLine';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ListeningAskBlock".
+ */
+export interface ListeningAskBlock {
+  /**
+   * From the question’s page in the Portal (Audience Listening): its 16-character code, or its address (…/listens/<code>).
+   */
+  question: string;
+  variant: 'story' | 'voice';
+  /**
+   * Who receives the message, e.g. "Mary" or "the Unearthing Florida team". Empty uses the person who asked the question, or WUWF.
+   */
+  recipient?: string | null;
+  /**
+   * One line about what happens to it. Do not promise a reply or a date.
+   */
+  description?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'listeningAsk';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
