@@ -352,6 +352,13 @@ export type AlAnswerStatus = "pending" | "uploaded" | "failed";
 export type AlTranscriptionState = "none" | "queued" | "sent" | "failed";
 /** Whether the public route may accept a submission right now. */
 export type AlPublicState = "open" | "not_yet_open" | "closed";
+/** Ask WUWF (al_inbox): what was sent, and where staff have got to with it. */
+export type AlInboxKind = "question" | "story_idea";
+export type AlInboxState = "new" | "read" | "answered" | "declined";
+/** Host requests (al_host_requests), board 5c. */
+export type AlHostKind = "invite" | "public";
+export type AlHostExpected = "6-8" | "9-12" | "12+";
+export type AlHostRequestState = "new" | "contacted" | "scheduled" | "declined";
 
 // Academic Partnerships (ap_*) — see
 // supabase/migrations/20260803140000_academic_partnerships.sql.
@@ -1627,6 +1634,49 @@ export interface Database {
           published_at: string;
         };
         Update: Partial<Database["public"]["Tables"]["al_outcomes"]["Row"]>;
+        Relationships: [];
+      };
+      al_inbox: {
+        Row: {
+          id: string;
+          kind: AlInboxKind;
+          body: string;
+          email: string | null;
+          state: AlInboxState;
+          internal_notes: string | null;
+          handled_by: string | null;
+          handled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Rows are made only by al_site_inbox_send() (service_role); staff update state, notes, handled_by and handled_at.
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_inbox"]["Row"], "state" | "internal_notes" | "handled_by" | "handled_at">>;
+        Relationships: [];
+      };
+      al_host_requests: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          kind: AlHostKind;
+          organization: string | null;
+          seats: number;
+          address: string;
+          expected: AlHostExpected;
+          when_text: string;
+          invitees_text: string | null;
+          journalist_requested: boolean;
+          state: AlHostRequestState;
+          internal_notes: string | null;
+          handled_by: string | null;
+          handled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Rows are made only by al_site_host_request() (service_role); staff update state, notes, handled_by and handled_at.
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_host_requests"]["Row"], "state" | "internal_notes" | "handled_by" | "handled_at">>;
         Relationships: [];
       };
       al_questions: {

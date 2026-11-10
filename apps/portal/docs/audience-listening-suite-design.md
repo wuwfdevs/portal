@@ -1,7 +1,7 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
-Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09) and phase B is built on the site (2026-11-09);
-phases C to F are not.** The build order and where each phase stands are in §10.
+Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phase B is built on the site (2026-11-09 and 2026-11-10) and
+phase C is built on the Portal side (2026-11-10, migrations not yet applied); its site screens, and phases D to F, are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -152,13 +152,15 @@ to the table, not the facilitator's.
 ### Inboxes — `al_inbox`, `al_host_requests`, `al_seats`
 
 - `al_inbox` (Ask WUWF): `kind` (`question | story_idea`), `body` (≤2,000 chars), `email` (optional, "so we can
-  tell you what came of it"), `subject`, `state` (`new | read | answered | declined`), `outcome_id`. **No
+  tell you what came of it"), `state` (`new | read | answered | declined`), staff notes. **Built without `subject`** (decided while building C: nothing
+  a staff member does needs it, and a row that cannot be tied to a visitor id cannot be tied back to one; the rate limit counts the subject
+  without keeping it) **and without `outcome_id`** (joins with outcomes, phase F). **No
   account, no checkbox**, per the board. A person reads every one; nothing promises a reply or date.
 - `al_host_requests` (board 5c): name, email, `kind` (`invite | public`), organization, seats (12/30/60),
   address, `expected` (`6-8 | 9-12 | 12+`), `when_text`, `invitees_text` (optional), `journalist_requested`,
   `state` (`new | contacted | scheduled | declined`), `event_id` once scheduled. The site says "someone will
   write back within a week", so the staff list surfaces requests older than five days.
-- `al_seats`: `event_id`, `name`, `email`, `subject`, unique `(event_id, email)`, capped by `seats`. Saving a
+- `al_seats` (**moved to phase D**: a seat belongs to an event, and events do not exist until D): `event_id`, `name`, `email`, `subject`, unique `(event_id, email)`, capped by `seats`. Saving a
   seat collects name and email *as a side effect of the seat*; the email is used for that event only.
 
 ### Outcomes and reports — `al_outcomes`, `al_reports`
@@ -283,7 +285,7 @@ update and release note, and works before the next begins.
   written answers; display fields on the query (asked by, linked story, campaign); the signed upload URL;
   contract v2; `hub` read minus campaigns. *Unlocks boards 6-H, B, C, D and 5b.*
 - **B. Site screens for A**, then the hub (board 5, E, F).
-- **C. Inboxes**, Ask WUWF, host requests, seats.
+- **C. Inboxes**, Ask WUWF and host requests. Seats and the `event` read move to D, with events.
 - **D. Campaigns, events, tables, conversations** in the Portal, with staff screens and table cards.
 - **E. Site screens for D** (5c to 5i) and site accounts for organizers.
 - **F. Reports and outcomes polish**, the monthly report (board G), follow-through components E and F.
@@ -297,6 +299,14 @@ Where it stands (2026-11-09):
   (off by default, so nothing is published automatically). A count of answers is returned only beside an outcome.
 - **B is built on the site** (`apps/site`, `ROADMAP.md` -> *Listening: where it stands*): the full set, the inline asks B, C and D, the
   invitation A and the hub. Still to do for B: an editor block to place the inline asks in a story, a topic page and an episode.
+
+- **C is built on the Portal** (`20261110120000`, with its Resources content in `20261110130000`; **not yet applied to either project**, so
+  `db:check` fails on those two until they are): `al_inbox` and `al_host_requests` (staff-only RLS, staff may change only state, notes and
+  who and when), `al_site_inbox_send` and `al_site_host_request` (service_role only), the contract's `inbox-send` and `host-request`
+  messages, hourly rate limits (5 messages and 3 requests per subject, 30 and 15 per client address), and the staff pages Ask WUWF and
+  Host requests at `/audience-listening/inbox` and `/audience-listening/host-requests` with a count in the section navigation. Host
+  requests list oldest first and flag any still new after five days. **Not built:** the host-request email and the daily Ask WUWF digest
+  (they need the Resend wiring; until then the counts are the signal), and the site's Ask WUWF box and host-request form (board 5c).
 
 ## 11. Open items for the owner
 

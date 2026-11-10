@@ -365,3 +365,98 @@ describe("the hub", () => {
     expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [] } } });
   });
 });
+
+describe("inbox-send and host-request (phase C)", () => {
+  const SUBJ = { kind: "visitor", id: "v_abc-123" } as const;
+  const HOST = {
+    subject: SUBJ,
+    name: " Mary Jones ",
+    email: "mary@example.org",
+    kind: "invite",
+    organization: "",
+    seats: 12,
+    address: " 12 Palafox Place ",
+    expected: "9-12",
+    whenText: "A Saturday in March",
+    inviteesText: null,
+    journalistRequested: true,
+  };
+
+  it("inbox-send trims the message, keeps an optional email, and calls the one function", () => {
+    const r = parseListeningRequest("inbox-send", { subject: SUBJ, kind: "story_idea", body: "  Who fixes the bridge?  ", email: "a@b.co" });
+    expect(r.ok && r.request.rpc).toEqual({
+      fn: "al_site_inbox_send",
+      args: { p_subject: "site:visitor:v_abc-123", p_kind: "story_idea", p_body: "Who fixes the bridge?", p_email: "a@b.co" },
+    });
+    const none = parseListeningRequest("inbox-send", { subject: SUBJ, kind: "question", body: "Why?", email: "  " });
+    expect(none.ok && none.request.rpc.args["p_email"]).toBeNull();
+    const absent = parseListeningRequest("inbox-send", { subject: SUBJ, kind: "question", body: "Why?" });
+    expect(absent.ok && absent.request.rpc.args["p_email"]).toBeNull();
+  });
+
+  it("inbox-send refuses a missing subject, an unknown kind, an empty or over-long body, and a bad email", () => {
+    const base = { subject: SUBJ, kind: "question", body: "Why?" };
+    expect(parseListeningRequest("inbox-send", { kind: "question", body: "Why?" }).ok).toBe(false);
+    expect(parseListeningRequest("inbox-send", { ...base, kind: "complaint" }).ok).toBe(false);
+    expect(parseListeningRequest("inbox-send", { ...base, body: "   " }).ok).toBe(false);
+    expect(parseListeningRequest("inbox-send", { ...base, body: "x".repeat(2001) }).ok).toBe(false);
+    expect(parseListeningRequest("inbox-send", { ...base, body: "x".repeat(2000) }).ok).toBe(true);
+    expect(parseListeningRequest("inbox-send", { ...base, email: "not an email" }).ok).toBe(false);
+    expect(parseListeningRequest("inbox-send", { ...base, email: 5 }).ok).toBe(false);
+  });
+
+  it("host-request maps every field, trims, and turns blank optionals into null", () => {
+    const r = parseListeningRequest("host-request", HOST);
+    expect(r.ok && r.request.rpc).toEqual({
+      fn: "al_site_host_request",
+      args: {
+        p_subject: "site:visitor:v_abc-123",
+        p_name: "Mary Jones",
+        p_email: "mary@example.org",
+        p_kind: "invite",
+        p_organization: null,
+        p_seats: 12,
+        p_address: "12 Palafox Place",
+        p_expected: "9-12",
+        p_when_text: "A Saturday in March",
+        p_invitees_text: null,
+        p_journalist_requested: true,
+      },
+    });
+  });
+
+  it("host-request refuses what the form could not have sent", () => {
+    for (const bad of [
+      { ...HOST, name: " " },
+      { ...HOST, email: "" },
+      { ...HOST, email: "nope" },
+      { ...HOST, kind: "private" },
+      { ...HOST, seats: 20 },
+      { ...HOST, seats: "12" },
+      { ...HOST, expected: "13+" },
+      { ...HOST, address: "" },
+      { ...HOST, whenText: "x".repeat(501) },
+      { ...HOST, inviteesText: "x".repeat(2001) },
+      { ...HOST, journalistRequested: "yes" },
+      { ...HOST, subject: undefined },
+    ]) {
+      expect(parseListeningRequest("host-request", bad).ok).toBe(false);
+    }
+  });
+
+  it("answers an empty success, and has a tighter hourly limit than the answer flow", () => {
+    expect(shapeResponse("inbox-send", { ok: true })).toEqual({ ok: true, body: {} });
+    expect(shapeResponse("host-request", { ok: true })).toEqual({ ok: true, body: {} });
+    expect(shapeResponse("host-request", null)).toEqual({ ok: false, error: "unavailable" });
+    expect(shapeResponse("inbox-send", { error: "not_accepting" })).toEqual({ ok: false, error: "not_accepting" });
+    expect(shapeResponse("host-request", { error: "required_field_missing" })).toEqual({ ok: false, error: "required_field_missing" });
+    const rules = (a: "inbox-send" | "host-request") => RATE_RULES[a].map((r) => `${r.by}:${r.limit}/${r.windowSeconds}`);
+    expect(rules("inbox-send")).toEqual(["subject:5/3600", "client:30/3600"]);
+    expect(rules("host-request")).toEqual(["subject:3/3600", "client:15/3600"]);
+  });
+
+  it("both need the tool switched on", () => {
+    expect(requiresEnabledTool("inbox-send")).toBe(true);
+    expect(requiresEnabledTool("host-request")).toBe(true);
+  });
+});

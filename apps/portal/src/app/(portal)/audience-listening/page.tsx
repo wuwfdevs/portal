@@ -9,6 +9,7 @@ import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatShortDate } from "@/lib/format";
 import { PlusIcon } from "@/components/ui/plus-icon";
+import { ListeningNav } from "./listening-nav";
 
 export default async function AudienceListeningPage({
   searchParams,
@@ -32,6 +33,8 @@ export default async function AudienceListeningPage({
           </PrimaryLink>
         }
       />
+
+      <ListeningNav current="queries" />
 
       {error && <Alert className="mb-4">{error}</Alert>}
 

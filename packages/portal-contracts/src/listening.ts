@@ -25,6 +25,8 @@ export const LISTENING_PATHS = {
   finalize: "/api/site/listening/finalize",
   forgetSubject: "/api/site/listening/forget-subject",
   hub: "/api/site/listening/hub",
+  inboxSend: "/api/site/listening/inbox-send",
+  hostRequest: "/api/site/listening/host-request",
 } as const;
 
 /**
@@ -298,3 +300,56 @@ export interface ListeningHub {
 /** The hub needs no subject: it is a public read, like `query`. */
 export type ListeningHubRequest = ListeningRequestBase;
 export type ListeningHubResponse = ListeningResult<{ hub: ListeningHub }>;
+
+// -------------------------------------------------------------------------------------------------------------
+// The standing inboxes (suite design §2, phase C). Neither belongs to a campaign, and neither needs an account or a box
+// ticked: a person writes, and a person at the station reads every one. Nothing here promises a reply or a date.
+
+/** "Ask WUWF": a question for the newsroom, or an idea for a story. */
+export const LISTENING_INBOX_KINDS = ["question", "story_idea"] as const;
+export type ListeningInboxKind = (typeof LISTENING_INBOX_KINDS)[number];
+
+/** The longest message Ask WUWF takes, and the longest email address. */
+export const MAX_INBOX_BODY_LENGTH = 2000;
+export const MAX_EMAIL_LENGTH = 320;
+
+/**
+ * Sends one Ask WUWF message. The email is optional ("so we can tell you what came of it"). The Portal stores the message and the
+ * email and nothing that identifies the sender: the subject is only what the rate limit counts, and is not kept on the row.
+ */
+export interface ListeningInboxSendRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  kind: ListeningInboxKind;
+  /** 1 to 2,000 characters of plain text. */
+  body: string;
+  email: string | null;
+}
+export type ListeningInboxSendResponse = ListeningResult<Record<never, never>>;
+
+/** Board 5c's form: "bring a listening session to your table". */
+export const LISTENING_HOST_KINDS = ["invite", "public"] as const;
+export type ListeningHostKind = (typeof LISTENING_HOST_KINDS)[number];
+/** Seats the host expects to offer, as the form's three choices. */
+export const LISTENING_HOST_SEATS = [12, 30, 60] as const;
+export type ListeningHostSeats = (typeof LISTENING_HOST_SEATS)[number];
+/** How many people the host expects to turn up. */
+export const LISTENING_HOST_EXPECTED = ["6-8", "9-12", "12+"] as const;
+export type ListeningHostExpected = (typeof LISTENING_HOST_EXPECTED)[number];
+
+export interface ListeningHostRequestRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  name: string;
+  email: string;
+  kind: ListeningHostKind;
+  organization: string | null;
+  seats: ListeningHostSeats;
+  address: string;
+  expected: ListeningHostExpected;
+  /** When the host has in mind, in their own words ("a Saturday in March"). Free text: the station schedules it. */
+  whenText: string;
+  /** Who they would invite. Optional. */
+  inviteesText: string | null;
+  /** Whether they would like a WUWF journalist to join. */
+  journalistRequested: boolean;
+}
+export type ListeningHostRequestResponse = ListeningResult<Record<never, never>>;

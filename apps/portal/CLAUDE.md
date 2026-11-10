@@ -292,6 +292,14 @@ and the subject's namespace; (4) **nothing is public until staff say so**: a que
 address staff paste, edited on the query's Outcomes tab; the Portal knows no CMS). Written answers are built and off by default
 (`al_queries.allow_text_answers`). The routes answer "unavailable" until the secret is set.
 
+**Audience Listening: Ask WUWF and host requests (suite phase C, 2026-11-10).** A pointer; read the suite design's §2 and §10. The site's
+`inbox-send` and `host-request` messages call `al_site_inbox_send` and `al_site_host_request` (service_role only, like the rest). Two
+things are load-bearing: (1) **the sender's subject is checked and not stored** on either row, so nothing staff see ties a message to a
+visitor; the route's rate limit is what counts the subject; (2) **staff may update only `state`, `internal_notes`, `handled_by` and
+`handled_at`** (a column grant, not only a policy), never the words a person sent. The staff pages are `audience-listening/inbox` and
+`audience-listening/host-requests`; `ListeningNav` shows the counts and leaves them off, rather than failing the page, if the tables are
+missing. Nothing emails staff yet.
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
