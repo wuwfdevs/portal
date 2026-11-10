@@ -1,7 +1,7 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
 Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phase B is built on the site (2026-11-09 and 2026-11-10) and
-phase C is built on the Portal side (2026-11-10, migrations not yet applied); its site screens, and phases D to F, are not.** The build order and where each phase stands are in §10.
+phase C is built on the Portal side (2026-11-10, applied to both projects); its site screens, and phases D to F, are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -300,8 +300,7 @@ Where it stands (2026-11-09):
 - **B is built on the site** (`apps/site`, `ROADMAP.md` -> *Listening: where it stands*): the full set, the inline asks B, C and D, the
   invitation A and the hub. Still to do for B: an editor block to place the inline asks in a story, a topic page and an episode.
 
-- **C is built on the Portal** (`20261110120000`, with its Resources content in `20261110130000`; **not yet applied to either project**, so
-  `db:check` fails on those two until they are): `al_inbox` and `al_host_requests` (staff-only RLS, staff may change only state, notes and
+- **C is built on the Portal** (`20261110120000`, with its Resources content in `20261110130000`; applied to both projects the same day, with the table privileges of `anon` and `authenticated` revoked first so the column grant for staff actually limits what they can edit): `al_inbox` and `al_host_requests` (staff-only RLS, staff may change only state, notes and
   who and when), `al_site_inbox_send` and `al_site_host_request` (service_role only), the contract's `inbox-send` and `host-request`
   messages, hourly rate limits (5 messages and 3 requests per subject, 30 and 15 per client address), and the staff pages Ask WUWF and
   Host requests at `/audience-listening/inbox` and `/audience-listening/host-requests` with a count in the section navigation. Host

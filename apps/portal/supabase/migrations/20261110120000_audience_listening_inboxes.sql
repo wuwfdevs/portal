@@ -97,6 +97,12 @@ create trigger set_al_host_requests_updated_at
 alter table public.al_inbox enable row level security;
 alter table public.al_host_requests enable row level security;
 
+-- Supabase's default privileges give anon and authenticated every right on a new public table, which would make the column
+-- grant below a no-op (a table-level UPDATE covers every column). Take the defaults away first, then grant exactly what staff
+-- need. anon gets nothing: the only way in is the service_role functions at the end of this file.
+revoke all on public.al_inbox from anon, authenticated;
+revoke all on public.al_host_requests from anon, authenticated;
+
 grant select, delete on public.al_inbox to authenticated;
 grant update (state, internal_notes, handled_by, handled_at) on public.al_inbox to authenticated;
 grant select, delete on public.al_host_requests to authenticated;
