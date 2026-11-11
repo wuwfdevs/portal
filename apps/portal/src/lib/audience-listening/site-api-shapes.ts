@@ -8,7 +8,13 @@
 
 import {
   LISTENING_ERROR_CODES,
+  LISTENING_HOST_EXPECTED,
+  LISTENING_HOST_KINDS,
+  LISTENING_HOST_SEATS,
+  LISTENING_INBOX_KINDS,
   MAX_CLIENT_HASH_LENGTH,
+  MAX_EMAIL_LENGTH,
+  MAX_INBOX_BODY_LENGTH,
   MAX_TEXT_ANSWER_LENGTH,
   isListeningErrorCode,
   isListeningSubject,
@@ -31,6 +37,8 @@ export const LISTENING_ACTIONS = [
   "finalize",
   "forget-subject",
   "hub",
+  "inbox-send",
+  "host-request",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -209,7 +217,64 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
     }
     case "forget-subject":
       return done({ fn: "al_site_forget_subject", args: { p_subject: key } });
+    case "inbox-send": {
+      const kind = LISTENING_INBOX_KINDS.find((k) => k === body["kind"]);
+      const text = body["body"];
+      const email = optionalEmail(body["email"]);
+      if (!kind || typeof text !== "string" || email === undefined) return BAD;
+      const trimmed = text.trim();
+      if (trimmed.length === 0 || trimmed.length > MAX_INBOX_BODY_LENGTH) return BAD;
+      return done({ fn: "al_site_inbox_send", args: { p_subject: key, p_kind: kind, p_body: trimmed, p_email: email } });
+    }
+    case "host-request": {
+      const kind = LISTENING_HOST_KINDS.find((k) => k === body["kind"]);
+      const seats = LISTENING_HOST_SEATS.find((n) => n === body["seats"]);
+      const expected = LISTENING_HOST_EXPECTED.find((e) => e === body["expected"]);
+      const name = required(body["name"], 200);
+      const email = optionalEmail(body["email"]);
+      const address = required(body["address"], 500);
+      const whenText = required(body["whenText"], 500);
+      const organization = str(body["organization"], 200);
+      const invitees = str(body["inviteesText"], 2000);
+      const journalist = bool(body["journalistRequested"]);
+      if (!kind || !seats || !expected || !name || !email || !address || !whenText) return BAD;
+      if (organization === undefined || invitees === undefined || journalist === null) return BAD;
+      return done({
+        fn: "al_site_host_request",
+        args: {
+          p_subject: key,
+          p_name: name,
+          p_email: email,
+          p_kind: kind,
+          p_organization: organization?.trim() || null,
+          p_seats: seats,
+          p_address: address,
+          p_expected: expected,
+          p_when_text: whenText,
+          p_invitees_text: invitees?.trim() || null,
+          p_journalist_requested: journalist,
+        },
+      });
+    }
   }
+}
+
+/** A required text field: trimmed, 1 to `max` characters. Null when missing, not a string, blank or too long. */
+function required(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed.length <= max ? trimmed : null;
+}
+
+const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** An email that may be absent: undefined when present but not an address, null when absent or blank, else the address. */
+function optionalEmail(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  return trimmed.length <= MAX_EMAIL_LENGTH && EMAIL_SHAPE.test(trimmed) ? trimmed : undefined;
 }
 
 // -------------------------------------------------------------------------------------------------------------
@@ -414,6 +479,8 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
     case "complete-answer":
     case "save-details":
     case "forget-subject":
+    case "inbox-send":
+    case "host-request":
       return isObj(payload) && payload["ok"] === true ? { ok: true, body: {} } : fail("unavailable");
   }
 }
@@ -471,6 +538,16 @@ export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
   "save-details": [{ by: "subject", limit: 40, windowSeconds: 600 }],
   finalize: [{ by: "subject", limit: 10, windowSeconds: 600 }],
   "forget-subject": [{ by: "subject", limit: 5, windowSeconds: 600 }],
+  // Open to anyone with no account, so tighter: a person sends a few in an hour; a script sends hundreds. The client limit is
+  // wider than the subject's because a table of people at an event may share an address.
+  "inbox-send": [
+    { by: "subject", limit: 5, windowSeconds: 3600 },
+    { by: "client", limit: 30, windowSeconds: 3600 },
+  ],
+  "host-request": [
+    { by: "subject", limit: 3, windowSeconds: 3600 },
+    { by: "client", limit: 15, windowSeconds: 3600 },
+  ],
 };
 
 /** The keys to count for a request, in the form al_site_rate_hit stores. */

@@ -19,6 +19,7 @@ import type {
   EmbedBlock as EmbedBlockProps,
   GalleryBlock as GalleryBlockProps,
   LinkLineBlock as LinkLineBlockProps,
+  ListeningAskBlock as ListeningAskBlockProps,
   LegacyHtmlBlock as LegacyHtmlBlockProps,
   MediaBlock as MediaBlockProps,
   PullQuoteBlock as PullQuoteBlockProps,
@@ -32,6 +33,7 @@ import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
 import { LinkLineBlock } from '@/blocks/LinkLine/Component'
+import { ListeningAskBlock } from '@/blocks/ListeningAsk/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
 import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
 import { WidgetBlock } from '@/blocks/Widget/Component'
@@ -49,6 +51,7 @@ type NodeTypes =
       | GalleryBlockProps
       | PullQuoteBlockProps
       | LinkLineBlockProps
+      | ListeningAskBlockProps
       | EmbedBlockProps
       | AudioPlayerBlockProps
       | VideoPlayerBlockProps
@@ -76,6 +79,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
     linkLine: ({ node }) => <LinkLineBlock {...node.fields} />,
+    listeningAsk: ({ node }) => <ListeningAskBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
     videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,

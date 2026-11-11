@@ -144,6 +144,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/audience-listening", "/audience-listening/new"],
   },
   {
+    key: "audience-listening.inboxes",
+    name: "Questions, ideas and host requests",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/inbox", "/audience-listening/host-requests"],
+  },
+  {
     key: "audience-listening.query",
     name: "Query",
     toolKey: "audience-listening",

@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { inlineQuestion } from '@/lib/listening/inline'
-import { loadQuery } from '@/lib/listening/load'
+import { loadPlacedQuery } from '@/lib/listening/load'
 
 import { InlineAsk, type InlineVariant } from './InlineAsk'
 import { Invite } from './Invite'
@@ -13,8 +13,7 @@ import { Invite } from './Invite'
  *   - nothing at all when the question is closed, not available, or listening is not set up. A story must not break, or
  *     show an error, because a question closed.
  *
- * Nothing places this yet: an editor block to put it in a story body needs a Payload schema change, which comes with its own
- * migration (docs: ROADMAP -> Listening). Until then a page that wants one renders this directly.
+ * Placed by the `listeningAsk` story block, and by a topic's own question field.
  */
 export const ListeningInline: React.FC<{
   publicId: string
@@ -22,10 +21,9 @@ export const ListeningInline: React.FC<{
   recipient?: string
   description?: string
 }> = async ({ publicId, variant, recipient, description }) => {
-  const loaded = await loadQuery(publicId)
-  if (loaded.kind !== 'ok' || loaded.query.state !== 'open') return null
+  const query = await loadPlacedQuery(publicId)
+  if (!query || query.state !== 'open') return null
 
-  const query = loaded.query
   const fullSetHref = `/listens/${query.publicId}`
   const question = inlineQuestion(query)
   if (!question) return <Invite href={fullSetHref} query={query} />

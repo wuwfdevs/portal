@@ -6,6 +6,7 @@ import { Card } from '@/components/Card'
 import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
 import RichText from '@/components/RichText'
+import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
 import type { StoryListData } from '@/lib/lists/load'
 
@@ -16,7 +17,7 @@ const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter' } as co
  * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly.
  */
 export function StoryListView({ data }: { data: StoryListData }) {
-  const { kind, slug, title, blurb, bio, profile, stories, page, totalPages, totalDocs } = data
+  const { kind, slug, title, blurb, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
   const lead = page === 1 ? stories[0] : undefined
   const grid = page === 1 ? stories.slice(1) : stories
 
@@ -71,6 +72,12 @@ export function StoryListView({ data }: { data: StoryListData }) {
           {totalDocs === 0 ? 'No stories yet.' : `${totalDocs} ${totalDocs === 1 ? 'story' : 'stories'}${totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}`}
         </p>
       </header>
+
+      {page === 1 && listeningQuestion && (
+        <div className="container mt-8 max-w-[60rem]">
+          <ListeningInline publicId={listeningQuestion} variant="topic" />
+        </div>
+      )}
 
       <section aria-label="Stories" className="container mt-10">
         {stories.length === 0 ? (

@@ -5,6 +5,7 @@ import type { ListeningHub } from '@wuwf/portal-contracts'
 
 import { answeredBy, deskLabel, openMeta, outcomeDate, outcomeKicker } from '@/lib/listening/hub'
 
+import { AskWuwf } from './AskWuwf'
 import { eyebrow } from './styles'
 
 const answerLink =
@@ -15,8 +16,9 @@ const answerLink =
  * reporter has open ("A reporter would like to hear from you"), and what came of the questions already answered ("You asked.
  * Here's what came of it."). An open question shows no count; a count appears only beside an outcome.
  *
- * Not here yet, because nothing stands behind them: the Ask WUWF box, the regional conversations and sessions, "Host one", and the
- * season reports. They arrive with phases C to E of the suite design and are left out rather than drawn as if they worked.
+ * Ask WUWF and "Host a session" (suite phase C) stand behind real inboxes in the Portal. Not here yet, because nothing stands behind
+ * them: the regional conversations and sessions people can attend, and the season reports. They arrive with phases D to F of the suite
+ * design and are left out rather than drawn as if they worked.
  */
 export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
   const empty = hub.open.length === 0 && hub.answered.length === 0
@@ -35,24 +37,32 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
           <p className="max-w-3xl font-serif text-xl leading-snug text-ink-2">
             Answer a reporter. A person at WUWF reads every word. Your answers go to WUWF for editorial review and are never published automatically.
           </p>
-          {!empty && (
-            <ul className="mt-2 flex flex-col gap-1.5 text-base font-semibold">
-              {hub.open.length > 0 && (
-                <li>
-                  <a className="text-wuwf-blue-700" href="#help-us-report">
-                    Answer a question →
-                  </a>
-                </li>
-              )}
-              {hub.answered.length > 0 && (
-                <li>
-                  <a className="text-wuwf-blue-700" href="#came-of-it">
-                    See what came of other people&apos;s answers →
-                  </a>
-                </li>
-              )}
-            </ul>
-          )}
+          <ul className="mt-2 flex flex-col gap-1.5 text-base font-semibold">
+            {hub.open.length > 0 && (
+              <li>
+                <a className="text-wuwf-blue-700" href="#help-us-report">
+                  Answer a question →
+                </a>
+              </li>
+            )}
+            {hub.answered.length > 0 && (
+              <li>
+                <a className="text-wuwf-blue-700" href="#came-of-it">
+                  See what came of other people&apos;s answers →
+                </a>
+              </li>
+            )}
+            <li>
+              <a className="text-wuwf-blue-700" href="#ask">
+                Ask WUWF something →
+              </a>
+            </li>
+            <li>
+              <Link className="text-wuwf-blue-700" href="/listens/host">
+                Host a listening session →
+              </Link>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -120,6 +130,22 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
         </section>
       )}
 
+      <AskWuwf />
+
+      <section aria-labelledby="host-title" className="bg-wuwf-blue-100">
+        <div className="container flex flex-col items-start gap-3 py-12">
+          <span className={eyebrow}>Host a session</span>
+          <h2 className="font-serif text-3xl font-bold" id="host-title">
+            Bring a listening session to your table.
+          </h2>
+          <p className="max-w-2xl text-base text-ink-2">
+            Invite a few people to talk about something that matters where you live, or open it to anyone. You can ask for a WUWF journalist to join. Someone at WUWF will write back within a week.
+          </p>
+          <Link className={answerLink} href="/listens/host">
+            Ask to host one
+          </Link>
+        </div>
+      </section>
     </>
   )
 }

@@ -391,6 +391,25 @@ the signed upload address the Portal issues.
   an inline ask answers the query's first question and is replaced by the invitation when another question is required or a detail
   other than name and email is; no hub card shows a count of answers unless the question has an outcome.
 
+**Placing a question (built 2026-11-10).** `listeningAsk` is a story-body block (`blocks/ListeningAsk`: the question's code or its
+`/listens/<code>` address, and "in the story" or "after an episode or video" with an optional recipient and one line about what
+happens to it); a topic has an optional **Listening question** field and shows it at the head of its first page (`categories.listening_question`,
+migration `20261110_171043`). Both render `ListeningInline` through `loadPlacedQuery`, which sends no rate-limit hash and keeps the
+Portal's answer for five minutes, so a story or topic page that holds a question stays built ahead instead of rendering on every view (the
+ordinary `loadQuery` reads headers and never caches). A closed or unknown question renders nothing; the Portal still refuses a late answer.
+The block adds no schema (a story body is rich-text JSON). One listening component to a page is an editor's rule, not enforced in code.
+`20261110_172000` adds "WUWF Listens" (`/listens`) to the seeded Community menu in the header only; the footer has no seeded content, so
+its link is placed in Site settings → Footer.
+
+**Built (suite phase C, 2026-11-10): Ask WUWF and host requests.** `components/Listening/AskWuwf` is a section of the hub (a question or a
+story idea, 2,000 characters, an optional email "only to tell you what came of it", the IT-04 notice); `HostForm` is board 5c at
+`/listens/host` (name, email, invitation or open session, seats 12/30/60, people expected, where, when in the sender's own words, who they
+would invite, whether they would like a journalist to join). Both go through the server actions `sendAsk` and `sendHostRequest`, which check
+with `lib/listening/inbox.ts` (pure, tested; each field picked by name, nothing spread into the signed body) and then the Portal's
+`inbox-send` and `host-request` messages. Nothing promises a reply: Ask WUWF says a person reads every one and that no reply, story or date
+is promised; the host form says someone will write back within a week because the board does, and the Portal's staff list flags a request
+still new after five days. Seats and the `event` page wait for phase D. Needs the Portal's `20261110120000` (applied to both Portal projects).
+
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
 `LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
 this server yet".
@@ -398,10 +417,10 @@ this server yet".
 **Next.**
 
 1. Set the two variables and the Portal's secret; apply the Portal's migrations; make a first real recording and confirm the raw `PUT`.
-2. An editor block (Payload, with its migration) that renders `ListeningInline` in a story body, a topic page and the end of an episode,
-   and a link to `/listens` in the header and footer.
-3. Phase C: Ask WUWF, host requests and seats. Phase D (in the Portal) then phase E here: campaigns, events, tables and conversations,
-   site accounts for organizers, and the campaign and report bands of the hub.
+   Apply this site's two new migrations (`pnpm verify:migrations` has not been run on them: it needs a local Postgres).
+2. Add the Footer link to `/listens` in Site settings → Footer, and check the story and topic pages still build ahead (`pnpm build`) with a question placed.
+3. Phase D (in the Portal) then phase E here: seats and the `event` page, campaigns, events, tables and
+   conversations, site accounts for organizers, and the campaign and report bands of the hub.
 
 ## Deferred
 

@@ -38,6 +38,8 @@ import * as migration_20261107_043501_board27_header_search_public_file from './
 import * as migration_20261107_055404_listen_live from './20261107_055404_listen_live';
 import * as migration_20261107_070000_header_starting_menus from './20261107_070000_header_starting_menus';
 import * as migration_20261107_080000_unearthing_hub_start from './20261107_080000_unearthing_hub_start';
+import * as migration_20261110_171043_topic_listening_question from './20261110_171043_topic_listening_question';
+import * as migration_20261110_172000_header_listens_link from './20261110_172000_header_listens_link';
 
 export const migrations = [
   {
@@ -239,5 +241,15 @@ export const migrations = [
     up: migration_20261107_080000_unearthing_hub_start.up,
     down: migration_20261107_080000_unearthing_hub_start.down,
     name: '20261107_080000_unearthing_hub_start',
+  },
+  {
+    up: migration_20261110_171043_topic_listening_question.up,
+    down: migration_20261110_171043_topic_listening_question.down,
+    name: '20261110_171043_topic_listening_question'
+  },
+  {
+    up: migration_20261110_172000_header_listens_link.up,
+    down: migration_20261110_172000_header_listens_link.down,
+    name: '20261110_172000_header_listens_link',
   },
 ];

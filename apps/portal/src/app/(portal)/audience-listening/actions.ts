@@ -20,6 +20,7 @@ import { sendQueuedAnswers } from "@/lib/audience-listening/handoff";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { sendAnswerToSourcework } from "@/lib/audience-listening/capabilities";
 import type { AlFieldMode, AlQueryStatus, AlReviewState } from "@/lib/database.types";
+import { MAX_INTERNAL_NOTES_LENGTH, isHostRequestState, isInboxState } from "@/lib/audience-listening/inboxes";
 
 const LIST_PATH = "/audience-listening";
 
@@ -652,5 +653,105 @@ export async function removeOutcome(formData: FormData): Promise<void> {
     metadata: { outcome_id: outcomeId },
   });
 
+  redirect(path);
+}
+
+// Questions and ideas, and host requests ----------------------------------------------------
+
+const INBOX_PATH = `${LIST_PATH}/inbox`;
+const HOST_REQUESTS_PATH = `${LIST_PATH}/host-requests`;
+
+/**
+ * Where to go back to after a change: the list as the staff member had it (filter and page), carried in a hidden field.
+ * Only a path under the list's own is honoured, so the field cannot send anyone elsewhere.
+ */
+function backTo(formData: FormData, base: string): string {
+  const value = field(formData, "back");
+  return value === base || value.startsWith(`${base}?`) ? value : base;
+}
+
+/** The staff member's change to one question or idea: where they have got to with it, and a private note. */
+export async function updateInboxItem(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const id = field(formData, "id");
+  const path = backTo(formData, INBOX_PATH);
+  const state = field(formData, "state");
+  if (!isInboxState(state)) failWith(path, "That isn't a state an item can be in.");
+  const notes = optionalField(formData, "internal_notes");
+  if (notes && notes.length > MAX_INTERNAL_NOTES_LENGTH) failWith(path, `Notes can be up to ${MAX_INTERNAL_NOTES_LENGTH} characters.`);
+
+  const supabase = await createClient();
+  await deleteOrFail(
+    supabase
+      .from("al_inbox")
+      .update({
+        state,
+        internal_notes: notes,
+        handled_by: state === "new" ? null : profile.id,
+        handled_at: state === "new" ? null : new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id"),
+    path,
+    "Could not save the change",
+    "That item no longer exists, or you don't have permission to change it.",
+  );
+
+  await logAuditEvent({ actorId: profile.id, action: "al.inbox.updated", targetType: "al_inbox", targetId: id, metadata: { state } });
+  redirect(path);
+}
+
+/** Removes a question or idea for good (spam, or something that should not be kept). */
+export async function deleteInboxItem(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const id = field(formData, "id");
+  const path = backTo(formData, INBOX_PATH);
+
+  const supabase = await createClient();
+  await deleteOrFail(supabase.from("al_inbox").delete().eq("id", id).select("id"), path, "Could not delete the item");
+
+  await logAuditEvent({ actorId: profile.id, action: "al.inbox.deleted", targetType: "al_inbox", targetId: id });
+  redirect(path);
+}
+
+export async function updateHostRequest(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const id = field(formData, "id");
+  const path = backTo(formData, HOST_REQUESTS_PATH);
+  const state = field(formData, "state");
+  if (!isHostRequestState(state)) failWith(path, "That isn't a state a request can be in.");
+  const notes = optionalField(formData, "internal_notes");
+  if (notes && notes.length > MAX_INTERNAL_NOTES_LENGTH) failWith(path, `Notes can be up to ${MAX_INTERNAL_NOTES_LENGTH} characters.`);
+
+  const supabase = await createClient();
+  await deleteOrFail(
+    supabase
+      .from("al_host_requests")
+      .update({
+        state,
+        internal_notes: notes,
+        handled_by: state === "new" ? null : profile.id,
+        handled_at: state === "new" ? null : new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id"),
+    path,
+    "Could not save the change",
+    "That request no longer exists, or you don't have permission to change it.",
+  );
+
+  await logAuditEvent({ actorId: profile.id, action: "al.host_request.updated", targetType: "al_host_request", targetId: id, metadata: { state } });
+  redirect(path);
+}
+
+export async function deleteHostRequest(formData: FormData): Promise<void> {
+  const { profile } = await assertToolAccess("audience-listening");
+  const id = field(formData, "id");
+  const path = backTo(formData, HOST_REQUESTS_PATH);
+
+  const supabase = await createClient();
+  await deleteOrFail(supabase.from("al_host_requests").delete().eq("id", id).select("id"), path, "Could not delete the request");
+
+  await logAuditEvent({ actorId: profile.id, action: "al.host_request.deleted", targetType: "al_host_request", targetId: id });
   redirect(path);
 }
