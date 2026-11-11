@@ -112,6 +112,11 @@ export const MODULES: readonly ModuleManifestEntry[] = [
         for: "verifying the public site's signed listening requests",
         required: false,
       },
+      {
+        name: "WEBSITE_ORIGIN",
+        for: "the address a printed table card opens",
+        required: false,
+      },
     ],
   },
   {

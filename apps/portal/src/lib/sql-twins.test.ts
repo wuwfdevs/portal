@@ -47,6 +47,11 @@ const TWINS: { ts: string; exported: string; sql: string[] }[] = [
     exported: "normalizeToolRole",
     sql: ["is_academic_partnerships_coordinator"],
   },
+  {
+    ts: "src/lib/audience-listening/roles.ts",
+    exported: "parseAudienceListeningRoles",
+    sql: ["is_audience_listening_coordinator"],
+  },
   { ts: "src/lib/resources/roles.ts", exported: "normalizeToolRole", sql: ["is_resources_editor"] },
 ];
 

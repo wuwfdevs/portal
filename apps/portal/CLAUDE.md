@@ -300,6 +300,23 @@ visitor; the route's rate limit is what counts the subject; (2) **staff may upda
 `audience-listening/host-requests`; `ListeningNav` shows the counts and leaves them off, rather than failing the page, if the tables are
 missing. Nothing emails staff yet.
 
+**Audience Listening: campaigns, events and table cards (suite phase D, first half, 2026-11-11).** A pointer; read the suite design's §2, §3 and
+§10. Campaigns (`campaigns/`), Events (`events/`) and their tables and seats are staff-only records (`al_campaigns`, `al_campaign_prompts`,
+`al_campaign_tags`, `al_events`, `al_tables`, `al_seats`); there is no participant-facing policy or function on them yet. Four things are
+load-bearing: (1) **the database holds the rules, the screens only explain them** — an event starts inside its campaign's span
+(`al_events_check_span`, TS twin `eventSpanProblem`), closing a campaign closes its query, a seat cannot pass the event's `seats`, and
+`al_events_guard_listing` lets any staff member ask for review but only a **coordinator** (`private.is_audience_listening_coordinator`, a
+stacking `tool_roles` value, `lib/audience-listening/roles.ts`) list, decline or unlist, sends a listed event back to review when its public
+details change, and takes a private event off the website; (2) **a table's link is a 256-bit token stored only as a SHA-256 hash**
+(`table-links.ts`); it exists in the `issueTableLinks` response and on the printed card and nowhere else, never in a log, the audit row or a
+URL query, and a new link replaces the old one and clears `join_token_used_at`; (3) **staff write only four columns of `al_tables`**
+(`event_id`, `number` on insert; the three link columns on update): a table's recording state is for the table's own session, the next
+half of phase D; (4) **times are the station's, not the server's** (`event-times.ts` converts `datetime-local` through `lib/station-time.ts`).
+The card's address is `WEBSITE_ORIGIN` + `LISTENING_TABLE_LINK_PATH` from `packages/portal-contracts`; **the website page that path opens is
+phase E, so a printed card opens nothing yet**, and the guide says not to print for a real session. Not built: the table session (agree,
+segments, speakers, highlights, contact cards), the signed `table-*`/`room`/`event`/`seat-save` messages, Tonight/After, Conversations, the
+consent-text versions and the purge screen. Migrations `20261111120000` (schema) and `20261111130000` (Resources content).
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the

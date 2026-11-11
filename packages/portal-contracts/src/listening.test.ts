@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  LISTENING_ERROR_CODES, LISTENING_PATHS, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
+  LISTENING_ERROR_CODES, LISTENING_PATHS, listeningTableLinkUrl, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
   verifyRequestSignature,
   type ListeningStartRequest,
 } from "./index";
@@ -87,5 +87,14 @@ describe("listening requests are signed like every other channel", () => {
 
   it("refuses another channel's secret", async () => {
     expect(await verify(LISTENING_PATHS.start, json, OTHER)).toEqual({ ok: false, reason: "bad_signature" });
+  });
+});
+
+describe("table links", () => {
+  it("puts the token in the path of the site's table page", () => {
+    expect(listeningTableLinkUrl("https://site.example", "abc_-123")).toBe("https://site.example/listens/table/abc_-123");
+  });
+  it("does not double a trailing slash on the origin", () => {
+    expect(listeningTableLinkUrl("https://site.example/", "t")).toBe("https://site.example/listens/table/t");
   });
 });

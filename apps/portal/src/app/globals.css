@@ -198,3 +198,25 @@ main:has(~ [data-assistant-bubble="always"]) {
     display: block;
   }
 }
+
+/* Audience Listening: the table cards (events/[id]/table-cards.tsx). Printing a page that holds cards prints only the cards, each on
+   its own 7 x 5 inch page. The named page keeps that size from changing any other printed page (an affidavit, a rate card). */
+@page table-card {
+  size: 7in 5in;
+  margin: 0;
+}
+@media print {
+  body:has(.table-cards) :not(.table-cards, .table-cards *, :has(.table-cards)) {
+    display: none !important;
+  }
+  .table-cards {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  .table-card {
+    page: table-card;
+    break-after: page;
+    border: 0 !important;
+  }
+}

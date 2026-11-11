@@ -1,7 +1,8 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
 Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phase B is built on the site (2026-11-09 and 2026-11-10) and
-phase C is built on the Portal side (2026-11-10, applied to both projects); its site screens, and phases D to F, are not.** The build order and where each phase stands are in §10.
+phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
+events, tables and seats, with their staff screens and table cards); its site screens, the rest of D, and phases E and F, are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -306,6 +307,15 @@ Where it stands (2026-11-09):
   Host requests at `/audience-listening/inbox` and `/audience-listening/host-requests` with a count in the section navigation. Host
   requests list oldest first and flag any still new after five days. **Not built:** the host-request email and the daily Ask WUWF digest
   (they need the Resend wiring; until then the counts are the signal), and the site's Ask WUWF box and host-request form (board 5c).
+
+- **D, first half, is built on the Portal** (`20261111120000`, with its Resources content in `20261111130000`): `al_campaigns`, `al_campaign_prompts`,
+  `al_campaign_tags`, `al_events`, `al_tables` and `al_seats` (staff-only RLS; staff write only a table's number and link, never its
+  recording state), the `coordinator` tool role and the guard on listing (§11 item 4, as the working default), the span, seat-capacity and
+  close-the-query rules, and the staff screens Campaigns, Events, tables, seats and printable table cards at `/audience-listening/campaigns`
+  and `/audience-listening/events`. A table link is a hash of a 256-bit token; the card carries `WEBSITE_ORIGIN` + the contract's table path.
+  **Not built, and the second half of D:** the table session (agreement with `consent_text_version`, segments and the signed upload, speakers,
+  highlights, contact cards), the signed messages for them and for `event`/`seat-save`/`room`, Conversations and Tonight/After in the Portal,
+  the Sourcework handoff per table, the staff Purge screen, and the daily/overdue notifications. Campaign `report` and the outcome links are F.
 
 ## 11. Open items for the owner
 

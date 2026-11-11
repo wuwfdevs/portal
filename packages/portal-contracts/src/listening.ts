@@ -353,3 +353,19 @@ export interface ListeningHostRequestRequest extends ListeningRequestBase {
   journalistRequested: boolean;
 }
 export type ListeningHostRequestResponse = ListeningResult<Record<never, never>>;
+
+/**
+ * Where a table's single-use link opens on the site (phase D and E of the suite design). The Portal issues the link and prints it
+ * on the table's card as a QR code; the site serves this path and redeems the token with the Portal. It is a path on the site's own
+ * origin, so the Portal builds the address and the site owns the page. The token is a path segment, never a query value, so it
+ * is not carried to another origin in a Referer header or an analytics query string.
+ */
+export const LISTENING_TABLE_LINK_PATH = "/listens/table";
+
+/** The longest table link token the site accepts: a 256-bit value in base64url is 43 characters. */
+export const LISTENING_TABLE_TOKEN_LENGTH = 43;
+
+/** The address a table's link opens, from the site's origin (no trailing slash needed) and the token. */
+export function listeningTableLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_TABLE_LINK_PATH}/${encodeURIComponent(token)}`;
+}
