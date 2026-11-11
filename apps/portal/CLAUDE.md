@@ -330,7 +330,7 @@ uploaded segment is never replaced (`already_uploaded`); limits are `private.al_
 `complete` once the table has ended and every segment up to `last_seq` is uploaded (`private.al_conversation_settle`); (5) staff **read**
 conversations and segments and write none. Not built: speakers, highlights, contact cards, the transcript and Sourcework handoff per table,
 the room console (`room`, `room-call`), Tonight/After, the conversation review, the staff Purge screen, and the website pages themselves
-(phase E). Migrations `20261111140000` (schema) and `20261111150000` (Resources content).
+(phase E). Migrations `20261111140000` (schema) and `20261111150000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
