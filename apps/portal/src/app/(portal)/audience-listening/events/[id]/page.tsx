@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAudienceListeningContext } from "@/lib/audience-listening/access";
-import { getCampaign, getEvent, listSeats, listTables } from "@/lib/audience-listening/campaign-queries";
+import { getCampaign, getEvent, listConsentTexts, listConversations, listSeats, listTables } from "@/lib/audience-listening/campaign-queries";
 import { formatEventTime, readSiteOrigin } from "@/lib/audience-listening/event-times";
 import {
   EVENT_ACTION_LABEL,
@@ -18,6 +19,7 @@ import {
   tableIsRemovable,
 } from "@/lib/audience-listening/events";
 import { Alert } from "@/components/ui/alert";
+import { formatClockMs } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,6 +33,16 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { addTables, deleteEvent, removeSeat, removeTable, setEventStatus, setListing, updateEvent } from "../../event-actions";
 import { EventFields } from "../event-fields";
 import { TableCards } from "./table-cards";
+
+const CONVERSATION_STATUS_LABEL = {
+  recording: "Recording",
+  uploading: "Uploading",
+  complete: "Recording complete",
+  transcribing: "Transcribing",
+  ready: "Transcript ready",
+  named: "Speakers named",
+  sent: "Sent",
+} as const;
 
 const NOTICES: Record<string, string> = {
   back_in_review:
@@ -50,7 +62,14 @@ export default async function EventPage({
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const [campaign, tables, seats] = await Promise.all([getCampaign(event.campaign_id), listTables(id), listSeats(id)]);
+  const [campaign, tables, seats, conversations, consentTexts] = await Promise.all([
+    getCampaign(event.campaign_id),
+    listTables(id),
+    listSeats(id),
+    listConversations(id),
+    listConsentTexts(),
+  ]);
+  const conversationByTable = new Map(conversations.map((c) => [c.table_id, c]));
   const editing = edit === "1";
   const eventBadge = EVENT_STATUS_BADGE[event.status];
   const listingBadge = LISTING_BADGE[event.listing_state];
@@ -203,6 +222,14 @@ export default async function EventPage({
             A table is one conversation, with a single-use link on its card. A kitchen table is an event with one table. Making links again replaces
             the old ones.
           </p>
+          {consentTexts.length === 0 && (
+            <Alert variant="note" className="mb-4">
+              There is no group consent wording yet, so a table&apos;s link would open to nothing to read aloud.{" "}
+              <Link className="underline" href="/audience-listening/consent">
+                A coordinator adds it here.
+              </Link>
+            </Alert>
+          )}
           {!linksReady.ok && (
             <Alert variant="note" className="mb-4">
               Links cannot be made yet: {linksReady.problem}
@@ -216,6 +243,20 @@ export default async function EventPage({
                 <li key={table.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
                   <span className="text-sm text-ink-900">
                     Table {table.number} <Badge variant="muted">{TABLE_STATE_LABEL[table.state]}</Badge>
+                    {table.agreed_at && (
+                      <span className="ml-2 text-xs text-ink-400">
+                        agreed {formatEventTime(table.agreed_at)}
+                        {table.consent_text_version ? `, wording version ${table.consent_text_version}` : ""}
+                        {table.facilitator_first_name ? `, facilitated by ${table.facilitator_first_name}` : ""}
+                      </span>
+                    )}
+                    {conversationByTable.get(table.id) && (
+                      <span className="ml-2 text-xs text-ink-400">
+                        {CONVERSATION_STATUS_LABEL[conversationByTable.get(table.id)!.status]},{" "}
+                        {formatClockMs(conversationByTable.get(table.id)!.duration_ms)} recorded
+                      </span>
+                    )}
+                    {table.help_requested_at && <Badge variant="warning">Asked for a hand</Badge>}
                   </span>
                   {tableIsRemovable(table.state) && (
                     <form action={removeTable}>

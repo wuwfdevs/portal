@@ -174,6 +174,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/audience-listening/events/new", "/audience-listening/events/:id"],
   },
   {
+    key: "audience-listening.consent",
+    name: "Consent wording",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/consent"],
+  },
+  {
     key: "audience-listening.query",
     name: "Query",
     toolKey: "audience-listening",

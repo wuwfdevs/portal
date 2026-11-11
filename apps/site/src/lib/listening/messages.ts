@@ -20,6 +20,8 @@ export const LISTENING_ERROR_MESSAGES: Record<ListeningErrorCode, string> = {
   not_found: 'We could not find your response. Reload the page and start again.',
   rate_limited: "That's a lot of requests in a short time. Wait a minute and try again.",
   invalid_request: 'Something in that was not right. Reload the page and try again.',
+  link_used: 'This table\'s link has already been used. Ask someone at the welcome table for a new one.',
+  event_full: 'Every seat at this event is taken.',
   unavailable: 'Something went wrong on our side. Try again in a moment.',
 }
 

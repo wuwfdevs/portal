@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
+import { PrimaryLink, SecondaryLink, TextLink } from "@/components/ui/primary-link";
 import { PlusIcon } from "@/components/ui/plus-icon";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { ListeningNav } from "../listening-nav";
@@ -24,9 +24,12 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
         title="Campaigns"
         description="A season of listening: one question, the prompts a table is walked through, and the dates it runs. Events and tables belong to a campaign."
         actions={
-          <PrimaryLink href="/audience-listening/campaigns/new" phoneIcon={<PlusIcon className="size-4" />}>
-            New campaign
-          </PrimaryLink>
+          <>
+            <SecondaryLink href="/audience-listening/consent">Consent wording</SecondaryLink>
+            <PrimaryLink href="/audience-listening/campaigns/new" phoneIcon={<PlusIcon className="size-4" />}>
+              New campaign
+            </PrimaryLink>
+          </>
         }
       />
       <ListeningNav current="campaigns" />

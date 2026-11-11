@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { field, optionalField, optionalInt } from "@/lib/form-fields";
 import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
-import { assertAudienceListeningContext } from "@/lib/audience-listening/access";
+import { assertAudienceListeningContext, assertAudienceListeningCoordinator } from "@/lib/audience-listening/access";
 import { generatePublicId } from "@/lib/audience-listening/public-id";
 import { stationInputToUTC } from "@/lib/audience-listening/event-times";
 import { reorderPositions } from "@/lib/audience-listening/query-state";
@@ -293,3 +293,26 @@ export async function saveTags(formData: FormData): Promise<void> {
   redirect(path);
 }
 
+
+// Consent wording ------------------------------------------------------------------------------------------
+
+export const MAX_CONSENT_TEXT_LENGTH = 4000;
+
+/**
+ * Adds a new version of the group-consent wording. A coordinator only (the database says the same): it is what every table agrees to,
+ * and it is settled with the University's counsel. A version is never edited, so a table's agreement always points at the exact words
+ * its facilitator read.
+ */
+export async function addConsentText(formData: FormData): Promise<void> {
+  const { profile } = await assertAudienceListeningCoordinator();
+  const path = "/audience-listening/consent";
+  const body = field(formData, "body");
+  if (!body) failWith(path, "Write the words to be read aloud.");
+  if (body.length > MAX_CONSENT_TEXT_LENGTH) failWith(path, `The wording can be at most ${MAX_CONSENT_TEXT_LENGTH} characters.`);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("al_consent_texts").insert({ body, created_by: profile.id });
+  failIfError(error, path, "Could not save the wording");
+  await logAuditEvent({ actorId: profile.id, action: "al.consent_text.added", targetType: "al_consent_text" });
+  redirect(path);
+}

@@ -367,6 +367,8 @@ export type AlEventListingState = "not_listed" | "pending_review" | "listed" | "
 export type AlOrganizerKind = "wuwf" | "partner" | "person";
 export type AlEventStatus = "draft" | "scheduled" | "live" | "done" | "cancelled";
 export type AlTableState = "waiting" | "agreed" | "recording" | "paused" | "ended" | "sent";
+export type AlConversationStatus = "recording" | "uploading" | "complete" | "transcribing" | "ready" | "named" | "sent";
+export type AlSegmentStatus = "pending" | "uploaded" | "failed";
 
 // Academic Partnerships (ap_*) — see
 // supabase/migrations/20260803140000_academic_partnerships.sql.
@@ -1804,6 +1806,8 @@ export interface Database {
           state: AlTableState;
           agreed_at: string | null;
           consent_text_version: string | null;
+          session_hash: string | null;
+          session_expires_at: string | null;
           help_requested_at: string | null;
           prompt_position: number;
           elapsed_seconds: number;
@@ -1814,6 +1818,54 @@ export interface Database {
         // written by the table's own session in the second half of phase D, never by a screen.
         Insert: { event_id: string; number: number };
         Update: Partial<Pick<Database["public"]["Tables"]["al_tables"]["Row"], "join_token_hash" | "join_token_issued_at" | "join_token_used_at">>;
+        Relationships: [];
+      };
+      al_consent_texts: {
+        Row: {
+          id: string;
+          version: number;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        // A coordinator adds a version (body, created_by); the version number is assigned by a trigger. Never edited.
+        Insert: { body: string; created_by?: string | null };
+        Update: never;
+        Relationships: [];
+      };
+      al_conversations: {
+        Row: {
+          id: string;
+          table_id: string;
+          event_id: string;
+          status: AlConversationStatus;
+          last_seq: number | null;
+          duration_ms: number;
+          transcription_project_id: string | null;
+          sourcework_source_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Written only by the table session's functions (service_role); staff read.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_conversation_segments: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          seq: number;
+          storage_path: string;
+          content_type: string;
+          size_bytes: number | null;
+          duration_ms: number | null;
+          status: AlSegmentStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       al_seats: {

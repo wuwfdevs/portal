@@ -9,6 +9,7 @@ import {
 } from "@wuwf/portal-contracts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
+import { generateJoinToken, hashJoinToken } from "@/lib/audience-listening/table-links";
 import {
   parseListeningRequest,
   rateKeys,
@@ -88,6 +89,13 @@ export async function handleListeningRequest(request: Request, action: Listening
   if (!parsed.ok) return refuse(parsed.error);
   const call = parsed.request;
 
+  // A table's session is made here, not in the parser: the token is random, and only its hash goes to the database.
+  let sessionToken: string | null = null;
+  if (action === "table-open") {
+    sessionToken = generateJoinToken();
+    call.rpc.args.p_session_hash = hashJoinToken(sessionToken);
+  }
+
   const supabase = createAdminClient();
 
   if (requiresEnabledTool(action)) {
@@ -114,6 +122,11 @@ export async function handleListeningRequest(request: Request, action: Listening
   }
 
   if (action === "reserve-answer") return reserveAnswerResponse(supabase, call, shaped.body);
+  if (action === "table-segment") return tableSegmentResponse(supabase, call, shaped.body);
+  if (action === "table-open" && sessionToken) {
+    const { sessionExpiresAt, ...rest } = shaped.body;
+    return respond(200, { ok: true, ...rest, session: { token: sessionToken, expiresAt: sessionExpiresAt } });
+  }
   if (action === "forget-subject") await removeForgottenAudio(supabase, result.data);
 
   return respond(200, { ok: true, ...shaped.body });
@@ -150,30 +163,48 @@ async function callFunction(
   return { failed: false, data };
 }
 
+/** Mints the signed address a browser PUTs one reserved object to: a raw body, the content type pinned, upsert so a redo overwrites. */
+async function mintUpload(
+  supabase: Admin,
+  storagePath: string,
+  contentType: string,
+): Promise<{ url: string; method: "PUT"; headers: Record<string, string>; expiresAt: string } | null> {
+  const { data, error } = await supabase.storage.from(AUDIENCE_LISTENING_MEDIA_BUCKET).createSignedUploadUrl(storagePath, { upsert: true });
+  if (error || !data?.signedUrl) {
+    console.error("Listening API: could not mint a signed upload address:", error?.message ?? "no address returned");
+    return null;
+  }
+  return {
+    url: data.signedUrl,
+    method: "PUT",
+    headers: { "content-type": contentType, "x-upsert": "true" },
+    expiresAt: new Date(Date.now() + SIGNED_UPLOAD_SECONDS * 1000).toISOString(),
+  };
+}
+
 /** The row exists before the bytes: reserve it, then mint the address the browser uploads to. */
 async function reserveAnswerResponse(supabase: Admin, call: ParsedListeningRequest, body: Record<string, unknown>): Promise<Response> {
   const storagePath = body["storagePath"];
   if (typeof storagePath !== "string" || !call.contentType) return refuse("unavailable");
-
-  const { data, error } = await supabase.storage.from(AUDIENCE_LISTENING_MEDIA_BUCKET).createSignedUploadUrl(storagePath, { upsert: true });
-  if (error || !data?.signedUrl) {
-    console.error("Listening API: could not mint a signed upload address:", error?.message ?? "no address returned");
-    return refuse("unavailable");
-  }
+  const upload = await mintUpload(supabase, storagePath, call.contentType);
+  if (!upload) return refuse("unavailable");
 
   const { storagePath: _omit, ...rest } = body;
   void _omit;
-  return respond(200, {
-    ok: true,
-    ...rest,
-    upload: {
-      url: data.signedUrl,
-      method: "PUT",
-      // A raw body, with the content type pinned to the one reserved; upsert so a redo overwrites in place.
-      headers: { "content-type": call.contentType, "x-upsert": "true" },
-      expiresAt: new Date(Date.now() + SIGNED_UPLOAD_SECONDS * 1000).toISOString(),
-    },
-  });
+  return respond(200, { ok: true, ...rest, upload });
+}
+
+/** A table's segment: the same, unless the segment is already uploaded, in which case there is nothing to send. */
+async function tableSegmentResponse(supabase: Admin, call: ParsedListeningRequest, body: Record<string, unknown>): Promise<Response> {
+  if (body["alreadyUploaded"] === true) return respond(200, { ok: true, ...body });
+  const storagePath = body["storagePath"];
+  if (typeof storagePath !== "string" || !call.contentType) return refuse("unavailable");
+  const upload = await mintUpload(supabase, storagePath, call.contentType);
+  if (!upload) return refuse("unavailable");
+
+  const { storagePath: _omit, ...rest } = body;
+  void _omit;
+  return respond(200, { ok: true, ...rest, upload });
 }
 
 /** al_site_forget_subject deletes the rows and returns the object keys; the audio goes after, best effort. */

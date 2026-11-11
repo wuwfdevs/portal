@@ -2,7 +2,8 @@
 
 Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phase B is built on the site (2026-11-09 and 2026-11-10) and
 phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
-events, tables and seats, with their staff screens and table cards); its site screens, the rest of D, and phases E and F, are not.** The build order and where each phase stands are in §10.
+events, tables and seats, with their staff screens and table cards; then the table session: single-use link, agreement, recording in segments, the
+consent wording); its site screens, the rest of D, and phases E and F, are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -313,9 +314,14 @@ Where it stands (2026-11-09):
   recording state), the `coordinator` tool role and the guard on listing (§11 item 4, as the working default), the span, seat-capacity and
   close-the-query rules, and the staff screens Campaigns, Events, tables, seats and printable table cards at `/audience-listening/campaigns`
   and `/audience-listening/events`. A table link is a hash of a 256-bit token; the card carries `WEBSITE_ORIGIN` + the contract's table path.
-  **Not built, and the second half of D:** the table session (agreement with `consent_text_version`, segments and the signed upload, speakers,
-  highlights, contact cards), the signed messages for them and for `event`/`seat-save`/`room`, Conversations and Tonight/After in the Portal,
-  the Sourcework handoff per table, the staff Purge screen, and the daily/overdue notifications. Campaign `report` and the outcome links are F.
+- **D, second half (first part), is built on the Portal** (`20261111140000`, with its Resources content in `20261111150000`): the table session
+  (`al_site_table_open/state/agree/update/segment/segment_complete/end`, authorised by a session whose hash is stored, ended by re-issuing the
+  link), the group agreement recorded with the wording version shown, `al_consent_texts` (insert-only numbered versions, a coordinator adds them),
+  `al_conversations` and `al_conversation_segments` (staff read), the signed segment upload, `al_site_event` and `al_site_seat_save`, their
+  contract messages, and the Consent wording page. **Still to do in D:** speakers, highlights and contact cards (and the `conversation`,
+  `speakers-save`, `highlights-save`, `conversation-send`, `contact-card-*` messages), the transcript and Sourcework handoff per table, the
+  organizer console (`room`, `room-call`) with Tonight and After, the conversation review, the staff Purge screen, and the notifications.
+  Campaign `report` and the outcome links are F.
 
 ## 11. Open items for the owner
 

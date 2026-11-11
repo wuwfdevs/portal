@@ -12,6 +12,12 @@ import {
   LISTENING_HOST_KINDS,
   LISTENING_HOST_SEATS,
   LISTENING_INBOX_KINDS,
+  LISTENING_MAX_SEGMENTS,
+  LISTENING_PROMPT_KINDS,
+  LISTENING_TABLE_EVENTS,
+  LISTENING_TABLE_SESSION_LENGTH,
+  LISTENING_TABLE_STATES,
+  LISTENING_TABLE_TOKEN_LENGTH,
   MAX_CLIENT_HASH_LENGTH,
   MAX_EMAIL_LENGTH,
   MAX_INBOX_BODY_LENGTH,
@@ -21,9 +27,12 @@ import {
   type ListeningErrorCode,
   type ListeningHub,
   type ListeningOutcomeKind,
+  type ListeningPublicEvent,
   type ListeningQuery,
   type ListeningSubject,
+  type ListeningTable,
 } from "@wuwf/portal-contracts";
+import { hashJoinToken } from "@/lib/audience-listening/table-links";
 import { MAX_ANSWER_BYTES, isAllowedAnswerType, normalizeContentType } from "@/lib/audience-listening/media";
 
 export const LISTENING_ACTIONS = [
@@ -39,6 +48,15 @@ export const LISTENING_ACTIONS = [
   "hub",
   "inbox-send",
   "host-request",
+  "event",
+  "seat-save",
+  "table-open",
+  "table-state",
+  "table-agree",
+  "table-update",
+  "table-segment",
+  "table-segment-complete",
+  "table-end",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -46,7 +64,14 @@ export function isListeningAction(value: string): value is ListeningAction {
   return (LISTENING_ACTIONS as readonly string[]).includes(value);
 }
 
+/** The messages a table's phone sends. They are authorised by a table session (or, for `table-open`, the link), not a subject. */
+export type TableAction = Extract<ListeningAction, `table-${string}`>;
+export function isTableAction(action: ListeningAction): action is TableAction {
+  return action.startsWith("table-");
+}
+
 const PUBLIC_ID = /^[a-z0-9]{16}$/;
+const TOKEN_CHARS = /^[A-Za-z0-9_-]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLIENT_HASH = /^[A-Za-z0-9_-]+$/;
 const MAX_DURATION_MS = 60 * 60 * 1000;
@@ -130,6 +155,15 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
     if (typeof publicId !== "string" || !PUBLIC_ID.test(publicId)) return BAD;
     return { ok: true, request: { action, subjectKey: null, clientHash, rpc: { fn: "al_site_query", args: { p_public_id: publicId } } } };
   }
+
+  // A public event's page is the third public read.
+  if (action === "event") {
+    const publicId = body["publicId"];
+    if (typeof publicId !== "string" || !PUBLIC_ID.test(publicId)) return BAD;
+    return { ok: true, request: { action, subjectKey: null, clientHash, rpc: { fn: "al_site_event", args: { p_public_id: publicId } } } };
+  }
+
+  if (isTableAction(action)) return parseTableRequest(action, body, clientHash);
 
   if (!isListeningSubject(body["subject"])) return BAD;
   const key = subjectKey(body["subject"]);
@@ -226,6 +260,13 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       if (trimmed.length === 0 || trimmed.length > MAX_INBOX_BODY_LENGTH) return BAD;
       return done({ fn: "al_site_inbox_send", args: { p_subject: key, p_kind: kind, p_body: trimmed, p_email: email } });
     }
+    case "seat-save": {
+      const publicId = body["publicId"];
+      const name = required(body["name"], 200);
+      const email = optionalEmail(body["email"]);
+      if (typeof publicId !== "string" || !PUBLIC_ID.test(publicId) || !name || !email) return BAD;
+      return done({ fn: "al_site_seat_save", args: { p_subject: key, p_public_id: publicId, p_name: name, p_email: email } });
+    }
     case "host-request": {
       const kind = LISTENING_HOST_KINDS.find((k) => k === body["kind"]);
       const seats = LISTENING_HOST_SEATS.find((n) => n === body["seats"]);
@@ -255,6 +296,76 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
           p_journalist_requested: journalist,
         },
       });
+    }
+  }
+}
+
+function isToken(value: unknown, length: number): value is string {
+  return typeof value === "string" && value.length === length && TOKEN_CHARS.test(value);
+}
+function int(value: unknown, min: number, max: number): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max ? value : null;
+}
+
+/**
+ * A table's phone sends the link token once (`table-open`) and then its session token. Both are hashed here, so the database only
+ * ever sees SHA-256 and the token never reaches a function argument, a log or a query plan. The rate limit counts the session's hash
+ * prefix in place of a subject. `table-open`'s session hash is made by the route, which is why it starts out null here.
+ */
+function parseTableRequest(action: TableAction, body: Obj, clientHash: string | null): ParseResult {
+  const done = (key: string, rpc: ParsedListeningRequest["rpc"], extra: Partial<ParsedListeningRequest> = {}): ParseResult => ({
+    ok: true,
+    request: { action, subjectKey: key, clientHash, rpc, ...extra },
+  });
+
+  if (action === "table-open") {
+    if (!isToken(body["linkToken"], LISTENING_TABLE_TOKEN_LENGTH)) return BAD;
+    const hash = hashJoinToken(body["linkToken"]);
+    return done(`table:link:${hash.slice(0, 24)}`, { fn: "al_site_table_open", args: { p_link_hash: hash, p_session_hash: null } });
+  }
+
+  if (!isToken(body["session"], LISTENING_TABLE_SESSION_LENGTH)) return BAD;
+  const hash = hashJoinToken(body["session"]);
+  const key = `table:${hash.slice(0, 24)}`;
+
+  switch (action) {
+    case "table-state":
+      return done(key, { fn: "al_site_table_state", args: { p_session_hash: hash } });
+    case "table-agree": {
+      const version = int(body["consentVersion"], 1, 1_000_000);
+      const name = str(body["firstName"], 60);
+      if (version === null || name === undefined) return BAD;
+      return done(key, { fn: "al_site_table_agree", args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null } });
+    }
+    case "table-update": {
+      const event = LISTENING_TABLE_EVENTS.find((e) => e === body["event"]);
+      if (!event) return BAD;
+      let prompt: number | null = null;
+      if (event === "prompt") {
+        prompt = int(body["promptPosition"], 1, 100);
+        if (prompt === null) return BAD;
+      }
+      return done(key, { fn: "al_site_table_update", args: { p_session_hash: hash, p_event: event, p_prompt: prompt } });
+    }
+    case "table-segment": {
+      const seq = int(body["seq"], 0, LISTENING_MAX_SEGMENTS - 1);
+      const raw = body["contentType"];
+      if (seq === null || typeof raw !== "string" || raw.length > 100) return BAD;
+      const contentType = normalizeContentType(raw);
+      if (!isAllowedAnswerType(contentType)) return BAD;
+      return done(key, { fn: "al_site_table_segment", args: { p_session_hash: hash, p_seq: seq, p_content_type: contentType } }, { contentType });
+    }
+    case "table-segment-complete": {
+      const seq = int(body["seq"], 0, LISTENING_MAX_SEGMENTS - 1);
+      const size = int(body["sizeBytes"], 1, MAX_ANSWER_BYTES);
+      const duration = int(body["durationMs"], 0, MAX_DURATION_MS);
+      if (seq === null || size === null || duration === null) return BAD;
+      return done(key, { fn: "al_site_table_segment_complete", args: { p_session_hash: hash, p_seq: seq, p_size_bytes: size, p_duration_ms: duration } });
+    }
+    case "table-end": {
+      const lastSeq = int(body["lastSeq"], -1, LISTENING_MAX_SEGMENTS - 1);
+      if (lastSeq === null) return BAD;
+      return done(key, { fn: "al_site_table_end", args: { p_session_hash: hash, p_last_seq: lastSeq } });
     }
   }
 }
@@ -419,6 +530,63 @@ export function shapeHub(payload: unknown): ListeningHub {
   return { open, answered };
 }
 
+const PROMPT_KINDS = LISTENING_PROMPT_KINDS;
+
+/** Maps the table view the database builds onto the contract's ListeningTable. A malformed prompt is dropped, not passed on half-formed. */
+export function shapeTable(payload: unknown): ListeningTable | null {
+  if (!isObj(payload)) return null;
+  const number = asNumber(payload["number"]);
+  const state = LISTENING_TABLE_STATES.find((st) => st === payload["state"]);
+  if (number === null || !state) return null;
+  const consent = isObj(payload["consent"]) ? payload["consent"] : null;
+  const consentVersion = consent ? asNumber(consent["version"]) : null;
+  const consentText = consent ? asString(consent["text"]) : null;
+  const list = (value: unknown) => (Array.isArray(value) ? value : []);
+  return {
+    number,
+    state,
+    eventTitle: asString(payload["event_title"]) ?? "",
+    placeName: asString(payload["place_name"]) ?? "",
+    question: asString(payload["question"]) ?? "",
+    consent: consentVersion !== null && consentText ? { version: consentVersion, text: consentText } : null,
+    prompts: list(payload["prompts"]).filter(isObj).flatMap((p) => {
+      const kind = PROMPT_KINDS.find((k) => k === p["kind"]);
+      const text = asString(p["text"]);
+      const position = asNumber(p["position"]);
+      if (!kind || !text || position === null) return [];
+      return [{ position, kind, text, hint: asString(p["hint"]), suggestedSeconds: asNumber(p["suggested_seconds"]) }];
+    }),
+    tags: list(payload["tags"]).filter((t): t is string => typeof t === "string"),
+    promptPosition: asNumber(payload["prompt_position"]) ?? 1,
+    facilitatorFirstName: asString(payload["facilitator_first_name"]),
+    helpRequested: payload["help_requested"] === true,
+    uploadedSeqs: list(payload["uploaded_seqs"]).filter((n): n is number => typeof n === "number"),
+  };
+}
+
+/** Maps al_site_event's payload onto the contract's ListeningPublicEvent. Null for an event that is not listed. */
+export function shapeEvent(payload: unknown): ListeningPublicEvent | null {
+  if (!isObj(payload)) return null;
+  const publicId = asString(payload["public_id"]);
+  const title = asString(payload["title"]);
+  const startsAt = asString(payload["starts_at"]);
+  const endsAt = asString(payload["ends_at"]);
+  const placeName = asString(payload["place_name"]);
+  if (!publicId || !title || !startsAt || !endsAt || !placeName) return null;
+  return {
+    publicId,
+    title,
+    startsAt,
+    endsAt,
+    placeName,
+    address: asString(payload["address"]),
+    city: asString(payload["city"]),
+    organizerLabel: asString(payload["organizer_label"]),
+    journalistJoining: payload["journalist_joining"] === true,
+    seatsLeft: asNumber(payload["seats_left"]),
+  };
+}
+
 /**
  * Turns a function's payload into the contract's response body. `reserve-answer` is shaped by the route, which
  * adds the signed upload address; here it returns the pieces it needs.
@@ -434,6 +602,35 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
     }
     case "hub":
       return { ok: true, body: { hub: shapeHub(payload) } };
+    case "event": {
+      const event = shapeEvent(payload);
+      return event ? { ok: true, body: { event } } : fail("not_available");
+    }
+    case "table-open": {
+      const table = isObj(payload) ? shapeTable(payload["table"]) : null;
+      const expiresAt = isObj(payload) ? asString(payload["session_expires_at"]) : null;
+      return table && expiresAt ? { ok: true, body: { table, sessionExpiresAt: expiresAt } } : fail("unavailable");
+    }
+    case "table-state":
+    case "table-agree":
+    case "table-update": {
+      const table = isObj(payload) ? shapeTable(payload["table"]) : null;
+      return table ? { ok: true, body: { table } } : fail("unavailable");
+    }
+    case "table-segment": {
+      if (!isObj(payload) || asNumber(payload["seq"]) === null) return fail("unavailable");
+      if (payload["already_uploaded"] === true) return { ok: true, body: { seq: payload["seq"], alreadyUploaded: true } };
+      if (typeof payload["storage_path"] !== "string") return fail("unavailable");
+      return {
+        ok: true,
+        body: { seq: payload["seq"], storagePath: payload["storage_path"], maxSegmentSeconds: asNumber(payload["max_segment_seconds"]) ?? 300 },
+      };
+    }
+    case "table-end": {
+      if (!isObj(payload) || typeof payload["complete"] !== "boolean") return fail("unavailable");
+      const missing = Array.isArray(payload["missing"]) ? payload["missing"].filter((n): n is number => typeof n === "number") : [];
+      return { ok: true, body: { complete: payload["complete"], missing } };
+    }
     case "start": {
       if (!isObj(payload) || typeof payload["submission_id"] !== "string") return fail("unavailable");
       return { ok: true, body: { submissionId: payload["submission_id"], resumed: payload["resumed"] === true } };
@@ -477,6 +674,8 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
       return { ok: true, body: { answers: asNumber(payload["answers"]) ?? 0 } };
     }
     case "complete-answer":
+    case "table-segment-complete":
+    case "seat-save":
     case "save-details":
     case "forget-subject":
     case "inbox-send":
@@ -548,6 +747,24 @@ export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
     { by: "subject", limit: 3, windowSeconds: 3600 },
     { by: "client", limit: 15, windowSeconds: 3600 },
   ],
+  event: [{ by: "client", limit: 600, windowSeconds: 600 }],
+  // Saving a seat asks for a name and an email, so it is as tight as the other no-account forms.
+  "seat-save": [
+    { by: "subject", limit: 5, windowSeconds: 3600 },
+    { by: "client", limit: 60, windowSeconds: 3600 },
+  ],
+  // A table's link is guessed against, so the client limit is the one that matters; a table of phones may share an address.
+  "table-open": [
+    { by: "subject", limit: 20, windowSeconds: 600 },
+    { by: "client", limit: 120, windowSeconds: 600 },
+  ],
+  // A recording phone polls and sends a segment every five minutes; these allow that with plenty of room for retries.
+  "table-state": [{ by: "subject", limit: 600, windowSeconds: 600 }],
+  "table-agree": [{ by: "subject", limit: 30, windowSeconds: 600 }],
+  "table-update": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  "table-segment": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  "table-segment-complete": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  "table-end": [{ by: "subject", limit: 30, windowSeconds: 600 }],
 };
 
 /** The keys to count for a request, in the form al_site_rate_hit stores. */

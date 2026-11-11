@@ -27,6 +27,15 @@ export const LISTENING_PATHS = {
   hub: "/api/site/listening/hub",
   inboxSend: "/api/site/listening/inbox-send",
   hostRequest: "/api/site/listening/host-request",
+  event: "/api/site/listening/event",
+  seatSave: "/api/site/listening/seat-save",
+  tableOpen: "/api/site/listening/table-open",
+  tableState: "/api/site/listening/table-state",
+  tableAgree: "/api/site/listening/table-agree",
+  tableUpdate: "/api/site/listening/table-update",
+  tableSegment: "/api/site/listening/table-segment",
+  tableSegmentComplete: "/api/site/listening/table-segment-complete",
+  tableEnd: "/api/site/listening/table-end",
 } as const;
 
 /**
@@ -132,6 +141,10 @@ export const LISTENING_ERROR_CODES = [
   "not_found",
   "rate_limited",
   "invalid_request",
+  /** A table's single-use link was already redeemed, by this phone or another. Staff re-issue a link. */
+  "link_used",
+  /** Every seat at the event is taken. */
+  "event_full",
   /** The Portal's own failure. The site says "something went wrong on our side" and logs the code, never the body. */
   "unavailable",
 ] as const;
@@ -369,3 +382,134 @@ export const LISTENING_TABLE_TOKEN_LENGTH = 43;
 export function listeningTableLinkUrl(siteOrigin: string, token: string): string {
   return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_TABLE_LINK_PATH}/${encodeURIComponent(token)}`;
 }
+
+// -------------------------------------------------------------------------------------------------------------
+// Events and tables (suite design §2 and §4, phase D). A person at a table is not a subject: the table is authorised by a TABLE
+// SESSION, a random token the Portal issues when the table's link is redeemed and the site holds for that phone. The Portal
+// keeps only its hash. Re-issuing the link ends the session.
+
+/** The longest a table session token is: 256 bits in base64url. */
+export const LISTENING_TABLE_SESSION_LENGTH = 43;
+
+/** A public event's page. Null event = not available (not listed, not scheduled, or its campaign is not open), identically. */
+export interface ListeningPublicEvent {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  placeName: string;
+  address: string | null;
+  city: string | null;
+  organizerLabel: string | null;
+  journalistJoining: boolean;
+  /** Null when the event has no seat limit. */
+  seatsLeft: number | null;
+}
+export interface ListeningEventRequest extends ListeningRequestBase {
+  publicId: string;
+}
+export type ListeningEventResponse = ListeningResult<{ event: ListeningPublicEvent }>;
+
+/** Saves a seat: a name and an email used for that event only. Saving the same email again changes nothing. */
+export interface ListeningSeatSaveRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  publicId: string;
+  name: string;
+  email: string;
+}
+export type ListeningSeatSaveResponse = ListeningResult<Record<never, never>>;
+
+export const LISTENING_PROMPT_KINDS = ["intro", "question", "prompt"] as const;
+export type ListeningPromptKind = (typeof LISTENING_PROMPT_KINDS)[number];
+
+export const LISTENING_TABLE_STATES = ["waiting", "agreed", "recording", "paused", "ended", "sent"] as const;
+export type ListeningTableState = (typeof LISTENING_TABLE_STATES)[number];
+
+export interface ListeningTablePrompt {
+  position: number;
+  kind: ListeningPromptKind;
+  text: string;
+  /** For the facilitator only. */
+  hint: string | null;
+  suggestedSeconds: number | null;
+}
+
+/** What a table's phone is shown. */
+export interface ListeningTable {
+  number: number;
+  state: ListeningTableState;
+  eventTitle: string;
+  placeName: string;
+  /** The campaign's question, in the words a table will hear. */
+  question: string;
+  /** The wording to read aloud before the table records. The version is sent back with the agreement. */
+  consent: { version: number; text: string } | null;
+  prompts: ListeningTablePrompt[];
+  /** The tag vocabulary a facilitator picks from when marking a line. */
+  tags: string[];
+  promptPosition: number;
+  facilitatorFirstName: string | null;
+  helpRequested: boolean;
+  /** Segments already uploaded, so a phone that dropped sends only the rest. */
+  uploadedSeqs: number[];
+}
+
+/** The longest a segment may be, in seconds. The phone cuts a new segment at this length. */
+export const LISTENING_SEGMENT_SECONDS = 300;
+/** Segments are numbered from 0 and there are at most 100. */
+export const LISTENING_MAX_SEGMENTS = 100;
+
+/** Redeems a table's single-use link. The reply carries the session the site holds for that phone. */
+export interface ListeningTableOpenRequest extends ListeningRequestBase {
+  linkToken: string;
+}
+export type ListeningTableOpenResponse = ListeningResult<{ session: { token: string; expiresAt: string }; table: ListeningTable }>;
+
+export interface ListeningTableSessionRequest extends ListeningRequestBase {
+  session: string;
+}
+export type ListeningTableStateResponse = ListeningResult<{ table: ListeningTable }>;
+
+/**
+ * The facilitator's tap after the consent is read aloud. `consentVersion` is the version they were shown, which the Portal records
+ * with the time. Nothing records before this. Sending it again changes nothing.
+ */
+export interface ListeningTableAgreeRequest extends ListeningTableSessionRequest {
+  consentVersion: number;
+  firstName: string | null;
+}
+export type ListeningTableAgreeResponse = ListeningResult<{ table: ListeningTable }>;
+
+export const LISTENING_TABLE_EVENTS = ["start", "pause", "resume", "help", "help-clear", "prompt"] as const;
+export type ListeningTableEvent = (typeof LISTENING_TABLE_EVENTS)[number];
+
+export interface ListeningTableUpdateRequest extends ListeningTableSessionRequest {
+  event: ListeningTableEvent;
+  /** With `prompt`: the position to move to. */
+  promptPosition?: number;
+}
+export type ListeningTableUpdateResponse = ListeningResult<{ table: ListeningTable }>;
+
+/** Reserves a segment. The row exists before the bytes; the reply carries the signed address to PUT them to. */
+export interface ListeningTableSegmentRequest extends ListeningTableSessionRequest {
+  seq: number;
+  /** A bare type, codec parameters stripped. */
+  contentType: string;
+}
+export type ListeningTableSegmentResponse = ListeningResult<
+  { seq: number; alreadyUploaded: true } | { seq: number; maxSegmentSeconds: number; upload: ListeningUpload }
+>;
+
+export interface ListeningTableSegmentCompleteRequest extends ListeningTableSessionRequest {
+  seq: number;
+  sizeBytes: number;
+  durationMs: number;
+}
+export type ListeningTableSegmentCompleteResponse = ListeningResult<Record<never, never>>;
+
+/** The table is over. `lastSeq` is the highest segment the phone made, or -1 if nothing was recorded. */
+export interface ListeningTableEndRequest extends ListeningTableSessionRequest {
+  lastSeq: number;
+}
+/** `missing` lists segments up to `lastSeq` that are not uploaded yet; the phone sends them and the conversation completes. */
+export type ListeningTableEndResponse = ListeningResult<{ complete: boolean; missing: number[] }>;

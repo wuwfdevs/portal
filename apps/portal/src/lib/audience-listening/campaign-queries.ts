@@ -17,6 +17,8 @@ export type AlCampaignTag = Database["public"]["Tables"]["al_campaign_tags"]["Ro
 export type AlEvent = Database["public"]["Tables"]["al_events"]["Row"];
 export type AlTable = Database["public"]["Tables"]["al_tables"]["Row"];
 export type AlSeat = Database["public"]["Tables"]["al_seats"]["Row"];
+export type AlConsentText = Database["public"]["Tables"]["al_consent_texts"]["Row"];
+export type AlConversation = Database["public"]["Tables"]["al_conversations"]["Row"];
 
 export interface CampaignListRow {
   campaign: AlCampaign;
@@ -157,4 +159,18 @@ export async function countEventsPendingReview(): Promise<number | null> {
     console.error("Audience Listening: could not count the events waiting for review:", error);
     return null;
   }
+}
+
+/** The consent wording, newest version first. */
+export async function listConsentTexts(): Promise<AlConsentText[]> {
+  const supabase = await createClient();
+  const result = await supabase.from("al_consent_texts").select("*").order("version", { ascending: false });
+  return unwrapRead(result, "the consent wording") ?? [];
+}
+
+/** An event's conversations, one per table that recorded. */
+export async function listConversations(eventId: string): Promise<AlConversation[]> {
+  const supabase = await createClient();
+  const result = await supabase.from("al_conversations").select("*").eq("event_id", eventId);
+  return unwrapRead(result, "the event's conversations") ?? [];
 }
