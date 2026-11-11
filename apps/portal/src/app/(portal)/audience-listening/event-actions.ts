@@ -277,7 +277,7 @@ export async function removeTable(formData: FormData): Promise<void> {
 export interface IssueLinksState {
   ok: boolean;
   error?: string;
-  links?: Pick<IssuedLink, "tableId" | "number" | "url">[];
+  links?: { tableId: string; number: number; url: string; cardUrl: string | null }[];
 }
 
 /**
@@ -304,10 +304,15 @@ export async function issueTableLinks(_previous: IssueLinksState, formData: Form
   const supabase = await createClient();
   const issued: IssuedLink[] = [];
   for (const table of tables) {
-    const link = issueTableLink(table, origin.origin);
+    const link = issueTableLink(table, origin.origin, { withCard: !onlyTable });
     const { data, error } = await supabase
       .from("al_tables")
-      .update({ join_token_hash: link.hash, join_token_issued_at: new Date().toISOString(), join_token_used_at: null })
+      .update({
+        join_token_hash: link.hash,
+        join_token_issued_at: new Date().toISOString(),
+        join_token_used_at: null,
+        ...(link.card ? { card_token_hash: link.card.hash } : {}),
+      })
       .eq("id", table.id)
       .eq("event_id", eventId)
       .select("id");
@@ -327,7 +332,7 @@ export async function issueTableLinks(_previous: IssueLinksState, formData: Form
     metadata: { tables: issued.map((l) => l.number) },
   });
   revalidatePath(eventPath(eventId));
-  return { ok: true, links: issued.map(({ tableId, number, url }) => ({ tableId, number, url })) };
+  return { ok: true, links: issued.map(({ tableId, number, url, card }) => ({ tableId, number, url, cardUrl: card?.url ?? null })) };
 }
 
 export async function removeSeat(formData: FormData): Promise<void> {

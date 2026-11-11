@@ -1776,6 +1776,7 @@ export interface Database {
           status: AlEventStatus;
           current_prompt_position: number;
           last_call_at: string | null;
+          console_seen_at: string | null;
           wuwf_journalist_joining: boolean;
           internal_notes: string | null;
           created_by: string | null;
@@ -1808,6 +1809,7 @@ export interface Database {
           consent_text_version: string | null;
           session_hash: string | null;
           session_expires_at: string | null;
+          card_token_hash: string | null;
           help_requested_at: string | null;
           prompt_position: number;
           elapsed_seconds: number;
@@ -1817,7 +1819,9 @@ export interface Database {
         // Staff add a table (event and number), remove one that is still waiting, and re-issue its link. The recording columns are
         // written by the table's own session in the second half of phase D, never by a screen.
         Insert: { event_id: string; number: number };
-        Update: Partial<Pick<Database["public"]["Tables"]["al_tables"]["Row"], "join_token_hash" | "join_token_issued_at" | "join_token_used_at">>;
+        Update: Partial<
+          Pick<Database["public"]["Tables"]["al_tables"]["Row"], "join_token_hash" | "join_token_issued_at" | "join_token_used_at" | "card_token_hash" | "help_requested_at">
+        >;
         Relationships: [];
       };
       al_consent_texts: {
@@ -1846,9 +1850,9 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        // Written only by the table session's functions (service_role); staff read.
+        // Rows are made and moved by the table session's functions (service_role); staff read, and the Sourcework handoff links one.
         Insert: never;
-        Update: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_conversations"]["Row"], "status" | "transcription_project_id" | "sourcework_source_id">>;
         Relationships: [];
       };
       al_conversation_segments: {
@@ -1866,6 +1870,61 @@ export interface Database {
         };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      al_speakers: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          source_label: string;
+          label: string;
+          name: string | null;
+          is_facilitator: boolean;
+          first_heard_ms: number;
+          share_percent: number;
+          merged_into: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Made and named only by the table session's functions; staff read.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_highlights: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          start_ms: number;
+          end_ms: number;
+          text: string;
+          tag: string | null;
+          speaker_id: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_contact_cards: {
+        // `subject` (the website's opaque id for the person) is not readable by staff: select columns by name, never `*`.
+        Row: {
+          id: string;
+          conversation_id: string;
+          first_name: string;
+          contact: string | null;
+          may_contact: boolean;
+          may_name: boolean;
+          keep_anonymous: boolean;
+          speaker_id: string | null;
+          contacted_at: string | null;
+          contacted_by: string | null;
+          name_approved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_contact_cards"]["Row"], "contacted_at" | "contacted_by" | "name_approved_at" | "speaker_id">>;
         Relationships: [];
       };
       al_seats: {
@@ -4467,6 +4526,16 @@ export interface Database {
       };
     };
     Functions: {
+      /** Security definer (20261111160000). What the 30-day purge would remove; any staff member with access may ask. */
+      al_purge_preview: {
+        Args: Record<string, never>;
+        Returns: { submissions: number; conversations: number; cards: number };
+      };
+      /** Security definer (20261111160000). Runs the purge. Coordinators only; returns the counts and the storage paths to remove. */
+      al_purge_run: {
+        Args: Record<string, never>;
+        Returns: { submissions: number; conversations: number; storage_paths: string[] };
+      };
       /** Security invoker (20261012120000). Accepted and rejected data points per prompt version; a null version is the built-in text. */
       sw_extraction_accept_rates: {
         Args: Record<string, never>;

@@ -180,6 +180,24 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/audience-listening/consent"],
   },
   {
+    key: "audience-listening.table",
+    name: "Table",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/events/:id/tables/:tableId"],
+  },
+  {
+    key: "audience-listening.tonight",
+    name: "Tonight",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/events/:id/tonight"],
+  },
+  {
+    key: "audience-listening.purge",
+    name: "Purge",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/purge"],
+  },
+  {
     key: "audience-listening.query",
     name: "Query",
     toolKey: "audience-listening",

@@ -25,6 +25,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
         description="A season of listening: one question, the prompts a table is walked through, and the dates it runs. Events and tables belong to a campaign."
         actions={
           <>
+            <SecondaryLink href="/audience-listening/purge">Purge</SecondaryLink>
             <SecondaryLink href="/audience-listening/consent">Consent wording</SecondaryLink>
             <PrimaryLink href="/audience-listening/campaigns/new" phoneIcon={<PlusIcon className="size-4" />}>
               New campaign

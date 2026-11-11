@@ -89,6 +89,7 @@ export default async function EventPage({
         description={`${formatEventTime(event.starts_at)} · ${event.place_name}`}
         actions={
           <>
+            {!editing && <SecondaryLink href={`/audience-listening/events/${event.id}/tonight`}>Tonight</SecondaryLink>}
             {!editing && <SecondaryLink href={`/audience-listening/events/${event.id}?edit=1`}>Edit</SecondaryLink>}
             {availableEventActions(event.status).map((action) => (
               <form key={action} action={setEventStatus}>
@@ -242,7 +243,10 @@ export default async function EventPage({
               {tables.map((table) => (
                 <li key={table.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
                   <span className="text-sm text-ink-900">
-                    Table {table.number} <Badge variant="muted">{TABLE_STATE_LABEL[table.state]}</Badge>
+                    <Link className="underline" href={`/audience-listening/events/${event.id}/tables/${table.id}`}>
+                      Table {table.number}
+                    </Link>{" "}
+                    <Badge variant="muted">{TABLE_STATE_LABEL[table.state]}</Badge>
                     {table.agreed_at && (
                       <span className="ml-2 text-xs text-ink-400">
                         agreed {formatEventTime(table.agreed_at)}

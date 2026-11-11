@@ -12,8 +12,10 @@ import {
   LISTENING_HOST_KINDS,
   LISTENING_HOST_SEATS,
   LISTENING_INBOX_KINDS,
+  LISTENING_CONVERSATION_STATUSES,
   LISTENING_MAX_SEGMENTS,
   LISTENING_PROMPT_KINDS,
+  LISTENING_ROOM_ACTIONS,
   LISTENING_TABLE_EVENTS,
   LISTENING_TABLE_SESSION_LENGTH,
   LISTENING_TABLE_STATES,
@@ -26,8 +28,10 @@ import {
   isListeningSubject,
   type ListeningErrorCode,
   type ListeningHub,
+  type ListeningConversation,
   type ListeningOutcomeKind,
   type ListeningPublicEvent,
+  type ListeningRoom,
   type ListeningQuery,
   type ListeningSubject,
   type ListeningTable,
@@ -57,6 +61,14 @@ export const LISTENING_ACTIONS = [
   "table-segment",
   "table-segment-complete",
   "table-end",
+  "conversation",
+  "speakers-save",
+  "highlights-save",
+  "conversation-send",
+  "contact-card-open",
+  "contact-card-save",
+  "room",
+  "room-call",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -65,9 +77,22 @@ export function isListeningAction(value: string): value is ListeningAction {
 }
 
 /** The messages a table's phone sends. They are authorised by a table session (or, for `table-open`, the link), not a subject. */
-export type TableAction = Extract<ListeningAction, `table-${string}`>;
+const TABLE_ACTIONS = [
+  "table-open",
+  "table-state",
+  "table-agree",
+  "table-update",
+  "table-segment",
+  "table-segment-complete",
+  "table-end",
+  "conversation",
+  "speakers-save",
+  "highlights-save",
+  "conversation-send",
+] as const satisfies readonly ListeningAction[];
+export type TableAction = (typeof TABLE_ACTIONS)[number];
 export function isTableAction(action: ListeningAction): action is TableAction {
-  return action.startsWith("table-");
+  return (TABLE_ACTIONS as readonly string[]).includes(action);
 }
 
 const PUBLIC_ID = /^[a-z0-9]{16}$/;
@@ -165,6 +190,15 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
 
   if (isTableAction(action)) return parseTableRequest(action, body, clientHash);
 
+  // The table's second QR code names the table, not a person; reading what it opens needs no subject.
+  if (action === "contact-card-open") {
+    if (!isToken(body["cardToken"], LISTENING_TABLE_TOKEN_LENGTH)) return BAD;
+    return {
+      ok: true,
+      request: { action, subjectKey: null, clientHash, rpc: { fn: "al_site_contact_card_open", args: { p_card_hash: hashJoinToken(body["cardToken"]) } } },
+    };
+  }
+
   if (!isListeningSubject(body["subject"])) return BAD;
   const key = subjectKey(body["subject"]);
   const done = (rpc: ParsedListeningRequest["rpc"], extra: Partial<ParsedListeningRequest> = {}): ParseResult => ({
@@ -259,6 +293,41 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       const trimmed = text.trim();
       if (trimmed.length === 0 || trimmed.length > MAX_INBOX_BODY_LENGTH) return BAD;
       return done({ fn: "al_site_inbox_send", args: { p_subject: key, p_kind: kind, p_body: trimmed, p_email: email } });
+    }
+    case "contact-card-save": {
+      const firstName = required(body["firstName"], 60);
+      const contact = str(body["contact"], 320);
+      const mayContact = bool(body["mayContact"]);
+      const mayName = bool(body["mayName"]);
+      const keepAnonymous = bool(body["keepAnonymous"]);
+      if (!isToken(body["cardToken"], LISTENING_TABLE_TOKEN_LENGTH) || !firstName || contact === undefined) return BAD;
+      if (mayContact === null || mayName === null || keepAnonymous === null || (mayName && keepAnonymous)) return BAD;
+      return done({
+        fn: "al_site_contact_card_save",
+        args: {
+          p_card_hash: hashJoinToken(body["cardToken"]),
+          p_subject: key,
+          p_first_name: firstName,
+          p_contact: contact?.trim() || null,
+          p_may_contact: mayContact,
+          p_may_name: mayName,
+          p_keep_anonymous: keepAnonymous,
+        },
+      });
+    }
+    case "room":
+    case "room-call": {
+      // Only a site account that owns the event can run its room; the database checks the ownership.
+      const eventPublicId = body["eventPublicId"];
+      if ((body["subject"] as ListeningSubject).kind !== "account") return BAD;
+      if (typeof eventPublicId !== "string" || !PUBLIC_ID.test(eventPublicId)) return BAD;
+      if (action === "room") return done({ fn: "al_site_room", args: { p_subject: key, p_public_id: eventPublicId } });
+      const roomAction = LISTENING_ROOM_ACTIONS.find((a) => a === body["action"]);
+      if (!roomAction) return BAD;
+      const needsValue = roomAction !== "last-call";
+      const value = needsValue ? int(body["value"], 1, 100) : null;
+      if (needsValue && value === null) return BAD;
+      return done({ fn: "al_site_room_call", args: { p_subject: key, p_public_id: eventPublicId, p_action: roomAction, p_value: value } });
     }
     case "seat-save": {
       const publicId = body["publicId"];
@@ -366,6 +435,38 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
       const lastSeq = int(body["lastSeq"], -1, LISTENING_MAX_SEGMENTS - 1);
       if (lastSeq === null) return BAD;
       return done(key, { fn: "al_site_table_end", args: { p_session_hash: hash, p_last_seq: lastSeq } });
+    }
+    case "conversation":
+      return done(key, { fn: "al_site_conversation", args: { p_session_hash: hash } });
+    case "conversation-send":
+      return done(key, { fn: "al_site_conversation_send", args: { p_session_hash: hash } });
+    case "speakers-save": {
+      const list = body["speakers"];
+      if (!Array.isArray(list) || list.length > 40) return BAD;
+      const speakers: Obj[] = [];
+      for (const raw of list) {
+        if (!isObj(raw)) return BAD;
+        const id = uuid(raw["id"]);
+        const name = str(raw["name"], 60);
+        const facilitator = bool(raw["isFacilitator"]);
+        const into = raw["mergedInto"] === null || raw["mergedInto"] === undefined ? null : uuid(raw["mergedInto"]);
+        if (!id || name === undefined || facilitator === null || (raw["mergedInto"] != null && !into)) return BAD;
+        speakers.push({ id, name: name?.trim() || null, isFacilitator: facilitator, mergedInto: into });
+      }
+      return done(key, { fn: "al_site_speakers_save", args: { p_session_hash: hash, p_speakers: speakers } });
+    }
+    case "highlights-save": {
+      const list = body["highlights"];
+      if (!Array.isArray(list) || list.length > 100) return BAD;
+      const highlights: Obj[] = [];
+      for (const raw of list) {
+        if (!isObj(raw)) return BAD;
+        const startMs = int(raw["startMs"], 0, 24 * 60 * 60 * 1000);
+        const tag = str(raw["tag"], 40);
+        if (startMs === null || tag === undefined) return BAD;
+        highlights.push({ startMs, tag: tag?.trim() || null });
+      }
+      return done(key, { fn: "al_site_highlights_save", args: { p_session_hash: hash, p_highlights: highlights } });
     }
   }
 }
@@ -561,6 +662,95 @@ export function shapeTable(payload: unknown): ListeningTable | null {
     facilitatorFirstName: asString(payload["facilitator_first_name"]),
     helpRequested: payload["help_requested"] === true,
     uploadedSeqs: list(payload["uploaded_seqs"]).filter((n): n is number => typeof n === "number"),
+    eventPromptPosition: asNumber(payload["event_prompt_position"]) ?? 1,
+    lastCallAt: asString(payload["last_call_at"]),
+    helpAvailable: payload["help_available"] === true,
+  };
+}
+
+const STATUSES = LISTENING_CONVERSATION_STATUSES;
+
+/** Maps al_site_conversation's payload onto the contract. A malformed line, voice or highlight is dropped, not passed on half-formed. */
+export function shapeConversation(payload: unknown): ListeningConversation | null {
+  if (!isObj(payload)) return null;
+  const status = STATUSES.find((st) => st === payload["status"]);
+  if (!status) return null;
+  const list = (value: unknown) => (Array.isArray(value) ? value.filter(isObj) : []);
+  return {
+    status,
+    transcriptReady: payload["transcript_ready"] === true,
+    tags: (Array.isArray(payload["tags"]) ? payload["tags"] : []).filter((t): t is string => typeof t === "string"),
+    lines: list(payload["lines"]).flatMap((l) => {
+      const startMs = asNumber(l["start_ms"]);
+      const endMs = asNumber(l["end_ms"]);
+      const text = asString(l["text"]);
+      return startMs === null || endMs === null || text === null ? [] : [{ startMs, endMs, text, speakerId: asString(l["speaker_id"]) }];
+    }),
+    speakers: list(payload["speakers"]).flatMap((sp) => {
+      const id = asString(sp["id"]);
+      const label = asString(sp["label"]);
+      return !id || !label
+        ? []
+        : [
+            {
+              id,
+              label,
+              name: asString(sp["name"]),
+              isFacilitator: sp["is_facilitator"] === true,
+              firstHeardMs: asNumber(sp["first_heard_ms"]) ?? 0,
+              sharePercent: asNumber(sp["share_percent"]) ?? 0,
+              mergedInto: asString(sp["merged_into"]),
+            },
+          ];
+    }),
+    highlights: list(payload["highlights"]).flatMap((h) => {
+      const startMs = asNumber(h["start_ms"]);
+      const endMs = asNumber(h["end_ms"]);
+      const text = asString(h["text"]);
+      return startMs === null || endMs === null || text === null
+        ? []
+        : [{ startMs, endMs, text, tag: asString(h["tag"]), speakerId: asString(h["speaker_id"]) }];
+    }),
+    contactCardCount: asNumber(payload["contact_card_count"]) ?? 0,
+  };
+}
+
+/** Maps the organizer's room view. It carries a table's state and never what was said at it. */
+export function shapeRoom(payload: unknown): ListeningRoom | null {
+  if (!isObj(payload)) return null;
+  const title = asString(payload["title"]);
+  const startsAt = asString(payload["starts_at"]);
+  const endsAt = asString(payload["ends_at"]);
+  if (!title || !startsAt || !endsAt) return null;
+  const list = (value: unknown) => (Array.isArray(value) ? value.filter(isObj) : []);
+  return {
+    title,
+    status: payload["status"] === "live" ? "live" : "scheduled",
+    startsAt,
+    endsAt,
+    currentPromptPosition: asNumber(payload["current_prompt_position"]) ?? 1,
+    lastCallAt: asString(payload["last_call_at"]),
+    prompts: list(payload["prompts"]).flatMap((p) => {
+      const kind = PROMPT_KINDS.find((k) => k === p["kind"]);
+      const text = asString(p["text"]);
+      const position = asNumber(p["position"]);
+      return !kind || !text || position === null ? [] : [{ position, kind, text, suggestedSeconds: asNumber(p["suggested_seconds"]) }];
+    }),
+    tables: list(payload["tables"]).flatMap((t) => {
+      const number = asNumber(t["number"]);
+      const state = LISTENING_TABLE_STATES.find((st) => st === t["state"]);
+      return number === null || !state
+        ? []
+        : [
+            {
+              number,
+              state,
+              promptPosition: asNumber(t["prompt_position"]) ?? 1,
+              helpRequested: t["help_requested"] === true,
+              facilitatorFirstName: asString(t["facilitator_first_name"]),
+            },
+          ];
+    }),
   };
 }
 
@@ -626,6 +816,19 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
         body: { seq: payload["seq"], storagePath: payload["storage_path"], maxSegmentSeconds: asNumber(payload["max_segment_seconds"]) ?? 300 },
       };
     }
+    case "conversation": {
+      const conversation = shapeConversation(payload);
+      return conversation ? { ok: true, body: { conversation } } : fail("unavailable");
+    }
+    case "room":
+    case "room-call": {
+      const room = isObj(payload) ? shapeRoom(payload["room"]) : null;
+      return room ? { ok: true, body: { room } } : fail("unavailable");
+    }
+    case "contact-card-open": {
+      if (!isObj(payload) || asString(payload["event_title"]) === null || asNumber(payload["table_number"]) === null) return fail("unavailable");
+      return { ok: true, body: { eventTitle: payload["event_title"], tableNumber: payload["table_number"] } };
+    }
     case "table-end": {
       if (!isObj(payload) || typeof payload["complete"] !== "boolean") return fail("unavailable");
       const missing = Array.isArray(payload["missing"]) ? payload["missing"].filter((n): n is number => typeof n === "number") : [];
@@ -675,6 +878,10 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
     }
     case "complete-answer":
     case "table-segment-complete":
+    case "speakers-save":
+    case "highlights-save":
+    case "conversation-send":
+    case "contact-card-save":
     case "seat-save":
     case "save-details":
     case "forget-subject":
@@ -765,6 +972,20 @@ export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
   "table-segment": [{ by: "subject", limit: 120, windowSeconds: 600 }],
   "table-segment-complete": [{ by: "subject", limit: 120, windowSeconds: 600 }],
   "table-end": [{ by: "subject", limit: 30, windowSeconds: 600 }],
+  // The after-page is read, edited and saved by one facilitator.
+  conversation: [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  "speakers-save": [{ by: "subject", limit: 60, windowSeconds: 600 }],
+  "highlights-save": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  "conversation-send": [{ by: "subject", limit: 10, windowSeconds: 600 }],
+  // Open to anyone with the card, so tighter than the table's own calls: a person leaves one, and edits it a few times.
+  "contact-card-open": [{ by: "client", limit: 300, windowSeconds: 600 }],
+  "contact-card-save": [
+    { by: "subject", limit: 10, windowSeconds: 3600 },
+    { by: "client", limit: 120, windowSeconds: 3600 },
+  ],
+  // The organizer's console polls; the limit is generous for that and still bounded per account.
+  room: [{ by: "subject", limit: 600, windowSeconds: 600 }],
+  "room-call": [{ by: "subject", limit: 120, windowSeconds: 600 }],
 };
 
 /** The keys to count for a request, in the form al_site_rate_hit stores. */

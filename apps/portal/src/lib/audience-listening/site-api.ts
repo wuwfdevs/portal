@@ -10,6 +10,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
 import { generateJoinToken, hashJoinToken } from "@/lib/audience-listening/table-links";
+import { notifyHostRequest } from "@/lib/audience-listening/notify";
 import {
   parseListeningRequest,
   rateKeys,
@@ -128,6 +129,7 @@ export async function handleListeningRequest(request: Request, action: Listening
     return respond(200, { ok: true, ...rest, session: { token: sessionToken, expiresAt: sessionExpiresAt } });
   }
   if (action === "forget-subject") await removeForgottenAudio(supabase, result.data);
+  if (action === "host-request") await notifyHostRequest();
 
   return respond(200, { ok: true, ...shaped.body });
 }

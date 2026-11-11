@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  LISTENING_ERROR_CODES, LISTENING_PATHS, listeningTableLinkUrl, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
+  LISTENING_ERROR_CODES, LISTENING_PATHS, listeningCardLinkUrl, listeningTableLinkUrl, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
   verifyRequestSignature,
   type ListeningStartRequest,
 } from "./index";
@@ -96,5 +96,11 @@ describe("table links", () => {
   });
   it("does not double a trailing slash on the origin", () => {
     expect(listeningTableLinkUrl("https://site.example/", "t")).toBe("https://site.example/listens/table/t");
+  });
+});
+
+describe("card links", () => {
+  it("puts the table's second token in the path of the site's card page", () => {
+    expect(listeningCardLinkUrl("https://site.example/", "abc_-123")).toBe("https://site.example/listens/card/abc_-123");
   });
 });

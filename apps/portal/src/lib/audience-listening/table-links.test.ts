@@ -26,4 +26,14 @@ describe("table links", () => {
     expect(link.hash).toBe(hashJoinToken(link.token));
     expect(link.number).toBe(3);
   });
+
+  it("makes the card's second token only when asked, and never the same as the table's", () => {
+    const single = issueTableLink({ id: "t1", number: 3 }, "https://site.example");
+    expect(single.card).toBeNull();
+    const whole = issueTableLink({ id: "t1", number: 3 }, "https://site.example", { withCard: true });
+    expect(whole.card!.url).toMatch(/^https:\/\/site\.example\/listens\/card\/[A-Za-z0-9_-]{43}$/);
+    expect(whole.card!.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(whole.card!.hash).not.toBe(whole.hash);
+    expect(whole.card!.url).not.toContain(whole.token);
+  });
 });

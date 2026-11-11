@@ -36,6 +36,14 @@ export const LISTENING_PATHS = {
   tableSegment: "/api/site/listening/table-segment",
   tableSegmentComplete: "/api/site/listening/table-segment-complete",
   tableEnd: "/api/site/listening/table-end",
+  conversation: "/api/site/listening/conversation",
+  speakersSave: "/api/site/listening/speakers-save",
+  highlightsSave: "/api/site/listening/highlights-save",
+  conversationSend: "/api/site/listening/conversation-send",
+  contactCardOpen: "/api/site/listening/contact-card-open",
+  contactCardSave: "/api/site/listening/contact-card-save",
+  room: "/api/site/listening/room",
+  roomCall: "/api/site/listening/room-call",
 } as const;
 
 /**
@@ -452,6 +460,15 @@ export interface ListeningTable {
   helpRequested: boolean;
   /** Segments already uploaded, so a phone that dropped sends only the rest. */
   uploadedSeqs: number[];
+  /** The prompt the room is on, set by the organizer's console. A table may be on its own (`promptPosition`). */
+  eventPromptPosition: number;
+  /** When the organizer called the last five minutes, or null. */
+  lastCallAt: string | null;
+  /**
+   * Whether a console has checked in within the last minute. Show "Help is coming" only when true; otherwise say the request is flagged
+   * and, if it is urgent, to ask at the front, so the page never promises help nobody can see the request for.
+   */
+  helpAvailable: boolean;
 }
 
 /** The longest a segment may be, in seconds. The phone cuts a new segment at this length. */
@@ -513,3 +530,136 @@ export interface ListeningTableEndRequest extends ListeningTableSessionRequest {
 }
 /** `missing` lists segments up to `lastSeq` that are not uploaded yet; the phone sends them and the conversation completes. */
 export type ListeningTableEndResponse = ListeningResult<{ complete: boolean; missing: number[] }>;
+
+// -------------------------------------------------------------------------------------------------------------
+// After the table: the conversation, its voices and the lines that mattered, contact cards, and the organizer's room.
+
+export const LISTENING_CONVERSATION_STATUSES = ["recording", "uploading", "complete", "transcribing", "ready", "named", "sent"] as const;
+export type ListeningConversationStatus = (typeof LISTENING_CONVERSATION_STATUSES)[number];
+
+export interface ListeningTranscriptLine {
+  startMs: number;
+  endMs: number;
+  text: string;
+  /** The voice that said it (a `ListeningSpeaker.id`), or null. */
+  speakerId: string | null;
+}
+
+export interface ListeningSpeaker {
+  id: string;
+  /** "Voice 1". */
+  label: string;
+  /** The first name the facilitator gave, or null. Leaving a voice unnamed is allowed. */
+  name: string | null;
+  isFacilitator: boolean;
+  firstHeardMs: number;
+  sharePercent: number;
+  /** The voice this one was merged into when the transcript split one person in two, or null. */
+  mergedInto: string | null;
+}
+
+export interface ListeningHighlight {
+  startMs: number;
+  endMs: number;
+  /** A copy of the line, made by the Portal when it was marked, so a later re-transcription does not change it. */
+  text: string;
+  tag: string | null;
+  speakerId: string | null;
+}
+
+/**
+ * The after-page. Only this table's conversation, returned to the table that owns it. The site renders it and keeps none of it: a
+ * transcript is never cached on the site. `contactCardCount` is how many people left a card, never what they wrote.
+ */
+export interface ListeningConversation {
+  status: ListeningConversationStatus;
+  transcriptReady: boolean;
+  tags: string[];
+  lines: ListeningTranscriptLine[];
+  speakers: ListeningSpeaker[];
+  highlights: ListeningHighlight[];
+  contactCardCount: number;
+}
+export type ListeningConversationResponse = ListeningResult<{ conversation: ListeningConversation }>;
+
+/** Names and merges. Sent whole: what is sent is the set. At most one voice is the facilitator. */
+export interface ListeningSpeakersSaveRequest extends ListeningTableSessionRequest {
+  speakers: { id: string; name: string | null; isFacilitator: boolean; mergedInto: string | null }[];
+}
+export type ListeningSpeakersSaveResponse = ListeningResult<Record<never, never>>;
+
+/** The lines that mattered, by where they start. The Portal copies the text itself; the site never supplies it. Sent whole. */
+export interface ListeningHighlightsSaveRequest extends ListeningTableSessionRequest {
+  highlights: { startMs: number; tag: string | null }[];
+}
+export type ListeningHighlightsSaveResponse = ListeningResult<Record<never, never>>;
+
+/** Sends the conversation to the station. It can still be read afterwards, not changed. */
+export type ListeningConversationSendRequest = ListeningTableSessionRequest;
+export type ListeningConversationSendResponse = ListeningResult<Record<never, never>>;
+
+/**
+ * Where the table's second QR code opens on the site: leave a way to be reached. The token is not single use (each person at the table
+ * may leave one card, one per person by their subject), so it names only the table.
+ */
+export const LISTENING_CARD_LINK_PATH = "/listens/card";
+export function listeningCardLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_CARD_LINK_PATH}/${encodeURIComponent(token)}`;
+}
+
+export interface ListeningContactCardOpenRequest extends ListeningRequestBase {
+  cardToken: string;
+}
+export type ListeningContactCardOpenResponse = ListeningResult<{ eventTitle: string; tableNumber: number }>;
+
+/**
+ * Board 5i: per person, never per table. Three separate choices, all off unless chosen; "may name me" and "keep me anonymous" are
+ * mutually exclusive. A way to be reached is not required to say yes to contact: the page warns, the Portal accepts.
+ */
+export interface ListeningContactCardSaveRequest extends ListeningRequestBase {
+  cardToken: string;
+  subject: ListeningSubject;
+  firstName: string;
+  contact: string | null;
+  mayContact: boolean;
+  mayName: boolean;
+  keepAnonymous: boolean;
+}
+export type ListeningContactCardSaveResponse = ListeningResult<Record<never, never>>;
+
+export interface ListeningRoomTable {
+  number: number;
+  state: ListeningTableState;
+  promptPosition: number;
+  helpRequested: boolean;
+  facilitatorFirstName: string | null;
+}
+
+/** The organizer's console: where each table is, never what was said. */
+export interface ListeningRoom {
+  title: string;
+  status: "scheduled" | "live";
+  startsAt: string;
+  endsAt: string;
+  currentPromptPosition: number;
+  lastCallAt: string | null;
+  prompts: { position: number; kind: ListeningPromptKind; text: string; suggestedSeconds: number | null }[];
+  tables: ListeningRoomTable[];
+}
+
+/** Needs an `account` subject that owns the event. Each call is also the console checking in (what makes "help is coming" true). */
+export interface ListeningRoomRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  eventPublicId: string;
+}
+export type ListeningRoomResponse = ListeningResult<{ room: ListeningRoom }>;
+
+export const LISTENING_ROOM_ACTIONS = ["last-call", "prompt", "help-clear"] as const;
+export type ListeningRoomAction = (typeof LISTENING_ROOM_ACTIONS)[number];
+
+export interface ListeningRoomCallRequest extends ListeningRoomRequest {
+  action: ListeningRoomAction;
+  /** With `prompt`: the position to move to. With `help-clear`: the table number. */
+  value?: number;
+}
+export type ListeningRoomCallResponse = ListeningResult<{ room: ListeningRoom }>;

@@ -328,9 +328,27 @@ added by a coordinator at `/audience-listening/consent`; with none, `table-open`
 `table-segment` reserves `<event>/<table>/<seq>`, the route mints the signed upload URL (`mintUpload`, shared with `reserve-answer`), and an
 uploaded segment is never replaced (`already_uploaded`); limits are `private.al_answer_limit_error(size, duration, 300)`; a conversation is
 `complete` once the table has ended and every segment up to `last_seq` is uploaded (`private.al_conversation_settle`); (5) staff **read**
-conversations and segments and write none. Not built: speakers, highlights, contact cards, the transcript and Sourcework handoff per table,
-the room console (`room`, `room-call`), Tonight/After, the conversation review, the staff Purge screen, and the website pages themselves
-(phase E). Migrations `20261111140000` (schema) and `20261111150000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
+conversations and segments and write none. The rest of phase D is the next paragraph. Migrations `20261111140000` (schema) and `20261111150000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
+
+**Audience Listening: conversations, Tonight and retention (suite phase D, the rest, 2026-11-11).** A pointer; read the suite design's §2, §4, §8 and
+§11. The website's `conversation`, `speakers-save`, `highlights-save`, `conversation-send`, `contact-card-open`, `contact-card-save`, `room` and
+`room-call` messages call `al_site_*` (service_role only); staff get `events/[id]/tonight`, `events/[id]/tables/[tableId]` and `/audience-listening/purge`.
+Six things are load-bearing: (1) **the after-page reads only that table's lines, through `al_site_conversation`**, from Sourcework's own records
+(`sw_representations` → `tw_segments`), and returns them in the response; the site stores none. The voices (`al_speakers`) are made the first time
+the transcript is read, from `tw_speakers`; (2) **the site never supplies a highlight's words**: `al_site_highlights_save` takes where a line starts
+and copies the text itself, so a re-transcription cannot change what was marked; both save functions are all-or-nothing; (3) **a contact card is per
+person (one per subject per conversation) and staff cannot read its `subject`**: the column grant omits it, so `select *` on `al_contact_cards` is
+refused and `conversation-queries.ts` lists the columns; the facilitator gets only `contactCardCount`; naming needs `contacted_at` first, enforced by
+a trigger, and "may name" and "keep anonymous" exclude each other; the card's second QR token (`al_tables.card_token_hash`) is made only when a whole
+card is printed, never when one table's link is replaced; (4) **"help is coming" is told only while a console checked in within a minute**
+(`al_events.console_seen_at`, set by Tonight's 15-second poll and by the organizer's `room` call); (5) **sending to Sourcework is a staff action under
+RLS** (`conversation-handoff.ts`): ffmpeg joins the segments to one MP3, the first table sent makes the campaign's project
+(`al_campaigns.sourcework_project_id`) and later tables are sources in it, and `maxDuration` is on the Table *page*, not in the `"use server"` file;
+(6) **retention is a coordinator-run function, never a job**: `al_purge_preview` and `al_purge_run` (30 days; an unsent conversation, unfinished
+submissions; a *sent* conversation is never purged here); contact-card and raw-audio retention follow a report date that phase F creates, so they are
+not purged and nothing guesses a date. `AUDIENCE_LISTENING_NOTIFY_EMAIL` gets one email, with nothing a visitor wrote in it, per host request; there
+is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F).
+Migrations `20261111160000` (schema) and `20261111170000` (Resources content).
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

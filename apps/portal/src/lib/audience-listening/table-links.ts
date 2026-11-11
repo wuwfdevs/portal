@@ -4,7 +4,7 @@
 // session made from it stop working. Server-side only (node:crypto), except the pure QR rendering in qr.ts.
 
 import { createHash, randomBytes } from "node:crypto";
-import { LISTENING_TABLE_TOKEN_LENGTH, listeningTableLinkUrl } from "@wuwf/portal-contracts";
+import { LISTENING_TABLE_TOKEN_LENGTH, listeningCardLinkUrl, listeningTableLinkUrl } from "@wuwf/portal-contracts";
 
 /** A fresh table token: 32 random bytes, base64url, 43 characters. */
 export function generateJoinToken(): string {
@@ -26,10 +26,24 @@ export interface IssuedLink {
   token: string;
   hash: string;
   url: string;
+  /** The table's second QR code (leave a contact card), made only when the whole card is printed. Not single use. */
+  card: { hash: string; url: string } | null;
 }
 
-/** A new link for a table: the token, the hash to store, and the address the QR code and the printed card carry. */
-export function issueTableLink(table: { id: string; number: number }, siteOrigin: string): IssuedLink {
+/**
+ * A new link for a table: the token, the hash to store, and the address the QR code and the printed card carry. With `withCard` the
+ * table's second token is made too, for the card's second QR code; it is made only when a whole card is printed, so replacing one
+ * phone's link in the middle of a night does not break the card people are already using.
+ */
+export function issueTableLink(table: { id: string; number: number }, siteOrigin: string, options: { withCard?: boolean } = {}): IssuedLink {
   const token = generateJoinToken();
-  return { tableId: table.id, number: table.number, token, hash: hashJoinToken(token), url: listeningTableLinkUrl(siteOrigin, token) };
+  const cardToken = options.withCard ? generateJoinToken() : null;
+  return {
+    tableId: table.id,
+    number: table.number,
+    token,
+    hash: hashJoinToken(token),
+    url: listeningTableLinkUrl(siteOrigin, token),
+    card: cardToken ? { hash: hashJoinToken(cardToken), url: listeningCardLinkUrl(siteOrigin, cardToken) } : null,
+  };
 }

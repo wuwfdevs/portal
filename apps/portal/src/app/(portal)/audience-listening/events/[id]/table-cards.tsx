@@ -85,8 +85,19 @@ export function TableCards({
           <Card key={link.tableId} className="table-card flex h-[5in] w-[7in] max-w-full flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-section font-semibold text-ink-500">{eventTitle}</p>
             <p className="font-serif text-display font-semibold text-ink-900">Table {link.number}</p>
-            <Qr url={link.url} label={`QR code that opens table ${link.number}`} />
-            <p className="text-body font-semibold text-ink-900">Scan to join this table</p>
+            <div className="flex flex-wrap items-start justify-center gap-6">
+              <div className="flex flex-col items-center gap-1">
+                <Qr url={link.url} label={`QR code that opens table ${link.number}`} />
+                <p className="text-body font-semibold text-ink-900">Scan to join this table</p>
+              </div>
+              {link.cardUrl && (
+                <div className="flex flex-col items-center gap-1">
+                  <Qr url={link.cardUrl} label={`QR code to leave a contact card for table ${link.number}`} />
+                  <p className="text-body font-semibold text-ink-900">Leave a contact card</p>
+                  <p className="text-meta text-ink-500">Optional. You choose who may contact you.</p>
+                </div>
+              )}
+            </div>
           </Card>
         ))}
       </div>
