@@ -315,7 +315,7 @@ half of phase D; (4) **times are the station's, not the server's** (`event-times
 The card's address is `WEBSITE_ORIGIN` + `LISTENING_TABLE_LINK_PATH` from `packages/portal-contracts`; **the website page that path opens is
 phase E, so a printed card opens nothing yet**, and the guide says not to print for a real session. Not built: the table session (agree,
 segments, speakers, highlights, contact cards), the signed `table-*`/`room`/`event`/`seat-save` messages, Tonight/After, Conversations, the
-consent-text versions and the purge screen. Migrations `20261111120000` (schema) and `20261111130000` (Resources content).
+consent-text versions and the purge screen. Migrations `20261111120000` (schema) and `20261111130000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
