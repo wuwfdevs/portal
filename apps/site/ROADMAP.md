@@ -58,6 +58,13 @@ variant is now tied to a class nothing sets, `color-scheme: light` is set, every
 `lib/no-system-dark-mode.test.ts` fails if either comes back. Checked on an emulated iPhone in dark mode. It reaches staging when this
 branch is deployed.
 
+**Header revisions, 2026-11-13 (owner's review of the staging site; not yet checked in a browser, the sandbox has no database).**
+- *Search* opens a field in the header (`components/SiteNav/HeaderSearch.tsx`); Enter goes to `/search?q=`. The icon is still a real link to `/search`, so it works without JavaScript.
+- *Listen live* starts the stream from the header button (`components/ListenLive/HeaderListen.tsx`), with an arrow panel for channels, on now/up next, volume and a link to the schedule. The bottom bar stays once started, so the controls are in reach after the header scrolls away.
+- *`/listen` is now `/schedule`* ("Broadcast schedule": the week's programs, channel and day buttons, other ways to listen). `/listen` is gone with no redirect (the site was not live); `/listen/now` (the on-now answer) is unchanged. `ListenPanel` is removed. A page an editor makes at `/schedule` would be shadowed by this route.
+- *Authors* in the byline and the author box link to `/people/<slug>`, in standard and themed stories.
+- *Featured images:* the opening picture now ignores the block's alignment option and fills its container; the story and live-blog wrappers no longer cap it at 52rem. Themed episodes still use the show's own column.
+
 **Board 26, Listen live: built 2026-11-07** (the design and the research behind it follow this paragraph).
 - *Settings, not code:* a **Listen live** global (Site settings): channels (name, short name for the bar, the stream's https
   address, the NPR Cadence channel ID, one line) and the "Other ways to listen" cards. Migration `20261107_055404_listen_live`

@@ -50,7 +50,7 @@ export function ThemedEpisodeView({
   const isEpisode = post.format === 'audio'
   const audio = named(post.featuredAudio)
   const locked = post.membersOnly !== false && post.content == null
-  const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter(Boolean).join(' and ')
+  const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
   const length = formatDuration(audio?.durationSeconds)
   const season = named<Season>(post.season)
   const label = isEpisode ? episodeLabel(post.episodeNumber, post.episodeType) : null
@@ -78,7 +78,16 @@ export function ThemedEpisodeView({
         </p>
         <h1 className={cn(t.display, 'mt-3 text-5xl md:text-7xl')}>{post.title}</h1>
         {post.dek && <p className={cn('mt-5 text-xl italic leading-relaxed', t.muted)}>{post.dek}</p>}
-        {byline && <p className={cn('mt-4 text-base', t.muted)}>{byline}</p>}
+        {byline.length > 0 && (
+          <p className={cn('mt-4 text-base', t.muted)}>
+            {byline.map((c, i) => (
+              <React.Fragment key={c.id}>
+                {i > 0 && ' and '}
+                {c.slug ? <Link className={t.link} href={`/people/${c.slug}`}>{c.name}</Link> : c.name}
+              </React.Fragment>
+            ))}
+          </p>
+        )}
 
         {post.featuredMedia?.length ? (
           <div className="mt-8">

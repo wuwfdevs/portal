@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import React from 'react'
 
 import { useLivePlayer } from './PlayerProvider'
@@ -9,15 +8,14 @@ import { PlayIcon, StatusLine } from './parts'
 import { useNowNext } from './useNowNext'
 
 /**
- * The bar at the bottom of every page once the reader has started the stream (board 26). Not shown before then, and
- * not on the Listen live page itself, which has the full player. A spacer of the same height keeps it from covering
+ * The bar at the bottom of every page once the reader has started the stream (board 26). Not shown before then. It is the
+ * keep-in-reach control once the header has scrolled away. A spacer of the same height keeps it from covering
  * the end of the page, so it never hides the footer's links or a form.
  */
 export const PlayerBar: React.FC = () => {
   const player = useLivePlayer()
-  const pathname = usePathname()
   const { onNow } = useNowNext(player?.started ? player.current.cadenceChannelId : null)
-  if (!player?.started || pathname === '/listen') return null
+  if (!player?.started) return null
   const { current, status } = player
   const playing = status === 'playing' || status === 'loading'
 
@@ -57,8 +55,8 @@ export const PlayerBar: React.FC = () => {
               value={Math.round(player.volume * 100)}
             />
           </label>
-          <Link className="hidden min-h-11 shrink-0 items-center font-bold text-surface underline sm:inline-flex" href="/listen">
-            Open player
+          <Link className="hidden min-h-11 shrink-0 items-center font-bold text-surface underline sm:inline-flex" href="/schedule">
+            Schedule
           </Link>
           <button
             aria-label="Close the player"

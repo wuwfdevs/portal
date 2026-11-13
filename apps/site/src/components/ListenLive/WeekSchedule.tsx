@@ -40,6 +40,22 @@ export const WeekSchedule: React.FC<{ weeks: Record<string, ScheduledProgram[]>;
             </h2>
             <p className="text-sm text-ink-3">Central time · {channel.name}</p>
           </div>
+          <div aria-label="Choose a stream" className="flex flex-wrap gap-2" role="group">
+            {player?.channels.map((c) => {
+              const on = c.key === channel.key
+              return (
+                <button
+                  aria-pressed={on}
+                  className={`${chip} ${on ? 'border-ink bg-ink text-surface' : 'border-rule-strong bg-surface text-ink hover:bg-surface-3'}`}
+                  key={c.key}
+                  onClick={() => player.select(c.key)}
+                  type="button"
+                >
+                  {c.name}
+                </button>
+              )
+            })}
+          </div>
           <div aria-label="Choose a day" className="flex flex-wrap gap-2" role="group">
             {days.map((d) => {
               const on = d === day
@@ -62,7 +78,7 @@ export const WeekSchedule: React.FC<{ weeks: Record<string, ScheduledProgram[]>;
 
         {programs.length === 0 ? (
           <p className="rounded-md border border-rule bg-surface p-6 text-base text-ink-2">
-            {week.length === 0 ? 'The schedule is not available right now. The stream above still plays.' : 'Nothing is scheduled on this day.'}
+            {week.length === 0 ? 'The schedule is not available right now. Listen live still plays.' : 'Nothing is scheduled on this day.'}
           </p>
         ) : (
           <ol aria-label={`${dayNames(day).long}, ${channel.name}`} className="overflow-hidden rounded-md border border-rule bg-surface">

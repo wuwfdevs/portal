@@ -90,7 +90,20 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           <div className="flex flex-col text-sm text-ink-3">
             {byline.length > 0 && (
               <p>
-                <span className="font-bold text-ink">{byline.map((c) => c.name).join(' and ')}</span>
+                <span className="font-bold text-ink">
+                  {byline.map((c, i) => (
+                    <React.Fragment key={c.id}>
+                      {i > 0 && (i === byline.length - 1 ? ' and ' : ', ')}
+                      {c.slug ? (
+                        <Link className="text-ink underline-offset-2 hover:text-wuwf-blue-700 hover:underline" href={`/people/${c.slug}`}>
+                          {c.name}
+                        </Link>
+                      ) : (
+                        c.name
+                      )}
+                    </React.Fragment>
+                  ))}
+                </span>
                 {byline[0]?.title ? `, ${byline[0].title}` : ''}
               </p>
             )}
@@ -105,7 +118,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       </header>
 
       {hasFeaturedMedia && (
-        <div className="container mt-8 max-w-[52rem]">
+        <div className="container mt-8">
           <FeaturedMedia blocks={post.featuredMedia} />
         </div>
       )}

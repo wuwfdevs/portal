@@ -3,6 +3,8 @@ import React from 'react'
 
 import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
+import { HeaderListen } from '@/components/ListenLive/HeaderListen'
+import { HeaderSearch } from '@/components/SiteNav/HeaderSearch'
 import { MenuBar } from '@/components/SiteNav/MenuBar'
 import { supabaseAuthConfig } from '@/lib/audience/supabase'
 import { liveChannels } from '@/lib/live/channels'
@@ -31,20 +33,8 @@ export async function Header() {
         {items.length > 0 && <MenuBar items={items} />}
 
         <div className="ml-auto flex items-center gap-1">
-          {buttons.listen && (
-            <Link className="inline-flex min-h-11 items-center gap-2 px-1 text-base font-bold text-ink hover:text-wuwf-blue-700" href="/listen">
-              <span aria-hidden="true" className="size-2.5 rounded-full bg-on-air-red" />
-              {buttons.listen.label}
-            </Link>
-          )}
-          {buttons.search && (
-            <Link aria-label={buttons.search.label} className="flex size-11 items-center justify-center rounded-sm text-ink hover:bg-surface-2" href="/search">
-              <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" width="20">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M20 20l-4-4" />
-              </svg>
-            </Link>
-          )}
+          {buttons.listen && <HeaderListen label={buttons.listen.label} />}
+          {buttons.search && <HeaderSearch label={buttons.search.label} />}
           {buttons.signIn && (
             <Link className="hidden min-h-11 items-center px-1 text-base font-semibold text-ink-2 hover:text-wuwf-blue-700 sm:inline-flex" href="/account">
               {buttons.signIn.label}
