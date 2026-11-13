@@ -27,6 +27,23 @@ export const LISTENING_PATHS = {
   hub: "/api/site/listening/hub",
   inboxSend: "/api/site/listening/inbox-send",
   hostRequest: "/api/site/listening/host-request",
+  event: "/api/site/listening/event",
+  seatSave: "/api/site/listening/seat-save",
+  tableOpen: "/api/site/listening/table-open",
+  tableState: "/api/site/listening/table-state",
+  tableAgree: "/api/site/listening/table-agree",
+  tableUpdate: "/api/site/listening/table-update",
+  tableSegment: "/api/site/listening/table-segment",
+  tableSegmentComplete: "/api/site/listening/table-segment-complete",
+  tableEnd: "/api/site/listening/table-end",
+  conversation: "/api/site/listening/conversation",
+  speakersSave: "/api/site/listening/speakers-save",
+  highlightsSave: "/api/site/listening/highlights-save",
+  conversationSend: "/api/site/listening/conversation-send",
+  contactCardOpen: "/api/site/listening/contact-card-open",
+  contactCardSave: "/api/site/listening/contact-card-save",
+  room: "/api/site/listening/room",
+  roomCall: "/api/site/listening/room-call",
 } as const;
 
 /**
@@ -132,6 +149,10 @@ export const LISTENING_ERROR_CODES = [
   "not_found",
   "rate_limited",
   "invalid_request",
+  /** A table's single-use link was already redeemed, by this phone or another. Staff re-issue a link. */
+  "link_used",
+  /** Every seat at the event is taken. */
+  "event_full",
   /** The Portal's own failure. The site says "something went wrong on our side" and logs the code, never the body. */
   "unavailable",
 ] as const;
@@ -353,3 +374,292 @@ export interface ListeningHostRequestRequest extends ListeningRequestBase {
   journalistRequested: boolean;
 }
 export type ListeningHostRequestResponse = ListeningResult<Record<never, never>>;
+
+/**
+ * Where a table's single-use link opens on the site (phase D and E of the suite design). The Portal issues the link and prints it
+ * on the table's card as a QR code; the site serves this path and redeems the token with the Portal. It is a path on the site's own
+ * origin, so the Portal builds the address and the site owns the page. The token is a path segment, never a query value, so it
+ * is not carried to another origin in a Referer header or an analytics query string.
+ */
+export const LISTENING_TABLE_LINK_PATH = "/listens/table";
+
+/** The longest table link token the site accepts: a 256-bit value in base64url is 43 characters. */
+export const LISTENING_TABLE_TOKEN_LENGTH = 43;
+
+/** The address a table's link opens, from the site's origin (no trailing slash needed) and the token. */
+export function listeningTableLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_TABLE_LINK_PATH}/${encodeURIComponent(token)}`;
+}
+
+// -------------------------------------------------------------------------------------------------------------
+// Events and tables (suite design §2 and §4, phase D). A person at a table is not a subject: the table is authorised by a TABLE
+// SESSION, a random token the Portal issues when the table's link is redeemed and the site holds for that phone. The Portal
+// keeps only its hash. Re-issuing the link ends the session.
+
+/** The longest a table session token is: 256 bits in base64url. */
+export const LISTENING_TABLE_SESSION_LENGTH = 43;
+
+/** A public event's page. Null event = not available (not listed, not scheduled, or its campaign is not open), identically. */
+export interface ListeningPublicEvent {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  placeName: string;
+  address: string | null;
+  city: string | null;
+  organizerLabel: string | null;
+  journalistJoining: boolean;
+  /** Null when the event has no seat limit. */
+  seatsLeft: number | null;
+}
+export interface ListeningEventRequest extends ListeningRequestBase {
+  publicId: string;
+}
+export type ListeningEventResponse = ListeningResult<{ event: ListeningPublicEvent }>;
+
+/** Saves a seat: a name and an email used for that event only. Saving the same email again changes nothing. */
+export interface ListeningSeatSaveRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  publicId: string;
+  name: string;
+  email: string;
+}
+export type ListeningSeatSaveResponse = ListeningResult<Record<never, never>>;
+
+export const LISTENING_PROMPT_KINDS = ["intro", "question", "prompt"] as const;
+export type ListeningPromptKind = (typeof LISTENING_PROMPT_KINDS)[number];
+
+export const LISTENING_TABLE_STATES = ["waiting", "agreed", "recording", "paused", "ended", "sent"] as const;
+export type ListeningTableState = (typeof LISTENING_TABLE_STATES)[number];
+
+export interface ListeningTablePrompt {
+  position: number;
+  kind: ListeningPromptKind;
+  text: string;
+  /** For the facilitator only. */
+  hint: string | null;
+  suggestedSeconds: number | null;
+}
+
+/** What a table's phone is shown. */
+export interface ListeningTable {
+  number: number;
+  state: ListeningTableState;
+  eventTitle: string;
+  placeName: string;
+  /** The campaign's question, in the words a table will hear. */
+  question: string;
+  /** The wording to read aloud before the table records. The version is sent back with the agreement. */
+  consent: { version: number; text: string } | null;
+  prompts: ListeningTablePrompt[];
+  /** The tag vocabulary a facilitator picks from when marking a line. */
+  tags: string[];
+  promptPosition: number;
+  facilitatorFirstName: string | null;
+  helpRequested: boolean;
+  /** Segments already uploaded, so a phone that dropped sends only the rest. */
+  uploadedSeqs: number[];
+  /** The prompt the room is on, set by the organizer's console. A table may be on its own (`promptPosition`). */
+  eventPromptPosition: number;
+  /** When the organizer called the last five minutes, or null. */
+  lastCallAt: string | null;
+  /**
+   * Whether a console has checked in within the last minute. Show "Help is coming" only when true; otherwise say the request is flagged
+   * and, if it is urgent, to ask at the front, so the page never promises help nobody can see the request for.
+   */
+  helpAvailable: boolean;
+}
+
+/** The longest a segment may be, in seconds. The phone cuts a new segment at this length. */
+export const LISTENING_SEGMENT_SECONDS = 300;
+/** Segments are numbered from 0 and there are at most 100. */
+export const LISTENING_MAX_SEGMENTS = 100;
+
+/** Redeems a table's single-use link. The reply carries the session the site holds for that phone. */
+export interface ListeningTableOpenRequest extends ListeningRequestBase {
+  linkToken: string;
+}
+export type ListeningTableOpenResponse = ListeningResult<{ session: { token: string; expiresAt: string }; table: ListeningTable }>;
+
+export interface ListeningTableSessionRequest extends ListeningRequestBase {
+  session: string;
+}
+export type ListeningTableStateResponse = ListeningResult<{ table: ListeningTable }>;
+
+/**
+ * The facilitator's tap after the consent is read aloud. `consentVersion` is the version they were shown, which the Portal records
+ * with the time. Nothing records before this. Sending it again changes nothing.
+ */
+export interface ListeningTableAgreeRequest extends ListeningTableSessionRequest {
+  consentVersion: number;
+  firstName: string | null;
+}
+export type ListeningTableAgreeResponse = ListeningResult<{ table: ListeningTable }>;
+
+export const LISTENING_TABLE_EVENTS = ["start", "pause", "resume", "help", "help-clear", "prompt"] as const;
+export type ListeningTableEvent = (typeof LISTENING_TABLE_EVENTS)[number];
+
+export interface ListeningTableUpdateRequest extends ListeningTableSessionRequest {
+  event: ListeningTableEvent;
+  /** With `prompt`: the position to move to. */
+  promptPosition?: number;
+}
+export type ListeningTableUpdateResponse = ListeningResult<{ table: ListeningTable }>;
+
+/** Reserves a segment. The row exists before the bytes; the reply carries the signed address to PUT them to. */
+export interface ListeningTableSegmentRequest extends ListeningTableSessionRequest {
+  seq: number;
+  /** A bare type, codec parameters stripped. */
+  contentType: string;
+}
+export type ListeningTableSegmentResponse = ListeningResult<
+  { seq: number; alreadyUploaded: true } | { seq: number; maxSegmentSeconds: number; upload: ListeningUpload }
+>;
+
+export interface ListeningTableSegmentCompleteRequest extends ListeningTableSessionRequest {
+  seq: number;
+  sizeBytes: number;
+  durationMs: number;
+}
+export type ListeningTableSegmentCompleteResponse = ListeningResult<Record<never, never>>;
+
+/** The table is over. `lastSeq` is the highest segment the phone made, or -1 if nothing was recorded. */
+export interface ListeningTableEndRequest extends ListeningTableSessionRequest {
+  lastSeq: number;
+}
+/** `missing` lists segments up to `lastSeq` that are not uploaded yet; the phone sends them and the conversation completes. */
+export type ListeningTableEndResponse = ListeningResult<{ complete: boolean; missing: number[] }>;
+
+// -------------------------------------------------------------------------------------------------------------
+// After the table: the conversation, its voices and the lines that mattered, contact cards, and the organizer's room.
+
+export const LISTENING_CONVERSATION_STATUSES = ["recording", "uploading", "complete", "transcribing", "ready", "named", "sent"] as const;
+export type ListeningConversationStatus = (typeof LISTENING_CONVERSATION_STATUSES)[number];
+
+export interface ListeningTranscriptLine {
+  startMs: number;
+  endMs: number;
+  text: string;
+  /** The voice that said it (a `ListeningSpeaker.id`), or null. */
+  speakerId: string | null;
+}
+
+export interface ListeningSpeaker {
+  id: string;
+  /** "Voice 1". */
+  label: string;
+  /** The first name the facilitator gave, or null. Leaving a voice unnamed is allowed. */
+  name: string | null;
+  isFacilitator: boolean;
+  firstHeardMs: number;
+  sharePercent: number;
+  /** The voice this one was merged into when the transcript split one person in two, or null. */
+  mergedInto: string | null;
+}
+
+export interface ListeningHighlight {
+  startMs: number;
+  endMs: number;
+  /** A copy of the line, made by the Portal when it was marked, so a later re-transcription does not change it. */
+  text: string;
+  tag: string | null;
+  speakerId: string | null;
+}
+
+/**
+ * The after-page. Only this table's conversation, returned to the table that owns it. The site renders it and keeps none of it: a
+ * transcript is never cached on the site. `contactCardCount` is how many people left a card, never what they wrote.
+ */
+export interface ListeningConversation {
+  status: ListeningConversationStatus;
+  transcriptReady: boolean;
+  tags: string[];
+  lines: ListeningTranscriptLine[];
+  speakers: ListeningSpeaker[];
+  highlights: ListeningHighlight[];
+  contactCardCount: number;
+}
+export type ListeningConversationResponse = ListeningResult<{ conversation: ListeningConversation }>;
+
+/** Names and merges. Sent whole: what is sent is the set. At most one voice is the facilitator. */
+export interface ListeningSpeakersSaveRequest extends ListeningTableSessionRequest {
+  speakers: { id: string; name: string | null; isFacilitator: boolean; mergedInto: string | null }[];
+}
+export type ListeningSpeakersSaveResponse = ListeningResult<Record<never, never>>;
+
+/** The lines that mattered, by where they start. The Portal copies the text itself; the site never supplies it. Sent whole. */
+export interface ListeningHighlightsSaveRequest extends ListeningTableSessionRequest {
+  highlights: { startMs: number; tag: string | null }[];
+}
+export type ListeningHighlightsSaveResponse = ListeningResult<Record<never, never>>;
+
+/** Sends the conversation to the station. It can still be read afterwards, not changed. */
+export type ListeningConversationSendRequest = ListeningTableSessionRequest;
+export type ListeningConversationSendResponse = ListeningResult<Record<never, never>>;
+
+/**
+ * Where the table's second QR code opens on the site: leave a way to be reached. The token is not single use (each person at the table
+ * may leave one card, one per person by their subject), so it names only the table.
+ */
+export const LISTENING_CARD_LINK_PATH = "/listens/card";
+export function listeningCardLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_CARD_LINK_PATH}/${encodeURIComponent(token)}`;
+}
+
+export interface ListeningContactCardOpenRequest extends ListeningRequestBase {
+  cardToken: string;
+}
+export type ListeningContactCardOpenResponse = ListeningResult<{ eventTitle: string; tableNumber: number }>;
+
+/**
+ * Board 5i: per person, never per table. Three separate choices, all off unless chosen; "may name me" and "keep me anonymous" are
+ * mutually exclusive. A way to be reached is not required to say yes to contact: the page warns, the Portal accepts.
+ */
+export interface ListeningContactCardSaveRequest extends ListeningRequestBase {
+  cardToken: string;
+  subject: ListeningSubject;
+  firstName: string;
+  contact: string | null;
+  mayContact: boolean;
+  mayName: boolean;
+  keepAnonymous: boolean;
+}
+export type ListeningContactCardSaveResponse = ListeningResult<Record<never, never>>;
+
+export interface ListeningRoomTable {
+  number: number;
+  state: ListeningTableState;
+  promptPosition: number;
+  helpRequested: boolean;
+  facilitatorFirstName: string | null;
+}
+
+/** The organizer's console: where each table is, never what was said. */
+export interface ListeningRoom {
+  title: string;
+  status: "scheduled" | "live";
+  startsAt: string;
+  endsAt: string;
+  currentPromptPosition: number;
+  lastCallAt: string | null;
+  prompts: { position: number; kind: ListeningPromptKind; text: string; suggestedSeconds: number | null }[];
+  tables: ListeningRoomTable[];
+}
+
+/** Needs an `account` subject that owns the event. Each call is also the console checking in (what makes "help is coming" true). */
+export interface ListeningRoomRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  eventPublicId: string;
+}
+export type ListeningRoomResponse = ListeningResult<{ room: ListeningRoom }>;
+
+export const LISTENING_ROOM_ACTIONS = ["last-call", "prompt", "help-clear"] as const;
+export type ListeningRoomAction = (typeof LISTENING_ROOM_ACTIONS)[number];
+
+export interface ListeningRoomCallRequest extends ListeningRoomRequest {
+  action: ListeningRoomAction;
+  /** With `prompt`: the position to move to. With `help-clear`: the table number. */
+  value?: number;
+}
+export type ListeningRoomCallResponse = ListeningResult<{ room: ListeningRoom }>;

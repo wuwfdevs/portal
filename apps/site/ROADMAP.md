@@ -370,6 +370,14 @@ in them has been started.
 9. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
 10. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
 
+> **For phase E (2026-11-11):** the Portal side of every screen on boards 5c to 5i is built and applied, and the contract
+> (`packages/portal-contracts/src/listening.ts`) carries its messages: `event`, `seat-save`, `table-open`, `table-state`, `table-agree`,
+> `table-update`, `table-segment`, `table-segment-complete`, `table-end`, `conversation`, `speakers-save`, `highlights-save`,
+> `conversation-send`, `contact-card-open`, `contact-card-save`, `room`, `room-call`. The site serves `LISTENING_TABLE_LINK_PATH`
+> (`/listens/table/<token>`) and `LISTENING_CARD_LINK_PATH` (`/listens/card/<token>`) and holds the table session token for a phone; the
+> Portal keeps only its hash. Print no card for a real session until those two pages exist. A transcript is rendered and dropped, never stored
+> here. `apps/portal/docs/audience-listening-suite-design.md` §10 is the record.
+
 ## Listening: where it stands
 
 The Portal is the system and the site is the screen (suite design: `apps/portal/docs/audience-listening-suite-design.md`). The site stores

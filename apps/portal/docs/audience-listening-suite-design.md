@@ -1,7 +1,10 @@
 # Audience Listening suite — campaigns, events, tables, and the site's signed API
 
 Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phase B is built on the site (2026-11-09 and 2026-11-10) and
-phase C is built on the Portal side (2026-11-10, applied to both projects); its site screens, and phases D to F, are not.** The build order and where each phase stands are in §10.
+phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
+events, tables and seats, with their staff screens and table cards; then the table session: single-use link, agreement, recording in segments, the
+consent wording; then the conversation side: speakers, highlights, contact cards, the organizer's room, Tonight, the Sourcework handoff and the purge).
+**Phase D is built on the Portal; its site screens (phase E) and phase F are not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -306,6 +309,25 @@ Where it stands (2026-11-09):
   Host requests at `/audience-listening/inbox` and `/audience-listening/host-requests` with a count in the section navigation. Host
   requests list oldest first and flag any still new after five days. **Not built:** the host-request email and the daily Ask WUWF digest
   (they need the Resend wiring; until then the counts are the signal), and the site's Ask WUWF box and host-request form (board 5c).
+
+- **D, first half, is built on the Portal** (`20261111120000`, with its Resources content in `20261111130000`): `al_campaigns`, `al_campaign_prompts`,
+  `al_campaign_tags`, `al_events`, `al_tables` and `al_seats` (staff-only RLS; staff write only a table's number and link, never its
+  recording state), the `coordinator` tool role and the guard on listing (§11 item 4, as the working default), the span, seat-capacity and
+  close-the-query rules, and the staff screens Campaigns, Events, tables, seats and printable table cards at `/audience-listening/campaigns`
+  and `/audience-listening/events`. A table link is a hash of a 256-bit token; the card carries `WEBSITE_ORIGIN` + the contract's table path.
+- **D, second half (first part), is built on the Portal** (`20261111140000`, with its Resources content in `20261111150000`): the table session
+  (`al_site_table_open/state/agree/update/segment/segment_complete/end`, authorised by a session whose hash is stored, ended by re-issuing the
+  link), the group agreement recorded with the wording version shown, `al_consent_texts` (insert-only numbered versions, a coordinator adds them),
+  `al_conversations` and `al_conversation_segments` (staff read), the signed segment upload, `al_site_event` and `al_site_seat_save`, their
+  contract messages, and the Consent wording page.
+- **D, the rest, is built on the Portal** (`20261111160000`, with its Resources content in `20261111170000`): `al_speakers`, `al_highlights` and
+  `al_contact_cards`; the messages `conversation`, `speakers-save`, `highlights-save`, `conversation-send`, `contact-card-open`, `contact-card-save`,
+  `room` and `room-call`; the table's second QR token; `al_events.console_seen_at` ("help is coming" only while a console is watching); the staff
+  screens Tonight, Table (transcript with names and marks, contact-card review, Send to Sourcework) and Purge; and one email to a shared mailbox per
+  host request. A campaign is one Sourcework project and each table a source in it (§8's two statements are reconciled this way).
+  **Decided while building:** the card's second QR is made only with a whole printed card; once the facilitator sends, the conversation reads but
+  does not change; retention for contact cards and raw audio waits for a report date (phase F) and is not guessed. **Not built:** the daily Ask
+  digest (no scheduler), the website's pages for all of the above (E), and reports and outcome links (F).
 
 ## 11. Open items for the owner
 

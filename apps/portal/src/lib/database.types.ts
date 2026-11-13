@@ -359,6 +359,16 @@ export type AlInboxState = "new" | "read" | "answered" | "declined";
 export type AlHostKind = "invite" | "public";
 export type AlHostExpected = "6-8" | "9-12" | "12+";
 export type AlHostRequestState = "new" | "contacted" | "scheduled" | "declined";
+/** Campaigns, events, tables and seats (phase D of the suite design). */
+export type AlCampaignStatus = "draft" | "open" | "closed" | "archived";
+export type AlPromptKind = "intro" | "question" | "prompt";
+export type AlEventVisibility = "private" | "public";
+export type AlEventListingState = "not_listed" | "pending_review" | "listed" | "declined";
+export type AlOrganizerKind = "wuwf" | "partner" | "person";
+export type AlEventStatus = "draft" | "scheduled" | "live" | "done" | "cancelled";
+export type AlTableState = "waiting" | "agreed" | "recording" | "paused" | "ended" | "sent";
+export type AlConversationStatus = "recording" | "uploading" | "complete" | "transcribing" | "ready" | "named" | "sent";
+export type AlSegmentStatus = "pending" | "uploaded" | "failed";
 
 // Academic Partnerships (ap_*) — see
 // supabase/migrations/20260803140000_academic_partnerships.sql.
@@ -1677,6 +1687,258 @@ export interface Database {
         // Rows are made only by al_site_host_request() (service_role); staff update state, notes, handled_by and handled_at.
         Insert: never;
         Update: Partial<Pick<Database["public"]["Tables"]["al_host_requests"]["Row"], "state" | "internal_notes" | "handled_by" | "handled_at">>;
+        Relationships: [];
+      };
+      al_campaigns: {
+        Row: {
+          id: string;
+          public_id: string;
+          slug: string;
+          title: string;
+          question: string;
+          intro: string;
+          owner_id: string | null;
+          owner_label: string | null;
+          status: AlCampaignStatus;
+          opens_at: string | null;
+          closes_at: string | null;
+          query_id: string | null;
+          sourcework_project_id: string | null;
+          internal_notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_campaigns"]["Row"]> & {
+          public_id: string;
+          slug: string;
+          title: string;
+          question: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_campaigns"]["Row"]>;
+        Relationships: [];
+      };
+      al_campaign_prompts: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          position: number;
+          kind: AlPromptKind;
+          text: string;
+          hint: string | null;
+          suggested_seconds: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_campaign_prompts"]["Row"]> & {
+          campaign_id: string;
+          position: number;
+          text: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_campaign_prompts"]["Row"]>;
+        Relationships: [];
+      };
+      al_campaign_tags: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          label: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_campaign_tags"]["Row"]> & {
+          campaign_id: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_campaign_tags"]["Row"]>;
+        Relationships: [];
+      };
+      al_events: {
+        Row: {
+          id: string;
+          public_id: string;
+          campaign_id: string;
+          title: string;
+          starts_at: string;
+          ends_at: string;
+          place_name: string;
+          address: string | null;
+          city: string | null;
+          visibility: AlEventVisibility;
+          listing_state: AlEventListingState;
+          listing_reviewed_by: string | null;
+          listing_reviewed_at: string | null;
+          listing_declined_reason: string | null;
+          organizer_kind: AlOrganizerKind;
+          organizer_label: string | null;
+          organizer_subject: string | null;
+          seats: number | null;
+          status: AlEventStatus;
+          current_prompt_position: number;
+          last_call_at: string | null;
+          console_seen_at: string | null;
+          wuwf_journalist_joining: boolean;
+          internal_notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["al_events"]["Row"]> & {
+          public_id: string;
+          campaign_id: string;
+          title: string;
+          starts_at: string;
+          ends_at: string;
+          place_name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["al_events"]["Row"]>;
+        Relationships: [];
+      };
+      al_tables: {
+        Row: {
+          id: string;
+          event_id: string;
+          number: number;
+          join_token_hash: string | null;
+          join_token_issued_at: string | null;
+          join_token_used_at: string | null;
+          facilitator_subject: string | null;
+          facilitator_first_name: string | null;
+          state: AlTableState;
+          agreed_at: string | null;
+          consent_text_version: string | null;
+          session_hash: string | null;
+          session_expires_at: string | null;
+          card_token_hash: string | null;
+          help_requested_at: string | null;
+          prompt_position: number;
+          elapsed_seconds: number;
+          created_at: string;
+          updated_at: string;
+        };
+        // Staff add a table (event and number), remove one that is still waiting, and re-issue its link. The recording columns are
+        // written by the table's own session in the second half of phase D, never by a screen.
+        Insert: { event_id: string; number: number };
+        Update: Partial<
+          Pick<Database["public"]["Tables"]["al_tables"]["Row"], "join_token_hash" | "join_token_issued_at" | "join_token_used_at" | "card_token_hash" | "help_requested_at">
+        >;
+        Relationships: [];
+      };
+      al_consent_texts: {
+        Row: {
+          id: string;
+          version: number;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        // A coordinator adds a version (body, created_by); the version number is assigned by a trigger. Never edited.
+        Insert: { body: string; created_by?: string | null };
+        Update: never;
+        Relationships: [];
+      };
+      al_conversations: {
+        Row: {
+          id: string;
+          table_id: string;
+          event_id: string;
+          status: AlConversationStatus;
+          last_seq: number | null;
+          duration_ms: number;
+          transcription_project_id: string | null;
+          sourcework_source_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Rows are made and moved by the table session's functions (service_role); staff read, and the Sourcework handoff links one.
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_conversations"]["Row"], "status" | "transcription_project_id" | "sourcework_source_id">>;
+        Relationships: [];
+      };
+      al_conversation_segments: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          seq: number;
+          storage_path: string;
+          content_type: string;
+          size_bytes: number | null;
+          duration_ms: number | null;
+          status: AlSegmentStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_speakers: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          source_label: string;
+          label: string;
+          name: string | null;
+          is_facilitator: boolean;
+          first_heard_ms: number;
+          share_percent: number;
+          merged_into: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // Made and named only by the table session's functions; staff read.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_highlights: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          start_ms: number;
+          end_ms: number;
+          text: string;
+          tag: string | null;
+          speaker_id: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      al_contact_cards: {
+        // `subject` (the website's opaque id for the person) is not readable by staff: select columns by name, never `*`.
+        Row: {
+          id: string;
+          conversation_id: string;
+          first_name: string;
+          contact: string | null;
+          may_contact: boolean;
+          may_name: boolean;
+          keep_anonymous: boolean;
+          speaker_id: string | null;
+          contacted_at: string | null;
+          contacted_by: string | null;
+          name_approved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["al_contact_cards"]["Row"], "contacted_at" | "contacted_by" | "name_approved_at" | "speaker_id">>;
+        Relationships: [];
+      };
+      al_seats: {
+        Row: {
+          id: string;
+          event_id: string;
+          name: string;
+          email: string;
+          subject: string | null;
+          created_at: string;
+        };
+        // Rows are made by the website's seat-save message (service_role); staff read and remove them.
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       al_questions: {
@@ -4264,6 +4526,16 @@ export interface Database {
       };
     };
     Functions: {
+      /** Security definer (20261111160000). What the 30-day purge would remove; any staff member with access may ask. */
+      al_purge_preview: {
+        Args: Record<string, never>;
+        Returns: { submissions: number; conversations: number; cards: number; held: number };
+      };
+      /** Security definer (20261111160000). Runs the purge. Coordinators only; returns the counts and the storage paths to remove. */
+      al_purge_run: {
+        Args: Record<string, never>;
+        Returns: { submissions: number; conversations: number; storage_paths: string[] };
+      };
       /** Security invoker (20261012120000). Accepted and rejected data points per prompt version; a null version is the built-in text. */
       sw_extraction_accept_rates: {
         Args: Record<string, never>;

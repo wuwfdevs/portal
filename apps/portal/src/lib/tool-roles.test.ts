@@ -10,7 +10,6 @@ describe("getRoleCatalog", () => {
 
   it("returns null for tools with no distinct roles", () => {
     expect(getRoleCatalog("remote-interview")).toBeNull();
-    expect(getRoleCatalog("audience-listening")).toBeNull();
     expect(getRoleCatalog("nonexistent-tool")).toBeNull();
   });
 });
@@ -20,6 +19,13 @@ function form(entries: [string, string][]) {
   for (const [name, value] of entries) data.append(name, value);
   return data;
 }
+
+describe("Audience Listening", () => {
+  it("offers the stacking coordinator role, which approves public events for listing", () => {
+    expect(getRoleCatalog("audience-listening")?.map((role) => role.value)).toEqual(["coordinator"]);
+    expect(rolesStack("audience-listening")).toBe(true);
+  });
+});
 
 describe("Sourcework (key transcription)", () => {
   it("offers the stacking editor role", () => {

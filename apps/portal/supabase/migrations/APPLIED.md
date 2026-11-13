@@ -322,6 +322,14 @@ repo and a project's history, not the version number.
 | `20261109140000_audience_listening_query_outcome.sql`                 | 2026-11-09 | 2026-11-09 |
 | `20261110120000_audience_listening_inboxes.sql`                       | 2026-11-10 | 2026-11-10 |
 | `20261110130000_resources_audience_listening_inboxes.sql`             | 2026-11-10 | 2026-11-10 |
+| `20261111120000_audience_listening_campaigns_events.sql`                 | 2026-11-11 | 2026-11-11 |
+| `20261111130000_resources_audience_listening_campaigns_events.sql`       | 2026-11-11 | 2026-11-11 |
+| `20261111140000_audience_listening_table_sessions.sql`                    | 2026-11-11 | 2026-11-11 |
+| `20261111150000_resources_audience_listening_table_sessions.sql`          | 2026-11-11 | 2026-11-11 |
+| `20261111160000_audience_listening_conversations.sql`                    | 2026-11-11 | 2026-11-13 |
+| `20261111170000_resources_audience_listening_conversations.sql`          | 2026-11-11 | 2026-11-13 |
+| `20261111180000_audience_listening_review_fixes.sql`                    | 2026-11-13 | 2026-11-13 |
+| `20261111190000_resources_audience_listening_review_fixes.sql`          | 2026-11-13 | 2026-11-13 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

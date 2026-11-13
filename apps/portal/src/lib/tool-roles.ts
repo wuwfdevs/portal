@@ -14,6 +14,7 @@ import { ROLE_SPEC as RESOURCES_SPEC } from "@/lib/resources/roles";
 import { ROLE_SPEC as BOOKINGS_SPEC } from "@/lib/bookings/roles";
 import { ROLE_SPEC as SOURCEWORK_SPEC } from "@/lib/sourcework/roles";
 import { ROLE_SPEC as ACADEMIC_PARTNERSHIPS_SPEC } from "@/lib/academic-partnerships/roles";
+import { ROLE_SPEC as AUDIENCE_LISTENING_SPEC } from "@/lib/audience-listening/roles";
 // The public site's CMS (apps/site). The Portal only carries these roles to it; the site maps them.
 import { ROLE_SPEC as WEBSITE_SPEC } from "@/lib/website/roles";
 import type { RoleOption, ToolRoleSpec } from "@/lib/tool-role-spec";
@@ -29,6 +30,7 @@ export const TOOL_ROLE_SPECS: readonly ToolRoleSpec[] = [
   BOOKINGS_SPEC,
   SOURCEWORK_SPEC,
   ACADEMIC_PARTNERSHIPS_SPEC,
+  AUDIENCE_LISTENING_SPEC,
   WEBSITE_SPEC,
 ];
 

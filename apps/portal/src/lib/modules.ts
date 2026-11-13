@@ -112,6 +112,16 @@ export const MODULES: readonly ModuleManifestEntry[] = [
         for: "verifying the public site's signed listening requests",
         required: false,
       },
+      {
+        name: "WEBSITE_ORIGIN",
+        for: "the address a printed table card opens",
+        required: false,
+      },
+      {
+        name: "AUDIENCE_LISTENING_NOTIFY_EMAIL",
+        for: "emailing a shared mailbox when a host request arrives",
+        required: false,
+      },
     ],
   },
   {
