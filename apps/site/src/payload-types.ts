@@ -4177,6 +4177,10 @@ export interface SiteSetting {
       }[]
     | null;
   /**
+   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so. It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
+   */
+  semanticSearch?: boolean | null;
+  /**
    * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
    */
   independencePolicy?: (number | null) | Page;
@@ -4722,6 +4726,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         host?: T;
         id?: T;
       };
+  semanticSearch?: T;
   independencePolicy?: T;
   updatedAt?: T;
   createdAt?: T;

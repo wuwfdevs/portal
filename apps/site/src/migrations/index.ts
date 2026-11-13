@@ -41,6 +41,7 @@ import * as migration_20261107_080000_unearthing_hub_start from './20261107_0800
 import * as migration_20261110_171043_topic_listening_question from './20261110_171043_topic_listening_question';
 import * as migration_20261110_172000_header_listens_link from './20261110_172000_header_listens_link';
 import * as migration_20261113_222100_story_embeddings from './20261113_222100_story_embeddings';
+import * as migration_20261113_225238_site_settings_semantic_search from './20261113_225238_site_settings_semantic_search';
 
 export const migrations = [
   {
@@ -256,6 +257,11 @@ export const migrations = [
   {
     up: migration_20261113_222100_story_embeddings.up,
     down: migration_20261113_222100_story_embeddings.down,
-    name: '20261113_222100_story_embeddings'
+    name: '20261113_222100_story_embeddings',
+  },
+  {
+    up: migration_20261113_225238_site_settings_semantic_search.up,
+    down: migration_20261113_225238_site_settings_semantic_search.down,
+    name: '20261113_225238_site_settings_semantic_search'
   },
 ];

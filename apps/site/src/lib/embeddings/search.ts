@@ -3,15 +3,15 @@ import { getPayload } from 'payload'
 
 import { postKind, type SearchKind } from '@/lib/search/query'
 
-import { MAX_QUERY_CHARS, semanticSearchOn } from './config'
+import { MAX_QUERY_CHARS, semanticSearchAllowed } from './config'
 import { MIN_SEARCH_SIMILARITY } from './rank'
 import { getEmbeddingProvider } from './service'
 import { nearestToVector } from './store'
 
 /**
  * Semantic search: stories whose meaning is close to the search words, found by embedding the query and asking for the nearest stored
- * vectors. Server only. Off unless `SEMANTIC_SEARCH=on` and a key is set: the visitor's search words go to the embedding provider,
- * which is the owner's decision (ROADMAP: Needs the owner), so a key alone never turns it on.
+ * vectors. Server only. Off unless the Site settings switch "Find stories by meaning in search" is on AND a key is set: the visitor's search
+ * words go to the embedding provider, which is the owner's decision (ROADMAP: Needs the owner), so a key alone never turns it on.
  *
  * Privacy: the query text is never logged, stored or put in analytics; it is sent to the provider as the input of one embedding request
  * and kept (as its vector, under its normalised text) in this process's memory for an hour so a repeated search is not sent again.
@@ -49,8 +49,9 @@ async function queryVector(q: string): Promise<number[] | null> {
   return vector
 }
 
-export async function semanticStories(q: string, options: { kinds?: readonly SearchKind[]; limit?: number } = {}): Promise<SemanticHit[]> {
-  if (!semanticSearchOn()) return []
+/** `settingOn` is the Site settings switch, read by the caller (the search page reads the cached global); without it, or without a key, nothing is sent. */
+export async function semanticStories(q: string, options: { settingOn: boolean | null | undefined; kinds?: readonly SearchKind[]; limit?: number }): Promise<SemanticHit[]> {
+  if (!semanticSearchAllowed(options.settingOn)) return []
   const limit = options.limit ?? 20
   try {
     const vector = await queryVector(q)

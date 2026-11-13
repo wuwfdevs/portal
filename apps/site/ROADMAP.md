@@ -10,7 +10,7 @@ design canvas are described under *Sources* below.
 ## Vector search and similar stories (built 2026-11-13; not yet run on real data)
 
 **Branch:** `claude/eloquent-einstein-acfwc9` (`wuwfdevs/portal`), **no PR opened** (ask before opening one). Migration `20261113_222100_story_embeddings` tested up, down and up;
-`verify:migrations` passes; typecheck and lint pass (0 errors, the same 4 old warnings); the full site suite passes (143 files, 1,577 tests). **Nothing is embedded anywhere yet.** Embedding sends story text to a paid third party,
+`verify:migrations` passes; typecheck and lint pass (0 errors, the same 4 old warnings); the full site suite passes (144 files, 1,582 tests). **Nothing is embedded anywhere yet.** Embedding sends story text to a paid third party,
 needs a key, and needs the migrated stories; with no key the site behaves exactly as before (no calls, no new section, keyword search only).
 
 **What was built** (`src/lib/embeddings`, `src/db/storyEmbeddings.ts`, `src/hooks/embedStory.ts`, `scripts/embeddings`):
@@ -25,7 +25,7 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
   small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
   like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
   failed page. Not shown in previews.
-- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` and `SEMANTIC_SEARCH=on`**. It supplements keyword search and never replaces it: when keywords find
+- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; a publisher or administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
   nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
   "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the
   server's memory for an hour).
@@ -46,7 +46,7 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
    one small indexed query per refresh of a cached page (not measured on the real archive yet).
 3. **Semantic results supplement keyword search; no rank fusion.** The keyword search is "every word matches, newest first" with real paging, and blending a relevance list into it would break the paging
    and change results people already rely on. If search logs show semantic should lead, that is a deliberate change.
-4. **Two switches.** `OPENAI_API_KEY` is indexing. `SEMANTIC_SEARCH=on` is sending visitors' search words to OpenAI, which a key alone must not enable.
+4. **Two switches.** `OPENAI_API_KEY` (an environment variable, because it is a secret) is indexing. **Site settings -> "Find stories by meaning in search"** is sending visitors' search words to OpenAI, which a key alone must not enable; it is in the admin because it is a policy decision the owner should be able to make without a deploy. (It began as an environment variable, `SEMANTIC_SEARCH=on`; that was changed the same day, migration `20261113_225238_site_settings_semantic_search`.)
 5. **Only stories** (`posts`). Not shows, clips, pages or events; not the manual `relatedPosts` field (it exists in the starter and nothing renders it).
 
 **Calibrate before trusting** (`rank.ts`): `MIN_RELATED_SIMILARITY` 0.35, `MIN_SEARCH_SIMILARITY` 0.2 and `MAX_PER_SERIES` 2 are starting values, **not measurements** (nothing is embedded). After the first
@@ -56,11 +56,11 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
 - **Go-ahead to send WUWF story text to OpenAI, and the key.** A paid call: the dry run gives the count and size first; the cost at OpenAI's published rate for this model is small (an estimate from the
   story count: well under a dollar for the archive; **check the current price**). Set `OPENAI_API_KEY` on the site's Vercel project (server only).
 - **The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service): WUWF stories can contain such text. Settle it before the first `--apply`.
-- **Approval to send visitors' search words to OpenAI** (`SEMANTIC_SEARCH=on`), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
+- **Approval to send visitors' search words to OpenAI** (turn on Site settings -> "Find stories by meaning in search"), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
 - ~~**Enable the `vector` extension**~~ **Done (2026-11-13).** Staging: the migration created it (`CREATE EXTENSION IF NOT EXISTS vector`, schema `public`) when the preview build of this branch ran `payload migrate`
   on the shared staging database (`MIGRATE_ON_BUILD=1`), so the `payload_app` role can create it. Production: enabled by hand in the same schema (`public`, to match staging), version 0.8.2.
-  **The migration itself has NOT been applied to production** (production never migrates by itself: `pnpm payload migrate` with the production `DATABASE_URL`, deliberately, then deploy). Staging has `story_embeddings` and
-  the migration recorded (batch 31).
+  **Production's database is empty (checked 2026-11-13): no tables and no `payload_migrations` ledger, so the site has never been set up there.** The embeddings migrations cannot be applied alone (they need `posts`); they go with the rest when production is first migrated (`pnpm payload migrate` with the production `DATABASE_URL`, deliberately, at the importer's step 3: `IMPORT.md`). Nothing was applied to production except the `vector` extension. Staging has `story_embeddings` and
+  the migration recorded (batch 31); the Site settings column migration was applied to staging by its preview build after the next push.
 - **A "do not recommend" flag?** An editor may not want an old, sensitive story offered beside new reporting. Not built (it is a field on Posts plus a migration); say if you want it before launch.
 - Whether **NPR and wire stories** should ever be embedded (they are not today); it depends on NPR's CDS terms (`ARCHITECTURE.md`, CDS sync).
 

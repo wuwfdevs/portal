@@ -66,7 +66,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
-  delete process.env.SEMANTIC_SEARCH
   delete process.env.OPENAI_API_KEY
 })
 
@@ -216,24 +215,30 @@ describe('similar stories', () => {
 })
 
 describe('semantic search', () => {
-  it('is off without the switch, even with a key', async () => {
+  it('is off without the Site settings switch, even with a key, and sends nothing', async () => {
     process.env.OPENAI_API_KEY = 'sk-test'
-    delete process.env.SEMANTIC_SEARCH
     mocks.embed.mockClear()
-    expect(await semanticStories('flood')).toEqual([])
+    expect(await semanticStories('flood', { settingOn: false })).toEqual([])
+    expect(await semanticStories('flood', { settingOn: undefined })).toEqual([])
+    expect(mocks.embed).not.toHaveBeenCalled()
+  })
+
+  it('is off without a key, even with the switch on, and sends nothing', async () => {
+    delete process.env.OPENAI_API_KEY
+    mocks.embed.mockClear()
+    expect(await semanticStories('flood', { settingOn: true })).toEqual([])
     expect(mocks.embed).not.toHaveBeenCalled()
   })
 
   it('finds published stories by meaning, above the floor, and honours the kind filter', async () => {
     process.env.OPENAI_API_KEY = 'sk-test'
-    process.env.SEMANTIC_SEARCH = 'on'
     const flood = await story('Searchable flood coverage')
     const music = await story('Searchable music coverage')
     const draft = await story('Searchable flood draft', { _status: 'draft' })
     const episode = await story('Searchable flood episode', { format: 'audio', production: (await payload.create({ collection: 'productions', data: { title: `Search show ${run}` } as never, overrideAccess: true, context: ctx }).then((p) => { created.push({ collection: 'productions', id: p.id as number }); return p.id })) })
     for (const s of [flood, music, draft, episode]) await upsertEmbedding(payload, s.id, textToVector(s.title), EMBEDDING_MODEL, 'h')
 
-    const hits = await semanticStories('flood', { limit: 50 })
+    const hits = await semanticStories('flood', { settingOn: true, limit: 50 })
     const paths = hits.map((h) => h.id)
     expect(paths).toContain(`semantic-${flood.id}`)
     expect(paths).toContain(`semantic-${episode.id}`)
@@ -242,15 +247,14 @@ describe('semantic search', () => {
     expect(hits.find((h) => h.id === `semantic-${episode.id}`)?.kind).toBe('episode')
     expect(hits.find((h) => h.id === `semantic-${flood.id}`)?.kind).toBe('story')
 
-    const onlyStories = await semanticStories('flood', { kinds: ['story'], limit: 50 })
+    const onlyStories = await semanticStories('flood', { settingOn: true, kinds: ['story'], limit: 50 })
     expect(onlyStories.map((h) => h.id)).toContain(`semantic-${flood.id}`)
     expect(onlyStories.map((h) => h.id)).not.toContain(`semantic-${episode.id}`)
   })
 
   it('answers with nothing, not an error, when the provider fails', async () => {
     process.env.OPENAI_API_KEY = 'sk-test'
-    process.env.SEMANTIC_SEARCH = 'on'
     mocks.embed.mockRejectedValueOnce(new Error('provider down'))
-    expect(await semanticStories('a query never asked before')).toEqual([])
+    expect(await semanticStories('a query never asked before', { settingOn: true })).toEqual([])
   })
 })
