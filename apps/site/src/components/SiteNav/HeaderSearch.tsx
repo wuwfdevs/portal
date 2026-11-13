@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { MAX_QUERY_LENGTH, searchHref } from '@/lib/search/query'
 
 /**
- * The header's search (board 27). The icon opens a search field over the header's top row, so a reader searches where they
+ * The header's search (board 27). The icon opens a search field over the header, so a reader searches where they
  * are. It is a real link to /search underneath, so with no JavaScript it still works; with it, the click opens the
  * field instead. Enter goes to the results page. Escape or a navigation closes it and returns focus to the icon.
  */
@@ -36,11 +36,13 @@ const Search: React.FC<{ label: string }> = ({ label }) => {
   return (
     <div className="flex items-center">
       {open && (
-        // Laid over the header's top row (the header is the positioned ancestor), not placed in the row: a field in the
-        // row takes width from the menu and makes its last links wrap. Over the row it has the whole width, on a phone too.
+        // Laid over the whole header (the header is the positioned ancestor), not placed in its row: a field in the row
+        // takes width from the menu and makes its last links wrap. Covering all of it, with no height of its own to keep in
+        // step with the header's rows, it never leaves half a menu showing, on a phone or a desktop. The close button and
+        // Escape give the header back.
         <form
           action="/search"
-          className="absolute inset-x-0 top-0 z-40 h-[4.5rem] bg-surface"
+          className="absolute inset-0 z-40 bg-surface"
           onKeyDown={(e) => {
             if (e.key === 'Escape') close(true)
           }}
@@ -51,7 +53,7 @@ const Search: React.FC<{ label: string }> = ({ label }) => {
           }}
           role="search"
         >
-          <div className="container flex h-full items-center gap-2">
+          <div className="container flex h-full min-h-16 items-center gap-2">
             <label className="sr-only" htmlFor="header-search">
               {label}
             </label>
