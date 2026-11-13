@@ -28,7 +28,7 @@ export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: '
 export const Avatar: React.FC<{ name: string; initials?: string | null; photo?: MediaDoc | null; className?: string }> = ({ name, initials, photo, className }) =>
   photo ? (
     <span aria-hidden="true" className={`inline-block size-12 shrink-0 overflow-hidden rounded-pill bg-surface-3 ${className ?? ''}`}>
-      <Media imgClassName="size-full object-cover" resource={photo} size="96px" />
+      <Media className="size-full" imgClassName="size-full object-cover" pictureClassName="block size-full" resource={photo} size="96px" />
     </span>
   ) : (
     <span
