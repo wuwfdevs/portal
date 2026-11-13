@@ -76,7 +76,7 @@ export function LiveBlogView({ data }: { data: LiveBlogData }) {
       </header>
 
       {blog.featuredMedia && blog.featuredMedia.length > 0 && (
-        <div className="container mt-8 max-w-[52rem]">
+        <div className="container mt-8">
           <FeaturedMedia blocks={blog.featuredMedia} />
         </div>
       )}

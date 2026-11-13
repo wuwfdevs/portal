@@ -13,7 +13,8 @@ export function FeaturedMedia({ blocks }: { blocks: Post['featuredMedia'] }) {
   if (!block) return null
   switch (block.blockType) {
     case 'mediaBlock':
-      return <MediaBlock {...block} captionClassName="mt-3" disableInnerContainer enableGutter={false} imgClassName="m-0" />
+      // `alignment` is for pictures inside the text; the opening picture always spans the whole width.
+      return <MediaBlock {...block} alignment="full" captionClassName="mt-3" disableInnerContainer enableGutter={false} imgClassName="m-0 h-auto w-full" />
     case 'gallery':
       return <GalleryBlock {...block} className="my-0" />
     case 'videoPlayer':

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getPayload } from 'payload'
 import React, { cache } from 'react'
 
-import type { Contributor, Post } from '@/payload-types'
+import type { Contributor, Media, Post } from '@/payload-types'
 
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
@@ -36,6 +36,10 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const production = named(post.production)
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
+
+  // The story is read one level deep, which gives each author's name and bio but only the id of their photo. Their profile
+  // page reads the person itself, so the photo is there; do the same here, so both show the same picture.
+  const bylinePhotos = await loadBylinePhotos(byline)
 
   // Which funder lines this story carries comes from the agreement records, never from the story. Agreements are
   // not readable by the public (as a visitor, `fellowship.agreements` comes back as bare ids), so this goes through
@@ -89,11 +93,24 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         {post.dek && <p className="font-serif text-xl text-ink-2 md:text-2xl">{post.dek}</p>}
 
         <div className="flex items-center gap-4 pt-2">
-          {byline[0] && <Avatar name={byline[0].name} />}
+          {byline[0] && <Avatar initials={byline[0].initials} name={byline[0].name} photo={bylinePhotos.get(byline[0].id)} />}
           <div className="flex flex-col text-sm text-ink-3">
             {byline.length > 0 && (
               <p>
-                <span className="font-bold text-ink">{byline.map((c) => c.name).join(' and ')}</span>
+                <span className="font-bold text-ink">
+                  {byline.map((c, i) => (
+                    <React.Fragment key={c.id}>
+                      {i > 0 && (i === byline.length - 1 ? ' and ' : ', ')}
+                      {c.slug ? (
+                        <Link className="text-ink underline-offset-2 hover:text-wuwf-blue-700 hover:underline" href={`/people/${c.slug}`}>
+                          {c.name}
+                        </Link>
+                      ) : (
+                        c.name
+                      )}
+                    </React.Fragment>
+                  ))}
+                </span>
                 {byline[0]?.title ? `, ${byline[0].title}` : ''}
               </p>
             )}
@@ -108,7 +125,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       </header>
 
       {hasFeaturedMedia && (
-        <div className="container mt-8 max-w-[52rem]">
+        <div className="container mt-8">
           <FeaturedMedia blocks={post.featuredMedia} />
         </div>
       )}
@@ -145,7 +162,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
             </section>
           )}
           {byline.map((c) => (
-            <AuthorBox contributor={c} key={c.id} />
+            <AuthorBox contributor={c} key={c.id} photo={bylinePhotos.get(c.id)} />
           ))}
           <MembershipAppeal />
         </div>
@@ -187,6 +204,26 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       )}
     </article>
   )
+}
+
+/** Each byline author's photo as a loaded media record, by contributor id; an author with no photo is left out. */
+async function loadBylinePhotos(byline: Contributor[]): Promise<Map<Contributor['id'], Media>> {
+  const photos = new Map<Contributor['id'], Media>()
+  const needed = byline.filter((c) => c.photo != null && typeof c.photo !== 'object')
+  for (const c of byline) if (c.photo && typeof c.photo === 'object') photos.set(c.id, c.photo)
+  if (needed.length === 0) return photos
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({
+    collection: 'contributors',
+    depth: 1,
+    limit: needed.length,
+    overrideAccess: false,
+    pagination: false,
+    select: { photo: true },
+    where: { id: { in: needed.map((c) => c.id) } },
+  })
+  for (const doc of found.docs) if (doc.photo && typeof doc.photo === 'object') photos.set(doc.id, doc.photo)
+  return photos
 }
 
 const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: string | number) => {
