@@ -19,5 +19,8 @@ export const redirects: NextConfig['redirects'] = async () => {
   // not permanent, so it can be pointed at the donation form later without browsers having cached the old answer.
   const groveSupportRedirect = { source: '/thanks-for-your-support', destination: '/support', permanent: false }
 
-  return [groveSupportRedirect, internetExplorerRedirect]
+  // Listening starts from the header now; the old Listen live page became the broadcast schedule.
+  const listenRedirect = { source: '/listen', destination: '/schedule', permanent: true }
+
+  return [listenRedirect, groveSupportRedirect, internetExplorerRedirect]
 }

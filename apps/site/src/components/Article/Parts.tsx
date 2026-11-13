@@ -33,7 +33,9 @@ export const AuthorBox: React.FC<{ contributor: Contributor }> = ({ contributor 
   <div className="flex gap-4 border-t border-rule pt-6">
     <Avatar name={contributor.name} />
     <div className="flex flex-col gap-1">
-      <p className="text-base font-bold text-ink">{contributor.name}</p>
+      <p className="text-base font-bold text-ink">
+        {contributor.slug ? <Link href={`/people/${contributor.slug}`}>{contributor.name}</Link> : contributor.name}
+      </p>
       {contributor.title && <p className="text-sm text-ink-3">{contributor.title}</p>}
       {contributor.bio && <p className="mt-1 text-base text-ink-2">{contributor.bio}</p>}
     </div>
