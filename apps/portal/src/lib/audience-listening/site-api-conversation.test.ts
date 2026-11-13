@@ -89,6 +89,33 @@ describe("contact cards", () => {
   });
 });
 
+describe("an organizer's link", () => {
+  const CLAIM = "C".repeat(LISTENING_TABLE_TOKEN_LENGTH);
+
+  it("is redeemed by an account, and only its hash reaches the database", () => {
+    const call = ok("room-claim", { subject: ACCOUNT, claimToken: CLAIM });
+    expect(call.rpc).toEqual({ fn: "al_site_room_claim", args: { p_subject: "site:account:org1", p_claim_hash: hashJoinToken(CLAIM) } });
+    expect(JSON.stringify(call.rpc.args)).not.toContain(CLAIM);
+  });
+
+  it("refuses a visitor, a missing or malformed token, and a token of the wrong length", () => {
+    bad("room-claim", { subject: VISITOR, claimToken: CLAIM });
+    bad("room-claim", { subject: ACCOUNT });
+    bad("room-claim", { subject: ACCOUNT, claimToken: "short" });
+    bad("room-claim", { subject: ACCOUNT, claimToken: `${"C".repeat(42)}/` });
+  });
+
+  it("is rate limited by account and by address", () => {
+    expect(rateKeys({ ...ok("room-claim", { subject: ACCOUNT, claimToken: CLAIM }), clientHash: "h".repeat(8) }).length).toBe(2);
+  });
+
+  it("answers with the event's public id, and with unavailable when the database says nothing usable", () => {
+    expect(shapeResponse("room-claim", { public_id: EVENT })).toEqual({ ok: true, body: { eventPublicId: EVENT } });
+    expect(shapeResponse("room-claim", null).ok).toBe(false);
+    expect(shapeResponse("room-claim", { error: "not_found" })).toEqual({ ok: false, error: "not_found" });
+  });
+});
+
 describe("the organizer's room", () => {
   it("needs an account subject and an event's public id", () => {
     const call = ok("room", { subject: ACCOUNT, eventPublicId: EVENT });

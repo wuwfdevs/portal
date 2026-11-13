@@ -10,6 +10,7 @@ import { openSegmentStore, type SegmentStore } from '@/lib/listening/segment-sto
 import { putToSignedUrl } from '@/lib/listening/send-answer'
 import {
   SegmentQueue,
+  checkFacilitator,
   endedView,
   formatClock,
   helpSentence,
@@ -66,6 +67,7 @@ type Ending = null | 'sending' | 'sent' | 'partial' | 'unknown'
 const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: string | null; store: SegmentStore | null }> = ({ initial, conversationStatus, store }) => {
   const [table, setTable] = useState<ListeningTable>(initial)
   const [name, setName] = useState(initial.facilitatorFirstName ?? '')
+  const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
@@ -172,7 +174,12 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
       // The microphone first: a refusal is found out before anyone has been told they are being recorded.
       if (!(await recorder.acquire())) return
       if (table.state === 'waiting') {
-        const agreed = await agreeTable({ consentVersion: table.consent.version, firstName: name })
+        const facilitator = checkFacilitator({ firstName: name, email })
+        if (!facilitator.ok) {
+          setError(facilitator.message)
+          return
+        }
+        const agreed = await agreeTable({ consentVersion: table.consent.version, firstName: facilitator.value.firstName, email: facilitator.value.email })
         if (!apply(agreed)) return
       }
       const started = await updateTable({ event: 'start' })
@@ -321,7 +328,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
               <Link className={cn(buttonDark, 'min-h-12 w-full max-w-sm text-base')} href="/listens/session/after">
                 Name the voices and mark what mattered
               </Link>
-              <p className="max-w-sm text-sm text-ink-3">Do this on this phone: it is the one that holds your table&rsquo;s link, and the link stops working about twelve hours after the session ends.</p>
+              <p className="max-w-sm text-sm text-ink-3">WUWF will email you a link when the transcript is ready, so you can do this on any phone or computer within two weeks. You can also do it now on this phone.</p>
             </>
           )}
           {ending === 'unknown' && (
@@ -384,21 +391,44 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
             </p>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label className={label} htmlFor="facilitator-name">
-              Your first name (optional)
-            </label>
-            <input
-              autoComplete="given-name"
-              className={field}
-              id="facilitator-name"
-              maxLength={100}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="So WUWF knows who to thank"
-              type="text"
-              value={name}
-            />
-          </div>
+          {table.state === 'waiting' && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label className={label} htmlFor="facilitator-name">
+                  Your first name (optional)
+                </label>
+                <input
+                  autoComplete="given-name"
+                  className={field}
+                  id="facilitator-name"
+                  maxLength={60}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="So WUWF knows who to thank"
+                  type="text"
+                  value={name}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className={label} htmlFor="facilitator-email">
+                  Your email
+                </label>
+                <input
+                  autoComplete="email"
+                  className={field}
+                  id="facilitator-email"
+                  inputMode="email"
+                  maxLength={320}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  type="email"
+                  value={email}
+                />
+                <span className="text-xs text-ink-3">
+                  WUWF emails you one link, once the transcript is ready, to name the voices at your table and mark what mattered. It is not shared or used for anything else, and WUWF removes it about a month after the event.
+                </span>
+              </div>
+            </>
+          )}
 
           {recorder.guidance && (
             <p className={noticeWarn} role="alert">

@@ -33,6 +33,9 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { addTables, deleteEvent, removeSeat, removeTable, setEventStatus, setListing, updateEvent } from "../../event-actions";
 import { EventFields } from "../event-fields";
 import { TableCards } from "./table-cards";
+import { OrganizerLink } from "./organizer-link";
+import { emailPendingFacilitatorLinks } from "../../conversation-actions";
+import { needsAfterLink } from "@/lib/audience-listening/after-link";
 
 const CONVERSATION_STATUS_LABEL = {
   recording: "Recording",
@@ -54,11 +57,11 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string; error?: string; notice?: string }>;
+  searchParams: Promise<{ edit?: string; error?: string; notice?: string; links_sent?: string; links_failed?: string }>;
 }) {
   const { isCoordinator } = await requireAudienceListeningContext();
   const { id } = await params;
-  const { edit, error, notice } = await searchParams;
+  const { edit, error, notice, links_sent: linksSent, links_failed: linksFailed } = await searchParams;
   const event = await getEvent(id);
   if (!event) notFound();
 
@@ -70,6 +73,7 @@ export default async function EventPage({
     listConsentTexts(),
   ]);
   const conversationByTable = new Map(conversations.map((c) => [c.table_id, c]));
+  const pendingLinks = tables.filter((t) => needsAfterLink(t, conversationByTable.get(t.id) ?? null)).length;
   const editing = edit === "1";
   const eventBadge = EVENT_STATUS_BADGE[event.status];
   const listingBadge = LISTING_BADGE[event.listing_state];
@@ -108,6 +112,12 @@ export default async function EventPage({
       {notice && NOTICES[notice] && (
         <Alert variant="note" className="mb-4">
           {NOTICES[notice]}
+        </Alert>
+      )}
+      {linksSent !== undefined && (
+        <Alert variant={Number(linksFailed) > 0 ? "warning" : "success"} className="mb-4">
+          {Number(linksSent)} {Number(linksSent) === 1 ? "link was" : "links were"} emailed to facilitators.
+          {Number(linksFailed) > 0 && ` ${Number(linksFailed)} could not be sent; open those tables to see why and to hand over the link yourself.`}
         </Alert>
       )}
 
@@ -288,6 +298,25 @@ export default async function EventPage({
             canIssue={canIssue}
             tables={tables.map((t) => ({ id: t.id, number: t.number, hasLink: t.join_token_hash != null, used: t.join_token_used_at != null }))}
           />
+          {pendingLinks > 0 && (
+            <form action={emailPendingFacilitatorLinks} className="mt-5 flex flex-col gap-2 border-t border-line pt-4 print:hidden">
+              <input type="hidden" name="event_id" value={event.id} />
+              <div>
+                <Button type="submit" variant="secondary">
+                  Email {pendingLinks === 1 ? "the facilitator" : `${pendingLinks} facilitators`} their link
+                </Button>
+              </div>
+              <p className="text-xs text-ink-400">
+                For each table with a facilitator email, a recording not yet sent to the station and no link sent. Press it once the transcripts are ready;
+                nothing sends on its own.
+              </p>
+            </form>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <SectionHeading className="mb-1">The organizer&apos;s room</SectionHeading>
+          <OrganizerLink eventId={event.id} hasOrganizer={event.organizer_subject != null} canIssue={isCoordinator && (event.status === "scheduled" || event.status === "live")} />
         </Card>
 
         {event.visibility === "public" && (

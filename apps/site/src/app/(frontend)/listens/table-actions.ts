@@ -14,7 +14,8 @@ import { isAllowedAnswerType, normalizeContentType } from '@wuwf/listening-core'
 import { callListening } from '@/lib/listening/portal'
 import { currentClientHash } from '@/lib/listening/request-context'
 import { failure, isUuid, type ActionResult } from '@/lib/listening/results'
-import { dropTableSession, holdTableSession, isTableLinkToken, readTableSession } from '@/lib/listening/table-session'
+import { dropTableSession, holdTableSession, isTableLinkToken, readConversationSessions, readTableSession } from '@/lib/listening/table-session'
+import { checkFacilitator } from '@/lib/listening/table'
 
 /**
  * The server actions of a table's phone and of the facilitator's after-page (boards 5d to 5f, docs/audience-listening-suite-design.md
@@ -22,11 +23,21 @@ import { dropTableSession, holdTableSession, isTableLinkToken, readTableSession 
  * redeemed. The site holds that session in an httpOnly cookie, so these actions read it; the browser never sees it, and never sends
  * one. Everything a browser does send is picked field by field and checked before it is signed. Nothing here is logged.
  */
-async function withSession<T extends object>(run: (session: string, clientHash: Record<string, string>) => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
-  const session = await readTableSession()
-  if (!session) return failure('not_found')
+async function withSession<T extends object>(
+  run: (session: string, clientHash: Record<string, string>) => Promise<ActionResult<T>>,
+  read: () => Promise<string[]> = async () => [await readTableSession()].filter((s): s is string => s !== null),
+): Promise<ActionResult<T>> {
+  const sessions = await read()
+  if (sessions.length === 0) return failure('not_found')
   const hash = await currentClientHash()
-  return run(session, hash ? { clientHash: hash } : {})
+  const base: Record<string, string> = hash ? { clientHash: hash } : {}
+  let last: ActionResult<T> = failure('not_found')
+  for (const session of sessions) {
+    last = await run(session, base)
+    // A token the Portal does not know (replaced, or run out) must not hide one that still works; any other answer is final.
+    if (last.ok || last.code !== 'not_found') return last
+  }
+  return last
 }
 
 /**
@@ -53,12 +64,23 @@ export async function readTable(): Promise<ActionResult<{ table: ListeningTable 
   })
 }
 
-/** The facilitator's tap after the consent is read aloud. The version is the one the phone showed. */
-export async function agreeTable(input: { consentVersion: number; firstName: string | null }): Promise<ActionResult<{ table: ListeningTable }>> {
+/**
+ * The facilitator's tap after the consent is read aloud. The version is the one the phone showed; the email is where WUWF sends the
+ * one link to the after-page, and the Portal never sends it back.
+ */
+export async function agreeTable(input: { consentVersion: number; firstName: string | null; email: string }): Promise<ActionResult<{ table: ListeningTable }>> {
   if (!Number.isInteger(input.consentVersion) || input.consentVersion < 1) return failure('invalid_request')
-  const firstName = typeof input.firstName === 'string' ? input.firstName.trim().slice(0, 100) || null : null
+  if (typeof input.email !== 'string' || (input.firstName !== null && typeof input.firstName !== 'string')) return failure('invalid_request')
+  const facilitator = checkFacilitator({ firstName: input.firstName ?? '', email: input.email })
+  if (!facilitator.ok) return { ...failure('required_field_missing'), message: facilitator.message }
   return withSession(async (session, base) => {
-    const result = await callListening<{ table: ListeningTable }>(LISTENING_PATHS.tableAgree, { session, consentVersion: input.consentVersion, firstName, ...base })
+    const result = await callListening<{ table: ListeningTable }>(LISTENING_PATHS.tableAgree, {
+      session,
+      consentVersion: input.consentVersion,
+      firstName: facilitator.value.firstName,
+      email: facilitator.value.email,
+      ...base,
+    })
     return result.ok ? { ok: true, table: result.table } : failure(result.error)
   })
 }
@@ -138,7 +160,7 @@ export async function readConversation(): Promise<ActionResult<{ conversation: L
   return withSession(async (session, base) => {
     const result = await callListening<{ conversation: ListeningConversation }>(LISTENING_PATHS.conversation, { session, ...base })
     return result.ok ? { ok: true, conversation: result.conversation } : failure(result.error)
-  })
+  }, readConversationSessions)
 }
 
 /** Names and merges, sent whole. Each voice is picked by name; nothing a browser sends is spread into the signed body. */
@@ -154,7 +176,7 @@ export async function saveSpeakers(input: { speakers: { id: string; name: string
   return withSession(async (session, base) => {
     const result = await callListening<Record<never, never>>(LISTENING_PATHS.speakersSave, { session, speakers, ...base })
     return result.ok ? { ok: true } : failure(result.error)
-  })
+  }, readConversationSessions)
 }
 
 /** The lines that mattered, by where each starts. The Portal copies the words itself; the site never supplies them. */
@@ -169,7 +191,7 @@ export async function saveHighlights(input: { highlights: { startMs: number; tag
   return withSession(async (session, base) => {
     const result = await callListening<Record<never, never>>(LISTENING_PATHS.highlightsSave, { session, highlights, ...base })
     return result.ok ? { ok: true } : failure(result.error)
-  })
+  }, readConversationSessions)
 }
 
 /** Sends the conversation to the station. It can still be read afterwards, not changed. */
@@ -177,5 +199,5 @@ export async function sendConversation(): Promise<ActionResult<Record<never, nev
   return withSession(async (session, base) => {
     const result = await callListening<Record<never, never>>(LISTENING_PATHS.conversationSend, { session, ...base })
     return result.ok ? { ok: true } : failure(result.error)
-  })
+  }, readConversationSessions)
 }

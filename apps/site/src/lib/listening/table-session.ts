@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 
 import { LISTENING_TABLE_SESSION_LENGTH, LISTENING_TABLE_TOKEN_LENGTH } from '@wuwf/portal-contracts'
 
-import { TABLE_SESSION_COOKIE, cookieMaxAgeSeconds, isTableSessionToken } from './table-token'
+import { AFTER_SESSION_COOKIE, TABLE_SESSION_COOKIE, cookieMaxAgeSeconds, isTableSessionToken } from './table-token'
 
 export { isTableLinkToken, isTableSessionToken } from './table-token'
 
@@ -33,6 +33,22 @@ export async function holdTableSession(token: string, expiresAt: string, now: Da
 
 export async function dropTableSession(): Promise<void> {
   ;(await cookies()).delete({ name: TABLE_SESSION_COOKIE, path: '/listens' })
+}
+
+/** The facilitator's after-page token, from the emailed link, if this browser holds one. */
+export async function readAfterToken(): Promise<string | null> {
+  const value = (await cookies()).get(AFTER_SESSION_COOKIE)?.value
+  return isTableSessionToken(value) ? value : null
+}
+
+/**
+ * What the after-page messages may be sent with, best first: the emailed link's token if this browser has one, then the table's own
+ * session (a facilitator still on the phone that recorded). The Portal accepts either for those four messages and only the session for
+ * the rest. A caller tries them in order, because a link that was replaced or has run out must not hide a session that still works.
+ */
+export async function readConversationSessions(): Promise<string[]> {
+  const candidates = [await readAfterToken(), await readTableSession()]
+  return candidates.filter((token, index): token is string => token !== null && candidates.indexOf(token) === index)
 }
 
 export const TABLE_TOKEN_LENGTHS = { link: LISTENING_TABLE_TOKEN_LENGTH, session: LISTENING_TABLE_SESSION_LENGTH } as const

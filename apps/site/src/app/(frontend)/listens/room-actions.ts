@@ -6,6 +6,7 @@ import { supabaseAudienceAuth } from '@/lib/audience/supabase'
 import { callListening } from '@/lib/listening/portal'
 import { currentClientHash } from '@/lib/listening/request-context'
 import { failure, isPublicId, type ActionResult } from '@/lib/listening/results'
+import { isTableLinkToken } from '@/lib/listening/table-token'
 
 /**
  * The organizer's console (board 5g). The organizer is a site account: the subject sent is that account's id, and the Portal
@@ -41,4 +42,18 @@ export async function callRoom(input: { eventPublicId: string; action: Listening
     ...(hash ? { clientHash: hash } : {}),
   })
   return result.ok ? { ok: true, room: result.room } : failure(result.error)
+}
+
+/**
+ * Redeems an organizer link for the signed-in account. The link names the event and the Portal records this account as its
+ * organizer; the account's own details never leave this site. A press, never a page load, because opening a link in a mail preview
+ * must not hand an event to whoever is signed in.
+ */
+export async function claimRoom(claimToken: string): Promise<ActionResult<{ eventPublicId: string }>> {
+  if (!isTableLinkToken(claimToken)) return failure('invalid_request')
+  const subject = await accountSubject()
+  if (!subject) return failure('not_found')
+  const hash = await currentClientHash()
+  const result = await callListening<{ eventPublicId: string }>(LISTENING_PATHS.roomClaim, { subject, claimToken, ...(hash ? { clientHash: hash } : {}) })
+  return result.ok ? { ok: true, eventPublicId: result.eventPublicId } : failure(result.error)
 }

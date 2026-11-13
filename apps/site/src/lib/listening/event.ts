@@ -1,4 +1,4 @@
-import type { ListeningPublicEvent } from '@wuwf/portal-contracts'
+import type { ListeningHubEvent, ListeningPublicEvent } from '@wuwf/portal-contracts'
 
 import { looksLikeEmail, type Checked } from './inbox'
 
@@ -47,7 +47,7 @@ export function seatsSentence(seatsLeft: number | null): string | null {
   return seatsLeft === 1 ? '1 seat left.' : `${seatsLeft} seats left.`
 }
 
-export function eventIsFull(event: Pick<ListeningPublicEvent, 'seatsLeft'>): boolean {
+export function eventIsFull(event: Pick<ListeningPublicEvent | ListeningHubEvent, 'seatsLeft'>): boolean {
   return event.seatsLeft !== null && event.seatsLeft <= 0
 }
 
@@ -64,4 +64,16 @@ export function checkSeat(input: SeatInput): Checked<SeatInput> {
   if (name.length > 200) return { ok: false, message: 'That name is too long.' }
   if (email.length === 0 || email.length > 320 || !looksLikeEmail(email)) return { ok: false, message: 'That email address does not look right.' }
   return { ok: true, value: { name, email } }
+}
+
+/** One line for a hub card: when, where, and seats if the event has a limit. */
+export function hubEventMeta(event: Pick<ListeningHubEvent, 'startsAt' | 'endsAt' | 'placeName' | 'city' | 'seatsLeft'>): string {
+  const place = [event.placeName, event.city].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join(', ')
+  return [formatEventWhen(event.startsAt, event.endsAt), place, seatsSentence(event.seatsLeft)].filter(Boolean).join(' · ')
+}
+
+/** The sessions the hub lists: those the Portal sent, soonest first, a full one last. A Portal that sends none gives an empty list. */
+export function hubSessions(hub: { events?: ListeningHubEvent[] }): ListeningHubEvent[] {
+  const events = hub.events ?? []
+  return [...events].sort((a, b) => Number(eventIsFull(a)) - Number(eventIsFull(b)) || a.startsAt.localeCompare(b.startsAt))
 }

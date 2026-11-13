@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkSeat, eventIsFull, formatEventPlace, formatEventWhen, seatsSentence } from './event'
+import { checkSeat, eventIsFull, formatEventPlace, formatEventWhen, hubEventMeta, hubSessions, seatsSentence } from './event'
 
 describe('formatEventWhen', () => {
   it("is in the station's time, not UTC", () => {
@@ -42,5 +42,22 @@ describe('checkSeat', () => {
     expect(checkSeat({ name: '', email: 'dana@example.com' }).ok).toBe(false)
     expect(checkSeat({ name: 'Dana', email: 'dana' }).ok).toBe(false)
     expect(checkSeat({ name: 'Dana', email: '' }).ok).toBe(false)
+  })
+})
+
+describe('hub sessions', () => {
+  const event = (id: string, startsAt: string, seatsLeft: number | null) => ({ publicId: id, title: id, startsAt, endsAt: startsAt, placeName: 'Hall', city: 'Milton', organizerLabel: null, seatsLeft })
+  it('lists a session by when, where and seats left', () => {
+    expect(hubEventMeta(event('a', '2026-11-15T16:00:00Z', 12))).toBe('Sunday, Nov. 15, 10:00 a.m. to 10:00 a.m. · Hall, Milton · 12 seats left.')
+  })
+  it('leaves out seats when there is no limit, and a missing city', () => {
+    expect(hubEventMeta({ ...event('a', '2026-11-15T16:00:00Z', null), city: null })).toBe('Sunday, Nov. 15, 10:00 a.m. to 10:00 a.m. · Hall')
+  })
+  it('puts the soonest first and a full session after the ones with seats', () => {
+    const list = hubSessions({ events: [event('late', '2026-12-01T16:00:00Z', 5), event('full', '2026-11-10T16:00:00Z', 0), event('soon', '2026-11-12T16:00:00Z', null)] })
+    expect(list.map((e) => e.publicId)).toEqual(['soon', 'late', 'full'])
+  })
+  it('is empty for a Portal that sends no events', () => {
+    expect(hubSessions({})).toEqual([])
   })
 })

@@ -8,6 +8,7 @@ import {
   SEGMENT_CUT_SECONDS,
   SegmentQueue,
   canStartAnotherSegment,
+  checkFacilitator,
   endedView,
   formatClock,
   helpSentence,
@@ -309,5 +310,22 @@ describe('endedView', () => {
   it('does not claim anything it cannot know', () => {
     expect(endedView(null)).toBe('unknown')
     expect(endedView('something new')).toBe('unknown')
+  })
+})
+
+describe('checkFacilitator', () => {
+  it('needs an email, and takes a first name or none', () => {
+    expect(checkFacilitator({ firstName: ' Dana ', email: ' dana@example.org ' })).toEqual({ ok: true, value: { firstName: 'Dana', email: 'dana@example.org' } })
+    expect(checkFacilitator({ firstName: '  ', email: 'dana@example.org' })).toEqual({ ok: true, value: { firstName: null, email: 'dana@example.org' } })
+  })
+  it('refuses a missing or malformed email and says why', () => {
+    const missing = checkFacilitator({ firstName: 'Dana', email: ' ' })
+    expect(missing.ok).toBe(false)
+    expect(!missing.ok && missing.message).toMatch(/where WUWF sends the link/)
+    expect(checkFacilitator({ firstName: 'Dana', email: 'dana' }).ok).toBe(false)
+    expect(checkFacilitator({ firstName: 'Dana', email: `${'x'.repeat(320)}@example.org` }).ok).toBe(false)
+  })
+  it('refuses a first name the Portal would refuse', () => {
+    expect(checkFacilitator({ firstName: 'x'.repeat(61), email: 'dana@example.org' }).ok).toBe(false)
   })
 })

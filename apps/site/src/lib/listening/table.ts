@@ -6,6 +6,7 @@ import {
   type ListeningUpload,
 } from '@wuwf/portal-contracts'
 
+import { looksLikeEmail, type Checked } from './inbox'
 import type { ActionResult } from './results'
 import type { SegmentStore } from './segment-store'
 
@@ -308,4 +309,25 @@ export function endedView(status: string | null): EndedView {
     default:
       return 'unknown'
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The facilitator
+
+export interface FacilitatorInput {
+  firstName: string
+  email: string
+}
+
+/**
+ * What the facilitator gives when the table agrees: an optional first name and a required email. The email is how WUWF sends them
+ * the one link to name the voices and mark what mattered; the Portal checks it again and never sends it back to this site.
+ */
+export function checkFacilitator(input: FacilitatorInput): Checked<{ firstName: string | null; email: string }> {
+  const firstName = input.firstName.trim()
+  const email = input.email.trim()
+  if (firstName.length > 60) return { ok: false, message: 'A first name can be at most 60 characters.' }
+  if (email.length === 0) return { ok: false, message: 'Add your email. It is where WUWF sends the link to name your table’s voices.' }
+  if (email.length > 320 || !looksLikeEmail(email)) return { ok: false, message: 'That email address does not look right.' }
+  return { ok: true, value: { firstName: firstName || null, email } }
 }

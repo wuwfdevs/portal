@@ -2,6 +2,9 @@ import { LISTENING_TABLE_SESSION_LENGTH, LISTENING_TABLE_TOKEN_LENGTH } from '@w
 
 /** Pure checks for the tokens a table's phone carries, so a browser cannot send anything else into a signed body. */
 export const TABLE_SESSION_COOKIE = 'wuwf_table_session'
+/** The after-page link's token, kept for the days the Portal honours it. It opens the after-page messages only. */
+export const AFTER_SESSION_COOKIE = 'wuwf_after_session'
+export const AFTER_SESSION_MAX_AGE_SECONDS = 14 * 24 * 60 * 60
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
 

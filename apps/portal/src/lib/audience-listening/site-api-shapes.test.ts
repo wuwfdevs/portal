@@ -360,9 +360,21 @@ describe("the hub", () => {
   });
 
   it("is empty, not an error, for a payload it cannot read", () => {
-    expect(shapeHub(null)).toEqual({ open: [], answered: [] });
+    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [] });
     expect(shapeResponse("hub", { error: "nope" }).ok).toBe(false);
-    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [] } } });
+    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [] } } });
+  });
+
+  it("lists upcoming public events, and drops one that is missing what the page needs", () => {
+    const event = { public_id: PUBLIC_ID, title: "Listening session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Milton Community Center", city: "Milton", organizer_label: null, seats_left: 12 };
+    const { events } = shapeHub({ open: [], answered: [], events: [event, { ...event, place_name: null }, { ...event, public_id: undefined }, "nope"] });
+    expect(events).toEqual([
+      { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12 },
+    ]);
+  });
+
+  it("gives no events, and no error, when the database sends none", () => {
+    expect(shapeHub({ open: [], answered: [] }).events).toEqual([]);
   });
 });
 

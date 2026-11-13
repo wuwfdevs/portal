@@ -69,6 +69,7 @@ export const LISTENING_ACTIONS = [
   "contact-card-save",
   "room",
   "room-call",
+  "room-claim",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -329,6 +330,12 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       if (needsValue && value === null) return BAD;
       return done({ fn: "al_site_room_call", args: { p_subject: key, p_public_id: eventPublicId, p_action: roomAction, p_value: value } });
     }
+    case "room-claim": {
+      // An organizer link is redeemed by a site account; only its hash reaches the database.
+      if ((body["subject"] as ListeningSubject).kind !== "account") return BAD;
+      if (!isToken(body["claimToken"], LISTENING_TABLE_TOKEN_LENGTH)) return BAD;
+      return done({ fn: "al_site_room_claim", args: { p_subject: key, p_claim_hash: hashJoinToken(body["claimToken"]) } });
+    }
     case "seat-save": {
       const publicId = body["publicId"];
       const name = required(body["name"], 200);
@@ -403,8 +410,10 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
     case "table-agree": {
       const version = int(body["consentVersion"], 1, 1_000_000);
       const name = str(body["firstName"], 60);
-      if (version === null || name === undefined) return BAD;
-      return done(key, { fn: "al_site_table_agree", args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null } });
+      // The facilitator's email is how WUWF sends them the after-page link. It is required; the database checks it again.
+      const email = optionalEmail(body["email"]);
+      if (version === null || name === undefined || !email) return BAD;
+      return done(key, { fn: "al_site_table_agree", args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null, p_email: email } });
     }
     case "table-update": {
       const event = LISTENING_TABLE_EVENTS.find((e) => e === body["event"]);
@@ -628,7 +637,17 @@ export function shapeHub(payload: unknown): ListeningHub {
     ];
   });
 
-  return { open, answered };
+  const events = rows(source["events"]).flatMap((e) => {
+    const publicId = asString(e["public_id"]);
+    const title = asString(e["title"]);
+    const startsAt = asString(e["starts_at"]);
+    const endsAt = asString(e["ends_at"]);
+    const placeName = asString(e["place_name"]);
+    if (!publicId || !title || !startsAt || !endsAt || !placeName) return [];
+    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]) }];
+  });
+
+  return { open, answered, events };
 }
 
 const PROMPT_KINDS = LISTENING_PROMPT_KINDS;
@@ -825,6 +844,10 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
       const room = isObj(payload) ? shapeRoom(payload["room"]) : null;
       return room ? { ok: true, body: { room } } : fail("unavailable");
     }
+    case "room-claim": {
+      const publicId = isObj(payload) ? asString(payload["public_id"]) : null;
+      return publicId ? { ok: true, body: { eventPublicId: publicId } } : fail("unavailable");
+    }
     case "contact-card-open": {
       if (!isObj(payload) || asString(payload["event_title"]) === null || asNumber(payload["table_number"]) === null) return fail("unavailable");
       return { ok: true, body: { eventTitle: payload["event_title"], tableNumber: payload["table_number"] } };
@@ -986,6 +1009,11 @@ export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
   // The organizer's console polls; the limit is generous for that and still bounded per account.
   room: [{ by: "subject", limit: 600, windowSeconds: 600 }],
   "room-call": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  // A claim link is a 256-bit secret, so guessing is not the worry; a few tries by one account and many by one address is plenty.
+  "room-claim": [
+    { by: "subject", limit: 10, windowSeconds: 3600 },
+    { by: "client", limit: 60, windowSeconds: 3600 },
+  ],
 };
 
 /** The keys to count for a request, in the form al_site_rate_hit stores. */

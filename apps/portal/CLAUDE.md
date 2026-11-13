@@ -350,6 +350,16 @@ not purged and nothing guesses a date. `AUDIENCE_LISTENING_NOTIFY_EMAIL` gets on
 is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F).
 Migrations `20261111160000` (schema) and `20261111170000` (Resources content), applied to preview and then production (production through the SQL editor: the Supabase tool holds `DELETE` statements for a confirmation).
 
+**Audience Listening: the facilitator's link, the organizer's link and the hub's events (suite phase E follow-up, 2026-11-13).** A pointer; read the
+suite design's §10. Four things are load-bearing: (1) **the facilitator's email is given at `table-agree`** (required the first time, `al_tables.facilitator_email`;
+staff read it, the site never receives it back, and the purge clears it 30 days after the event); (2) **the after-page link is a second credential, not a longer
+table session**: `private.al_table_for_conversation` lets the four after-page functions accept the table's session or `after_token_hash` (14 days, never past 30
+days after the event), and no recording function accepts it; staff make and email it through `after-link-send.ts` (`sendAfterLink`, never best effort: a failure
+returns the link so a staff member can hand it over), and nothing sends on its own; (3) **an organizer is made by a single-use link** a coordinator makes on the
+event page (`organizer_claim_hash`, guarded in the database by `al_events_guard_organizer`), redeemed by `room-claim` for an `account` subject; (4) **the hub's
+`events`** are additive. Only a hash of any token is stored, and no token, address or body is logged or put in an audit row. Migrations `20261113120000` (schema)
+and `20261113130000` (Resources content).
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the

@@ -24,6 +24,8 @@ import { DescriptionList } from "@/components/ui/description-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { approveCardName, deleteContactCard, markCardContacted, sendConversation } from "../../../../conversation-actions";
+import { AFTER_LINK_STATUS_TEXT, afterLinkStatus } from "@/lib/audience-listening/after-link";
+import { FacilitatorLink } from "./facilitator-link";
 
 // Joining the segments and copying the recording into Sourcework takes a while for a long table. Raised here, on the page that posts
 // to the action, and not in the "use server" file: a bare export there broke the server-action build once (see CLAUDE.md, Sourcework 3b).
@@ -64,6 +66,7 @@ export default async function TablePage({
   };
   const uploaded = segments.filter((s) => s.status === "uploaded").length;
   const backHref = `/audience-listening/events/${eventId}`;
+  const linkStatus = afterLinkStatus(table, conversation);
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -116,6 +119,30 @@ export default async function TablePage({
                 </form>
               )
             )}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <SectionHeading className="mb-3">The facilitator</SectionHeading>
+          <DescriptionList
+            items={[
+              { label: "First name", value: table.facilitator_first_name },
+              { label: "Email", value: table.facilitator_email },
+              { label: "Link sent", value: table.after_link_sent_at ? formatEventTime(table.after_link_sent_at) : "Not yet" },
+              { label: "Link works until", value: table.after_token_expires_at ? formatEventTime(table.after_token_expires_at) : null },
+            ]}
+          />
+          <p className="mt-3 text-sm text-ink-500">
+            The link opens one page: names for the voices, the lines that mattered, and sending the conversation to the station. It works for
+            fourteen days. {AFTER_LINK_STATUS_TEXT[linkStatus]}
+          </p>
+          <div className="mt-3">
+            <FacilitatorLink
+              eventId={eventId}
+              tableId={tableId}
+              disabled={linkStatus === "no_email" || linkStatus === "no_conversation" || linkStatus === "conversation_sent"}
+              sendLabel={linkStatus === "sent" ? "Email a new link" : "Email the link to the facilitator"}
+            />
           </div>
         </Card>
 

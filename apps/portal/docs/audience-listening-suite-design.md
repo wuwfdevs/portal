@@ -4,7 +4,7 @@ Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phas
 phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
 events, tables and seats, with their staff screens and table cards; then the table session: single-use link, agreement, recording in segments, the
 consent wording; then the conversation side: speakers, highlights, contact cards, the organizer's room, Tonight, the Sourcework handoff and the purge).
-**Phase D is built on the Portal and its site screens (phase E) are built on the site (2026-11-13); phase F is not.** The build order and where each phase stands are in §10.
+**Phase D is built on the Portal and its site screens (phase E) are built on the site (2026-11-13, with the follow-up closing its gaps); phase F is not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -331,15 +331,23 @@ Where it stands (2026-11-09):
 
 - **E is built on the site** (`apps/site`, 2026-11-13; `apps/site/ROADMAP.md` -> *Listening: where it stands*): the table card's page
   `/listens/table/<token>` (redeemed by a press, never on load, so a link previewer cannot use up a card), the table's phone `/listens/session`
-  (the agreement, recording in segments of under five minutes put straight to the signed address, prompts, pause, help, end), the contact card
-  `/listens/card/<token>` (board 5i), a public event's page and seat form `/listens/events/<publicId>`, the facilitator's after-page
-  `/listens/session/after` (name and merge voices, mark lines, send) and the organizer's console `/listens/room/<publicId>` (needs a site
-  account that owns the event). Nothing here stores a transcript, a card or audio. **Known gaps, not hidden:** (1) no code sets
-  `al_events.organizer_subject`, so no organizer account can own an event until a staff screen or a claim step sets it to `site:account:<id>`;
-  (2) the table session ends 12 hours after the event, so the after-page must be used on the recording phone within that window, and nothing
-  emails the facilitator a link (the boards promise one); (3) ~~a segment not yet sent is held in memory~~ fixed 2026-11-13: unsent segments, and the one being recorded, are copied to the browser's
-  IndexedDB until the Portal confirms them, and a page reloaded after the table ended asks the Portal what it holds before saying the recording is in; (4) the hub does not yet link to events, because the
-  hub message carries none. **Not built:** reports and outcome links (F).
+  (the agreement, recording in segments of under five minutes put straight to the signed address and copied to the phone until the Portal
+  confirms them, prompts, pause, help, end), the contact card `/listens/card/<token>` (board 5i), a public event's page and seat form
+  `/listens/events/<publicId>`, the facilitator's after-page `/listens/session/after` (name and merge voices, mark lines, send) and the
+  organizer's console `/listens/room/<publicId>`. Nothing on the site stores a transcript, a card or audio.
+- **E, the follow-up that closed its gaps (2026-11-13, `20261113120000`, with its Resources content in `20261113130000`):**
+  (1) **the facilitator gives an email when the table agrees** (required, `al_tables.facilitator_email`, read by staff, never returned to the
+  site, cleared by the purge 30 days after the event); staff email them an **after-page link** from the table or event page once the
+  transcript is ready (nothing sends on its own: there is no scheduler). The link is a 256-bit token stored as a hash
+  (`after_token_hash`), good for fourteen days and never past thirty days after the event, and the site holds it as the `session` of the four
+  after-page messages only (`private.al_table_for_conversation` accepts it beside the table's own session; no recording function does), so the
+  twelve-hour table session is unchanged and a longer-lived link cannot record. (2) **an organizer is made by a single-use link**: a coordinator
+  makes it on the event page (`organizer_claim_hash`; the database refuses anyone else), the person opens it signed in to the website and
+  `room-claim` records `site:account:<id>` as `organizer_subject`; a newer link replaces an earlier organizer. (3) **the hub lists upcoming
+  listed public events** (`events`, additive). (4) **first name stays required** on a contact card, because the Portal needs a name to act on
+  one; the page says so. **Still open, by their nature:** nothing here has run against a live Portal, a mail server or a real phone; the
+  facilitator email depends on `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (without them the page shows the link so staff can hand it over);
+  the purge that clears emails is, like every retention step, run by a coordinator. **Not built:** reports and outcome links (F).
 
 ## 11. Open items for the owner
 

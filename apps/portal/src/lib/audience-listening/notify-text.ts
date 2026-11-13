@@ -21,3 +21,35 @@ export function hostRequestEmailText(portalUrl: string): { subject: string; text
     ].join("\n"),
   };
 }
+
+/**
+ * The one email a facilitator gets: the link to the page where they put names to their table's voices, mark what mattered and send.
+ * The link is the credential, so the words say what it opens, how long it works and not to pass it on. The station's name comes from
+ * the station's settings, never from here.
+ */
+export function facilitatorLinkEmailText(input: {
+  stationName: string;
+  firstName: string | null;
+  eventTitle: string;
+  tableNumber: number;
+  url: string;
+  expiresOn: string;
+}): { subject: string; text: string } {
+  const greeting = input.firstName?.trim() ? `Hello ${input.firstName.trim()},` : "Hello,";
+  return {
+    subject: `Name the voices and mark what mattered at table ${input.tableNumber}`,
+    text: [
+      greeting,
+      "",
+      `Thank you for facilitating table ${input.tableNumber} at ${input.eventTitle}. The transcript of your table's conversation is ready.`,
+      "",
+      `Open this link on any phone or computer to put names to the voices, mark the lines that mattered and send them to ${input.stationName}. It takes about ten minutes.`,
+      "",
+      input.url,
+      "",
+      `The link opens your table's conversation only, and works until ${input.expiresOn}. Anyone who has it can read and change that conversation, so please do not forward it.`,
+      "",
+      "If you were not expecting this, you can ignore it.",
+    ].join("\n"),
+  };
+}

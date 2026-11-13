@@ -53,13 +53,21 @@ describe("table messages: authorisation", () => {
 });
 
 describe("table messages: bodies", () => {
-  it("agree carries the version shown and an optional first name", () => {
-    const call = ok("table-agree", { session: SESSION, consentVersion: 2, firstName: "  Dana " });
-    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana" });
-    expect(ok("table-agree", { session: SESSION, consentVersion: 2, firstName: null }).rpc.args.p_first_name).toBeNull();
-    bad("table-agree", { session: SESSION, firstName: "Dana" });
-    bad("table-agree", { session: SESSION, consentVersion: 0 });
-    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "x".repeat(61) });
+  it("agree carries the version shown, an optional first name and the facilitator's email", () => {
+    const call = ok("table-agree", { session: SESSION, consentVersion: 2, firstName: "  Dana ", email: " dana@example.com " });
+    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana", p_email: "dana@example.com" });
+    expect(ok("table-agree", { session: SESSION, consentVersion: 2, firstName: null, email: "dana@example.com" }).rpc.args.p_first_name).toBeNull();
+    bad("table-agree", { session: SESSION, firstName: "Dana", email: "dana@example.com" });
+    bad("table-agree", { session: SESSION, consentVersion: 0, email: "dana@example.com" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "x".repeat(61), email: "dana@example.com" });
+  });
+
+  it("agree refuses a missing, blank or malformed email, because the after-page link is sent there", () => {
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: null });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: "   " });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: "dana" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: 5 });
   });
 
   it("update takes only known events, and a prompt needs its position", () => {

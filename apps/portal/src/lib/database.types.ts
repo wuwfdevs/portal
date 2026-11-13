@@ -1772,6 +1772,9 @@ export interface Database {
           organizer_kind: AlOrganizerKind;
           organizer_label: string | null;
           organizer_subject: string | null;
+          // SHA-256 of the single-use organizer link; a coordinator makes it, opening it signed in to the website claims the event.
+          organizer_claim_hash: string | null;
+          organizer_claim_issued_at: string | null;
           seats: number | null;
           status: AlEventStatus;
           current_prompt_position: number;
@@ -1813,6 +1816,12 @@ export interface Database {
           help_requested_at: string | null;
           prompt_position: number;
           elapsed_seconds: number;
+          // The facilitator's email (given when the table agrees, read by staff, never by the website) and the after-page link made
+          // from it. Staff issue and send the link; they cannot set the email.
+          facilitator_email: string | null;
+          after_token_hash: string | null;
+          after_token_expires_at: string | null;
+          after_link_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1820,7 +1829,17 @@ export interface Database {
         // written by the table's own session in the second half of phase D, never by a screen.
         Insert: { event_id: string; number: number };
         Update: Partial<
-          Pick<Database["public"]["Tables"]["al_tables"]["Row"], "join_token_hash" | "join_token_issued_at" | "join_token_used_at" | "card_token_hash" | "help_requested_at">
+          Pick<
+            Database["public"]["Tables"]["al_tables"]["Row"],
+            | "join_token_hash"
+            | "join_token_issued_at"
+            | "join_token_used_at"
+            | "card_token_hash"
+            | "help_requested_at"
+            | "after_token_hash"
+            | "after_token_expires_at"
+            | "after_link_sent_at"
+          >
         >;
         Relationships: [];
       };
@@ -4526,15 +4545,15 @@ export interface Database {
       };
     };
     Functions: {
-      /** Security definer (20261111160000). What the 30-day purge would remove; any staff member with access may ask. */
+      /** Security definer (20261111160000, 20261113120000 adds emails). What the 30-day purge would remove; any staff member with access may ask. */
       al_purge_preview: {
         Args: Record<string, never>;
-        Returns: { submissions: number; conversations: number; cards: number; held: number };
+        Returns: { submissions: number; conversations: number; cards: number; held: number; emails: number };
       };
       /** Security definer (20261111160000). Runs the purge. Coordinators only; returns the counts and the storage paths to remove. */
       al_purge_run: {
         Args: Record<string, never>;
-        Returns: { submissions: number; conversations: number; storage_paths: string[] };
+        Returns: { submissions: number; conversations: number; emails: number; storage_paths: string[] };
       };
       /** Security invoker (20261012120000). Accepted and rejected data points per prompt version; a null version is the built-in text. */
       sw_extraction_accept_rates: {
@@ -4802,7 +4821,7 @@ export interface Database {
       };
       al_site_hub: {
         Args: Record<string, never>;
-        Returns: { open: Record<string, unknown>[]; answered: Record<string, unknown>[] };
+        Returns: { open: Record<string, unknown>[]; answered: Record<string, unknown>[]; events: Record<string, unknown>[] };
       };
       /**
        * Guest-join entry point (20260729180000_remote_interview_waiting_room.sql).

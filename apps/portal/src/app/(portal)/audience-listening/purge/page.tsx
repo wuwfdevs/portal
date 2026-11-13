@@ -13,8 +13,8 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
   const { isCoordinator } = await requireAudienceListeningContext();
   const { error, done } = await searchParams;
   const preview = await getPurgePreview();
-  const [doneSubmissions, doneConversations, doneAudio] = (done ?? "").split("-").map(Number);
-  const nothingDue = preview.submissions + preview.conversations === 0;
+  const [doneSubmissions, doneConversations, doneAudio, doneEmails] = (done ?? "").split("-").map(Number);
+  const nothingDue = preview.submissions + preview.conversations + preview.emails === 0;
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -30,6 +30,7 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
         <Alert variant="note" className="mb-4">
           Purged {doneSubmissions} unfinished submission{doneSubmissions === 1 ? "" : "s"} and {doneConversations} unsent conversation
           {doneConversations === 1 ? "" : "s"}, and removed {doneAudio} audio file{doneAudio === 1 ? "" : "s"}.
+          {Number(doneEmails) > 0 && ` Cleared ${doneEmails} facilitator email${Number(doneEmails) === 1 ? "" : "s"} and link${Number(doneEmails) === 1 ? "" : "s"}.`}
         </Alert>
       )}
 
@@ -41,6 +42,7 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
               { label: "Unfinished submissions", value: `${preview.submissions} (answers and audio, untouched for 30 days)` },
               { label: "Unsent conversations", value: `${preview.conversations} (segments, voices, marks and contact cards, 30 days after the event ended)` },
               { label: "Contact cards among them", value: String(preview.cards) },
+              { label: "Facilitator emails and links", value: `${preview.emails} (kept only to send one link; cleared 30 days after the event, whether or not the conversation was sent)` },
               {
                 label: "Kept for now",
                 value:

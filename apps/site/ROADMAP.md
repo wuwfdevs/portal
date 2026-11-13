@@ -429,9 +429,14 @@ AfterTable,RoomConsole}`. Four things are load-bearing: (1) **the table session 
 `/listens`) the browser's script never sees; every table call is made by a server action that reads it; (2) **the phone records segments of
 under five minutes** (`SEGMENT_CUT_SECONDS`), each a whole file, and `SegmentQueue` sends them oldest first, one at a time, saying "sent" only
 after the Portal confirms; (3) **the site never supplies a highlight's words or reads a card's contents**: marks are a start time and a tag,
-and the facilitator learns only a count of cards; (4) **a transcript is rendered and dropped.** Known gaps: no code sets
-`al_events.organizer_subject` (so no account can own an event yet, a Portal-side step); the table session ends 12 hours after the event and
-nothing emails a link; a copy of every unsent segment (and the one being recorded, every five seconds) is kept in the browser's IndexedDB until the Portal confirms it (`lib/listening/segment-store.ts`), so a reload or crash loses seconds, not the conversation; a browser that will not give storage records without a backup and the page says so, and the IndexedDB adapter itself is untested here; the hub shows no events. **Not run
+and the facilitator learns only a count of cards; (4) **a transcript is rendered and dropped.** The follow-up (2026-11-13) closed the gaps the first cut left: **the facilitator gives an email at the agreement** (required; the page says what
+it is for and that it is removed about a month after the event), WUWF emails them an **after-page link** (`/listens/after/<token>`, a route that
+keeps the token in an httpOnly cookie `wuwf_after_session` and sends the browser to `/listens/session/after`; it works for fourteen days and
+the four after-page messages try it before the table's own session), an **organizer is made by a link** (`/listens/room/claim/<token>`, a press
+on a signed-in page calls `room-claim`), **the hub lists upcoming public sessions** (`hubSessions`), and a copy of every unsent segment and of the
+one being recorded is kept in the browser's IndexedDB until the Portal confirms it (`lib/listening/segment-store.ts`), so a reload or crash loses
+seconds, not the conversation; a browser that will not give storage records without a backup and the page says so. Untested: the IndexedDB
+adapter itself. **Not run
 against a live Portal or a real phone**: the signed-upload PUT, `MediaRecorder` on iOS Safari and the screen wake lock are untested here.
 
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
