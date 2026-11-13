@@ -121,6 +121,11 @@ jobs:
           # in apps/portal/CLAUDE.md requires one for any change a user would notice), so the check after those migrations
           # below only forbids procedures.
           expect "the baseline holds no release notes or procedures" "select count(*) from public.rc_articles where kind <> 'guide'" "0"
+          # One version per article is a property of the baseline, so it is checked here. It cannot be checked after the newer
+          # migrations: the Resources rule (apps/portal/CLAUDE.md) requires a migration to update the guide of any screen it
+          # changes, and updating a guide adds a version.
+          expect "one version per article" \
+            "select count(*) from public.rc_articles a where (select count(*) from public.rc_article_versions v where v.article_id = a.id) <> 1" "0"
 
       - name: Apply the migrations newer than the baseline
         run: |
@@ -165,8 +170,6 @@ jobs:
           # checked for both in the step before the newer migrations are applied).
           expect "no procedures" "select count(*) from public.rc_articles where kind = 'procedure'" "0"
           expect "guides are present" "select count(*) > 50 from public.rc_articles where kind = 'guide'" "t"
-          expect "one version per article" \
-            "select count(*) from public.rc_articles a where (select count(*) from public.rc_article_versions v where v.article_id = a.id) <> 1" "0"
           expect "Academic Partnerships is closed and has no calendar link" \
             "select (not is_open) and google_appointments_url is null from public.ap_settings" "t"
           expect "Bookings is closed and offers no packages" \

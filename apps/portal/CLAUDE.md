@@ -345,7 +345,7 @@ card is printed, never when one table's link is replaced; (4) **"help is coming"
 RLS** (`conversation-handoff.ts`): ffmpeg joins the segments to one MP3, the first table sent makes the campaign's project
 (`al_campaigns.sourcework_project_id`) and later tables are sources in it, and `maxDuration` is on the Table *page*, not in the `"use server"` file;
 (6) **retention is a coordinator-run function, never a job**: `al_purge_preview` and `al_purge_run` (30 days; an unsent conversation, unfinished
-submissions; a *sent* conversation is never purged here); contact-card and raw-audio retention follow a report date that phase F creates, so they are
+submissions; a *sent* conversation is never purged here, nor is one holding a contact card a reviewer has acted on; the preview's `held` count says how many); contact-card and raw-audio retention follow a report date that phase F creates, so they are
 not purged and nothing guesses a date. `AUDIENCE_LISTENING_NOTIFY_EMAIL` gets one email, with nothing a visitor wrote in it, per host request; there
 is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F).
 Migrations `20261111160000` (schema) and `20261111170000` (Resources content), applied to preview and then production (production through the SQL editor: the Supabase tool holds `DELETE` statements for a confirmation).
