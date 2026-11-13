@@ -337,8 +337,8 @@ Where it stands (2026-11-09):
   account that owns the event). Nothing here stores a transcript, a card or audio. **Known gaps, not hidden:** (1) no code sets
   `al_events.organizer_subject`, so no organizer account can own an event until a staff screen or a claim step sets it to `site:account:<id>`;
   (2) the table session ends 12 hours after the event, so the after-page must be used on the recording phone within that window, and nothing
-  emails the facilitator a link (the boards promise one); (3) a segment not yet sent is held in memory, so a phone that closes the page
-  mid-recording loses the unsent part (the page says so and warns before it closes); (4) the hub does not yet link to events, because the
+  emails the facilitator a link (the boards promise one); (3) ~~a segment not yet sent is held in memory~~ fixed 2026-11-13: unsent segments, and the one being recorded, are copied to the browser's
+  IndexedDB until the Portal confirms them, and a page reloaded after the table ended asks the Portal what it holds before saying the recording is in; (4) the hub does not yet link to events, because the
   hub message carries none. **Not built:** reports and outcome links (F).
 
 ## 11. Open items for the owner

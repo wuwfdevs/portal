@@ -431,7 +431,7 @@ under five minutes** (`SEGMENT_CUT_SECONDS`), each a whole file, and `SegmentQue
 after the Portal confirms; (3) **the site never supplies a highlight's words or reads a card's contents**: marks are a start time and a tag,
 and the facilitator learns only a count of cards; (4) **a transcript is rendered and dropped.** Known gaps: no code sets
 `al_events.organizer_subject` (so no account can own an event yet, a Portal-side step); the table session ends 12 hours after the event and
-nothing emails a link; unsent segments live in memory, so closing the page mid-recording loses them; the hub shows no events. **Not run
+nothing emails a link; a copy of every unsent segment (and the one being recorded, every five seconds) is kept in the browser's IndexedDB until the Portal confirms it (`lib/listening/segment-store.ts`), so a reload or crash loses seconds, not the conversation; a browser that will not give storage records without a backup and the page says so, and the IndexedDB adapter itself is untested here; the hub shows no events. **Not run
 against a live Portal or a real phone**: the signed-upload PUT, `MediaRecorder` on iOS Safari and the screen wake lock are untested here.
 
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's

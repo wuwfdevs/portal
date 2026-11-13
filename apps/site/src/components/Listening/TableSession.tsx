@@ -1,14 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { ListeningTable } from '@wuwf/portal-contracts'
 
 import { agreeTable, completeSegment, endTable, leaveTable, readTable, reserveSegment, updateTable } from '@/app/(frontend)/listens/table-actions'
+import { openSegmentStore, type SegmentStore } from '@/lib/listening/segment-store'
 import { putToSignedUrl } from '@/lib/listening/send-answer'
 import {
   SegmentQueue,
+  endedView,
   formatClock,
   helpSentence,
   lastCallShown,
@@ -36,13 +38,44 @@ const END_ATTEMPTS = 6
  * confirms each segment. Nothing records until the facilitator has agreed for the table (the Portal refuses a segment before
  * that); the consent wording shown is the version the Portal named, and that version is sent back with the tap.
  */
-export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial }) => {
+export const TableSession: React.FC<{ initial: ListeningTable; conversationStatus: string | null }> = ({ initial, conversationStatus }) => {
+  // The copy of the recording kept on the phone is opened first: nothing records until it is known whether there is one.
+  const [store, setStore] = useState<SegmentStore | null | undefined>(undefined)
+  useEffect(() => {
+    let alive = true
+    void openSegmentStore(`${initial.eventTitle}|${initial.number}`).then((opened) => {
+      if (alive) setStore(opened)
+    })
+    return () => {
+      alive = false
+    }
+  }, [initial.eventTitle, initial.number])
+
+  if (store === undefined) {
+    return (
+      <main className="mx-auto flex min-h-[60vh] w-full max-w-md items-center justify-center px-5 py-8" aria-busy="true">
+        <p className="text-base text-ink-2">Opening your table…</p>
+      </main>
+    )
+  }
+  return <TableSessionOpen conversationStatus={conversationStatus} initial={initial} store={store} />
+}
+
+type Ending = null | 'sending' | 'sent' | 'partial' | 'unknown'
+
+const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: string | null; store: SegmentStore | null }> = ({ initial, conversationStatus, store }) => {
   const [table, setTable] = useState<ListeningTable>(initial)
   const [name, setName] = useState(initial.facilitatorFirstName ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
-  const [ending, setEnding] = useState<null | 'sending' | 'sent' | 'partial'>(initial.state === 'ended' || initial.state === 'sent' ? 'sent' : null)
+  const [ready, setReady] = useState(false)
+  const [recovered, setRecovered] = useState(0)
+  const [ending, setEnding] = useState<Ending>(() => {
+    if (initial.state !== 'ended' && initial.state !== 'sent') return null
+    const view = endedView(conversationStatus)
+    return view === 'in' ? 'sent' : view === 'missing' ? 'partial' : 'unknown'
+  })
   const [, bump] = useState(0)
 
   const queue = useMemo(
@@ -54,22 +87,48 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
           complete: completeSegment,
         },
         initial.uploadedSeqs,
+        store,
       ),
-    [initial.uploadedSeqs],
+    [initial.uploadedSeqs, store],
   )
 
   const onSegment = useCallback(
     (segment: PendingSegment) => {
-      queue.enqueue(segment)
-      void queue.drain().then(() => bump((n) => n + 1))
+      void queue
+        .enqueue(segment)
+        .then(() => queue.drain())
+        .then(() => bump((n) => n + 1))
     },
     [queue],
   )
-  const recorder = useSegmentRecorder(onSegment)
+  const onOpenSegment = useCallback((segment: PendingSegment) => void queue.keepOpen(segment), [queue])
+  const recorder = useSegmentRecorder(onSegment, onOpenSegment)
 
   const screen = tableScreen(table)
   const prompt = promptAt(table.prompts, table.promptPosition)
   const roomPrompt = promptAt(table.prompts, table.eventPromptPosition)
+
+  // What an earlier page left on the phone comes back now, before anything can record. A table that has not started has recorded
+  // nothing, so a copy found for it belongs to some other session and is thrown away.
+  const restored = useRef(false)
+  const finishUpRef = useRef<(lastSeq: number) => Promise<void>>(async () => undefined)
+  useEffect(() => {
+    if (restored.current) return
+    restored.current = true
+    void (async () => {
+      if (initial.state === 'waiting' || initial.state === 'agreed') await queue.clearBackup()
+      const waiting = await queue.restore()
+      setRecovered(waiting)
+      setReady(true)
+      if (waiting > 0 && (initial.state === 'ended' || initial.state === 'sent')) {
+        // The page was reloaded after the table ended with parts still on the phone: send them and tell the Portal again.
+        await finishUpRef.current(queue.highestSeq())
+      } else if (waiting > 0) {
+        await queue.drain()
+        bump((n) => n + 1)
+      }
+    })()
+  }, [initial.state, queue])
 
   // Follow the room while the table is open. A failed poll is quiet: the recording does not depend on it.
   useEffect(() => {
@@ -81,7 +140,7 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
     return () => clearInterval(id)
   }, [screen])
 
-  // A recording that is not on the Portal yet is lost if the page closes: ask before it does.
+  // A recording that is not on the Portal yet is lost if the page closes without a copy on the phone: ask before it does.
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (recorder.recording || queue.waiting().length > 0) event.preventDefault()
@@ -99,8 +158,14 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
     return true
   }
 
+  /** Starts a recorder on this page after the last segment anyone made, whether this page made it or an earlier one did. */
+  const beginHere = async (): Promise<boolean> => {
+    if (recorder.lastSeq() >= 0) return recorder.resume()
+    return recorder.begin(queue.highestSeq() + 1)
+  }
+
   const agree = async () => {
-    if (busy || !table.consent) return
+    if (busy || !ready || !table.consent) return
     setBusy(true)
     setError(null)
     try {
@@ -112,8 +177,7 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
       }
       const started = await updateTable({ event: 'start' })
       if (!apply(started)) return
-      const firstSeq = Math.max(-1, ...initial.uploadedSeqs) + 1
-      if (!(await recorder.begin(firstSeq))) setError('This phone could not start recording. Try again.')
+      if (!(await beginHere())) setError('This phone could not start recording. Try again.')
     } finally {
       setBusy(false)
     }
@@ -128,8 +192,21 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
         await recorder.pause()
         apply(await updateTable({ event: 'pause' }))
       } else if (apply(await updateTable({ event: 'resume' }))) {
-        if (!(await recorder.resume())) setError('This phone could not start recording again. Try again.')
+        if (!(await recorder.acquire()) || !(await beginHere())) setError('This phone could not start recording again. Try again.')
       }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** The page was reloaded while the table was recording: the Portal still says recording, this page is not. */
+  const recordAgain = async () => {
+    if (busy || !ready) return
+    setBusy(true)
+    setError(null)
+    try {
+      if (!(await recorder.acquire())) return
+      if (!(await beginHere())) setError('This phone could not start recording again. Try again.')
     } finally {
       setBusy(false)
     }
@@ -151,14 +228,12 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
     setBusy(false)
   }
 
-  const end = async () => {
-    if (busy) return
+  /** Sends what is left and tells the Portal the table is over, until the Portal says it holds every segment. */
+  const finishUp = async (lastSeq: number) => {
     setBusy(true)
     setConfirmEnd(false)
     setError(null)
     setEnding('sending')
-    await recorder.finish()
-    const lastSeq = recorder.lastSeq()
     let missing: number[] = []
     for (let attempt = 0; attempt < END_ATTEMPTS; attempt += 1) {
       await queue.drain()
@@ -170,23 +245,33 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
         continue
       }
       missing = result.missing
-      const waiting = queue.waiting()
-      if (result.complete && waiting.length === 0) {
+      if (result.complete && queue.waiting().length === 0) {
+        await queue.clearBackup()
         setEnding('sent')
         const fresh = await readTable()
         if (fresh.ok) setTable(fresh.table)
         setBusy(false)
         return
       }
-      // The Portal still lacks some: whatever this page still holds is queued again, then it tries once more.
+      // The Portal still lacks some: whatever this page still holds is sent again, then it tries once more.
       await new Promise((resolve) => setTimeout(resolve, 1500))
     }
     setEnding(queue.waiting().length > 0 || missing.length > 0 ? 'partial' : 'sent')
     setBusy(false)
   }
 
+  useEffect(() => {
+    finishUpRef.current = finishUp
+  })
+
+  const end = async () => {
+    if (busy) return
+    await recorder.finish()
+    await finishUp(Math.max(recorder.lastSeq(), queue.highestSeq()))
+  }
+
   const retryEnd = () => {
-    void end()
+    void finishUp(queue.highestSeq())
   }
 
   const progress = queue.progress()
@@ -239,13 +324,24 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
               <p className="max-w-sm text-sm text-ink-3">Do this on this phone: it is the one that holds your table&rsquo;s link, and the link stops working about twelve hours after the session ends.</p>
             </>
           )}
+          {ending === 'unknown' && (
+            <>
+              <h1 className="font-serif text-2xl font-bold leading-tight">Table {table.number} has ended.</h1>
+              <p className="max-w-sm text-[0.9375rem] text-ink-2">
+                This page could not check whether all of the recording reached WUWF, so it will not say that it did. Reload in a moment; if this stays, tell someone at the front before you leave.
+              </p>
+              <Link className={cn(buttonSecondary, 'min-h-12 w-full max-w-sm text-base')} href="/listens/session/after">
+                Open the after-page
+              </Link>
+            </>
+          )}
           {ending === 'partial' && (
             <>
               <h1 className="font-serif text-2xl font-bold leading-tight">Not all of table {table.number} has reached WUWF.</h1>
               <p className="max-w-sm text-[0.9375rem] text-ink-2">
                 {progress.total - progress.uploaded > 0
                   ? `${progress.total - progress.uploaded} part${progress.total - progress.uploaded === 1 ? '' : 's'} of the recording ${progress.total - progress.uploaded === 1 ? 'is' : 'are'} still on this phone. Keep this page open, get back on Wi-Fi and send again.`
-                  : 'Part of the recording was lost before it could be sent (the page was closed or reloaded while recording). What reached WUWF is safe; tell someone at the front.'}
+                  : 'Part of the recording is not at WUWF and is no longer on this phone. What reached WUWF is safe; tell someone at the front.'}
               </p>
               {error && <p className={noticeWarn}>{error}</p>}
               {progress.total - progress.uploaded > 0 && (
@@ -314,8 +410,8 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
               {error}
             </p>
           )}
-          <button className={cn(buttonDark, 'mt-auto min-h-12 w-full text-base')} disabled={busy || !table.consent} onClick={agree} type="button">
-            {busy ? 'Starting…' : 'Everyone at our table agreed. Start recording'}
+          <button className={cn(buttonDark, 'mt-auto min-h-12 w-full text-base')} disabled={busy || !ready || !table.consent} onClick={agree} type="button">
+            {busy ? 'Starting…' : ready ? 'Everyone at our table agreed. Start recording' : 'Getting ready…'}
           </button>
           <Leave />
         </main>
@@ -343,8 +439,19 @@ export const TableSession: React.FC<{ initial: ListeningTable }> = ({ initial })
         </div>
 
         {!recorder.recording && !paused && (
-          <p className={noticeWarn} role="alert">
-            This page is not recording. It was reloaded or lost the microphone. Tap Resume to carry on; what was recorded before is already with WUWF only if it finished sending.
+          <div className={cn(noticeWarn, 'flex flex-col gap-2.5')} role="alert">
+            <span>
+              <strong>This page is not recording.</strong> It was reloaded or lost the microphone.
+              {recovered > 0 ? ` ${recovered} saved ${recovered === 1 ? 'part was' : 'parts were'} found on this phone and ${recovered === 1 ? 'is' : 'are'} sending.` : ''}
+            </span>
+            <button className={cn(buttonDark, 'self-start')} disabled={busy || !ready} onClick={recordAgain} type="button">
+              Start recording again
+            </button>
+          </div>
+        )}
+        {queue.backupFailed() && (
+          <p className={noticeInfo} role="status">
+            This browser cannot keep a copy of the recording on the phone, so keep this page open until the recording has sent.
           </p>
         )}
 

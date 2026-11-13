@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ListeningTablePrompt } from '@wuwf/portal-contracts'
 
 import { failure } from './results'
+import { memorySegmentStore } from './segment-store'
 import {
   SEGMENT_CUT_SECONDS,
   SegmentQueue,
   canStartAnotherSegment,
+  endedView,
   formatClock,
   helpSentence,
   neighbourPosition,
@@ -125,8 +127,8 @@ describe('SegmentQueue', () => {
   it('reserves, puts, then completes each segment, oldest first', async () => {
     const s = steps()
     const queue = new SegmentQueue(s)
-    queue.enqueue(segment(1))
-    queue.enqueue(segment(0))
+    await queue.enqueue(segment(1))
+    await queue.enqueue(segment(0))
     await queue.drain()
     expect(s.order).toEqual(['reserve0', 'put', 'complete0', 'reserve1', 'put', 'complete1'])
     expect(queue.progress()).toEqual({ uploaded: 2, total: 2, failing: false })
@@ -137,7 +139,7 @@ describe('SegmentQueue', () => {
     const put = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true)
     const s = steps({ put })
     const queue = new SegmentQueue(s)
-    queue.enqueue(segment(0))
+    await queue.enqueue(segment(0))
     await queue.drain()
     expect(queue.waiting()).toEqual([0])
     expect(queue.progress().failing).toBe(true)
@@ -150,7 +152,7 @@ describe('SegmentQueue', () => {
   it('does not mark a segment sent until the Portal confirms it', async () => {
     const complete = vi.fn(async () => failure('unavailable'))
     const queue = new SegmentQueue(steps({ complete }))
-    queue.enqueue(segment(0))
+    await queue.enqueue(segment(0))
     await queue.drain()
     expect(queue.progress().uploaded).toBe(0)
     expect(queue.waiting()).toEqual([0])
@@ -160,8 +162,8 @@ describe('SegmentQueue', () => {
     const reserve = vi.fn(async ({ seq }: { seq: number }) => (seq === 0 ? failure('rate_limited') : { ok: true as const, upload: UPLOAD }))
     const s = steps({ reserve })
     const queue = new SegmentQueue(s)
-    queue.enqueue(segment(0))
-    queue.enqueue(segment(1))
+    await queue.enqueue(segment(0))
+    await queue.enqueue(segment(1))
     await queue.drain()
     expect(reserve).toHaveBeenCalledTimes(1)
     expect(queue.waiting()).toEqual([0, 1])
@@ -171,7 +173,7 @@ describe('SegmentQueue', () => {
     const reserve = vi.fn(async () => ({ ok: true as const, alreadyUploaded: true as const }))
     const s = steps({ reserve })
     const queue = new SegmentQueue(s)
-    queue.enqueue(segment(0))
+    await queue.enqueue(segment(0))
     await queue.drain()
     expect(s.put).not.toHaveBeenCalled()
     expect(queue.progress().uploaded).toBe(1)
@@ -180,16 +182,16 @@ describe('SegmentQueue', () => {
   it('ignores a segment already known to be uploaded, and a duplicate', async () => {
     const s = steps()
     const queue = new SegmentQueue(s, [0])
-    queue.enqueue(segment(0))
-    queue.enqueue(segment(1))
-    queue.enqueue(segment(1))
+    await queue.enqueue(segment(0))
+    await queue.enqueue(segment(1))
+    await queue.enqueue(segment(1))
     expect(queue.waiting()).toEqual([1])
   })
 
   it('runs one drain at a time', async () => {
     const s = steps()
     const queue = new SegmentQueue(s)
-    queue.enqueue(segment(0))
+    await queue.enqueue(segment(0))
     await Promise.all([queue.drain(), queue.drain()])
     expect(s.reserve).toHaveBeenCalledTimes(1)
   })
@@ -201,5 +203,111 @@ describe('sendPercent', () => {
     expect(sendPercent({ uploaded: 3, total: 4, failing: false })).toBe(75)
     expect(sendPercent({ uploaded: 99, total: 100, failing: false })).toBe(99)
     expect(sendPercent({ uploaded: 4, total: 4, failing: false })).toBe(100)
+  })
+})
+
+describe('SegmentQueue with a copy on the phone', () => {
+  it('keeps each segment until the Portal confirms it, then lets it go', async () => {
+    const store = memorySegmentStore()
+    const s = steps()
+    const queue = new SegmentQueue(s, [], store)
+    await queue.enqueue(segment(0))
+    expect(store.size()).toBe(1)
+    await queue.drain()
+    expect(store.size()).toBe(0)
+  })
+
+  it('keeps the copy when the upload fails, so a reload does not lose it', async () => {
+    const store = memorySegmentStore()
+    const queue = new SegmentQueue(steps({ put: vi.fn().mockResolvedValue(false) }), [], store)
+    await queue.enqueue(segment(0))
+    await queue.drain()
+    expect(store.size()).toBe(1)
+  })
+
+  it('does not release the copy before the Portal has confirmed the segment', async () => {
+    const store = memorySegmentStore()
+    const queue = new SegmentQueue(steps({ complete: vi.fn(async () => failure('unavailable')) }), [], store)
+    await queue.enqueue(segment(0))
+    await queue.drain()
+    expect(store.size()).toBe(1)
+  })
+
+  it('brings back what a closed page left behind and sends it', async () => {
+    const store = memorySegmentStore()
+    await store.put(segment(0))
+    await store.put(segment(1))
+    const s = steps()
+    const fresh = new SegmentQueue(s, [], store)
+    expect(await fresh.restore()).toBe(2)
+    await fresh.drain()
+    expect(s.order).toEqual(['reserve0', 'put', 'complete0', 'reserve1', 'put', 'complete1'])
+    expect(store.size()).toBe(0)
+  })
+
+  it('recovers the segment that was still being recorded when the page went away', async () => {
+    const store = memorySegmentStore()
+    const first = new SegmentQueue(steps(), [], store)
+    await first.keepOpen(segment(3))
+    const fresh = new SegmentQueue(steps(), [], store)
+    expect(await fresh.restore()).toBe(1)
+    expect(fresh.waiting()).toEqual([3])
+  })
+
+  it('drops the open copy once the finished segment replaces it', async () => {
+    const store = memorySegmentStore()
+    const queue = new SegmentQueue(steps({ put: vi.fn().mockResolvedValue(false) }), [], store)
+    await queue.keepOpen(segment(0))
+    await queue.enqueue(segment(0))
+    expect(store.size()).toBe(1)
+  })
+
+  it('deletes a stored segment the Portal already holds instead of sending it again', async () => {
+    const store = memorySegmentStore()
+    await store.put(segment(0))
+    const s = steps()
+    const queue = new SegmentQueue(s, [0], store)
+    expect(await queue.restore()).toBe(0)
+    expect(store.size()).toBe(0)
+    expect(s.reserve).not.toHaveBeenCalled()
+  })
+
+  it('names the next free segment number, counting what is stored and what is confirmed', async () => {
+    const store = memorySegmentStore()
+    await store.put(segment(4))
+    const queue = new SegmentQueue(steps(), [0, 1, 2], store)
+    await queue.restore()
+    expect(queue.highestSeq()).toBe(4)
+    expect(new SegmentQueue(steps()).highestSeq()).toBe(-1)
+  })
+
+  it('says there is no backup without a store, and when a write failed', async () => {
+    expect(new SegmentQueue(steps()).backupFailed()).toBe(true)
+    const broken = { ...memorySegmentStore(), put: vi.fn().mockRejectedValue(new Error('quota')) }
+    const queue = new SegmentQueue(steps(), [], broken)
+    await queue.enqueue(segment(0))
+    expect(queue.backupFailed()).toBe(true)
+    expect(queue.waiting()).toEqual([0])
+  })
+
+  it('clears the backup when asked', async () => {
+    const store = memorySegmentStore()
+    await store.put(segment(0))
+    await new SegmentQueue(steps(), [], store).clearBackup()
+    expect(store.size()).toBe(0)
+  })
+})
+
+describe('endedView', () => {
+  it('says the recording is in only when the Portal says it holds all of it', () => {
+    for (const status of ['complete', 'transcribing', 'ready', 'named', 'sent']) expect(endedView(status)).toBe('in')
+  })
+  it('says something is missing while the Portal is still waiting for segments', () => {
+    expect(endedView('uploading')).toBe('missing')
+    expect(endedView('recording')).toBe('missing')
+  })
+  it('does not claim anything it cannot know', () => {
+    expect(endedView(null)).toBe('unknown')
+    expect(endedView('something new')).toBe('unknown')
   })
 })

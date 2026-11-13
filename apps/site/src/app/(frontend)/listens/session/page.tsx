@@ -5,7 +5,7 @@ import React from 'react'
 import { TableSession } from '@/components/Listening/TableSession'
 import { eyebrow } from '@/components/Listening/styles'
 import { LISTENING_NOT_SET_UP, listeningMessage } from '@/lib/listening/messages'
-import { loadTableState } from '@/lib/listening/table-load'
+import { loadConversationState, loadTableState } from '@/lib/listening/table-load'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +13,13 @@ export const dynamic = 'force-dynamic'
 export default async function SessionPage() {
   const loaded = await loadTableState()
 
-  if (loaded.kind === 'ok') return <TableSession initial={loaded.table} />
+  if (loaded.kind === 'ok') {
+    // A page that opens after the table has ended asks the Portal what it holds, so it never says the whole recording is in on a guess.
+    const ended = loaded.table.state === 'ended' || loaded.table.state === 'sent'
+    const conversation = ended ? await loadConversationState() : null
+    const status = conversation && conversation.kind === 'ok' ? conversation.conversation.status : null
+    return <TableSession conversationStatus={status} initial={loaded.table} />
+  }
 
   const message =
     loaded.kind === 'no_session'

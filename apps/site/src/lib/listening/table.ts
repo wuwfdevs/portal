@@ -7,6 +7,7 @@ import {
 } from '@wuwf/portal-contracts'
 
 import type { ActionResult } from './results'
+import type { SegmentStore } from './segment-store'
 
 /**
  * The rules of a table's phone (boards 5d and 5f), kept apart from React and from the network so they are tested on their own.
@@ -132,7 +133,9 @@ export type SegmentProgress = { uploaded: number; total: number; failing: boolea
  * already holds is dropped from the queue without sending it again. Nothing here says "saved" until the Portal has confirmed the
  * segment (`complete`), the same rule as an answer.
  *
- * What it cannot do: it holds the audio in memory, so closing the page before the queue is empty loses what was not sent.
+ * With a store, every segment is also kept in the browser's own storage until the Portal confirms it, and `restore()` brings back
+ * what a reload or a crash left behind. Without one (a browser that will not give storage) the audio is held in memory only, and
+ * closing the page before the queue is empty loses what was not sent; the page says so.
  */
 export class SegmentQueue {
   private queue: PendingSegment[] = []
@@ -140,18 +143,81 @@ export class SegmentQueue {
   private running: Promise<void> | null = null
   private failing = false
   private lastError: string | null = null
+  private storeFailed = false
 
   constructor(
     private readonly steps: SegmentSteps,
     knownUploaded: number[] = [],
+    private readonly store: SegmentStore | null = null,
   ) {
     for (const seq of knownUploaded) this.uploadedSeqs.add(seq)
   }
 
-  enqueue(segment: PendingSegment): void {
+  /**
+   * Adds a finished segment. It is in the queue at once; the returned promise settles when the copy on the phone is written, so a
+   * caller that awaits it knows the segment survives a reload. A failure to write is not a failure to send.
+   */
+  async enqueue(segment: PendingSegment): Promise<void> {
     if (this.uploadedSeqs.has(segment.seq) || this.queue.some((q) => q.seq === segment.seq)) return
     this.queue.push(segment)
     this.queue.sort((a, b) => a.seq - b.seq)
+    if (!this.store) return
+    try {
+      await this.store.put(segment)
+      await this.store.clearOpen(segment.seq)
+    } catch {
+      this.storeFailed = true
+    }
+  }
+
+  /** The segment being recorded, copied as it grows. Best effort: a failure here never stops the recording. */
+  async keepOpen(segment: PendingSegment): Promise<void> {
+    if (!this.store) return
+    try {
+      await this.store.putOpen(segment)
+    } catch {
+      this.storeFailed = true
+    }
+  }
+
+  /**
+   * Brings back what an earlier page left on the phone: segments the Portal has not confirmed, and the segment that was being
+   * recorded when the page went away. Returns how many are waiting now. A stored segment the Portal already holds is deleted.
+   */
+  async restore(): Promise<number> {
+    if (!this.store) return this.queue.length
+    let saved: PendingSegment[] = []
+    try {
+      saved = await this.store.all()
+    } catch {
+      this.storeFailed = true
+      return this.queue.length
+    }
+    for (const segment of saved) {
+      if (this.uploadedSeqs.has(segment.seq)) {
+        await this.store.remove(segment.seq).catch(() => undefined)
+        await this.store.clearOpen(segment.seq).catch(() => undefined)
+      } else if (!this.queue.some((q) => q.seq === segment.seq) && segment.blob.size > 0) {
+        this.queue.push(segment)
+      }
+    }
+    this.queue.sort((a, b) => a.seq - b.seq)
+    return this.queue.length
+  }
+
+  /** Every segment this table is known to have made: confirmed, or waiting here. The next one starts after the highest. */
+  highestSeq(): number {
+    return Math.max(-1, ...this.uploadedSeqs, ...this.queue.map((q) => q.seq))
+  }
+
+  /** Whether the copy on the phone could not be written at some point, so the page must not promise the recording survives a reload. */
+  backupFailed(): boolean {
+    return this.storeFailed || this.store === null
+  }
+
+  /** The conversation is over and the Portal has all of it: the copies on the phone go. */
+  async clearBackup(): Promise<void> {
+    await this.store?.clear().catch(() => undefined)
   }
 
   progress(): SegmentProgress {
@@ -188,6 +254,8 @@ export class SegmentQueue {
       this.queue.shift()
       this.uploadedSeqs.add(next.seq)
       this.lastError = null
+      // Only now, with the Portal's confirmation, does the copy on the phone go.
+      await this.store?.remove(next.seq).catch(() => undefined)
     }
   }
 
@@ -217,4 +285,27 @@ export function sendPercent(progress: SegmentProgress): number {
   if (progress.total === 0) return 0
   const pct = Math.floor((progress.uploaded / progress.total) * 100)
   return progress.uploaded < progress.total ? Math.min(99, pct) : 100
+}
+
+/**
+ * What a table page that reloads after the table has ended may tell the facilitator. The Portal's conversation status is the only
+ * honest source: "complete" or later means it holds every segment up to the last one, "uploading" means it does not, and anything
+ * else is not known, so the page must not say the whole recording is in.
+ */
+export type EndedView = 'in' | 'missing' | 'unknown'
+
+export function endedView(status: string | null): EndedView {
+  switch (status) {
+    case 'complete':
+    case 'transcribing':
+    case 'ready':
+    case 'named':
+    case 'sent':
+      return 'in'
+    case 'uploading':
+    case 'recording':
+      return 'missing'
+    default:
+      return 'unknown'
+  }
 }

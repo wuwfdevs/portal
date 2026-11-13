@@ -40,7 +40,10 @@ function pickMimeType(): string | undefined {
   return RECORDING_MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type))
 }
 
-export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void): SegmentRecorder {
+/** How often the segment being recorded is handed over as it grows, so a crash loses seconds and not minutes. */
+const OPEN_SEGMENT_SLICE_MS = 5000
+
+export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void, onOpenSegment?: (segment: PendingSegment) => void): SegmentRecorder {
   const [mic, setMic] = useState<SegmentRecorderMic>('unknown')
   const [guidance, setGuidance] = useState<MicrophoneGuidance | null>(null)
   const [recording, setRecording] = useState(false)
@@ -56,9 +59,11 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void)
   const tick = useRef<ReturnType<typeof setInterval> | null>(null)
   const wake = useRef<{ release(): Promise<void> } | null>(null)
   const emit = useRef(onSegment)
+  const emitOpen = useRef(onOpenSegment)
   useEffect(() => {
     emit.current = onSegment
-  }, [onSegment])
+    emitOpen.current = onOpenSegment
+  }, [onSegment, onOpenSegment])
 
   const releaseWake = useCallback(() => {
     void wake.current?.release().catch(() => undefined)
@@ -134,6 +139,11 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void)
     segmentStartedAt.current = startedAt
     next.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.current.push(event.data)
+      // The last chunk arrives as the recorder stops, and the finished segment follows at once: only a running recorder is copied.
+      if (next.state === 'recording' && chunks.current.length > 0 && emitOpen.current) {
+        const type = normalizeContentType(next.mimeType || mimeType || 'audio/webm') || 'audio/webm'
+        emitOpen.current({ seq: thisSeq, blob: new Blob(chunks.current, { type }), durationMs: Math.max(0, Math.round(performance.now() - startedAt)), contentType: type })
+      }
     }
     next.onstop = () => {
       const durationMs = Math.max(0, Math.round(performance.now() - startedAt))
@@ -151,7 +161,7 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void)
       }
     }
     recorder.current = next
-    next.start()
+    next.start(OPEN_SEGMENT_SLICE_MS)
     return true
   }, [])
   useEffect(() => {
