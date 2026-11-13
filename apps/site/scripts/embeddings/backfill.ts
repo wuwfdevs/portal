@@ -78,13 +78,16 @@ while (!stopped) {
   total.seen += found.docs.length
   for (const doc of found.docs) if (skipReason(doc) === null) eligibleIds.add(Number(doc.id))
 
-  const report = await embedStories(payload, found.docs, planner, { dryRun: !apply })
+  // --limit caps what is SENT, not what is looked at: only the remaining allowance of stale stories goes to the provider, so a page of 32
+  // stale stories with 1 left to do embeds (and pays for) 1.
+  const remaining = Number.isFinite(limit) ? Math.max(0, limit - needing) : undefined
+  const report = await embedStories(payload, found.docs, planner, { dryRun: !apply, maxEmbed: remaining })
   total.skipped += report.skipped
   total.unchanged += report.unchanged
   total.stale += report.stale
   total.embedded += report.embedded
   total.tokens += report.tokensEstimate
-  needing += report.stale
+  needing += apply ? report.embedded : report.stale
   if (apply) console.log(`page ${page}: embedded ${report.embedded}, already current ${report.unchanged}, left out ${report.skipped}`)
 
   if (needing >= limit) stopped = true

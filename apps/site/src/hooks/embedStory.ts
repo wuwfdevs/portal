@@ -20,13 +20,24 @@ export const embedStoryAfterChange: CollectionAfterChangeHook<Post> = async ({ d
   if (context.disableEmbedding) return doc
   const provider = getEmbeddingProvider()
   if (!provider) return doc
+  // The time limit cancels the work, it does not just stop waiting for it: the signal aborts the provider request, and embedStory writes nothing
+  // once it has fired. (A bare race would let a slow call finish after the save, on the pool, and overwrite a newer vector with older text.)
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const budget = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error('timeout'))
+    }, EMBED_BUDGET_MS)
+  })
   try {
-    await Promise.race([
-      embedStory(payload, doc, provider, req),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), EMBED_BUDGET_MS)),
-    ])
+    const outcome = await Promise.race([embedStory(payload, doc, provider, req, { signal: controller.signal }), budget])
+    if (outcome === 'cancelled') throw new Error('timeout')
   } catch (error) {
     payload.logger.error(`Story ${doc.id} was saved but not embedded (${error instanceof Error ? error.message : 'unknown error'}); the next backfill run will do it.`)
+  } finally {
+    clearTimeout(timer)
+    budget.catch(() => undefined) // a timeout after the work finished is not an unhandled rejection
   }
   return doc
 }

@@ -149,6 +149,37 @@ describe('embedStory', () => {
   })
 })
 
+describe('time limits and caps', () => {
+  it('writes nothing, and says so, when its time runs out while the provider answers', async () => {
+    const s = await story('Cancelled flood story')
+    const controller = new AbortController()
+    mocks.embed.mockClear()
+    mocks.embed.mockImplementationOnce(async (inputs: string[]) => {
+      controller.abort() // the budget expires during the call
+      return inputs.map(textToVector)
+    })
+    const outcome = await embedStory(payload, { ...s, content: body('Cancelled flood story'), source: 'wuwf' }, fakeProvider, undefined, { signal: controller.signal })
+    expect(outcome).toBe('cancelled')
+    expect(await embedded(s.id)).toBeUndefined()
+    expect((mocks.embed.mock.calls[0][1] as { signal?: AbortSignal }).signal).toBe(controller.signal) // the provider call itself is cancellable
+  })
+
+  it('sends only the allowance when capped (the backfill --limit), and the rest stay stale', async () => {
+    const docs = await Promise.all([1, 2, 3].map((i) => story(`Capped music story ${i}`)))
+    const stories = docs.map((d) => ({ ...d, content: body(d.title), source: 'wuwf' }))
+    mocks.embed.mockClear()
+    expect(await embedStories(payload, stories, fakeProvider, { maxEmbed: 0 })).toMatchObject({ stale: 3, embedded: 0 })
+    expect(mocks.embed).not.toHaveBeenCalled()
+    const report = await embedStories(payload, stories, fakeProvider, { maxEmbed: 1 })
+    expect(report).toMatchObject({ stale: 3, embedded: 1 })
+    expect(mocks.embed).toHaveBeenCalledTimes(1)
+    expect(mocks.embed.mock.calls[0][0]).toHaveLength(1)
+    expect([await embedded(docs[0].id), await embedded(docs[1].id), await embedded(docs[2].id)].filter(Boolean)).toHaveLength(1)
+    // The next run picks up the rest.
+    expect(await embedStories(payload, stories, fakeProvider)).toMatchObject({ unchanged: 1, stale: 2, embedded: 2 })
+  })
+})
+
 describe('the save hook', () => {
   it('embeds a story when it is published, and not when the importer says not to', async () => {
     const live = await story('Hook port story', {}, {})

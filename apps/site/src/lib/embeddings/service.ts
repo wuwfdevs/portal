@@ -20,7 +20,8 @@ export function getEmbeddingProvider(): EmbeddingProvider | null {
   return cached.provider
 }
 
-export type EmbedOutcome = 'embedded' | 'unchanged' | 'skipped'
+/** `cancelled`: the caller's time ran out before the vector was written, so nothing was. */
+export type EmbedOutcome = 'embedded' | 'unchanged' | 'skipped' | 'cancelled'
 
 type Story = EmbeddableStory & { id: number | string }
 
@@ -34,14 +35,23 @@ const idOf = (story: Story): number => Number(story.id)
  * drop a live story from "similar stories" until its next publish. A vector for a story that is no longer public is harmless (every
  * reader loads stories through access control) and the backfill prunes it.
  */
-export async function embedStory(payload: Payload, story: Story, provider: EmbeddingProvider, req?: Pick<PayloadRequest, 'transactionID'>): Promise<EmbedOutcome> {
+export async function embedStory(
+  payload: Payload,
+  story: Story,
+  provider: EmbeddingProvider,
+  req?: Pick<PayloadRequest, 'transactionID'>,
+  options: { signal?: AbortSignal } = {},
+): Promise<EmbedOutcome> {
   if (skipReason(story) !== null) return 'skipped'
   const id = idOf(story)
   const text = embeddingText(story)
   const hash = contentHash(text, provider.model)
   const stored = (await storedEmbeddings(payload, [id], req)).get(id)
   if (stored && stored.contentHash === hash && stored.model === provider.model) return 'unchanged'
-  const [vector] = await provider.embed([text])
+  const [vector] = await provider.embed([text], { signal: options.signal })
+  // The caller's time may have run out while the provider answered. Writing now could land after the save has finished, on the pool (the
+  // save's transaction is gone), and overwrite a newer vector made by a later save of the same story with this older text.
+  if (options.signal?.aborted) return 'cancelled'
   await upsertEmbedding(payload, id, vector, provider.model, hash, req)
   return 'embedded'
 }
@@ -50,7 +60,12 @@ export async function embedStory(payload: Payload, story: Story, provider: Embed
 export type BatchReport = { embedded: number; stale: number; unchanged: number; skipped: number; tokensEstimate: number }
 
 /** Several stories in as few provider calls as possible (the backfill). Returns what was done; a provider failure throws. */
-export async function embedStories(payload: Payload, stories: readonly Story[], provider: EmbeddingProvider, options: { dryRun?: boolean } = {}): Promise<BatchReport> {
+export async function embedStories(
+  payload: Payload,
+  stories: readonly Story[],
+  provider: EmbeddingProvider,
+  options: { dryRun?: boolean; maxEmbed?: number } = {},
+): Promise<BatchReport> {
   const report: BatchReport = { embedded: 0, stale: 0, unchanged: 0, skipped: 0, tokensEstimate: 0 }
   const eligible = stories.filter((s) => skipReason(s) === null)
   report.skipped = stories.length - eligible.length
@@ -65,12 +80,14 @@ export async function embedStories(payload: Payload, stories: readonly Story[], 
     else todo.push({ id: idOf(story), text, hash })
   }
   report.stale = todo.length
-  report.tokensEstimate = Math.ceil(todo.reduce((n, t) => n + t.text.length, 0) / 4)
-  if (options.dryRun || todo.length === 0) return report
+  // `maxEmbed` caps what is sent (the backfill's --limit): the rest stay stale for a later run and are never sent or paid for.
+  const send = options.dryRun || options.maxEmbed === undefined ? todo : todo.slice(0, Math.max(0, options.maxEmbed))
+  report.tokensEstimate = Math.ceil(send.reduce((n, t) => n + t.text.length, 0) / 4)
+  if (options.dryRun || send.length === 0) return report
 
-  const vectors = await provider.embed(todo.map((t) => t.text))
-  for (let i = 0; i < todo.length; i++) await upsertEmbedding(payload, todo[i].id, vectors[i], provider.model, todo[i].hash)
-  report.embedded = todo.length
+  const vectors = await provider.embed(send.map((t) => t.text))
+  for (let i = 0; i < send.length; i++) await upsertEmbedding(payload, send[i].id, vectors[i], provider.model, send[i].hash)
+  report.embedded = send.length
   return report
 }
 
