@@ -26,7 +26,7 @@ export const WeekSchedule: React.FC<{ weeks: Record<string, ScheduledProgram[]>;
   }, [])
 
   const channel = player?.current
-  if (!channel?.cadenceChannelId) return null
+  if (!channel) return null
   const week = weeks[channel.key] ?? []
   const programs = programsOn(week, day)
 
@@ -78,7 +78,11 @@ export const WeekSchedule: React.FC<{ weeks: Record<string, ScheduledProgram[]>;
 
         {programs.length === 0 ? (
           <p className="rounded-md border border-rule bg-surface p-6 text-base text-ink-2">
-            {week.length === 0 ? 'The schedule is not available right now. Listen live still plays.' : 'Nothing is scheduled on this day.'}
+            {!channel.cadenceChannelId
+              ? `There is no schedule for ${channel.name} here. Listen live still plays.`
+              : week.length === 0
+                ? 'The schedule is not available right now. Listen live still plays.'
+                : 'Nothing is scheduled on this day.'}
           </p>
         ) : (
           <ol aria-label={`${dayNames(day).long}, ${channel.name}`} className="overflow-hidden rounded-md border border-rule bg-surface">

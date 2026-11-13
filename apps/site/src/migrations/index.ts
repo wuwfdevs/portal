@@ -40,6 +40,7 @@ import * as migration_20261107_070000_header_starting_menus from './20261107_070
 import * as migration_20261107_080000_unearthing_hub_start from './20261107_080000_unearthing_hub_start';
 import * as migration_20261110_171043_topic_listening_question from './20261110_171043_topic_listening_question';
 import * as migration_20261110_172000_header_listens_link from './20261110_172000_header_listens_link';
+import * as migration_20261113_220000_header_schedule_link from './20261113_220000_header_schedule_link';
 
 export const migrations = [
   {
@@ -251,5 +252,10 @@ export const migrations = [
     up: migration_20261110_172000_header_listens_link.up,
     down: migration_20261110_172000_header_listens_link.down,
     name: '20261110_172000_header_listens_link',
+  },
+  {
+    up: migration_20261113_220000_header_schedule_link.up,
+    down: migration_20261113_220000_header_schedule_link.down,
+    name: '20261113_220000_header_schedule_link',
   },
 ];
