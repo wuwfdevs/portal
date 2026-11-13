@@ -296,7 +296,7 @@ export async function saveTags(formData: FormData): Promise<void> {
 
 // Consent wording ------------------------------------------------------------------------------------------
 
-export const MAX_CONSENT_TEXT_LENGTH = 4000;
+const MAX_CONSENT_TEXT_LENGTH = 4000;
 
 /**
  * Adds a new version of the group-consent wording. A coordinator only (the database says the same): it is what every table agrees to,
