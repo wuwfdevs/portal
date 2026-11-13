@@ -37,7 +37,7 @@ export interface ConsolidateOptions {
 }
 
 const PATH_COLLECTIONS = ['posts', 'pages', 'productions', 'events'] as const
-const ctx = { disableRevalidate: true }
+const ctx = { disableRevalidate: true, disableEmbedding: true }
 
 /** Whether any record other than `self` already has this address. */
 async function taken(payload: Payload, path: string, self: { collection: (typeof PATH_COLLECTIONS)[number]; id: string | number }): Promise<boolean> {

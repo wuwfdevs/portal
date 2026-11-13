@@ -4,6 +4,7 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { storyEmbeddingsSchema } from './db/storyEmbeddings'
 import { ArchiveItems } from './collections/ArchiveItems'
 import { AudienceProfiles } from './collections/AudienceProfiles'
 import { Memberships } from './collections/Memberships'
@@ -93,6 +94,10 @@ export default buildConfig({
     pool: { connectionString: process.env.DATABASE_URL },
     // Dev pushes schema changes; production only runs committed migrations (src/migrations).
     migrationDir: path.resolve(dirname, 'migrations'),
+    // pgvector, for story embeddings (`story_embeddings`, declared in src/db/storyEmbeddings.ts). `migrate` creates the extension if it
+    // is missing; on Supabase it must be enabled on the project first (ROADMAP: Needs the owner).
+    extensions: ['vector'],
+    afterSchemaInit: [storyEmbeddingsSchema],
   }),
   collections: [
     Pages,

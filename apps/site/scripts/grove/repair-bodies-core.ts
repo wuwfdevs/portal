@@ -120,7 +120,7 @@ export async function repairBodies(payload: Payload, stories: readonly Converted
           continue
         }
         // The same switch the importer sets: the story's pages are refreshed by the site's own revalidation, not from a script.
-        await payload.update({ collection: 'posts', id: doc.id, data: { content } as never, overrideAccess: true, context: { disableRevalidate: true } })
+        await payload.update({ collection: 'posts', id: doc.id, data: { content } as never, overrideAccess: true, context: { disableRevalidate: true, disableEmbedding: true } })
         row('repaired', counts)
         repairs++
         if (repairs % 25 === 0) log(`repaired ${repairs} stories`)

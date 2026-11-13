@@ -65,7 +65,7 @@ for (const f of files) {
 }
 
 const payload = await getPayload({ config })
-const ctx = { disableRevalidate: true }
+const ctx = { disableRevalidate: true, disableEmbedding: true }
 
 async function placeholderImage(url: string, w: number, h: number): Promise<Buffer> {
   const hue = parseInt(crypto.createHash('md5').update(url).digest('hex').slice(0, 4), 16) % 360

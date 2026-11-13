@@ -18,7 +18,7 @@ sign-in with the Portal, public accounts and analytics are not yet.
 
 - **Node ^22.23.4 or >=24.22.1** (Payload 3.92's own requirement; pnpm warns on anything older).
 - **pnpm 10** (the version is pinned in the root `package.json`; use Corepack).
-- **PostgreSQL 16** — via Docker (`pnpm db:up`) or any local server.
+- **PostgreSQL 16 or newer with the pgvector extension** — via Docker (`pnpm db:up`, which uses the `pgvector/pgvector` image) or any local server that has pgvector installed (story embeddings need the `vector` type; `payload migrate` creates the extension).
 
 ## Run it locally
 
@@ -36,7 +36,7 @@ The first user you create at `/admin` becomes the **local break-glass administra
 **Create it before anyone signs in from the Portal**: once any account exists, Payload no longer offers the
 "create first user" screen. Everyone else is provisioned when they open the Website tool in the Portal.
 
-No production credentials are needed. Without Docker, point `DATABASE_URL` at any local Postgres.
+No production credentials are needed. Without Docker, point `DATABASE_URL` at any local Postgres that has pgvector (on Debian or Ubuntu: `apt install postgresql-<version>-pgvector`). An existing local database made from the old image (`postgres:17-alpine`) has no pgvector: run `pnpm db:down`, remove the `site-db` volume, and `pnpm db:up` again, or install pgvector into it.
 
 ## Environment
 

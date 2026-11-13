@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { getPayload } from 'payload'
 import React from 'react'
 
+import { semanticSearchAllowed } from '@/lib/embeddings/config'
+import { semanticStories, type SemanticHit } from '@/lib/embeddings/search'
 import { formatLongDate } from '@/lib/format'
+import { getCachedGlobal } from '@/utilities/getGlobals'
 import {
   KIND_LABELS,
   MAX_QUERY_LENGTH,
@@ -52,6 +55,16 @@ export default async function SearchPage({ searchParams }: Args) {
       failed = true
       console.error('Search failed', error)
     }
+  }
+
+  // Stories close in meaning to the words searched, when semantic search is on (the Site settings switch and a key; see lib/embeddings). It
+  // never replaces keyword results: it fills the page when keywords find nothing, and otherwise sits under them on the first page.
+  let similar: SemanticHit[] = []
+  const settingOn = where && !failed && results ? (await getCachedGlobal('site-settings', 0)()).semanticSearch === true : false
+  if (where && !failed && results && (request.page === 1 || results.totalDocs === 0) && semanticSearchAllowed(settingOn)) {
+    const kinds = SEARCH_FILTERS.find((f) => f.value === request.type)?.kinds
+    const shown = new Set(results.docs.map((d) => d.path))
+    similar = (await semanticStories(request.q, { settingOn, kinds: request.type === 'all' ? undefined : kinds, limit: results.totalDocs === 0 ? 10 : 6 })).filter((h) => !shown.has(h.path))
   }
 
   return (
@@ -107,7 +120,19 @@ export default async function SearchPage({ searchParams }: Args) {
             {countLine(results.totalDocs, request.q)}
           </p>
 
-          {results.totalDocs === 0 ? (
+          {results.totalDocs === 0 && similar.length > 0 ? (
+            <section aria-labelledby="similar-heading" className="flex max-w-3xl flex-col gap-2">
+              <h2 className="font-serif text-2xl font-bold text-ink" id="similar-heading">
+                No exact matches for “{request.q}”.
+              </h2>
+              <p className="text-base text-ink-2">These stories are about similar topics.</p>
+              <ol className="flex flex-col">
+                {similar.map((hit) => (
+                  <Result hit={hit} key={hit.id} />
+                ))}
+              </ol>
+            </section>
+          ) : results.totalDocs === 0 ? (
             <section aria-label="When nothing matches" className="flex flex-col gap-2 rounded-sm bg-surface-2 p-6">
               <h2 className="font-serif text-2xl font-bold text-ink">Nothing matched “{request.q}”.</h2>
               <p className="max-w-2xl text-base text-ink-2">
@@ -121,6 +146,19 @@ export default async function SearchPage({ searchParams }: Args) {
                 <Result hit={hit} key={hit.id} />
               ))}
             </ol>
+          )}
+
+          {results.totalDocs > 0 && similar.length > 0 && (
+            <section aria-labelledby="similar-heading" className="flex max-w-3xl flex-col gap-2">
+              <h2 className="font-serif text-2xl font-bold text-ink" id="similar-heading">
+                Stories on similar topics
+              </h2>
+              <ol className="flex flex-col">
+                {similar.map((hit) => (
+                  <Result hit={hit} key={hit.id} />
+                ))}
+              </ol>
+            </section>
           )}
 
           {results.totalPages > 1 && (
