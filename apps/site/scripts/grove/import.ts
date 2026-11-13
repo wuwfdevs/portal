@@ -265,7 +265,7 @@ async function savePhase() {
   // a call's context (the file it is uploading, a "skip the upload" flag for its own follow-up write) and does not always clean it
   // up. One shared object therefore carried that state into the next call, and from the first upload on, files were saved to the
   // database and silently never sent to the bucket. Do not pass `ctx` directly.
-  const ctx = { disableRevalidate: true }
+  const ctx = { disableRevalidate: true, disableEmbedding: true }
 
   // ---- storage: prove that files land in the bucket the site reads from -------------------------------------------------------
   // The CMS happily stores a record whose file never arrived (storage not switched on in this process, a wrong bucket, a write

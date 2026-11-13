@@ -3,6 +3,7 @@ import type { CollectionConfig, RichTextFieldValidation } from 'payload'
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { featuredMediaBlocks } from '../../blocks/body'
 import { bodyEditor } from '../../fields/bodyEditor'
+import { embedStoryAfterChange } from '../../hooks/embedStory'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
 import { ensureSlug } from '../../hooks/ensureSlug'
 import { membersAudioGuard } from '../../hooks/membersAudioGuard'
@@ -389,7 +390,7 @@ export const Posts: CollectionConfig<'posts'> = {
       episodeSeasonRules,
       stampEnd,
     ],
-    afterChange: [redirectOnPathChange, revalidatePost],
+    afterChange: [redirectOnPathChange, revalidatePost, embedStoryAfterChange],
     afterDelete: [revalidateDelete],
   },
   versions: {

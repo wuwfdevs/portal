@@ -150,13 +150,25 @@ runs beside Grove, not instead of it. Rules for anything touching bodies or iden
   `legacy.legacyPath` is write-once provenance, not routing. Do not fetch from `wuwf.org` beyond what the owner has approved:
   honour robots.txt, space requests at least 3 s apart, send a neutral User-Agent with no contact information of any kind, keep raw responses out of the repository.
 
+## Embeddings and similar stories
+
+Stories are embedded for "Related stories" and semantic search (`src/lib/embeddings`, `src/db/storyEmbeddings.ts`; the record is `ROADMAP.md` -> *Vector search and similar stories*).
+
+- **Only WUWF's own, published stories are embedded** (`source: wuwf`). Never an NPR or wire story: they are not ours to archive or to send on, and what NPR's terms allow for CDS content is an open question. A members-only story is embedded from its title, dek and description, never its body.
+- **Nothing is sent without a key.** `OPENAI_API_KEY` turns indexing on; `SEMANTIC_SEARCH=on` is a second switch for sending a **visitor's search words** to the provider. A key alone never enables the second: it is a disclosure about visitors the owner decides. Never log a query's text or write it to the database or analytics (it is held in the server's memory for an hour, as its vector, so a repeated search is not sent again).
+- **The table is not a collection.** Vectors are read and written only through `lib/embeddings/store.ts`, never exposed over the API, and a story found by vector is always loaded through the Local API with `overrideAccess: false`, so a draft or an unpublished story cannot appear because it has a vector.
+- **A save hook never fails a save and never removes a vector** (a draft saved over a published story reports `draft`). It writes on the save's own transaction (`req`), or the foreign key fails.
+- **Anything that saves stories in bulk sets `context.disableEmbedding`** (the importer, the body repair, the shows move) and the backfill embeds afterwards, so a bulk run makes no inline provider calls. A migration is not finished until the backfill has run (`scripts/grove/IMPORT.md`, step 5).
+- The model and its width are constants (`lib/embeddings/config.ts`); the column is `vector(1536)`. Changing either is a migration plus a re-embed.
+- The similarity thresholds in `lib/embeddings/rank.ts` are starting values, not measurements: calibrate on the real archive with `scripts/embeddings/inspect.ts`.
+
 ## Database
 
 PostgreSQL, **this app's own** Supabase project in hosted environments — never the Portal's two projects.
 Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
 Payload pushes schema changes; **production runs only committed migrations** (`src/migrations`, created
 with `pnpm payload migrate:create`). Never run a destructive database operation without being asked. **After any schema change, run `pnpm verify:migrations`**
-(dev and test databases push schema on their own, so tests pass even when a migration was never written).
+(dev and test databases push schema on their own, so tests pass even when a migration was never written). The database needs the **pgvector** extension (story embeddings): `docker-compose.yml` uses the `pgvector/pgvector` image, and on Supabase the `vector` extension must be enabled on the project before the migration runs.
 
 ## Commands
 

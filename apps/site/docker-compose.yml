@@ -1,7 +1,7 @@
 # Local development database only. The app itself runs with `pnpm dev`.
 services:
   db:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17 # Postgres 17 with pgvector (story embeddings); plain postgres has no `vector` type
     ports:
       - '5433:5432' # 5433 so it never collides with a local Supabase (54322) or system Postgres
     environment:

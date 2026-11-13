@@ -17,6 +17,7 @@ import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
+import { loadRelatedStories } from '@/lib/embeddings/related'
 import { formatLongDate } from '@/lib/format'
 import { jsonLdText } from '@/lib/live/jsonld'
 import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
@@ -48,6 +49,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
 
   const minutes = readingMinutes(post.content)
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
+  // Stories close in meaning (story embeddings). A preview shows none: a draft has no vector to compare, and it must not change anything.
+  const related = draft ? [] : await loadRelatedStories(post)
   const featuredAudio = named(post.featuredAudio)
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
   // A members-only story read by the public comes back without its body and audio (field access, fail closed).
@@ -162,6 +165,21 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {more.map((doc) => (
+              <Card doc={doc} key={doc.id} showCategories />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {related.length > 0 && (
+        <section aria-labelledby="related-heading" className="container mt-16 flex flex-col gap-6">
+          <div className="border-b-2 border-ink pb-2">
+            <h2 className="font-serif text-2xl font-bold" id="related-heading">
+              Related stories
+            </h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {related.map((doc) => (
               <Card doc={doc} key={doc.id} showCategories />
             ))}
           </div>

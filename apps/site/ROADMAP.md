@@ -7,6 +7,68 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Vector search and similar stories (built 2026-11-13; not yet run on real data)
+
+**Branch:** `claude/eloquent-einstein-acfwc9` (`wuwfdevs/portal`), **no PR opened** (ask before opening one). Migration `20261113_222100_story_embeddings` tested up, down and up;
+`verify:migrations` passes; typecheck and lint pass (0 errors, the same 4 old warnings); the full site suite passes (143 files, 1,577 tests). **Nothing is embedded anywhere yet.** Embedding sends story text to a paid third party,
+needs a key, and needs the migrated stories; with no key the site behaves exactly as before (no calls, no new section, keyword search only).
+
+**What was built** (`src/lib/embeddings`, `src/db/storyEmbeddings.ts`, `src/hooks/embedStory.ts`, `scripts/embeddings`):
+- **One vector per published WUWF story**, in `story_embeddings` (`post_id` primary key and foreign key `on delete cascade`, `vector(1536)`, the model, a hash of the embedded text,
+  an HNSW cosine index). A plain table beside Payload's, **not a collection** (no REST/GraphQL exposure; a write does not touch the story's `updated_at` or versions), declared
+  through the adapter's `afterSchemaInit` so it is in the migration snapshot and `verify:migrations` covers it. The adapter's `extensions: ['vector']` and the migration create the
+  extension. Model `text-embedding-3-small` (the Portal already uses it), fixed in `config.ts`.
+- **What is embedded:** title, dek, description and body text (blocks skipped; cut at 24,000 characters). **Never an NPR or wire story** (`source` is not `wuwf`), never a draft, and a
+  **members-only story from its title, dek and description only** (its body is not public, and a similarity index must not let the public infer it). Staleness is a hash of the text
+  plus the model, so a re-save that changes nothing embedded costs no provider call.
+- **Related stories** (`lib/embeddings/related.ts`, section on the story page): the story's stored vector's 30 nearest neighbours, then `pickRelated` (`rank.ts`): similarity floor, a
+  small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
+  like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
+  failed page. Not shown in previews.
+- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` and `SEMANTIC_SEARCH=on`**. It supplements keyword search and never replaces it: when keywords find
+  nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
+  "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the
+  server's memory for an hour).
+- **The save hook** (`embedStoryAfterChange` on Posts): embeds a story when it is published or edited, waits at most 8 seconds, **never fails or blocks a save and never removes a vector**
+  (a draft saved over a published story reports `draft`; deleting would drop a live story from "Related stories"). It **writes on the save's own transaction** (`req`), because the story row is not
+  visible to any other connection until the save commits (found by the first integration test run). The importer, the body repair and the shows move set `context.disableEmbedding`.
+- **The migration's vectorization step: `scripts/embeddings/backfill.ts`** (`scripts/grove/IMPORT.md`, step 5). Dry run by default (needs no key, sends nothing: counts and the size of what would
+  be embedded); `--apply` embeds what is missing or stale, resumable, with a `--limit` for a first small run; after a full scan it prunes vectors whose story is no longer eligible. Same database
+  guard as the shows move (staging, or production only with `--production`; a hosted database only in production mode). `scripts/embeddings/inspect.ts` prints the neighbours of a sample of stories
+  with their similarity and what the rules would show, to calibrate the thresholds.
+- **Tests:** 34 unit tests (text, rank, provider) and 16 integration tests against a real pgvector database (`tests/int/embeddings.int.spec.ts`: the table and its cascade, staleness, the hook and what it
+  must not do, similar stories, semantic search). The provider is a fake in tests; nothing was sent to OpenAI, and **the OpenAI request itself has not been run against the real API**.
+
+**Decisions I made, for the owner to confirm or reverse** (nothing in the existing rules covered them):
+1. **One vector per story, not passages.** Enough for "Related stories" and for search at this archive's size (about 6,500 stories, 20 or so a month after); a very long story is embedded from its start.
+   Passage-level vectors are a later change (the table would gain a chunk index) if search quality on long stories is poor.
+2. **"Related stories" is a query at render time, not a stored list.** Always current (a new story shows up under old ones as soon as the page next refreshes) and one table fewer. It costs
+   one small indexed query per refresh of a cached page (not measured on the real archive yet).
+3. **Semantic results supplement keyword search; no rank fusion.** The keyword search is "every word matches, newest first" with real paging, and blending a relevance list into it would break the paging
+   and change results people already rely on. If search logs show semantic should lead, that is a deliberate change.
+4. **Two switches.** `OPENAI_API_KEY` is indexing. `SEMANTIC_SEARCH=on` is sending visitors' search words to OpenAI, which a key alone must not enable.
+5. **Only stories** (`posts`). Not shows, clips, pages or events; not the manual `relatedPosts` field (it exists in the starter and nothing renders it).
+
+**Calibrate before trusting** (`rank.ts`): `MIN_RELATED_SIMILARITY` 0.35, `MIN_SEARCH_SIMILARITY` 0.2 and `MAX_PER_SERIES` 2 are starting values, **not measurements** (nothing is embedded). After the first
+backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 stories, and set the floors by eye. Also read old-story pairings for sensitivity (an old crime story offered beside a new one).
+
+**Needs the owner:**
+- **Go-ahead to send WUWF story text to OpenAI, and the key.** A paid call: the dry run gives the count and size first; the cost at OpenAI's published rate for this model is small (an estimate from the
+  story count: well under a dollar for the archive; **check the current price**). Set `OPENAI_API_KEY` on the site's Vercel project (server only).
+- **The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service): WUWF stories can contain such text. Settle it before the first `--apply`.
+- **Approval to send visitors' search words to OpenAI** (`SEMANTIC_SEARCH=on`), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
+- **Enable the `vector` extension** on the staging and production Supabase projects (Database, Extensions) before the migration runs there. (`payload migrate` also tries to create it, but the `payload_app`
+  role may not be allowed to.)
+- **A "do not recommend" flag?** An editor may not want an old, sensitive story offered beside new reporting. Not built (it is a field on Posts plus a migration); say if you want it before launch.
+- Whether **NPR and wire stories** should ever be embedded (they are not today); it depends on NPR's CDS terms (`ARCHITECTURE.md`, CDS sync).
+
+**Not built:** rate-limiting the search page (each uncached query is one embedding of about ten tokens, a negligible cost, but a bot could still make calls: add a limit if the key's usage ever shows it);
+a scheduled sweep (the backfill is run by hand; a failed save-time embed is logged and caught by the next run); an admin screen for embeddings; the "reviewed LLM pass" for alt text and topics (a separate item below).
+
+**Where it sits in the migration:** import, repair bodies, move shows (`IMPORT.md` steps 3 and 4), **then embed (step 5)**, then the post-import check. The site can go live without step 5 (keyword search and
+every page work), so it does not block the cutover, but **the migration is not complete until `backfill.ts` reports "vectors stored" equal to "eligible" and a second run embeds nothing**; the cutover
+checklist includes it.
+
 ## Resume here (2026-11-07: boards 27 and 26 built)
 
 **Branch:** `claude/charming-gauss-p7xx51` (`wuwfdevs/portal`), pushed, **no PR opened** (ask before opening one). Full suite
@@ -217,8 +279,8 @@ metadata** (the starter's "Payload Website Template" title is gone; `NewsArticle
 exception, a 404) shows up in rehearsal; the one silent failure we had was episode text vanishing while everything said "clean". **Needed, in order:** (1) **the fidelity checker, DONE**
 (`scripts/grove/check-fidelity.ts`, `src/lib/grove/fidelity.ts`, see `IMPORT.md`); (2) **the full fetch** of every WUWF-made page not yet fetched (about 3,590 local stories, 486 show
 episodes, about 1,460 events, and the credited authors; roughly 6,000 requests, about 6 hours; the owner's approval first; the census runner's `pnpm census run` extends along the plan);
-(3) **one full rehearsal on staging**, plus a small **post-import check script** (the story count matches the source; every migrated page answers 200 with a real title and some body text;
-images load); (4) **a database backup before the production import, and a content freeze on Grove during the final run** (a checklist step, not code). **Dropped for now:** a general delta mode
+(3) **one full rehearsal on staging**, including **the embedding step** (`scripts/embeddings/backfill.ts`, `IMPORT.md` step 5; see *Vector search and similar stories*), plus a small **post-import check script** (the story count matches the source; every migrated page answers 200 with a real title and some body text;
+images load; the stored vectors equal the eligible stories); (4) **a database backup before the production import, and a content freeze on Grove during the final run** (a checklist step, not code). **Dropped for now:** a general delta mode
 for the importer (with a freeze, the few changed stories can be replaced one by one), a coverage report for all 200,964 URLs (the policy is decided; spot-check a sample of the 410s), a scripted
 undo (the backup covers rollback), and elaborate pass/fail gates (the rehearsal's report is enough). **Known gaps in the importer, for whoever builds (3):** a story already in (matched by
 Grove id) is left alone, so an edit made on Grove after the import never arrives (the body repair only fixes specific cases); and nothing checks the database after a save.
@@ -799,6 +861,7 @@ standalone pages, one event. Paths:
    story is dated in Central time, not UTC); the census tally (`dates.pathDateMatches`) is the real test.
 5. ~~Blocks derived from the census~~ **done** (see above). **Next: the converter with a fidelity report** (the plan's gate: no silent loss; an unknown
    `_template` is an explicit exception, never dropped; unmapped content kept as preserved HTML and flagged).
+6. **Embed the stories** (added 2026-11-13): after the import, the body repair and the shows move, run `scripts/embeddings/backfill.ts` (dry run, then a small run, then all; `IMPORT.md` step 5). It powers "Related stories" and semantic search and needs the owner's go-ahead and an OpenAI key (see *Vector search and similar stories*). The importer sets `disableEmbedding`, so the import itself makes no provider calls.
 
 **The block set is now derived from the census (done 2026-11-02, owner-approved).** What changed from the provisional set,
 and why (counts are pages of the 1,500 sampled):
@@ -1215,6 +1278,8 @@ signed-in account page, not CMS content.
 
 ## Known gaps in what exists
 
+- **Story embeddings are built but not run** (see *Vector search and similar stories*): until the backfill runs there is no "Related stories" section and search is keyword-only. The similarity floors are uncalibrated starting values.
+
 - `posts-sitemap.xml` and `pages-sitemap.xml` read at most 1,000 records each; the archive is larger. Paginate (a sitemap
   index) before the migration.
 - A redirect rendered inside a cached page is sent with the `Location` header **twice** (Next 16.3.3). Chromium, Node's
@@ -1468,6 +1533,7 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 - **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
+- **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); the `vector` extension enabled on both Supabase projects; whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.

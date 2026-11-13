@@ -147,6 +147,38 @@ old addresses give way to their redirects. On production the same commands, with
 The script skips and lists: two shows that would share an address (`/show/x` and `/podcast/x`: rename one first), an address another
 record already has, and an episode not under its show's address (left where it is). It is safe to run again.
 
+## 5. After the import: embed the stories (staging first, then production)
+
+The importer, the body repair and the shows move all save stories with `disableEmbedding` set, so importing thousands of stories makes no
+inline calls to the embedding provider. Embedding is its own step, run once the stories are in and their bodies are final (it embeds the text, so run it
+after any body repair and after the shows have moved: neither changes what a story says, but a re-run is only cheap when nothing is stale).
+It powers "Related stories" and semantic search. The site works without it: until it is run, search is keyword-only and story pages have no
+"Related stories" section.
+
+**First, the owner's go-ahead.** It sends the text of every WUWF story to OpenAI and is a paid call (ROADMAP: Vector search and similar stories,
+*Needs the owner*). Enable the `vector` extension on the Supabase project first (Database, Extensions); the migration `20261113_222100_story_embeddings`
+creates the table. Then the dry run, which needs no key and sends nothing:
+
+```bash
+set -a; source ~/grove/staging.env; set +a
+pnpm exec tsx scripts/embeddings/backfill.ts                          # DRY RUN: how many stories, how much text, what would be embedded
+```
+
+Read the counts: the eligible stories should be about the number of WUWF stories imported (NPR and wire stories are never read), and "left out (no text)"
+should be small. Then a small real run, a look at the neighbours, and the rest:
+
+```bash
+export OPENAI_API_KEY=...                                             # from the owner; never saved in a file in the repository
+pnpm exec tsx scripts/embeddings/backfill.ts --limit 50 --apply       # 50 stories
+pnpm exec tsx scripts/embeddings/inspect.ts                           # read the neighbours of 15 stories; set the floor in src/lib/embeddings/rank.ts
+pnpm exec tsx scripts/embeddings/backfill.ts --apply                  # everything missing or stale; safe to stop and run again
+```
+
+The last run prints "vectors stored now"; that number should equal "eligible", and a second run should report 0 to embed (it is the check that the
+step is complete). On production, add `--production` to each command, after staging. A story saved later is embedded by the site itself when it is
+published or edited (when `OPENAI_API_KEY` is set on the site's host), so this step is not repeated for new stories; run the backfill again only after a
+failure (the site logs "saved but not embedded"), after a model change, or after a bulk edit made with `disableEmbedding`.
+
 ## Author profiles follow the stories
 
 A profile is saved only when a story in the run credits that person (matched on `/people/<slug>`). Other people (NPR or other-station contributors who never wrote for WUWF) are skipped by rule and counted as `authorsSkippedByRule` in the report, not held. Their `/people/` addresses are not carried over; owner to decide whether they redirect.
