@@ -348,7 +348,7 @@ RLS** (`conversation-handoff.ts`): ffmpeg joins the segments to one MP3, the fir
 submissions; a *sent* conversation is never purged here); contact-card and raw-audio retention follow a report date that phase F creates, so they are
 not purged and nothing guesses a date. `AUDIENCE_LISTENING_NOTIFY_EMAIL` gets one email, with nothing a visitor wrote in it, per host request; there
 is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F).
-Migrations `20261111160000` (schema) and `20261111170000` (Resources content).
+Migrations `20261111160000` (schema) and `20261111170000` (Resources content), applied to preview and then production (production through the SQL editor: the Supabase tool holds `DELETE` statements for a confirmation).
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
