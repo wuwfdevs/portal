@@ -168,7 +168,7 @@ PostgreSQL, **this app's own** Supabase project in hosted environments — never
 Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
 Payload pushes schema changes; **production runs only committed migrations** (`src/migrations`, created
 with `pnpm payload migrate:create`). Never run a destructive database operation without being asked. **After any schema change, run `pnpm verify:migrations`**
-(dev and test databases push schema on their own, so tests pass even when a migration was never written). The database needs the **pgvector** extension (story embeddings): `docker-compose.yml` uses the `pgvector/pgvector` image, and on Supabase the `vector` extension must be enabled on the project before the migration runs.
+(dev and test databases push schema on their own, so tests pass even when a migration was never written). The database needs the **pgvector** extension (story embeddings): `docker-compose.yml` uses the `pgvector/pgvector` image, and the migration runs `CREATE EXTENSION IF NOT EXISTS vector` (on Supabase it is installed in the `public` schema on both site projects).
 
 ## Commands
 

@@ -156,7 +156,7 @@ It powers "Related stories" and semantic search. The site works without it: unti
 "Related stories" section.
 
 **First, the owner's go-ahead.** It sends the text of every WUWF story to OpenAI and is a paid call (ROADMAP: Vector search and similar stories,
-*Needs the owner*). Enable the `vector` extension on the Supabase project first (Database, Extensions); the migration `20261113_222100_story_embeddings`
+*Needs the owner*). The `vector` extension is already enabled on staging and production (2026-11-13); the migration `20261113_222100_story_embeddings` (applied to staging by its preview build; apply it to production deliberately first)
 creates the table. Then the dry run, which needs no key and sends nothing:
 
 ```bash

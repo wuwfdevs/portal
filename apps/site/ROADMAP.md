@@ -57,8 +57,10 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
   story count: well under a dollar for the archive; **check the current price**). Set `OPENAI_API_KEY` on the site's Vercel project (server only).
 - **The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service): WUWF stories can contain such text. Settle it before the first `--apply`.
 - **Approval to send visitors' search words to OpenAI** (`SEMANTIC_SEARCH=on`), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
-- **Enable the `vector` extension** on the staging and production Supabase projects (Database, Extensions) before the migration runs there. (`payload migrate` also tries to create it, but the `payload_app`
-  role may not be allowed to.)
+- ~~**Enable the `vector` extension**~~ **Done (2026-11-13).** Staging: the migration created it (`CREATE EXTENSION IF NOT EXISTS vector`, schema `public`) when the preview build of this branch ran `payload migrate`
+  on the shared staging database (`MIGRATE_ON_BUILD=1`), so the `payload_app` role can create it. Production: enabled by hand in the same schema (`public`, to match staging), version 0.8.2.
+  **The migration itself has NOT been applied to production** (production never migrates by itself: `pnpm payload migrate` with the production `DATABASE_URL`, deliberately, then deploy). Staging has `story_embeddings` and
+  the migration recorded (batch 31).
 - **A "do not recommend" flag?** An editor may not want an old, sensitive story offered beside new reporting. Not built (it is a field on Posts plus a migration); say if you want it before launch.
 - Whether **NPR and wire stories** should ever be embedded (they are not today); it depends on NPR's CDS terms (`ARCHITECTURE.md`, CDS sync).
 
@@ -1533,7 +1535,7 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 - **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
-- **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); the `vector` extension enabled on both Supabase projects; whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
+- **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.
