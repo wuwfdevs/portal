@@ -119,7 +119,12 @@ export const MODULES: readonly ModuleManifestEntry[] = [
       },
       {
         name: "AUDIENCE_LISTENING_NOTIFY_EMAIL",
-        for: "emailing a shared mailbox when a host request arrives",
+        for: "emailing a shared mailbox when a host request arrives, and the daily and weekly reminders",
+        required: false,
+      },
+      {
+        name: "CRON_SECRET",
+        for: "the hourly scheduled run (api/cron/listening): sending recordings to Sourcework, emailing facilitators their links, clearing old emails and the reminders",
         required: false,
       },
     ],

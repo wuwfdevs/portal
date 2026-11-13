@@ -118,12 +118,14 @@ export interface PendingSegment {
   blob: Blob
   durationMs: number
   contentType: string
+  /** When the phone started recording this segment (ISO). Lets the Portal show where a phone slept or a microphone dropped. */
+  startedAt?: string
 }
 
 export interface SegmentSteps {
   reserve(input: { seq: number; contentType: string }): Promise<ActionResult<{ alreadyUploaded: true } | { upload: ListeningUpload }>>
   put(upload: ListeningUpload, blob: Blob): Promise<boolean>
-  complete(input: { seq: number; sizeBytes: number; durationMs: number }): Promise<ActionResult<Record<never, never>>>
+  complete(input: { seq: number; sizeBytes: number; durationMs: number; startedAt?: string }): Promise<ActionResult<Record<never, never>>>
 }
 
 export type SegmentProgress = { uploaded: number; total: number; failing: boolean }
@@ -272,7 +274,12 @@ export class SegmentQueue {
       this.lastError = 'The connection dropped. The recording is safe on this phone and will send when it is back.'
       return false
     }
-    const completed = await this.steps.complete({ seq: segment.seq, sizeBytes: segment.blob.size, durationMs: segment.durationMs })
+    const completed = await this.steps.complete({
+      seq: segment.seq,
+      sizeBytes: segment.blob.size,
+      durationMs: segment.durationMs,
+      ...(segment.startedAt ? { startedAt: segment.startedAt } : {}),
+    })
     if (!completed.ok) {
       this.lastError = completed.message
       return false
@@ -317,17 +324,99 @@ export function endedView(status: string | null): EndedView {
 export interface FacilitatorInput {
   firstName: string
   email: string
+  /** How many are at the table, counting the facilitator, as typed. Optional. */
+  people?: string
 }
+
+/** The most people a table's size can say; the transcription is told a range around it, so it only narrows the guess. */
+export const MAX_TABLE_PEOPLE = 20
 
 /**
  * What the facilitator gives when the table agrees: an optional first name and a required email. The email is how WUWF sends them
  * the one link to name the voices and mark what mattered; the Portal checks it again and never sends it back to this site.
  */
-export function checkFacilitator(input: FacilitatorInput): Checked<{ firstName: string | null; email: string }> {
+export function checkFacilitator(input: FacilitatorInput): Checked<{ firstName: string | null; email: string; people: number | null }> {
   const firstName = input.firstName.trim()
   const email = input.email.trim()
+  const peopleText = (input.people ?? '').trim()
+  let people: number | null = null
+  if (peopleText !== '') {
+    const n = Number(peopleText)
+    if (!Number.isInteger(n) || n < 1 || n > MAX_TABLE_PEOPLE) return { ok: false, message: `How many are at the table? Enter a number from 1 to ${MAX_TABLE_PEOPLE}, or leave it blank.` }
+    people = n
+  }
   if (firstName.length > 60) return { ok: false, message: 'A first name can be at most 60 characters.' }
   if (email.length === 0) return { ok: false, message: 'Add your email. It is where WUWF sends the link to name your table’s voices.' }
   if (email.length > 320 || !looksLikeEmail(email)) return { ok: false, message: 'That email address does not look right.' }
-  return { ok: true, value: { firstName: firstName || null, email } }
+  return { ok: true, value: { firstName: firstName || null, email, people } }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// When the microphone stops hearing
+
+/** What the recorder knows about the microphone while a table is recording. */
+export interface MicHealth {
+  /** The track ended (unplugged, taken by a call, revoked): nothing more will be heard until it is asked for again. */
+  ended: boolean
+  /** The system muted the track (a phone call, or a phone that locked and slept): the recorder keeps running but hears nothing. */
+  muted: boolean
+  /** The page was hidden while recording, so the phone may have slept. */
+  wentAway: boolean
+  /** The screen wake lock is not held although the table is recording. */
+  wakeLost: boolean
+}
+
+export interface RecordingNotice {
+  tone: 'alert' | 'note'
+  title: string
+  body: string
+  /** The button offered, if one fixes it. */
+  action: 'reconnect' | 'dismiss' | null
+}
+
+/**
+ * The one sentence a recording table's phone shows when something is wrong with what it can hear, most serious first. Null when all is
+ * well. The words say what happened and what to do, and never imply the recording is fine when it is not.
+ */
+export function recordingNotice(health: MicHealth): RecordingNotice | null {
+  if (health.ended) {
+    return {
+      tone: 'alert',
+      title: 'The microphone stopped',
+      body: 'Something took the microphone, like a call or an unplugged headset. Nothing is being recorded. Reconnect it to carry on; what was recorded before is safe.',
+      action: 'reconnect',
+    }
+  }
+  if (health.muted) {
+    return {
+      tone: 'alert',
+      title: 'The phone is not hearing you',
+      body: 'The phone has muted its microphone, usually because of a call or because the screen was locked. Nothing is being recorded until it is back. Keep this page open and the screen on.',
+      action: null,
+    }
+  }
+  if (health.wentAway) {
+    return {
+      tone: 'note',
+      title: 'This page was in the background',
+      body: 'Some phones stop recording when the screen locks or another app is open, so a stretch may be missing. It carries on now. Keep this page open and the screen on.',
+      action: 'dismiss',
+    }
+  }
+  if (health.wakeLost) {
+    return {
+      tone: 'note',
+      title: 'The screen may turn off',
+      body: 'This phone would not keep its screen awake. Leave it plugged in and touch the screen now and then, or turn off auto-lock.',
+      action: 'dismiss',
+    }
+  }
+  return null
+}
+
+/** The instruction shown before recording starts: the things that keep a long recording whole. */
+export const BEFORE_RECORDING_STEPS = [
+  'Plug the phone in, or check it has enough charge for the whole conversation.',
+  'Set it face up on the table, near the middle, with the screen on.',
+  'Keep this page open. Locking the screen or opening another app can stop the recording on some phones.',
+] as const

@@ -227,9 +227,16 @@ export async function createSourceForExistingProject(
  */
 export async function startTranscriptionForProject(
   supabase: Client,
-  params: { representationId: string; storagePath: string },
+  params: { representationId: string; storagePath: string; speakerRange?: { min: number; max: number } | null; identifySpeakers?: boolean },
 ): Promise<{ error?: string }> {
   const representationId = params.representationId;
+
+  // A retry must start the way the first run did, so what a caller asked for is kept on the representation and read back here.
+  const { data: existing, error: readError } = await supabase.from("sw_representations").select("config").eq("id", representationId).maybeSingle();
+  if (readError) return { error: `Could not read this transcript's settings: ${readError.message}` };
+  const stored = (existing?.config ?? {}) as { speakerRange?: { min: number; max: number } | null; identifySpeakers?: boolean };
+  const speakerRange = params.speakerRange ?? stored.speakerRange ?? null;
+  const identifySpeakers = params.identifySpeakers ?? stored.identifySpeakers ?? false;
 
   const mediaUrl = await getSignedMediaUrlForIngest(params.storagePath);
   const webhookSecret = process.env.TRANSCRIPTION_WEBHOOK_SECRET;
@@ -271,6 +278,7 @@ export async function startTranscriptionForProject(
       mediaUrl,
       webhookUrl: `${getSiteUrl()}/api/transcription/webhook`,
       webhookSecret,
+      speakerRange,
     });
 
     const { error: recordError } = await supabase
@@ -279,6 +287,7 @@ export async function startTranscriptionForProject(
         status: "processing",
         provider_job_id: providerJobId,
         error_message: null,
+        config: { ...(existing?.config as object | null | undefined), speakerRange, identifySpeakers },
       })
       .eq("id", representationId);
     // Without the job id saved the webhook can never find this row, so it is a failure, not a detail.

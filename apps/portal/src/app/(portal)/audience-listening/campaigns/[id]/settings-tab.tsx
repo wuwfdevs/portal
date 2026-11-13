@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmSubmit } from "@/components/ui/confirm-action";
 import { FormActions } from "@/components/ui/form-actions";
-import { Field, Select, Textarea } from "@/components/ui/input";
+import { CheckboxField, Field, Select, Textarea } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
 import type { AlCampaign } from "@/lib/audience-listening/campaign-queries";
 import { deleteCampaign, updateCampaign } from "../../campaign-actions";
@@ -39,7 +39,21 @@ export function SettingsTab({
             ))}
           </Select>
         </Field>
-        <Field label="Private notes" htmlFor="internal_notes" hint={ownerName ? `Staff only. Started by ${ownerName}.` : "Staff only."}>
+        <CheckboxField
+          name="accepts_kitchen_tables"
+          defaultChecked={campaign.accepts_kitchen_tables}
+          label="Anyone may host a kitchen table"
+          hint="Shows a “Host your own table” button beside this campaign on the website. A person starts one private table of their own, with no event, and their phone records it. Nothing is public."
+        />
+        <Field
+          label="Private notes"
+          htmlFor="internal_notes"
+          hint={
+            ownerName
+              ? `Staff only. Started by ${ownerName}, who is also the person the hourly run sends recordings to Sourcework as, so they need Sourcework access.`
+              : "Staff only."
+          }
+        >
           <Textarea id="internal_notes" name="internal_notes" rows={3} maxLength={4000} defaultValue={campaign.internal_notes ?? ""} />
         </Field>
         <FormActions>

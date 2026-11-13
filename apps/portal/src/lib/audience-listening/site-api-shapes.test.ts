@@ -360,9 +360,9 @@ describe("the hub", () => {
   });
 
   it("is empty, not an error, for a payload it cannot read", () => {
-    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [] });
+    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [], kitchenCampaigns: [] });
     expect(shapeResponse("hub", { error: "nope" }).ok).toBe(false);
-    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [] } } });
+    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [], kitchenCampaigns: [] } } });
   });
 
   it("lists upcoming public events, and drops one that is missing what the page needs", () => {
@@ -371,6 +371,19 @@ describe("the hub", () => {
     expect(events).toEqual([
       { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12 },
     ]);
+  });
+
+  it("lists the campaigns that accept a kitchen table, and drops one that is missing a title or question", () => {
+    const { kitchenCampaigns } = shapeHub({
+      open: [],
+      answered: [],
+      kitchen_campaigns: [
+        { public_id: PUBLIC_ID, title: "Season", question: "What would make it easier to stay?" },
+        { public_id: PUBLIC_ID, title: "No question" },
+        "nope",
+      ],
+    });
+    expect(kitchenCampaigns).toEqual([{ publicId: PUBLIC_ID, title: "Season", question: "What would make it easier to stay?" }]);
   });
 
   it("gives no events, and no error, when the database sends none", () => {

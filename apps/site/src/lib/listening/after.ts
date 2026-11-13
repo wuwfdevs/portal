@@ -13,6 +13,8 @@ export interface SpeakerEdit {
   mergedInto: string | null
   firstHeardMs: number
   sharePercent: number
+  /** A name the transcription heard the person say, to confirm. Never filled in by itself. */
+  suggestedName: string | null
 }
 
 export interface MarkEdit {
@@ -21,7 +23,7 @@ export interface MarkEdit {
 }
 
 export function toSpeakerEdits(speakers: ListeningSpeaker[]): SpeakerEdit[] {
-  return speakers.map((s) => ({ id: s.id, label: s.label, name: s.name ?? '', isFacilitator: s.isFacilitator, mergedInto: s.mergedInto, firstHeardMs: s.firstHeardMs, sharePercent: s.sharePercent }))
+  return speakers.map((s) => ({ id: s.id, label: s.label, name: s.name ?? '', isFacilitator: s.isFacilitator, mergedInto: s.mergedInto, firstHeardMs: s.firstHeardMs, sharePercent: s.sharePercent, suggestedName: s.suggestedName ?? null }))
 }
 
 export function toMarkEdits(highlights: ListeningHighlight[]): MarkEdit[] {
@@ -55,6 +57,27 @@ export function voiceName(speakers: SpeakerEdit[], id: string | null): string {
 /** The voices still on the list: those not folded into another. */
 export function activeSpeakers(speakers: SpeakerEdit[]): SpeakerEdit[] {
   return speakers.filter((s) => s.mergedInto === null)
+}
+
+/**
+ * The voices that have a suggested name and no name yet. A name the facilitator typed is never replaced by a suggestion, and a
+ * suggestion is only a button: nothing is named until it is pressed.
+ */
+export function suggestionFor(speaker: SpeakerEdit): string | null {
+  const suggested = speaker.suggestedName?.trim() ?? ''
+  return suggested !== '' && speaker.name.trim() === '' ? suggested : null
+}
+
+/** Takes a voice's suggested name as its name, if it has no name. */
+export function acceptSuggestedName(speakers: SpeakerEdit[], id: string): SpeakerEdit[] {
+  return speakers.map((s) => (s.id === id && suggestionFor(s) ? { ...s, name: s.suggestedName!.trim() } : s))
+}
+
+/** Lines the Portal proposed as worth keeping that are not already marked and have not been set aside, in order, and that exist in the transcript. */
+export function openProposals(proposals: number[], marks: MarkEdit[], dismissed: number[], lines: ListeningTranscriptLine[]): ListeningTranscriptLine[] {
+  const skip = new Set([...marks.map((m) => m.startMs), ...dismissed])
+  const wanted = new Set(proposals.filter((p) => !skip.has(p)))
+  return lines.filter((line) => wanted.has(line.startMs))
 }
 
 export function renameSpeaker(speakers: SpeakerEdit[], id: string, name: string): SpeakerEdit[] {

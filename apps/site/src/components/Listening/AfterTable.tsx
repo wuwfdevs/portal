@@ -7,6 +7,7 @@ import type { ListeningConversation } from '@wuwf/portal-contracts'
 
 import { readConversation, saveHighlights, saveSpeakers, sendConversation } from '@/app/(frontend)/listens/table-actions'
 import {
+  acceptSuggestedName,
   activeSpeakers,
   afterStage,
   clockFromMs,
@@ -16,8 +17,10 @@ import {
   marksHeading,
   marksPayload,
   mergeSpeakers,
+  openProposals,
   renameSpeaker,
   speakersPayload,
+  suggestionFor,
   toMarkEdits,
   toSpeakerEdits,
   unmarkLine,
@@ -45,6 +48,7 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
   const [marks, setMarks] = useState<MarkEdit[]>(() => toMarkEdits(initial.highlights))
   const [dirty, setDirty] = useState(false)
   const [open, setOpen] = useState<number | null>(null)
+  const [dismissed, setDismissed] = useState<number[]>([])
   const [limit, setLimit] = useState<number | null>(FIRST_MINUTES)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +75,7 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
   }, [stage, refresh])
 
   const lines = useMemo(() => visibleLines(conversation.lines, limit), [conversation.lines, limit])
+  const proposed = useMemo(() => openProposals(conversation.proposals ?? [], marks, dismissed, conversation.lines), [conversation.proposals, conversation.lines, marks, dismissed])
   const hiddenCount = conversation.lines.length - lines.length
   const firstWords = useMemo(() => {
     const out = new Map<string, string>()
@@ -282,6 +287,14 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
                         value={speaker.name}
                       />
                     </div>
+                    {!readOnly && suggestionFor(speaker) && (
+                      <p className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
+                        It sounded like &ldquo;{suggestionFor(speaker)}&rdquo;.
+                        <button className={buttonLink} onClick={() => editSpeakers(acceptSuggestedName(speakers, speaker.id))} type="button">
+                          Use this name
+                        </button>
+                      </p>
+                    )}
                     <label className={checkRow}>
                       <input checked={speaker.isFacilitator} className={checkbox} disabled={readOnly} onChange={() => editSpeakers(markFacilitator(speakers, speaker.id))} type="checkbox" />
                       <span>That&rsquo;s me</span>
@@ -317,6 +330,33 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
               })}
             </ul>
           </section>
+
+          {!readOnly && proposed.length > 0 && (
+            <section aria-labelledby="suggested-h" className="flex flex-col gap-3">
+              <h2 className="font-serif text-xl font-bold" id="suggested-h">
+                Lines that may matter
+              </h2>
+              <p className="text-sm text-ink-3">A first pass picked these as worth a second look. Nothing is marked until you mark it.</p>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {proposed.map((line) => (
+                  <li className="flex flex-col gap-1.5 rounded-sm border border-dashed border-rule-strong p-2.5" key={line.startMs}>
+                    <span className="text-xs text-ink-3">
+                      {voiceName(speakers, line.speakerId)} · {clockFromMs(line.startMs)}
+                    </span>
+                    <span className="text-sm leading-snug text-ink">{line.text}</span>
+                    <span className="flex gap-3">
+                      <button className={buttonLink} onClick={() => editMarks(markLine(marks, line.startMs, null))} type="button">
+                        Mark it
+                      </button>
+                      <button className={buttonLink} onClick={() => setDismissed((d) => [...d, line.startMs])} type="button">
+                        Not this one
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section aria-labelledby="marks-h" className="flex flex-col gap-3">
             <h2 className="font-serif text-xl font-bold" id="marks-h">

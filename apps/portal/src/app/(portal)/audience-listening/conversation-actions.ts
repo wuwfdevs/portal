@@ -9,6 +9,7 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { assertAudienceListeningContext, assertAudienceListeningCoordinator } from "@/lib/audience-listening/access";
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
+import { canUseTool } from "@/lib/auth/authz";
 import { sendConversationToSourcework } from "@/lib/audience-listening/conversation-handoff";
 import { getEvent, listConversations, listTables } from "@/lib/audience-listening/campaign-queries";
 import { needsAfterLink } from "@/lib/audience-listening/after-link";
@@ -205,4 +206,35 @@ export async function emailPendingFacilitatorLinks(formData: FormData): Promise<
   await logAuditEvent({ actorId: profile.id, action: "al.event.after_links_sent", targetType: "al_event", targetId: eventId, metadata: { sent, failed } });
   revalidatePath(path);
   redirect(`${path}?links_sent=${sent}&links_failed=${failed}`);
+}
+
+// Marked lines as Sourcework excerpts -----------------------------------------------------------------------
+
+/**
+ * Turns the lines a facilitator marked into Sourcework excerpts, made as the staff member who pressed this (Sourcework records who made
+ * an excerpt). The scheduled run does the same as the campaign's owner once a transcript is ready; this is for doing it now. The
+ * database function is service-role only, so the admin client calls it, after the staff member's own access to both tools is checked.
+ */
+export async function makeExcerptsFromMarks(formData: FormData): Promise<void> {
+  const { profile } = await assertAudienceListeningContext();
+  const eventId = field(formData, "event_id");
+  const tableId = field(formData, "table_id");
+  const conversationId = field(formData, "conversation_id");
+  const path = tablePath(eventId, tableId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !(await canUseTool(user, "transcription"))) {
+    failWith(path, "Making excerpts needs Sourcework, and either it is switched off or you do not have access to it. Ask an administrator.");
+  }
+  // The conversation must be one this person can see, and belong to the table on the page.
+  const { data: conversation, error: readError } = await supabase.from("al_conversations").select("id").eq("id", conversationId).eq("table_id", tableId).maybeSingle();
+  failIfError(readError, path, "Could not read the conversation");
+  if (!conversation) failWith(path, "That conversation no longer exists.");
+  const { data: made, error } = await createAdminClient().rpc("al_create_excerpts_from_highlights", { p_conversation_id: conversationId, p_created_by: profile.id });
+  failIfError(error, path, "Could not make the excerpts");
+  await logAuditEvent({ actorId: profile.id, action: "al.conversation.excerpts_made", targetType: "al_conversation", targetId: conversationId, metadata: { excerpts: made ?? 0 } });
+  revalidatePath(path);
+  redirect(`${path}?notice=excerpts-${made ?? 0}`);
 }

@@ -10,6 +10,8 @@ import { openSegmentStore, type SegmentStore } from '@/lib/listening/segment-sto
 import { putToSignedUrl } from '@/lib/listening/send-answer'
 import {
   SegmentQueue,
+  BEFORE_RECORDING_STEPS,
+  MAX_TABLE_PEOPLE,
   checkFacilitator,
   endedView,
   formatClock,
@@ -18,6 +20,7 @@ import {
   neighbourPosition,
   promptAt,
   promptLabel,
+  recordingNotice,
   sendPercent,
   suggestedTimeLabel,
   tableScreen,
@@ -68,6 +71,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
   const [table, setTable] = useState<ListeningTable>(initial)
   const [name, setName] = useState(initial.facilitatorFirstName ?? '')
   const [email, setEmail] = useState('')
+  const [people, setPeople] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmEnd, setConfirmEnd] = useState(false)
@@ -174,12 +178,17 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
       // The microphone first: a refusal is found out before anyone has been told they are being recorded.
       if (!(await recorder.acquire())) return
       if (table.state === 'waiting') {
-        const facilitator = checkFacilitator({ firstName: name, email })
+        const facilitator = checkFacilitator({ firstName: name, email, people })
         if (!facilitator.ok) {
           setError(facilitator.message)
           return
         }
-        const agreed = await agreeTable({ consentVersion: table.consent.version, firstName: facilitator.value.firstName, email: facilitator.value.email })
+        const agreed = await agreeTable({
+          consentVersion: table.consent.version,
+          firstName: facilitator.value.firstName,
+          email: facilitator.value.email,
+          people: facilitator.value.people,
+        })
         if (!apply(agreed)) return
       }
       const started = await updateTable({ event: 'start' })
@@ -427,6 +436,27 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
                   WUWF emails you one link, once the transcript is ready, to name the voices at your table and mark what mattered. It is not shared or used for anything else, and WUWF removes it about a month after the event.
                 </span>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <label className={label} htmlFor="table-people">
+                  How many are at your table, counting you? (optional)
+                </label>
+                <input
+                  className={field}
+                  id="table-people"
+                  inputMode="numeric"
+                  max={MAX_TABLE_PEOPLE}
+                  min={1}
+                  onChange={(event) => setPeople(event.target.value)}
+                  type="number"
+                  value={people}
+                />
+                <span className="text-xs text-ink-3">It helps the transcript tell the voices apart. A rough number is fine.</span>
+              </div>
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm text-ink-2">
+                {BEFORE_RECORDING_STEPS.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
             </>
           )}
 
@@ -468,7 +498,39 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           </span>
         </div>
 
-        {!recorder.recording && !paused && (
+        {(() => {
+          const notice = paused ? null : recordingNotice(recorder.health)
+          if (!notice) return null
+          return (
+            <div className={cn(notice.tone === 'alert' ? noticeWarn : noticeInfo, 'flex flex-col gap-2.5')} role={notice.tone === 'alert' ? 'alert' : 'status'}>
+              <span>
+                <strong>{notice.title}.</strong> {notice.body}
+              </span>
+              {notice.action === 'reconnect' && (
+                <button
+                  className={cn(buttonDark, 'self-start')}
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true)
+                    void recorder.reconnect().then((ok) => {
+                      if (!ok) setError('This phone could not get the microphone back. Check that no call or other app is using it, then try again.')
+                      setBusy(false)
+                    })
+                  }}
+                  type="button"
+                >
+                  Reconnect the microphone
+                </button>
+              )}
+              {notice.action === 'dismiss' && (
+                <button className={cn(buttonSecondary, 'self-start')} onClick={recorder.dismissNotice} type="button">
+                  Got it
+                </button>
+              )}
+            </div>
+          )
+        })()}
+        {!recorder.recording && !paused && !recorder.health.ended && (
           <div className={cn(noticeWarn, 'flex flex-col gap-2.5')} role="alert">
             <span>
               <strong>This page is not recording.</strong> It was reloaded or lost the microphone.

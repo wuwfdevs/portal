@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  acceptSuggestedName,
   activeSpeakers,
   afterStage,
   clockFromMs,
@@ -10,8 +11,10 @@ import {
   marksHeading,
   marksPayload,
   mergeSpeakers,
+  openProposals,
   renameSpeaker,
   speakersPayload,
+  suggestionFor,
   unmarkLine,
   unmergeSpeaker,
   visibleLines,
@@ -20,7 +23,7 @@ import {
   type SpeakerEdit,
 } from './after'
 
-const speaker = (id: string, extra: Partial<SpeakerEdit> = {}): SpeakerEdit => ({ id, label: `Voice ${id}`, name: '', isFacilitator: false, mergedInto: null, firstHeardMs: 0, sharePercent: 10, ...extra })
+const speaker = (id: string, extra: Partial<SpeakerEdit> = {}): SpeakerEdit => ({ id, label: `Voice ${id}`, name: '', isFacilitator: false, mergedInto: null, firstHeardMs: 0, sharePercent: 10, suggestedName: null, ...extra })
 
 describe('clockFromMs', () => {
   it('shows minutes and seconds, and hours past one', () => {
@@ -120,5 +123,24 @@ describe('afterStage', () => {
   it('says where a conversation without a transcript is', () => {
     expect(waitingSentence('uploading')).toMatch(/still reaching WUWF/)
     expect(waitingSentence('transcribing')).toMatch(/being made/)
+  })
+})
+
+describe('suggested names and lines', () => {
+  const rosa = (extra: Partial<SpeakerEdit> = {}) => speaker('a', { suggestedName: 'Rosa', ...extra })
+  it('offers a suggested name only to a voice with no name, and takes it only when pressed', () => {
+    expect(suggestionFor(rosa())).toBe('Rosa')
+    expect(suggestionFor(rosa({ name: 'Rose' }))).toBeNull()
+    expect(suggestionFor(rosa({ suggestedName: '  ' }))).toBeNull()
+    expect(acceptSuggestedName([rosa()], 'a')[0]!.name).toBe('Rosa')
+    expect(acceptSuggestedName([rosa({ name: 'Rose' })], 'a')[0]!.name).toBe('Rose')
+  })
+  it('lists proposed lines that are not marked or set aside, in transcript order', () => {
+    const lines = [
+      { startMs: 1000, text: 'one', speakerId: null },
+      { startMs: 2000, text: 'two', speakerId: null },
+      { startMs: 3000, text: 'three', speakerId: null },
+    ] as Parameters<typeof openProposals>[3]
+    expect(openProposals([3000, 1000, 2000, 9999], [{ startMs: 2000, tag: null }], [3000], lines).map((l) => l.startMs)).toEqual([1000])
   })
 })

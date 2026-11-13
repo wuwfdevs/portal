@@ -7,6 +7,7 @@ import { hubEventMeta, hubSessions } from '@/lib/listening/event'
 import { answeredBy, deskLabel, openMeta, outcomeDate, outcomeKicker } from '@/lib/listening/hub'
 
 import { AskWuwf } from './AskWuwf'
+import { KitchenTable } from './KitchenTable'
 import { eyebrow } from './styles'
 
 const answerLink =
@@ -23,7 +24,8 @@ const answerLink =
  */
 export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
   const sessions = hubSessions(hub)
-  const empty = hub.open.length === 0 && hub.answered.length === 0 && sessions.length === 0
+  const kitchen = hub.kitchenCampaigns ?? []
+  const empty = hub.open.length === 0 && hub.answered.length === 0 && sessions.length === 0 && (hub.kitchenCampaigns ?? []).length === 0
   return (
     <>
       <section className="bg-wuwf-blue-100">
@@ -59,6 +61,13 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                 Ask WUWF something →
               </a>
             </li>
+            {kitchen.length > 0 && (
+              <li>
+                <a className="text-wuwf-blue-700" href="#kitchen-table">
+                  Host a table of your own →
+                </a>
+              </li>
+            )}
             <li>
               <Link className="text-wuwf-blue-700" href="/listens/host">
                 Host a listening session →
@@ -115,6 +124,23 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {kitchen.length > 0 && (
+        <section aria-labelledby="kitchen-title" className="container py-12" id="kitchen-table">
+          <h2 className="font-serif text-3xl font-bold" id="kitchen-title">
+            Host a table of your own
+          </h2>
+          <p className="mb-6 mt-2 max-w-2xl text-base text-ink-2">
+            Gather a few people in your kitchen, a break room or a church hall. Your phone reads the question, records the conversation once everyone agrees, and
+            sends it to WUWF. Nothing is public.
+          </p>
+          <div className="flex flex-col gap-10">
+            {kitchen.map((campaign) => (
+              <KitchenTable campaign={campaign} key={campaign.publicId} />
+            ))}
+          </div>
         </section>
       )}
 

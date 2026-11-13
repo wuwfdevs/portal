@@ -68,10 +68,11 @@ export async function readTable(): Promise<ActionResult<{ table: ListeningTable 
  * The facilitator's tap after the consent is read aloud. The version is the one the phone showed; the email is where WUWF sends the
  * one link to the after-page, and the Portal never sends it back.
  */
-export async function agreeTable(input: { consentVersion: number; firstName: string | null; email: string }): Promise<ActionResult<{ table: ListeningTable }>> {
+export async function agreeTable(input: { consentVersion: number; firstName: string | null; email: string; people?: number | null }): Promise<ActionResult<{ table: ListeningTable }>> {
   if (!Number.isInteger(input.consentVersion) || input.consentVersion < 1) return failure('invalid_request')
   if (typeof input.email !== 'string' || (input.firstName !== null && typeof input.firstName !== 'string')) return failure('invalid_request')
-  const facilitator = checkFacilitator({ firstName: input.firstName ?? '', email: input.email })
+  if (input.people !== undefined && input.people !== null && !Number.isInteger(input.people)) return failure('invalid_request')
+  const facilitator = checkFacilitator({ firstName: input.firstName ?? '', email: input.email, people: input.people == null ? '' : String(input.people) })
   if (!facilitator.ok) return { ...failure('required_field_missing'), message: facilitator.message }
   return withSession(async (session, base) => {
     const result = await callListening<{ table: ListeningTable }>(LISTENING_PATHS.tableAgree, {
@@ -79,6 +80,7 @@ export async function agreeTable(input: { consentVersion: number; firstName: str
       consentVersion: input.consentVersion,
       firstName: facilitator.value.firstName,
       email: facilitator.value.email,
+      ...(facilitator.value.people !== null ? { people: facilitator.value.people } : {}),
       ...base,
     })
     return result.ok ? { ok: true, table: result.table } : failure(result.error)
@@ -121,16 +123,20 @@ export async function reserveSegment(input: { seq: number; contentType: string }
 }
 
 /** Tells the Portal the segment's upload finished, so it checks the object. */
-export async function completeSegment(input: { seq: number; sizeBytes: number; durationMs: number }): Promise<ActionResult<Record<never, never>>> {
+export async function completeSegment(input: { seq: number; sizeBytes: number; durationMs: number; startedAt?: string }): Promise<ActionResult<Record<never, never>>> {
   if (!Number.isInteger(input.seq) || input.seq < 0 || input.seq >= LISTENING_MAX_SEGMENTS) return failure('invalid_request')
   if (!Number.isInteger(input.sizeBytes) || input.sizeBytes < 1) return failure('invalid_request')
   if (!Number.isInteger(input.durationMs) || input.durationMs < 0) return failure('invalid_request')
+  // The phone's own clock, as an ISO instant; anything else is dropped rather than refused, since it only labels a gap.
+  const startedAt =
+    typeof input.startedAt === 'string' && input.startedAt.length <= 40 && !Number.isNaN(Date.parse(input.startedAt)) ? new Date(input.startedAt).toISOString() : null
   return withSession(async (session, base) => {
     const result = await callListening<Record<never, never>>(LISTENING_PATHS.tableSegmentComplete, {
       session,
       seq: input.seq,
       sizeBytes: input.sizeBytes,
       durationMs: input.durationMs,
+      ...(startedAt ? { startedAt } : {}),
       ...base,
     })
     return result.ok ? { ok: true } : failure(result.error)

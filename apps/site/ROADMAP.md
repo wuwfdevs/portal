@@ -439,6 +439,16 @@ seconds, not the conversation; a browser that will not give storage records with
 adapter itself. **Not run
 against a live Portal or a real phone**: the signed-upload PUT, `MediaRecorder` on iOS Safari and the screen wake lock are untested here.
 
+**Completion of phase E (2026-11-13).** The recorder and after-page now do what the Portal's §12 decided. `useSegmentRecorder` asks for the screen wake
+lock again on `visibilitychange`, watches the microphone track (`ended` shows a banner with "Reconnect the microphone"; `mute` says the phone is not hearing;
+`recordingNotice` in `lib/listening/table.ts` is the pure wording), and stamps each segment with `startedAt` (kept in IndexedDB too) so the Portal can show
+where nothing was recorded; the agreement screen asks how many are at the table (optional, 1 to 20, sent as `people`) and tells the facilitator to plug the
+phone in and keep the page open. The after-page offers a name the transcription heard ("It sounded like Rosa. Use this name") and "Lines that may matter"
+(`proposals`), each a button and never applied by itself. The hub offers **"Host a table of your own"** for campaigns that accept kitchen tables
+(`kitchenCampaigns`, `KitchenTable`, `kitchen-actions.ts`): the Portal makes the event and its table and the link comes back once; the page goes straight to
+`/listens/table/<token>`. **Still untested on a real phone**: whether a given Android or iOS phone keeps recording with the screen locked. The page cannot
+make it, and says what happened rather than promising.
+
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
 `LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
 this server yet".

@@ -1222,6 +1222,8 @@ export interface Database {
           display_name: string | null;
           /** Set by a person; an interviewer's lines are skipped by Analyze (20261022120000). */
           role: "interviewer" | "subject" | null;
+          /** A name the speech provider proposed, to confirm. Never copied into display_name by code (20261114120000). */
+          suggested_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1705,6 +1707,8 @@ export interface Database {
           query_id: string | null;
           sourcework_project_id: string | null;
           internal_notes: string | null;
+          /** Whether anyone may start a private one-table session for this campaign from the website (20261114120000). */
+          accepts_kitchen_tables: boolean;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -1775,6 +1779,8 @@ export interface Database {
           // SHA-256 of the single-use organizer link; a coordinator makes it, opening it signed in to the website claims the event.
           organizer_claim_hash: string | null;
           organizer_claim_issued_at: string | null;
+          /** The opaque subject that started a kitchen table, kept only to limit how many one host starts in a day. */
+          kitchen_host_subject: string | null;
           seats: number | null;
           status: AlEventStatus;
           current_prompt_position: number;
@@ -1819,6 +1825,8 @@ export interface Database {
           // The facilitator's email (given when the table agrees, read by staff, never by the website) and the after-page link made
           // from it. Staff issue and send the link; they cannot set the email.
           facilitator_email: string | null;
+          /** How many the facilitator said were at the table; sent to the transcription as a speaker range (20261114120000). */
+          expected_speakers: number | null;
           after_token_hash: string | null;
           after_token_expires_at: string | null;
           after_link_sent_at: string | null;
@@ -1884,6 +1892,8 @@ export interface Database {
           size_bytes: number | null;
           duration_ms: number | null;
           status: AlSegmentStatus;
+          /** When the table's phone started this segment, when it said (20261114120000). */
+          started_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1919,10 +1929,27 @@ export interface Database {
           text: string;
           tag: string | null;
           speaker_id: string | null;
+          /** The Sourcework excerpt made from this mark, once made (20261114120000). */
+          excerpt_id: string | null;
           created_at: string;
         };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      al_job_runs: {
+        Row: {
+          id: string;
+          task: string;
+          started_at: string;
+          finished_at: string | null;
+          ok: boolean | null;
+          summary: Record<string, unknown>;
+          error: string | null;
+        };
+        // Written by the scheduled route with the service role; staff read.
+        Insert: Partial<Database["public"]["Tables"]["al_job_runs"]["Row"]> & { task: string };
+        Update: Partial<Database["public"]["Tables"]["al_job_runs"]["Row"]>;
         Relationships: [];
       };
       al_contact_cards: {
@@ -4549,6 +4576,36 @@ export interface Database {
       al_purge_preview: {
         Args: Record<string, never>;
         Returns: { submissions: number; conversations: number; cards: number; held: number; emails: number };
+      };
+      /** Security definer (20261114120000), service_role only. Makes a Sourcework excerpt for every mark that has none; returns how many. */
+      al_create_excerpts_from_highlights: {
+        Args: { p_conversation_id: string; p_created_by: string };
+        Returns: number;
+      };
+      /** Security definer (20261114120000), service_role only. Clears facilitator emails and after links thirty days after the event; returns how many tables. */
+      al_cron_clear_facilitator_emails: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
+      /** Security definer (20261114120000), service_role only. What a purge would remove, for the reminder email. */
+      al_cron_purge_counts: {
+        Args: Record<string, never>;
+        Returns: { submissions: number; conversations: number };
+      };
+      /** Security definer (20261114120000), service_role only. What the Ask digest says: counts only. */
+      al_cron_digest_counts: {
+        Args: Record<string, never>;
+        Returns: { questions_new: number; host_requests_new: number; host_requests_late: number };
+      };
+      /** Security definer (20261114120000). Reserves the upload of a recording staff made on a separate recorder; returns the object path. */
+      al_staff_reserve_recording: {
+        Args: { p_table_id: string; p_content_type: string };
+        Returns: { storage_path: string } | { error: string };
+      };
+      /** Security definer (20261114120000). Records that a staff-attached recording finished uploading. */
+      al_staff_complete_recording: {
+        Args: { p_table_id: string; p_size_bytes: number; p_duration_ms: number };
+        Returns: { ok: true } | { error: string };
       };
       /** Security definer (20261111160000). Runs the purge. Coordinators only; returns the counts and the storage paths to remove. */
       al_purge_run: {

@@ -28,6 +28,8 @@ export interface StartTranscriptionInput {
   mediaUrl: string;
   webhookUrl: string;
   webhookSecret: string;
+  /** How many speakers to look for, when it is known roughly (a table's size). Hard limits at the provider, so keep them loose. */
+  speakerRange?: { min: number; max: number } | null;
 }
 
 export interface TranscriptionProvider {

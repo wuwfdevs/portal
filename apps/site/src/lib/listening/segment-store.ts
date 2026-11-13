@@ -60,6 +60,7 @@ interface Row {
   blob: Blob
   durationMs: number
   contentType: string
+  startedAt?: string
 }
 
 function request<T>(req: IDBRequest<T>): Promise<T> {
@@ -92,8 +93,8 @@ export async function openSegmentStore(tableKey: string): Promise<SegmentStore |
   const openKey = `${tableKey}/open`
   const range = IDBKeyRange.bound(`${tableKey}/`, `${tableKey}/￿`)
   const store = (mode: IDBTransactionMode) => db.transaction(STORE, mode).objectStore(STORE)
-  const toSegment = (row: Row): PendingSegment => ({ seq: row.seq, blob: row.blob, durationMs: row.durationMs, contentType: row.contentType })
-  const toRow = (segment: PendingSegment): Row => ({ seq: segment.seq, blob: segment.blob, durationMs: segment.durationMs, contentType: segment.contentType })
+  const toSegment = (row: Row): PendingSegment => ({ seq: row.seq, blob: row.blob, durationMs: row.durationMs, contentType: row.contentType, ...(row.startedAt ? { startedAt: row.startedAt } : {}) })
+  const toRow = (segment: PendingSegment): Row => ({ seq: segment.seq, blob: segment.blob, durationMs: segment.durationMs, contentType: segment.contentType, ...(segment.startedAt ? { startedAt: segment.startedAt } : {}) })
 
   return {
     async put(segment) {

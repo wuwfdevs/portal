@@ -22,7 +22,7 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
         size="page"
         className="mb-8"
         title="Purge what is due"
-        description="Unfinished work is deleted after 30 days. Nothing purges on its own: the Portal has no background jobs, so a coordinator runs this."
+        description="Unfinished work is deleted after 30 days. A conversation is never deleted on a schedule: a coordinator runs this, and the weekly reminder says when something is due. Facilitator emails are cleared on their own, hourly."
       />
       <ListeningNav current="campaigns" />
       {error && <Alert className="mb-4">{error}</Alert>}

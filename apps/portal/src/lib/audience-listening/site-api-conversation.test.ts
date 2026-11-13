@@ -89,6 +89,47 @@ describe("contact cards", () => {
   });
 });
 
+describe("a kitchen table", () => {
+  const CAMPAIGN = "abcdefghijkmnpqs";
+
+  it("is started by a visitor or an account, and only the link's hash reaches the database", () => {
+    const call = ok("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, hostName: " Dana ", place: "My kitchen", startsAt: "2026-11-20T23:00:00Z" });
+    expect(call.rpc.fn).toBe("al_site_kitchen_table_create");
+    // The route makes the token and puts its hash here; the parser leaves it empty.
+    expect(call.rpc.args).toEqual({
+      p_subject: "site:visitor:v1",
+      p_campaign_public_id: CAMPAIGN,
+      p_link_hash: null,
+      p_host_name: "Dana",
+      p_place: "My kitchen",
+      p_starts_at: "2026-11-20T23:00:00.000Z",
+    });
+    expect(ok("kitchen-table-create", { subject: ACCOUNT, campaignPublicId: CAMPAIGN }).rpc.args["p_starts_at"]).toBeNull();
+  });
+
+  it("refuses a campaign id of the wrong shape, an over-long name or place, and a start that is not a time", () => {
+    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: "nope" });
+    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, hostName: "x".repeat(121) });
+    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, place: "x".repeat(201) });
+    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, startsAt: "someday" });
+    bad("kitchen-table-create", { campaignPublicId: CAMPAIGN });
+  });
+
+  it("is limited by host and by address, per day", () => {
+    const keys = rateKeys({ ...ok("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN }), clientHash: "h".repeat(8) });
+    expect(keys.map((k) => k.rule.windowSeconds)).toEqual([86400, 86400]);
+  });
+
+  it("answers with the event's address and the campaign's wording, and says unavailable for anything else", () => {
+    expect(shapeResponse("kitchen-table-create", { event_public_id: CAMPAIGN, title: "Season", question: "A question?" })).toEqual({
+      ok: true,
+      body: { eventPublicId: CAMPAIGN, title: "Season", question: "A question?" },
+    });
+    expect(shapeResponse("kitchen-table-create", null).ok).toBe(false);
+    expect(shapeResponse("kitchen-table-create", { error: "rate_limited" })).toEqual({ ok: false, error: "rate_limited" });
+  });
+});
+
 describe("an organizer's link", () => {
   const CLAIM = "C".repeat(LISTENING_TABLE_TOKEN_LENGTH);
 
@@ -146,6 +187,7 @@ describe("shaping", () => {
     ],
     speakers: [{ id: SPEAKER, label: "Voice 1", name: null, is_facilitator: false, first_heard_ms: 0, share_percent: 78, merged_into: null }, { label: "no id" }],
     highlights: [{ start_ms: 0, end_ms: 4000, text: "Rent went up.", tag: "Cost", speaker_id: SPEAKER }],
+    proposals: [40000, 90000, -1, "x", 1.5],
     contact_card_count: 2,
   };
 
@@ -156,6 +198,16 @@ describe("shaping", () => {
     expect(c.speakers).toHaveLength(1);
     expect(shapeConversation({ ...PAYLOAD, status: "gone" })).toBeNull();
     expect(shapeResponse("conversation", { error: "not_found" })).toEqual({ ok: false, error: "not_found" });
+  });
+
+  it("carries a suggested name only when there is one, and the starts of proposed lines without anything of the model's", () => {
+    const withSuggestion = { ...PAYLOAD, speakers: [{ ...PAYLOAD.speakers[0], suggested_name: "Rosa" }] };
+    const c = shapeConversation(withSuggestion)!;
+    expect(c.speakers[0]?.suggestedName).toBe("Rosa");
+    expect(shapeConversation(PAYLOAD)!.speakers[0]?.suggestedName).toBeNull();
+    // Only whole, non-negative start times survive; nothing else about a proposal (its reason, its text) is sent.
+    expect(c.proposals).toEqual([40000, 90000]);
+    expect(shapeConversation({ ...PAYLOAD, proposals: undefined })!.proposals).toEqual([]);
   });
 
   it("gives the facilitator a count of cards and none of their contents", () => {

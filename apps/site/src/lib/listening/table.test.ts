@@ -15,6 +15,7 @@ import {
   neighbourPosition,
   promptAt,
   promptLabel,
+  recordingNotice,
   segmentIsDue,
   sendPercent,
   suggestedTimeLabel,
@@ -315,8 +316,8 @@ describe('endedView', () => {
 
 describe('checkFacilitator', () => {
   it('needs an email, and takes a first name or none', () => {
-    expect(checkFacilitator({ firstName: ' Dana ', email: ' dana@example.org ' })).toEqual({ ok: true, value: { firstName: 'Dana', email: 'dana@example.org' } })
-    expect(checkFacilitator({ firstName: '  ', email: 'dana@example.org' })).toEqual({ ok: true, value: { firstName: null, email: 'dana@example.org' } })
+    expect(checkFacilitator({ firstName: ' Dana ', email: ' dana@example.org ' })).toEqual({ ok: true, value: { firstName: 'Dana', email: 'dana@example.org', people: null } })
+    expect(checkFacilitator({ firstName: '  ', email: 'dana@example.org' })).toEqual({ ok: true, value: { firstName: null, email: 'dana@example.org', people: null } })
   })
   it('refuses a missing or malformed email and says why', () => {
     const missing = checkFacilitator({ firstName: 'Dana', email: ' ' })
@@ -327,5 +328,40 @@ describe('checkFacilitator', () => {
   })
   it('refuses a first name the Portal would refuse', () => {
     expect(checkFacilitator({ firstName: 'x'.repeat(61), email: 'dana@example.org' }).ok).toBe(false)
+  })
+})
+
+describe('checkFacilitator: the size of the table', () => {
+  it('takes a whole number from 1 to 20, or nothing', () => {
+    expect(checkFacilitator({ firstName: '', email: 'a@example.org', people: ' 6 ' })).toMatchObject({ ok: true, value: { people: 6 } })
+    expect(checkFacilitator({ firstName: '', email: 'a@example.org', people: '' })).toMatchObject({ ok: true, value: { people: null } })
+    for (const bad of ['0', '21', '2.5', 'six']) expect(checkFacilitator({ firstName: '', email: 'a@example.org', people: bad }).ok).toBe(false)
+  })
+})
+
+describe('SegmentQueue sends when the phone started each segment', () => {
+  it('passes startedAt to the Portal with the sizes', async () => {
+    const s = steps()
+    const queue = new SegmentQueue(s)
+    await queue.enqueue({ ...segment(0), startedAt: '2026-11-15T19:00:00.000Z' })
+    await queue.drain()
+    expect(s.complete).toHaveBeenCalledWith({ seq: 0, sizeBytes: 4, durationMs: 1000, startedAt: '2026-11-15T19:00:00.000Z' })
+  })
+})
+
+describe('recordingNotice', () => {
+  const ok = { ended: false, muted: false, wentAway: false, wakeLost: false }
+  it('is silent when all is well', () => {
+    expect(recordingNotice(ok)).toBeNull()
+  })
+  it('puts the worst thing first and offers a fix only when there is one', () => {
+    expect(recordingNotice({ ...ok, ended: true, muted: true, wentAway: true })).toMatchObject({ tone: 'alert', action: 'reconnect' })
+    expect(recordingNotice({ ...ok, muted: true, wentAway: true })).toMatchObject({ tone: 'alert', action: null })
+    expect(recordingNotice({ ...ok, wentAway: true, wakeLost: true })).toMatchObject({ tone: 'note', action: 'dismiss', title: 'This page was in the background' })
+    expect(recordingNotice({ ...ok, wakeLost: true })).toMatchObject({ tone: 'note', title: 'The screen may turn off' })
+  })
+  it('never says the recording is fine while the microphone is not hearing', () => {
+    const text = JSON.stringify([recordingNotice({ ...ok, ended: true }), recordingNotice({ ...ok, muted: true })])
+    expect(text).toContain('Nothing is being recorded')
   })
 })

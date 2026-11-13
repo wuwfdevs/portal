@@ -1,7 +1,5 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { getEvent, listTables } from "@/lib/audience-listening/campaign-queries";
-import { getConversationForTable } from "@/lib/audience-listening/conversation-queries";
 import { readSiteOrigin } from "@/lib/audience-listening/event-times";
 import { AFTER_LINK_STATUS_TEXT, afterLinkStatus, issueAfterLink } from "@/lib/audience-listening/after-link";
 import { facilitatorLinkEmailText } from "@/lib/audience-listening/notify-text";
@@ -24,11 +22,31 @@ function expiresOn(date: Date): string {
  * email and, if the email fails, in the response to the staff member who asked. Nothing is logged.
  */
 export async function sendAfterLink(eventId: string, tableId: string, now: Date = new Date()): Promise<SendAfterLinkResult> {
+  return sendAfterLinkWith(await createClient(), eventId, tableId, now);
+}
+
+/** The same, through the given client: a staff member's own (RLS) or, for the scheduled route, the service client. */
+export async function sendAfterLinkWith(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  tableId: string,
+  now: Date = new Date(),
+): Promise<SendAfterLinkResult> {
   const origin = readSiteOrigin(process.env.WEBSITE_ORIGIN);
   if (!origin.ok) return { ok: false, error: origin.problem };
 
-  const [event, tables, conversation] = await Promise.all([getEvent(eventId), listTables(eventId), getConversationForTable(tableId)]);
-  const table = tables.find((t) => t.id === tableId);
+  const [eventResult, tableResult, conversationResult] = await Promise.all([
+    supabase.from("al_events").select("*").eq("id", eventId).maybeSingle(),
+    supabase.from("al_tables").select("*").eq("id", tableId).eq("event_id", eventId).maybeSingle(),
+    supabase.from("al_conversations").select("*").eq("table_id", tableId).maybeSingle(),
+  ]);
+  if (eventResult.error || tableResult.error || conversationResult.error) {
+    console.error("Listening: could not read a table for its link:", eventResult.error?.code ?? tableResult.error?.code ?? conversationResult.error?.code);
+    return { ok: false, error: "Could not read the table, so nothing was sent. Try again." };
+  }
+  const event = eventResult.data;
+  const table = tableResult.data;
+  const conversation = conversationResult.data;
   if (!event || !table) return { ok: false, error: "That table no longer exists." };
 
   const status = afterLinkStatus(table, conversation);
@@ -38,7 +56,6 @@ export async function sendAfterLink(eventId: string, tableId: string, now: Date 
   const link = issueAfterLink(origin.origin, new Date(event.ends_at), now);
   if (!link) return { ok: false, error: "This event ended more than thirty days ago, so its conversations are no longer kept and a link would open nothing." };
 
-  const supabase = await createClient();
   const stored = await supabase
     .from("al_tables")
     .update({ after_token_hash: link.hash, after_token_expires_at: link.expiresAt.toISOString() })

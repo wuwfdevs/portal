@@ -62,6 +62,25 @@ describe("table messages: bodies", () => {
     bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "x".repeat(61), email: "dana@example.com" });
   });
 
+  it("agree takes how many are at the table, optionally, between 1 and 40", () => {
+    const base = { session: SESSION, consentVersion: 1, firstName: "Dana", email: "dana@example.org" };
+    expect(ok("table-agree", { ...base, people: 6 }).rpc.args["p_people"]).toBe(6);
+    expect(ok("table-agree", base).rpc.args["p_people"]).toBeNull();
+    expect(ok("table-agree", { ...base, people: null }).rpc.args["p_people"]).toBeNull();
+    bad("table-agree", { ...base, people: 0 });
+    bad("table-agree", { ...base, people: 41 });
+    bad("table-agree", { ...base, people: "six" });
+    bad("table-agree", { ...base, people: 2.5 });
+  });
+
+  it("segment-complete may say when the phone started the segment, and refuses a value that is not a time", () => {
+    const base = { session: SESSION, seq: 0, sizeBytes: 1000, durationMs: 60000 };
+    expect(ok("table-segment-complete", { ...base, startedAt: "2026-11-15T17:00:00Z" }).rpc.args["p_started_at"]).toBe("2026-11-15T17:00:00.000Z");
+    expect(ok("table-segment-complete", base).rpc.args["p_started_at"]).toBeNull();
+    bad("table-segment-complete", { ...base, startedAt: "yesterday" });
+    bad("table-segment-complete", { ...base, startedAt: 12345 });
+  });
+
   it("agree refuses a missing, blank or malformed email, because the after-page link is sent there", () => {
     bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana" });
     bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: null });

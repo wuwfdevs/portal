@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { RECORDING_MIME_CANDIDATES, deriveMicrophoneGuidance, normalizeContentType, readMicrophonePolicy, type MicrophoneGuidance } from '@wuwf/listening-core'
 
-import { canStartAnotherSegment, segmentIsDue, type PendingSegment } from '@/lib/listening/table'
+import { canStartAnotherSegment, segmentIsDue, type MicHealth, type PendingSegment } from '@/lib/listening/table'
 
 /**
  * The table phone's recorder: one long conversation made of segments of under five minutes, each a complete audio file, so a
@@ -23,6 +23,12 @@ export interface SegmentRecorder {
   /** Whole seconds of sound recorded, not counting pauses. */
   elapsedSeconds: number
   recording: boolean
+  /** What the microphone and the screen are doing while the table records. */
+  health: MicHealth
+  /** Clears a "this page was in the background" or "screen may turn off" note once the person has read it. */
+  dismissNotice(): void
+  /** Asks for the microphone again after it ended, and carries on recording from the next segment. */
+  reconnect(): Promise<boolean>
   /** The highest segment made so far, or -1. */
   lastSeq: () => number
   acquire(): Promise<boolean>
@@ -33,6 +39,11 @@ export interface SegmentRecorder {
   resume(): Promise<boolean>
   /** Stops for good and releases the microphone. */
   finish(): Promise<void>
+}
+
+interface WakeSentinel {
+  release(): Promise<void>
+  addEventListener(type: 'release', listener: () => void): void
 }
 
 function pickMimeType(): string | undefined {
@@ -48,6 +59,10 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
   const [guidance, setGuidance] = useState<MicrophoneGuidance | null>(null)
   const [recording, setRecording] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [ended, setEnded] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [wentAway, setWentAway] = useState(false)
+  const [wakeLost, setWakeLost] = useState(false)
 
   const stream = useRef<MediaStream | null>(null)
   const recorder = useRef<MediaRecorder | null>(null)
@@ -56,8 +71,9 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
   const priorMs = useRef(0)
   const seq = useRef(-1)
   const keepGoing = useRef(false)
+  const micEnded = useRef(false)
   const tick = useRef<ReturnType<typeof setInterval> | null>(null)
-  const wake = useRef<{ release(): Promise<void> } | null>(null)
+  const wake = useRef<WakeSentinel | null>(null)
   const emit = useRef(onSegment)
   const emitOpen = useRef(onOpenSegment)
   useEffect(() => {
@@ -72,10 +88,22 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
 
   const requestWake = useCallback(async () => {
     try {
-      const api = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock
-      if (api && !wake.current) wake.current = await api.request('screen')
+      const api = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<WakeSentinel> } }).wakeLock
+      if (!api) {
+        setWakeLost(true)
+        return
+      }
+      if (wake.current) return
+      const sentinel = await api.request('screen')
+      // The browser drops a wake lock whenever the page is hidden; it is asked for again when the page is back.
+      sentinel.addEventListener('release', () => {
+        if (wake.current === sentinel) wake.current = null
+      })
+      wake.current = sentinel
+      setWakeLost(false)
     } catch {
-      // Refused or unsupported: the page still records; the people at the table may need to keep the screen on.
+      // Refused (a low battery, a policy): the page still records, and says the screen may turn off.
+      setWakeLost(true)
     }
   }, [])
 
@@ -100,6 +128,29 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
     [stopStream, releaseWake],
   )
 
+  // A phone that is locked or switched away from may stop recording and always drops the wake lock. While a table is recording, note
+  // when the page was hidden and take the wake lock again the moment it is visible.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (!keepGoing.current) return
+      if (document.visibilityState === 'hidden') setWentAway(true)
+      else void requestWake()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [requestWake])
+
+  const watchTrack = useCallback((track: MediaStreamTrack) => {
+    track.onended = () => {
+      micEnded.current = true
+      setEnded(true)
+      keepGoing.current = false
+      if (recorder.current && recorder.current.state !== 'inactive') recorder.current.stop()
+    }
+    track.onmute = () => setMuted(true)
+    track.onunmute = () => setMuted(false)
+  }, [])
+
   const acquire = useCallback(async (): Promise<boolean> => {
     if (stream.current) return true
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -109,6 +160,10 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
     }
     try {
       stream.current = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.current.getAudioTracks().forEach(watchTrack)
+      micEnded.current = false
+      setEnded(false)
+      setMuted(false)
       setMic('ready')
       setGuidance(null)
       return true
@@ -123,7 +178,7 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
       setMic('blocked')
       return false
     }
-  }, [])
+  }, [watchTrack])
 
   // The segment's own stop handler starts the next one, so it reaches itself through a ref.
   const startSegmentRef = useRef<() => boolean>(() => false)
@@ -136,13 +191,14 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
     seq.current += 1
     const thisSeq = seq.current
     const startedAt = performance.now()
+    const startedAtIso = new Date().toISOString()
     segmentStartedAt.current = startedAt
     next.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.current.push(event.data)
       // The last chunk arrives as the recorder stops, and the finished segment follows at once: only a running recorder is copied.
       if (next.state === 'recording' && chunks.current.length > 0 && emitOpen.current) {
         const type = normalizeContentType(next.mimeType || mimeType || 'audio/webm') || 'audio/webm'
-        emitOpen.current({ seq: thisSeq, blob: new Blob(chunks.current, { type }), durationMs: Math.max(0, Math.round(performance.now() - startedAt)), contentType: type })
+        emitOpen.current({ seq: thisSeq, blob: new Blob(chunks.current, { type }), durationMs: Math.max(0, Math.round(performance.now() - startedAt)), contentType: type, startedAt: startedAtIso })
       }
     }
     next.onstop = () => {
@@ -151,7 +207,12 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
       const blob = new Blob(chunks.current, { type })
       chunks.current = []
       priorMs.current += durationMs
-      if (blob.size > 0) emit.current({ seq: thisSeq, blob, durationMs, contentType: type })
+      if (blob.size > 0) emit.current({ seq: thisSeq, blob, durationMs, contentType: type, startedAt: startedAtIso })
+      if (!keepGoing.current && recorder.current === next && micEnded.current) {
+        // The microphone went away under the recorder: stop here rather than start a segment on a dead stream.
+        setRecording(false)
+        stopTick()
+      }
       if (keepGoing.current && recorder.current === next) {
         // Cut at the limit: carry straight on into the next segment.
         if (!startSegmentRef.current()) {
@@ -223,6 +284,17 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
     return true
   }, [requestWake, startSegment, startTick])
 
+  const reconnect = useCallback(async (): Promise<boolean> => {
+    stopStream()
+    if (!(await acquire())) return false
+    return resume()
+  }, [acquire, resume, stopStream])
+
+  const dismissNotice = useCallback(() => {
+    setWentAway(false)
+    setWakeLost(false)
+  }, [])
+
   const finish = useCallback(async () => {
     keepGoing.current = false
     await stopCurrent()
@@ -234,5 +306,6 @@ export function useSegmentRecorder(onSegment: (segment: PendingSegment) => void,
 
   const lastSeq = useCallback(() => seq.current, [])
 
-  return { mic, guidance, elapsedSeconds, recording, lastSeq, acquire, begin, pause, resume, finish }
+  const health: MicHealth = { ended, muted, wentAway, wakeLost: wakeLost && recording }
+  return { mic, guidance, elapsedSeconds, recording, health, dismissNotice, reconnect, lastSeq, acquire, begin, pause, resume, finish }
 }

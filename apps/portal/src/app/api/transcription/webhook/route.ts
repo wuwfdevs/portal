@@ -1,11 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bestEffort } from "@/lib/transcription/best-effort";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { reindexRepresentation } from "@/lib/transcription/indexing";
 import { splitUtteranceIntoParagraphs } from "@/lib/transcription/paragraphs";
 import { WEBHOOK_AUTH_HEADER_NAME } from "@/lib/transcription/providers/assemblyai";
+import { suggestSpeakerNames } from "@/lib/transcription/speaker-identification-run";
 
 // Called by the ASR provider (never by a signed-in user) when a
 // transcription job finishes — see docs/transcription-workspace-design.md
@@ -44,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
   const supabase = createAdminClient();
   const { data: representation, error: lookupError } = await supabase
     .from("sw_representations")
-    .select("id")
+    .select("id, config")
     .eq("provider_job_id", providerJobId)
     .maybeSingle();
   if (lookupError) {
@@ -136,6 +137,14 @@ export async function POST(request: Request): Promise<Response> {
       console.error("[transcription] indexing after webhook failed", {
         representationId: representation.id,
         error: indexError,
+      });
+    }
+
+    // Names the voices from what was said, for a transcript whose caller asked for it (a table's conversation). After the response,
+    // so the provider's callback is not held up by a second provider call, and swallowed inside: names are a proposal, not part of ready.
+    if ((representation.config as { identifySpeakers?: boolean } | null)?.identifySpeakers === true) {
+      after(async () => {
+        await suggestSpeakerNames(supabase, representation.id, providerJobId);
       });
     }
   } catch (error) {
