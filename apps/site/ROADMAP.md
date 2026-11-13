@@ -418,6 +418,22 @@ with `lib/listening/inbox.ts` (pure, tested; each field picked by name, nothing 
 is promised; the host form says someone will write back within a week because the board does, and the Portal's staff list flags a request
 still new after five days. Seats and the `event` page wait for phase D. Needs the Portal's `20261110120000` (applied to both Portal projects).
 
+**Built (suite phase E, 2026-11-13): sessions, tables, the after-page and the organizer's console.** Routes under `/listens`:
+`table/<token>` (what a table card's QR opens; the link is used by a press, never on load, so a previewer cannot use up a card),
+`session` (the table's phone: agreement, recording, prompts, pause, help, end), `session/after` (name and merge voices, mark lines, send),
+`card/<token>` (board 5i), `events/<publicId>` (a public session and its seat form) and `room/<eventPublicId>` (the organizer's console;
+needs a site account, and `proxy.ts` refreshes the sign-in there as on `/account`). Code: `lib/listening/{table,table-token,table-session,
+table-load,card,event,after,room}.ts` (the first six pure and tested, `table-session` and `table-load` server only), the server actions
+`listens/{table,card,event,room}-actions.ts`, and `components/Listening/{TableLink,TableSession,useSegmentRecorder,ContactCard,SeatForm,
+AfterTable,RoomConsole}`. Four things are load-bearing: (1) **the table session is an httpOnly cookie** (`wuwf_table_session`, path
+`/listens`) the browser's script never sees; every table call is made by a server action that reads it; (2) **the phone records segments of
+under five minutes** (`SEGMENT_CUT_SECONDS`), each a whole file, and `SegmentQueue` sends them oldest first, one at a time, saying "sent" only
+after the Portal confirms; (3) **the site never supplies a highlight's words or reads a card's contents**: marks are a start time and a tag,
+and the facilitator learns only a count of cards; (4) **a transcript is rendered and dropped.** Known gaps: no code sets
+`al_events.organizer_subject` (so no account can own an event yet, a Portal-side step); the table session ends 12 hours after the event and
+nothing emails a link; unsent segments live in memory, so closing the page mid-recording loses them; the hub shows no events. **Not run
+against a live Portal or a real phone**: the signed-upload PUT, `MediaRecorder` on iOS Safari and the screen wake lock are untested here.
+
 **Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
 `LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
 this server yet".
@@ -427,8 +443,7 @@ this server yet".
 1. Set the two variables and the Portal's secret; apply the Portal's migrations; make a first real recording and confirm the raw `PUT`.
    Apply this site's two new migrations (`pnpm verify:migrations` has not been run on them: it needs a local Postgres).
 2. Add the Footer link to `/listens` in Site settings → Footer, and check the story and topic pages still build ahead (`pnpm build`) with a question placed.
-3. Phase D (in the Portal) then phase E here: seats and the `event` page, campaigns, events, tables and
-   conversations, site accounts for organizers, and the campaign and report bands of the hub.
+3. Phase F: reports and outcome links, and the campaign and report bands of the hub. Phase E (below) is built; its gaps are listed there.
 
 ## Deferred
 

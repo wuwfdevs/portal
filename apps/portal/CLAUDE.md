@@ -313,7 +313,7 @@ URL query, and a new link replaces the old one and clears `join_token_used_at`; 
 (`event_id`, `number` on insert; the three link columns on update): a table's recording state is for the table's own session, the next
 half of phase D; (4) **times are the station's, not the server's** (`event-times.ts` converts `datetime-local` through `lib/station-time.ts`).
 The card's address is `WEBSITE_ORIGIN` + `LISTENING_TABLE_LINK_PATH` from `packages/portal-contracts`; **the website page that path opens is
-phase E, so a printed card opens nothing yet**, and the guide says not to print for a real session. The table session is the next paragraph. Migrations `20261111120000` (schema) and `20261111130000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
+phase E, built on the site 2026-11-13**; the Resources guide still says not to print for a real session and needs a release migration to say otherwise. The table session is the next paragraph. Migrations `20261111120000` (schema) and `20261111130000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
 
 **Audience Listening: the table session and recording (suite phase D, second half, 2026-11-11).** A pointer; read the suite design's §2 and §4.
 The website's `table-open`, `table-state`, `table-agree`, `table-update`, `table-segment`, `table-segment-complete`, `table-end`, `event` and

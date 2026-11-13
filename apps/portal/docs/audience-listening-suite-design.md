@@ -4,7 +4,7 @@ Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phas
 phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
 events, tables and seats, with their staff screens and table cards; then the table session: single-use link, agreement, recording in segments, the
 consent wording; then the conversation side: speakers, highlights, contact cards, the organizer's room, Tonight, the Sourcework handoff and the purge).
-**Phase D is built on the Portal; its site screens (phase E) and phase F are not.** The build order and where each phase stands are in §10.
+**Phase D is built on the Portal and its site screens (phase E) are built on the site (2026-11-13); phase F is not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -328,6 +328,18 @@ Where it stands (2026-11-09):
   **Decided while building:** the card's second QR is made only with a whole printed card; once the facilitator sends, the conversation reads but
   does not change; retention for contact cards and raw audio waits for a report date (phase F) and is not guessed. **Not built:** the daily Ask
   digest (no scheduler), the website's pages for all of the above (E), and reports and outcome links (F).
+
+- **E is built on the site** (`apps/site`, 2026-11-13; `apps/site/ROADMAP.md` -> *Listening: where it stands*): the table card's page
+  `/listens/table/<token>` (redeemed by a press, never on load, so a link previewer cannot use up a card), the table's phone `/listens/session`
+  (the agreement, recording in segments of under five minutes put straight to the signed address, prompts, pause, help, end), the contact card
+  `/listens/card/<token>` (board 5i), a public event's page and seat form `/listens/events/<publicId>`, the facilitator's after-page
+  `/listens/session/after` (name and merge voices, mark lines, send) and the organizer's console `/listens/room/<publicId>` (needs a site
+  account that owns the event). Nothing here stores a transcript, a card or audio. **Known gaps, not hidden:** (1) no code sets
+  `al_events.organizer_subject`, so no organizer account can own an event until a staff screen or a claim step sets it to `site:account:<id>`;
+  (2) the table session ends 12 hours after the event, so the after-page must be used on the recording phone within that window, and nothing
+  emails the facilitator a link (the boards promise one); (3) a segment not yet sent is held in memory, so a phone that closes the page
+  mid-recording loses the unsent part (the page says so and warns before it closes); (4) the hub does not yet link to events, because the
+  hub message carries none. **Not built:** reports and outcome links (F).
 
 ## 11. Open items for the owner
 
