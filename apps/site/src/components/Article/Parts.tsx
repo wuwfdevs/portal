@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import React from 'react'
 
-import type { Contributor } from '@/payload-types'
+import type { Contributor, Media as MediaDoc } from '@/payload-types'
 
+import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
 
 export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: 'teal' | 'plain' }> = ({ children, href, tone = 'plain' }) => {
@@ -20,18 +21,27 @@ export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: '
   )
 }
 
-export const Avatar: React.FC<{ name: string; className?: string }> = ({ name, className }) => (
-  <span
-    aria-hidden="true"
-    className={`inline-flex size-12 shrink-0 items-center justify-center rounded-pill bg-wuwf-blue-100 text-base font-bold text-wuwf-blue-700 ${className ?? ''}`}
-  >
-    {initialsOf(name)}
-  </span>
-)
+/**
+ * An author's picture: their photo when they have one (the same `photo` their profile page shows), else their initials.
+ * `photo` must be a loaded media record, not an id.
+ */
+export const Avatar: React.FC<{ name: string; initials?: string | null; photo?: MediaDoc | null; className?: string }> = ({ name, initials, photo, className }) =>
+  photo ? (
+    <span aria-hidden="true" className={`inline-block size-12 shrink-0 overflow-hidden rounded-pill bg-surface-3 ${className ?? ''}`}>
+      <Media className="size-full" imgClassName="size-full object-cover" pictureClassName="block size-full" resource={photo} size="96px" />
+    </span>
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`inline-flex size-12 shrink-0 items-center justify-center rounded-pill bg-wuwf-blue-100 text-base font-bold text-wuwf-blue-700 ${className ?? ''}`}
+    >
+      {initials || initialsOf(name)}
+    </span>
+  )
 
-export const AuthorBox: React.FC<{ contributor: Contributor }> = ({ contributor }) => (
+export const AuthorBox: React.FC<{ contributor: Contributor; photo?: MediaDoc | null }> = ({ contributor, photo }) => (
   <div className="flex gap-4 border-t border-rule pt-6">
-    <Avatar name={contributor.name} />
+    <Avatar initials={contributor.initials} name={contributor.name} photo={photo} />
     <div className="flex flex-col gap-1">
       <p className="text-base font-bold text-ink">
         {contributor.slug ? <Link href={`/people/${contributor.slug}`}>{contributor.name}</Link> : contributor.name}
