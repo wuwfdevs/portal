@@ -12,7 +12,7 @@ import {
 } from "@/lib/audience-listening/conversation-queries";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { TABLE_STATE_LABEL } from "@/lib/audience-listening/events";
-import { cardNeedsContactWarning, CONVERSATION_STATUS_LABEL, formatMs } from "@/lib/audience-listening/conversations";
+import { canSendToSourcework, cardNeedsContactWarning, CONVERSATION_STATUS_LABEL, formatMs } from "@/lib/audience-listening/conversations";
 import { sourcePath } from "@/lib/transcription/links";
 import { formatClockMs } from "@/lib/format";
 import { Alert } from "@/components/ui/alert";
@@ -105,11 +105,11 @@ export default async function TablePage({
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="table_id" value={tableId} />
                   <input type="hidden" name="conversation_id" value={conversation.id} />
-                  <Button type="submit" disabled={conversation.status !== "complete"}>
+                  <Button type="submit" disabled={!canSendToSourcework(conversation)}>
                     Send to Sourcework
                   </Button>
                   <p className="text-xs text-ink-400">
-                    {conversation.status === "complete"
+                    {canSendToSourcework(conversation)
                       ? "Joins the segments into one recording and starts the transcript. The segments themselves are kept."
                       : "Available once the table has ended and every segment has uploaded."}
                   </p>

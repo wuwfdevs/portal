@@ -39,8 +39,15 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
           <DescriptionList
             items={[
               { label: "Unfinished submissions", value: `${preview.submissions} (answers and audio, untouched for 30 days)` },
-              { label: "Unsent conversations", value: `${preview.conversations} (segments, voices, marks and unacted contact cards, 30 days after the event ended)` },
+              { label: "Unsent conversations", value: `${preview.conversations} (segments, voices, marks and contact cards, 30 days after the event ended)` },
               { label: "Contact cards among them", value: String(preview.cards) },
+              {
+                label: "Kept for now",
+                value:
+                  preview.held === 0
+                    ? "None"
+                    : `${preview.held} old unsent conversation${preview.held === 1 ? "" : "s"}, because someone has already been contacted or a name approved from a card in ${preview.held === 1 ? "it" : "them"}. That card is the record of what the person agreed to.`,
+              },
             ]}
           />
           <div className="mt-4">

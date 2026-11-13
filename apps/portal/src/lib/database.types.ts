@@ -4529,7 +4529,7 @@ export interface Database {
       /** Security definer (20261111160000). What the 30-day purge would remove; any staff member with access may ask. */
       al_purge_preview: {
         Args: Record<string, never>;
-        Returns: { submissions: number; conversations: number; cards: number };
+        Returns: { submissions: number; conversations: number; cards: number; held: number };
       };
       /** Security definer (20261111160000). Runs the purge. Coordinators only; returns the counts and the storage paths to remove. */
       al_purge_run: {

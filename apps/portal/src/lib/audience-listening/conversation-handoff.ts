@@ -74,7 +74,9 @@ export async function sendConversationToSourcework(conversationId: string): Prom
   if (conversationError) return { ok: false, error: `Could not read the conversation: ${conversationError.message}` };
   if (!conversation) return { ok: false, error: "That conversation no longer exists." };
   if (conversation.sourcework_source_id) return { ok: false, error: "This recording is already in Sourcework." };
-  if (conversation.status !== "complete") {
+  // A facilitator may have sent the conversation before staff started the transcript. The recording is whole either way (the segment
+  // check below refuses a gap), so it is handed off, and a conversation already marked sent stays sent.
+  if (conversation.status !== "complete" && conversation.status !== "sent") {
     return { ok: false, error: "Only a complete recording can be sent: the table has to have ended and every segment uploaded." };
   }
 
@@ -181,7 +183,11 @@ export async function sendConversationToSourcework(conversationId: string): Prom
   // The source holds the recording either way, so the link is kept even if the kickoff failed: Sourcework has its own retry.
   const { error: linkError } = await supabase
     .from("al_conversations")
-    .update({ sourcework_source_id: sourceId, transcription_project_id: projectId, status: "transcribing" })
+    .update({
+      sourcework_source_id: sourceId,
+      transcription_project_id: projectId,
+      ...(conversation.status === "complete" ? { status: "transcribing" as const } : {}),
+    })
     .eq("id", conversationId);
   if (linkError) console.error("Could not record the Sourcework link on the conversation:", linkError);
 

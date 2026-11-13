@@ -84,6 +84,8 @@ export interface PurgePreview {
   submissions: number;
   conversations: number;
   cards: number;
+  /** Old and unsent but kept, because a reviewer has acted on a contact card in them. */
+  held: number;
 }
 
 /** What is due for the 30-day purge. Throws on a failure so the screen says so rather than showing zeros. */
@@ -91,5 +93,5 @@ export async function getPurgePreview(): Promise<PurgePreview> {
   const supabase = await createClient();
   const result = await supabase.rpc("al_purge_preview");
   const value = unwrapRead(result, "what is due to purge");
-  return { submissions: Number(value?.submissions ?? 0), conversations: Number(value?.conversations ?? 0), cards: Number(value?.cards ?? 0) };
+  return { submissions: Number(value?.submissions ?? 0), conversations: Number(value?.conversations ?? 0), cards: Number(value?.cards ?? 0), held: Number(value?.held ?? 0) };
 }

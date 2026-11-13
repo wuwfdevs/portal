@@ -28,3 +28,11 @@ export function formatMs(ms: number): string {
 export function cardNeedsContactWarning(card: { may_contact: boolean; contact: string | null }): boolean {
   return card.may_contact && !(card.contact ?? "").trim();
 }
+
+/**
+ * Whether a conversation's recording can be sent to Sourcework: it is whole (the table ended and every segment uploaded) and not yet
+ * sent there. A facilitator who sent the conversation first has not stopped staff from transcribing it.
+ */
+export function canSendToSourcework(conversation: { status: AlConversationStatus; sourcework_source_id: string | null }): boolean {
+  return conversation.sourcework_source_id === null && (conversation.status === "complete" || conversation.status === "sent");
+}
