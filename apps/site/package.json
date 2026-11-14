@@ -17,6 +17,7 @@
     "lint": "cross-env NODE_OPTIONS=--no-deprecation eslint .",
     "lint:fix": "cross-env NODE_OPTIONS=--no-deprecation eslint . --fix",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "seed:staging": "cross-env NODE_OPTIONS=--no-deprecation tsx --tsconfig tsconfig.json scripts/staging-demo/seed.ts",
     "seed:demo": "cross-env NODE_OPTIONS=--no-deprecation tsx --tsconfig tsconfig.json scripts/seed-demo.ts",
     "smoke:paths": "cross-env NODE_OPTIONS=--no-deprecation tsx --tsconfig tsconfig.json scripts/smoke-paths.ts",
     "smoke:agreement": "cross-env NODE_OPTIONS=--no-deprecation tsx --tsconfig tsconfig.json scripts/smoke-agreement-loop.ts",
