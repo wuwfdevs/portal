@@ -1,5 +1,14 @@
-import type { ListeningHubAnswered, ListeningHubOpen, ListeningOutcome } from '@wuwf/portal-contracts'
+import type {
+  ListeningHub,
+  ListeningHubAnswered,
+  ListeningHubCampaign,
+  ListeningHubEvent,
+  ListeningHubKitchenCampaign,
+  ListeningHubOpen,
+  ListeningOutcome,
+} from '@wuwf/portal-contracts'
 
+import { hubSessions } from './event'
 import { maxMinutes, plural } from './flow'
 
 /** The words of the listening hub's cards (board 5). Pure, so the sentences are tested. */
@@ -60,4 +69,59 @@ export function inviteMeta(item: { questions: { maxDurationSeconds: number }[]; 
     `up to ${plural(maxMinutes(item.questions), 'minute')}`,
     closesLabel(item.closesAt),
   ].join(' · ')
+}
+
+/** One campaign as the hub shows it: its question, then every way to take part in it. */
+export interface HubBand {
+  campaign: ListeningHubCampaign
+  /** The campaign's own question, answered alone. */
+  question: ListeningHubOpen | null
+  /** Its listed public sessions, soonest first. */
+  sessions: ListeningHubEvent[]
+  /** Set when anyone may start a private table for it. */
+  table: ListeningHubKitchenCampaign | null
+}
+
+export interface HubLayout {
+  bands: HubBand[]
+  /** Open questions that belong to no campaign (a reporter's own question). */
+  questions: ListeningHubOpen[]
+  /** Sessions and tables the Portal sent no campaign for, shown as they were before campaigns were grouped. */
+  sessions: ListeningHubEvent[]
+  tables: ListeningHubKitchenCampaign[]
+}
+
+/**
+ * Groups what the Portal sent by campaign, so a campaign reads as one thing with several ways in. A campaign with nothing to
+ * take part in yet makes no band. Anything not tied to a campaign the Portal listed stays in its own list, so a Portal that
+ * sends no campaigns (an older one) gives the same page as before.
+ */
+export function hubLayout(hub: ListeningHub): HubLayout {
+  const campaigns = hub.campaigns ?? []
+  const sessions = hubSessions(hub)
+  const tables = hub.kitchenCampaigns ?? []
+
+  const bands = campaigns.flatMap((campaign): HubBand[] => {
+    const band: HubBand = {
+      campaign,
+      question: hub.open.find((item) => item.campaignPublicId === campaign.publicId) ?? null,
+      sessions: sessions.filter((item) => item.campaignPublicId === campaign.publicId),
+      table: tables.find((item) => item.publicId === campaign.publicId) ?? null,
+    }
+    return band.question || band.sessions.length > 0 || band.table ? [band] : []
+  })
+
+  const grouped = new Set(bands.map((band) => band.campaign.publicId))
+  const inBand = (campaignPublicId: string | null | undefined) => campaignPublicId != null && grouped.has(campaignPublicId)
+  return {
+    bands,
+    questions: hub.open.filter((item) => !inBand(item.campaignPublicId)),
+    sessions: sessions.filter((item) => !inBand(item.campaignPublicId)),
+    tables: tables.filter((item) => !grouped.has(item.publicId)),
+  }
+}
+
+/** The band's eyebrow: "After Isaias · open until Nov. 30 · from the WUWF News desk". */
+export function bandLabel(campaign: Pick<ListeningHubCampaign, 'title' | 'closesAt' | 'ownerLabel'>): string {
+  return [campaign.title.trim(), closesLabel(campaign.closesAt), campaign.ownerLabel?.trim()].filter(Boolean).join(' · ')
 }

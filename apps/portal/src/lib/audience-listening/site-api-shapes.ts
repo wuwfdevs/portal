@@ -638,6 +638,7 @@ export function shapeHub(payload: unknown): ListeningHub {
         closesAt: asString(q["closes_at"]),
         allowTextAnswers: q["allow_text_answers"] === true,
         questionCount: asNumber(q["question_count"]) ?? 0,
+        campaignPublicId: asString(q["campaign_public_id"]),
       },
     ];
   });
@@ -675,7 +676,7 @@ export function shapeHub(payload: unknown): ListeningHub {
     const endsAt = asString(e["ends_at"]);
     const placeName = asString(e["place_name"]);
     if (!publicId || !title || !startsAt || !endsAt || !placeName) return [];
-    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]) }];
+    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]), campaignPublicId: asString(e["campaign_public_id"]) }];
   });
 
   const kitchenCampaigns = rows(source["kitchen_campaigns"]).flatMap((k) => {
@@ -685,7 +686,15 @@ export function shapeHub(payload: unknown): ListeningHub {
     return publicId && title && question ? [{ publicId, title, question }] : [];
   });
 
-  return { open, answered, events, kitchenCampaigns };
+  const campaigns = rows(source["campaigns"]).flatMap((c) => {
+    const publicId = asString(c["public_id"]);
+    const title = asString(c["title"]);
+    const question = asString(c["question"]);
+    if (!publicId || !title || !question) return [];
+    return [{ publicId, title, question, intro: asString(c["intro"]) ?? "", ownerLabel: asString(c["owner_label"]), closesAt: asString(c["closes_at"]) }];
+  });
+
+  return { open, answered, events, kitchenCampaigns, campaigns };
 }
 
 const PROMPT_KINDS = LISTENING_PROMPT_KINDS;
