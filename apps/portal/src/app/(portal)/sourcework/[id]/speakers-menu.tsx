@@ -376,6 +376,22 @@ function SpeakerEditRow({
     router.refresh();
   }
 
+  /** Saves the proposed name as the name, as if it had been typed: a person pressing this is the confirmation. */
+  async function acceptSuggestion() {
+    if (!speaker.suggestedName) return;
+    setValue(speaker.suggestedName);
+    setStatus("saving");
+    const result = await renameSpeaker({ projectId, speakerId: speaker.id, displayName: speaker.suggestedName });
+    if (result.error) {
+      setStatus("error");
+      return;
+    }
+    onRenamed(speaker.id, speaker.suggestedName);
+    setStatus("saved");
+    setTimeout(() => setStatus("idle"), 1500);
+    router.refresh();
+  }
+
   async function handleMerge() {
     if (!mergeTarget) return;
     setMergePending(true);
@@ -422,6 +438,14 @@ function SpeakerEditRow({
           >
             Hear an example
           </Button>
+        )}
+        {speaker.suggestedName && !value.trim() && (
+          <span className="flex items-center gap-1.5 text-xs text-ink-700">
+            Heard as &ldquo;{speaker.suggestedName}&rdquo;
+            <Button touch type="button" variant="link" onClick={() => void acceptSuggestion()} className="text-brand-link">
+              Use this name
+            </Button>
+          </span>
         )}
         {others.length > 0 && (
           <Button

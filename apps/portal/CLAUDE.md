@@ -313,7 +313,7 @@ URL query, and a new link replaces the old one and clears `join_token_used_at`; 
 (`event_id`, `number` on insert; the three link columns on update): a table's recording state is for the table's own session, the next
 half of phase D; (4) **times are the station's, not the server's** (`event-times.ts` converts `datetime-local` through `lib/station-time.ts`).
 The card's address is `WEBSITE_ORIGIN` + `LISTENING_TABLE_LINK_PATH` from `packages/portal-contracts`; **the website page that path opens is
-phase E, so a printed card opens nothing yet**, and the guide says not to print for a real session. The table session is the next paragraph. Migrations `20261111120000` (schema) and `20261111130000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
+phase E, built on the site 2026-11-13**; the Resources guide still says not to print for a real session and needs a release migration to say otherwise. The table session is the next paragraph. Migrations `20261111120000` (schema) and `20261111130000` (Resources content), applied to both projects 2026-11-11 through `execute_sql`.
 
 **Audience Listening: the table session and recording (suite phase D, second half, 2026-11-11).** A pointer; read the suite design's §2 and §4.
 The website's `table-open`, `table-state`, `table-agree`, `table-update`, `table-segment`, `table-segment-complete`, `table-end`, `event` and
@@ -347,8 +347,41 @@ RLS** (`conversation-handoff.ts`): ffmpeg joins the segments to one MP3, the fir
 (6) **retention is a coordinator-run function, never a job**: `al_purge_preview` and `al_purge_run` (30 days; an unsent conversation, unfinished
 submissions; a *sent* conversation is never purged here, nor is one holding a contact card a reviewer has acted on; the preview's `held` count says how many); contact-card and raw-audio retention follow a report date that phase F creates, so they are
 not purged and nothing guesses a date. `AUDIENCE_LISTENING_NOTIFY_EMAIL` gets one email, with nothing a visitor wrote in it, per host request; there
-is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F).
+is no daily Ask digest because there is no scheduler. Not built: the website pages (phase E), and campaign reports and outcome links (phase F). *(Revised 2026-11-13: there is a scheduler now, for small jobs only; see the next paragraph. The conversation purge is still a coordinator's click.)*
 Migrations `20261111160000` (schema) and `20261111170000` (Resources content), applied to preview and then production (production through the SQL editor: the Supabase tool holds `DELETE` statements for a confirmation).
+
+**Audience Listening: the facilitator's link, the organizer's link and the hub's events (suite phase E follow-up, 2026-11-13).** A pointer; read the
+suite design's §10. Four things are load-bearing: (1) **the facilitator's email is given at `table-agree`** (required the first time, `al_tables.facilitator_email`;
+staff read it, the site never receives it back, and the purge clears it 30 days after the event); (2) **the after-page link is a second credential, not a longer
+table session**: `private.al_table_for_conversation` lets the four after-page functions accept the table's session or `after_token_hash` (14 days, never past 30
+days after the event), and no recording function accepts it; staff make and email it through `after-link-send.ts` (`sendAfterLink`, never best effort: a failure
+returns the link so a staff member can hand it over; the scheduled run sends it too, see the next paragraph); (3) **an organizer is made by a single-use link** a coordinator makes on the
+event page (`organizer_claim_hash`, guarded in the database by `al_events_guard_organizer`), redeemed by `room-claim` for an `account` subject; (4) **the hub's
+`events`** are additive. Only a hash of any token is stored, and no token, address or body is logged or put in an audit row. Migrations `20261113120000` (schema)
+and `20261113130000` (Resources content).
+
+**Audience Listening: Sourcework as the one speaker model, scheduled work, and the recorder (suite phase E, completion, 2026-11-13).** A pointer; read the
+suite design's §8, §10 and §12. Six things are load-bearing: (1) **Sourcework is the one place a speaker's name lives.** A facilitator's names and merges
+(`al_site_speakers_save`) are written through to `tw_speakers.display_name` (a merge copies the target's name; a blank never erases one), and a conversation is
+sent with the table's size as a speaker range (`min = N-2`, `max = N+2`, `speakerRangeFor`: silent attendees make a strict floor over-split) and with
+`identifySpeakers`, which asks AssemblyAI's speaker identification (`transcription/speaker-identification*.ts`, `suggested_name` on `tw_speakers`) what people
+said their names were. **A suggestion is a proposal the facilitator confirms; nothing is ever named by it.** Analyze's `sw_quote_suggestions` reach the
+after-page as `proposals` (line starts), the same way. (2) **Marks become excerpts** (`al_create_excerpts_from_highlights`, once per mark,
+`al_highlights.excerpt_id`, made *as a named profile* because `sw_source_excerpts.created_by` is required): the Table page's button runs it as the staff
+member, the scheduled run as the campaign's `owner_id`. (3) **A scheduled route exists, for small jobs only**: `api/cron/listening` (`vercel.json` hourly,
+`Authorization: Bearer CRON_SECRET`, 401 with none set), tasks in `lib/audience-listening/cron/` (`run-task.ts` is pure and tested; each task is isolated and
+leaves an `al_job_runs` row that `/audience-listening/jobs` shows). It sends finished recordings to Sourcework (two a run, as the campaign owner through the
+admin client, after `ownerMayRun`, which restates `canUseTool` for a user who is not signed in: if the owner lost Sourcework the conversation waits for a
+person), emails facilitators their link when the transcript is ready (`sendAfterLinkWith`), makes excerpts, clears facilitator emails at 30 days, and emails
+`AUDIENCE_LISTENING_NOTIFY_EMAIL` a weekly purge reminder and a daily Ask digest (counts only). **Deleting a conversation is still a coordinator's click, never
+a job.** An hourly schedule needs a Vercel plan that allows it; unverified for this deployment. (4) **A table recorded on a separate recorder** is attached by
+staff (`al_staff_reserve_recording`/`al_staff_complete_recording`, a browser upload under the staff storage policies, segment 0 of that table): only to a table
+that agreed, only once. (5) **The phone says when it stops hearing** (`useSegmentRecorder`, `recordingNotice`): the wake lock is asked for again on
+`visibilitychange`, a track `mute`/`ended` raises a banner (ended offers "Reconnect the microphone"), each segment carries the phone's `startedAt`, and the
+Table page lists gaps of 20 seconds or more (`findGaps`). Nothing here can make a phone keep recording while locked: iOS mutes the microphone then, and the
+page says so rather than promising it. (6) **A kitchen table** (`al_campaigns.accepts_kitchen_tables`, `al_site_kitchen_table_create`) is a private one-table event
+a visitor starts from the hub: three a day per host, the link is made by the route and shown once. Migrations `20261114120000` (schema) and `20261114130000`
+(Resources content); apply both, with `20261113120000` and `20261113130000`, before the code ships, preview first.
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

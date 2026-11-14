@@ -3,9 +3,11 @@ import React from 'react'
 
 import type { ListeningHub } from '@wuwf/portal-contracts'
 
+import { hubEventMeta, hubSessions } from '@/lib/listening/event'
 import { answeredBy, deskLabel, openMeta, outcomeDate, outcomeKicker } from '@/lib/listening/hub'
 
 import { AskWuwf } from './AskWuwf'
+import { KitchenTable } from './KitchenTable'
 import { eyebrow } from './styles'
 
 const answerLink =
@@ -16,12 +18,14 @@ const answerLink =
  * reporter has open ("A reporter would like to hear from you"), and what came of the questions already answered ("You asked.
  * Here's what came of it."). An open question shows no count; a count appears only beside an outcome.
  *
- * Ask WUWF and "Host a session" (suite phase C) stand behind real inboxes in the Portal. Not here yet, because nothing stands behind
- * them: the regional conversations and sessions people can attend, and the season reports. They arrive with phases D to F of the suite
- * design and are left out rather than drawn as if they worked.
+ * Ask WUWF and "Host a session" (suite phase C) stand behind real inboxes in the Portal. Upcoming listed public sessions (phase E)
+ * come from the Portal's hub, each linking to its own page and seat form. The season reports (phase F) are not here yet, and are left
+ * out rather than drawn as if they worked.
  */
 export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
-  const empty = hub.open.length === 0 && hub.answered.length === 0
+  const sessions = hubSessions(hub)
+  const kitchen = hub.kitchenCampaigns ?? []
+  const empty = hub.open.length === 0 && hub.answered.length === 0 && sessions.length === 0 && (hub.kitchenCampaigns ?? []).length === 0
   return (
     <>
       <section className="bg-wuwf-blue-100">
@@ -57,6 +61,13 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                 Ask WUWF something →
               </a>
             </li>
+            {kitchen.length > 0 && (
+              <li>
+                <a className="text-wuwf-blue-700" href="#kitchen-table">
+                  Host a table of your own →
+                </a>
+              </li>
+            )}
             <li>
               <Link className="text-wuwf-blue-700" href="/listens/host">
                 Host a listening session →
@@ -92,6 +103,44 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {sessions.length > 0 && (
+        <section aria-labelledby="join-session-title" className="container py-12" id="join-a-session">
+          <h2 className="font-serif text-3xl font-bold" id="join-session-title">
+            Join a listening session
+          </h2>
+          <p className="mb-5 mt-2 max-w-2xl text-base text-ink-2">Sit down with your neighbors at a table, talk about a question that matters here, and a WUWF journalist listens to what was said.</p>
+          <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+            {sessions.map((item) => (
+              <li className="flex flex-col gap-2.5 rounded-lg border border-rule-strong bg-surface p-5" key={item.publicId}>
+                {item.organizerLabel && <span className={eyebrow}>Hosted by {item.organizerLabel}</span>}
+                <span className="flex-auto font-serif text-[1.3125rem] font-semibold leading-snug">{item.title}</span>
+                <span className="text-sm text-ink-3">{hubEventMeta(item)}</span>
+                <Link className={answerLink} href={`/listens/events/${item.publicId}`}>
+                  {item.seatsLeft !== null && item.seatsLeft <= 0 ? 'See the session' : 'Save a seat'}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {kitchen.length > 0 && (
+        <section aria-labelledby="kitchen-title" className="container py-12" id="kitchen-table">
+          <h2 className="font-serif text-3xl font-bold" id="kitchen-title">
+            Host a table of your own
+          </h2>
+          <p className="mb-6 mt-2 max-w-2xl text-base text-ink-2">
+            Gather a few people in your kitchen, a break room or a church hall. Your phone reads the question, records the conversation once everyone agrees, and
+            sends it to WUWF. Nothing is public.
+          </p>
+          <div className="flex flex-col gap-10">
+            {kitchen.map((campaign) => (
+              <KitchenTable campaign={campaign} key={campaign.publicId} />
+            ))}
+          </div>
         </section>
       )}
 

@@ -20,3 +20,18 @@ export async function notifyHostRequest(): Promise<void> {
     console.error("Listening: could not email about a host request:", error);
   }
 }
+
+/**
+ * Emails a facilitator their after-page link. Unlike the host-request notice this is not best effort: the staff member who pressed the
+ * button is told whether it went, because the link is only useful if it arrived. Never logs the address or the link.
+ */
+export async function sendFacilitatorLink(to: string, message: { subject: string; text: string }): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const result = await sendEmail({ to, subject: message.subject, text: message.text });
+    if (!result.ok) console.error("Listening: could not email a facilitator's link:", result.error);
+    return result;
+  } catch (error) {
+    console.error("Listening: could not email a facilitator's link:", error instanceof Error ? error.name : "unknown error");
+    return { ok: false, error: "The email could not be sent." };
+  }
+}

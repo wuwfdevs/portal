@@ -4,6 +4,8 @@ interface SpeakerLike {
   id: string;
   diarizationLabel: string;
   displayName: string | null;
+  /** A name the speech provider proposed, to confirm. */
+  suggestedName?: string | null;
   /** Set by a person: an interviewer's lines are skipped by Analyze. */
   role?: "interviewer" | "subject" | null;
 }

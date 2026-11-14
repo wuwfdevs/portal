@@ -12,7 +12,7 @@ import {
 } from "@/lib/audience-listening/conversation-queries";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { TABLE_STATE_LABEL } from "@/lib/audience-listening/events";
-import { canSendToSourcework, cardNeedsContactWarning, CONVERSATION_STATUS_LABEL, formatMs } from "@/lib/audience-listening/conversations";
+import { canSendToSourcework, cardNeedsContactWarning, CONVERSATION_STATUS_LABEL, describeGap, findGaps, formatMs } from "@/lib/audience-listening/conversations";
 import { sourcePath } from "@/lib/transcription/links";
 import { formatClockMs } from "@/lib/format";
 import { Alert } from "@/components/ui/alert";
@@ -23,7 +23,10 @@ import { ConfirmSubmit } from "@/components/ui/confirm-action";
 import { DescriptionList } from "@/components/ui/description-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { approveCardName, deleteContactCard, markCardContacted, sendConversation } from "../../../../conversation-actions";
+import { approveCardName, deleteContactCard, makeExcerptsFromMarks, markCardContacted, sendConversation } from "../../../../conversation-actions";
+import { AttachRecording } from "./attach-recording";
+import { AFTER_LINK_STATUS_TEXT, afterLinkStatus } from "@/lib/audience-listening/after-link";
+import { FacilitatorLink } from "./facilitator-link";
 
 // Joining the segments and copying the recording into Sourcework takes a while for a long table. Raised here, on the page that posts
 // to the action, and not in the "use server" file: a bare export there broke the server-action build once (see CLAUDE.md, Sourcework 3b).
@@ -63,7 +66,9 @@ export default async function TablePage({
     return named ? (named.name ?? named.label) : `Speaker ${voice}`;
   };
   const uploaded = segments.filter((s) => s.status === "uploaded").length;
+  const gaps = findGaps(segments.filter((s) => s.status === "uploaded"));
   const backHref = `/audience-listening/events/${eventId}`;
+  const linkStatus = afterLinkStatus(table, conversation);
 
   return (
     <div className="px-6 py-10 sm:px-10 sm:py-12">
@@ -75,6 +80,13 @@ export default async function TablePage({
         description={`${event.title} · ${formatEventTime(event.starts_at)}`}
       />
       {error && <Alert className="mb-4">{error}</Alert>}
+      {notice?.startsWith("excerpts-") && (
+        <Alert variant="note" className="mb-4">
+          {Number(notice.slice("excerpts-".length)) > 0
+            ? `${Number(notice.slice("excerpts-".length))} excerpt${Number(notice.slice("excerpts-".length)) === 1 ? "" : "s"} made in Sourcework.`
+            : "Nothing to make: every marked line already has an excerpt, or the transcript is not ready."}
+        </Alert>
+      )}
       {notice === "sent" && (
         <Alert variant="note" className="mb-4">
           Sent to Sourcework. Transcription takes a few minutes; this page shows the transcript when it is ready.
@@ -93,8 +105,24 @@ export default async function TablePage({
               { label: "Segments uploaded", value: conversation ? `${uploaded} of ${segments.length}` : null },
             ]}
           />
+          {gaps.length > 0 && (
+            <Alert variant="warning" className="mt-3">
+              The phone recorded nothing for {gaps.map((g) => `${describeGap(g.seconds)} before segment ${g.beforeSeq + 1}`).join(", and for ")}. It may have been a pause the table
+              chose, or the phone locked or the microphone dropped. Listen there before relying on that stretch.
+            </Alert>
+          )}
           <div className="mt-4">
             {!conversation && <p className="text-sm text-ink-500">Nothing has been recorded at this table.</p>}
+            {table.agreed_at && (!conversation || (!conversation.sourcework_source_id && segments.every((s) => s.status !== "uploaded"))) && (
+              <div className="mb-4 border-b border-line pb-4">
+                <p className="mb-2 text-sm font-semibold text-ink-900">Recorded on a separate recorder?</p>
+                <p className="mb-3 text-xs text-ink-400">
+                  Attach the file here and this table reads like any other. It is allowed because the table agreed to be recorded. One file, up to 50 MB;
+                  export long recordings as a mono MP3 at 64 kbps. It cannot be replaced once attached.
+                </p>
+                <AttachRecording tableId={tableId} />
+              </div>
+            )}
             {conversation?.sourcework_source_id ? (
               <Link className="text-sm font-semibold text-brand-link underline" href={sourcePath(conversation.sourcework_source_id, { projectId: conversation.transcription_project_id })}>
                 Open in Sourcework
@@ -119,6 +147,30 @@ export default async function TablePage({
           </div>
         </Card>
 
+        <Card className="p-5">
+          <SectionHeading className="mb-3">The facilitator</SectionHeading>
+          <DescriptionList
+            items={[
+              { label: "First name", value: table.facilitator_first_name },
+              { label: "Email", value: table.facilitator_email },
+              { label: "Link sent", value: table.after_link_sent_at ? formatEventTime(table.after_link_sent_at) : "Not yet" },
+              { label: "Link works until", value: table.after_token_expires_at ? formatEventTime(table.after_token_expires_at) : null },
+            ]}
+          />
+          <p className="mt-3 text-sm text-ink-500">
+            The link opens one page: names for the voices, the lines that mattered, and sending the conversation to the station. It works for
+            fourteen days. {AFTER_LINK_STATUS_TEXT[linkStatus]}
+          </p>
+          <div className="mt-3">
+            <FacilitatorLink
+              eventId={eventId}
+              tableId={tableId}
+              disabled={linkStatus === "no_email" || linkStatus === "no_conversation" || linkStatus === "conversation_sent"}
+              sendLabel={linkStatus === "sent" ? "Email a new link" : "Email the link to the facilitator"}
+            />
+          </div>
+        </Card>
+
         {conversation && (
           <Card className="p-5">
             <SectionHeading className="mb-3">Transcript</SectionHeading>
@@ -137,6 +189,21 @@ export default async function TablePage({
                     ? `${speakers.filter((s) => s.name).length} of ${speakers.length} voices named. ${highlights.length} line${highlights.length === 1 ? "" : "s"} marked.`
                     : "The facilitator has not opened the after-page yet, so the voices are not named."}
                 </p>
+                {conversation && highlights.some((h) => h.excerpt_id === null) && (
+                  <form action={makeExcerptsFromMarks} className="mb-3 flex flex-col gap-1">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="table_id" value={tableId} />
+                    <input type="hidden" name="conversation_id" value={conversation.id} />
+                    <div>
+                      <Button type="submit" variant="secondary">
+                        Make excerpts from the marked lines
+                      </Button>
+                    </div>
+                    <p className="text-xs text-ink-400">
+                      Each marked line becomes a Sourcework excerpt, once. It also happens on its own within the hour once the transcript is ready.
+                    </p>
+                  </form>
+                )}
                 <ol className="flex flex-col gap-2">
                   {transcript.lines.map((line) => {
                     const mark = highlightByStart.get(line.startMs);

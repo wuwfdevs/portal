@@ -53,13 +53,40 @@ describe("table messages: authorisation", () => {
 });
 
 describe("table messages: bodies", () => {
-  it("agree carries the version shown and an optional first name", () => {
-    const call = ok("table-agree", { session: SESSION, consentVersion: 2, firstName: "  Dana " });
-    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana" });
-    expect(ok("table-agree", { session: SESSION, consentVersion: 2, firstName: null }).rpc.args.p_first_name).toBeNull();
-    bad("table-agree", { session: SESSION, firstName: "Dana" });
-    bad("table-agree", { session: SESSION, consentVersion: 0 });
-    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "x".repeat(61) });
+  it("agree carries the version shown, an optional first name and the facilitator's email", () => {
+    const call = ok("table-agree", { session: SESSION, consentVersion: 2, firstName: "  Dana ", email: " dana@example.com " });
+    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana", p_email: "dana@example.com" });
+    expect(ok("table-agree", { session: SESSION, consentVersion: 2, firstName: null, email: "dana@example.com" }).rpc.args.p_first_name).toBeNull();
+    bad("table-agree", { session: SESSION, firstName: "Dana", email: "dana@example.com" });
+    bad("table-agree", { session: SESSION, consentVersion: 0, email: "dana@example.com" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "x".repeat(61), email: "dana@example.com" });
+  });
+
+  it("agree takes how many are at the table, optionally, between 1 and 40", () => {
+    const base = { session: SESSION, consentVersion: 1, firstName: "Dana", email: "dana@example.org" };
+    expect(ok("table-agree", { ...base, people: 6 }).rpc.args["p_people"]).toBe(6);
+    expect(ok("table-agree", base).rpc.args["p_people"]).toBeNull();
+    expect(ok("table-agree", { ...base, people: null }).rpc.args["p_people"]).toBeNull();
+    bad("table-agree", { ...base, people: 0 });
+    bad("table-agree", { ...base, people: 41 });
+    bad("table-agree", { ...base, people: "six" });
+    bad("table-agree", { ...base, people: 2.5 });
+  });
+
+  it("segment-complete may say when the phone started the segment, and refuses a value that is not a time", () => {
+    const base = { session: SESSION, seq: 0, sizeBytes: 1000, durationMs: 60000 };
+    expect(ok("table-segment-complete", { ...base, startedAt: "2026-11-15T17:00:00Z" }).rpc.args["p_started_at"]).toBe("2026-11-15T17:00:00.000Z");
+    expect(ok("table-segment-complete", base).rpc.args["p_started_at"]).toBeNull();
+    bad("table-segment-complete", { ...base, startedAt: "yesterday" });
+    bad("table-segment-complete", { ...base, startedAt: 12345 });
+  });
+
+  it("agree refuses a missing, blank or malformed email, because the after-page link is sent there", () => {
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: null });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: "   " });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: "dana" });
+    bad("table-agree", { session: SESSION, consentVersion: 1, firstName: "Dana", email: 5 });
   });
 
   it("update takes only known events, and a prompt needs its position", () => {

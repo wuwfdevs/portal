@@ -198,6 +198,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/audience-listening/purge"],
   },
   {
+    key: "audience-listening.jobs",
+    name: "Scheduled work",
+    toolKey: "audience-listening",
+    paths: ["/audience-listening/jobs"],
+  },
+  {
     key: "audience-listening.query",
     name: "Query",
     toolKey: "audience-listening",

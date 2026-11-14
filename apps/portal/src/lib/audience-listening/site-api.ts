@@ -97,6 +97,13 @@ export async function handleListeningRequest(request: Request, action: Listening
     call.rpc.args.p_session_hash = hashJoinToken(sessionToken);
   }
 
+  // A kitchen table's link is made here too: the token is returned once and only its hash reaches the database.
+  let kitchenLinkToken: string | null = null;
+  if (action === "kitchen-table-create") {
+    kitchenLinkToken = generateJoinToken();
+    call.rpc.args.p_link_hash = hashJoinToken(kitchenLinkToken);
+  }
+
   const supabase = createAdminClient();
 
   if (requiresEnabledTool(action)) {
@@ -128,6 +135,7 @@ export async function handleListeningRequest(request: Request, action: Listening
     const { sessionExpiresAt, ...rest } = shaped.body;
     return respond(200, { ok: true, ...rest, session: { token: sessionToken, expiresAt: sessionExpiresAt } });
   }
+  if (action === "kitchen-table-create" && kitchenLinkToken) return respond(200, { ok: true, ...shaped.body, linkToken: kitchenLinkToken });
   if (action === "forget-subject") await removeForgottenAudio(supabase, result.data);
   if (action === "host-request") await notifyHostRequest();
 

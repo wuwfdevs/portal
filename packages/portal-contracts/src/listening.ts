@@ -44,6 +44,8 @@ export const LISTENING_PATHS = {
   contactCardSave: "/api/site/listening/contact-card-save",
   room: "/api/site/listening/room",
   roomCall: "/api/site/listening/room-call",
+  roomClaim: "/api/site/listening/room-claim",
+  kitchenTableCreate: "/api/site/listening/kitchen-table-create",
 } as const;
 
 /**
@@ -316,6 +318,30 @@ export interface ListeningHubAnswered {
 export interface ListeningHub {
   open: ListeningHubOpen[];
   answered: ListeningHubAnswered[];
+  /** Upcoming public sessions, soonest first. Absent from a Portal that does not send them: read it as none. */
+  events?: ListeningHubEvent[];
+  /** Open campaigns that accept a kitchen table started from the website. Absent: read it as none. */
+  kitchenCampaigns?: ListeningHubKitchenCampaign[];
+}
+
+/** A campaign anyone may start a private one-table session for. */
+export interface ListeningHubKitchenCampaign {
+  publicId: string;
+  title: string;
+  question: string;
+}
+
+/** An upcoming listed public session, as the hub shows it. The event's own page (`event`) carries the rest. */
+export interface ListeningHubEvent {
+  publicId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  placeName: string;
+  city: string | null;
+  organizerLabel: string | null;
+  /** Null when the event has no seat limit. */
+  seatsLeft: number | null;
 }
 
 /** The hub needs no subject: it is a public read, like `query`. */
@@ -494,6 +520,13 @@ export type ListeningTableStateResponse = ListeningResult<{ table: ListeningTabl
 export interface ListeningTableAgreeRequest extends ListeningTableSessionRequest {
   consentVersion: number;
   firstName: string | null;
+  /**
+   * The facilitator's email, required the first time. WUWF uses it to send the one link to the after-page, and clears it thirty days
+   * after the event. The Portal never sends it back to the site.
+   */
+  email: string;
+  /** How many are at the table, counting the facilitator. Sent to the transcription as a speaker range; optional. */
+  people?: number | null;
 }
 export type ListeningTableAgreeResponse = ListeningResult<{ table: ListeningTable }>;
 
@@ -521,6 +554,8 @@ export interface ListeningTableSegmentCompleteRequest extends ListeningTableSess
   seq: number;
   sizeBytes: number;
   durationMs: number;
+  /** When the phone started recording this segment (ISO), so a gap between segments can be shown. Optional; the Portal ignores a time outside the night. */
+  startedAt?: string;
 }
 export type ListeningTableSegmentCompleteResponse = ListeningResult<Record<never, never>>;
 
@@ -556,6 +591,8 @@ export interface ListeningSpeaker {
   sharePercent: number;
   /** The voice this one was merged into when the transcript split one person in two, or null. */
   mergedInto: string | null;
+  /** A first name the speech provider proposed from what was said ("I'm Rosa"), to confirm. Never a name that was saved. */
+  suggestedName: string | null;
 }
 
 export interface ListeningHighlight {
@@ -578,6 +615,8 @@ export interface ListeningConversation {
   lines: ListeningTranscriptLine[];
   speakers: ListeningSpeaker[];
   highlights: ListeningHighlight[];
+  /** Where lines Analyze proposed as worth keeping start (a transcript line's `startMs`). A proposal to confirm, never a mark. */
+  proposals: number[];
   contactCardCount: number;
 }
 export type ListeningConversationResponse = ListeningResult<{ conversation: ListeningConversation }>;
@@ -593,6 +632,16 @@ export interface ListeningHighlightsSaveRequest extends ListeningTableSessionReq
   highlights: { startMs: number; tag: string | null }[];
 }
 export type ListeningHighlightsSaveResponse = ListeningResult<Record<never, never>>;
+
+/**
+ * Where the facilitator's after-page link opens on the site. The Portal emails it once the transcript is ready; the token is a path
+ * segment (never a query value) and is held by the site as the `session` of the after-page messages (`conversation`, `speakers-save`,
+ * `highlights-save`, `conversation-send`) for fourteen days. It cannot record: the Portal accepts it for those four messages only.
+ */
+export const LISTENING_AFTER_LINK_PATH = "/listens/after";
+export function listeningAfterLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_AFTER_LINK_PATH}/${encodeURIComponent(token)}`;
+}
 
 /** Sends the conversation to the station. It can still be read afterwards, not changed. */
 export type ListeningConversationSendRequest = ListeningTableSessionRequest;
@@ -663,3 +712,37 @@ export interface ListeningRoomCallRequest extends ListeningRoomRequest {
   value?: number;
 }
 export type ListeningRoomCallResponse = ListeningResult<{ room: ListeningRoom }>;
+
+/**
+ * Where an organizer's single-use link opens on the site. A coordinator makes it in the Portal and gives it to the person running the
+ * event; opening it signed in makes that account the event's organizer (`room-claim`). The token is a path segment.
+ */
+export const LISTENING_ORGANIZER_LINK_PATH = "/listens/room/claim";
+export function listeningOrganizerLinkUrl(siteOrigin: string, token: string): string {
+  return `${siteOrigin.replace(/\/+$/, "")}${LISTENING_ORGANIZER_LINK_PATH}/${encodeURIComponent(token)}`;
+}
+
+/** Redeems an organizer link for an `account` subject. The reply names the event so the site can open its console. */
+export interface ListeningRoomClaimRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  /** 43 characters of base64url, as a table's link token. */
+  claimToken: string;
+}
+export type ListeningRoomClaimResponse = ListeningResult<{ eventPublicId: string }>;
+
+/**
+ * Starts a kitchen table: a private one-table session the host runs on their own phone, with no staff and no printed card. The Portal
+ * makes the event and its table and the SITE'S server holds the single-use link it names (the token is made by the Portal's route and
+ * returned once; only its hash is stored). The site shows it to the host as a link to `LISTENING_TABLE_LINK_PATH`.
+ */
+export interface ListeningKitchenTableCreateRequest extends ListeningRequestBase {
+  subject: ListeningSubject;
+  campaignPublicId: string;
+  /** What the host is called, optional. */
+  hostName?: string | null;
+  /** Where it is, in the host's words, optional ("my kitchen"). */
+  place?: string | null;
+  /** When, optional; the default is now. Inside the campaign's dates and within thirty days. */
+  startsAt?: string | null;
+}
+export type ListeningKitchenTableCreateResponse = ListeningResult<{ linkToken: string; eventPublicId: string; title: string; question: string }>;

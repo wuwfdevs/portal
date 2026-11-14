@@ -55,6 +55,7 @@ export const assemblyAiProvider: TranscriptionProvider = {
         // assemblyai-docs MCP server (see CLAUDE.md) before changing them.
         speech_models: ["universal-3-5-pro", "universal-2"],
         speaker_labels: true,
+        ...(input.speakerRange ? { speaker_options: { min_speakers_expected: input.speakerRange.min, max_speakers_expected: input.speakerRange.max } } : {}),
         webhook_url: input.webhookUrl,
         webhook_auth_header_name: WEBHOOK_AUTH_HEADER_NAME,
         webhook_auth_header_value: input.webhookSecret,

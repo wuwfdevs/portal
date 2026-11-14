@@ -69,6 +69,8 @@ export const LISTENING_ACTIONS = [
   "contact-card-save",
   "room",
   "room-call",
+  "room-claim",
+  "kitchen-table-create",
 ] as const;
 export type ListeningAction = (typeof LISTENING_ACTIONS)[number];
 
@@ -329,6 +331,24 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       if (needsValue && value === null) return BAD;
       return done({ fn: "al_site_room_call", args: { p_subject: key, p_public_id: eventPublicId, p_action: roomAction, p_value: value } });
     }
+    case "room-claim": {
+      // An organizer link is redeemed by a site account; only its hash reaches the database.
+      if ((body["subject"] as ListeningSubject).kind !== "account") return BAD;
+      if (!isToken(body["claimToken"], LISTENING_TABLE_TOKEN_LENGTH)) return BAD;
+      return done({ fn: "al_site_room_claim", args: { p_subject: key, p_claim_hash: hashJoinToken(body["claimToken"]) } });
+    }
+    case "kitchen-table-create": {
+      // The link's token is made by the route, which puts its hash here; the parser leaves it empty, as for a table's session.
+      const campaignPublicId = body["campaignPublicId"];
+      const hostName = str(body["hostName"], 120);
+      const place = str(body["place"], 200);
+      const startsAt = optionalInstant(body["startsAt"]);
+      if (typeof campaignPublicId !== "string" || !PUBLIC_ID.test(campaignPublicId) || hostName === undefined || place === undefined || startsAt === undefined) return BAD;
+      return done({
+        fn: "al_site_kitchen_table_create",
+        args: { p_subject: key, p_campaign_public_id: campaignPublicId, p_link_hash: null, p_host_name: hostName?.trim() || null, p_place: place?.trim() || null, p_starts_at: startsAt },
+      });
+    }
     case "seat-save": {
       const publicId = body["publicId"];
       const name = required(body["name"], 200);
@@ -403,8 +423,16 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
     case "table-agree": {
       const version = int(body["consentVersion"], 1, 1_000_000);
       const name = str(body["firstName"], 60);
-      if (version === null || name === undefined) return BAD;
-      return done(key, { fn: "al_site_table_agree", args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null } });
+      // The facilitator's email is how WUWF sends them the after-page link. It is required; the database checks it again.
+      const email = optionalEmail(body["email"]);
+      // How many are at the table is optional; a number outside 1 to 40 is refused rather than ignored.
+      const rawPeople = body["people"];
+      const people = rawPeople === undefined || rawPeople === null ? null : int(rawPeople, 1, 40);
+      if (version === null || name === undefined || !email || (rawPeople !== undefined && rawPeople !== null && people === null)) return BAD;
+      return done(key, {
+        fn: "al_site_table_agree",
+        args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null, p_email: email, p_people: people },
+      });
     }
     case "table-update": {
       const event = LISTENING_TABLE_EVENTS.find((e) => e === body["event"]);
@@ -428,8 +456,12 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
       const seq = int(body["seq"], 0, LISTENING_MAX_SEGMENTS - 1);
       const size = int(body["sizeBytes"], 1, MAX_ANSWER_BYTES);
       const duration = int(body["durationMs"], 0, MAX_DURATION_MS);
-      if (seq === null || size === null || duration === null) return BAD;
-      return done(key, { fn: "al_site_table_segment_complete", args: { p_session_hash: hash, p_seq: seq, p_size_bytes: size, p_duration_ms: duration } });
+      const startedAt = optionalInstant(body["startedAt"]);
+      if (seq === null || size === null || duration === null || startedAt === undefined) return BAD;
+      return done(key, {
+        fn: "al_site_table_segment_complete",
+        args: { p_session_hash: hash, p_seq: seq, p_size_bytes: size, p_duration_ms: duration, p_started_at: startedAt },
+      });
     }
     case "table-end": {
       const lastSeq = int(body["lastSeq"], -1, LISTENING_MAX_SEGMENTS - 1);
@@ -487,6 +519,14 @@ function optionalEmail(value: unknown): string | null | undefined {
   const trimmed = value.trim();
   if (trimmed.length === 0) return null;
   return trimmed.length <= MAX_EMAIL_LENGTH && EMAIL_SHAPE.test(trimmed) ? trimmed : undefined;
+}
+
+/** An instant that may be absent: undefined when present but not a time, null when absent or blank, else the ISO string. */
+function optionalInstant(value: unknown): string | null | undefined {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || value.length > 40) return undefined;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 }
 
 // -------------------------------------------------------------------------------------------------------------
@@ -628,7 +668,24 @@ export function shapeHub(payload: unknown): ListeningHub {
     ];
   });
 
-  return { open, answered };
+  const events = rows(source["events"]).flatMap((e) => {
+    const publicId = asString(e["public_id"]);
+    const title = asString(e["title"]);
+    const startsAt = asString(e["starts_at"]);
+    const endsAt = asString(e["ends_at"]);
+    const placeName = asString(e["place_name"]);
+    if (!publicId || !title || !startsAt || !endsAt || !placeName) return [];
+    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]) }];
+  });
+
+  const kitchenCampaigns = rows(source["kitchen_campaigns"]).flatMap((k) => {
+    const publicId = asString(k["public_id"]);
+    const title = asString(k["title"]);
+    const question = asString(k["question"]);
+    return publicId && title && question ? [{ publicId, title, question }] : [];
+  });
+
+  return { open, answered, events, kitchenCampaigns };
 }
 
 const PROMPT_KINDS = LISTENING_PROMPT_KINDS;
@@ -700,6 +757,7 @@ export function shapeConversation(payload: unknown): ListeningConversation | nul
               firstHeardMs: asNumber(sp["first_heard_ms"]) ?? 0,
               sharePercent: asNumber(sp["share_percent"]) ?? 0,
               mergedInto: asString(sp["merged_into"]),
+              suggestedName: asString(sp["suggested_name"]),
             },
           ];
     }),
@@ -711,6 +769,7 @@ export function shapeConversation(payload: unknown): ListeningConversation | nul
         ? []
         : [{ startMs, endMs, text, tag: asString(h["tag"]), speakerId: asString(h["speaker_id"]) }];
     }),
+    proposals: (Array.isArray(payload["proposals"]) ? payload["proposals"] : []).filter((n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0),
     contactCardCount: asNumber(payload["contact_card_count"]) ?? 0,
   };
 }
@@ -824,6 +883,17 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
     case "room-call": {
       const room = isObj(payload) ? shapeRoom(payload["room"]) : null;
       return room ? { ok: true, body: { room } } : fail("unavailable");
+    }
+    case "kitchen-table-create": {
+      if (!isObj(payload)) return fail("unavailable");
+      const eventPublicId = asString(payload["event_public_id"]);
+      const title = asString(payload["title"]);
+      const question = asString(payload["question"]);
+      return eventPublicId && title && question ? { ok: true, body: { eventPublicId, title, question } } : fail("unavailable");
+    }
+    case "room-claim": {
+      const publicId = isObj(payload) ? asString(payload["public_id"]) : null;
+      return publicId ? { ok: true, body: { eventPublicId: publicId } } : fail("unavailable");
     }
     case "contact-card-open": {
       if (!isObj(payload) || asString(payload["event_title"]) === null || asNumber(payload["table_number"]) === null) return fail("unavailable");
@@ -986,6 +1056,16 @@ export const RATE_RULES: Record<ListeningAction, RateRule[]> = {
   // The organizer's console polls; the limit is generous for that and still bounded per account.
   room: [{ by: "subject", limit: 600, windowSeconds: 600 }],
   "room-call": [{ by: "subject", limit: 120, windowSeconds: 600 }],
+  // A claim link is a 256-bit secret, so guessing is not the worry; a few tries by one account and many by one address is plenty.
+  "room-claim": [
+    { by: "subject", limit: 10, windowSeconds: 3600 },
+    { by: "client", limit: 60, windowSeconds: 3600 },
+  ],
+  // Starting a kitchen table makes an event: a few a day per host (the database allows three), and per address.
+  "kitchen-table-create": [
+    { by: "subject", limit: 8, windowSeconds: 86400 },
+    { by: "client", limit: 30, windowSeconds: 86400 },
+  ],
 };
 
 /** The keys to count for a request, in the form al_site_rate_hit stores. */

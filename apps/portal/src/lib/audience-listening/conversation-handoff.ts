@@ -11,6 +11,7 @@ import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media"
 import { TRANSCRIPTION_MEDIA_BUCKET, sourceObjectPath } from "@/lib/transcription/media";
 import { createProjectWithSource, createSourceForExistingProject, startTranscriptionForProject } from "@/lib/transcription/ingest";
 import { getSourceRef } from "@/lib/transcription/projects";
+import { speakerRangeFor } from "@/lib/transcription/speaker-identification";
 import { stationTodayISO } from "@/lib/station-time";
 import {
   CONCAT_FFMPEG_ARGS,
@@ -28,7 +29,7 @@ import {
  * startTranscriptionForProject() everything else calls. Runs as the staff member, under RLS: no admin client, and the grant on
  * Sourcework is checked first so a missing grant reads as that and not as "could not create the project".
  *
- * Host-triggered, never automatic, because this repository has no job queue (the same reason Remote Interview's assembly is a button).
+ * A button on the Table page, and the scheduled route's first task (api/cron/listening) for a conversation nobody has sent.
  */
 
 export type ConversationHandoffResult = ActionResult<{ projectId: string; sourceId: string }>;
@@ -69,7 +70,16 @@ export async function sendConversationToSourcework(conversationId: string): Prom
       error: "Sending a recording to transcription needs Sourcework, and either it is switched off or you don't have access to it. Ask an administrator.",
     };
   }
+  return sendConversationAs(supabase, user.id, conversationId);
+}
 
+/**
+ * The hand-off itself, as `userId`, through `supabase`. A staff member's button passes their own RLS client; the scheduled route passes
+ * the service client and the campaign's owner, who must have Sourcework (`canUseTool` is checked by the caller either way). Everything
+ * Sourcework records ("created by") is that user, so a recording sent overnight belongs to the person who owns the season.
+ */
+export async function sendConversationAs(supabase: Supabase, userId: string, conversationId: string): Promise<ConversationHandoffResult> {
+  const user = { id: userId };
   const { data: conversation, error: conversationError } = await supabase.from("al_conversations").select("*").eq("id", conversationId).maybeSingle();
   if (conversationError) return { ok: false, error: `Could not read the conversation: ${conversationError.message}` };
   if (!conversation) return { ok: false, error: "That conversation no longer exists." };
@@ -81,7 +91,7 @@ export async function sendConversationToSourcework(conversationId: string): Prom
   }
 
   const [tableResult, eventResult, segmentResult] = await Promise.all([
-    supabase.from("al_tables").select("number").eq("id", conversation.table_id).maybeSingle(),
+    supabase.from("al_tables").select("number, expected_speakers").eq("id", conversation.table_id).maybeSingle(),
     supabase.from("al_events").select("title, place_name, starts_at, campaign_id").eq("id", conversation.event_id).maybeSingle(),
     supabase.from("al_conversation_segments").select("seq, status, storage_path, content_type").eq("conversation_id", conversationId),
   ]);
@@ -177,7 +187,13 @@ export async function sendConversationToSourcework(conversationId: string): Prom
 
   const ref = await getSourceRef(supabase, sourceId);
   const started = ref.representationId
-    ? await startTranscriptionForProject(supabase, { representationId: ref.representationId, storagePath: destination })
+    ? await startTranscriptionForProject(supabase, {
+        representationId: ref.representationId,
+        storagePath: destination,
+        // The table's size narrows the diarizer's search, and what the voices said names them.
+        speakerRange: speakerRangeFor(table.expected_speakers),
+        identifySpeakers: true,
+      })
     : { error: "This source has no transcript representation yet." };
 
   // The source holds the recording either way, so the link is kept even if the kickoff failed: Sourcework has its own retry.

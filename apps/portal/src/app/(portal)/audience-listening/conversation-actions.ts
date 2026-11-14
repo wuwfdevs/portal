@@ -9,8 +9,11 @@ import { failIfError, failWith } from "@/lib/editorial/action-result";
 import { logAuditEvent } from "@/lib/audit";
 import { assertAudienceListeningContext, assertAudienceListeningCoordinator } from "@/lib/audience-listening/access";
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
+import { canUseTool } from "@/lib/auth/authz";
 import { sendConversationToSourcework } from "@/lib/audience-listening/conversation-handoff";
-import { getEvent } from "@/lib/audience-listening/campaign-queries";
+import { getEvent, listConversations, listTables } from "@/lib/audience-listening/campaign-queries";
+import { needsAfterLink } from "@/lib/audience-listening/after-link";
+import { sendAfterLink } from "@/lib/audience-listening/after-link-send";
 
 function tablePath(eventId: string, tableId: string, query = ""): string {
   return `/audience-listening/events/${eventId}/tables/${tableId}${query}`;
@@ -153,7 +156,85 @@ export async function runPurge(): Promise<void> {
     actorId: profile.id,
     action: "al.purge.run",
     targetType: "al_purge",
-    metadata: { submissions: data?.submissions ?? 0, conversations: data?.conversations ?? 0, audio_files: removedAudio },
+    metadata: { submissions: data?.submissions ?? 0, conversations: data?.conversations ?? 0, audio_files: removedAudio, facilitator_emails: data?.emails ?? 0 },
   });
-  redirect(`${path}?done=${data?.submissions ?? 0}-${data?.conversations ?? 0}-${removedAudio}`);
+  redirect(`${path}?done=${data?.submissions ?? 0}-${data?.conversations ?? 0}-${removedAudio}-${data?.emails ?? 0}`);
+}
+
+// The facilitator's after-page link --------------------------------------------------------------------------
+
+export interface AfterLinkState {
+  ok: boolean;
+  message?: string;
+  error?: string;
+  /** The link itself, only when the email could not be sent, so a staff member can hand it over. */
+  url?: string;
+}
+
+/** Emails one table's facilitator a new after-page link. A new link replaces the last, so an earlier email stops working. */
+export async function emailFacilitatorLink(_previous: AfterLinkState, formData: FormData): Promise<AfterLinkState> {
+  const { profile } = await assertAudienceListeningContext();
+  const eventId = field(formData, "event_id");
+  const tableId = field(formData, "table_id");
+  const result = await sendAfterLink(eventId, tableId);
+  if (!result.ok) return { ok: false, error: result.error, ...(result.url ? { url: result.url } : {}) };
+  // No address, token or link in the record: only that one was sent, and for which table.
+  await logAuditEvent({ actorId: profile.id, action: "al.table.after_link_sent", targetType: "al_table", targetId: tableId });
+  revalidatePath(tablePath(eventId, tableId));
+  return { ok: true, message: "The link was emailed to the facilitator." };
+}
+
+/**
+ * Emails every facilitator at an event who has an email, a conversation not yet sent to the station and no link yet. Nothing sends on
+ * its own: there is no scheduler, so this is the button staff press once transcripts are ready. A failure for one table does not stop
+ * the rest; the count of each comes back on the event page.
+ */
+export async function emailPendingFacilitatorLinks(formData: FormData): Promise<void> {
+  const { profile } = await assertAudienceListeningContext();
+  const eventId = field(formData, "event_id");
+  const path = `/audience-listening/events/${eventId}`;
+  const [tables, conversations] = await Promise.all([listTables(eventId), listConversations(eventId)]);
+  let sent = 0;
+  let failed = 0;
+  for (const table of tables) {
+    const conversation = conversations.find((c) => c.table_id === table.id) ?? null;
+    if (!needsAfterLink(table, conversation)) continue;
+    const result = await sendAfterLink(eventId, table.id);
+    if (result.ok) sent += 1;
+    else failed += 1;
+  }
+  await logAuditEvent({ actorId: profile.id, action: "al.event.after_links_sent", targetType: "al_event", targetId: eventId, metadata: { sent, failed } });
+  revalidatePath(path);
+  redirect(`${path}?links_sent=${sent}&links_failed=${failed}`);
+}
+
+// Marked lines as Sourcework excerpts -----------------------------------------------------------------------
+
+/**
+ * Turns the lines a facilitator marked into Sourcework excerpts, made as the staff member who pressed this (Sourcework records who made
+ * an excerpt). The scheduled run does the same as the campaign's owner once a transcript is ready; this is for doing it now. The
+ * database function is service-role only, so the admin client calls it, after the staff member's own access to both tools is checked.
+ */
+export async function makeExcerptsFromMarks(formData: FormData): Promise<void> {
+  const { profile } = await assertAudienceListeningContext();
+  const eventId = field(formData, "event_id");
+  const tableId = field(formData, "table_id");
+  const conversationId = field(formData, "conversation_id");
+  const path = tablePath(eventId, tableId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !(await canUseTool(user, "transcription"))) {
+    failWith(path, "Making excerpts needs Sourcework, and either it is switched off or you do not have access to it. Ask an administrator.");
+  }
+  // The conversation must be one this person can see, and belong to the table on the page.
+  const { data: conversation, error: readError } = await supabase.from("al_conversations").select("id").eq("id", conversationId).eq("table_id", tableId).maybeSingle();
+  failIfError(readError, path, "Could not read the conversation");
+  if (!conversation) failWith(path, "That conversation no longer exists.");
+  const { data: made, error } = await createAdminClient().rpc("al_create_excerpts_from_highlights", { p_conversation_id: conversationId, p_created_by: profile.id });
+  failIfError(error, path, "Could not make the excerpts");
+  await logAuditEvent({ actorId: profile.id, action: "al.conversation.excerpts_made", targetType: "al_conversation", targetId: conversationId, metadata: { excerpts: made ?? 0 } });
+  revalidatePath(path);
+  redirect(`${path}?notice=excerpts-${made ?? 0}`);
 }

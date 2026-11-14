@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  LISTENING_ERROR_CODES, LISTENING_PATHS, listeningCardLinkUrl, listeningTableLinkUrl, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
+  LISTENING_ERROR_CODES, LISTENING_ORGANIZER_LINK_PATH, LISTENING_PATHS, listeningAfterLinkUrl, listeningCardLinkUrl, listeningOrganizerLinkUrl, listeningTableLinkUrl, MAX_SUBJECT_ID_LENGTH, SIGNATURE_HEADER, TIMESTAMP_HEADER, isListeningErrorCode, isListeningSubject, signRequest,
   verifyRequestSignature,
   type ListeningStartRequest,
 } from "./index";
@@ -102,5 +102,24 @@ describe("table links", () => {
 describe("card links", () => {
   it("puts the table's second token in the path of the site's card page", () => {
     expect(listeningCardLinkUrl("https://site.example/", "abc_-123")).toBe("https://site.example/listens/card/abc_-123");
+  });
+});
+
+describe("after-page links", () => {
+  it("puts the token in the path of the site's after-page route", () => {
+    expect(listeningAfterLinkUrl("https://site.example/", "abc_-123")).toBe("https://site.example/listens/after/abc_-123");
+  });
+  it("escapes anything that is not a path-safe character", () => {
+    expect(listeningAfterLinkUrl("https://site.example", "a/b?c")).toBe("https://site.example/listens/after/a%2Fb%3Fc");
+  });
+});
+
+describe("organizer links", () => {
+  it("puts the token in the path of the site's organizer claim route", () => {
+    expect(listeningOrganizerLinkUrl("https://site.example", "abc_-123")).toBe("https://site.example/listens/room/claim/abc_-123");
+  });
+  it("is a different route from a console, so a claim token cannot be mistaken for an event address", () => {
+    expect(LISTENING_ORGANIZER_LINK_PATH).not.toBe("/listens/room");
+    expect(LISTENING_ORGANIZER_LINK_PATH.startsWith("/listens/room/")).toBe(true);
   });
 });

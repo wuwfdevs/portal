@@ -32,8 +32,8 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
   Portal's contract; it never stores a submission, a consent record or an audio file. The contract is
   versioned in `@wuwf/portal-contracts`; the pure rules still come from `@wuwf/listening-core`.
   Built so far (ROADMAP item 7): the full question set at `/listens/<publicId>`, the inline asks (components B, C, D, placed by the `listeningAsk` story block and a topic's question field), the hub at
-  `/listens`, Ask WUWF (a section of the hub) and the host-a-session request at `/listens/host`. The rest of the suite (sessions, tables, seats) is later phases of
-  `apps/portal/docs/audience-listening-suite-design.md`.
+  `/listens`, Ask WUWF (a section of the hub) and the host-a-session request at `/listens/host`. Phase E adds the table card's page, the table's phone, the after-page, the contact card, a public event's page and the organizer's console under
+  `/listens` (`apps/portal/docs/audience-listening-suite-design.md` §10; reports are phase F).
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
   placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.**
 - **No polls or public tallies on open listening questions. No "sponsor-free" claims about WUWF originals.**

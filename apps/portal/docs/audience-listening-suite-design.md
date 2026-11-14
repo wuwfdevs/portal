@@ -4,7 +4,7 @@ Status: **Design, 2026-11-07. Phase A is built (2026-11-07 and 2026-11-09), phas
 phase C is built on the Portal side (2026-11-10, applied to both projects); phase D is half built in the Portal (2026-11-11: campaigns,
 events, tables and seats, with their staff screens and table cards; then the table session: single-use link, agreement, recording in segments, the
 consent wording; then the conversation side: speakers, highlights, contact cards, the organizer's room, Tonight, the Sourcework handoff and the purge).
-**Phase D is built on the Portal; its site screens (phase E) and phase F are not.** The build order and where each phase stands are in §10.
+**Phase D is built on the Portal and its site screens (phase E) are built on the site (2026-11-13, with the follow-up closing its gaps); phase F is not.** The build order and where each phase stands are in §10.
 
 Read alongside `docs/audience-listening-design.md` (Milestone 1: queries, questions, submissions,
 answers — built) and `apps/site/ROADMAP.md` → *Listening*. The screens are the WUWF.org Home Redesign
@@ -329,6 +329,26 @@ Where it stands (2026-11-09):
   does not change; retention for contact cards and raw audio waits for a report date (phase F) and is not guessed. **Not built:** the daily Ask
   digest (no scheduler), the website's pages for all of the above (E), and reports and outcome links (F).
 
+- **E is built on the site** (`apps/site`, 2026-11-13; `apps/site/ROADMAP.md` -> *Listening: where it stands*): the table card's page
+  `/listens/table/<token>` (redeemed by a press, never on load, so a link previewer cannot use up a card), the table's phone `/listens/session`
+  (the agreement, recording in segments of under five minutes put straight to the signed address and copied to the phone until the Portal
+  confirms them, prompts, pause, help, end), the contact card `/listens/card/<token>` (board 5i), a public event's page and seat form
+  `/listens/events/<publicId>`, the facilitator's after-page `/listens/session/after` (name and merge voices, mark lines, send) and the
+  organizer's console `/listens/room/<publicId>`. Nothing on the site stores a transcript, a card or audio.
+- **E, the follow-up that closed its gaps (2026-11-13, `20261113120000`, with its Resources content in `20261113130000`):**
+  (1) **the facilitator gives an email when the table agrees** (required, `al_tables.facilitator_email`, read by staff, never returned to the
+  site, cleared by the purge 30 days after the event); staff email them an **after-page link** from the table or event page once the
+  transcript is ready (the Portal's hourly scheduled run sends it too: see §12). The link is a 256-bit token stored as a hash
+  (`after_token_hash`), good for fourteen days and never past thirty days after the event, and the site holds it as the `session` of the four
+  after-page messages only (`private.al_table_for_conversation` accepts it beside the table's own session; no recording function does), so the
+  twelve-hour table session is unchanged and a longer-lived link cannot record. (2) **an organizer is made by a single-use link**: a coordinator
+  makes it on the event page (`organizer_claim_hash`; the database refuses anyone else), the person opens it signed in to the website and
+  `room-claim` records `site:account:<id>` as `organizer_subject`; a newer link replaces an earlier organizer. (3) **the hub lists upcoming
+  listed public events** (`events`, additive). (4) **first name stays required** on a contact card, because the Portal needs a name to act on
+  one; the page says so. **Still open, by their nature:** nothing here has run against a live Portal, a mail server or a real phone; the
+  facilitator email depends on `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (without them the page shows the link so staff can hand it over);
+  the purge that clears emails is, like every retention step, run by a coordinator. **Not built:** reports and outcome links (F).
+
 ## 11. Open items for the owner
 
 **Dropped (2026-11-09): everything that sends a text message.** The board's "Can't scan? The welcome table can text you the link"
@@ -371,3 +391,26 @@ with the phase that needs it (consent and retention with D, notifications and ap
    a public place, an identified organizer with a verified email, a date inside the campaign, accessibility details, nothing that is a
    fundraiser or campaign event, and the consent reading acknowledged. Approving and declining are audited, and a decline sends the
    organizer a reason. Every public event is reviewed, including a returning organizer's.
+
+## 12. Completion of phase E: one speaker model, scheduled work, the recorder (2026-11-13)
+
+Decided with the owner after a review of what limited the design; nothing here is a pilot or a stopgap.
+
+- **Sourcework is the one speaker model.** The facilitator's names and merges are written through to Sourcework's `tw_speakers.display_name` and
+  `al_speakers` stays as the after-page's working copy. A conversation is sent to the transcription with the table's size as a speaker range
+  (N-2 to N+2, never a hard floor: an attendee who says nothing would otherwise force a false split) and with AssemblyAI's speaker identification
+  turned on, which proposes first names from what people said ("I'm Rosa"). A proposal is shown as "It sounded like Rosa. Use this name"; **an AI
+  suggestion never names a person by itself**. Analyze's suggested quotes appear on the after-page as lines that may matter, never as marks.
+- **Marks become excerpts** in the campaign's Sourcework project, one per marked line, with the facilitator's tag in the reason.
+- **Small jobs are scheduled, large decisions are not.** Why there was no scheduler (an earlier decision that predated any need for one) no longer
+  holds: a scheduled route (`api/cron/listening`, hourly) sends finished recordings to Sourcework as the campaign's owner, emails facilitators their link,
+  makes excerpts, clears facilitator emails at 30 days and sends two emails to the shared mailbox (a weekly purge reminder, a daily Ask digest,
+  counts only). Each task is logged (`al_job_runs`, `/audience-listening/jobs`) and a failing task never stops another. **Deleting a conversation
+  stays a coordinator's decision.** Facilitators keep an emailed link as their credential; there are no facilitator accounts.
+- **The recorder says when it cannot hear.** A phone cannot be made to record while locked (iOS mutes the microphone when backgrounded, and a wake lock is
+  released whenever the page is hidden), so the page asks for the wake lock again, tells the table when the microphone stopped or was muted, offers to
+  reconnect it, and tells them before they start to plug the phone in and keep the page open. Each segment carries when the phone began it, so staff see
+  where nothing was recorded. For a room where a phone is the wrong tool, staff attach a recording from a separate recorder to a table that agreed.
+- **Kitchen tables.** A campaign can let anyone host one private table of their own from the website's listening page: no event to join, no card to
+  print, the link made on the spot and shown once, three a day per host.
+

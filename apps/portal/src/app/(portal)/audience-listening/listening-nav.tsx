@@ -2,7 +2,7 @@ import { SubNav } from "@/components/ui/sub-nav";
 import { getInboxWorkCounts } from "@/lib/audience-listening/inbox-queries";
 import { countEventsPendingReview } from "@/lib/audience-listening/campaign-queries";
 
-export type ListeningSection = "queries" | "campaigns" | "events" | "inbox" | "host-requests";
+export type ListeningSection = "queries" | "campaigns" | "events" | "inbox" | "host-requests" | "jobs";
 
 /**
  * The pages of Audience Listening: the queries, campaigns and their events, questions and ideas, and host requests. The counts are
@@ -20,6 +20,7 @@ export async function ListeningNav({ current }: { current: ListeningSection }) {
         { href: "/audience-listening/events", label: "Events", active: current === "events", count: pendingEvents ?? undefined },
         { href: "/audience-listening/inbox", label: "Questions and ideas", active: current === "inbox", count: counts?.inboxNew },
         { href: "/audience-listening/host-requests", label: "Host requests", active: current === "host-requests", count: counts?.hostNew },
+        { href: "/audience-listening/jobs", label: "Scheduled work", active: current === "jobs" },
       ]}
     />
   );

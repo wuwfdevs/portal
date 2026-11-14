@@ -27,6 +27,7 @@ import {
   type ListingAction,
 } from "@/lib/audience-listening/events";
 import { issueTableLink, type IssuedLink } from "@/lib/audience-listening/table-links";
+import { issueOrganizerLink as makeOrganizerLink } from "@/lib/audience-listening/after-link";
 
 const EVENTS_PATH = "/audience-listening/events";
 
@@ -343,4 +344,41 @@ export async function removeSeat(formData: FormData): Promise<void> {
   await deleteOrFail((await createClient()).from("al_seats").delete().eq("id", seatId).eq("event_id", eventId).select("id"), path, "Could not remove the seat");
   await logAuditEvent({ actorId: profile.id, action: "al.seat.removed", targetType: "al_event", targetId: eventId });
   redirect(path);
+}
+
+export interface OrganizerLinkState {
+  ok: boolean;
+  error?: string;
+  /** The link itself, shown once. Only its hash is kept. */
+  url?: string;
+}
+
+/**
+ * A coordinator makes the link that gives one site account the event: the person running the event opens it signed in to the website
+ * and their account becomes the organizer. A new link replaces the last, and claiming it replaces whoever organized before. The
+ * database refuses anyone but a coordinator, and only the hash is stored.
+ */
+export async function issueOrganizerLink(_previous: OrganizerLinkState, formData: FormData): Promise<OrganizerLinkState> {
+  const { profile } = await assertAudienceListeningCoordinator();
+  const eventId = field(formData, "event_id");
+
+  const origin = readSiteOrigin(process.env.WEBSITE_ORIGIN);
+  if (!origin.ok) return { ok: false, error: origin.problem };
+  const event = await getEvent(eventId);
+  if (!event) return { ok: false, error: "That event no longer exists." };
+  if (event.status !== "scheduled" && event.status !== "live") return { ok: false, error: "Only a scheduled or live event can be given an organizer." };
+
+  const link = makeOrganizerLink(origin.origin);
+  const { data, error } = await (await createClient())
+    .from("al_events")
+    .update({ organizer_claim_hash: link.hash, organizer_claim_issued_at: new Date().toISOString() })
+    .eq("id", eventId)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    console.error("Could not store an organizer link:", error?.code);
+    return { ok: false, error: "Could not save the link. Try again." };
+  }
+  await logAuditEvent({ actorId: profile.id, action: "al.event.organizer_link_issued", targetType: "al_event", targetId: eventId });
+  revalidatePath(eventPath(eventId));
+  return { ok: true, url: link.url };
 }

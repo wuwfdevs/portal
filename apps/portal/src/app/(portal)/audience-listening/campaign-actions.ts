@@ -110,6 +110,7 @@ export async function updateCampaign(formData: FormData): Promise<void> {
       intro: field(formData, "intro"),
       owner_label: optionalField(formData, "owner_label"),
       internal_notes: optionalField(formData, "internal_notes"),
+      accepts_kitchen_tables: formData.get("accepts_kitchen_tables") === "on",
       opens_at: opensAt,
       closes_at: closesAt,
       query_id: queryId || null,
