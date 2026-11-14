@@ -4,10 +4,11 @@ import React from 'react'
 import type { Post } from '@/payload-types'
 
 import { Media } from '@/components/Media'
+import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { cn } from '@/utilities/ui'
 
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
-export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format'>>
+export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity'>>
 
 /**
  * A story card. The whole card is clickable through one link whose box is stretched over it with CSS
@@ -23,7 +24,7 @@ export const Card: React.FC<{
   showCategories?: boolean
   title?: string
 }> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
-  const { path, categories, meta, title, format } = doc || {}
+  const { path, categories, meta, title, format, publishingIdentity } = doc || {}
   const { description, image: metaImage } = meta || {}
 
   const topics = (categories ?? [])
@@ -57,6 +58,11 @@ export const Card: React.FC<{
               <span aria-hidden="true" className="size-1.5 rounded-full bg-wuwf-blue-700" />
               Live updates
             </span>
+          </p>
+        )}
+        {isVoyagerIdentity(publishingIdentity) && (
+          <p className="text-xs font-bold uppercase tracking-widest text-wuwf-teal">
+            <span className="inline-flex items-center rounded-pill border border-wuwf-teal px-2 py-0.5">{VOYAGER_BADGE_LABEL}</span>
           </p>
         )}
         {showCategories && topics.length > 0 && (
