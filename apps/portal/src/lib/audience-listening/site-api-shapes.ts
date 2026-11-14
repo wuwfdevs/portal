@@ -731,6 +731,7 @@ export function shapeTable(payload: unknown): ListeningTable | null {
     eventPromptPosition: asNumber(payload["event_prompt_position"]) ?? 1,
     lastCallAt: asString(payload["last_call_at"]),
     helpAvailable: payload["help_available"] === true,
+    kitchen: payload["kitchen"] === true,
   };
 }
 

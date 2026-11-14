@@ -338,6 +338,7 @@ repo and a project's history, not the version number.
 | `20261114150000_resources_station_website_address_and_mailbox.sql`        | 2026-11-13 | 2026-11-13 |
 | `20261114160000_audience_listening_hub_campaigns.sql`                     | 2026-11-14 | 2026-11-14 |
 | `20261114170000_resources_audience_listening_hub_campaigns.sql`           | 2026-11-14 | 2026-11-14 |
+| `20261114180000_audience_listening_table_kitchen_flag.sql`                | 2026-11-14 | 2026-11-14 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —

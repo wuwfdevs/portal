@@ -233,4 +233,10 @@ describe("shaping", () => {
     expect(table).toMatchObject({ eventPromptPosition: 3, lastCallAt: "2026-12-05T20:00:00Z", helpAvailable: true });
     expect(shapeTable({ number: 1, state: "recording" })!.helpAvailable).toBe(false);
   });
+
+  it("says when a table is a kitchen table, and reads anything else as an event's table", () => {
+    expect(shapeTable({ number: 1, state: "waiting", kitchen: true })!.kitchen).toBe(true);
+    expect(shapeTable({ number: 1, state: "waiting", kitchen: false })!.kitchen).toBe(false);
+    expect(shapeTable({ number: 1, state: "waiting" })!.kitchen).toBe(false);
+  });
 });

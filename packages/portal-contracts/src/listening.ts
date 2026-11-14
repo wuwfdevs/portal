@@ -514,6 +514,8 @@ export interface ListeningTable {
    * and, if it is urgent, to ask at the front, so the page never promises help nobody can see the request for.
    */
   helpAvailable: boolean;
+  /** A private one-table session its host started from the website: no organizer, no front desk, no printed card. Absent: an event's table. */
+  kitchen?: boolean;
 }
 
 /** The longest a segment may be, in seconds. The phone cuts a new segment at this length. */
