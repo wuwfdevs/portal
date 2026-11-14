@@ -21,7 +21,11 @@ export function checkKitchen(input: KitchenInput): Checked<{ hostName: string | 
   return { ok: true, value: { hostName: hostName || null, place: place || null } }
 }
 
-/** The page a started kitchen table opens: the table's own link, which its phone redeems with a press. */
+/**
+ * The page a started kitchen table opens: the table's own link, which its phone redeems with a press. `?host=kitchen` is only a
+ * marker so the page words itself for a person who has just started their own table, not one who scanned a printed card; it carries
+ * nothing about the table.
+ */
 export function kitchenTablePath(linkToken: string): string {
-  return `/listens/table/${encodeURIComponent(linkToken)}`
+  return `/listens/table/${encodeURIComponent(linkToken)}?host=kitchen`
 }

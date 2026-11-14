@@ -15,6 +15,6 @@ describe('checkKitchen', () => {
 
 describe('kitchenTablePath', () => {
   it('is the table link page', () => {
-    expect(kitchenTablePath('abc_DEF-123')).toBe('/listens/table/abc_DEF-123')
+    expect(kitchenTablePath('abc_DEF-123')).toBe('/listens/table/abc_DEF-123?host=kitchen')
   })
 })

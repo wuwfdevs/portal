@@ -209,6 +209,12 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                         sends it to WUWF. Nothing is public.
                       </p>
                       <KitchenTable bare campaign={table} />
+                      <p className="text-sm text-ink-2">
+                        Hosting more than one table, or want a WUWF journalist to join?{' '}
+                        <Link className="font-semibold text-wuwf-blue-700" href="/listens/host">
+                          Ask to host a session →
+                        </Link>
+                      </p>
                     </div>
                   )}
                 </div>
