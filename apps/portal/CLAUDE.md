@@ -397,7 +397,10 @@ No baseline regeneration was needed: `BASELINE_THROUGH` is `20261105230000` and 
 **Vercel environments and deployment protection (2026-11-14).** A pointer; read before wiring anything that crosses between the two apps on Vercel.
 (1) **`claude/main` is the production branch of both Vercel projects**: a merge deploys to **Production** (the production Supabase projects), and the
 `*-git-claude-main-*.vercel.app` aliases are production aliases, not staging. Staging is the **Preview** environment (preview Portal database, staging site
-database), whose only stable addresses are a branch's own aliases. (2) **Every `*.vercel.app` address is behind Deployment Protection** (no custom domain is
+database). **The stable staging pair is the `staging` branch's aliases**: `https://portal-git-staging-wuwf.vercel.app` and
+`https://wuwf-site-git-staging-wuwf.vercel.app`. The generic Preview variables point at them (site `PORTAL_ORIGIN`, Portal `WEBSITE_ORIGIN`), and the staging
+site's saved Portal address (Site settings, which beats the variable) must be the same address. Push to `staging` to rebuild both, then merge to `claude/main`;
+a feature branch's own alias is not stable and must not be put in a setting. (2) **Every `*.vercel.app` address is behind Deployment Protection** (no custom domain is
 attached to either project), so a server-to-server call to a preview (the site's listening calls to the Portal, AssemblyAI's transcript callback) gets
 Vercel's login page unless it carries the project's **Protection Bypass for Automation** secret. The site sends it as `x-vercel-protection-bypass`
 (`PORTAL_PROTECTION_BYPASS`, Preview only, `lib/listening/portal-call.ts` on the site); the Portal appends it as a query parameter to the transcript callback
