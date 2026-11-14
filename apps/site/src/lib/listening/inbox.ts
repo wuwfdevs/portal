@@ -21,8 +21,8 @@ import {
  */
 
 export const ASK_KIND_LABEL: Record<ListeningInboxKind, string> = {
-  question: 'A question',
-  story_idea: 'A story idea',
+  question: 'I have a question',
+  story_idea: 'I have a story idea',
 }
 
 export const HOST_KIND_LABEL: Record<ListeningHostKind, { title: string; hint: string }> = {

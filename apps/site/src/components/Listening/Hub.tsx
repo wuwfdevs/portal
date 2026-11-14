@@ -18,6 +18,9 @@ import { AskWuwf } from './AskWuwf'
 import { KitchenTable } from './KitchenTable'
 import { eyebrow } from './styles'
 
+/** A campaign's ways in sit in one row from a tablet up, one column on a phone: the class is chosen by how many there are. */
+const TILE_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3']
+
 const answerLink =
   'inline-flex min-h-11 items-center justify-center self-start rounded-sm border border-ink px-4 text-[0.9375rem] font-bold text-ink hover:bg-surface-2 hover:no-underline'
 
@@ -154,8 +157,10 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                 </h3>
                 {campaign.intro && <p className="text-base text-ink-2">{campaign.intro}</p>}
               </div>
-              {(question || bandSessions.length > 0) && (
-                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+              {(question || bandSessions.length > 0 || table) && (
+                <div
+                  className={`grid grid-cols-1 gap-4 ${TILE_COLUMNS[[question, bandSessions.length > 0, table].filter(Boolean).length]}`}
+                >
                   {question && (
                     <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-[18px]">
                       <strong className="text-base">Answer on your own</strong>
@@ -192,20 +197,26 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                       </ul>
                     </div>
                   )}
-                </div>
-              )}
-              {table && (
-                <div
-                  className="flex flex-col gap-3 rounded-md bg-wuwf-lime-100 p-[18px] md:p-6"
-                  id={`table-${campaign.publicId}`}
-                >
-                  <strong className="text-base">Host a table of your own</strong>
-                  <p className="max-w-2xl text-[0.9375rem] text-ink-2">
-                    Gather a few people in your kitchen, a break room or a church hall. Your phone
-                    reads the question, records the conversation once everyone agrees, and sends it
-                    to WUWF. Nothing is public.
-                  </p>
-                  <KitchenTable bare campaign={table} />
+                  {table && (
+                    <div
+                      className="flex flex-col gap-3 rounded-md bg-wuwf-lime-100 p-[18px]"
+                      id={`table-${campaign.publicId}`}
+                    >
+                      <strong className="text-base">Host a table of your own</strong>
+                      <p className="text-[0.9375rem] text-ink-2">
+                        Gather a few people in your kitchen, a break room or a church hall. Your
+                        phone reads the question, records the conversation once everyone agrees, and
+                        sends it to WUWF. Nothing is public.
+                      </p>
+                      <KitchenTable bare campaign={table} />
+                      <p className="text-sm text-ink-2">
+                        Hosting more than one table, or want a WUWF journalist to join?{' '}
+                        <Link className="font-semibold text-wuwf-blue-700" href="/listens/host">
+                          Ask to host a session →
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </article>

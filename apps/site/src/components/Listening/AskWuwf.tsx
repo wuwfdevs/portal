@@ -70,7 +70,7 @@ export const AskWuwf: React.FC = () => {
       ) : (
         <form className="flex flex-col gap-4" noValidate onSubmit={submit}>
           <fieldset className="flex flex-wrap gap-2">
-            <legend className={cn(label, 'mb-2')}>This is</legend>
+            <legend className="sr-only">What would you like to send</legend>
             {LISTENING_INBOX_KINDS.map((choice) => (
               <label
                 className={cn(
@@ -106,6 +106,11 @@ export const AskWuwf: React.FC = () => {
               id={`${id}-body`}
               maxLength={MAX_INBOX_BODY_LENGTH}
               onChange={(event) => setBody(event.target.value)}
+              placeholder={
+                kind === 'question'
+                  ? 'Anything about Northwest Florida. Why does the bridge close? Who decides where the new school goes?'
+                  : 'A question nobody has answered, a place, a person we should talk to.'
+              }
               rows={4}
               value={body}
             />
