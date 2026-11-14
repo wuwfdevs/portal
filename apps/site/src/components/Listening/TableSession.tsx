@@ -16,6 +16,8 @@ import {
   endedView,
   formatClock,
   helpSentence,
+  microphoneAdvice,
+  tableWords,
   lastCallShown,
   neighbourPosition,
   promptAt,
@@ -293,12 +295,13 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
   const progress = queue.progress()
   const clock = formatClock(recorder.elapsedSeconds)
   const help = helpSentence(table)
+  const words = tableWords(table)
 
   const header = (
     <div className="flex items-center justify-between border-b border-rule px-5 py-3.5">
       <span className="text-[0.8125rem] font-bold">
-        Table {table.number}
-        <span className="font-normal text-ink-3"> · {table.eventTitle}</span>
+        {words.header}
+        {!words.own && <span className="font-normal text-ink-3"> · {table.eventTitle}</span>}
       </span>
       <span className="text-[0.8125rem] text-ink-3">{table.placeName}</span>
     </div>
@@ -312,7 +315,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
         <main className="flex flex-1 flex-col items-center justify-center gap-4 px-5 py-8 text-center" aria-live="polite">
           {ending === 'sending' && (
             <>
-              <h1 className="font-serif text-2xl font-bold leading-tight">Sending table {table.number}.</h1>
+              <h1 className="font-serif text-2xl font-bold leading-tight">{words.sending}</h1>
               <p className="max-w-sm text-[0.9375rem] text-ink-2">Keep this screen open until it finishes. If the Wi-Fi drops, it picks up where it left off.</p>
               <div aria-hidden className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-surface-3">
                 <div className="h-full rounded-full bg-wuwf-blue-700 transition-[width]" style={{ width: `${sendPercent(progress)}%` }} />
@@ -330,7 +333,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <h1 className="font-serif text-2xl font-bold leading-tight">Table {table.number} is in. Thank you.</h1>
+              <h1 className="font-serif text-2xl font-bold leading-tight">{words.done}</h1>
               <p className="max-w-sm text-[0.9375rem] text-ink-2">
                 WUWF has the whole recording. When the transcript is ready you can put names to your table&rsquo;s voices and mark what mattered; it takes about ten minutes.
               </p>
@@ -342,9 +345,9 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           )}
           {ending === 'unknown' && (
             <>
-              <h1 className="font-serif text-2xl font-bold leading-tight">Table {table.number} has ended.</h1>
+              <h1 className="font-serif text-2xl font-bold leading-tight">{words.ended}</h1>
               <p className="max-w-sm text-[0.9375rem] text-ink-2">
-                This page could not check whether all of the recording reached WUWF, so it will not say that it did. Reload in a moment; if this stays, tell someone at the front before you leave.
+                This page could not check whether all of the recording reached WUWF, so it will not say that it did. Reload in a moment; if this stays, {words.askForHelp}
               </p>
               <Link className={cn(buttonSecondary, 'min-h-12 w-full max-w-sm text-base')} href="/listens/session/after">
                 Open the after-page
@@ -353,11 +356,11 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           )}
           {ending === 'partial' && (
             <>
-              <h1 className="font-serif text-2xl font-bold leading-tight">Not all of table {table.number} has reached WUWF.</h1>
+              <h1 className="font-serif text-2xl font-bold leading-tight">{words.partial}</h1>
               <p className="max-w-sm text-[0.9375rem] text-ink-2">
                 {progress.total - progress.uploaded > 0
                   ? `${progress.total - progress.uploaded} part${progress.total - progress.uploaded === 1 ? '' : 's'} of the recording ${progress.total - progress.uploaded === 1 ? 'is' : 'are'} still on this phone. Keep this page open, get back on Wi-Fi and send again.`
-                  : 'Part of the recording is not at WUWF and is no longer on this phone. What reached WUWF is safe; tell someone at the front.'}
+                  : 'Part of the recording is not at WUWF and is no longer on this phone. ' + words.askForHelpPartial}
               </p>
               {error && <p className={noticeWarn}>{error}</p>}
               {progress.total - progress.uploaded > 0 && (
@@ -378,17 +381,17 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
       <div className="flex min-h-[80vh] flex-col">
         {header}
         <main className="flex flex-1 flex-col gap-4 px-5 py-5">
-          <span className={eyebrow}>{table.eventTitle}</span>
-          <h1 className="font-serif text-[1.75rem] font-bold leading-tight">Table {table.number}, you&rsquo;re in.</h1>
+          <span className={eyebrow}>{words.eyebrow ?? table.eventTitle}</span>
+          <h1 className="font-serif text-[1.75rem] font-bold leading-tight">{words.ready}</h1>
           <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
             <Step n={1}>
               <strong>Put the phone in the middle of the table.</strong> Keep the screen on and this page open. Recording continues if the screen locks, but it stops if the page closes.
             </Step>
             <Step n={2}>
-              <strong>Hear the consent read aloud.</strong> At a large session the organizer reads it from the front; if yours is the only table, read it to your table. When everyone has said yes, tap below.
+              <strong>Hear the agreement read aloud.</strong> {words.consentStep}
             </Step>
             <Step n={3}>
-              <strong>The prompts are yours to move.</strong> Each has a suggested time. The front will say when it&rsquo;s the last five minutes.
+              <strong>The prompts are yours to move.</strong> {words.promptsStep}
             </Step>
           </ol>
 
@@ -433,7 +436,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
                   value={email}
                 />
                 <span className="text-xs text-ink-3">
-                  WUWF emails you one link, once the transcript is ready, to name the voices at your table and mark what mattered. It is not shared or used for anything else, and WUWF removes it about a month after the event.
+                  WUWF emails you one link, once the transcript is ready, to name the voices at your table and mark what mattered. It is not shared or used for anything else, and WUWF removes it {words.retention}.
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -462,7 +465,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
 
           {recorder.guidance && (
             <p className={noticeWarn} role="alert">
-              {recorder.guidance.message} Allow the microphone for this page in the browser&rsquo;s settings, then tap the button again.
+              {microphoneAdvice(recorder.guidance, isIos())}
             </p>
           )}
           {error && (
@@ -473,7 +476,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           <button className={cn(buttonDark, 'mt-auto min-h-12 w-full text-base')} disabled={busy || !ready || !table.consent} onClick={agree} type="button">
             {busy ? 'Starting…' : ready ? 'Everyone at our table agreed. Start recording' : 'Getting ready…'}
           </button>
-          <Leave />
+          <Leave words={words} />
         </main>
       </div>
     )
@@ -579,9 +582,11 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           <button className={cn(buttonSecondary, 'flex-1 border-ink')} disabled={busy} onClick={togglePause} type="button">
             {paused ? 'Resume' : 'Pause'}
           </button>
-          <button className={cn(buttonSecondary, 'flex-1 border-ink')} disabled={busy} onClick={toggleHelp} type="button">
-            {help.button}
-          </button>
+          {words.helpButton && (
+            <button className={cn(buttonSecondary, 'flex-1 border-ink')} disabled={busy} onClick={toggleHelp} type="button">
+              {help.button}
+            </button>
+          )}
         </div>
         {help.note && <p className={noticeInfo}>{help.note}</p>}
         <button className={cn(buttonSecondary, 'border-on-air-red text-on-air-red')} disabled={busy} onClick={() => setConfirmEnd(true)} type="button">
@@ -605,7 +610,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
         {confirmEnd && (
           <div className="flex flex-col gap-2.5 rounded-md border border-warning-border bg-warning-bg p-3.5" role="alertdialog" aria-labelledby="end-title">
             <strong className="text-[0.9375rem]" id="end-title">
-              End and send table {table.number}?
+              {words.confirmEnd}
             </strong>
             <span className="text-sm text-ink-2">{clock} recorded. You can&rsquo;t add to it afterwards.</span>
             <div className="flex gap-2.5">
@@ -636,10 +641,15 @@ const Step: React.FC<{ n: number; children: React.ReactNode }> = ({ n, children 
   </li>
 )
 
+/** An iPhone or iPad, whatever browser is on it: they all use the system's web view, and the microphone is the app's permission. */
+function isIos(): boolean {
+  return typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
+}
+
 /** Opening a different table's card on this phone: lets this phone go first. */
-const Leave: React.FC = () => {
+const Leave: React.FC<{ words: ReturnType<typeof tableWords> }> = ({ words }) => {
   const [left, setLeft] = useState(false)
-  if (left) return <p className={noticeOk}>This phone is no longer on a table. Scan the card on your own table.</p>
+  if (left) return <p className={noticeOk}>{words.left}</p>
   return (
     <button
       className="self-center text-sm font-semibold text-wuwf-blue-700 underline"
@@ -649,7 +659,7 @@ const Leave: React.FC = () => {
       }}
       type="button"
     >
-      Wrong table? Let this phone go
+      {words.leave}
     </button>
   )
 }

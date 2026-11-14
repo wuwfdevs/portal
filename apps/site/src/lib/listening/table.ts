@@ -420,3 +420,52 @@ export const BEFORE_RECORDING_STEPS = [
   'Set it face up on the table, near the middle, with the screen on.',
   'Keep this page open. Locking the screen or opening another app can stop the recording on some phones.',
 ] as const
+
+/**
+ * The words that differ between a table at an event and a kitchen table. A kitchen table is one phone, its host and whoever they
+ * invited: there is no organizer to read the agreement from the front, no front desk to ask, no table number worth saying and no card
+ * to rescan. Pure, so the sentences are tested.
+ */
+export function tableWords(table: Pick<ListeningTable, 'kitchen' | 'number'>) {
+  const own = table.kitchen === true
+  const n = table.number
+  return {
+    own,
+    /** The header's name for the table. */
+    header: own ? 'Your table' : `Table ${n}`,
+    /** The eyebrow over the page's heading, where an event's title would go. */
+    eyebrow: own ? 'Kitchen table' : null,
+    ready: own ? 'Ready when you are.' : `Table ${n}, you\u2019re in.`,
+    consentStep: own
+      ? 'Read the agreement aloud to everyone at your table. When everyone has said yes, tap below.'
+      : 'At a large session the organizer reads it from the front; if yours is the only table, read it to your table. When everyone has said yes, tap below.',
+    promptsStep: own
+      ? 'Each has a suggested time. Move on when your table is ready.'
+      : 'Each has a suggested time. The front will say when it\u2019s the last five minutes.',
+    retention: own ? 'about a month after your table' : 'about a month after the event',
+    sending: own ? 'Sending your recording.' : `Sending table ${n}.`,
+    done: own ? 'Your table is in. Thank you.' : `Table ${n} is in. Thank you.`,
+    ended: own ? 'Your table has ended.' : `Table ${n} has ended.`,
+    partial: own ? 'Not all of your table has reached WUWF.' : `Not all of table ${n} has reached WUWF.`,
+    confirmEnd: own ? 'End and send your table?' : `End and send table ${n}?`,
+    /** What to do when the page cannot tell, or part is missing: there is nobody at a front desk at a kitchen table. */
+    askForHelp: own ? 'keep this page open and try again from this phone.' : 'tell someone at the front before you leave.',
+    askForHelpPartial: own ? 'What reached WUWF is safe.' : 'What reached WUWF is safe; tell someone at the front.',
+    /** Nobody watches for a request for a hand at a kitchen table, so the button is not offered. */
+    helpButton: !own,
+    leave: own ? 'Not what you meant to start? Let this phone go' : 'Wrong table? Let this phone go',
+    left: own ? 'This phone is no longer on a table. You can start a new one from WUWF Listens.' : 'This phone is no longer on a table. Scan the card on your own table.',
+  }
+}
+
+/**
+ * What to tell a phone whose microphone was refused. On an iPhone or iPad a plain refusal is usually the app\u2019s own permission in
+ * the Settings app, or an earlier \u201cDon\u2019t Allow\u201d, and there is no address-bar icon to tap: the browser\u2019s generic advice
+ * would send them looking for something that is not there.
+ */
+export function microphoneAdvice(guidance: { block: string; message: string }, ios: boolean): string {
+  if (ios && guidance.block === 'denied_by_user') {
+    return 'This phone blocked the microphone. Open the Settings app, find this browser in the list and turn Microphone on, then come back and tap the button again. If it asks, choose Allow. Safari works too.'
+  }
+  return `${guidance.message} Allow the microphone for this page in the browser\u2019s settings, then tap the button again.`
+}
