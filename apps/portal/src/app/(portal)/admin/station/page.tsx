@@ -136,6 +136,43 @@ export default async function AdminStationPage({
           </Field>
 
           <fieldset className="flex flex-col gap-4 border-t border-line pt-4">
+            <legend className="text-ui font-semibold text-ink-900">Website and Audience Listening</legend>
+            <p className="-mt-2 text-ui text-ink-500">
+              Where the public website is, so the links Audience Listening prints on table cards and
+              emails to facilitators and organizers point at it; and the one shared mailbox that
+              gets its reminders. Both are used only when filled in here or in the server&apos;s
+              settings.
+            </p>
+            <Field
+              label="Website address"
+              htmlFor="website_origin"
+              hint="The address only, with https and no path, for example https://www.example.org. A table link, an after-page link and an organizer link are built from it."
+            >
+              <Input
+                id="website_origin"
+                name="website_origin"
+                type="url"
+                inputMode="url"
+                defaultValue={station.website_origin ?? ""}
+                maxLength={200}
+              />
+            </Field>
+            <Field
+              label="Audience Listening mailbox"
+              htmlFor="listening_notify_email"
+              hint="One shared address, not a person. It gets a note when someone asks to host a session, a daily note when questions or requests are waiting, and a weekly note when recordings are past thirty days. The notes carry counts and a link, never what anyone wrote."
+            >
+              <Input
+                id="listening_notify_email"
+                name="listening_notify_email"
+                type="email"
+                defaultValue={station.listening_notify_email ?? ""}
+                maxLength={320}
+              />
+            </Field>
+          </fieldset>
+
+          <fieldset className="flex flex-col gap-4 border-t border-line pt-4">
             <legend className="text-ui font-semibold text-ink-900">Weather</legend>
             <p className="-mt-2 text-ui text-ink-500">
               Where the studio is, so the forecast read on air is yours, and which counties&apos;

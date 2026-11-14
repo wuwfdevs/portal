@@ -33,26 +33,26 @@ export function utcToStationInput(iso: string | null | undefined): string {
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
- * The website's origin for a table link, from WEBSITE_ORIGIN: https (http only for localhost), no credentials, path, query or
+ * The website's origin for a table link, from the station's website address: https (http only for localhost), no credentials, path, query or
  * fragment. A table link opens on the website, and a card is printed and handed to strangers, so a mistyped or hostile value must
  * not be able to point it elsewhere. Returns the origin, or the reason it cannot be used.
  */
 export function readSiteOrigin(raw: string | undefined): { ok: true; origin: string } | { ok: false; problem: string } {
   const value = raw?.trim();
-  if (!value) return { ok: false, problem: "WEBSITE_ORIGIN is not set, so a table link has nowhere to point." };
+  if (!value) return { ok: false, problem: "The website address is not set, so a link has nowhere to point. An administrator sets it at Administration > Station." };
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    return { ok: false, problem: "WEBSITE_ORIGIN is not a valid address." };
+    return { ok: false, problem: "The website address is not a valid address." };
   }
   const local = LOCAL_HOSTS.has(url.hostname);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
-    return { ok: false, problem: "WEBSITE_ORIGIN must be https (http is allowed only for localhost)." };
+    return { ok: false, problem: "The website address must be https (http is allowed only for localhost)." };
   }
-  if (url.username || url.password) return { ok: false, problem: "WEBSITE_ORIGIN must not contain credentials." };
+  if (url.username || url.password) return { ok: false, problem: "The website address must not contain credentials." };
   if ((url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
-    return { ok: false, problem: "WEBSITE_ORIGIN must be an origin only, with no path, query or fragment." };
+    return { ok: false, problem: "The website address must be an origin only, with no path, query or fragment." };
   }
   return { ok: true, origin: url.origin };
 }

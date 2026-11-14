@@ -383,6 +383,17 @@ page says so rather than promising it. (6) **A kitchen table** (`al_campaigns.ac
 a visitor starts from the hub: three a day per host, the link is made by the route and shown once. Migrations `20261114120000` (schema) and `20261114130000`
 (Resources content); apply both, with `20261113120000` and `20261113130000`, before the code ships, preview first.
 
+**Audience Listening: the website address and the mailbox are station settings (2026-11-14).** A pointer. `station_settings.website_origin` and
+`.listening_notify_email` (Administration → Station, administrators only; `20261114140000`) replace the `WEBSITE_ORIGIN` and
+`AUDIENCE_LISTENING_NOTIFY_EMAIL` variables for Audience Listening. Three things are load-bearing: (1) **one resolver, `lib/station-links.ts`**: the setting
+wins and the variable is only a fallback for a deployment that already has it; it takes whatever client the caller has (a staff member's, or the service
+client the scheduled run and the signed route use, neither of which has a signed-in user for `getStation()`); (2) **the staff sign-in handoff to the website
+(`website/route.ts`, `lib/website/handoff.ts`) still reads `WEBSITE_ORIGIN` from the environment only, on purpose**: it sends a signed identity token to that
+address, and which address that goes to stays a deploy-time decision, not something any administrator can edit; (3) **secrets stay variables**
+(`LISTENING_SIGNING_SECRET`, `CRON_SECRET`, `WEBSITE_IDENTITY_SECRET`): a value in a table is read by staff queries, backups and exports. The address is
+validated twice (`readSiteOrigin` on save, a check constraint under it): https, host and optional port, no credentials or path; http only for localhost.
+No baseline regeneration was needed: `BASELINE_THROUGH` is `20261105230000` and CI replays newer migrations on top. Resources content `20261114150000`.
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the

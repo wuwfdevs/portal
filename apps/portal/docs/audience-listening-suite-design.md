@@ -414,3 +414,12 @@ Decided with the owner after a review of what limited the design; nothing here i
 - **Kitchen tables.** A campaign can let anyone host one private table of their own from the website's listening page: no event to join, no card to
   print, the link made on the spot and shown once, three a day per host.
 
+### 12.1 The website address and the mailbox are settings, not variables (2026-11-14)
+
+The address a table card, an after-page link and an organizer link point at, and the one shared mailbox that gets the reminders, are staff decisions that
+changed with the deployment and had been environment variables. They are `station_settings.website_origin` and `.listening_notify_email`, edited by an
+administrator at Administration → Station; a database setting also lets the preview database point at the staging site and the production database at the
+live one without a per-target variable. The variable is a fallback only. Secrets are not moved: a value in a table is readable by staff queries, backups and
+exports, and both ends of the signing secret must match exactly. The staff sign-in handoff to the website keeps its own variable on purpose, because it
+sends a signed identity token to that address.
+

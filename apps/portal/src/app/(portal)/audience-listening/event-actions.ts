@@ -8,7 +8,8 @@ import { deleteOrFail, failIfError, failWith } from "@/lib/editorial/action-resu
 import { logAuditEvent } from "@/lib/audit";
 import { assertAudienceListeningContext, assertAudienceListeningCoordinator } from "@/lib/audience-listening/access";
 import { generatePublicId } from "@/lib/audience-listening/public-id";
-import { readSiteOrigin, stationInputToUTC } from "@/lib/audience-listening/event-times";
+import { stationInputToUTC } from "@/lib/audience-listening/event-times";
+import { resolveWebsiteOrigin } from "@/lib/station-links";
 import { eventSpanProblem } from "@/lib/audience-listening/campaigns";
 import { getCampaign, getEvent, listTables } from "@/lib/audience-listening/campaign-queries";
 import {
@@ -292,7 +293,7 @@ export async function issueTableLinks(_previous: IssueLinksState, formData: Form
   const eventId = field(formData, "event_id");
   const onlyTable = field(formData, "table_id");
 
-  const origin = readSiteOrigin(process.env.WEBSITE_ORIGIN);
+  const origin = await resolveWebsiteOrigin(await createClient());
   if (!origin.ok) return { ok: false, error: origin.problem };
 
   const event = await getEvent(eventId);
@@ -362,7 +363,7 @@ export async function issueOrganizerLink(_previous: OrganizerLinkState, formData
   const { profile } = await assertAudienceListeningCoordinator();
   const eventId = field(formData, "event_id");
 
-  const origin = readSiteOrigin(process.env.WEBSITE_ORIGIN);
+  const origin = await resolveWebsiteOrigin(await createClient());
   if (!origin.ok) return { ok: false, error: origin.problem };
   const event = await getEvent(eventId);
   if (!event) return { ok: false, error: "That event no longer exists." };

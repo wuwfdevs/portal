@@ -2,8 +2,9 @@ import "server-only";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { sendAfterLinkWith } from "@/lib/audience-listening/after-link-send";
 import { sendConversationAs } from "@/lib/audience-listening/conversation-handoff";
-import { askDigestEmailText, digestHasNews, parseNotifyAddress, purgeReminderEmailText, weeklyDue } from "@/lib/audience-listening/notify-text";
+import { askDigestEmailText, digestHasNews, purgeReminderEmailText, weeklyDue } from "@/lib/audience-listening/notify-text";
 import { sendEmail } from "@/lib/email";
+import { resolveNotifyAddress } from "@/lib/station-links";
 import { getSiteUrl } from "@/lib/site-url";
 import { ownerMayRun } from "./owner-access";
 import type { Task, TaskLog, TaskOutcome } from "./run-task";
@@ -212,7 +213,7 @@ function purgeReminderTask(db: Admin, now: Date): Task {
   return {
     name: "purge-reminder",
     async run() {
-      const to = parseNotifyAddress(process.env.AUDIENCE_LISTENING_NOTIFY_EMAIL);
+      const to = await resolveNotifyAddress(db);
       if (!to) return { skipped: "no mailbox set" };
       const counts = must(await db.rpc("al_cron_purge_counts"), "count what is past thirty days");
       if (!counts || counts.conversations + counts.submissions === 0) return { waiting: 0 };
@@ -232,7 +233,7 @@ function digestTask(db: Admin, now: Date): Task {
   return {
     name: "ask-digest",
     async run() {
-      const to = parseNotifyAddress(process.env.AUDIENCE_LISTENING_NOTIFY_EMAIL);
+      const to = await resolveNotifyAddress(db);
       if (!to) return { skipped: "no mailbox set" };
       const raw = must(await db.rpc("al_cron_digest_counts"), "count what is waiting");
       if (!raw) return { waiting: 0 };

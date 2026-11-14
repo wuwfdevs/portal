@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertAdministrator } from "@/lib/auth/authz";
 import { logAuditEvent } from "@/lib/audit";
+import { readSiteOrigin } from "@/lib/audience-listening/event-times";
+import { parseNotifyAddress } from "@/lib/audience-listening/notify-text";
 import { failIfError, failWith } from "@/lib/editorial/action-result";
 import {
   coverageCountiesProblem,
@@ -28,6 +30,8 @@ const FIELDS = {
   public_notice_text: 300,
   public_notice_link_label: 160,
   public_notice_link_url: 300,
+  website_origin: 200,
+  listening_notify_email: 320,
 } as const;
 
 type FieldName = keyof typeof FIELDS;
@@ -74,6 +78,17 @@ export async function updateStation(formData: FormData): Promise<void> {
   const email = values.support_email;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     failWith(STATION_PATH, "The support email does not look like an email address.");
+  }
+
+  // The website's address goes into links that are printed, emailed and handed to strangers, so it must be an origin and nothing else.
+  // The stored form is the normalized origin, which is also what the table's check constraint accepts.
+  if (values.website_origin) {
+    const origin = readSiteOrigin(values.website_origin);
+    if (!origin.ok) failWith(STATION_PATH, origin.problem);
+    values.website_origin = origin.origin;
+  }
+  if (values.listening_notify_email && !parseNotifyAddress(values.listening_notify_email)) {
+    failWith(STATION_PATH, "The Audience Listening mailbox must be one email address.");
   }
 
   // A link people click on a public page: a path on this site, or https. Never javascript: or http:.

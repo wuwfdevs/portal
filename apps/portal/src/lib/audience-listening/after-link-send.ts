@@ -1,10 +1,10 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { readSiteOrigin } from "@/lib/audience-listening/event-times";
 import { AFTER_LINK_STATUS_TEXT, afterLinkStatus, issueAfterLink } from "@/lib/audience-listening/after-link";
 import { facilitatorLinkEmailText } from "@/lib/audience-listening/notify-text";
 import { sendFacilitatorLink } from "@/lib/audience-listening/notify";
 import { getStationProfile } from "@/lib/station";
+import { resolveWebsiteOrigin } from "@/lib/station-links";
 import { STATION_TIME_ZONE } from "@/lib/station-time";
 
 export type SendAfterLinkResult =
@@ -32,7 +32,7 @@ export async function sendAfterLinkWith(
   tableId: string,
   now: Date = new Date(),
 ): Promise<SendAfterLinkResult> {
-  const origin = readSiteOrigin(process.env.WEBSITE_ORIGIN);
+  const origin = await resolveWebsiteOrigin(supabase);
   if (!origin.ok) return { ok: false, error: origin.problem };
 
   const [eventResult, tableResult, conversationResult] = await Promise.all([

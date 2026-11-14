@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAudienceListeningContext } from "@/lib/audience-listening/access";
 import { getCampaign, getEvent, listConsentTexts, listConversations, listSeats, listTables } from "@/lib/audience-listening/campaign-queries";
-import { formatEventTime, readSiteOrigin } from "@/lib/audience-listening/event-times";
+import { formatEventTime } from "@/lib/audience-listening/event-times";
+import { resolveWebsiteOrigin } from "@/lib/station-links";
+import { createClient } from "@/lib/supabase/server";
 import {
   EVENT_ACTION_LABEL,
   EVENT_STATUS_BADGE,
@@ -80,7 +82,7 @@ export default async function EventPage({
   const listingActions = availableListingActions(event.listing_state, event.visibility, isCoordinator);
   const left = seatsLeft(event.seats, seats.length);
   const backHref = `/audience-listening/campaigns/${event.campaign_id}?tab=events`;
-  const linksReady = readSiteOrigin(process.env.WEBSITE_ORIGIN);
+  const linksReady = await resolveWebsiteOrigin(await createClient());
   const canIssue = linksReady.ok && event.status !== "cancelled" && event.status !== "done";
 
   return (

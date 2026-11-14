@@ -114,12 +114,12 @@ export const MODULES: readonly ModuleManifestEntry[] = [
       },
       {
         name: "WEBSITE_ORIGIN",
-        for: "the address a printed table card opens",
+        for: "the address a printed table card opens, if the website address is not set at Administration > Station (the setting wins)",
         required: false,
       },
       {
         name: "AUDIENCE_LISTENING_NOTIFY_EMAIL",
-        for: "emailing a shared mailbox when a host request arrives, and the daily and weekly reminders",
+        for: "emailing a shared mailbox when a host request arrives, and the daily and weekly reminders, if the mailbox is not set at Administration > Station (the setting wins)",
         required: false,
       },
       {
