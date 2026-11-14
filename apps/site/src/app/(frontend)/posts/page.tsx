@@ -23,6 +23,7 @@ export default async function Page() {
       path: true,
       categories: true,
       meta: true,
+      publishingIdentity: true,
     },
   })
 

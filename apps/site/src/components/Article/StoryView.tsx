@@ -238,7 +238,7 @@ const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: stri
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, slug: true, path: true, categories: true, meta: true },
+    select: { title: true, slug: true, path: true, categories: true, meta: true, publishingIdentity: true },
     where: { and: [{ fellowship: { equals: fellowshipId } }, { id: { not_equals: exceptId } }] },
   })
   return result.docs
