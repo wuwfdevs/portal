@@ -334,6 +334,8 @@ repo and a project's history, not the version number.
 | `20261113130000_resources_audience_listening_phase_e_gaps.sql`           | 2026-11-13 | 2026-11-13 |
 | `20261114120000_audience_listening_phase_e_completion.sql`               | 2026-11-13 | 2026-11-13 |
 | `20261114130000_resources_audience_listening_completion.sql`             | 2026-11-13 | 2026-11-13 |
+| `20261114140000_station_website_address_and_listening_mailbox.sql`        | 2026-11-13 | 2026-11-13 |
+| `20261114150000_resources_station_website_address_and_mailbox.sql`        | 2026-11-13 | 2026-11-13 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
