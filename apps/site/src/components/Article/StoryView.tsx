@@ -19,6 +19,7 @@ import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { loadRelatedStories } from '@/lib/embeddings/related'
 import { formatLongDate } from '@/lib/format'
+import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { jsonLdText } from '@/lib/live/jsonld'
 import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
 import { readingMinutes } from '@/lib/reading'
@@ -81,6 +82,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
 
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
         <div className="flex flex-wrap gap-2">
+          {isVoyagerIdentity(post.publishingIdentity) && <Chip tone="teal">{VOYAGER_BADGE_LABEL}</Chip>}
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
           {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}

@@ -27,7 +27,7 @@ export async function loadRelatedStories(post: { id: number | string }, now: Dat
       limit: neighbours.length,
       overrideAccess: false,
       pagination: false,
-      select: { title: true, slug: true, path: true, categories: true, meta: true, publishedAt: true, series: true, production: true },
+      select: { title: true, slug: true, path: true, categories: true, meta: true, publishedAt: true, series: true, production: true, publishingIdentity: true },
       where: { id: { in: neighbours.map((n) => n.postId) } },
     })
     const byId = new Map(found.docs.map((d) => [String(d.id), d]))
