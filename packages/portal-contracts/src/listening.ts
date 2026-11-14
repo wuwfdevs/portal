@@ -296,6 +296,8 @@ export interface ListeningHubOpen {
   /** Whether the question also takes a written answer, for the card's "by voice or in writing". */
   allowTextAnswers: boolean;
   questionCount: number;
+  /** The open campaign this is the standalone question of, so the page can show it in that campaign's band. Absent or null: a question of its own. */
+  campaignPublicId?: string | null;
 }
 
 /** A listed question with at least one outcome. The count is allowed here, and only here. */
@@ -322,6 +324,19 @@ export interface ListeningHub {
   events?: ListeningHubEvent[];
   /** Open campaigns that accept a kitchen table started from the website. Absent: read it as none. */
   kitchenCampaigns?: ListeningHubKitchenCampaign[];
+  /** The open campaigns that group the lists above: a question, its sessions and its kitchen tables. Absent: read it as none, and show the lists as they are. */
+  campaigns?: ListeningHubCampaign[];
+}
+
+/** An open campaign as the hub frames it: what is being asked, and by whom. The word "campaign" is never shown to the public. */
+export interface ListeningHubCampaign {
+  publicId: string;
+  title: string;
+  question: string;
+  intro: string;
+  /** Who is asking, as the station words it ("from the WUWF News desk"). */
+  ownerLabel: string | null;
+  closesAt: string | null;
 }
 
 /** A campaign anyone may start a private one-table session for. */
@@ -342,6 +357,8 @@ export interface ListeningHubEvent {
   organizerLabel: string | null;
   /** Null when the event has no seat limit. */
   seatsLeft: number | null;
+  /** The campaign this session belongs to. Absent or null: show it on its own. */
+  campaignPublicId?: string | null;
 }
 
 /** The hub needs no subject: it is a public read, like `query`. */
@@ -438,6 +455,8 @@ export interface ListeningPublicEvent {
   journalistJoining: boolean;
   /** Null when the event has no seat limit. */
   seatsLeft: number | null;
+  /** The campaign this session belongs to. Absent or null: show it on its own. */
+  campaignPublicId?: string | null;
 }
 export interface ListeningEventRequest extends ListeningRequestBase {
   publicId: string;

@@ -14,9 +14,9 @@ import { buttonDark, field, hint, label, noticeWarn } from './styles'
 /**
  * Host your own table. One private table, on this phone, for a campaign WUWF has opened to it: nothing is public, nobody is invited
  * from here, and nothing records until the people at the table have heard the agreement read and said yes. Starting opens the table's
- * own page.
+ * own page. `bare` leaves out the title and question when the page already shows them (inside a campaign's band).
  */
-export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign }> = ({ campaign }) => {
+export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign; bare?: boolean }> = ({ campaign, bare = false }) => {
   const id = useId()
   const router = useRouter()
   const [hostName, setHostName] = useState('')
@@ -41,10 +41,12 @@ export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign }> =
 
   return (
     <form className="flex max-w-xl flex-col gap-4" onSubmit={submit}>
-      <div>
-        <h3 className="font-serif text-xl font-bold">{campaign.title}</h3>
-        <p className="mt-1 font-serif text-lg leading-snug text-ink-2">&ldquo;{campaign.question}&rdquo;</p>
-      </div>
+      {!bare && (
+        <div>
+          <h3 className="font-serif text-xl font-bold">{campaign.title}</h3>
+          <p className="mt-1 font-serif text-lg leading-snug text-ink-2">&ldquo;{campaign.question}&rdquo;</p>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <label className={label} htmlFor={`${id}-name`}>
           Your first name (optional)

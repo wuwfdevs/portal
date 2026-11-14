@@ -3,8 +3,8 @@ import React from 'react'
 
 import type { ListeningHub } from '@wuwf/portal-contracts'
 
-import { hubEventMeta, hubSessions } from '@/lib/listening/event'
-import { answeredBy, deskLabel, openMeta, outcomeDate, outcomeKicker } from '@/lib/listening/hub'
+import { hubEventMeta } from '@/lib/listening/event'
+import { answeredBy, bandLabel, deskLabel, hubLayout, openMeta, outcomeDate, outcomeKicker } from '@/lib/listening/hub'
 
 import { AskWuwf } from './AskWuwf'
 import { KitchenTable } from './KitchenTable'
@@ -14,18 +14,21 @@ const answerLink =
   'inline-flex min-h-11 items-center justify-center self-start rounded-sm border border-ink px-4 text-[0.9375rem] font-bold text-ink hover:bg-surface-2 hover:no-underline'
 
 /**
- * WUWF Listens, the hub (board 5), as far as it can be built over what the Portal serves today: the hero, the questions a
- * reporter has open ("A reporter would like to hear from you"), and what came of the questions already answered ("You asked.
- * Here's what came of it."). An open question shows no count; a count appears only beside an outcome.
+ * WUWF Listens, the hub (board 5), as far as it can be built over what the Portal serves today: the hero, one band for each open
+ * campaign ("What we're listening for right now": its question, then answer alone, join a session, host a table), the questions
+ * a reporter has open on their own ("A reporter would like to hear from you"), and what came of the questions already answered
+ * ("You asked. Here's what came of it."). An open question shows no count; a count appears only beside an outcome.
  *
  * Ask WUWF and "Host a session" (suite phase C) stand behind real inboxes in the Portal. Upcoming listed public sessions (phase E)
  * come from the Portal's hub, each linking to its own page and seat form. The season reports (phase F) are not here yet, and are left
  * out rather than drawn as if they worked.
  */
 export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
-  const sessions = hubSessions(hub)
-  const kitchen = hub.kitchenCampaigns ?? []
-  const empty = hub.open.length === 0 && hub.answered.length === 0 && sessions.length === 0 && (hub.kitchenCampaigns ?? []).length === 0
+  const { bands, questions, sessions, tables: kitchen } = hubLayout(hub)
+  const empty = bands.length === 0 && questions.length === 0 && hub.answered.length === 0 && sessions.length === 0 && kitchen.length === 0
+  const hasOpen = hub.open.length > 0
+  const firstTable = bands.find((band) => band.table)
+  const tableHref = firstTable ? `#table-${firstTable.campaign.publicId}` : '#kitchen-table'
   return (
     <>
       <section className="bg-wuwf-blue-100">
@@ -42,9 +45,9 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
             Answer a reporter. A person at WUWF reads every word. Your answers go to WUWF for editorial review and are never published automatically.
           </p>
           <ul className="mt-2 flex flex-col gap-1.5 text-base font-semibold">
-            {hub.open.length > 0 && (
+            {hasOpen && (
               <li>
-                <a className="text-wuwf-blue-700" href="#help-us-report">
+                <a className="text-wuwf-blue-700" href={bands.length > 0 ? '#now' : '#help-us-report'}>
                   Answer a question →
                 </a>
               </li>
@@ -61,9 +64,9 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
                 Ask WUWF something →
               </a>
             </li>
-            {kitchen.length > 0 && (
+            {(kitchen.length > 0 || firstTable) && (
               <li>
-                <a className="text-wuwf-blue-700" href="#kitchen-table">
+                <a className="text-wuwf-blue-700" href={tableHref}>
                   Host a table of your own →
                 </a>
               </li>
@@ -83,16 +86,84 @@ export const HubView: React.FC<{ hub: ListeningHub }> = ({ hub }) => {
         </section>
       )}
 
-      {hub.open.length > 0 && (
+      {bands.length > 0 && (
+        <section aria-labelledby="now-title" className="container flex flex-col gap-6 py-12" id="now">
+          <div className="flex max-w-3xl flex-col gap-2">
+            <h2 className="font-serif text-3xl font-bold" id="now-title">
+              What we&apos;re listening for right now
+            </h2>
+            <p className="text-base text-ink-2">
+              Each question is open for a while, and there is more than one way to answer it. A person at WUWF reads every answer.
+            </p>
+          </div>
+          {bands.map(({ campaign, question, sessions: bandSessions, table }) => (
+            <article
+              aria-labelledby={`campaign-${campaign.publicId}-title`}
+              className="flex flex-col gap-5 rounded-lg border-2 border-ink bg-surface p-5 md:p-8"
+              id={`campaign-${campaign.publicId}`}
+              key={campaign.publicId}
+            >
+              <div className="flex max-w-3xl flex-col gap-2">
+                <span className={eyebrow}>{bandLabel(campaign)}</span>
+                <h3 className="font-serif text-2xl font-bold leading-tight md:text-[2rem]" id={`campaign-${campaign.publicId}-title`}>
+                  {campaign.question}
+                </h3>
+                {campaign.intro && <p className="text-base text-ink-2">{campaign.intro}</p>}
+              </div>
+              {(question || bandSessions.length > 0) && (
+                <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+                  {question && (
+                    <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-[18px]">
+                      <strong className="text-base">Answer on your own</strong>
+                      <span className="flex-auto text-[0.9375rem] text-ink-2">{openMeta(question)}</span>
+                      <Link className={answerLink} href={`/listens/${question.publicId}`}>
+                        Answer
+                      </Link>
+                    </div>
+                  )}
+                  {bandSessions.length > 0 && (
+                    <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-[18px]">
+                      <strong className="text-base">Join a session</strong>
+                      <ul className="flex flex-auto flex-col gap-3">
+                        {bandSessions.map((item) => (
+                          <li className="flex flex-col gap-0.5 text-sm" key={item.publicId}>
+                            <span className="text-[0.9375rem] font-semibold">{item.organizerLabel ? `${item.title}, hosted by ${item.organizerLabel}` : item.title}</span>
+                            <span className="text-ink-3">{hubEventMeta(item)}</span>
+                            <Link className="self-start font-semibold text-wuwf-blue-700" href={`/listens/events/${item.publicId}`}>
+                              {item.seatsLeft !== null && item.seatsLeft <= 0 ? 'See the session' : 'Save a seat'}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {table && (
+                <div className="flex flex-col gap-3 rounded-md bg-wuwf-lime-100 p-[18px] md:p-6" id={`table-${campaign.publicId}`}>
+                  <strong className="text-base">Host a table of your own</strong>
+                  <p className="max-w-2xl text-[0.9375rem] text-ink-2">
+                    Gather a few people in your kitchen, a break room or a church hall. Your phone reads the question, records the conversation once everyone
+                    agrees, and sends it to WUWF. Nothing is public.
+                  </p>
+                  <KitchenTable bare campaign={table} />
+                </div>
+              )}
+            </article>
+          ))}
+        </section>
+      )}
+
+      {questions.length > 0 && (
         <section aria-labelledby="help-us-report-title" className="container py-12" id="help-us-report">
           <h2 className="font-serif text-3xl font-bold" id="help-us-report-title">
             A reporter would like to hear from you
           </h2>
           <p className="mb-5 mt-2 max-w-2xl text-base text-ink-2">
-            One reporter, one story, a few minutes {hub.open.some((item) => item.allowTextAnswers) ? 'by voice or in writing' : 'by voice'}.
+            One reporter, one story, a few minutes {questions.some((item) => item.allowTextAnswers) ? 'by voice or in writing' : 'by voice'}.
           </p>
           <ul className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
-            {hub.open.map((item) => (
+            {questions.map((item) => (
               <li className="flex flex-col gap-2.5 rounded-lg border border-rule-strong bg-surface p-5" key={item.publicId}>
                 {deskLabel(item) && <span className={eyebrow}>{deskLabel(item)}</span>}
                 <span className="flex-auto font-serif text-[1.3125rem] font-semibold leading-snug">{item.title}</span>

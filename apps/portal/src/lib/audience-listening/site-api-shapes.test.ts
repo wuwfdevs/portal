@@ -342,7 +342,7 @@ describe("the hub", () => {
   it("shapes open questions without any count of responses", () => {
     const { open: shaped } = shapeHub({ open: [open], answered: [] });
     expect(shaped).toEqual([
-      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3 },
+      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3, campaignPublicId: null },
     ]);
     expect(Object.keys(shaped[0] ?? {})).not.toContain("responseCount");
   });
@@ -360,16 +360,16 @@ describe("the hub", () => {
   });
 
   it("is empty, not an error, for a payload it cannot read", () => {
-    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [], kitchenCampaigns: [] });
+    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [], kitchenCampaigns: [], campaigns: [] });
     expect(shapeResponse("hub", { error: "nope" }).ok).toBe(false);
-    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [], kitchenCampaigns: [] } } });
+    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [], kitchenCampaigns: [], campaigns: [] } } });
   });
 
   it("lists upcoming public events, and drops one that is missing what the page needs", () => {
     const event = { public_id: PUBLIC_ID, title: "Listening session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Milton Community Center", city: "Milton", organizer_label: null, seats_left: 12 };
     const { events } = shapeHub({ open: [], answered: [], events: [event, { ...event, place_name: null }, { ...event, public_id: undefined }, "nope"] });
     expect(events).toEqual([
-      { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12 },
+      { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12, campaignPublicId: null },
     ]);
   });
 
@@ -384,6 +384,23 @@ describe("the hub", () => {
       ],
     });
     expect(kitchenCampaigns).toEqual([{ publicId: PUBLIC_ID, title: "Season", question: "What would make it easier to stay?" }]);
+  });
+
+  it("says which campaign a question and a session belong to, and frames the open campaigns", () => {
+    const CAMPAIGN = "campaign00000001";
+    const hub = shapeHub({
+      open: [{ ...open, campaign_public_id: CAMPAIGN }],
+      answered: [],
+      events: [{ public_id: PUBLIC_ID, title: "Session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Library", city: null, organizer_label: null, seats_left: null, campaign_public_id: CAMPAIGN }],
+      campaigns: [
+        { public_id: CAMPAIGN, title: "Season", question: "What would make it easier to stay?", intro: "A few times a year.", owner_label: "from WUWF", closes_at: "2026-12-20T00:00:00Z" },
+        { public_id: CAMPAIGN, title: "No question" },
+        "nope",
+      ],
+    });
+    expect(hub.open[0]?.campaignPublicId).toBe(CAMPAIGN);
+    expect(hub.events?.[0]?.campaignPublicId).toBe(CAMPAIGN);
+    expect(hub.campaigns).toEqual([{ publicId: CAMPAIGN, title: "Season", question: "What would make it easier to stay?", intro: "A few times a year.", ownerLabel: "from WUWF", closesAt: "2026-12-20T00:00:00Z" }]);
   });
 
   it("gives no events, and no error, when the database sends none", () => {
