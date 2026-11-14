@@ -6,7 +6,7 @@ import React from 'react'
 import { ClaimRoom } from '@/components/Listening/ClaimRoom'
 import { eyebrow } from '@/components/Listening/styles'
 import { supabaseAudienceAuth } from '@/lib/audience/supabase'
-import { readListeningConfig } from '@/lib/listening/config'
+import { getListeningConfig } from '@/lib/listening/config-server'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { isTableLinkToken } from '@/lib/listening/table-token'
 
@@ -32,7 +32,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ token: s
         <span className={eyebrow}>Organizer</span>
         <h1 className="font-serif text-3xl font-bold leading-tight md:text-4xl">Run a listening session&rsquo;s room.</h1>
       </div>
-      {readListeningConfig() ? <ClaimRoom email={user.email} token={token} /> : <p className="text-base text-ink-2">{LISTENING_NOT_SET_UP}</p>}
+      {(await getListeningConfig()) ? <ClaimRoom email={user.email} token={token} /> : <p className="text-base text-ink-2">{LISTENING_NOT_SET_UP}</p>}
     </section>
   )
 }

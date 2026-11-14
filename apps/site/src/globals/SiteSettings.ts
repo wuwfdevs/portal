@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
-import { requirePermission } from '@/access/permissions'
+import { fieldRequires, requirePermission } from '@/access/permissions'
+import { portalOriginProblem } from '@/lib/listening/config'
 import { revalidateSiteSettings } from './hooks/revalidateSiteSettings'
 
 /**
@@ -43,6 +44,19 @@ export const SiteSettings: GlobalConfig = {
         description:
           'When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site\'s privacy notice says so. It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)',
       },
+    },
+    {
+      name: 'portalOrigin',
+      type: 'text',
+      label: 'Portal address',
+      // This document is publicly readable. The Portal's address is not for the public, so only staff who manage settings can read or change it;
+      // the server reads it with its own access.
+      access: { read: fieldRequires('settings.manage'), update: fieldRequires('settings.manage') },
+      admin: {
+        description:
+          'Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server\'s PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.',
+      },
+      validate: (value: string | null | undefined) => portalOriginProblem(value) ?? true,
     },
     {
       name: 'independencePolicy',

@@ -4181,6 +4181,10 @@ export interface SiteSetting {
    */
   semanticSearch?: boolean | null;
   /**
+   * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
+   */
+  portalOrigin?: string | null;
+  /**
    * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
    */
   independencePolicy?: (number | null) | Page;
@@ -4727,6 +4731,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         id?: T;
       };
   semanticSearch?: T;
+  portalOrigin?: T;
   independencePolicy?: T;
   updatedAt?: T;
   createdAt?: T;
