@@ -44,6 +44,7 @@ import * as migration_20261113_220000_header_schedule_link from './20261113_2200
 import * as migration_20261113_222100_story_embeddings from './20261113_222100_story_embeddings';
 import * as migration_20261113_225238_site_settings_semantic_search from './20261113_225238_site_settings_semantic_search';
 import * as migration_20261114_023103_site_settings_portal_origin from './20261114_023103_site_settings_portal_origin';
+import * as migration_20261114_040000_voyager_hub_start from './20261114_040000_voyager_hub_start';
 
 export const migrations = [
   {
@@ -274,6 +275,11 @@ export const migrations = [
   {
     up: migration_20261114_023103_site_settings_portal_origin.up,
     down: migration_20261114_023103_site_settings_portal_origin.down,
-    name: '20261114_023103_site_settings_portal_origin'
+    name: '20261114_023103_site_settings_portal_origin',
+  },
+  {
+    up: migration_20261114_040000_voyager_hub_start.up,
+    down: migration_20261114_040000_voyager_hub_start.down,
+    name: '20261114_040000_voyager_hub_start',
   },
 ];
