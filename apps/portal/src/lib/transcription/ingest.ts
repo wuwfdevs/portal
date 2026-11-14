@@ -4,6 +4,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { getSignedMediaUrlForIngest } from "@/lib/transcription/storage";
 import { getTranscriptionProvider } from "@/lib/transcription/asr";
 import { getSiteUrl } from "@/lib/site-url";
+import { transcriptionWebhookUrl } from "@/lib/transcription/webhook-url";
 import type { SwSourceKind } from "@/lib/database.types";
 
 /**
@@ -276,7 +277,7 @@ export async function startTranscriptionForProject(
   try {
     const providerJobId = await getTranscriptionProvider().startTranscription({
       mediaUrl,
-      webhookUrl: `${getSiteUrl()}/api/transcription/webhook`,
+      webhookUrl: transcriptionWebhookUrl(getSiteUrl()),
       webhookSecret,
       speakerRange,
     });

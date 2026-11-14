@@ -13,6 +13,18 @@ import { LISTENING_SECRET_MIN_LENGTH } from '@wuwf/portal-contracts'
 export interface ListeningConfig {
   origin: string
   secret: string
+  /**
+   * Vercel's "Protection Bypass for Automation" secret of the Portal's project, sent as `x-vercel-protection-bypass` so this site's
+   * server can reach a Portal on a protected Vercel address (every preview deployment is). Set on staging only (`PORTAL_PROTECTION_BYPASS`);
+   * a Portal on its own domain needs none.
+   */
+  bypass?: string
+}
+
+/** A bypass secret fit to send in a header: letters, digits, `_` and `-`, a sensible length. Anything else is ignored, not sent. */
+export function parseBypassSecret(raw: string | undefined | null): string | null {
+  const value = raw?.trim()
+  return value && /^[A-Za-z0-9_-]{16,128}$/.test(value) ? value : null
 }
 
 /** The origin a raw address names, or null when it is not an origin we will sign requests to. */
@@ -52,5 +64,7 @@ export function readListeningConfig(
   const chosen = setting?.trim() || env.PORTAL_ORIGIN?.trim()
   if (!chosen) return null
   const origin = parsePortalOrigin(chosen)
-  return origin ? { origin, secret } : null
+  if (!origin) return null
+  const bypass = parseBypassSecret(env.PORTAL_PROTECTION_BYPASS)
+  return { origin, secret, ...(bypass ? { bypass } : {}) }
 }

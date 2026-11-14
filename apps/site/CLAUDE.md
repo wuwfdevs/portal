@@ -103,7 +103,7 @@ Every send names who receives it; nothing promises a reply. Participant identity
 site's own visitor/account; the Portal sees only the asserted subject. Embedding the Portal's public page
 (approved Portal origin plus `microphone` delegation) is a fallback only, not the design. The code is `src/lib/listening` (pure rules,
 the signed client, the visitor cookie), `src/components/Listening` and `src/app/(frontend)/listens`; the server reaches the Portal
-only through `lib/listening/portal.ts`, configured by the Portal address in Site settings (`portalOrigin`; `PORTAL_ORIGIN` is only the fallback when it is empty, `lib/listening/config-server.ts`) and the `PORTAL_LISTENING_SECRET` variable. The secret stays an environment variable on purpose, and the address field is readable and editable only with `settings.manage` because the Site settings document is public. A visitor is our own
+only through `lib/listening/portal.ts`, configured by the Portal address in Site settings (`portalOrigin`; `PORTAL_ORIGIN` is only the fallback when it is empty, `lib/listening/config-server.ts`) and the `PORTAL_LISTENING_SECRET` variable. The secret stays an environment variable on purpose, and on a protected Vercel preview the Portal project's bypass secret goes in `PORTAL_PROTECTION_BYPASS` (Preview only; see the Portal's `CLAUDE.md`, "Vercel environments and deployment protection"), and the address field is readable and editable only with `settings.manage` because the Site settings document is public. A visitor is our own
 random-id cookie (`wuwf_listening_visitor`, 30 days), the only thing the Portal learns about them; the client address goes to the
 Portal only as a keyed, per-day hash.
 

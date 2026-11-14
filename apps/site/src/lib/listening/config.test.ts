@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parsePortalOrigin, portalOriginProblem, readListeningConfig } from './config'
+import { parseBypassSecret, parsePortalOrigin, portalOriginProblem, readListeningConfig } from './config'
 
 const SECRET = 's'.repeat(32)
 
@@ -68,5 +68,28 @@ describe('parsePortalOrigin and portalOriginProblem', () => {
     expect(portalOriginProblem('  ')).toBeNull()
     expect(portalOriginProblem('https://tools.example.org')).toBeNull()
     expect(portalOriginProblem('https://tools.example.org/path')).toMatch(/address only/)
+  })
+})
+
+describe('the protection bypass secret', () => {
+  const env = { PORTAL_ORIGIN: 'https://portal-git-staging-wuwf.vercel.app', PORTAL_LISTENING_SECRET: SECRET }
+  const BYPASS = 'bjs8lmoZABjskwLxmHTvqV4I1deKiOXh'
+
+  it('is part of the configuration only when it is set and fit to send as a header', () => {
+    expect(readListeningConfig({ ...env, PORTAL_PROTECTION_BYPASS: BYPASS })).toEqual({ origin: 'https://portal-git-staging-wuwf.vercel.app', secret: SECRET, bypass: BYPASS })
+    expect(readListeningConfig({ ...env, PORTAL_PROTECTION_BYPASS: ` ${BYPASS} ` })?.bypass).toBe(BYPASS)
+    expect(readListeningConfig(env)).toEqual({ origin: 'https://portal-git-staging-wuwf.vercel.app', secret: SECRET })
+  })
+
+  it('is ignored, not sent, when it is not a plausible secret', () => {
+    for (const bad of ['', '   ', 'short', 'has spaces in it and is long enough', 'new\nline-in-it-long-enough']) {
+      expect(readListeningConfig({ ...env, PORTAL_PROTECTION_BYPASS: bad })?.bypass).toBeUndefined()
+    }
+    expect(parseBypassSecret(undefined)).toBeNull()
+    expect(parseBypassSecret(BYPASS)).toBe(BYPASS)
+  })
+
+  it('never turns listening on by itself', () => {
+    expect(readListeningConfig({ PORTAL_PROTECTION_BYPASS: BYPASS })).toBeNull()
   })
 })
