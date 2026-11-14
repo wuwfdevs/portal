@@ -369,7 +369,7 @@ said their names were. **A suggestion is a proposal the facilitator confirms; no
 after-page as `proposals` (line starts), the same way. (2) **Marks become excerpts** (`al_create_excerpts_from_highlights`, once per mark,
 `al_highlights.excerpt_id`, made *as a named profile* because `sw_source_excerpts.created_by` is required): the Table page's button runs it as the staff
 member, the scheduled run as the campaign's `owner_id`. (3) **A scheduled route exists, for small jobs only**: `api/cron/listening` (`vercel.json` hourly,
-`Authorization: Bearer CRON_SECRET`, 401 with none set), tasks in `lib/audience-listening/cron/` (`run-task.ts` is pure and tested; each task is isolated and
+`Authorization: Bearer CRON_SECRET`, 401 with none set; `/api/cron/listening` is in the middleware's `PUBLIC_PATHS` and the module's `publicRoutes`, or the login redirect answers the scheduler and nothing runs), tasks in `lib/audience-listening/cron/` (`run-task.ts` is pure and tested; each task is isolated and
 leaves an `al_job_runs` row that `/audience-listening/jobs` shows). It sends finished recordings to Sourcework (two a run, as the campaign owner through the
 admin client, after `ownerMayRun`, which restates `canUseTool` for a user who is not signed in: if the owner lost Sourcework the conversation waits for a
 person), emails facilitators their link when the transcript is ready (`sendAfterLinkWith`), makes excerpts, clears facilitator emails at 30 days, and emails
