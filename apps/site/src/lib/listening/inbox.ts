@@ -21,13 +21,19 @@ import {
  */
 
 export const ASK_KIND_LABEL: Record<ListeningInboxKind, string> = {
-  question: 'A question',
-  story_idea: 'A story idea',
+  question: 'I have a question',
+  story_idea: 'I have a story idea',
 }
 
 export const HOST_KIND_LABEL: Record<ListeningHostKind, { title: string; hint: string }> = {
-  invite: { title: 'A table of people I invite', hint: 'Friends, neighbours or colleagues. Not listed publicly.' },
-  public: { title: 'An open session', hint: 'Open to anyone. WUWF reviews it before it is listed.' },
+  invite: {
+    title: 'A table of people I invite',
+    hint: 'Friends, neighbours or colleagues. Not listed publicly.',
+  },
+  public: {
+    title: 'An open session',
+    hint: 'Open to anyone. WUWF reviews it before it is listed.',
+  },
 }
 
 export const HOST_SEATS_LABEL: Record<ListeningHostSeats, string> = {
@@ -62,16 +68,30 @@ export interface AskMessage {
 
 /** An Ask WUWF message: a kind, 1 to 2,000 characters, and an optional email that must look like one if given. */
 export function checkAskMessage(input: unknown): Checked<AskMessage> {
-  const record = typeof input === 'object' && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : {}
+  const record =
+    typeof input === 'object' && input !== null && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {}
   const kind = LISTENING_INBOX_KINDS.find((k) => k === record['kind'])
   if (!kind) return { ok: false, message: 'Choose whether this is a question or a story idea.' }
   const body = text(record['body'])
-  if (body === null || body.length === 0) return { ok: false, message: 'Write your question or idea first.' }
-  if (body.length > MAX_INBOX_BODY_LENGTH) return { ok: false, message: `Keep it to ${MAX_INBOX_BODY_LENGTH.toLocaleString('en-US')} characters or fewer.` }
+  if (body === null || body.length === 0)
+    return { ok: false, message: 'Write your question or idea first.' }
+  if (body.length > MAX_INBOX_BODY_LENGTH)
+    return {
+      ok: false,
+      message: `Keep it to ${MAX_INBOX_BODY_LENGTH.toLocaleString('en-US')} characters or fewer.`,
+    }
   const rawEmail = record['email']
-  if (rawEmail !== undefined && rawEmail !== null && typeof rawEmail !== 'string') return { ok: false, message: 'That email address does not look right.' }
+  if (rawEmail !== undefined && rawEmail !== null && typeof rawEmail !== 'string')
+    return { ok: false, message: 'That email address does not look right.' }
   const email = text(rawEmail) || null
-  if (email !== null && !looksLikeEmail(email)) return { ok: false, message: 'That email address does not look right. Leave it blank if you would rather not say.' }
+  if (email !== null && !looksLikeEmail(email))
+    return {
+      ok: false,
+      message:
+        'That email address does not look right. Leave it blank if you would rather not say.',
+    }
   return { ok: true, value: { kind, body, email } }
 }
 
@@ -88,30 +108,53 @@ export interface HostRequest {
   journalistRequested: boolean
 }
 
-const HOST_LIMITS = { name: 200, organization: 200, address: 500, whenText: 500, inviteesText: 2000 } as const
+const HOST_LIMITS = {
+  name: 200,
+  organization: 200,
+  address: 500,
+  whenText: 500,
+  inviteesText: 2000,
+} as const
 
 /** A host request, every field picked by name (nothing a browser sends is spread into the signed body) and checked. */
 export function checkHostRequest(input: unknown): Checked<HostRequest> {
-  const r = typeof input === 'object' && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : {}
+  const r =
+    typeof input === 'object' && input !== null && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {}
   const required = (key: 'name' | 'address' | 'whenText', missing: string): Checked<string> => {
     const value = text(r[key])
     if (value === null || value.length === 0) return { ok: false, message: missing }
-    if (value.length > HOST_LIMITS[key]) return { ok: false, message: `That is longer than the ${HOST_LIMITS[key]} characters we can take.` }
+    if (value.length > HOST_LIMITS[key])
+      return {
+        ok: false,
+        message: `That is longer than the ${HOST_LIMITS[key]} characters we can take.`,
+      }
     return { ok: true, value }
   }
   const optional = (key: 'organization' | 'inviteesText'): Checked<string | null> => {
     const raw = r[key]
-    if (raw !== undefined && raw !== null && typeof raw !== 'string') return { ok: false, message: 'Something in that form was not right. Reload the page and try again.' }
+    if (raw !== undefined && raw !== null && typeof raw !== 'string')
+      return {
+        ok: false,
+        message: 'Something in that form was not right. Reload the page and try again.',
+      }
     const value = text(raw) || null
-    if (value !== null && value.length > HOST_LIMITS[key]) return { ok: false, message: `That is longer than the ${HOST_LIMITS[key]} characters we can take.` }
+    if (value !== null && value.length > HOST_LIMITS[key])
+      return {
+        ok: false,
+        message: `That is longer than the ${HOST_LIMITS[key]} characters we can take.`,
+      }
     return { ok: true, value }
   }
 
   const name = required('name', 'Tell us your name.')
   if (!name.ok) return name
   const emailText = text(r['email'])
-  if (emailText === null || emailText.length === 0) return { ok: false, message: 'Tell us an email address so someone can write back.' }
-  if (!looksLikeEmail(emailText)) return { ok: false, message: 'That email address does not look right.' }
+  if (emailText === null || emailText.length === 0)
+    return { ok: false, message: 'Tell us an email address so someone can write back.' }
+  if (!looksLikeEmail(emailText))
+    return { ok: false, message: 'That email address does not look right.' }
   const kind = LISTENING_HOST_KINDS.find((k) => k === r['kind'])
   if (!kind) return { ok: false, message: 'Choose what kind of session this would be.' }
   const seats = LISTENING_HOST_SEATS.find((n) => n === r['seats'])
@@ -126,7 +169,11 @@ export function checkHostRequest(input: unknown): Checked<HostRequest> {
   if (!organization.ok) return organization
   const invitees = optional('inviteesText')
   if (!invitees.ok) return invitees
-  if (typeof r['journalistRequested'] !== 'boolean') return { ok: false, message: 'Something in that form was not right. Reload the page and try again.' }
+  if (typeof r['journalistRequested'] !== 'boolean')
+    return {
+      ok: false,
+      message: 'Something in that form was not right. Reload the page and try again.',
+    }
 
   return {
     ok: true,
