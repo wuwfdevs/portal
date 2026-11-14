@@ -10,6 +10,25 @@ function respond(status: number, body: unknown) {
   return vi.fn(async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }))
 }
 
+describe('callListeningWith: a Portal behind Vercel deployment protection', () => {
+  const BYPASS = 'b'.repeat(32)
+  const sentHeaders = async (config: Parameters<typeof callListeningWith>[0]) => {
+    const fetchImpl = respond(200, { ok: true })
+    await callListeningWith(config, fetchImpl, LISTENING_PATHS.start, { a: 1 }, 1_700_000_000)
+    return (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>
+  }
+
+  it('sends the bypass secret as a header when one is configured, and does not sign it into anything else', async () => {
+    const headers = await sentHeaders({ ...CONFIG, bypass: BYPASS })
+    expect(headers['x-vercel-protection-bypass']).toBe(BYPASS)
+    expect(headers['x-wuwf-signature']).toBeTruthy()
+  })
+
+  it('sends no bypass header when none is configured', async () => {
+    expect(await sentHeaders(CONFIG)).not.toHaveProperty('x-vercel-protection-bypass')
+  })
+})
+
 describe('callListeningWith', () => {
   it('signs the exact body for the exact path, with the channel secret', async () => {
     const fetchImpl = respond(200, { ok: true, submissionId: 's1', resumed: false })

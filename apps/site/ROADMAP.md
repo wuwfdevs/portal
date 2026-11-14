@@ -520,7 +520,7 @@ phone in and keep the page open. The after-page offers a name the transcription 
 `/listens/table/<token>`. **Still untested on a real phone**: whether a given Android or iOS phone keeps recording with the screen locked. The page cannot
 make it, and says what happened rather than promising.
 
-**Environment.** `PORTAL_ORIGIN` (the Portal's address, scheme and host only) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
+**Environment.** The Portal's address is **Site settings > Portal address** (scheme and host only; `PORTAL_ORIGIN` is the fallback when that is empty, migration `20261114_023103`) and `PORTAL_LISTENING_SECRET` (equal to the Portal's
 `LISTENING_SIGNING_SECRET`, at least 32 characters, a different value per environment). Unset, the pages say "Listening is not set up on
 this server yet".
 

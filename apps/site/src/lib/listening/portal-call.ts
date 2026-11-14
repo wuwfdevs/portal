@@ -33,7 +33,7 @@ export async function callListeningWith<T extends object>(
   try {
     response = await fetchImpl(`${config.origin}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...headers },
+      headers: { 'content-type': 'application/json', ...headers, ...(config.bypass ? { 'x-vercel-protection-bypass': config.bypass } : {}) },
       body: json,
       cache: 'no-store',
       signal: AbortSignal.timeout(TIMEOUT_MS),

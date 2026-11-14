@@ -2387,6 +2387,10 @@ export interface Database {
           latitude: number | null;
           longitude: number | null;
           alert_counties: string | null;
+          /** The public website's origin, for Audience Listening's links (20261114140000). Empty: the WEBSITE_ORIGIN variable. */
+          website_origin: string | null;
+          /** One shared mailbox for Audience Listening's reminders (20261114140000). Empty: the AUDIENCE_LISTENING_NOTIFY_EMAIL variable. */
+          listening_notify_email: string | null;
           updated_at: string;
           updated_by: string | null;
         };

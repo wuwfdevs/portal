@@ -105,7 +105,7 @@ export const MODULES: readonly ModuleManifestEntry[] = [
     // Send an answer to Sourcework. The only foreign key between the two
     // (al_answers.transcription_project_id) is `on delete set null`, so it is soft.
     integrates: ["transcription"],
-    publicRoutes: ["/listen", "/api/site/listening"],
+    publicRoutes: ["/listen", "/api/site/listening", "/api/cron/listening"],
     env: [
       {
         name: "LISTENING_SIGNING_SECRET",
@@ -114,12 +114,12 @@ export const MODULES: readonly ModuleManifestEntry[] = [
       },
       {
         name: "WEBSITE_ORIGIN",
-        for: "the address a printed table card opens",
+        for: "the address a printed table card opens, if the website address is not set at Administration > Station (the setting wins)",
         required: false,
       },
       {
         name: "AUDIENCE_LISTENING_NOTIFY_EMAIL",
-        for: "emailing a shared mailbox when a host request arrives, and the daily and weekly reminders",
+        for: "emailing a shared mailbox when a host request arrives, and the daily and weekly reminders, if the mailbox is not set at Administration > Station (the setting wins)",
         required: false,
       },
       {

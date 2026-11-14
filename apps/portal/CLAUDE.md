@@ -369,7 +369,7 @@ said their names were. **A suggestion is a proposal the facilitator confirms; no
 after-page as `proposals` (line starts), the same way. (2) **Marks become excerpts** (`al_create_excerpts_from_highlights`, once per mark,
 `al_highlights.excerpt_id`, made *as a named profile* because `sw_source_excerpts.created_by` is required): the Table page's button runs it as the staff
 member, the scheduled run as the campaign's `owner_id`. (3) **A scheduled route exists, for small jobs only**: `api/cron/listening` (`vercel.json` hourly,
-`Authorization: Bearer CRON_SECRET`, 401 with none set), tasks in `lib/audience-listening/cron/` (`run-task.ts` is pure and tested; each task is isolated and
+`Authorization: Bearer CRON_SECRET`, 401 with none set; `/api/cron/listening` is in the middleware's `PUBLIC_PATHS` and the module's `publicRoutes`, or the login redirect answers the scheduler and nothing runs), tasks in `lib/audience-listening/cron/` (`run-task.ts` is pure and tested; each task is isolated and
 leaves an `al_job_runs` row that `/audience-listening/jobs` shows). It sends finished recordings to Sourcework (two a run, as the campaign owner through the
 admin client, after `ownerMayRun`, which restates `canUseTool` for a user who is not signed in: if the owner lost Sourcework the conversation waits for a
 person), emails facilitators their link when the transcript is ready (`sendAfterLinkWith`), makes excerpts, clears facilitator emails at 30 days, and emails
@@ -382,6 +382,28 @@ Table page lists gaps of 20 seconds or more (`findGaps`). Nothing here can make 
 page says so rather than promising it. (6) **A kitchen table** (`al_campaigns.accepts_kitchen_tables`, `al_site_kitchen_table_create`) is a private one-table event
 a visitor starts from the hub: three a day per host, the link is made by the route and shown once. Migrations `20261114120000` (schema) and `20261114130000`
 (Resources content); apply both, with `20261113120000` and `20261113130000`, before the code ships, preview first.
+
+**Audience Listening: the website address and the mailbox are station settings (2026-11-14).** A pointer. `station_settings.website_origin` and
+`.listening_notify_email` (Administration → Station, administrators only; `20261114140000`) replace the `WEBSITE_ORIGIN` and
+`AUDIENCE_LISTENING_NOTIFY_EMAIL` variables for Audience Listening. Three things are load-bearing: (1) **one resolver, `lib/station-links.ts`**: the setting
+wins and the variable is only a fallback for a deployment that already has it; it takes whatever client the caller has (a staff member's, or the service
+client the scheduled run and the signed route use, neither of which has a signed-in user for `getStation()`); (2) **the staff sign-in handoff to the website
+(`website/route.ts`, `lib/website/handoff.ts`) still reads `WEBSITE_ORIGIN` from the environment only, on purpose**: it sends a signed identity token to that
+address, and which address that goes to stays a deploy-time decision, not something any administrator can edit; (3) **secrets stay variables**
+(`LISTENING_SIGNING_SECRET`, `CRON_SECRET`, `WEBSITE_IDENTITY_SECRET`): a value in a table is read by staff queries, backups and exports. The address is
+validated twice (`readSiteOrigin` on save, a check constraint under it): https, host and optional port, no credentials or path; http only for localhost.
+No baseline regeneration was needed: `BASELINE_THROUGH` is `20261105230000` and CI replays newer migrations on top. Resources content `20261114150000`.
+
+**Vercel environments and deployment protection (2026-11-14).** A pointer; read before wiring anything that crosses between the two apps on Vercel.
+(1) **`claude/main` is the production branch of both Vercel projects**: a merge deploys to **Production** (the production Supabase projects), and the
+`*-git-claude-main-*.vercel.app` aliases are production aliases, not staging. Staging is the **Preview** environment (preview Portal database, staging site
+database), whose only stable addresses are a branch's own aliases. (2) **Every `*.vercel.app` address is behind Deployment Protection** (no custom domain is
+attached to either project), so a server-to-server call to a preview (the site's listening calls to the Portal, AssemblyAI's transcript callback) gets
+Vercel's login page unless it carries the project's **Protection Bypass for Automation** secret. The site sends it as `x-vercel-protection-bypass`
+(`PORTAL_PROTECTION_BYPASS`, Preview only, `lib/listening/portal-call.ts` on the site); the Portal appends it as a query parameter to the transcript callback
+on a preview deployment only (`lib/transcription/webhook-url.ts`, reading `VERCEL_AUTOMATION_BYPASS_SECRET`, which Vercel injects), because AssemblyAI's one
+custom header already carries our own webhook secret. Production never sends it. A bypass secret in a URL is visible to the provider: rotate it from the
+project's Deployment Protection settings if it matters.
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal

@@ -103,8 +103,10 @@ Signed in as the administrator:
 
 1. **Administration → Station.** Enter your station's name, short name, call sign, city, support email and the
    line under public forms. Add a notice for public pages if your licensee needs one. If you will use On Air
-   weather, enter the studio's latitude and longitude and the counties whose alerts you relay. Nothing falls
-   back to another station's name: what you leave empty reads neutrally ("the station").
+   weather, enter the studio's latitude and longitude and the counties whose alerts you relay. If you will use
+   Audience Listening, enter the public website's address (https, no path) and the one shared mailbox that
+   gets its reminders. Nothing falls back to another station's name: what you leave empty reads neutrally
+   ("the station").
 2. **Administration → Tools.** Switch on only the modules you will use. The page refuses to enable a module
    whose required module is off (Traffic needs On Air; Editorial Inquiry needs Editorial Planning) and shows
    any keys a module is missing. Leave **Bookings** and **Academic Partnerships** off for now: their screens

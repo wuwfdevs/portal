@@ -137,7 +137,7 @@ export async function handleListeningRequest(request: Request, action: Listening
   }
   if (action === "kitchen-table-create" && kitchenLinkToken) return respond(200, { ok: true, ...shaped.body, linkToken: kitchenLinkToken });
   if (action === "forget-subject") await removeForgottenAudio(supabase, result.data);
-  if (action === "host-request") await notifyHostRequest();
+  if (action === "host-request") await notifyHostRequest(supabase);
 
   return respond(200, { ok: true, ...shaped.body });
 }

@@ -6,7 +6,7 @@ import { TableLink } from '@/components/Listening/TableLink'
 import { eyebrow } from '@/components/Listening/styles'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { readTableSession, isTableLinkToken } from '@/lib/listening/table-session'
-import { readListeningConfig } from '@/lib/listening/config'
+import { getListeningConfig } from '@/lib/listening/config-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +25,7 @@ export default async function TableLinkPage({ params }: { params: Promise<{ toke
       <span className={eyebrow}>WUWF Listens</span>
       <h1 className="font-serif text-[1.75rem] font-bold leading-tight">You scanned a table&rsquo;s card.</h1>
       <p className="text-[0.9375rem] text-ink-2">This phone will record that table tonight. Keep it on the table, with the screen on.</p>
-      {readListeningConfig() ? <TableLink token={token} /> : <p className="text-base text-ink-2">{LISTENING_NOT_SET_UP}</p>}
+      {(await getListeningConfig()) ? <TableLink token={token} /> : <p className="text-base text-ink-2">{LISTENING_NOT_SET_UP}</p>}
     </main>
   )
 }

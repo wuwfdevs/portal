@@ -26,6 +26,10 @@ const PUBLIC_PATHS = [
   // carries no Supabase session; it is authenticated by an HMAC signature over the exact request, checked before
   // anything else in lib/audience-listening/site-api.ts, so it must never hit the login redirect below.
   "/api/site/listening",
+  // Vercel's scheduled calls (vercel.json `crons`): a server-to-server GET with no Supabase session, authenticated by
+  // `Authorization: Bearer CRON_SECRET` inside the route itself (lib/audience-listening/cron/auth.ts; 401 with none
+  // set). Without this entry the login redirect answered the scheduler and no job ever ran.
+  "/api/cron/listening",
   // Academic Partnerships' public inquiry form and its iframe variant. A
   // faculty submitter has no profile and never signs in at all — unlike
   // /join and /listen, there is no session here to establish, not even an
