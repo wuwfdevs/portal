@@ -118,6 +118,15 @@ for (const [title, s, a, d, dek] of voyagerStories) {
 
 // ---------------------------------------------------------------- Short vertical video
 const videoFile = await ensure('video', byTitle('Demonstration vertical clip'), { title: 'Demonstration vertical clip', credit: 'WUWF (demonstration)', durationSeconds: 6, description: DEMO }, 'video file', { filePath: asset('demo-vertical.mp4') })
+// A video record made without a file (staging has one, added by SQL to show the layout, with a filename and a description that says "no file
+// attached"): upload the bundled file onto that same record, so its id and the clips that point at it are kept. `ensure` returns an existing
+// record untouched and would never look at the file, and nothing stored says whether the bucket holds a file (a read computes `url` from the
+// filename), so the description is the marker. The upload replaces it, so a second run does nothing.
+const NO_FILE_MARK = 'Demonstration record with no file attached'
+if (String((videoFile as { description?: unknown }).description ?? '').startsWith(NO_FILE_MARK) && typeof videoFile.id === 'number') {
+  made.push('video: upload the demonstration file onto the existing record')
+  if (go) await payload.update({ collection: 'video', id: videoFile.id, data: { description: DEMO } as never, filePath: asset('demo-vertical.mp4'), overrideAccess: true, context: ctx })
+}
 const poster = await ensure('media', { alt: { equals: 'A test pattern with the words Demo clip' } }, { alt: 'A test pattern with the words Demo clip' }, 'clip poster', { filePath: asset('demo-vertical-poster.jpg') })
 if (go && videoFile.id && poster.id && !(videoFile as { poster?: unknown }).poster) {
   await payload.update({ collection: 'video', id: videoFile.id, data: { poster: poster.id } as never, overrideAccess: true, context: ctx })
