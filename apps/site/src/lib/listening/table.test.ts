@@ -21,6 +21,8 @@ import {
   suggestedTimeLabel,
   tableScreen,
   type SegmentSteps,
+  microphoneAdvice,
+  tableWords,
 } from './table'
 
 const UPLOAD = { url: 'https://storage.example/u', method: 'PUT' as const, headers: { 'content-type': 'audio/webm' }, expiresAt: '2026-11-15T20:00:00Z' }
@@ -363,5 +365,38 @@ describe('recordingNotice', () => {
   it('never says the recording is fine while the microphone is not hearing', () => {
     const text = JSON.stringify([recordingNotice({ ...ok, ended: true }), recordingNotice({ ...ok, muted: true })])
     expect(text).toContain('Nothing is being recorded')
+  })
+})
+
+describe('the words of a kitchen table', () => {
+  it('names an event\u2019s table by its number and sends a stuck phone to the front', () => {
+    const words = tableWords({ kitchen: false, number: 3 })
+    expect(words.header).toBe('Table 3')
+    expect(words.done).toBe('Table 3 is in. Thank you.')
+    expect(words.consentStep).toMatch(/organizer reads it from the front/)
+    expect(words.askForHelp).toMatch(/front/)
+    expect(words.helpButton).toBe(true)
+  })
+
+  it('speaks to a kitchen host in the singular, with nobody at a front desk to ask', () => {
+    const words = tableWords({ kitchen: true, number: 1 })
+    const all = Object.values(words).filter((value): value is string => typeof value === 'string').join(' ')
+    expect(words.header).toBe('Your table')
+    expect(words.done).toBe('Your table is in. Thank you.')
+    expect(words.helpButton).toBe(false)
+    expect(all).not.toMatch(/organizer|the front|Table 1|large session|welcome table|card on your own table/i)
+  })
+})
+
+describe('microphone advice', () => {
+  const refused = { block: 'denied_by_user', message: 'Your browser blocked the microphone.' }
+  it('sends an iPhone to its Settings, not to an address bar that is not there', () => {
+    const text = microphoneAdvice(refused, true)
+    expect(text).toMatch(/Settings app/)
+    expect(text).not.toMatch(/address bar/i)
+  })
+  it('keeps the browser advice elsewhere, and for a refusal that is not the person\u2019s', () => {
+    expect(microphoneAdvice(refused, false)).toMatch(/browser.s settings/)
+    expect(microphoneAdvice({ block: 'no_device', message: 'No microphone was found on this device.' }, true)).toMatch(/No microphone was found/)
   })
 })
