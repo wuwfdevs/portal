@@ -6,11 +6,13 @@ import type { Contributor, Media as MediaDoc } from '@/payload-types'
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
 
-export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: 'teal' | 'plain' }> = ({ children, href, tone = 'plain' }) => {
+export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: 'teal' | 'voyager' | 'plain' }> = ({ children, href, tone = 'plain' }) => {
   const cls =
     tone === 'teal'
       ? 'bg-wuwf-teal text-surface'
-      : 'border border-rule-strong bg-surface text-ink-2'
+      : tone === 'voyager'
+        ? 'bg-voyager-green text-surface'
+        : 'border border-rule-strong bg-surface text-ink-2'
   const base = `inline-flex min-h-7 items-center rounded-pill px-3 text-xs font-bold uppercase tracking-widest ${cls}`
   return href ? (
     <Link className={`${base} hover:no-underline`} href={href}>

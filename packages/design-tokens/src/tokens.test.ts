@@ -45,6 +45,13 @@ describe("contrast", () => {
     expect(contrastRatio(colors["wuwf-lime"], colors["surface-dark"])).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("Voyager green is readable as text and as a tag background, and as text on its tint", () => {
+    expect(contrastRatio(colors["voyager-green"], colors.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio("#FFFFFF", colors["voyager-green"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colors["voyager-green"], colors["voyager-green-100"])).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colors.ink, colors["voyager-green-100"])).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("the design system's own disabled-text colour fails AA, as it says, so it must never carry meaning", () => {
     expect(contrastRatio(colors["ink-4"], colors.surface)).toBeLessThan(4.5);
   });

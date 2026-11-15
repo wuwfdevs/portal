@@ -18,6 +18,7 @@ import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { loadRelatedStories } from '@/lib/embeddings/related'
+import { AppliedLearningNote } from '@/components/Voyager/AppliedLearningNote'
 import { formatLongDate } from '@/lib/format'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { jsonLdText } from '@/lib/live/jsonld'
@@ -82,7 +83,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
 
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
         <div className="flex flex-wrap gap-2">
-          {isVoyagerIdentity(post.publishingIdentity) && <Chip tone="teal">{VOYAGER_BADGE_LABEL}</Chip>}
+          {isVoyagerIdentity(post.publishingIdentity) && <Chip tone="voyager">{VOYAGER_BADGE_LABEL}</Chip>}
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
           {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}
@@ -152,6 +153,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         )}
 
         <div className="mx-auto flex w-full max-w-[47.5rem] flex-col gap-8">
+          {isVoyagerIdentity(post.publishingIdentity) && <AppliedLearningNote />}
           {fellowship && (
             <section aria-labelledby="about-heading" className="flex flex-col gap-2 border-t border-rule pt-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="about-heading">

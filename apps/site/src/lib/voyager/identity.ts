@@ -2,7 +2,7 @@
 export const VOYAGER_IDENTITY_SLUG = 'the-voyager'
 
 /** What a story marks itself with, in feeds and on its page: student work, published under WUWF's applied-learning partnership with The Voyager. */
-export const VOYAGER_BADGE_LABEL = 'The Voyager · Student journalism'
+export const VOYAGER_BADGE_LABEL = 'The Voyager · Voyager student work'
 
 /**
  * True when a story's publishing identity is The Voyager. Needs the identity loaded (depth 1); a bare id, null or another

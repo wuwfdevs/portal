@@ -4,7 +4,7 @@
 // the values must stay equal, and a colour with no token here is added here first.
 //
 // Color roles on the public site (canvas board 15): navy = player and RadioLive, blue = actions,
-// teal = fellowships, lime = on dark only, paper = history, ink = The Voyager, red = LIVE only,
+// teal = fellowships, lime = on dark only, paper = history, ink = The Voyager's masthead, voyager-green = Voyager student work (card outline, tag, applied-learning note), red = LIVE only,
 // panel = disclosures.
 
 export const colors = {
@@ -16,6 +16,8 @@ export const colors = {
   "wuwf-lime": "#C0E040",
   "wuwf-lime-600": "#A8C830",
   "wuwf-lime-100": "#EEF6CC",
+  "voyager-green": "#1F5A3A",
+  "voyager-green-100": "#E4F0E8",
   "on-air-red": "#D63E2D",
   ink: "#0F1419",
   "ink-2": "#2B2F36",

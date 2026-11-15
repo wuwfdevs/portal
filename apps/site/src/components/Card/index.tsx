@@ -32,11 +32,13 @@ export const Card: React.FC<{
     .filter((t): t is string => Boolean(t))
   const titleToUse = titleFromProps || title
   const href = path || null
+  const voyager = isVoyagerIdentity(publishingIdentity)
 
   return (
     <article
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-sm border border-rule bg-surface shadow-1 transition-shadow hover:shadow-2',
+        'relative flex flex-col overflow-hidden rounded-sm border bg-surface shadow-1 transition-shadow hover:shadow-2',
+        voyager ? 'border-2 border-voyager-green' : 'border-rule',
         className,
       )}
     >
@@ -60,9 +62,9 @@ export const Card: React.FC<{
             </span>
           </p>
         )}
-        {isVoyagerIdentity(publishingIdentity) && (
-          <p className="text-xs font-bold uppercase tracking-widest text-wuwf-teal">
-            <span className="inline-flex items-center rounded-pill border border-wuwf-teal px-2 py-0.5">{VOYAGER_BADGE_LABEL}</span>
+        {voyager && (
+          <p className="text-xs font-bold uppercase tracking-widest">
+            <span className="inline-flex items-center rounded-pill bg-voyager-green px-2 py-0.5 text-surface">{VOYAGER_BADGE_LABEL}</span>
           </p>
         )}
         {showCategories && topics.length > 0 && (
