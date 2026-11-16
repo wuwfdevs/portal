@@ -4,9 +4,11 @@ import { PortalNav } from "@/components/portal-nav";
 import { AgentChatWidget } from "@/components/agent-chat-widget";
 import { HelpPanel } from "@/components/help-panel";
 import { RightPanelProvider } from "@/components/right-panel";
+import { getUnreadCount } from "@/lib/notifications/queries";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireActiveProfile();
+  const unreadNotifications = await getUnreadCount(profile.id);
 
   return (
     <RightPanelProvider>
@@ -14,7 +16,7 @@ export default async function PortalLayout({ children }: { children: React.React
         {/* Suspense: the nav and Help read the query string (useSearchParams)
             to tell Sourcework's Source Library tab from its projects. */}
         <Suspense fallback={<div className="h-16 border-b border-line" />}>
-          <PortalNav profile={profile} />
+          <PortalNav profile={profile} unreadNotifications={unreadNotifications} />
         </Suspense>
         {/* The assistant and Help are right-hand <aside>s that are real flex
             siblings (not fixed overlays) at lg and up, so opening one pushes

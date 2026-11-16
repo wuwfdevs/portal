@@ -127,6 +127,8 @@ describe("the clearing script's classification", () => {
       "ei",
       "rc",
       "bk",
+      // Per-person notifications: emptied on a fresh install, like every table not on the keep list.
+      "notification",
     ]);
     const unknown = [...new Set(createdTables().map((name) => name.split("_")[0]!))].filter(
       (prefix) => !KNOWN.has(prefix),

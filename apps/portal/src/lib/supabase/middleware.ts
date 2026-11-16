@@ -30,6 +30,9 @@ const PUBLIC_PATHS = [
   // `Authorization: Bearer CRON_SECRET` inside the route itself (lib/audience-listening/cron/auth.ts; 401 with none
   // set). Without this entry the login redirect answered the scheduler and no job ever ran.
   "/api/cron/listening",
+  // The notification layer's scheduled run (every minute; docs/notifications-design.md §5): the same server-to-server shape and the same
+  // `Authorization: Bearer CRON_SECRET` check inside the route. Platform-level, so no module declares it.
+  "/api/cron/notifications",
   // Academic Partnerships' public inquiry form and its iframe variant. A
   // faculty submitter has no profile and never signs in at all — unlike
   // /join and /listen, there is no session here to establish, not even an

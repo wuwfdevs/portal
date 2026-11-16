@@ -408,6 +408,23 @@ on a preview deployment only (`lib/transcription/webhook-url.ts`, reading `VERCE
 custom header already carries our own webhook secret. Production never sends it. A bypass secret in a URL is visible to the provider: rotate it from the
 project's Deployment Protection settings if it matters.
 
+**Notifications: a portal-wide layer, Roadmap first (2026-11-16).** A pointer; read `docs/notifications-design.md` first. A tool tells people
+something by calling `notify()` (`lib/notifications/notify.ts`, server-only, best effort, never throws); it never sends mail or writes a notification
+row itself. Five things are load-bearing: (1) **`lib/notifications/catalog.ts` is the one list of event types** (`<tool>.<event>`, with defaults), a
+manifest and not an extension point: a new kind of event adds a line there in the same change that raises it, with no migration; (2) **rows are written
+only by the service client** (`notification_inbox` has no insert policy), and a recipient reads their own through a **column grant that omits the email
+delivery columns** and updates **`read_at` only**, so `select *` on it is refused and `queries.ts` names its columns; (3) **email is queued, not sent
+inline**: `api/cron/notifications` (`vercel.json`, every minute, `CRON_SECRET`, in the middleware's `PUBLIC_PATHS` and `modules.test.ts`'s platform list)
+claims due rows with `notification_claim_emails` (a five-minute lease, `skip locked`), sends through `lib/email.ts`, and records the result with
+`notification_finish_email`; with email unconfigured it claims nothing; (4) **a person is told only about a tool they can open** (`plan.ts`, with
+`grantRequiredForTool`) and never about their own action; (5) **only a choice that differs from the catalog default is stored** in
+`notification_preferences`. The bell is in `PortalNav` (the layout reads the count and shows no number rather than failing if the table is missing);
+the screens are `/notifications` and `/notifications/preferences`. Roadmap raises `roadmap.status_changed` and `roadmap.comment_added` to a request's
+author. Not built: digests, types that cannot be turned off, live push, other tools. Migrations `20261115120000` (schema) and `20261115130000`
+(a portal-wide release note, since a guide belongs to a tool); **not yet applied to either project**, so `db:check` fails until they are and
+`APPLIED.md` has their dates. The migration's grants and `notification_claim_emails` were not run against a live database in the session that wrote
+them: verify on preview first (design doc §9).
+
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
 foundation — not a placeholder. See `docs/transcription-workspace-design.md` for the
