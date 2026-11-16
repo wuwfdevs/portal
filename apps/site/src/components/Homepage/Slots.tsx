@@ -4,17 +4,19 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
+import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
 import { ShowFrame } from '@/components/RadioLive/parts'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import type { HomepageSlots, PodcastCard } from '@/lib/homepage/load-slots'
 import { leadPicture } from '@/lib/homepage/select'
+import { trackFromAudio } from '@/lib/player/track'
 import { dateParts, joinNames, performanceTitle } from '@/lib/radiolive/arrange'
 import { audioOf, type Episode } from '@/lib/shows/load'
 
 // The home page's feature slots (boards 1 and 2), below the news. Each takes a slot that the loader has already decided is worth showing.
-// Left out on purpose, because nothing stands behind them yet: "Follow the show", "Get tickets alert" and the persistent player. Audio
-// plays in the browser's own controls, and nothing downloads before the reader presses play.
+// Left out on purpose, because nothing stands behind them yet: "Follow the show" and "Get tickets alert". Audio
+// plays in the site's one player (the bar at the bottom), and nothing downloads before the reader presses play.
 
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
 
@@ -86,7 +88,7 @@ function Cover({ card, className, label }: { card: PodcastCard; className: strin
 export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
   const { featured, acknowledgments, others } = slot
   const ep = featured.latest
-  const audio = audioOf(ep)
+  const track = trackFromAudio(audioOf(ep), { title: ep.title, href: ep.path })
   return (
     <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
       <div className="container flex flex-col gap-6">
@@ -120,7 +122,7 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
               </h3>
               {ep.meta?.description && <p className="text-base text-ink-2">{ep.meta.description}</p>}
               <p className="text-sm text-ink-3">{[ep.publishedAt ? formatLongDate(ep.publishedAt) : null, length(ep)].filter(Boolean).join(' · ')}</p>
-              {audio?.url && <audio aria-label={`Play: ${ep.title}`} className="w-full" controls preload="none" src={audio.url} />}
+              {track && <PlayAudioButton className="self-start" track={track} />}
               <Acknowledgment headingId="podcast-support-heading" independenceHref={independenceHref} lines={acknowledgments} subject="program" />
             </div>
           </article>
@@ -156,7 +158,7 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
 export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['unearthing']> }) {
   const { production, episode } = slot
   const picture = leadPicture<MediaDoc>(episode) ?? slot.heroImage
-  const audio = audioOf(episode)
+  const track = trackFromAudio(audioOf(episode), { title: episode.title, href: episode.path })
   return (
     <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-md bg-warning-bg p-6 md:p-8">
       <h2 className="font-serif text-2xl font-bold italic text-warning-fg" id="unearthing-heading">
@@ -179,12 +181,7 @@ export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['une
         )}
       </h3>
       {episode.meta?.description && <p className="text-base text-ink-2">{episode.meta.description}</p>}
-      {audio?.url && (
-        <div className="flex flex-col gap-1">
-          <audio aria-label={`Play: ${episode.title}`} className="w-full" controls preload="none" src={audio.url} />
-          {length(episode) && <span className="text-sm text-ink-3">{length(episode)}</span>}
-        </div>
-      )}
+      {track && <PlayAudioButton className="self-start" track={track} />}
       <Link className="inline-flex min-h-11 items-center self-start text-base font-bold text-warning-fg underline" href="/unearthing-florida">
         Explore the map of sites
       </Link>

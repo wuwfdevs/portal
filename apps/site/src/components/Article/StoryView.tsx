@@ -126,15 +126,16 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         <Acknowledgment hubHref={hubHref} independenceHref={independenceHref} lines={acknowledgments.lines} />
       </header>
 
-      {hasFeaturedMedia && (
-        <div className="container mt-8">
-          <FeaturedMedia blocks={post.featuredMedia} />
+      {/* The audio version comes first, straight under the headline block, so a listener does not scroll past the picture to find it. */}
+      {featuredAudio && (
+        <div className="container mt-8 max-w-[52rem]">
+          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" href={post.path} />
         </div>
       )}
 
-      {featuredAudio && (
-        <div className="container mt-6 max-w-[52rem]">
-          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" />
+      {hasFeaturedMedia && (
+        <div className="container mt-8">
+          <FeaturedMedia blocks={post.featuredMedia} />
         </div>
       )}
 
@@ -238,7 +239,7 @@ const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: stri
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, slug: true, path: true, categories: true, meta: true, publishingIdentity: true },
+    select: { title: true, slug: true, path: true, categories: true, meta: true, publishingIdentity: true, featuredAudio: true },
     where: { and: [{ fellowship: { equals: fellowshipId } }, { id: { not_equals: exceptId } }] },
   })
   return result.docs

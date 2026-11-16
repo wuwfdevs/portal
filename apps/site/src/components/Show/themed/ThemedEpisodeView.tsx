@@ -89,6 +89,13 @@ export function ThemedEpisodeView({
           </p>
         )}
 
+        {/* The audio comes first, straight under the headline block, ahead of the picture. */}
+        {!locked && audio && (
+          <div className="mt-8">
+            <AudioPlayerBlock audio={audio} blockType="audioPlayer" className="my-0" href={post.path} />
+          </div>
+        )}
+
         {post.featuredMedia?.length ? (
           <div className="mt-8">
             <FeaturedMedia blocks={post.featuredMedia} />
@@ -101,11 +108,6 @@ export function ThemedEpisodeView({
           </div>
         ) : (
           <>
-            {audio && (
-              <div className="mt-8">
-                <AudioPlayerBlock audio={audio} blockType="audioPlayer" className="my-0" />
-              </div>
-            )}
             <RichText
               className="mt-10 font-(family-name:--font-show-body) prose-p:text-lg prose-p:leading-[1.9] prose-p:text-(--color-show-text) prose-a:text-(--color-show-accent) prose-headings:text-(--color-show-text) prose-strong:text-(--color-show-text) prose-blockquote:text-(--color-show-muted)"
               data={post.content}

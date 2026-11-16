@@ -3,8 +3,10 @@ import React from 'react'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Media } from '@/components/Media'
+import { SectionNav } from '@/components/SectionNav'
 import { appearanceLine, dateParts, performanceTitle } from '@/lib/radiolive/arrange'
 import type { RadioLiveData } from '@/lib/radiolive/load'
+import { radioLiveNavItems } from '@/lib/radiolive/nav'
 
 import { RecordingPlayer, ShowFrame, ShowLink } from './parts'
 
@@ -21,18 +23,7 @@ export function RadioLiveHub({ data, independenceHref }: { data: RadioLiveData; 
   const nextWhen = next ? dateParts(next.startsAt) : null
   return (
     <div className="bg-surface-dark pb-0 text-surface">
-      <div className="border-b border-surface-dark-line">
-        <div className="container flex min-h-[3.75rem] flex-wrap items-center gap-x-7 gap-y-2 py-2">
-          <span className="font-serif text-2xl font-bold">RadioLive</span>
-          <nav aria-label="RadioLive" className="flex w-full flex-wrap gap-x-5 gap-y-0 text-sm font-bold md:w-auto md:flex-1">
-            {[['shows', 'Shows'], ['watch', 'Watch'], ['artists', 'Artists'], ['encores', 'Encores'], ['about', 'About'], ['support', 'Support']].map(([id, label]) => (
-              <a className="inline-flex min-h-11 items-center text-surface" href={`#${id}`} key={id}>
-                {label}
-              </a>
-            ))}
-          </nav>
-        </div>
-      </div>
+      <SectionNav homeHref="/radiolive" items={radioLiveNavItems(data)} label="RadioLive" tone="dark" />
 
       <header className="relative">
         <div className="relative h-[26rem] bg-surface-dark-hover md:h-[34rem]">
