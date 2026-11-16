@@ -129,7 +129,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       {/* The audio version comes first, straight under the headline block, so a listener does not scroll past the picture to find it. */}
       {featuredAudio && (
         <div className="container mt-8 max-w-[52rem]">
-          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" />
+          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" href={post.path} />
         </div>
       )}
 

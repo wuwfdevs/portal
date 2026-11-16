@@ -92,7 +92,7 @@ export function ThemedEpisodeView({
         {/* The audio comes first, straight under the headline block, ahead of the picture. */}
         {!locked && audio && (
           <div className="mt-8">
-            <AudioPlayerBlock audio={audio} blockType="audioPlayer" className="my-0" />
+            <AudioPlayerBlock audio={audio} blockType="audioPlayer" className="my-0" href={post.path} />
           </div>
         )}
 

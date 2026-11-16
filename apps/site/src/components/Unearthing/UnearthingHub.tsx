@@ -79,7 +79,7 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
             </p>
             <h2 className="font-serif text-4xl font-bold leading-tight">{featured.title}</h2>
             {featured.meta?.description && <p className="font-serif text-lg leading-relaxed text-ink-2">{featured.meta.description}</p>}
-            {featuredAudio && <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="mt-0 bg-surface" id="" title={featured.title} />}
+            {featuredAudio && <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="mt-0 bg-surface" id="" title={featured.title} href={featured.path} />}
             {featured.path && (
               <p className="text-sm font-bold">
                 <Link className="text-warning-fg underline underline-offset-4" href={featured.path}>Read and listen</Link>

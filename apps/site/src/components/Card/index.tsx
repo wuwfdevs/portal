@@ -4,17 +4,16 @@ import React from 'react'
 import type { Post } from '@/payload-types'
 
 import { Media } from '@/components/Media'
-import { formatDuration } from '@/lib/format'
+import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
+import { trackFromAudio } from '@/lib/player/track'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { cn } from '@/utilities/ui'
-
-import { CardAudio } from './CardAudio'
 
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
 export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio'>>
 
 /**
- * A story card. A story with audio carries a play control on the card itself (the one thing on it that is not part of the link). The whole card is clickable through one link whose box is stretched over it with CSS
+ * A story card. A story with audio carries a play button on the card itself (the one thing on it that is not part of the link); it plays in the site's one player. The whole card is clickable through one link whose box is stretched over it with CSS
  * (`after:absolute after:inset-0`), so it needs no script, keyboard and screen-reader users get exactly one
  * link, and text can still be selected.
  */
@@ -35,8 +34,8 @@ export const Card: React.FC<{
     .filter((t): t is string => Boolean(t))
   const titleToUse = titleFromProps || title
   const href = path || null
-  // Only a file the reader may play: a members-only story's audio comes back empty for the public, so no control shows.
-  const audio = featuredAudio && typeof featuredAudio === 'object' && featuredAudio.url ? featuredAudio : null
+  // Only a file the reader may play: a members-only story's audio comes back without its address for the public, so no button shows.
+  const track = featuredAudio && typeof featuredAudio === 'object' ? trackFromAudio(featuredAudio, { title: titleToUse, href }) : null
 
   return (
     <article
@@ -85,7 +84,12 @@ export const Card: React.FC<{
           </h3>
         )}
         {description && <p className="text-base text-ink-2">{description.replace(/\s/g, ' ')}</p>}
-        {audio?.url && <CardAudio durationLabel={formatDuration(audio.durationSeconds)} src={audio.url} title={titleToUse || audio.title} />}
+        {track && (
+          // Above the card's stretched link (`z-10`), so pressing it plays the audio in the site's player instead of opening the story.
+          <div className="relative z-10 self-start pt-1">
+            <PlayAudioButton track={track} />
+          </div>
+        )}
       </div>
     </article>
   )

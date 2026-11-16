@@ -66,7 +66,7 @@ export function ThemedShowView({ data, independenceHref }: { data: ThemedShowDat
                   latest.title
                 )}
               </p>
-              {latestAudio && <AudioPlayerBlock audio={latestAudio} blockType="audioPlayer" className="my-0" id="" title={latest.title} />}
+              {latestAudio && <AudioPlayerBlock audio={latestAudio} blockType="audioPlayer" className="my-0" id="" title={latest.title} href={latest.path} />}
               {latest.membersOnly && latest.path && (
                 <Link className={cn(t.secondary, 'self-start')} href={latest.path}>
                   For WUWF members
