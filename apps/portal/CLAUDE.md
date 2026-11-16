@@ -425,7 +425,7 @@ each a secret or a deployment fact. The bell is `components/notifications/notifi
 number rather than failing if the table is missing); the screens are `/notifications` and `/notifications/preferences`. Roadmap raises
 `roadmap.status_changed` and `roadmap.comment_added` to a request's author. Not built: digests, types that cannot be turned off, live push (Realtime
 would send the delivery columns; see the design doc), per-record muting, other tools. Migrations `20261115120000` (schema) and `20261115130000` (a
-portal-wide release note, since a guide belongs to a tool).
+portal-wide release note, since a guide belongs to a tool), applied to both projects 2026-11-16 and verified on both (grants, RLS and the claim function's lease by a rolled-back test on preview; grants and the release note on production).
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -4783,7 +4783,15 @@ files" under what is left for the user is a failure of the task, the same as lea
 `list_projects` rather than trusting this paragraph if either looks wrong. The order is fixed: `list_migrations` on both to see what
 is pending (this also catches a file someone forgot), apply to preview, verify there (see below), apply to production, verify
 there, then record the dates. Use `apply_migration` for ordinary DDL. Use `execute_sql` for a statement `apply_migration` hangs on or
-holds for a confirmation that never arrives (`drop`, `delete`; see the Sourcework entries above). Either way the project's own history
+holds for a confirmation that never arrives (`drop`, `delete`; see the Sourcework entries above). **Why a statement "waits for a confirmation nobody sees" (found 2026-11-16, and the
+cause of most earlier stalls):** the connector refuses to run a statement it classifies as destructive until the user answers a
+question, and in a cloud session that question is never shown, so the call just times out after 60 seconds and the tool says
+"the server asked the user a question". It is a statement-text check, not a permissions problem and not something the user can fix
+by approving. Confirmed: a verification block containing `update … set …` with **no `where`** stalled; the identical block with
+`where` clauses ran at once. Repo notes report the same for `drop` and `delete` statements. So: **always write `update` and `delete`
+with an explicit `where`** (`where true` if you really mean every row), keep a destructive statement in its own call, and for a
+migration that must contain `drop`/`delete`, do not retry the same text: split the destructive statement out, or say it is the
+blocker. When a call times out like this, do not call the tool again with the same text. Either way the project's own history
 records its own timestamp, so the migration **name** is the join key, as `APPLIED.md` says. **Verify with real queries**, not just
 "it applied": the table or function exists, a grant or policy does what the migration's header says (a rolled-back `begin; set local
 role authenticated; …; rollback;` through `execute_sql` can prove that a signed-in role is refused what it should be refused), and
