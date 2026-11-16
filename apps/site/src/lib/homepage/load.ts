@@ -13,9 +13,9 @@ const idOf = (value: { id: string | number } | string | number | null | undefine
   value == null ? null : typeof value === 'object' ? value.id : value
 
 /** The fields a homepage card needs; the story body is never loaded. */
-export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format'>
+export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format' | 'featuredAudio'>
 
-export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true } as const
+export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true, featuredAudio: true } as const
 
 export interface HomepageData {
   emergency: { label: string; headline: string; body: string | null; linkLabel: string | null; linkHref: string | null } | null

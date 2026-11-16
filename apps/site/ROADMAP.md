@@ -7,6 +7,13 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Cards with audio, audio order, section nav (2026-11-16)
+
+- **Story cards play their audio** (`Card/CardAudio.tsx`, a client control with `preload="none"`, above the card's stretched link; starting one pauses the others, including the story page's player). `featuredAudio` joined `CARD_FIELDS` and the other card selects (posts list, fellowship hub, "More from", related stories). A members-only story's audio comes back empty for the public, so its card shows no player.
+- **On a story page the audio player sits straight under the headline block, before the featured media** (`StoryView`, and the themed episode page).
+- **Broadcast schedule hero** gained its missing bottom padding.
+- **`components/SectionNav` is the standard sub-navigation** (rule in `CLAUDE.md`). RadioLive's hub uses it (`lib/radiolive/nav.ts` lists only sections that render; the old bar linked to Artists, Encores and Support even when empty). **Not yet moved to it:** the Voyager's masthead nav (its own design), and the RadioLive show and artist pages, which keep a "back to RadioLive" breadcrumb. Not checked in a browser at 390 and 1440 px; do that before merging.
+
 ## Vector search and similar stories (built 2026-11-13; not yet run on real data)
 
 **Branch:** `claude/eloquent-einstein-acfwc9` (`wuwfdevs/portal`), **no PR opened** (ask before opening one). Migration `20261113_222100_story_embeddings` tested up, down and up;

@@ -193,6 +193,8 @@ Run typecheck, lint and tests before calling a change done.
   so an unguarded `payload.find` in a page or block leaks drafts. `lib/public-reads.test.ts` fails when one forgets.
 - **A cached read needs an invalidation.** Anything read through `getCachedGlobal` (tag `global_<slug>`) needs an
   `afterChange` hook that revalidates that tag, as Header, Footer, Support page and Site settings have.
+- **Sub-navigation inside a section goes through `components/SectionNav`.** One `<nav>`, one line that scrolls sideways on a phone, 44px links, `aria-current="page"` on the current page, and only links to places that render (build the list in a pure helper, as `lib/radiolive/nav.ts` does). Do not hand-build a row of links; if a section's masthead is its own design (the Voyager), say so in the component.
+- **A story card with audio plays it on the card** (`components/Card/CardAudio.tsx`): any query that feeds `Card` must select `featuredAudio` (`CARD_FIELDS` does). Nothing autoplays, and starting one player pauses the others.
 - Logic separate from presentation: pure, tested modules for publishing, revenue, entitlement and
   listening logic; components stay thin.
 - Colours, type and spacing come from `@wuwf/design-tokens`; no one-off hex values or pixel sizes.

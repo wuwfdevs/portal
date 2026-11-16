@@ -35,7 +35,7 @@ export const AudioPlayerBlock: React.FC<AudioPlayerBlockProps & { className?: st
           {length && <span className="ml-2 text-sm font-normal text-ink-3">{length}</span>}
         </figcaption>
         {text && <p className="text-sm text-ink-2">{text}</p>}
-        <audio aria-label={heading} className="w-full" controls preload="none" src={file.url} />
+        <audio aria-label={heading} className="w-full" controls data-story-audio="" preload="none" src={file.url} />
         {file.credit && <p className="text-xs text-ink-3">{file.credit}</p>}
       </div>
     </figure>

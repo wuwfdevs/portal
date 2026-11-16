@@ -4,14 +4,17 @@ import React from 'react'
 import type { Post } from '@/payload-types'
 
 import { Media } from '@/components/Media'
+import { formatDuration } from '@/lib/format'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { cn } from '@/utilities/ui'
 
+import { CardAudio } from './CardAudio'
+
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
-export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity'>>
+export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio'>>
 
 /**
- * A story card. The whole card is clickable through one link whose box is stretched over it with CSS
+ * A story card. A story with audio carries a play control on the card itself (the one thing on it that is not part of the link). The whole card is clickable through one link whose box is stretched over it with CSS
  * (`after:absolute after:inset-0`), so it needs no script, keyboard and screen-reader users get exactly one
  * link, and text can still be selected.
  */
@@ -24,7 +27,7 @@ export const Card: React.FC<{
   showCategories?: boolean
   title?: string
 }> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
-  const { path, categories, meta, title, format, publishingIdentity } = doc || {}
+  const { path, categories, meta, title, format, publishingIdentity, featuredAudio } = doc || {}
   const { description, image: metaImage } = meta || {}
 
   const topics = (categories ?? [])
@@ -32,6 +35,8 @@ export const Card: React.FC<{
     .filter((t): t is string => Boolean(t))
   const titleToUse = titleFromProps || title
   const href = path || null
+  // Only a file the reader may play: a members-only story's audio comes back empty for the public, so no control shows.
+  const audio = featuredAudio && typeof featuredAudio === 'object' && featuredAudio.url ? featuredAudio : null
 
   return (
     <article
@@ -80,6 +85,7 @@ export const Card: React.FC<{
           </h3>
         )}
         {description && <p className="text-base text-ink-2">{description.replace(/\s/g, ' ')}</p>}
+        {audio?.url && <CardAudio durationLabel={formatDuration(audio.durationSeconds)} src={audio.url} title={titleToUse || audio.title} />}
       </div>
     </article>
   )

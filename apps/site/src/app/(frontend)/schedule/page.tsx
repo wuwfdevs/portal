@@ -45,7 +45,7 @@ export default async function ListenPage() {
 
   return (
     <>
-      <section aria-labelledby="listen-title" className="container flex flex-col gap-4 pt-12">
+      <section aria-labelledby="listen-title" className="container flex flex-col gap-4 pb-12 pt-12">
         <span className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">WUWF 88.1 · Pensacola</span>
         <h1 className="font-serif text-4xl font-bold leading-tight text-ink md:text-6xl" id="listen-title">
           Broadcast schedule
