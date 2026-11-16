@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { sendEmail, isEmailSendingConfigured } from "@/lib/email";
 import { getSiteUrl } from "@/lib/site-url";
 import { describeFailure } from "@/lib/audience-listening/cron/run-task";
-import { notificationEmailText } from "../email-text";
+import { notificationEmailText, notificationIdempotencyKey } from "../email-text";
 
 export const MAX_EMAIL_ATTEMPTS = 5;
 const BATCH = 25;
@@ -36,7 +36,13 @@ export async function sendQueuedEmails(
         { title: row.notif_title, body: row.notif_body, href: row.notif_href },
         origin,
       );
-      const result = await sendEmail({ to: row.to_email, subject, text });
+      const result = await sendEmail({
+        to: row.to_email,
+        subject,
+        text,
+        // A retry of this row after a send whose result was never recorded must not send a second copy.
+        idempotencyKey: notificationIdempotencyKey(row.notification_id),
+      });
       ok = result.ok;
       if (!result.ok) reason = result.error;
     } catch (caught) {

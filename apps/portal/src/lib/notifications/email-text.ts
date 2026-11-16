@@ -19,3 +19,11 @@ export function notificationEmailText(
   lines.push(`Choose which notifications you get, and where: ${base}/notifications/preferences`);
   return { subject: input.title.replace(/\s+/g, " ").trim(), text: lines.join("\n") };
 }
+
+/**
+ * The key a queued notification's email is sent under. It is the notification's own id, so every attempt at one row (a retry after the
+ * send succeeded but recording it failed, or after the worker stopped) carries the same key and Resend sends it once.
+ */
+export function notificationIdempotencyKey(notificationId: string): string {
+  return `notification/${notificationId}`;
+}

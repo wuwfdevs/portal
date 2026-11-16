@@ -5,7 +5,7 @@ import {
   notificationTypesByGroup,
   type NotificationTypeDef,
 } from "./catalog";
-import { notificationEmailText } from "./email-text";
+import { notificationEmailText, notificationIdempotencyKey } from "./email-text";
 import { canOpenTool, planDeliveries } from "./plan";
 import {
   diffPreferences,
@@ -167,6 +167,13 @@ describe("notificationEmailText", () => {
     );
     expect(text).not.toContain("Open it");
     expect(text.startsWith("Choose which")).toBe(true);
+  });
+});
+
+describe("notificationIdempotencyKey", () => {
+  it("is the same for every attempt at one notification and different between notifications", () => {
+    expect(notificationIdempotencyKey("abc")).toBe(notificationIdempotencyKey("abc"));
+    expect(notificationIdempotencyKey("abc")).not.toBe(notificationIdempotencyKey("abd"));
   });
 });
 
