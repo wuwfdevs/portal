@@ -410,20 +410,22 @@ project's Deployment Protection settings if it matters.
 
 **Notifications: a portal-wide layer, Roadmap first (2026-11-16).** A pointer; read `docs/notifications-design.md` first. A tool tells people
 something by calling `notify()` (`lib/notifications/notify.ts`, server-only, best effort, never throws); it never sends mail or writes a notification
-row itself. Five things are load-bearing: (1) **`lib/notifications/catalog.ts` is the one list of event types** (`<tool>.<event>`, with defaults), a
-manifest and not an extension point: a new kind of event adds a line there in the same change that raises it, with no migration; (2) **rows are written
-only by the service client** (`notification_inbox` has no insert policy), and a recipient reads their own through a **column grant that omits the email
-delivery columns** and updates **`read_at` only**, so `select *` on it is refused and `queries.ts` names its columns; (3) **email is queued, not sent
-inline**: `api/cron/notifications` (`vercel.json`, every minute, `CRON_SECRET`, in the middleware's `PUBLIC_PATHS` and `modules.test.ts`'s platform list)
-claims due rows with `notification_claim_emails` (a five-minute lease, `skip locked`), sends through `lib/email.ts`, and records the result with
-`notification_finish_email`; with email unconfigured it claims nothing; (4) **a person is told only about a tool they can open** (`plan.ts`, with
-`grantRequiredForTool`) and never about their own action; (5) **only a choice that differs from the catalog default is stored** in
-`notification_preferences`. The bell is in `PortalNav` (the layout reads the count and shows no number rather than failing if the table is missing);
-the screens are `/notifications` and `/notifications/preferences`. Roadmap raises `roadmap.status_changed` and `roadmap.comment_added` to a request's
-author. Not built: digests, types that cannot be turned off, live push, other tools. Migrations `20261115120000` (schema) and `20261115130000`
-(a portal-wide release note, since a guide belongs to a tool); **not yet applied to either project**, so `db:check` fails until they are and
-`APPLIED.md` has their dates. The migration's grants and `notification_claim_emails` were not run against a live database in the session that wrote
-them: verify on preview first (design doc §9).
+row itself. Six things are load-bearing: (1) **`lib/notifications/catalog.ts` is the one list of event types** (`<tool>.<event>`, with defaults and an
+`audience` in words), a manifest and not an extension point: a new kind of event adds a line there in the same change that raises it, with no
+migration; (2) **an event is raised for the people it concerns, never for "everyone who can open the tool"**: the raising tool works out the ids (a
+request's author, a project's owner, a role's holders) and `notify()` only ever narrows them (drops the actor, the inactive, anyone who cannot open
+the tool, anyone who turned the type off); (3) **rows are written only by the service client** (`notification_inbox` has no insert policy), and a
+recipient reads their own through a **column grant that omits the email delivery columns** and updates **`read_at` only**, so `select *` on it is
+refused and `queries.ts` names its columns; (4) **email is sent right after the response (`after()`), from a queue that is the row itself**:
+`notification_claim_emails` (a five-minute lease, `skip locked`) is shared by that immediate send and the sweep, so one email can never go twice;
+`api/cron/notifications` (`vercel.json`, every five minutes, `CRON_SECRET`, in the middleware's `PUBLIC_PATHS` and `modules.test.ts`'s platform list)
+only retries and clears rows 90 days old, and with email unconfigured nothing is claimed; (5) **only a choice that differs from the catalog default is
+stored** in `notification_preferences`; (6) **no new variable**: it uses `CRON_SECRET`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `NEXT_PUBLIC_SITE_URL`,
+each a secret or a deployment fact. The bell is `components/notifications/notification-bell.tsx` in `PortalNav` (the layout reads the count and shows no
+number rather than failing if the table is missing); the screens are `/notifications` and `/notifications/preferences`. Roadmap raises
+`roadmap.status_changed` and `roadmap.comment_added` to a request's author. Not built: digests, types that cannot be turned off, live push (Realtime
+would send the delivery columns; see the design doc), per-record muting, other tools. Migrations `20261115120000` (schema) and `20261115130000` (a
+portal-wide release note, since a guide belongs to a tool).
 
 **Exception: Sourcework** (`src/app/(portal)/sourcework/`,
 `tw_*`/`sw_*` tables) is an explicitly-approved, in-progress milestone on top of the portal
@@ -4773,6 +4775,22 @@ happened here: Audience Listening's registry row was flipped to `available` whil
 route still pointed at the generic placeholder, because the migration that repoints it
 hadn't been run, and `/tools/audience-listening` redirected to itself forever.
 
+**You apply the migrations. The person you are working for does not, and must never be asked to.** This has been said
+repeatedly and it keeps being missed, so it is a rule, not a courtesy: writing a migration and then listing "apply these two
+files" under what is left for the user is a failure of the task, the same as leaving a test red. The Supabase connector
+(`mcp__Supabase__*`; load it with ToolSearch if it is deferred) is in every session that can do this work. The two projects are
+**`wuwf-tools-portal-preview`** (`sxypsoxcoqmqubuiqesx`) and **`wuwf-tools-portal`** (`bpmwfvjttypmsdjgqjgb`); confirm with
+`list_projects` rather than trusting this paragraph if either looks wrong. The order is fixed: `list_migrations` on both to see what
+is pending (this also catches a file someone forgot), apply to preview, verify there (see below), apply to production, verify
+there, then record the dates. Use `apply_migration` for ordinary DDL. Use `execute_sql` for a statement `apply_migration` hangs on or
+holds for a confirmation that never arrives (`drop`, `delete`; see the Sourcework entries above). Either way the project's own history
+records its own timestamp, so the migration **name** is the join key, as `APPLIED.md` says. **Verify with real queries**, not just
+"it applied": the table or function exists, a grant or policy does what the migration's header says (a rolled-back `begin; set local
+role authenticated; …; rollback;` through `execute_sql` can prove that a signed-in role is refused what it should be refused), and
+`get_advisors` for security on the project shows nothing new. If the connector is genuinely unavailable or a project refuses the
+change, say that as the **blocker**, in the first lines of your reply, with the exact error; do not present the migration as
+"ready to apply".
+
 So a schema change is done when, and only when:
 
 1. It is applied to **`wuwf-tools-portal-preview`**, and verified there.
@@ -4895,6 +4913,16 @@ make explicitly, not by default.
   - Tone is the station's: factual, calm, sentence case, no exclamation points.
   - The migration goes through `APPLIED.md` like any other. Internal-only changes
     (refactors, fixes nobody sees, docs) don't need one.
+- **Reuse the shared components and design tokens first, and make a new shared component when you would otherwise build
+  the same thing twice.** Before writing any UI, look through `src/components/ui/` and `docs/ui-patterns.md` ("Shared
+  components", "Shared building blocks") and use what is there: `Button`, `PrimaryLink`/`SecondaryLink`, `PageHeader`, `Card`,
+  `Alert`, `EmptyState`, `Badge`, `Table`, `Pagination`, `CheckboxField`/`Field`/`Input`, `FormActions`, `RouteError`, `ListToolbar`,
+  and so on, plus the token classes below. A hand-typed `<input type="checkbox">`, a bespoke empty box or a one-off pill is
+  the thing to stop and replace. And look for the opposite opportunity as you go: if the piece you are about to hand-build is
+  something a second screen will plainly need (a count badge, a notification row, a labelled toggle), or it is already
+  hand-built in two places, **make it a component in `src/components/ui/` (or `components/<area>/` if it is
+  specific to one area), in the same change**, and add it to the table in `docs/ui-patterns.md` so the next person finds it.
+  Say what you extracted or reused in the summary. A rule a test can enforce goes in `ui-rules.test.ts`.
 - **Colours and type sizes come from `src/lib/design-tokens.ts`, and a test checks it.** Use a token class
   (`bg-brand-hover`, `text-danger-fg`, `border-line-strong`, `bg-deep`) or a named size (`text-badge` 10,
   `text-label` 11, `text-meta` 12, `text-ui` 13, `text-body` 15, `text-section` 17, `text-title` 20,
@@ -4932,7 +4960,7 @@ make explicitly, not by default.
   on a different _kind_ of control than the last fix covered (`30464b3`, `90747aa`,
   `af42f2b`, `f9fe609`, and `rich-text-editor.tsx`) — check this before adding any new one.
 - Migrations in `supabase/migrations/` are not self-applying, and no build or deploy will
-  apply them. Adding one is not the end of the job: apply it to preview, then production,
+  apply them. **You apply them** (Database workflow, above; never leave it for the user). Adding one is not the end of the job: apply it to preview, then production,
   confirm the tables exist, record both dates in `supabase/migrations/APPLIED.md`, and run
   `npm run db:check`. See "Database workflow" above — this is the step most often skipped,
   and skipping it ships a tool that silently does nothing.
@@ -4940,6 +4968,14 @@ make explicitly, not by default.
   plus `npm run db:check` when the change touched `supabase/migrations/`.
 - Update this file and/or README.md when you change architecture, directory conventions,
   or the local/deploy workflow — not for routine feature work.
+- **Environment variable or station setting: decide on purpose, and say which.** A **secret** (API keys, signing secrets, the
+  cron secret) is always an environment variable: a value in a table is read by staff queries, backups and exports. A
+  **deployment fact** the infrastructure owns (the Portal's own address, the time zone the database is in) is a variable. Anything
+  that is **the station's own choice or identity** (names, addresses, mailboxes, locations, copy, what is switched on) is a
+  `station_settings` column edited at Administration → Station, with a variable only as a fallback for a deployment that already
+  has one (`lib/station-links.ts` is the pattern). Before adding a variable, ask which of the three it is, write the answer in
+  the design doc, and add it to `.env.example` and the `INSTALL.md` table. Do not add a variable an administrator should be
+  able to change.
 - Don't add a major dependency without a specific reason it's needed (and note that
   reason in the commit/PR description) — this project deliberately runs on a small
   dependency set.

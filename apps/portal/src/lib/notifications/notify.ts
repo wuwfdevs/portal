@@ -1,14 +1,19 @@
 import "server-only";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { grantRequiredForTool } from "@/lib/tool-access-rules";
 import { safeLocalPath } from "@/lib/safe-path";
 import { getNotificationType, type NotificationTypeKey } from "./catalog";
 import { canOpenTool, planDeliveries, type RecipientFacts } from "./plan";
 import type { StoredPreference } from "./preferences";
+import { sendQueuedEmails } from "./cron/send-queued";
 
 export interface NotifyInput {
   type: NotificationTypeKey;
-  /** Profile ids. Repeats are dropped. */
+  /**
+   * Profile ids of the people this event concerns, worked out by the tool that raises it (a request's author, a project's owner, the
+   * holders of a role). Never "everyone who can open the tool": notify() does not widen an audience, it only narrows it.
+   */
   recipients: readonly string[];
   /** The person who did the thing; never told of their own action. */
   actorId?: string | null;
@@ -29,8 +34,8 @@ function clip(text: string, max: number): string {
 
 /**
  * Tells people about an event (docs/notifications-design.md §4): who is told and where comes from the catalog, each person's
- * preferences and whether they can open the tool; the Notification Center row is written now and the email is queued for the scheduled
- * run (api/cron/notifications), never sent inline.
+ * preferences and whether they can open the tool; the Notification Center row is written now and the email is queued, then sent right
+ * after the response (and, failing that, by the scheduled sweep in api/cron/notifications).
  *
  * Best effort and never throws: a failure is logged (the type and a count, never the title, body or an address) and the action that
  * raised the event goes on, as `notifyHostRequest` does. Uses the service client because the recipient is usually not the person acting
@@ -122,7 +127,30 @@ export async function notify(input: NotifyInput): Promise<void> {
     const { error } = await db
       .from("notification_inbox")
       .upsert(rows, { onConflict: "recipient_id,dedupe_key", ignoreDuplicates: true });
-    if (error) console.error("Notifications: could not save", input.type, error.code ?? "");
+    if (error) {
+      console.error("Notifications: could not save", input.type, error.code ?? "");
+      return;
+    }
+
+    // Email goes out now, right after the response, not at the next scheduled run: the row is already queued, and the claim's lease
+    // means this and the scheduled sweep can never send the same one twice. If there is no request to hang the work on (a scheduled
+    // task or a webhook raised the event) the sweep sends it a few minutes later instead.
+    if (plan.some((delivery) => delivery.email)) {
+      try {
+        after(async () => {
+          try {
+            await sendQueuedEmails(db);
+          } catch (caught) {
+            console.error(
+              "Notifications: immediate send failed",
+              caught instanceof Error ? caught.name : "unknown error",
+            );
+          }
+        });
+      } catch {
+        // No request scope: the scheduled sweep sends it.
+      }
+    }
   } catch (error) {
     console.error(
       "Notifications: could not raise",

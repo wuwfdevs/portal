@@ -74,6 +74,8 @@ Set these environment variables for Production:
 | `NEXT_PUBLIC_STATION_TIME_ZONE`        | your IANA zone, if not `America/Chicago` (must equal the database's)         |
 | `NEXT_PUBLIC_STATION_LOGO`             | optional: a path under `public/` or an https address; default is WUWF's logo |
 | `OPENAI_API_KEY`                       | needed for the assistant, Editorial Inquiry and Sourcework's analysis steps  |
+| `CRON_SECRET`                          | a long random string (16+ characters); scheduled work and notification email retries |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL`  | email (notifications, Academic Partnerships); the sender must be verified in Resend |
 
 Each module that talks to an outside service has its own keys (AssemblyAI for Sourcework, Daily for Remote
 Interview, and so on). You do not need to memorise them: after step 5, **Administration → Tools** lists what

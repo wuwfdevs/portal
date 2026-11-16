@@ -5,6 +5,7 @@ import { listStoredPreferences } from "@/lib/notifications/queries";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { FormActions } from "@/components/ui/form-actions";
+import { CheckboxField } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { savePreferences } from "../actions";
@@ -55,25 +56,20 @@ export default async function NotificationPreferencesPage({
                       <div className="min-w-0">
                         <p className="text-body font-semibold text-ink-900">{def.label}</p>
                         <p className="mt-0.5 text-ui text-ink-500">{def.description}</p>
+                        <p className="mt-0.5 text-meta text-ink-400">Told: {def.audience}</p>
                       </div>
-                      <label className="flex items-center gap-2 text-ui text-ink-700 sm:w-24 sm:justify-center">
-                        <input
-                          type="checkbox"
-                          name={inAppFieldName(def.key)}
-                          defaultChecked={channels.inApp}
-                          className="h-4 w-4"
-                        />
-                        <span className="sm:sr-only">Notifications</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-ui text-ink-700 sm:w-24 sm:justify-center">
-                        <input
-                          type="checkbox"
-                          name={emailFieldName(def.key)}
-                          defaultChecked={channels.email}
-                          className="h-4 w-4"
-                        />
-                        <span className="sm:sr-only">Email</span>
-                      </label>
+                      <CheckboxField
+                        name={inAppFieldName(def.key)}
+                        defaultChecked={channels.inApp}
+                        className="items-center sm:w-24 sm:justify-center"
+                        label={<span className="sm:sr-only">Notifications</span>}
+                      />
+                      <CheckboxField
+                        name={emailFieldName(def.key)}
+                        defaultChecked={channels.email}
+                        className="items-center sm:w-24 sm:justify-center"
+                        label={<span className="sm:sr-only">Email</span>}
+                      />
                     </li>
                   );
                 })}

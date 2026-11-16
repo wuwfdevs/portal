@@ -25,7 +25,7 @@ account has a Notification Center. What a person is told about is limited by wha
 ## 2. The catalog
 
 `lib/notifications/catalog.ts` is a static list of event types: key (`<tool>.<event>`), the tool it belongs to,
-a label and one-line description for the preferences screen, and its defaults (in-app, email). It is the same kind of
+a label and one-line description for the preferences screen, **who it is told to** (`audience`, in words, shown under the type so a person can see why they get it), and its defaults (in-app, email). It is the same kind of
 thing as `modules.ts`: a manifest of what exists, **not an extension point**. A tool that wants a new kind of
 event adds a line to the catalog in the same change that raises it. No registration at runtime, no plugin API.
 
@@ -60,6 +60,28 @@ Two tables (`20261115120000_notifications.sql`). Both are **per-person records a
   `execute` for `service_role` only (revoked from `public, anon, authenticated` by name), like every other
   server-only function in this database.
 
+## 3a. Who is told: the tool decides, `notify()` only narrows
+
+An event is raised **for the people it concerns**, not for everyone who can open the tool. A request's author, a Sourcework
+project's owner, the holders of a role: the tool that raises the event knows who that is, works out their ids and passes them
+as `recipients`. The layer has no "everyone with access" shortcut on purpose, because that is how people end up with a
+bell full of things that are not theirs.
+
+What the layer adds is only ever **narrowing**: it drops the person who acted, anyone inactive, anyone who cannot open the
+tool, and anyone who turned the type off. So a mistake in a tool's audience can over-include (a tool's bug) but the layer never
+adds a person the tool did not name.
+
+Rules for a tool raising an event:
+
+- Name the audience in the catalog entry (`audience`), in the same change as the event.
+- Pass the smallest set of ids that is right. A Sourcework project event goes to that project's owner, not to Sourcework's members.
+  A group audience (everyone holding a role) is fine when the event is about the role's work, not about one record.
+- If someone should be able to follow or mute one record (this project, not that one), that is a subscription. It is not built:
+  it would be a `scope` on `notification_preferences` and a "mute this" control where the record is shown. Add it when the first
+  event needs it, not before.
+- Resolving a group is the tool's query (its own role helper, e.g. `lib/roadmap/roles.ts`); a shared resolver goes in
+  `lib/notifications/` when a second tool needs the same one.
+
 ## 4. Raising an event: `notify()`
 
 ```ts
@@ -84,31 +106,46 @@ await notify({
 4. skips anyone with both off; otherwise inserts one row, `email_state = 'pending'` when email is wanted.
 
 **It never throws and never delays the action that raised it.** A failure is logged without the title or body, and the
-action goes on, exactly as `notifyHostRequest` does. The email is **not sent inline**: `notify()` only queues it
-(§5). So a slow or down mail provider cannot slow a save, and a failed send is retried.
+action goes on, exactly as `notifyHostRequest` does. `notify()` writes the row, and the email goes out **right after the
+response** (`after()` from `next/server`), not at the next scheduled run. It is queued first, so a slow or down mail
+provider cannot slow a save, and a failed send is retried (§5).
 
 `href` must be a local path (`safeLocalPath`); anything else is stored as null.
 
-## 5. Email: queued, sent by the scheduled run
+## 5. Email: sent as it happens, queued so it is never lost
 
-`api/cron/notifications` (`vercel.json`, **every minute**, `Authorization: Bearer CRON_SECRET`, 401 with none set,
-listed in the middleware's `PUBLIC_PATHS` and in `modules.test.ts`'s platform list) does two small things:
+**Why not just send on the event, and why not only a schedule?** Sending inline in the request ties a save to a mail
+provider's speed and uptime, and loses the email if the provider hiccups or the function is cut off. A schedule alone makes
+every email wait for the next tick. So both: the row **is** the queue. `notify()` inserts it (`email_state = 'pending'`) and
+asks `after()` to send right after the response, so the email normally leaves within a second or two of the event. A
+scheduled sweep is the safety net for what did not go out then: a send that failed and is waiting to retry, a crash between
+claim and send, or an event raised with no request to hang `after()` on (a scheduled task or a webhook).
+
+`api/cron/notifications` (`vercel.json`, **every five minutes**: the retry delay and the lease are both multiples of five, so a
+tighter schedule would find nothing to do; `Authorization: Bearer CRON_SECRET`, 401 with none set, listed in the middleware's
+`PUBLIC_PATHS` and in `modules.test.ts`'s platform list) does two small things:
 
 1. **Send queued email.** `notification_claim_emails(25)` takes up to 25 due rows with `for update skip locked` and
-   pushes each one's next attempt five minutes out (a lease), so two overlapping runs cannot send the same row twice.
-   Each is sent through `sendEmail`; `notification_finish_email` then records `sent`, or schedules a retry with a
-   growing delay, or `failed` after five attempts. A crash between claim and finish costs a retry five minutes
-   later, never a duplicate send and never a lost row.
-2. **Housekeeping.** In the first minute of each hour, rows older than 90 days are deleted.
+   pushes each one's next attempt five minutes out (a lease). The immediate send and the sweep use the same claim, so they
+   can never send one row twice. Each is sent through `sendEmail`; `notification_finish_email` then records `sent`, or
+   schedules a retry with a growing delay, or `failed` after five attempts. A crash between claim and finish costs a retry
+   five minutes later, never a duplicate send and never a lost row.
+2. **Housekeeping.** In the first run of each hour, rows older than 90 days are deleted.
 
-If email is not configured (`isEmailSendingConfigured()` false) the run **does not claim anything**, so rows wait
-rather than burn their attempts, and the response says so. The Notification Center works regardless.
+If email is not configured (`isEmailSendingConfigured()` false) nothing is claimed, so rows wait rather than burn their
+attempts, and the response says so. The Notification Center works regardless.
 
 The run answers with counts only. It logs no address, title or body.
 
 **What an email says.** The title, the body, a link to the page, and a line pointing at the preferences screen. It is
 plain text and station-neutral (the Portal names no station in a message). Tools decide what goes in `title` and
 `body`; a tool whose content must not travel by email (Audience Listening's visitor messages) puts only a pointer in them.
+
+**Configuration.** No variable is specific to notifications. `CRON_SECRET` (the scheduler's bearer token; a secret, so a
+variable, shared with Audience Listening's run), `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (the sender is on a domain verified
+in the Resend account the key belongs to, so it is set with the key, as it is for every existing sender), and
+`NEXT_PUBLIC_SITE_URL` (the Portal's own address, which the links in an email use). Nothing here belongs in
+Administration → Station: there is no per-station choice to make. The in-app Center needs none of them.
 
 ## 6. The screens
 
@@ -120,8 +157,10 @@ plain text and station-neutral (the Portal names no station in a message). Tools
   Email), a Save, and the people-facing note that email goes to the address on their account. The link sits in the
   Center's header and the account menu.
 
-Polling: the count is read on each page load. There is no live push in slice 1; `/notifications` is a server page. A
-small refresher is the next step if people want the bell to move without a navigation.
+The count is read on each page load; the bell does not move on its own. **Live push to the bell is not built, and Supabase
+Realtime is not the way to do it as the table stands:** Realtime sends whole rows (it enforces row policies but not column
+grants), which would put the email delivery columns the grant keeps from a recipient onto the wire. If it is wanted, push a
+payload of the visible columns (a broadcast from `notify()`) instead of subscribing to the table.
 
 ## 7. Roadmap, the first producer
 

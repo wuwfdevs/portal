@@ -12,6 +12,11 @@ export interface NotificationTypeDef {
   group: string;
   label: string;
   description: string;
+  /**
+   * Who is told, in words, shown on the preferences screen. A type is raised for the people it concerns (a request's author, a project's
+   * owner), never "everyone who can open the tool": the tool that raises it works out the ids and hands them to `notify()`.
+   */
+  audience: string;
   defaults: { inApp: boolean; email: boolean };
 }
 
@@ -23,6 +28,7 @@ export const NOTIFICATION_TYPES = [
     label: "A request of mine changes status",
     description:
       "When a curator moves a request you filed to another status, with the reason if it is declined.",
+    audience: "The person who filed the request",
     defaults: { inApp: true, email: true },
   },
   {
@@ -31,6 +37,7 @@ export const NOTIFICATION_TYPES = [
     group: "Roadmap",
     label: "Someone comments on a request of mine",
     description: "When another person comments on a request you filed.",
+    audience: "The person who filed the request",
     defaults: { inApp: true, email: false },
   },
 ] as const satisfies readonly NotificationTypeDef[];

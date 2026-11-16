@@ -42,6 +42,12 @@ dependencies" true. Never run `pnpm install` with a different lockfile setting, 
 - **Do not change one app's dependencies to suit another.** Versions are per app; do not hoist.
 - **Build rules are per app.** The Portal's lint/test rules (design tokens, UI primitives, migration
   ledger, Resources release notes) apply to `apps/portal` only.
+- **Claude applies the migrations, and says so if it cannot.** A migration is not done until it is applied to the app's preview and
+  production Supabase projects (through the Supabase connector), verified, and recorded in the ledger. Never end a task with "apply these
+  for me"; the Portal's "Database workflow" has the order and the project ids. A cut-off connector is a stated blocker, not a hand-off.
+- **Reuse before you build, and extract when you would build twice.** Use the app's shared components and design tokens
+  (`apps/portal/docs/ui-patterns.md`), and make a new shared component in the same change when a second screen will plainly need what
+  you are hand-building. See the Portal's `CLAUDE.md`, "Rules for making changes".
 - **Every pull request gets a written title and description** — see "Rules for making changes" in
   `apps/portal/CLAUDE.md`; `.github/workflows/pr-text.yml` enforces the shape for the whole repo.
 

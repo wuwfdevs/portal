@@ -27,6 +27,8 @@ describe("the catalog", () => {
       expect(def.key).toMatch(/^[a-z0-9-]+\.[a-z_]+$/);
       expect(def.key.startsWith(`${def.toolKey}.`)).toBe(true);
       expect(def.label.length).toBeGreaterThan(0);
+      // A type is raised for the people it concerns; saying who is part of the entry, shown on the preferences screen.
+      expect(def.audience.trim().length).toBeGreaterThan(0);
     }
   });
 
