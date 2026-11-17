@@ -6,6 +6,7 @@ import { goalList } from '@/lib/sponsorship/goals'
 import { INQUIRE_HREF, SPONSOR_PATHS } from '@/lib/sponsorship/paths'
 import { summaryOf, type ProgramView } from '@/lib/sponsorship/programs'
 
+import { Faq } from '../PageParts'
 import { GoalPicker } from './GoalPicker'
 import { InquiryForm } from './InquiryForm'
 import { ContentHero, Paragraphs, Section, Source, SponsorshipShell, StatGrid, buttonOutline, buttonPrimary, card, eyebrow, headingProps, textLink } from './parts'
@@ -138,24 +139,7 @@ export const HubView: React.FC<{ content: SponsorshipContent; programs: ProgramV
 
       {shown(h?.faq) && (
         <Section {...headingProps(h.faq)}>
-          <div className="flex max-w-3xl flex-col">
-            {(h.faq.items ?? []).map((f) => {
-              const link = linkOf(f.linkLabel, f.linkHref)
-              return (
-                <details className="group border-t border-rule last:border-b" key={f.id ?? f.question}>
-                  <summary className="flex min-h-14 cursor-pointer items-center py-2 font-serif text-xl font-bold">{f.question}</summary>
-                  <div className="flex flex-col gap-2 pb-4 text-base text-ink-2">
-                    <Paragraphs text={f.answer} />
-                    {link && (
-                      <Link className={`${textLink} inline-flex min-h-11 items-center self-start`} href={link.href}>
-                        {link.label}
-                      </Link>
-                    )}
-                  </div>
-                </details>
-              )
-            })}
-          </div>
+          <Faq items={h.faq.items} />
         </Section>
       )}
 

@@ -7,6 +7,52 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Giving pages, boards 14 to 14d (built 2026-11-17)
+
+The giving section of the reviewed canvas (rethought Nov. 17) is built as public pages: `/support` (14, the Give page), `/support/ways` (14b, other ways to give),
+`/support/legacy` (14c) and `/support/thanks` (14d, where a gift ends). The boards win on copy, order and layout, except where noted below. **These pages describe giving
+and hand the donor to WUWF's donation form; the site never takes a gift.**
+
+- **Board 14a (the gift form) is deliberately not built as drawn.** It collects card number, CVC, bank routing and account numbers and a UWF employee ID. The site is not the
+  ledger (`CLAUDE.md`), has no payment processor, and collecting those details here would put the site in card-data scope for a department of the University. Instead the Give
+  card (the board's own: monthly or one time, the levels' amounts, what each comes to) sends the chosen amount and frequency to **WUWF's donation form**. Where it goes is the
+  `Giving pages` global's **Donation form address** (Contact and the form tab). With none set, no Give button is drawn and the card says to call (never a dead button).
+  **Whether the form reads the amount from the link is unconfirmed (a first test with `?amount=20` did not preselect):** the global has a switch, "The form takes the amount
+  and frequency from the link", off until someone tests it, and the parameter names to use; the note under the button changes with it, so the page never says an amount is
+  "already chosen" when it is not (`lib/giving/donate.ts`, `donationHref`, tested). Everything 14a draws that is not payment (where it goes, gift or memorial, about you, Day
+  Sponsor days and messages) is the donation form's job; **three panels and one FAQ answer assume the form has those fields** (below).
+- **Everything editable is in the admin (the standing rule).** The existing Support page global (slug `support-page`, now labelled **Giving pages**, same edit permission: membership
+  staff, publishers, administrators) holds every heading, sentence, amount, level, address and switch, with a tab per page. Code holds behaviour: which level a gift lands in and how many
+  Day Sponsor messages it earns (`lib/giving/levels.ts`, from each level's monthly minimum and the message tiers), the donation link, the strict reading of the thank-you address,
+  which way to give is open, and the markup. A level is `minimumMonthly` ($5, $10, $15, $100); a one-time gift counts by the year against the same line (12 times it).
+  The show support page (board 24) and the account page read the same levels and the "members' listening comes with" level, so there is one list of levels (the "$8" level and
+  the Combined Federal Campaign line are gone, as the boards say).
+- **Migration `20261117_224728_giving_pages`**: tested up, down and up on a database holding first-pass rows; `verify:migrations` passes. It **drops** the first-pass
+  fields (hero figures, "other ways" line, businesses and fellowships bands, footer note, level button addresses) and **clears the first-pass levels** (each now needs a monthly minimum),
+  then writes the boards' wording once from `lib/giving/starter.ts` (nothing reads that file at runtime). Anything an editor typed into the old page on staging is replaced; production
+  has never been migrated. It also overwrites "members' listening comes with" with "a sustaining membership of $10 a month or more".
+- **Not built because nothing supports it:** a gift-management account (the Give page's "change by phone or from your receipt email" replaces the board's "or through your account";
+  the board's own FAQ already says phone or the receipt link), saving anything about a donor, any record of a gift.
+- **The thank-you page reads its address strictly.** The donation form may send the donor back with `?name=&amount=&frequency=`; each is read only if it looks like a first name, a
+  whole-dollar amount and `monthly` or `once` (`lib/giving/thanks.ts`), and dropped otherwise, so the address cannot print a sentence of someone's choosing under WUWF's name. Nothing is
+  stored. The page is `noindex` and sends no referrer. With none of it, it says thank you without claiming to know the amount.
+- **Other ways to give is plain links, not script tabs:** `?way=stock` opens a way (a panel's own name, then a group's, then the first), so one can be linked to and the page works
+  without script. The only script is the Copy button and the gift card's selection.
+- **New shared pieces** (use these before building the same arrangement again): `components/PageParts` (hero in four tones, titled section, `ButtonLink` that draws nothing without a safe
+  address, `Faq`, `StepGrid`, `StepList`, `CheckList`, `LinkCards`, `ContactBand`, `CopyButton`, the pill and button styles), extracted from the sponsorship parts (which re-export them, so
+  the sponsor pages are unchanged; its FAQ now uses `Faq`); `lib/page-content.ts` (the text helpers) and `globals/fieldBuilders.ts` (the Payload field builders), likewise re-exported.
+- **Tests:** 64 unit tests (levels, donation link, thank-you address, ways, nav, content shaping), 4 render tests for the gift card, the rewritten integration test for the global (who may
+  edit, unsafe addresses refused, a stored configuration comes back as the donor's card). Checked in a browser at 1440 and 390 px: no horizontal overflow, no console errors, one `h1` and no
+  duplicate ids on each page; the card, the copy button and keyboard selection work.
+- **Also fixed:** the admin-navigation test did not list the `sponsorship` global (it failed since the sponsorship commit).
+- **Not done here:** links to `/support/...` from the header's About menu and the footer (both admin-edited globals; the header's Donate button already goes to `/support`); sitemap entries.
+- **Pre-launch (owner):** enter the **donation form address** and test whether it takes the amount from the link; confirm a **Member Services email** (the boards print one that looks like a
+  person's, and it is used in the starter content; a role address is better); confirm the broker details on Other ways (Recipient, Tax ID `59-6166292`, DTC `0725`, account `26796723`, taken from
+  the boards, which cite wuwf.org/leave-a-legacy) and the legacy sample bequest wording with the Foundation; that **the donation form has the fields three panels describe** (employer name and UWF
+  payroll deduction on "Through work"; "Giving for someone else?" with gift membership, in honor of and in memory of on "In someone's name"; where-the-gift-goes choices, which the Give FAQ
+  mentions); that **someone sends what "After you give" promises** (a note within the week, an invitation in the first months); the tax wording of the footer line; and the IT-04 notice if it
+  applies (the pages collect nothing). The boards' open note: nothing from the 2023 Station Fundraising Survey or NPR Audience Insights is on these pages.
+
 ## Sponsorship pages, boards 16 to 20b (built 2026-11-17)
 
 The "Sponsor WUWF" section of the reviewed canvas is built as public pages: `/sponsor` (16, the hub and the inquiry form), `/sponsor/on-air` (17),
@@ -1612,11 +1658,10 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 - WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
   page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
   WUWF can source them; staff add them under Support page → Top of page.
-- **Giving page content, entered in the admin (Support page global):** the real address of WUWF's donation form for
-  each level (with the right fund and the attribution code), the Sponsor WUWF and fellowship button addresses once
-  those pages exist, the legal footer line, and a review of the level descriptions (tax-deductibility wording).
-  Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
-  administrators.
+- **Giving pages content, entered in the admin (Giving pages global):** the real address of WUWF's donation form (with the right fund and
+  the attribution code), whether it takes the amount from the link, a Member Services email, and a review of the legal wording; see
+  *Giving pages, boards 14 to 14d* for the full pre-launch list. Until the form address is set no Give button is shown. Who can edit:
+  membership staff, publishers and administrators.
 - Legal and university review (IT-04 notice, privacy, retention) before production. **The community-calendar form needs the university's IT-04 wording** (it has a plain factual statement for now), and the 48-hour address-hash retention reviewed.
 - **Community calendar:** who should approve (it is publishers only today); whether staff want an email or a count when a submission arrives; the other 1,464 events' date text (see *Community calendar*).
 - **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
