@@ -45,6 +45,7 @@ import * as migration_20261113_222100_story_embeddings from './20261113_222100_s
 import * as migration_20261113_225238_site_settings_semantic_search from './20261113_225238_site_settings_semantic_search';
 import * as migration_20261114_023103_site_settings_portal_origin from './20261114_023103_site_settings_portal_origin';
 import * as migration_20261114_040000_voyager_hub_start from './20261114_040000_voyager_hub_start';
+import * as migration_20261117_181047_sponsorship_pages from './20261117_181047_sponsorship_pages';
 
 export const migrations = [
   {
@@ -281,5 +282,10 @@ export const migrations = [
     up: migration_20261114_040000_voyager_hub_start.up,
     down: migration_20261114_040000_voyager_hub_start.down,
     name: '20261114_040000_voyager_hub_start',
+  },
+  {
+    up: migration_20261117_181047_sponsorship_pages.up,
+    down: migration_20261117_181047_sponsorship_pages.down,
+    name: '20261117_181047_sponsorship_pages'
   },
 ];

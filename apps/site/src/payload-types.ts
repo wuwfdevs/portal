@@ -172,6 +172,7 @@ export interface Config {
     'voyager-hub': VoyagerHub;
     'radiolive-hub': RadioliveHub;
     'listen-live': ListenLive;
+    sponsorship: Sponsorship;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -183,6 +184,7 @@ export interface Config {
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
+    sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
   };
   locale: null;
   widgets: {
@@ -4527,6 +4529,62 @@ export interface ListenLive {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship".
+ */
+export interface Sponsorship {
+  id: number;
+  /**
+   * The events and programs a business can back, in the order they appear on /sponsor/events. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
+   */
+  programs?:
+    | {
+        name: string;
+        kind: 'live-series' | 'festival' | 'community-program' | 'other';
+        status: 'open' | 'held' | 'not-yet-open';
+        /**
+         * What it is, in plain words. The first sentence is also its summary on the “Start with your goal” picker.
+         */
+        description: string;
+        /**
+         * Ways to partner. Each is priced, or says “Priced on request”.
+         */
+        levels?:
+          | {
+              /**
+               * For example Presenting partner.
+               */
+              name: string;
+              /**
+               * For example The series, across the season.
+               */
+              description?: string | null;
+              /**
+               * Only a price corporate support has confirmed. Leave empty to show “Priced on request”.
+               */
+              price?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Where a partner is named (on air, on the event pages, in video credits, at the event). Shown as a plain line; leave empty to say nothing. Recognition follows the credit guidelines.
+         */
+        recognition?: string | null;
+        /**
+         * For example /radiolive. Shown as a “More about it” link; leave empty for none.
+         */
+        pageUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The sentence under the “Request a proposal” button: how WUWF uses what a business sends. Public pages that collect information carry the University of West Florida IT-04 policy notice, so have the wording reviewed before launch. Empty shows a plain factual sentence.
+   */
+  inquiryNotice?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -4931,6 +4989,35 @@ export interface ListenLiveSelect<T extends boolean = true> {
         linkUrl?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship_select".
+ */
+export interface SponsorshipSelect<T extends boolean = true> {
+  programs?:
+    | T
+    | {
+        name?: T;
+        kind?: T;
+        status?: T;
+        description?: T;
+        levels?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              id?: T;
+            };
+        recognition?: T;
+        pageUrl?: T;
+        id?: T;
+      };
+  inquiryNotice?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

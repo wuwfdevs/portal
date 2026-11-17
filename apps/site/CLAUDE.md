@@ -34,6 +34,7 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
   Built so far (ROADMAP item 7): the full question set at `/listens/<publicId>`, the inline asks (components B, C, D, placed by the `listeningAsk` story block and a topic's question field), the hub at
   `/listens`, Ask WUWF (a section of the hub) and the host-a-session request at `/listens/host`. Phase E adds the table card's page, the table's phone, the after-page, the contact card, a public event's page and the organizer's console under
   `/listens` (`apps/portal/docs/audience-listening-suite-design.md` §10; reports are phase F).
+- The sponsorship pages (`/sponsor`, boards 16 to 20b) are the business-facing price list, not the ledger: reviewed copy, rates and figures are code in `src/lib/sponsorship` (each figure keeps its source and base; nothing unconfirmed carries a price, and a bracket on a board is a review note that never prints), events and programs are the `Sponsorship` global, and an inquiry is mailed to `SPONSORSHIP_INQUIRY_EMAIL` and never stored. The word "sponsor" in a credit follows the credit guidelines: no prices, claims or calls to buy.
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
   placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.**
 - **No polls or public tallies on open listening questions. No "sponsor-free" claims about WUWF originals.**
