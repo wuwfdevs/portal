@@ -4,7 +4,7 @@ import { HONEYPOT_FIELD, TOKEN_FIELD } from '@/lib/events/abuse'
 import { mailer } from '@/lib/email/mailer'
 import { loadInquirySettings } from '@/lib/sponsorship/load'
 import { inquiryTokenFor, inquiryTokenSecret } from '@/lib/sponsorship/secrets'
-import { processInquiry } from '@/lib/sponsorship/submit'
+import { processInquiry, tokenAfterRefusal } from '@/lib/sponsorship/submit'
 
 export interface InquiryState {
   status: 'idle' | 'ok' | 'error'
@@ -40,14 +40,14 @@ export async function submitInquiry(_previous: InquiryState, formData: FormData)
     case 'ok':
       return { status: 'ok', chosen: outcome.chosen }
     case 'invalid':
-      return { status: 'error', message: 'Some answers need another look. They are marked below.', errors: outcome.errors, values: raw }
+      return { status: 'error', message: 'Some answers need another look. They are marked below.', errors: outcome.errors, values: raw, token: tokenAfterRefusal('invalid', token, inquiryTokenFor) }
     case 'form-expired':
-      return { status: 'error', message: 'This form was open for a long time, so it needs to be sent again. Your answers are kept. Press Request a proposal once more.', values: raw, token: inquiryTokenFor() }
+      return { status: 'error', message: 'This form was open for a long time, so it needs to be sent again. Your answers are kept. Press Request a proposal once more.', values: raw, token: tokenAfterRefusal('form-expired', token, inquiryTokenFor) }
     case 'too-fast':
-      return { status: 'error', message: 'That was very quick. Please check your answers, then press Request a proposal again.', values: raw }
+      return { status: 'error', message: 'That was very quick. Please check your answers, then press Request a proposal again.', values: raw, token: tokenAfterRefusal('too-fast', token, inquiryTokenFor) }
     case 'not-set-up':
-      return { status: 'error', message: settings.notSetUp, values: raw }
+      return { status: 'error', message: settings.notSetUp, values: raw, token: tokenAfterRefusal('not-set-up', token, inquiryTokenFor) }
     default:
-      return { status: 'error', message: settings.failed, values: raw }
+      return { status: 'error', message: settings.failed, values: raw, token: tokenAfterRefusal('failed', token, inquiryTokenFor) }
   }
 }

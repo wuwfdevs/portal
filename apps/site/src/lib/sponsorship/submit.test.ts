@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Mail, Mailer } from '@/lib/email/mailer'
 import { issueFormToken } from '@/lib/events/abuse'
 
-import { processInquiry } from './submit'
+import { processInquiry, tokenAfterRefusal } from './submit'
 
 const SECRET = 'a'.repeat(40)
 const raw = { name: 'Pat', organization: 'Example Co', email: 'pat@example.com', phone: '', interests: ['The Carpool Plan'], budget: 'Not sure yet', message: '' }
@@ -58,5 +58,15 @@ describe('processInquiry', () => {
   })
   it('reports a refused send as a failure, not a success', async () => {
     expect((await run({}, { mailer: mailerThatSends('failed').m })).kind).toBe('failed')
+  })
+})
+
+describe('tokenAfterRefusal', () => {
+  it('gives an expired form a fresh token, and keeps the submitted one after any other refusal', () => {
+    expect(tokenAfterRefusal('form-expired', 'old', () => 'fresh')).toBe('fresh')
+    for (const kind of ['too-fast', 'invalid', 'not-set-up', 'failed'] as const) expect(tokenAfterRefusal(kind, 'fresh', () => 'never')).toBe('fresh')
+  })
+  it('has nothing to keep when none was submitted', () => {
+    expect(tokenAfterRefusal('invalid', undefined, () => 'x')).toBeUndefined()
   })
 })

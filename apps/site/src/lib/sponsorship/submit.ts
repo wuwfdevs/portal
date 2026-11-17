@@ -32,3 +32,12 @@ export async function processInquiry(
   const sent = await deps.mailer.send({ to: deps.recipient, subject: mail.subject, text: mail.text, replyTo: mail.replyTo })
   return sent.ok ? { kind: 'ok', chosen: chosenInterests(check.value.interests) } : { kind: 'failed' }
 }
+
+/**
+ * The timing token the form should send next after a refused attempt. An expired form gets a fresh one; every other refusal keeps the
+ * token that was just submitted (it is still valid), so a fresh token is never lost to a later "too fast" or "invalid" answer.
+ */
+export function tokenAfterRefusal(kind: InquiryOutcome['kind'], submitted: unknown, fresh: () => string): string | undefined {
+  if (kind === 'form-expired') return fresh()
+  return typeof submitted === 'string' && submitted !== '' ? submitted : undefined
+}
