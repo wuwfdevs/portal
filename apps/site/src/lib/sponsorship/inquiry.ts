@@ -1,8 +1,6 @@
 // "Get a proposal" (board 16). Server-side validation of the public inquiry and the email corporate support receives.
 // Pure. The site keeps no record of an inquiry: it is mailed to corporate support and nothing else is stored.
 
-import { BUDGETS, INTERESTS } from './content'
-
 export type Inquiry = {
   name: string
   organization: string
@@ -25,8 +23,11 @@ const text = (v: unknown, max: number): string => (typeof v === 'string' ? v.rep
 
 export type InquiryCheck = { ok: true; value: Inquiry } | { ok: false; errors: InquiryErrors }
 
+/** The choices the form offers, from the admin: what an interest or budget may be. */
+export type InquiryChoices = { interests: readonly string[]; budgets: readonly string[] }
+
 /** `raw` is what the form posted: single values as strings, `interests` as a list of strings. Values past a limit are cut, not refused. */
-export function validateInquiry(raw: Record<string, unknown>): InquiryCheck {
+export function validateInquiry(raw: Record<string, unknown>, choices: InquiryChoices): InquiryCheck {
   const errors: InquiryErrors = {}
   const name = text(raw.name, LIMITS.name)
   const organization = text(raw.organization, LIMITS.organization)
@@ -34,18 +35,18 @@ export function validateInquiry(raw: Record<string, unknown>): InquiryCheck {
   const phone = text(raw.phone, LIMITS.phone)
   const message = text(raw.message, LIMITS.message)
   const budgetRaw = text(raw.budget, 60)
-  const budget = budgetRaw === '' ? BUDGETS[0] : budgetRaw
+  const budget = budgetRaw === '' ? (choices.budgets[0] ?? '') : budgetRaw
 
   if (!name) errors.name = 'Tell us your name.'
   if (!organization) errors.organization = 'Tell us the name of your business or organization.'
   if (!email) errors.email = 'Tell us where to send the proposal.'
   else if (!EMAIL.test(email)) errors.email = 'That email address doesn’t look right.'
   if (phone && !PHONE.test(phone)) errors.phone = 'That phone number doesn’t look right.'
-  if (!(BUDGETS as readonly string[]).includes(budget)) errors.budget = 'Choose one of the budget ranges, or leave it as it is.'
+  if (budget !== '' && !choices.budgets.includes(budget)) errors.budget = 'Choose one of the budget ranges, or leave it as it is.'
 
   const given = Array.isArray(raw.interests) ? raw.interests : typeof raw.interests === 'string' ? [raw.interests] : []
   const interests = [...new Set(given.filter((v): v is string => typeof v === 'string'))]
-  if (interests.some((i) => !(INTERESTS as readonly string[]).includes(i))) errors.interests = 'Choose from the list.'
+  if (interests.some((i) => !choices.interests.includes(i))) errors.interests = 'Choose from the list.'
 
   if (Object.keys(errors).length > 0) return { ok: false, errors }
   return { ok: true, value: { name, organization, email, phone, interests, budget, message } }
@@ -64,7 +65,7 @@ export function inquiryEmail(value: Inquiry): { subject: string; text: string; r
     `Email: ${value.email}`,
     `Phone: ${value.phone || 'not given'}`,
     `Interested in: ${chosenInterests(value.interests)}`,
-    `Budget: ${value.budget}`,
+    `Budget: ${value.budget || 'not given'}`,
     '',
     "What's happening at their business:",
     value.message || '(nothing written)',

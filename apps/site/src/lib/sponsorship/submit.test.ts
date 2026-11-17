@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Mail, Mailer } from '@/lib/email/mailer'
 import { issueFormToken } from '@/lib/events/abuse'
 
-import { inquiryRecipient } from './secrets'
 import { processInquiry } from './submit'
 
 const SECRET = 'a'.repeat(40)
 const raw = { name: 'Pat', organization: 'Example Co', email: 'pat@example.com', phone: '', interests: ['The Carpool Plan'], budget: 'Not sure yet', message: '' }
+const choices = { interests: ['The Carpool Plan', 'Not sure yet'], budgets: ['Not sure yet', 'Under $1,000'] }
 const issued = new Date('2026-11-17T12:00:00Z')
 const later = new Date(issued.getTime() + 60_000)
 const token = issueFormToken(issued, SECRET)
@@ -25,7 +25,7 @@ function mailerThatSends(result: 'ok' | 'failed' | 'unset' = 'ok') {
 }
 
 const run = (over: Partial<Parameters<typeof processInquiry>[0]> = {}, deps: Partial<Parameters<typeof processInquiry>[1]> = {}) =>
-  processInquiry({ raw, token, honeypot: '', now: later, ...over }, { tokenSecret: SECRET, recipient: 'support@example.org', mailer: mailerThatSends().m, ...deps })
+  processInquiry({ raw, token, honeypot: '', now: later, ...over }, { tokenSecret: SECRET, recipient: 'support@example.org', choices, mailer: mailerThatSends().m, ...deps })
 
 describe('processInquiry', () => {
   it('mails a good inquiry to corporate support, replying to the sender, and says what they chose', async () => {
@@ -58,13 +58,5 @@ describe('processInquiry', () => {
   })
   it('reports a refused send as a failure, not a success', async () => {
     expect((await run({}, { mailer: mailerThatSends('failed').m })).kind).toBe('failed')
-  })
-})
-
-describe('inquiryRecipient', () => {
-  it('is the configured address, or nothing', () => {
-    expect(inquiryRecipient({ SPONSORSHIP_INQUIRY_EMAIL: ' support@example.org ' })).toBe('support@example.org')
-    expect(inquiryRecipient({ SPONSORSHIP_INQUIRY_EMAIL: 'not an address' })).toBeNull()
-    expect(inquiryRecipient({})).toBeNull()
   })
 })

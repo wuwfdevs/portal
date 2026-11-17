@@ -4,7 +4,8 @@ import React, { useActionState, useEffect, useRef } from 'react'
 
 import { submitInquiry, type InquiryState } from '@/app/(frontend)/sponsor/actions'
 import { HONEYPOT_FIELD, TOKEN_FIELD } from '@/lib/events/abuse'
-import { BUDGETS, CORPORATE_SUPPORT, INTERESTS, SPONSOR_PATHS } from '@/lib/sponsorship/content'
+import { phoneHref } from '@/lib/sponsorship/content'
+import { SPONSOR_PATHS } from '@/lib/sponsorship/paths'
 import { LIMITS } from '@/lib/sponsorship/inquiry'
 
 import { buttonPrimary, textLink } from './parts'
@@ -17,7 +18,18 @@ const control =
  * "Get a proposal" (board 16). Posts to a server action, so it works without a script. Every field has a real label, a refused
  * answer is marked and described next to its field, and nothing is below 44px to touch or 16px to read. Nobody signs in to ask.
  */
-export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = ({ initialToken, notice }) => {
+export type InquiryCopy = {
+  submit: string
+  sending: string
+  thanksTitle: string
+  thanksPrefix: string
+  notice: string
+  guidelinesNote: string
+  guidelinesLink: string
+  labels: { name: string; organization: string; email: string; phone: string; interests: string; budget: string; message: string; required: string }
+}
+
+export const InquiryForm: React.FC<{ initialToken: string; copy: InquiryCopy; interests: string[]; budgets: string[]; phone: string }> = ({ initialToken, copy, interests, budgets, phone }) => {
   const [state, action, pending] = useActionState<InquiryState, FormData>(submitInquiry, { status: 'idle' })
   const errors = state.errors ?? {}
   const values = state.values ?? {}
@@ -37,15 +49,17 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
   if (state.status === 'ok') {
     return (
       <div className="flex flex-col gap-3 rounded-sm bg-wuwf-blue-100 p-6 md:p-8" ref={summary} role="status" tabIndex={-1}>
-        <h3 className="font-serif text-3xl font-bold">Thanks. Corporate support will be in touch with a proposal.</h3>
-        <p className="text-lg text-ink-2">Here’s what you told us you’re interested in: {state.chosen}.</p>
-        <p className="text-base text-ink-2">
-          Prefer to talk? Call{' '}
-          <a className={textLink} href={CORPORATE_SUPPORT.phoneHref}>
-            {CORPORATE_SUPPORT.phoneDisplay}
-          </a>
-          .
+        <h3 className="font-serif text-3xl font-bold">{copy.thanksTitle}</h3>
+        <p className="text-lg text-ink-2">
+          {copy.thanksPrefix} {state.chosen}.
         </p>
+        {phone && (
+          <p className="text-base text-ink-2">
+            <a className={textLink} href={phoneHref(phone) ?? undefined}>
+              {phone}
+            </a>
+          </p>
+        )}
       </div>
     )
   }
@@ -58,7 +72,7 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
         <label className="text-base font-semibold" htmlFor={id}>
           {label}
           {opts.required && <span aria-hidden="true"> *</span>}
-          {opts.required && <span className="sr-only"> (required)</span>}
+          {opts.required && <span className="sr-only"> ({copy.labels.required})</span>}
         </label>
         <input
           aria-describedby={err ? `${id}-err` : undefined}
@@ -90,16 +104,16 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
         </div>
       )}
       <div className="grid gap-5 sm:grid-cols-2">
-        {field('name', 'Your name', { required: true, autoComplete: 'name' })}
-        {field('organization', 'Organization', { required: true, autoComplete: 'organization' })}
-        {field('email', 'Email', { required: true, type: 'email', autoComplete: 'email', inputMode: 'email' })}
-        {field('phone', 'Phone (optional)', { type: 'tel', autoComplete: 'tel', inputMode: 'tel' })}
+        {field('name', copy.labels.name, { required: true, autoComplete: 'name' })}
+        {field('organization', copy.labels.organization, { required: true, autoComplete: 'organization' })}
+        {field('email', copy.labels.email, { required: true, type: 'email', autoComplete: 'email', inputMode: 'email' })}
+        {field('phone', copy.labels.phone, { type: 'tel', autoComplete: 'tel', inputMode: 'tel' })}
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-base font-semibold">What are you interested in?</legend>
+        <legend className="mb-1 text-base font-semibold">{copy.labels.interests}</legend>
         <div className="flex flex-wrap gap-2">
-          {INTERESTS.map((name) => (
+          {interests.map((name) => (
             <label
               className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-rule-strong bg-surface px-4 text-sm font-bold has-[:checked]:border-2 has-[:checked]:border-wuwf-blue-700 has-[:checked]:bg-wuwf-blue-100 has-[:checked]:text-wuwf-blue-700 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
               key={name}
@@ -114,10 +128,10 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
 
       <div className="flex max-w-sm flex-col gap-1">
         <label className="text-base font-semibold" htmlFor="inquiry-budget">
-          Budget range (optional)
+          {copy.labels.budget}
         </label>
-        <select className={control} defaultValue={v('budget') || BUDGETS[0]} id="inquiry-budget" name="budget">
-          {BUDGETS.map((b) => (
+        <select className={control} defaultValue={v('budget') || budgets[0]} id="inquiry-budget" name="budget">
+          {budgets.map((b) => (
             <option key={b} value={b}>
               {b}
             </option>
@@ -127,7 +141,7 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
 
       <div className="flex flex-col gap-1">
         <label className="text-base font-semibold" htmlFor="inquiry-message">
-          What’s happening at your business?
+          {copy.labels.message}
         </label>
         <textarea className={control} defaultValue={v('message')} id="inquiry-message" maxLength={LIMITS.message} name="message" rows={5} />
       </div>
@@ -143,16 +157,19 @@ export const InquiryForm: React.FC<{ initialToken: string; notice: string }> = (
 
       <div className="flex flex-col gap-3">
         <button className={`${buttonPrimary} self-start disabled:opacity-60`} disabled={pending} type="submit">
-          {pending ? 'Sending…' : 'Request a proposal'}
+          {pending ? copy.sending : copy.submit}
         </button>
-        <p className="max-w-2xl text-sm text-ink-3">{notice}</p>
-        <p className="text-sm text-ink-3">
-          Sponsor credits follow WUWF’s{' '}
-          <Link className={textLink} href={SPONSOR_PATHS.guidelines}>
-            credit guidelines
-          </Link>
-          .
-        </p>
+        {copy.notice && <p className="max-w-2xl text-sm text-ink-3">{copy.notice}</p>}
+        {copy.guidelinesNote && (
+          <p className="text-sm text-ink-3">
+            {copy.guidelinesNote}{' '}
+            {copy.guidelinesLink && (
+              <Link className={textLink} href={SPONSOR_PATHS.guidelines}>
+                {copy.guidelinesLink}
+              </Link>
+            )}
+          </p>
+        )}
       </div>
     </form>
   )

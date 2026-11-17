@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 
 import { OnAirView } from '@/components/Sponsorship/OnAirView'
+import { loadSponsorship } from '@/lib/sponsorship/load'
 
-export const metadata: Metadata = {
-  title: 'On-air sponsorship',
-  description: 'Rates, packages and the Carpool Plan for sponsor credits on WUWF. Estimate a schedule, then ask corporate support for a proposal.',
-  alternates: { canonical: '/sponsor/on-air' },
+// Saving the Sponsorship global refreshes this route (globals/Sponsorship).
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await loadSponsorship()
+  return { title: content.onAir?.hero?.title || undefined, description: content.onAir?.hero?.body?.split(/\n\s*\n/)[0], alternates: { canonical: '/sponsor/on-air' } }
 }
 
-export default function OnAirPage() {
-  return <OnAirView />
+export default async function Page() {
+  const { content } = await loadSponsorship()
+  return <OnAirView content={content} />
 }

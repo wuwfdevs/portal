@@ -14,26 +14,29 @@ The "Sponsor WUWF" section of the reviewed canvas is built as public pages: `/sp
 "sell trust, not response") win on copy, order and layout. **This is the business-facing description and price list only.** Placements on the site,
 entitlements and proof of performance are still the open Portal-side design above; nothing here books, serves or records a sponsor.
 
-- **Where things live.** Reviewed copy, rates, packages, audience figures and the credit guidelines are **code** (`src/lib/sponsorship`, pure and tested: every
-  package total is checked against the rate card, every figure keeps its source and base). **Events and programs are the `Sponsorship` global** (board 19's own
-  note: "one more card with the same fields"; Pages & hubs, publisher edits; migration `20261117_181047_sponsorship_pages`, up, down and up tested,
-  `verify:migrations` passes) and it also holds the inquiry form's notice sentence. The migration starts it with RadioLive and the Book Club, **levels unpriced
-  ("Priced on request")**; corporate support confirms levels, recognition and whether each is open. Saving the global refreshes `/sponsor`.
-- **Inquiries are mailed, not stored.** "Request a proposal" validates on the server (honeypot, signed timing token, length caps) and mails corporate support
-  through the Resend settings the membership claim already uses; **the site keeps no copy** (privacy rule: collect the minimum). **Needs `SPONSORSHIP_INQUIRY_EMAIL`
-  on Vercel** (server only, not in the public global). Unset, the form says online requests are not set up and gives 850 473-7453; it never pretends to send.
-  There is no per-address rate limit (nothing is stored to count): add one if abuse shows up. `Mail` gained an optional `replyTo`.
-- **Brackets on the boards are review notes, so the public pages print none.** A product with no confirmed price or size is left out or reads "Priced on request"
-  (the website "Banner" row, e-newsletter and website ad sizes, the rates-effective date, the IT-04 wording, the "draft for UWF review" line on the guidelines,
-  the Nielsen / NPR-permission / "do WUWF's counties fall in the C and D group" notes). They are the **pre-launch checklist**, in `lib/sponsorship/audience.ts`
-  and below. The inquiry notice is a plain factual sentence until the university's IT-04 wording is entered in the global.
-- **Decisions to confirm.** The rate card keeps the board's three weekend rows (weekend morning, midday, afternoon); the root `CLAUDE.md` lists Traffic's names
-  as "Weekend", so check them against the Portal's before launch (`DAYPARTS` keeps a stable `key`; only the label would change). Package 2's Total Program
-  Rotation credits work out to $19 against $30 open (the board's open question): the page shows the package totals as designed and the test records the $19.
-  The Book Club is seeded as open although the board lists "whether the partnership is open now" as unconfirmed: set it to Held in the admin if it is not.
-- **Not done here.** Links to `/sponsor` from the header's About menu and the footer's For-businesses column (both are admin-edited globals: add them there), and
-  the Support page's "Sponsor WUWF" button address (`/sponsor`, in the Support page global). Sitemap entries. Not checked in a browser at 1440 and 390 px: this
-  session had no running site against hosted services (see the build and test results in the PR text).
+- **Everything editable is in the admin (owner's standing rule: copy and UI configuration live in Payload, not in code or environment variables).** The
+  `Sponsorship` global (Pages & hubs; publisher edits) has a tab per page: every heading, paragraph, button label, rate-card row, package, Carpool price,
+  discount percent, goal and its lines, placement, figure with its source line, testimonial, FAQ entry, sector view, credit-guidelines list and closing band,
+  plus phone, address, the inquiry notice, the form's choices and field labels, and the sample business used in illustrations. Every optional section has a
+  **Show this section** switch. Code keeps behaviour only: the estimator's arithmetic (`lib/sponsorship/rates.ts`), the form's validation and anti-abuse,
+  the markup. **Still in code:** the six page routes, the placement table headers and "Illustration" captions, form validation messages, and small fallbacks
+  (nav names). Migrations `20261117_181047_sponsorship_pages` (events and programs) and `20261117_194934_sponsorship_copy` (the rest; it writes the reviewed
+  boards' wording through the Local API once, from `lib/sponsorship/starter.ts`, which nothing reads at runtime), tested up, down and up;
+  `verify:migrations` passes. Saving the global refreshes `/sponsor`.
+- **Inquiries are mailed, not stored, to an address entered in the admin** ("Where proposal requests are sent", Contact and form tab; a **staff-only field**,
+  read only by the server when a form is sent and removed from what pages receive). Sending uses the Resend settings the membership claim already uses (those
+  are credentials, so they stay environment variables). Empty address or no mail service: the form says online requests are not set up (the message is an
+  admin field) and never pretends to send. Honeypot, signed timing token and length caps guard it; no per-address rate limit (nothing is stored to count).
+  **Enter the address and the university's IT-04 notice in the admin before launch.** `Mail` gained an optional `replyTo`.
+- **Brackets on the boards are review notes, so the starting content prints none.** A product with no confirmed price or size is left out or reads "Priced on
+  request" (the website "Banner" row, e-newsletter and website ad sizes, the rates-effective date, the IT-04 wording, the "draft for UWF review" line on the
+  guidelines, the Nielsen / NPR-permission / "do WUWF's counties fall in the C and D group" notes). They are the **pre-launch checklist** below.
+- **Decisions to confirm.** The rate card keeps the board's three weekend rows; the root `CLAUDE.md` lists Traffic's names as "Weekend", so check them against
+  the Portal's (a label edit in the admin). Package 2's Total Program Rotation credits work out to $19 against $30 open (the board's open question); a test
+  records the $19. Typed prices in goals and place cards are text the editor keeps in step with the rate card (the estimator and the package prices read the
+  numbers). The Book Club is seeded as open although the board lists "whether the partnership is open now" as unconfirmed: set it to Held if it is not.
+- **Not done here.** Links to `/sponsor` from the header's About menu and the footer's For-businesses column (both are admin-edited globals), the Support page's
+  "Sponsor WUWF" button address (`/sponsor`, in the Support page global), sitemap entries.
 - **Before launch:** corporate support confirms the rate card's effective date, who counts as a new sponsor, package length and end date, website and
   e-newsletter ad sizes, the website banner, event levels and recognition, the IT-04 notice, the final credit-guidelines policy (UWF review), whether WUWF's
   counties fall in NPR's small-markets group, Nielsen's citation and use terms, and NPR's permission to publish Audience Insights data

@@ -7,14 +7,12 @@ import { inquiryTokenFor } from '@/lib/sponsorship/secrets'
 // The inquiry form carries a timing token issued when the page is shown (lib/events/abuse), so this page is never cached.
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Sponsor WUWF',
-  description:
-    'Put your business’s name where listeners trust it: on air, online and at live events. Credits are support, not ads. Ask corporate support for a proposal.',
-  alternates: { canonical: '/sponsor' },
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await loadSponsorship()
+  return { title: content.hub?.hero?.title || 'Sponsor WUWF', description: content.hub?.hero?.body?.split(/\n\s*\n/)[0], alternates: { canonical: '/sponsor' } }
 }
 
 export default async function SponsorPage() {
-  const { programs, inquiryNotice } = await loadSponsorship()
-  return <HubView inquiryNotice={inquiryNotice} programs={programs} token={inquiryTokenFor()} />
+  const { content, programs, interests, budgets } = await loadSponsorship()
+  return <HubView budgets={budgets} content={content} interests={interests} programs={programs} token={inquiryTokenFor()} />
 }

@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { CORPORATE_SUPPORT, SPONSOR_PATHS } from '@/lib/sponsorship/content'
+import { linkOf, paragraphs, phoneHref, type SponsorshipContent } from '@/lib/sponsorship/content'
 import { sponsorNavItems } from '@/lib/sponsorship/nav'
+import { INQUIRE_HREF, SPONSOR_PATHS, type SponsorPage } from '@/lib/sponsorship/paths'
 import { cn } from '@/utilities/ui'
 
 import { SectionNav } from '../SectionNav'
@@ -18,32 +19,82 @@ export const card = 'flex flex-col gap-1.5 rounded-sm border border-rule-strong 
 export const textLink = 'font-semibold text-wuwf-blue-700 underline underline-offset-2'
 
 /** The strip under the header and the closing line every sponsorship page ends with. */
-export const SponsorshipShell: React.FC<{ current: keyof typeof SPONSOR_PATHS; children: React.ReactNode }> = ({ current, children }) => (
+export const SponsorshipShell: React.FC<{ current: SponsorPage; content: SponsorshipContent; children: React.ReactNode }> = ({ current, content, children }) => (
   <>
-    <SectionNav label="For businesses" items={sponsorNavItems(current)} className="bg-surface-2" />
-    <div className="flex-1">
-      {children}
-    </div>
-    <SponsorshipFootnote />
+    <SectionNav label={content.nav?.title?.trim() || 'For businesses'} items={sponsorNavItems(current, content.nav)} className="bg-surface-2" />
+    <div className="flex-1">{children}</div>
+    <SponsorshipFootnote content={content} />
   </>
 )
 
-export const SponsorshipFootnote: React.FC = () => (
-  <footer className="border-t border-rule bg-surface-2">
-    <div className="container flex flex-col gap-2 py-6 text-sm text-ink-2 md:flex-row md:items-center md:justify-between">
-      <p>
-        {CORPORATE_SUPPORT.serviceLine} Corporate support:{' '}
-        <a className={textLink} href={CORPORATE_SUPPORT.phoneHref}>
-          {CORPORATE_SUPPORT.phoneDisplay}
-        </a>{' '}
-        · {CORPORATE_SUPPORT.address}
+export const SponsorshipFootnote: React.FC<{ content: SponsorshipContent }> = ({ content }) => {
+  const tel = phoneHref(content.phone)
+  return (
+    <footer className="border-t border-rule bg-surface-2">
+      <div className="container flex flex-col gap-2 py-6 text-sm text-ink-2 md:flex-row md:items-center md:justify-between">
+        <p>
+          {content.serviceLine}
+          {content.phone && (
+            <>
+              {' '}
+              Corporate support:{' '}
+              {tel ? (
+                <a className={textLink} href={tel}>
+                  {content.phone}
+                </a>
+              ) : (
+                content.phone
+              )}
+            </>
+          )}
+          {content.address && <> · {content.address}</>}
+        </p>
+        {content.nav?.guidelines && (
+          <Link className={`${textLink} inline-flex min-h-11 items-center`} href={SPONSOR_PATHS.guidelines}>
+            {content.nav.guidelines}
+          </Link>
+        )}
+      </div>
+    </footer>
+  )
+}
+
+/** Paragraphs from a text area. */
+export const Paragraphs: React.FC<{ text: string | null | undefined; className?: string }> = ({ text, className }) => (
+  <>
+    {paragraphs(text).map((p) => (
+      <p className={className} key={p}>
+        {p}
       </p>
-      <Link className={`${textLink} inline-flex min-h-11 items-center`} href={SPONSOR_PATHS.guidelines}>
-        Credit guidelines
-      </Link>
-    </div>
-  </footer>
+    ))}
+  </>
 )
+
+type HeroContent = { eyebrow?: string | null; title?: string | null; body?: string | null; linkLabel?: string | null; linkHref?: string | null }
+
+/** A page's opening band from the admin's hero group. */
+export const ContentHero: React.FC<{ hero: HeroContent | null | undefined; actions?: React.ReactNode; aside?: React.ReactNode }> = ({ hero, actions, aside }) => {
+  const link = linkOf(hero?.linkLabel, hero?.linkHref)
+  return (
+    <Hero actions={actions} aside={aside} eyebrow={hero?.eyebrow ?? ''} title={hero?.title ?? ''}>
+      <Paragraphs text={hero?.body} />
+      {link && (
+        <p>
+          <Link className={textLink} href={link.href}>
+            {link.label}
+          </Link>
+        </p>
+      )}
+    </Hero>
+  )
+}
+
+/** A section's heading block from the admin's eyebrow, title and body. */
+export const headingProps = (s: { eyebrow?: string | null; title?: string | null; body?: string | null } | null | undefined) => ({
+  eyebrow: s?.eyebrow || undefined,
+  title: s?.title ?? '',
+  intro: s?.body ? <Paragraphs text={s.body} /> : undefined,
+})
 
 /** A page's opening band: a pale blue ground, the eyebrow, one h1 and a sentence or two. */
 export const Hero: React.FC<{ eyebrow: string; title: string; children: React.ReactNode; actions?: React.ReactNode; aside?: React.ReactNode }> = ({
@@ -56,7 +107,7 @@ export const Hero: React.FC<{ eyebrow: string; title: string; children: React.Re
   <section className="bg-wuwf-blue-100">
     <div className={cn('container flex flex-col gap-6 py-12 md:py-14', aside && 'lg:flex-row lg:items-end lg:gap-12')}>
       <div className="flex flex-col gap-4 lg:flex-[3]">
-        <span className={`${eyebrow} text-wuwf-blue-700`}>{label}</span>
+        {label && <span className={`${eyebrow} text-wuwf-blue-700`}>{label}</span>}
         <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">{title}</h1>
         <div className="flex max-w-3xl flex-col gap-3 text-lg text-ink-2 md:text-xl">{children}</div>
         {actions && <div className="flex flex-wrap gap-3 pt-2">{actions}</div>}
@@ -69,7 +120,7 @@ export const Hero: React.FC<{ eyebrow: string; title: string; children: React.Re
 /** A titled section. `tone` picks the ground: plain white, the light grey band, or the dark navy band. */
 export const Section: React.FC<{
   id?: string
-  label: string
+  label?: string
   eyebrow?: string
   title: string
   intro?: React.ReactNode
@@ -78,7 +129,7 @@ export const Section: React.FC<{
 }> = ({ id, label, eyebrow: kicker, title, intro, tone = 'plain', children }) => {
   const dark = tone === 'dark'
   return (
-    <section aria-label={label} className={cn(tone === 'grey' && 'bg-surface-2', dark && 'bg-surface-dark text-surface')} id={id}>
+    <section aria-label={label ?? title} className={cn(tone === 'grey' && 'bg-surface-2', dark && 'bg-surface-dark text-surface')} id={id}>
       <div className="container flex flex-col gap-6 py-12 md:py-14">
         <div className="flex max-w-3xl flex-col gap-2">
           {kicker && <span className={cn(eyebrow, dark ? 'text-wuwf-lime' : 'text-wuwf-blue-700')}>{kicker}</span>}
@@ -119,20 +170,23 @@ export const StatGrid: React.FC<{
   </dl>
 )
 
-/** The closing "Get a proposal" band every page ends its content with. */
-export const ProposalBand: React.FC<{ title: string; text: string; label?: string }> = ({ title, text, label = 'Get a proposal' }) => (
-  <section aria-label="Get a proposal" className="bg-wuwf-teal text-surface">
-    <div className="container flex flex-col gap-6 py-10 md:flex-row md:items-center md:justify-between">
-      <div className="flex max-w-2xl flex-col gap-1.5">
-        <strong className="font-serif text-2xl leading-tight md:text-3xl">{title}</strong>
-        <span className="text-base text-wuwf-blue-100">{text}</span>
+/** The closing "Get a proposal" band from the admin's closing group. Nothing is drawn without a title. */
+export const ProposalBand: React.FC<{ closing: { title?: string | null; text?: string | null; label?: string | null } | null | undefined }> = ({ closing }) =>
+  closing?.title ? (
+    <section aria-label={closing.title} className="bg-wuwf-teal text-surface">
+      <div className="container flex flex-col gap-6 py-10 md:flex-row md:items-center md:justify-between">
+        <div className="flex max-w-2xl flex-col gap-1.5">
+          <strong className="font-serif text-2xl leading-tight md:text-3xl">{closing.title}</strong>
+          {closing.text && <span className="text-base text-wuwf-blue-100">{closing.text}</span>}
+        </div>
+        {closing.label && (
+          <Link className={buttonOnDark} href={INQUIRE_HREF}>
+            {closing.label}
+          </Link>
+        )}
       </div>
-      <Link className={buttonOnDark} href="/sponsor#inquire">
-        {label}
-      </Link>
-    </div>
-  </section>
-)
+    </section>
+  ) : null
 
 /** A pill-shaped choice. Real buttons with `aria-pressed`; the chosen one differs by outline and weight, not by colour alone. */
 export const pill = (on: boolean): string =>

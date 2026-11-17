@@ -4534,6 +4534,679 @@ export interface ListenLive {
 export interface Sponsorship {
   id: number;
   /**
+   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
+   */
+  phone?: string | null;
+  address?: string | null;
+  /**
+   * Printed with the phone number at the foot of every sponsorship page.
+   */
+  serviceLine?: string | null;
+  /**
+   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
+   */
+  inquiryEmail?: string | null;
+  /**
+   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
+   */
+  inquiryNotice?: string | null;
+  /**
+   * “What are you interested in?” on the form.
+   */
+  interests?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The budget ranges, first one is the default.
+   */
+  budgets?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The sample business used in illustrations. It is not a real sponsor and the pages say so.
+   */
+  example?: {
+    name?: string | null;
+    line?: string | null;
+    website?: string | null;
+  };
+  /**
+   * The “For businesses” strip under the header, and the names of the six pages.
+   */
+  nav?: {
+    title?: string | null;
+    hub?: string | null;
+    onAir?: string | null;
+    digital?: string | null;
+    events?: string | null;
+    audience?: string | null;
+    guidelines?: string | null;
+  };
+  hub?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+      primaryLabel?: string | null;
+      secondaryLabel?: string | null;
+    };
+    heroStats?:
+      | {
+          value: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Where the figures come from and what they are a share of. Every figure needs one.
+     */
+    heroSource?: string | null;
+    notAnAd?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      items?:
+        | {
+            heading?: string | null;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    goals?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      /**
+       * Example schedules, not offers. Write each price as corporate support would quote it.
+       */
+      items?:
+        | {
+            name: string;
+            title?: string | null;
+            lead?: string | null;
+            total?: string | null;
+            span?: string | null;
+            lines?:
+              | {
+                  channel?: string | null;
+                  what?: string | null;
+                  detail?: string | null;
+                  price?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+      looksLikeLabel?: string | null;
+      ctaLabel?: string | null;
+      /**
+       * The last goal is built from the events and programs that are open to sponsors (one line each). Leave its name empty to leave the goal out.
+       */
+      eventsGoal?: {
+        name?: string | null;
+        title?: string | null;
+        lead?: string | null;
+        total?: string | null;
+        span?: string | null;
+        linePrice?: string | null;
+      };
+    };
+    places?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            title?: string | null;
+            body?: string | null;
+            detail?: string | null;
+            price?: string | null;
+            page: 'onAir' | 'digital' | 'events';
+            id?: string | null;
+          }[]
+        | null;
+      noteTitle?: string | null;
+      noteText?: string | null;
+      noteLinkLabel?: string | null;
+    };
+    why?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            compare?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    who?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+      linkLabel?: string | null;
+    };
+    testimonials?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            quote?: string | null;
+            name?: string | null;
+            role?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    faq?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            question?: string | null;
+            answer?: string | null;
+            linkLabel?: string | null;
+            /**
+             * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            linkHref?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    inquiry?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      contactTitle?: string | null;
+      submitLabel?: string | null;
+      sendingLabel?: string | null;
+      guidelinesNote?: string | null;
+      guidelinesLink?: string | null;
+      /**
+       * The form’s field labels.
+       */
+      labels?: {
+        name?: string | null;
+        organization?: string | null;
+        email?: string | null;
+        phone?: string | null;
+        interests?: string | null;
+        budget?: string | null;
+        message?: string | null;
+        /**
+         * Read to screen readers after a required field’s name, e.g. “required”.
+         */
+        required?: string | null;
+      };
+      thanksTitle?: string | null;
+      /**
+       * Shown when the form cannot send because no address is set above. Include the phone number.
+       */
+      notSetUpMessage?: string | null;
+      /**
+       * Shown when sending fails. Include the phone number.
+       */
+      failedMessage?: string | null;
+      /**
+       * Said before what they chose, e.g. “Here’s what you told us you’re interested in:”.
+       */
+      thanksPrefix?: string | null;
+    };
+  };
+  onAir?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+      /**
+       * A sample credit. Must follow the credit guidelines.
+       */
+      quote?: string | null;
+      quoteLabel?: string | null;
+      quoteNote?: string | null;
+    };
+    credit?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      includesTitle?: string | null;
+      includesText?: string | null;
+      leavesTitle?: string | null;
+      leavesText?: string | null;
+      linkLabel?: string | null;
+    };
+    buy?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            title?: string | null;
+            text?: string | null;
+            price?: string | null;
+            anchor: 'rates' | 'carpool' | 'programs' | 'packages';
+            id?: string | null;
+          }[]
+        | null;
+    };
+    rates?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      /**
+       * The rate card, one row per daypart. The estimator reads these numbers.
+       */
+      dayparts?:
+        | {
+            label: string;
+            when?: string | null;
+            /**
+             * Dollars per credit, e.g. 55 or 25.5.
+             */
+            open: number;
+            m3: number;
+            m6: number;
+            y1: number;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * The schedule sizes the estimator offers.
+       */
+      creditCounts?:
+        | {
+            count: number;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Extra discount for prepaying a rate-card schedule.
+       */
+      prepayPercent?: number | null;
+      /**
+       * Nonprofit discount off open rates.
+       */
+      nonprofitPercent?: number | null;
+      note?: string | null;
+      estimatorEyebrow?: string | null;
+      estimatorTitle?: string | null;
+      estimatorDisclaimer?: string | null;
+      estimatorCta?: string | null;
+      commitmentLabel?: string | null;
+      creditsLabel?: string | null;
+    };
+    /**
+     * The Sharing Spirit callout under the rate card.
+     */
+    sharing?: {
+      title?: string | null;
+      text?: string | null;
+    };
+    carpool?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      words?: number | null;
+      /**
+       * Dollars for six months.
+       */
+      sixMonths?: number | null;
+      /**
+       * Dollars for a year.
+       */
+      oneYear?: number | null;
+      /**
+       * Shown by the one-year price, e.g. “or about $4 a day”.
+       */
+      perDayNote?: string | null;
+      slotsNote?: string | null;
+      ctaLabel?: string | null;
+    };
+    programs?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      chooseLabel?: string | null;
+      names?:
+        | {
+            name: string;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    packages?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      /**
+       * What a drive-time credit normally costs, in dollars.
+       */
+      openDriveRate?: number | null;
+      /**
+       * What a first-time sponsor pays for one, in dollars.
+       */
+      newDriveRate?: number | null;
+      items?:
+        | {
+            name: string;
+            description?: string | null;
+            /**
+             * Dollars.
+             */
+            price: number;
+            /**
+             * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
+             */
+            value: number;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Printed above each package number, e.g. “Package”.
+       */
+      packageLabel?: string | null;
+      note?: string | null;
+    };
+    pay?: {
+      show?: boolean | null;
+      items?:
+        | {
+            heading?: string | null;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      ctaTitle?: string | null;
+      ctaText?: string | null;
+      ctaLabel?: string | null;
+    };
+  };
+  digital?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+    };
+    website?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      placements?:
+        | {
+            name?: string | null;
+            detail?: string | null;
+            size?: string | null;
+            price?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    app?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      placements?:
+        | {
+            name?: string | null;
+            detail?: string | null;
+            size?: string | null;
+            price?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      illustrationNote?: string | null;
+    };
+    newsletter?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      placements?:
+        | {
+            name?: string | null;
+            detail?: string | null;
+            size?: string | null;
+            price?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    package?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      body?: string | null;
+      /**
+       * Dollars a month.
+       */
+      price?: number | null;
+      priceSuffix?: string | null;
+    };
+    rules?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            heading?: string | null;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    closing?: {
+      title?: string | null;
+      text?: string | null;
+      label?: string | null;
+    };
+  };
+  events?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+    };
+    showUp?: {
+      show?: boolean | null;
+      title?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+      linkLabel?: string | null;
+    };
+    open?: {
+      eyebrow?: string | null;
+      /**
+       * Heading with one program open.
+       */
+      titleOne?: string | null;
+      /**
+       * With two.
+       */
+      titleTwo?: string | null;
+      /**
+       * With more.
+       */
+      titleMany?: string | null;
+      /**
+       * Shown when no program is open.
+       */
+      emptyText?: string | null;
+      /**
+       * Button text; {name} becomes the program’s name.
+       */
+      talkLabel?: string | null;
+      /**
+       * Link text; {name} becomes the program’s name.
+       */
+      moreLabel?: string | null;
+      levelsLabel?: string | null;
+      recognitionLabel?: string | null;
+    };
+    every?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            heading?: string | null;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      note?: string | null;
+    };
+    closing?: {
+      title?: string | null;
+      text?: string | null;
+      label?: string | null;
+    };
+  };
+  /**
    * The events and programs a business can back, in the order they appear on /sponsor/events. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
    */
   programs?:
@@ -4542,44 +5215,288 @@ export interface Sponsorship {
         kind: 'live-series' | 'festival' | 'community-program' | 'other';
         status: 'open' | 'held' | 'not-yet-open';
         /**
-         * What it is, in plain words. The first sentence is also its summary on the “Start with your goal” picker.
+         * What it is, in plain words. The first sentence is also its summary on the goal picker.
          */
         description: string;
         /**
-         * Ways to partner. Each is priced, or says “Priced on request”.
+         * Ways to partner.
          */
         levels?:
           | {
-              /**
-               * For example Presenting partner.
-               */
               name: string;
-              /**
-               * For example The series, across the season.
-               */
               description?: string | null;
               /**
-               * Only a price corporate support has confirmed. Leave empty to show “Priced on request”.
+               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
                */
               price?: string | null;
               id?: string | null;
             }[]
           | null;
         /**
-         * Where a partner is named (on air, on the event pages, in video credits, at the event). Shown as a plain line; leave empty to say nothing. Recognition follows the credit guidelines.
+         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
          */
         recognition?: string | null;
         /**
-         * For example /radiolive. Shown as a “More about it” link; leave empty for none.
+         * For example /radiolive. Empty for no link.
          */
         pageUrl?: string | null;
         id?: string | null;
       }[]
     | null;
+  audience?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+    };
+    wuwf?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    small?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      skepticalTitle?: string | null;
+      skeptical?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    halo?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      compareTitle?: string | null;
+      nprLabel?: string | null;
+      commercialLabel?: string | null;
+      comparison?:
+        | {
+            label?: string | null;
+            npr?: number | null;
+            commercial?: number | null;
+            id?: string | null;
+          }[]
+        | null;
+      caveat?: string | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    national?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      stats?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+      glanceTitle?: string | null;
+      glance?:
+        | {
+            value: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      glanceSource?: string | null;
+    };
+    sectors?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      items?:
+        | {
+            name: string;
+            short?: string | null;
+            title?: string | null;
+            lead?: string | null;
+            local?:
+              | {
+                  value: string;
+                  text: string;
+                  id?: string | null;
+                }[]
+              | null;
+            national?:
+              | {
+                  value: string;
+                  text: string;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+          }[]
+        | null;
+      localLabel?: string | null;
+      nationalLabel?: string | null;
+      /**
+       * Button text; {short} becomes the sector’s short name.
+       */
+      talkLabel?: string | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    closing?: {
+      title?: string | null;
+      text?: string | null;
+      label?: string | null;
+    };
+  };
   /**
-   * The sentence under the “Request a proposal” button: how WUWF uses what a business sends. Public pages that collect information carry the University of West Florida IT-04 policy notice, so have the wording reviewed before launch. Empty shows a plain factual sentence.
+   * The final wording is for WUWF and the University of West Florida to approve before launch.
    */
-  inquiryNotice?: string | null;
+  guidelines?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/sponsor/on-air), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+    };
+    includes?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    leavesOut?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            heading?: string | null;
+            examples?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    side?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      adLabel?: string | null;
+      creditLabel?: string | null;
+      pairs?:
+        | {
+            ad?: string | null;
+            credit?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    rules?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            heading?: string | null;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * Where the figures come from and what they are a share of. Every figure needs one.
+       */
+      source?: string | null;
+    };
+    closing?: {
+      title?: string | null;
+      text?: string | null;
+      label?: string | null;
+    };
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4998,6 +5915,548 @@ export interface ListenLiveSelect<T extends boolean = true> {
  * via the `definition` "sponsorship_select".
  */
 export interface SponsorshipSelect<T extends boolean = true> {
+  phone?: T;
+  address?: T;
+  serviceLine?: T;
+  inquiryEmail?: T;
+  inquiryNotice?: T;
+  interests?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  budgets?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  example?:
+    | T
+    | {
+        name?: T;
+        line?: T;
+        website?: T;
+      };
+  nav?:
+    | T
+    | {
+        title?: T;
+        hub?: T;
+        onAir?: T;
+        digital?: T;
+        events?: T;
+        audience?: T;
+        guidelines?: T;
+      };
+  hub?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+              primaryLabel?: T;
+              secondaryLabel?: T;
+            };
+        heroStats?:
+          | T
+          | {
+              value?: T;
+              text?: T;
+              id?: T;
+            };
+        heroSource?: T;
+        notAnAd?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+            };
+        goals?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    name?: T;
+                    title?: T;
+                    lead?: T;
+                    total?: T;
+                    span?: T;
+                    lines?:
+                      | T
+                      | {
+                          channel?: T;
+                          what?: T;
+                          detail?: T;
+                          price?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+              looksLikeLabel?: T;
+              ctaLabel?: T;
+              eventsGoal?:
+                | T
+                | {
+                    name?: T;
+                    title?: T;
+                    lead?: T;
+                    total?: T;
+                    span?: T;
+                    linePrice?: T;
+                  };
+            };
+        places?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    body?: T;
+                    detail?: T;
+                    price?: T;
+                    page?: T;
+                    id?: T;
+                  };
+              noteTitle?: T;
+              noteText?: T;
+              noteLinkLabel?: T;
+            };
+        why?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    compare?: T;
+                    id?: T;
+                  };
+              source?: T;
+            };
+        who?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+              linkLabel?: T;
+            };
+        testimonials?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    quote?: T;
+                    name?: T;
+                    role?: T;
+                    id?: T;
+                  };
+            };
+        faq?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    linkLabel?: T;
+                    linkHref?: T;
+                    id?: T;
+                  };
+            };
+        inquiry?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              contactTitle?: T;
+              submitLabel?: T;
+              sendingLabel?: T;
+              guidelinesNote?: T;
+              guidelinesLink?: T;
+              labels?:
+                | T
+                | {
+                    name?: T;
+                    organization?: T;
+                    email?: T;
+                    phone?: T;
+                    interests?: T;
+                    budget?: T;
+                    message?: T;
+                    required?: T;
+                  };
+              thanksTitle?: T;
+              notSetUpMessage?: T;
+              failedMessage?: T;
+              thanksPrefix?: T;
+            };
+      };
+  onAir?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+              quote?: T;
+              quoteLabel?: T;
+              quoteNote?: T;
+            };
+        credit?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              includesTitle?: T;
+              includesText?: T;
+              leavesTitle?: T;
+              leavesText?: T;
+              linkLabel?: T;
+            };
+        buy?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    price?: T;
+                    anchor?: T;
+                    id?: T;
+                  };
+            };
+        rates?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              dayparts?:
+                | T
+                | {
+                    label?: T;
+                    when?: T;
+                    open?: T;
+                    m3?: T;
+                    m6?: T;
+                    y1?: T;
+                    id?: T;
+                  };
+              creditCounts?:
+                | T
+                | {
+                    count?: T;
+                    id?: T;
+                  };
+              prepayPercent?: T;
+              nonprofitPercent?: T;
+              note?: T;
+              estimatorEyebrow?: T;
+              estimatorTitle?: T;
+              estimatorDisclaimer?: T;
+              estimatorCta?: T;
+              commitmentLabel?: T;
+              creditsLabel?: T;
+            };
+        sharing?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+            };
+        carpool?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              words?: T;
+              sixMonths?: T;
+              oneYear?: T;
+              perDayNote?: T;
+              slotsNote?: T;
+              ctaLabel?: T;
+            };
+        programs?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              chooseLabel?: T;
+              names?:
+                | T
+                | {
+                    name?: T;
+                    id?: T;
+                  };
+            };
+        packages?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              openDriveRate?: T;
+              newDriveRate?: T;
+              items?:
+                | T
+                | {
+                    name?: T;
+                    description?: T;
+                    price?: T;
+                    value?: T;
+                    id?: T;
+                  };
+              packageLabel?: T;
+              note?: T;
+            };
+        pay?:
+          | T
+          | {
+              show?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              ctaTitle?: T;
+              ctaText?: T;
+              ctaLabel?: T;
+            };
+      };
+  digital?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+            };
+        website?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              placements?:
+                | T
+                | {
+                    name?: T;
+                    detail?: T;
+                    size?: T;
+                    price?: T;
+                    id?: T;
+                  };
+            };
+        app?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              placements?:
+                | T
+                | {
+                    name?: T;
+                    detail?: T;
+                    size?: T;
+                    price?: T;
+                    id?: T;
+                  };
+              illustrationNote?: T;
+            };
+        newsletter?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              placements?:
+                | T
+                | {
+                    name?: T;
+                    detail?: T;
+                    size?: T;
+                    price?: T;
+                    id?: T;
+                  };
+            };
+        package?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              price?: T;
+              priceSuffix?: T;
+            };
+        rules?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        closing?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              label?: T;
+            };
+      };
+  events?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+            };
+        showUp?:
+          | T
+          | {
+              show?: T;
+              title?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+              linkLabel?: T;
+            };
+        open?:
+          | T
+          | {
+              eyebrow?: T;
+              titleOne?: T;
+              titleTwo?: T;
+              titleMany?: T;
+              emptyText?: T;
+              talkLabel?: T;
+              moreLabel?: T;
+              levelsLabel?: T;
+              recognitionLabel?: T;
+            };
+        every?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              note?: T;
+            };
+        closing?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              label?: T;
+            };
+      };
   programs?:
     | T
     | {
@@ -5017,7 +6476,233 @@ export interface SponsorshipSelect<T extends boolean = true> {
         pageUrl?: T;
         id?: T;
       };
-  inquiryNotice?: T;
+  audience?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+            };
+        wuwf?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+            };
+        small?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              skepticalTitle?: T;
+              skeptical?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+            };
+        halo?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              compareTitle?: T;
+              nprLabel?: T;
+              commercialLabel?: T;
+              comparison?:
+                | T
+                | {
+                    label?: T;
+                    npr?: T;
+                    commercial?: T;
+                    id?: T;
+                  };
+              caveat?: T;
+              source?: T;
+            };
+        national?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              stats?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+              glanceTitle?: T;
+              glance?:
+                | T
+                | {
+                    value?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              glanceSource?: T;
+            };
+        sectors?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              items?:
+                | T
+                | {
+                    name?: T;
+                    short?: T;
+                    title?: T;
+                    lead?: T;
+                    local?:
+                      | T
+                      | {
+                          value?: T;
+                          text?: T;
+                          id?: T;
+                        };
+                    national?:
+                      | T
+                      | {
+                          value?: T;
+                          text?: T;
+                          id?: T;
+                        };
+                    id?: T;
+                  };
+              localLabel?: T;
+              nationalLabel?: T;
+              talkLabel?: T;
+              source?: T;
+            };
+        closing?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              label?: T;
+            };
+      };
+  guidelines?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              linkLabel?: T;
+              linkHref?: T;
+            };
+        includes?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        leavesOut?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    examples?: T;
+                    id?: T;
+                  };
+            };
+        side?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              adLabel?: T;
+              creditLabel?: T;
+              pairs?:
+                | T
+                | {
+                    ad?: T;
+                    credit?: T;
+                    id?: T;
+                  };
+            };
+        rules?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              source?: T;
+            };
+        closing?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              label?: T;
+            };
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

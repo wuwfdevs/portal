@@ -4,7 +4,7 @@ import Link from 'next/link'
 import React, { useState } from 'react'
 
 import { formatMoney } from '@/lib/sponsorship/money'
-import { CREDIT_COUNTS, DAYPARTS, TERMS, estimateSchedule, type TermKey } from '@/lib/sponsorship/rates'
+import { TERMS, estimateSchedule, type RateCard, type TermKey } from '@/lib/sponsorship/rates'
 
 import { buttonPrimary, pill } from './parts'
 
@@ -12,11 +12,13 @@ import { buttonPrimary, pill } from './parts'
  * The rate card (board 17, "By the credit") and the schedule estimate under it. Selecting a row picks the daypart; the estimate
  * is a starting point only, WUWF confirms every schedule. The table is real table markup with a button in each row's first cell.
  */
-export const RateEstimator: React.FC = () => {
-  const [daypart, setDaypart] = useState<string>(DAYPARTS[0]!.key)
+export type EstimatorCopy = { note: string; eyebrow: string; title: string; disclaimer: string; cta: string; commitment: string; credits: string }
+
+export const RateEstimator: React.FC<{ card: RateCard; copy: EstimatorCopy }> = ({ card, copy }) => {
+  const [daypart, setDaypart] = useState<string>(card.rows[0]?.key ?? '')
   const [term, setTerm] = useState<TermKey>('1y')
-  const [credits, setCredits] = useState<number>(26)
-  const estimate = estimateSchedule({ daypart, term, credits })
+  const [credits, setCredits] = useState<number>(card.counts.includes(26) ? 26 : (card.counts[0] ?? 0))
+  const estimate = estimateSchedule(card, { row: daypart, term, credits })
 
   return (
     <div className="flex flex-col gap-8">
@@ -39,7 +41,7 @@ export const RateEstimator: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {DAYPARTS.map((d) => {
+            {card.rows.map((d) => {
               const on = d.key === daypart
               return (
                 <tr className={on ? 'bg-wuwf-blue-100' : 'bg-surface'} key={d.key}>
@@ -65,18 +67,16 @@ export const RateEstimator: React.FC = () => {
           </tbody>
         </table>
       </div>
-      <p className="text-sm text-ink-3">
-        Total Program Rotation credits rotate through the day and evening programming. Select a row to use it in the estimate below.
-      </p>
+      {copy.note && <p className="text-sm text-ink-3">{copy.note}</p>}
 
       <div className="grid gap-6 rounded-sm border border-rule-strong bg-surface p-6 md:p-8 lg:grid-cols-[1.2fr_1fr]">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">Rough it out</span>
-            <h3 className="font-serif text-2xl font-bold leading-tight md:text-3xl">Estimate your schedule</h3>
+            <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">{copy.eyebrow}</span>
+            <h3 className="font-serif text-2xl font-bold leading-tight md:text-3xl">{copy.title}</h3>
           </div>
-          <div aria-label="Commitment" className="flex flex-col gap-2" role="group">
-            <strong className="text-sm">Commitment</strong>
+          <div aria-label={copy.commitment} className="flex flex-col gap-2" role="group">
+            <strong className="text-sm">{copy.commitment}</strong>
             <div className="flex flex-wrap gap-2">
               {TERMS.map((t) => (
                 <button aria-pressed={t.key === term} className={pill(t.key === term)} key={t.key} onClick={() => setTerm(t.key)} type="button">
@@ -85,10 +85,10 @@ export const RateEstimator: React.FC = () => {
               ))}
             </div>
           </div>
-          <div aria-label="Number of credits" className="flex flex-col gap-2" role="group">
-            <strong className="text-sm">Number of credits</strong>
+          <div aria-label={copy.credits} className="flex flex-col gap-2" role="group">
+            <strong className="text-sm">{copy.credits}</strong>
             <div className="flex flex-wrap gap-2">
-              {CREDIT_COUNTS.map((n) => (
+              {card.counts.map((n) => (
                 <button aria-pressed={n === credits} className={pill(n === credits)} key={n} onClick={() => setCredits(n)} type="button">
                   {n} credits
                 </button>
@@ -108,9 +108,9 @@ export const RateEstimator: React.FC = () => {
               <span className="text-sm text-ink-2">{estimate.nonprofit}</span>
             </>
           )}
-          <span className="mt-2 text-sm text-ink-3">A starting point only. WUWF confirms every schedule and price.</span>
+          {copy.disclaimer && <span className="mt-2 text-sm text-ink-3">{copy.disclaimer}</span>}
           <Link className={`${buttonPrimary} mt-2 self-start`} href="/sponsor#inquire">
-            Get a proposal for this schedule
+            {copy.cta}
           </Link>
         </div>
       </div>

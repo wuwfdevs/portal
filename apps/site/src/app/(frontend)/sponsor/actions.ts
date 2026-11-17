@@ -2,7 +2,8 @@
 
 import { HONEYPOT_FIELD, TOKEN_FIELD } from '@/lib/events/abuse'
 import { mailer } from '@/lib/email/mailer'
-import { inquiryRecipient, inquiryTokenFor, inquiryTokenSecret } from '@/lib/sponsorship/secrets'
+import { loadInquirySettings } from '@/lib/sponsorship/load'
+import { inquiryTokenFor, inquiryTokenSecret } from '@/lib/sponsorship/secrets'
 import { processInquiry } from '@/lib/sponsorship/submit'
 
 export interface InquiryState {
@@ -29,9 +30,10 @@ export async function submitInquiry(_previous: InquiryState, formData: FormData)
   const token = formData.get(TOKEN_FIELD)
   const honeypot = formData.get(HONEYPOT_FIELD)
 
+  const settings = await loadInquirySettings()
   const outcome = await processInquiry(
     { raw, token: typeof token === 'string' ? token : undefined, honeypot: typeof honeypot === 'string' ? honeypot : undefined, now: new Date() },
-    { tokenSecret: inquiryTokenSecret(), recipient: inquiryRecipient(), mailer: mailer() },
+    { tokenSecret: inquiryTokenSecret(), recipient: settings.recipient, choices: { interests: settings.interests, budgets: settings.budgets }, mailer: mailer() },
   ).catch(() => null)
 
   switch (outcome?.kind) {
@@ -44,8 +46,8 @@ export async function submitInquiry(_previous: InquiryState, formData: FormData)
     case 'too-fast':
       return { status: 'error', message: 'That was very quick. Please check your answers, then press Request a proposal again.', values: raw }
     case 'not-set-up':
-      return { status: 'error', message: 'Online requests are not set up yet, so nothing was sent. Please call corporate support at 850 473-7453.', values: raw }
+      return { status: 'error', message: settings.notSetUp, values: raw }
     default:
-      return { status: 'error', message: 'Something went wrong on our side and your request was not sent. Please try again in a few minutes, or call corporate support at 850 473-7453.', values: raw }
+      return { status: 'error', message: settings.failed, values: raw }
   }
 }

@@ -4,7 +4,7 @@
 import { checkFormToken, honeypotClean } from '@/lib/events/abuse'
 import type { Mailer } from '@/lib/email/mailer'
 
-import { chosenInterests, inquiryEmail, validateInquiry, type InquiryErrors } from './inquiry'
+import { chosenInterests, inquiryEmail, validateInquiry, type InquiryChoices, type InquiryErrors } from './inquiry'
 
 export type InquiryOutcome =
   | { kind: 'ok'; chosen: string }
@@ -16,7 +16,7 @@ export type InquiryOutcome =
 
 export async function processInquiry(
   input: { raw: Record<string, unknown>; token: unknown; honeypot: unknown; now: Date },
-  deps: { tokenSecret: string; recipient: string | null; mailer: Mailer },
+  deps: { tokenSecret: string; recipient: string | null; choices: InquiryChoices; mailer: Mailer },
 ): Promise<InquiryOutcome> {
   // A filled honeypot is a bot: answer as if it worked and send nothing.
   if (!honeypotClean(input.honeypot)) return { kind: 'ok', chosen: 'nothing in particular yet' }
@@ -24,7 +24,7 @@ export async function processInquiry(
   const token = checkFormToken(input.token, input.now, deps.tokenSecret)
   if (!token.ok) return token.reason === 'too-fast' ? { kind: 'too-fast' } : { kind: 'form-expired' }
 
-  const check = validateInquiry(input.raw)
+  const check = validateInquiry(input.raw, deps.choices)
   if (!check.ok) return { kind: 'invalid', errors: check.errors }
 
   if (!deps.recipient || !deps.mailer.isConfigured()) return { kind: 'not-set-up' }

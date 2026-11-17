@@ -3,19 +3,22 @@
 import Link from 'next/link'
 import React, { useState } from 'react'
 
-import type { Sector } from '@/lib/sponsorship/audience'
+import { fill } from '@/lib/sponsorship/content'
+
+export type Stat = { value: string; text: string }
+export type Sector = { key: string; name: string; short: string; title: string; lead: string; local: Stat[]; national: Stat[] }
 
 import { StatGrid, buttonPrimary, darkPill } from './parts'
 
 /** "How this looks for your kind of business" (board 20): seven sector views, each with the smaller-county figures and the national ones. */
-export const SectorPicker: React.FC<{ sectors: readonly Sector[] }> = ({ sectors }) => {
+export const SectorPicker: React.FC<{ sectors: readonly Sector[]; copy: { groupLabel: string; local: string; national: string; talk: string } }> = ({ sectors, copy }) => {
   const [index, setIndex] = useState(0)
   const current = sectors[index] ?? sectors[0]
   if (!current) return null
 
   return (
     <div className="flex flex-col gap-6">
-      <div aria-label="Kind of business" className="flex flex-wrap gap-2" role="group">
+      <div aria-label={copy.groupLabel} className="flex flex-wrap gap-2" role="group">
         {sectors.map((s, i) => (
           <button aria-pressed={i === index} className={darkPill(i === index)} key={s.key} onClick={() => setIndex(i)} type="button">
             {s.name}
@@ -29,15 +32,15 @@ export const SectorPicker: React.FC<{ sectors: readonly Sector[] }> = ({ sectors
             <p className="text-lg text-ink-2">{current.lead}</p>
           </div>
           <Link className={`${buttonPrimary} shrink-0 self-start`} href="/sponsor#inquire">
-            Talk to us about {current.short}
+            {fill(copy.talk, { short: current.short })}
           </Link>
         </div>
         <div className="flex flex-col gap-2">
-          <strong className="text-sm">Smaller U.S. counties, closest to WUWF</strong>
+          <strong className="text-sm">{copy.local}</strong>
           <StatGrid columns={3} stats={current.local} />
         </div>
         <div className="flex flex-col gap-2">
-          <strong className="text-sm">Nationally</strong>
+          <strong className="text-sm">{copy.national}</strong>
           <StatGrid columns={3} stats={current.national} />
         </div>
       </div>

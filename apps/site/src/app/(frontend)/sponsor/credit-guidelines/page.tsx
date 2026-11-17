@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 
 import { GuidelinesView } from '@/components/Sponsorship/GuidelinesView'
+import { loadSponsorship } from '@/lib/sponsorship/load'
 
-export const metadata: Metadata = {
-  title: 'Sponsor credit guidelines',
-  description: 'What a WUWF sponsor credit can and can’t say, following NPR’s sponsor recognition guidelines.',
-  alternates: { canonical: '/sponsor/credit-guidelines' },
+// Saving the Sponsorship global refreshes this route (globals/Sponsorship).
+export async function generateMetadata(): Promise<Metadata> {
+  const { content } = await loadSponsorship()
+  return { title: content.guidelines?.hero?.title || undefined, description: content.guidelines?.hero?.body?.split(/\n\s*\n/)[0], alternates: { canonical: '/sponsor/credit-guidelines' } }
 }
 
-export default function CreditGuidelinesPage() {
-  return <GuidelinesView />
+export default async function Page() {
+  const { content } = await loadSponsorship()
+  return <GuidelinesView content={content} />
 }

@@ -1,101 +1,96 @@
 import React from 'react'
 
-import {
-  GUIDELINES_INCLUDES,
-  GUIDELINES_LEAVES_OUT,
-  GUIDELINES_RULES,
-  GUIDELINES_SIDE_BY_SIDE,
-  GUIDELINES_SOURCE,
-} from '@/lib/sponsorship/content'
+import { shown, type SponsorshipContent } from '@/lib/sponsorship/content'
 
-import { Hero, ProposalBand, Section, Source, SponsorshipShell, card } from './parts'
+import { ContentHero, ProposalBand, Section, Source, SponsorshipShell, card, eyebrow, headingProps } from './parts'
 
 /** Board 20b: Credit guidelines. What a credit can and can’t say, from NPR’s sponsor recognition guidelines. */
-export const GuidelinesView: React.FC = () => (
-  <SponsorshipShell current="guidelines">
-    <Hero eyebrow="Credit guidelines" title="What a WUWF sponsor credit says">
-      <p>
-        A credit names the business that supports WUWF and thanks it. It isn’t a commercial. These guidelines follow NPR’s sponsor recognition guidelines and the FCC rules behind them, and they apply on air and online.
-      </p>
-    </Hero>
+export const GuidelinesView: React.FC<{ content: SponsorshipContent }> = ({ content }) => {
+  const g = content.guidelines
+  const hasLists = shown(g?.includes) || shown(g?.leavesOut)
 
-    <div className="container grid gap-6 py-12 md:py-14 lg:grid-cols-2">
-      <section aria-labelledby="includes" className="flex flex-col gap-3">
-        <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">A credit includes</span>
-        <h2 className="font-serif text-3xl font-bold leading-tight" id="includes">
-          Who you are, what you do, where to learn more
-        </h2>
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {GUIDELINES_INCLUDES.map((item) => (
-            <li className="flex gap-3 rounded-sm border border-rule-strong bg-surface p-3 text-base" key={item}>
-              <span aria-hidden="true" className="font-bold text-success-fg">
-                +
-              </span>
-              <span>
-                <span className="sr-only">Includes: </span>
-                {item}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section aria-labelledby="leaves-out" className="flex flex-col gap-3">
-        <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">A credit leaves out</span>
-        <h2 className="font-serif text-3xl font-bold leading-tight" id="leaves-out">
-          Anything that promotes
-        </h2>
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {GUIDELINES_LEAVES_OUT.map((item) => (
-            <li className="flex gap-3 rounded-sm border border-rule-strong bg-surface p-3 text-base" key={item.heading}>
-              <span aria-hidden="true" className="font-bold text-on-air-red">
-                −
-              </span>
-              <span>
-                <span className="sr-only">Leaves out: </span>
-                <strong>{item.heading}</strong>
-                <span className="block text-sm text-ink-2">{item.examples}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+  return (
+    <SponsorshipShell content={content} current="guidelines">
+      <ContentHero hero={g?.hero} />
 
-    <Section
-      eyebrow="Side by side"
-      intro={<p>Illustrations only. These businesses aren’t real sponsors.</p>}
-      label="An ad and a credit, side by side"
-      title="The same business, two ways"
-      tone="grey"
-    >
-      <ul className="m-0 flex list-none flex-col gap-4 p-0">
-        {GUIDELINES_SIDE_BY_SIDE.map((pair) => (
-          <li className="grid gap-4 md:grid-cols-2" key={pair.credit}>
-            <div className={`${card} bg-surface`}>
-              <span className="text-xs font-bold uppercase tracking-[0.08em] text-ink-3">An ad would say</span>
-              <p className="font-serif text-lg text-ink-2">{pair.ad}</p>
-            </div>
-            <div className={`${card} border-wuwf-blue-700 bg-wuwf-blue-100`}>
-              <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">A credit says</span>
-              <p className="font-serif text-lg">{pair.credit}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Section>
+      {hasLists && (
+        <div className="container grid gap-6 py-12 md:py-14 lg:grid-cols-2">
+          {shown(g?.includes) && (
+            <section aria-labelledby="includes" className="flex flex-col gap-3">
+              {g.includes.eyebrow && <span className={`${eyebrow} text-wuwf-blue-700`}>{g.includes.eyebrow}</span>}
+              <h2 className="font-serif text-3xl font-bold leading-tight" id="includes">
+                {g.includes.title}
+              </h2>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {(g.includes.items ?? []).map((item) => (
+                  <li className="flex gap-3 rounded-sm border border-rule-strong bg-surface p-3 text-base" key={item.id ?? item.text}>
+                    <span aria-hidden="true" className="font-bold text-success-fg">
+                      +
+                    </span>
+                    <span>{item.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {shown(g?.leavesOut) && (
+            <section aria-labelledby="leaves-out" className="flex flex-col gap-3">
+              {g.leavesOut.eyebrow && <span className={`${eyebrow} text-wuwf-blue-700`}>{g.leavesOut.eyebrow}</span>}
+              <h2 className="font-serif text-3xl font-bold leading-tight" id="leaves-out">
+                {g.leavesOut.title}
+              </h2>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {(g.leavesOut.items ?? []).map((item) => (
+                  <li className="flex gap-3 rounded-sm border border-rule-strong bg-surface p-3 text-base" key={item.id ?? item.heading}>
+                    <span aria-hidden="true" className="font-bold text-on-air-red">
+                      −
+                    </span>
+                    <span>
+                      <strong>{item.heading}</strong>
+                      <span className="block text-sm text-ink-2">{item.examples}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      )}
 
-    <Section eyebrow="The rules behind it" label="More rules" title="A few more things worth knowing">
-      <ul className="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
-        {GUIDELINES_RULES.map((rule) => (
-          <li className={card} key={rule.heading}>
-            <strong className="font-serif text-xl">{rule.heading}</strong>
-            <span className="text-base text-ink-2">{rule.text}</span>
-          </li>
-        ))}
-      </ul>
-      <Source>{GUIDELINES_SOURCE}</Source>
-    </Section>
+      {shown(g?.side) && (
+        <Section {...headingProps(g.side)} tone="grey">
+          <ul className="m-0 flex list-none flex-col gap-4 p-0">
+            {(g.side.pairs ?? []).map((pair) => (
+              <li className="grid gap-4 md:grid-cols-2" key={pair.id ?? pair.credit}>
+                <div className={`${card} bg-surface`}>
+                  <span className="text-xs font-bold uppercase tracking-[0.08em] text-ink-3">{g.side?.adLabel}</span>
+                  <p className="font-serif text-lg text-ink-2">{pair.ad}</p>
+                </div>
+                <div className={`${card} border-wuwf-blue-700 bg-wuwf-blue-100`}>
+                  <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">{g.side?.creditLabel}</span>
+                  <p className="font-serif text-lg">{pair.credit}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
-    <ProposalBand text="Corporate support will draft your credit with you and check it against these guidelines." title="Not sure how to word yours?" />
-  </SponsorshipShell>
-)
+      {shown(g?.rules) && (
+        <Section eyebrow={g.rules.eyebrow || undefined} title={g.rules.title ?? ''}>
+          <ul className="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
+            {(g.rules.items ?? []).map((rule) => (
+              <li className={card} key={rule.id ?? rule.heading}>
+                <strong className="font-serif text-xl">{rule.heading}</strong>
+                <span className="text-base text-ink-2">{rule.text}</span>
+              </li>
+            ))}
+          </ul>
+          {g.rules.source && <Source>{g.rules.source}</Source>}
+        </Section>
+      )}
+
+      <ProposalBand closing={g?.closing} />
+    </SponsorshipShell>
+  )
+}
