@@ -12,6 +12,8 @@ export interface Mail {
   to: string
   subject: string
   text: string
+  /** Where a reply goes, when it is not the sender (an inquiry's own author). */
+  replyTo?: string
 }
 
 export type MailResult = { ok: true } | { ok: false; reason: 'not-configured' | 'failed' }
@@ -31,7 +33,7 @@ export const resendMailer: Mailer = {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, text: mail.text }),
+        body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, text: mail.text, ...(mail.replyTo ? { reply_to: mail.replyTo } : {}) }),
         signal: AbortSignal.timeout(15_000),
       })
       if (res.ok) return { ok: true }

@@ -7,6 +7,41 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Sponsorship pages, boards 16 to 20b (built 2026-11-17)
+
+The "Sponsor WUWF" section of the reviewed canvas is built as public pages: `/sponsor` (16, the hub and the inquiry form), `/sponsor/on-air` (17),
+`/sponsor/digital` (18), `/sponsor/events` (19), `/sponsor/audience` (20) and `/sponsor/credit-guidelines` (20b). The boards (rethought Nov. 17, strategy
+"sell trust, not response") win on copy, order and layout. **This is the business-facing description and price list only.** Placements on the site,
+entitlements and proof of performance are still the open Portal-side design above; nothing here books, serves or records a sponsor.
+
+- **Everything editable is in the admin (owner's standing rule: copy and UI configuration live in Payload, not in code or environment variables).** The
+  `Sponsorship` global (Pages & hubs; publisher edits) has a tab per page: every heading, paragraph, button label, rate-card row, package, Carpool price,
+  discount percent, goal and its lines, placement, figure with its source line, testimonial, FAQ entry, sector view, credit-guidelines list and closing band,
+  plus phone, address, the inquiry notice, the form's choices and field labels, and the sample business used in illustrations. Every optional section has a
+  **Show this section** switch. Code keeps behaviour only: the estimator's arithmetic (`lib/sponsorship/rates.ts`), the form's validation and anti-abuse,
+  the markup. **Still in code:** the six page routes, the placement table headers and "Illustration" captions, form validation messages, and small fallbacks
+  (nav names). Migrations `20261117_181047_sponsorship_pages` (events and programs) and `20261117_194934_sponsorship_copy` (the rest; it writes the reviewed
+  boards' wording through the Local API once, from `lib/sponsorship/starter.ts`, which nothing reads at runtime), tested up, down and up;
+  `verify:migrations` passes. Saving the global refreshes `/sponsor`.
+- **Inquiries are mailed, not stored, to an address entered in the admin** ("Where proposal requests are sent", Contact and form tab; a **staff-only field**,
+  read only by the server when a form is sent and removed from what pages receive). Sending uses the Resend settings the membership claim already uses (those
+  are credentials, so they stay environment variables). Empty address or no mail service: the form says online requests are not set up (the message is an
+  admin field) and never pretends to send. Honeypot, signed timing token and length caps guard it; no per-address rate limit (nothing is stored to count).
+  **Enter the address and the university's IT-04 notice in the admin before launch.** `Mail` gained an optional `replyTo`.
+- **Brackets on the boards are review notes, so the starting content prints none.** A product with no confirmed price or size is left out or reads "Priced on
+  request" (the website "Banner" row, e-newsletter and website ad sizes, the rates-effective date, the IT-04 wording, the "draft for UWF review" line on the
+  guidelines, the Nielsen / NPR-permission / "do WUWF's counties fall in the C and D group" notes). They are the **pre-launch checklist** below.
+- **Decisions to confirm.** The rate card keeps the board's three weekend rows; the root `CLAUDE.md` lists Traffic's names as "Weekend", so check them against
+  the Portal's (a label edit in the admin). Package 2's Total Program Rotation credits work out to $19 against $30 open (the board's open question); a test
+  records the $19. Typed prices in goals and place cards are text the editor keeps in step with the rate card (the estimator and the package prices read the
+  numbers). The Book Club is seeded as open although the board lists "whether the partnership is open now" as unconfirmed: set it to Held if it is not.
+- **Not done here.** Links to `/sponsor` from the header's About menu and the footer's For-businesses column (both are admin-edited globals), the Support page's
+  "Sponsor WUWF" button address (`/sponsor`, in the Support page global), sitemap entries.
+- **Before launch:** corporate support confirms the rate card's effective date, who counts as a new sponsor, package length and end date, website and
+  e-newsletter ad sizes, the website banner, event levels and recognition, the IT-04 notice, the final credit-guidelines policy (UWF review), whether WUWF's
+  counties fall in NPR's small-markets group, Nielsen's citation and use terms, and NPR's permission to publish Audience Insights data
+  (audienceinsights@npr.org). Whether WUWF reports views and clicks to sponsors is undecided; the pages promise nothing about it.
+
 ## Cards with audio, audio order, section nav (2026-11-16)
 
 - **One player for all audio** (2026-11-16, after looking at how wuwf.org does it: its story and card "Listen • 7:37" pills all hand off to one persistent player bar). `PlayerProvider` (root layout, so it survives navigation) now plays the live stream or one on-demand track; `PlayAudioButton` is the play button for a track and `PlayerBar` shows it (title linking back to the story, seek slider, back/forward 15 s, volume, "Listen live"). Cards, the story and episode pages, show pages, Unearthing and the home page's podcast and Unearthing slots use it; none has its own `<audio>`. Without script a plain control stands in (`<noscript>`). Not changed: the listening flow's "listen back" of a visitor's own recording, and the RadioLive and clip videos.
@@ -255,7 +290,7 @@ sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, membe
 **Next, in order:**
 1. **The staging import**, then the show move above (runs on the owner's computer; the cloud sandbox cannot reach hosted Postgres).
 2. **RadioLive:** the artist and show **backfill** from Grove's old page (a converter, plus an owner-approved photo fetch); calendar merge (list shows in the community calendar from `performances`, never copy them into `events`) and `Event` structured data; check migrated Grove events for RadioLive duplicates first.
-3. **Sponsorship design** is open and **not a site-only job**: see below. Do not extend the site's `underwriting-agreements` schema or build booking or placement logic in Payload.
+3. **Sponsorship**: the business-facing pages (boards 16 to 20b) are built (see *Sponsorship pages*); the delivery design (placements, entitlements, proof of performance) is open and **not a site-only job**: see below. Do not extend the site's `underwriting-agreements` schema or build booking or placement logic in Payload.
 
 **Waiting on the owner:** the wording of the funder panel's independence sentence for programs ("...what WUWF airs"; it now also shows on the home page's podcast feature); whether Encores (`/show/radiolive-encores`) is a separate program; entering the RadioLive page content (RadioLive 25 text and the staff contact, the plan-your-visit facts, the real artist spellings: Pat Byrne, Julie Patchouli); a **Video and RadioLive link in the site header** (a global, edited in the admin); and the sponsorship product list (below).
 
@@ -317,7 +352,7 @@ not WAV; **running on the owner's computer:** the episode body repair against st
 
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
-**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
+**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which were deferred (sponsorship was built later, 2026-11-17: see *Sponsorship pages*). The build
 program is under *The build program*. **Phases 1 to 4 are done** (standard pages; shows, episodes, podcast directory; the community
 calendar with public submissions and editorial approval: see *Community calendar*; author profiles and the Unearthing Florida and Voyager hubs: see *Phase 4*). **Next: phase 5** (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
 sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
@@ -372,7 +407,7 @@ approved hosts load without a click, any other public https host loads behind a 
 without a click** from built-in or approved hosts, publisher-only to add; **no third-party scripts otherwise**; the importer's defaults
 (sections from the path, "WUWF Staff" for no byline, extra byline names kept and flagged); editors post live updates, publishers open and
 end a blog, bylines optional, comments left out, polling our own endpoint; the full import goes to **production, rehearsed on staging first**;
-sponsorship and listening are deferred.
+sponsorship and listening were deferred (sponsorship pages built 2026-11-17).
 
 ## Where things stand (Milestone 1)
 
@@ -979,7 +1014,7 @@ A **built-in list** (`DEFAULT_EMBED_HOSTS` in `src/lib/embeds.ts`: DocumentCloud
 
 ### The build program (owner, 2026-11-03: build everything except sponsorship and listening)
 
-Deferred by the owner: boards 5-6 (listening) and 16-20 (sponsorship). Everything else is to be built, in this order (the order
+Deferred by the owner at the time: boards 5-6 (listening) and 16-20 (sponsorship; since built, see *Sponsorship pages*). Everything else is to be built, in this order (the order
 follows what replacing Grove needs first, then the new products):
 
 1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**

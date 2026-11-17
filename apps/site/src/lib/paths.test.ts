@@ -47,6 +47,7 @@ describe('checkPath', () => {
   it('knows which paths the site itself owns', () => {
     expect(isReservedPath('/search')).toBe(true)
     expect(isReservedPath('/search-and-rescue')).toBe(false)
+    expect(isReservedPath('/sponsor/on-air')).toBe(true) // the sponsorship pages (boards 16 to 20b)
     expect(isReservedPath('/local-news/2016-05-02/support')).toBe(false) // only the first segment is reserved
   })
 })
