@@ -11,6 +11,7 @@ import type { Profile } from "@/lib/auth/session";
 import { colors } from "@/lib/design-tokens";
 import { useStation } from "@/components/station-provider";
 import { STATION_LOGO_SRC, isRemoteLogo } from "@/lib/station-brand";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -20,7 +21,14 @@ function initialsFor(name: string): string {
     .join("");
 }
 
-export function PortalNav({ profile }: { profile: Profile }) {
+export function PortalNav({
+  profile,
+  unreadNotifications,
+}: {
+  profile: Profile;
+  /** Unread in the Notification Center; null when it could not be read, which shows the bell with no number. */
+  unreadNotifications: number | null;
+}) {
   const station = useStation();
   const pathname = usePathname();
   const isAdmin = profile.platform_role === "administrator";
@@ -32,6 +40,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
   const showHelp = helpContextForPath(pathname, searchParams?.toString() ?? "") !== null;
   const rightPanel = useRightPanel();
   const helpOpen = rightPanel.open === "help";
+  const isOnNotifications = pathname.startsWith("/notifications");
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-line bg-white px-3 sm:gap-7 sm:px-7">
@@ -95,6 +104,7 @@ export function PortalNav({ profile }: { profile: Profile }) {
             <span className="hidden sm:inline">Help</span>
           </button>
         )}
+        <NotificationBell unread={unreadNotifications} active={isOnNotifications} />
         <details className="group relative shrink-0">
           <summary className="flex cursor-pointer list-none items-center gap-2 rounded px-1 py-1.5 sm:px-2 [&::-webkit-details-marker]:hidden">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-surface text-xs font-bold text-brand-link">
@@ -119,6 +129,12 @@ export function PortalNav({ profile }: { profile: Profile }) {
             <div className="border-b border-line px-3 py-2 text-xs text-ink-400">
               {profile.email}
             </div>
+            <Link
+              href="/notifications/preferences"
+              className="block px-3 py-2 text-left text-sm text-ink-700 hover:bg-panel-50"
+            >
+              Notification preferences
+            </Link>
             <form action={signOutAction}>
               <button
                 type="submit"

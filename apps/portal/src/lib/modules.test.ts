@@ -195,8 +195,13 @@ describe("module manifest", () => {
     expect(notPublic, "declared public routes missing from PUBLIC_PATHS").toEqual([]);
 
     const undeclared = publicPaths.filter((path) => !declared.includes(path));
-    // /login, /request-access and /auth/callback belong to the platform, not a module.
-    expect(undeclared.sort()).toEqual(["/auth/callback", "/login", "/request-access"]);
+    // /login, /request-access, /auth/callback and the notification layer's scheduled run belong to the platform, not a module.
+    expect(undeclared.sort()).toEqual([
+      "/api/cron/notifications",
+      "/auth/callback",
+      "/login",
+      "/request-access",
+    ]);
   });
 
   it("names environment variables once per module", () => {

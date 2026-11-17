@@ -76,6 +76,7 @@ action names it (`&field=name`) and the screen swaps that field's `FieldHint` fo
 | `ProgressBar`      | A thin bar: done plus pending of a total, or indeterminate for busy work    |
 | `Steps`            | Numbered steps for a flow; the current step can be busy                     |
 | `BusyPanel`        | Title, time hint and a sliding bar for a long server step                   |
+| `NotificationBell` | The header's link to the Notification Center, with its unread count (`components/notifications/`) |
 
 ### Pickers (2026-09-27)
 
@@ -373,6 +374,17 @@ the words carry the meaning. A busy region that hides its input (the import's up
 it mounted and only toggles `hidden`, so a failed run leaves the chosen file in place.
 `Alert` has `warning` (asks for a decision — a date that doesn't match) and `success` (confirms
 a finished action on the screen it lands on) beside the older variants.
+
+## Reuse before you build, and extract when you would build twice (2026-11-16)
+
+Before writing UI, look here and in `src/components/ui/`, and use what exists (and the token classes in
+`src/lib/design-tokens.ts`). A hand-typed checkbox, a one-off pill, a bespoke empty box is the thing to replace with
+`CheckboxField`, `Badge`, `EmptyState`. The other half is just as much the rule: when you are about to hand-build something a second
+screen will plainly need, or you notice it already hand-built in two places, make it a component in the same change, put it in the
+table above, and say so in the summary. The notification bell is the example: it started inside `PortalNav` and was moved out to
+`components/notifications/notification-bell.tsx` before it had a second caller, because the header is not where a bell's states
+(count, cap, unknown, current page) should live. A piece that only means something on one screen (a list row on the Notification
+Center) stays beside that screen until a second use appears.
 
 ## Shared building blocks (2026-10-07)
 

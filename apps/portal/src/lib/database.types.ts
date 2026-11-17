@@ -2235,6 +2235,51 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["rc_pinned_procedures"]["Row"]>;
         Relationships: [];
       };
+      notification_inbox: {
+        Row: {
+          id: string;
+          recipient_id: string;
+          type: string;
+          title: string;
+          body: string;
+          href: string | null;
+          in_app: boolean;
+          dedupe_key: string | null;
+          created_at: string;
+          read_at: string | null;
+          email_state: "none" | "pending" | "sent" | "failed";
+          email_attempts: number;
+          email_next_attempt_at: string;
+          email_sent_at: string | null;
+          email_last_error: string | null;
+        };
+        // Rows are written only by notify() with the service client (20261115120000). A signed-in recipient may select the columns up to
+        // read_at (not the email delivery ones) and update read_at alone.
+        Insert: Partial<Database["public"]["Tables"]["notification_inbox"]["Row"]> & {
+          recipient_id: string;
+          type: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notification_inbox"]["Row"]>;
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          type: string;
+          in_app: boolean;
+          email: boolean;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["notification_preferences"]["Row"]> & {
+          user_id: string;
+          type: string;
+          in_app: boolean;
+          email: boolean;
+        };
+        Update: Partial<Database["public"]["Tables"]["notification_preferences"]["Row"]>;
+        Relationships: [];
+      };
       rd_comments: {
         Row: {
           id: string;
@@ -4576,6 +4621,25 @@ export interface Database {
       };
     };
     Functions: {
+      /** Security definer (20261115120000), service_role only. The scheduled run's claim: due queued emails, each leased for five minutes. */
+      notification_claim_emails: {
+        Args: { p_limit?: number };
+        Returns: {
+          notification_id: string;
+          to_email: string;
+          to_name: string;
+          notif_type: string;
+          notif_title: string;
+          notif_body: string;
+          notif_href: string | null;
+          attempt: number;
+        }[];
+      };
+      /** Security definer (20261115120000), service_role only. Records a send as sent, or schedules a retry, or marks it failed. */
+      notification_finish_email: {
+        Args: { p_id: string; p_ok: boolean; p_error?: string | null; p_max_attempts?: number };
+        Returns: undefined;
+      };
       /** Security definer (20261111160000, 20261113120000 adds emails). What the 30-day purge would remove; any staff member with access may ask. */
       al_purge_preview: {
         Args: Record<string, never>;
