@@ -1435,7 +1435,7 @@ signed-in account page, not CMS content.
 
 ## Network content: queue, sources and sections (design proposed 2026-11-18; nothing built)
 
-**Status.** A design worked out with the owner in conversation, with a mockup (claude.ai artifact "Network Content Queue": queue, sources, add by hand,
+**Status.** A design worked out with the owner in conversation, with a mockup (claude.ai artifact "Network Content Queue": queue, sources,
 section page). Everything below is **proposed** unless marked "from the CDS docs" or "from the repository". Nothing is built, and no migration exists.
 It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision above ("the CMS will import wire stories and let editors choose
 which to publish").
@@ -1462,23 +1462,28 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 
 **Proposed design.**
 1. **Two layers, not drafts.** A `network_items` collection holds every story the poll finds (headline, teaser, link, image address, credit, dates, CDS id,
-   status `new` / `held` / `dismissed` / `published`, restricted flag, a link to the post it produced). It has no versions or drafts and is disposable.
+   status `new` / `held` / `dismissed` / `published`, a link to the post it produced). It has no versions or drafts and is disposable.
    A `posts` record is created **only when a story is published** (automatically for sources set that way, by an editor for the rest), with `source` set to
    `npr` or `wire` and the existing rules: read-only except headline, teaser and description, re-pulled, never archived separately. Imported but unpicked
    stories are **not** draft posts: a draft means unfinished WUWF work, and candidates would bury the Stories list, add versions on every re-pull and
    make purging risky (posts carry redirects and embeddings). **No bodies are stored** until NPR's storage terms are confirmed.
-2. **Sources are records.** A `network_sources` collection: name, how its stories are found (CDS owner service ID, CDS collection ID, or entered by hand),
+2. **Sources are records.** A `network_sources` collection: name, how its stories are found (CDS owner service ID or CDS collection ID),
    suggested section, and mode (publishes on its own, or waits in the queue). Adding a station is a record, not a deploy. WUSF, NPR and FPREN would be
    "publishes on its own"; other stations wait. **If WUSF and FPREN publish to CDS (unconfirmed) there is no feed adapter at all**; the Florida News Exchange
-   is the one source that is not CDS.
+   is the one source that is not CDS, and it is not a source record at all (item 6).
 3. **Polling.** A job per source asks CDS for documents changed since its last run (`editorialLastModifiedDateTime`), pages through them, and upserts by CDS
-   id. Documents flagged restricted are recorded as restricted and never shown for publishing or linked. A published story whose document has gone is
+   id. **Documents flagged restricted are filtered out at ingest**: not stored, not shown in the queue, not linked; the poll log only counts them.
+   A restricted asset inside an unrestricted story is dropped and the story kept. If a story already held (published or not) turns up restricted on a
+   later poll, it is unpublished and an editor is told. A published story whose document has gone is
    flagged for an editor, not silently removed.
 4. **Credit** comes from the document's branding links, looked up once per organization and cached.
 5. **How a story appears:** a link-out card (headline, teaser, image, "From <station>") by default. A full page on wuwf.org is **not offered** until NPR's
    storage and republishing terms are confirmed; the wire-story rule (canonical to the original publisher, 410 once gone) already assumes this.
 6. **Florida News Exchange.** It runs on PRX's closed system and no public feed was found (Current report, undated). Ask WLRN or PRX for a station
-   credential; until then, "Add a story by hand" (paste a link, check the fields) creates a `network_items` row with `source: wire`. Do not scrape it.
+   credential. Until then there is **no separate entry screen**: an editor makes an ordinary post in Stories with `source` set to "Wire or partner". A story typed
+   in has already been chosen, so it never enters the queue. What posts lack today is somewhere to say where the story links out and who gets the credit:
+   an original address and a credit line, shown when `source` is not WUWF (the same two fields a published CDS story needs for its link-out card). If WLRN
+   or PRX provide access, the exchange becomes an ordinary source record. Do not scrape it.
 7. **Retention (proposed numbers; they would be Site settings, clamped like the embeddings thresholds):** untouched `new` items deleted after about 30 days;
    `held` items flagged stale, not deleted; `dismissed` items keep only their key so they stay dismissed; published items stay while published, and
    whether published network cards expire (then 410, as wire URLs do) is the owner's call. Deleting a merged group is all or nothing.
@@ -1498,7 +1503,7 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 - A CDS key for the site from NPR Member Partnership, and which scheduler runs the poll (the Portal has Vercel cron jobs; the site's has not been checked).
 - Florida News Exchange access through WLRN or PRX.
 
-**Not built:** the collections, the poll, the queue view, the manual form, the section-page cards, the retention job, restricted-content handling, and the
+**Not built:** the collections, the poll, the queue view, the original-address and credit fields on posts, the section-page cards, the retention job, restricted-content handling, and the
 read-only enforcement for `source ≠ wuwf` that `ARCHITECTURE.md` still lists as not built.
 
 ## Known gaps in what exists
