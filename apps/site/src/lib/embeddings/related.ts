@@ -66,7 +66,7 @@ async function readNeighbours(payload: Payload, ids: number[]) {
     limit: ids.length,
     overrideAccess: false,
     pagination: false,
-    select: { title: true, slug: true, path: true, categories: true, meta: true, publishedAt: true, series: true, production: true, publishingIdentity: true, featuredAudio: true },
+    select: { title: true, slug: true, path: true, categories: true, meta: true, publishedAt: true, series: true, production: true, publishingIdentity: true, featuredAudio: true, format: true },
     where: { id: { in: ids } },
   })
   return found.docs
