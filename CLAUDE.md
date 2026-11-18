@@ -45,6 +45,9 @@ dependencies" true. Never run `pnpm install` with a different lockfile setting, 
 - **Claude applies the migrations, and says so if it cannot.** A migration is not done until it is applied to the app's preview and
   production Supabase projects (through the Supabase connector), verified, and recorded in the ledger. Never end a task with "apply these
   for me"; the Portal's "Database workflow" has the order and the project ids. A cut-off connector is a stated blocker, not a hand-off.
+  **One exception, by the owner's decision (2026-11-18): the site's production database stays empty until the MVP launches.** A site migration is done when it is
+  applied to staging (`wuwf-site-staging`) and verified; production gets all of them at once at launch (`apps/site/ROADMAP.md`, "Launch: initializing production").
+  The Portal's two projects are unaffected.
 - **Reuse before you build, and extract when you would build twice.** Use the app's shared components and design tokens
   (`apps/portal/docs/ui-patterns.md`), and make a new shared component in the same change when a second screen will plainly need what
   you are hand-building. See the Portal's `CLAUDE.md`, "Rules for making changes".

@@ -186,6 +186,12 @@ Built from the CDS docs and the owner's decisions of 2026-11-18; the record and 
 
 ## Database
 
+**Migrations and environments (owner decision, 2026-11-18).** The site's production database (`wuwf-site-production`) is empty on purpose until the MVP launches.
+A site migration is done when it is applied to **staging** (`wuwf-site-staging`; a pushed branch's preview build applies it with `MIGRATE_ON_BUILD=1`) and **verified there with
+real queries** through the Supabase connector (tables and owner, indexes, foreign keys, enums, no Data API access). Do not apply migrations to production one by one and do
+not set `MIGRATE_ON_BUILD` for it: production gets all of them at once at launch (`ROADMAP.md` -> *Launch: initializing production*). That only works if **a pushed
+migration keeps its name and its SQL**: never rename, regenerate or edit one that has been pushed (if a merge makes its schema snapshot stale, keep the name and regenerate only the `.json`; if the SQL must change, add a new migration).
+
 PostgreSQL, **this app's own** Supabase project in hosted environments — never the Portal's two projects.
 Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
 Payload pushes schema changes; **production runs only committed migrations** (`src/migrations`, created

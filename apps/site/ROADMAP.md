@@ -1660,6 +1660,28 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 - Read-only enforcement for `source ≠ wuwf` (only headline, teaser and description editable) that `ARCHITECTURE.md` lists as not built: only meaningful once network posts exist.
 - Retention numbers as Site settings; a per-source "stale kept stories" flag; matching a station's `branding` link to a display name (Organization V4 lookup).
 
+## Launch: initializing production (decided 2026-11-18)
+
+**Decision (owner, 2026-11-18).** The site is not deployed to production until the MVP is ready, and its production database is **empty on purpose** until then.
+A site migration is finished when it is applied to staging (`wuwf-site-staging`, `avgeycgvaufwdfzdsogi`; the preview build does it) and verified there with
+queries. It is **not** applied to `wuwf-site-production` one at a time: production gets every migration at once, in order, with one `payload migrate` at launch.
+(This is an exception to the root `CLAUDE.md` rule for the Portal's two live projects.) What makes that safe is that **a pushed migration is never renamed or
+rewritten** (see *Lessons*): the launch run replays the same files staging already ran.
+
+**State on 2026-11-18** (checked with the Supabase and Vercel connectors): `wuwf-site-production` (`gyidqxhkkhajfazbcrug`) has the `payload_app` role, the
+`wuwf-site-files` bucket and pgvector, and **no tables** (no `payload_migrations`). Staging has all 55 migrations recorded. The Vercel Production environment has only
+`OPENAI_API_KEY`, `PORTAL_LISTENING_SECRET` and the two public Supabase values.
+
+**At launch, in order:**
+1. Set the production values on the Vercel Production environment: `DATABASE_URL` (pooled, transaction mode), `DATABASE_MIGRATION_URL` (session mode), `PAYLOAD_SECRET`,
+   `CRON_SECRET`, `PREVIEW_SECRET`, `PORTAL_IDENTITY_SECRET`, the `S3_*` storage values for `wuwf-site-files`, `NPR_CDS_TOKEN`, and the rest the Preview environment has.
+   The `payload_app` password is in the owner's private files, not the repository.
+2. Run `payload migrate` once against `wuwf-site-production`: from a machine with Postgres access (`DATABASE_URL=<session url> pnpm payload migrate < /dev/null`), or
+   a one-off build with `MIGRATE_ON_BUILD=1` set for that build only and removed after. A sandbox session has HTTPS only and cannot do this.
+3. Verify like staging: the tables exist and are owned by `payload_app`, `payload_migrations` has one row per file in `src/migrations`, pgvector answers, and
+   `anon` and `authenticated` have no access to the new tables.
+4. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
+
 ## Known gaps in what exists
 
 - **Story embeddings are built but not run** (see *Vector search and similar stories*): until the backfill runs there is no "Related stories" section and search is keyword-only. The similarity floors are uncalibrated starting values.
@@ -1933,14 +1955,8 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   `CRON_SECRET` and `NPR_CDS_TOKEN` set on the site's Vercel project (the cron in `vercel.json` does nothing until both are there); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
   (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
   tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
-- **The site's production database does not exist yet (checked 2026-11-18).** `wuwf-site-production` (`gyidqxhkkhajfazbcrug`) has the `payload_app` role, the
-  `wuwf-site-files` bucket and pgvector, and **no tables**: no `payload_migrations`, none of the 56 migrations applied. The Vercel Production environment has only
-  `OPENAI_API_KEY`, `PORTAL_LISTENING_SECRET` and the two public Supabase values; it has **no `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `PAYLOAD_SECRET`,
-  `CRON_SECRET`, `PORTAL_IDENTITY_SECRET` or storage keys**. So every site migration, `network_content` included, is applied to staging only (batch 42,
-  verified there 2026-11-18: tables owned by `payload_app`, indexes, foreign keys, enums, unique CDS ids, no Data API access) and still has to reach
-  production. `scripts/vercel-build.sh` never migrates a production build by itself ("apply its migrations deliberately, then deploy"), and a sandbox session has HTTPS
-  only, so it cannot run `payload migrate` against Postgres. It needs the production connection strings set on the Vercel Production environment
-  and one `payload migrate` run against `wuwf-site-production` (from a machine with Postgres access, or a production build with `MIGRATE_ON_BUILD=1` set for that build only).
+- **Launch: the site's production database (decided 2026-11-18, not a blocker).** `wuwf-site-production` is empty on purpose until the MVP launches; see
+  *Launch: initializing production*. Site migrations are applied to staging and verified there; production gets all of them at once at launch.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.
