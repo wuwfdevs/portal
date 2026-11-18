@@ -2,35 +2,28 @@ import type { Metadata } from 'next'
 
 import React from 'react'
 
+import { GiveView } from '@/components/Giving/GiveView'
 import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
+import { GIVING_PATHS } from '@/lib/giving/paths'
+import { loadGiving } from '@/lib/giving/load'
+import { paragraphs } from '@/lib/page-content'
 
-import {
-  SupportBusinesses,
-  SupportFellowships,
-  SupportHero,
-  SupportLevels,
-} from '@/components/Support'
-import { getCachedGlobal } from '@/utilities/getGlobals'
-
-export const metadata: Metadata = {
-  title: 'Support WUWF',
-  description: 'Become a WUWF member, sponsor the station, or fund reporting for Northwest Florida.',
+export async function generateMetadata(): Promise<Metadata> {
+  const content = await loadGiving()
+  return {
+    title: content.give?.hero?.title || 'Give to WUWF',
+    description: paragraphs(content.give?.hero?.body)[0] ?? 'Become a WUWF member, give in the way that fits your life, or fund reporting for Northwest Florida.',
+    alternates: { canonical: GIVING_PATHS.give },
+  }
 }
 
-// The page is the Support page global; saving it in the admin refreshes this route (SupportPage/hooks).
+// The page is the Giving pages global; saving it in the admin refreshes this route (SupportPage/config).
 export default async function SupportRoute() {
-  const page = await getCachedGlobal('support-page', 0)()
-
+  const content = await loadGiving()
   return (
     <>
       <LivePreviewInIframe />
-      <SupportHero page={page} />
-      <SupportLevels page={page} />
-      <SupportBusinesses page={page} />
-      <SupportFellowships page={page} />
-      {page.giftNotice && (
-        <p className="container py-6 text-sm text-ink-3">{page.giftNotice}</p>
-      )}
+      <GiveView content={content} />
     </>
   )
 }

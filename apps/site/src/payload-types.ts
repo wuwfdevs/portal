@@ -4199,97 +4199,591 @@ export interface SiteSetting {
  */
 export interface SupportPage {
   id: number;
-  eyebrow?: string | null;
   /**
-   * The opening statement. Leave empty to show the page without one.
+   * WUWF Member Services, as people read it: 850 473-7433. Links are built from the digits.
    */
-  heading?: string | null;
+  phone?: string | null;
   /**
-   * Up to four true, current numbers (listeners, readers, years on air). Only add one WUWF can source; an empty list shows none.
+   * A role address is best (people change; the address should not). Shown on the legacy and other-ways pages. Empty hides the Email buttons.
    */
-  figures?:
-    | {
-        /**
-         * For example 1981 or 48,000.
-         */
-        value: string;
-        /**
-         * For example on the air since.
-         */
-        label: string;
-        id?: string | null;
-      }[]
-    | null;
-  levelsEyebrow?: string | null;
-  levelsHeading?: string | null;
+  email?: string | null;
   /**
-   * Member, Sustaining, Day Sponsor, Crystal Circle, Legacy. Shown left to right in this order. Perks are thanks for a gift, never the thing being bought, so describe them that way.
+   * Where a check or a letter goes, on one line.
+   */
+  mailingAddress?: string | null;
+  /**
+   * Printed at the foot of every giving page. Have the tax wording reviewed before it is published.
+   */
+  serviceLine?: string | null;
+  /**
+   * The “Ways to give” strip under the header, and the names of the three pages in it.
+   */
+  nav?: {
+    title?: string | null;
+    give?: string | null;
+    legacy?: string | null;
+    ways?: string | null;
+  };
+  /**
+   * Where a gift is made. This site never takes card, bank or payroll details.
+   */
+  donationForm?: {
+    /**
+     * WUWF’s form for a monthly gift, with the fund and attribution code already in the address. Every monthly Give button goes here.
+     */
+    monthlyAddress?: string | null;
+    /**
+     * WUWF’s form for a one-time gift. Every one-time Give button goes here.
+     */
+    onceAddress?: string | null;
+    /**
+     * Used for a gift that has no form of its own above (or for both, if WUWF has one form). With no address at all, no Give button is shown and the pages say to call.
+     */
+    address?: string | null;
+    /**
+     * Tick this only after testing that opening the form with the amount in the address really selects it (a first test with ?amount=20 did not). Off, the link carries neither and the page’s notes say so.
+     */
+    prefill?: boolean | null;
+    /**
+     * The name the form reads the amount from, e.g. amount. Letters, digits and _ - . only.
+     */
+    amountParam?: string | null;
+    /**
+     * The name the form reads monthly or one-time from, e.g. frequency.
+     */
+    frequencyParam?: string | null;
+    /**
+     * What it expects for a monthly gift. Empty sends “monthly”.
+     */
+    monthlyValue?: string | null;
+    /**
+     * What it expects for a one-time gift. Empty sends “once”.
+     */
+    onceValue?: string | null;
+    /**
+     * Shown instead of the Give button while there is no form address. {phone} becomes the number above.
+     */
+    notSetUp?: string | null;
+  };
+  /**
+   * The qualifying level, in words, e.g. "a sustaining membership of $10 a month or more". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.
+   */
+  membersListeningLevel?: string | null;
+  /**
+   * Lowest first or in any order; the page orders them by the monthly minimum. Perks are thanks for a gift, never the thing being bought, so describe them that way.
    */
   levels?:
     | {
         name: string;
         /**
-         * As shown above the name: From $5/mo, $8+/mo, In your will.
+         * As shown above the name: “$10 a month or more”.
          */
         amount?: string | null;
-        description: string;
         /**
-         * Join, Sustain, Talk with us.
+         * The smallest monthly gift in this level, in whole dollars. A one-time gift is counted by the year against the same line (12 times this).
          */
-        ctaLabel?: string | null;
+        minimumMonthly: number;
         /**
-         * Where the button goes: WUWF's donation form (with the right fund), or a contact address for planned gifts. Empty hides the button.
+         * One plain sentence for pages that list the levels in passing (a show’s support page).
          */
-        ctaUrl?: string | null;
+        description?: string | null;
+        /**
+         * On the level’s card on the Give page.
+         */
+        benefits?:
+          | {
+              text: string;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * On the gift card when a gift lands in this level. A line may contain {messages}, which becomes the Day Sponsor line for that gift (and the line is left out when the gift earns none).
+         */
+        giftBenefits?:
+          | {
+              text: string;
+              id?: string | null;
+            }[]
+          | null;
         emphasis?: ('standard' | 'featured' | 'leadership') | null;
         id?: string | null;
       }[]
     | null;
   /**
-   * One short line under the levels (vehicle and property gifts, the Combined Federal Campaign number).
+   * Day Sponsor messages by the year’s giving. A monthly gift counts 12 times; a one-time gift counts once.
    */
-  otherWays?: string | null;
-  /**
-   * The qualifying level, in words, e.g. "a sustaining membership of $8 a month or more". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.
-   */
-  membersListeningLevel?: string | null;
-  showBusinesses?: boolean | null;
-  businessesEyebrow?: string | null;
-  businessesHeading?: string | null;
-  businessesBody?: string | null;
-  businessesPrimaryLabel?: string | null;
-  /**
-   * A page on this site (/shows/barefoot-mary), a secure https:// address, or mailto:. Leave empty and the button is not shown.
-   */
-  businessesPrimaryUrl?: string | null;
-  businessesSecondaryLabel?: string | null;
-  /**
-   * A page on this site (/shows/barefoot-mary), a secure https:// address, or mailto:. Leave empty and the button is not shown.
-   */
-  businessesSecondaryUrl?: string | null;
-  showFellowships?: boolean | null;
-  fellowshipsEyebrow?: string | null;
-  fellowshipsHeading?: string | null;
-  fellowshipsBody?: string | null;
-  fellowshipsLinkLabel?: string | null;
-  /**
-   * Usually an example fellowship, such as /fellowships/coastal-futures.
-   */
-  fellowshipsLinkUrl?: string | null;
-  /**
-   * What a funder can rely on (WUWF decides, you are acknowledged, no review, reporting back). Only promise what WUWF does.
-   */
-  commitments?:
+  messageTiers?:
     | {
-        heading: string;
-        text: string;
+        /**
+         * In a year of giving, from this many dollars…
+         */
+        yearly: number;
+        /**
+         * …this many short messages on the air.
+         */
+        count: number;
         id?: string | null;
       }[]
     | null;
+  give?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      /**
+       * The short lines under the opening text (tax-deductible, change or stop anytime, a phone number).
+       */
+      assurances?:
+        | {
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    card?: {
+      monthlyLabel?: string | null;
+      monthlySub?: string | null;
+      onceLabel?: string | null;
+      onceSub?: string | null;
+      /**
+       * The monthly amounts offered, in dollars.
+       */
+      monthlyAmounts?:
+        | {
+            amount: number;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * The one-time amounts offered, in dollars.
+       */
+      onceAmounts?:
+        | {
+            amount: number;
+            id?: string | null;
+          }[]
+        | null;
+      monthlyDefault?: number | null;
+      onceDefault?: number | null;
+      otherLabel?: string | null;
+      /**
+       * “At {amount} a month”.
+       */
+      titleMonthly?: string | null;
+      /**
+       * “At {amount}”.
+       */
+      titleOnce?: string | null;
+      /**
+       * The Day Sponsor line for one message: “A short personal message”.
+       */
+      messageOne?: string | null;
+      /**
+       * For several: “{count} short personal messages”.
+       */
+      messageMany?: string | null;
+      anyTitle?: string | null;
+      anyBenefits?:
+        | {
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * “Give {amount} a month”.
+       */
+      ctaMonthly?: string | null;
+      /**
+       * “Give {amount}”.
+       */
+      ctaOnce?: string | null;
+      ctaOther?: string | null;
+      /**
+       * Under the button when the form takes the amount from the link.
+       */
+      noteWithPrefill?: string | null;
+      /**
+       * Under the button when it does not: the donor chooses the amount again on the form.
+       */
+      noteWithoutPrefill?: string | null;
+    };
+    where?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            heading: string;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      /**
+       * The bold first sentence under the cards.
+       */
+      closingLead?: string | null;
+      closing?: string | null;
+    };
+    monthly?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            heading: string;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    levels?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      /**
+       * On each level’s card: “Give at this level”.
+       */
+      buttonLabel?: string | null;
+      footnote?: string | null;
+      footnoteLinkLabel?: string | null;
+      /**
+       * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      footnoteLinkHref?: string | null;
+    };
+    more?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            title: string;
+            text?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            href?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    after?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      steps?:
+        | {
+            title: string;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+      linkLabel?: string | null;
+      /**
+       * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      linkHref?: string | null;
+    };
+    fellowships?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      buttonLabel?: string | null;
+      /**
+       * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      buttonHref?: string | null;
+      /**
+       * What a funder can rely on. Only promise what WUWF does.
+       */
+      commitments?:
+        | {
+            heading: string;
+            text: string;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    businesses?: {
+      show?: boolean | null;
+      title?: string | null;
+      text?: string | null;
+      buttonLabel?: string | null;
+      /**
+       * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+       */
+      buttonHref?: string | null;
+    };
+    faq?: {
+      show?: boolean | null;
+      title?: string | null;
+      items?:
+        | {
+            question: string;
+            answer: string;
+            linkLabel?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            linkHref?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+  };
+  ways?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+    };
+    /**
+     * The choices across the top of the page, in this order.
+     */
+    groups?:
+      | {
+          key: 'vehicles' | 'assets' | 'work' | 'gift' | 'will';
+          label: string;
+          /**
+           * Who it suits: “You have one to part with.”
+           */
+          best?: string | null;
+          /**
+           * How much it takes: “One phone call”.
+           */
+          effort?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    panels?:
+      | {
+          group: 'vehicles' | 'assets' | 'work' | 'gift' | 'will';
+          /**
+           * The word in the address (?way=stock): lowercase letters, no spaces.
+           */
+          slug: string;
+          /**
+           * When a choice has several panels (Stock, IRA gift, Donor-advised fund), the name on its second row.
+           */
+          tabLabel?: string | null;
+          eyebrow?: string | null;
+          title?: string | null;
+          lead?: string | null;
+          buttonLabel?: string | null;
+          /**
+           * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+           */
+          buttonHref?: string | null;
+          /**
+           * An optional second button, e.g. real estate beside vehicles.
+           */
+          secondaryLabel?: string | null;
+          /**
+           * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+           */
+          secondaryHref?: string | null;
+          showDetails?: boolean | null;
+          /**
+           * How it works, in order.
+           */
+          steps?:
+            | {
+                text: string;
+                id?: string | null;
+              }[]
+            | null;
+          /**
+           * Good to know.
+           */
+          notes?:
+            | {
+                text: string;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+    stepsTitle?: string | null;
+    notesTitle?: string | null;
+    details?: {
+      title?: string | null;
+      copyLabel?: string | null;
+      copiedLabel?: string | null;
+      rows?:
+        | {
+            label: string;
+            value: string;
+            id?: string | null;
+          }[]
+        | null;
+      note?: string | null;
+    };
+    contact?: {
+      title?: string | null;
+      text?: string | null;
+      callLabel?: string | null;
+      emailLabel?: string | null;
+    };
+  };
+  legacy?: {
+    hero?: {
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+    };
+    contactCard?: {
+      title?: string | null;
+      text?: string | null;
+      note?: string | null;
+      callLabel?: string | null;
+      emailLabel?: string | null;
+    };
+    routes?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            tag?: string | null;
+            title: string;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    sample?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      /**
+       * Blank line between paragraphs.
+       */
+      body?: string | null;
+      quote?: string | null;
+      quoteNote?: string | null;
+    };
+    steps?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            title: string;
+            text?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    recognition?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      text?: string | null;
+    };
+    faq?: {
+      show?: boolean | null;
+      title?: string | null;
+      items?:
+        | {
+            question: string;
+            answer: string;
+            linkLabel?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            linkHref?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+  };
   /**
-   * The line at the foot of the page, for example that the station is a service of the University of West Florida and that gifts are tax-deductible as allowed by law. Have it reviewed before it is published.
+   * The page a donor lands on after giving. The donation form can send the first name, amount and frequency in the address (name, amount, frequency); nothing is stored.
    */
-  giftNotice?: string | null;
+  thanks?: {
+    eyebrow?: string | null;
+    /**
+     * When the donation form sent no first name.
+     */
+    title?: string | null;
+    /**
+     * With one: “Thank you, {name}. You’re part of WUWF now.”
+     */
+    titleNamed?: string | null;
+    /**
+     * When the amount and frequency are not known.
+     */
+    body?: string | null;
+    /**
+     * {amount} becomes the amount: “Your monthly gift of {amount} is how…”
+     */
+    bodyMonthly?: string | null;
+    bodyOnce?: string | null;
+    primaryLabel?: string | null;
+    /**
+     * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    primaryHref?: string | null;
+    secondaryLabel?: string | null;
+    /**
+     * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    secondaryHref?: string | null;
+    nextTitle?: string | null;
+    /**
+     * What happens next, with when it happens in bold: “This week.” “A note from the station.”
+     */
+    next?:
+      | {
+          lead: string;
+          text?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    promptTitle?: string | null;
+    promptLabel?: string | null;
+    /**
+     * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    promptHref?: string | null;
+    while?: {
+      show?: boolean | null;
+      eyebrow?: string | null;
+      title?: string | null;
+      items?:
+        | {
+            title: string;
+            text?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            href?: string | null;
+            id?: string | null;
+          }[]
+        | null;
+    };
+    /**
+     * “Questions about your gift? Call WUWF Member Services at {phone}.”
+     */
+    helpLine?: string | null;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -5717,52 +6211,426 @@ export interface SiteSettingsSelect<T extends boolean = true> {
  * via the `definition` "support-page_select".
  */
 export interface SupportPageSelect<T extends boolean = true> {
-  eyebrow?: T;
-  heading?: T;
-  figures?:
+  phone?: T;
+  email?: T;
+  mailingAddress?: T;
+  serviceLine?: T;
+  nav?:
     | T
     | {
-        value?: T;
-        label?: T;
-        id?: T;
+        title?: T;
+        give?: T;
+        legacy?: T;
+        ways?: T;
       };
-  levelsEyebrow?: T;
-  levelsHeading?: T;
+  donationForm?:
+    | T
+    | {
+        monthlyAddress?: T;
+        onceAddress?: T;
+        address?: T;
+        prefill?: T;
+        amountParam?: T;
+        frequencyParam?: T;
+        monthlyValue?: T;
+        onceValue?: T;
+        notSetUp?: T;
+      };
+  membersListeningLevel?: T;
   levels?:
     | T
     | {
         name?: T;
         amount?: T;
+        minimumMonthly?: T;
         description?: T;
-        ctaLabel?: T;
-        ctaUrl?: T;
+        benefits?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        giftBenefits?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
         emphasis?: T;
         id?: T;
       };
-  otherWays?: T;
-  membersListeningLevel?: T;
-  showBusinesses?: T;
-  businessesEyebrow?: T;
-  businessesHeading?: T;
-  businessesBody?: T;
-  businessesPrimaryLabel?: T;
-  businessesPrimaryUrl?: T;
-  businessesSecondaryLabel?: T;
-  businessesSecondaryUrl?: T;
-  showFellowships?: T;
-  fellowshipsEyebrow?: T;
-  fellowshipsHeading?: T;
-  fellowshipsBody?: T;
-  fellowshipsLinkLabel?: T;
-  fellowshipsLinkUrl?: T;
-  commitments?:
+  messageTiers?:
     | T
     | {
-        heading?: T;
-        text?: T;
+        yearly?: T;
+        count?: T;
         id?: T;
       };
-  giftNotice?: T;
+  give?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              assurances?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        card?:
+          | T
+          | {
+              monthlyLabel?: T;
+              monthlySub?: T;
+              onceLabel?: T;
+              onceSub?: T;
+              monthlyAmounts?:
+                | T
+                | {
+                    amount?: T;
+                    id?: T;
+                  };
+              onceAmounts?:
+                | T
+                | {
+                    amount?: T;
+                    id?: T;
+                  };
+              monthlyDefault?: T;
+              onceDefault?: T;
+              otherLabel?: T;
+              titleMonthly?: T;
+              titleOnce?: T;
+              messageOne?: T;
+              messageMany?: T;
+              anyTitle?: T;
+              anyBenefits?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              ctaMonthly?: T;
+              ctaOnce?: T;
+              ctaOther?: T;
+              noteWithPrefill?: T;
+              noteWithoutPrefill?: T;
+            };
+        where?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              closingLead?: T;
+              closing?: T;
+            };
+        monthly?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        levels?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              buttonLabel?: T;
+              footnote?: T;
+              footnoteLinkLabel?: T;
+              footnoteLinkHref?: T;
+            };
+        more?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    href?: T;
+                    id?: T;
+                  };
+            };
+        after?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              steps?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    id?: T;
+                  };
+              linkLabel?: T;
+              linkHref?: T;
+            };
+        fellowships?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              buttonLabel?: T;
+              buttonHref?: T;
+              commitments?:
+                | T
+                | {
+                    heading?: T;
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        businesses?:
+          | T
+          | {
+              show?: T;
+              title?: T;
+              text?: T;
+              buttonLabel?: T;
+              buttonHref?: T;
+            };
+        faq?:
+          | T
+          | {
+              show?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    linkLabel?: T;
+                    linkHref?: T;
+                    id?: T;
+                  };
+            };
+      };
+  ways?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+            };
+        groups?:
+          | T
+          | {
+              key?: T;
+              label?: T;
+              best?: T;
+              effort?: T;
+              id?: T;
+            };
+        panels?:
+          | T
+          | {
+              group?: T;
+              slug?: T;
+              tabLabel?: T;
+              eyebrow?: T;
+              title?: T;
+              lead?: T;
+              buttonLabel?: T;
+              buttonHref?: T;
+              secondaryLabel?: T;
+              secondaryHref?: T;
+              showDetails?: T;
+              steps?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              notes?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              id?: T;
+            };
+        stepsTitle?: T;
+        notesTitle?: T;
+        details?:
+          | T
+          | {
+              title?: T;
+              copyLabel?: T;
+              copiedLabel?: T;
+              rows?:
+                | T
+                | {
+                    label?: T;
+                    value?: T;
+                    id?: T;
+                  };
+              note?: T;
+            };
+        contact?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              callLabel?: T;
+              emailLabel?: T;
+            };
+      };
+  legacy?:
+    | T
+    | {
+        hero?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+            };
+        contactCard?:
+          | T
+          | {
+              title?: T;
+              text?: T;
+              note?: T;
+              callLabel?: T;
+              emailLabel?: T;
+            };
+        routes?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    tag?: T;
+                    title?: T;
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        sample?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              body?: T;
+              quote?: T;
+              quoteNote?: T;
+            };
+        steps?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    id?: T;
+                  };
+            };
+        recognition?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              text?: T;
+            };
+        faq?:
+          | T
+          | {
+              show?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    linkLabel?: T;
+                    linkHref?: T;
+                    id?: T;
+                  };
+            };
+      };
+  thanks?:
+    | T
+    | {
+        eyebrow?: T;
+        title?: T;
+        titleNamed?: T;
+        body?: T;
+        bodyMonthly?: T;
+        bodyOnce?: T;
+        primaryLabel?: T;
+        primaryHref?: T;
+        secondaryLabel?: T;
+        secondaryHref?: T;
+        nextTitle?: T;
+        next?:
+          | T
+          | {
+              lead?: T;
+              text?: T;
+              id?: T;
+            };
+        promptTitle?: T;
+        promptLabel?: T;
+        promptHref?: T;
+        while?:
+          | T
+          | {
+              show?: T;
+              eyebrow?: T;
+              title?: T;
+              items?:
+                | T
+                | {
+                    title?: T;
+                    text?: T;
+                    href?: T;
+                    id?: T;
+                  };
+            };
+        helpLine?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
