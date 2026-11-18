@@ -1483,8 +1483,8 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 5. **How a story appears: a full story page on wuwf.org, credited to the station that wrote it.** No link-out cards. Owner (2026-11-18): NPR's terms allow
    republishing other stations' work, WUWF does it daily, and that is the default; only documents flagged restricted are excluded (the CDS docs agree: with
    the flag missing or false, "the content may be syndicated or republished"). The page follows the "Wire story address shape" recommendation above
-   (bare `/{YYYY-MM-DD}/{slug}`, `source` set, `rel=canonical` to the original publisher, left out of our sitemap, labelled with its source), which is still
-   awaiting the owner. Section pages list these stories like any other, labelled "From <station>".
+   (bare `/{YYYY-MM-DD}/{slug}`, `source` set, `rel=canonical` to the original publisher, left out of our sitemap, labelled with its source), of which **`rel=canonical` to the original publisher is
+   decided (owner, 2026-11-18)**; the address shape itself is still awaiting the owner. Section pages list these stories like any other, labelled "From <station>".
 6. **Florida News Exchange.** It runs on PRX's closed system and no public feed was found (Current report, undated). Ask WLRN or PRX for a station
    credential. Until then there is **no separate entry screen**: an editor makes an ordinary post in Stories with `source` set to "Wire or partner". A story typed
    in has already been chosen, so it never enters the queue. What posts lack today is somewhere to say where the original lives and who gets the credit:
@@ -1505,8 +1505,8 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 - Do WUSF and FPREN publish to CDS? If not, what do they offer?
 - Republishing is settled by the owner (item 5). NPR's Terms of Use on storing and caching documents have not been read (`www.npr.org` was outside the
   sandbox's allowed hosts); the owner's practice suggests no blocker, but it is unchecked.
-- Whether a story's images and audio are copied into our storage or referenced where NPR hosts them (restricted assets are hidden either way), and
-  whether `rel=canonical` points at the original publisher (the 2026-11-04 recommendation, awaiting the owner).
+- Whether a story's images and audio are copied into our storage or referenced where NPR hosts them (restricted assets are hidden either way).
+  `rel=canonical` to the original publisher is decided (owner, 2026-11-18).
 - How many documents a day the sources deliver. With full pages, every auto-published story is a real post with a body, so volume affects storage and
   the Stories list.
 - Whether the same story from two stations can be recognised (shared document id, canonical URL, or only by headline), so "merge duplicates" may be
