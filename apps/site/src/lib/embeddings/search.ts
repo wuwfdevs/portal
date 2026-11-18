@@ -1,4 +1,5 @@
 import configPromise from '@payload-config'
+import { createHash } from 'node:crypto'
 import { getPayload } from 'payload'
 
 import { postKind, type SearchKind } from '@/lib/search/query'
@@ -34,16 +35,21 @@ const CACHE_LIMIT = 200
 const CACHE_TTL_MS = 60 * 60 * 1000
 const cache = new Map<string, { vector: number[]; at: number }>()
 
+/** A one-way key for a normalised query: the cache never holds the visitor's words. */
+const cacheKey = (normalised: string) => createHash('sha256').update(normalised).digest('hex')
+
 const normalise = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, MAX_QUERY_CHARS)
 
 async function queryVector(q: string): Promise<number[] | null> {
-  const key = normalise(q)
-  if (key === '') return null
+  const text = normalise(q)
+  if (text === '') return null
+  // The cache is keyed by a hash, so the words themselves are not kept in memory, only what they stand for.
+  const key = cacheKey(text)
   const hit = cache.get(key)
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.vector
   const provider = getEmbeddingProvider()
   if (!provider) return null
-  const [vector] = await provider.embed([key], { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) })
+  const [vector] = await provider.embed([text], { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) })
   if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
   cache.set(key, { vector, at: Date.now() })
   return vector
