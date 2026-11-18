@@ -1,4 +1,5 @@
 import configPromise from '@payload-config'
+import { createHash } from 'node:crypto'
 import { getPayload } from 'payload'
 
 import { postKind, type SearchKind } from '@/lib/search/query'
@@ -7,6 +8,7 @@ import { MAX_QUERY_CHARS, semanticSearchAllowed } from './config'
 import { MIN_SEARCH_SIMILARITY } from './rank'
 import { getEmbeddingProvider } from './service'
 import { nearestToVector } from './store'
+import { ttlCache } from './ttl-cache'
 
 /**
  * Semantic search: stories whose meaning is close to the search words, found by embedding the query and asking for the nearest stored
@@ -32,25 +34,30 @@ export type SemanticHit = {
 const QUERY_TIMEOUT_MS = 3000
 const CACHE_LIMIT = 200
 const CACHE_TTL_MS = 60 * 60 * 1000
-const cache = new Map<string, { vector: number[]; at: number }>()
+// Entries remove themselves after the hour (see ttl-cache.ts): the privacy wording promises it.
+const cache = ttlCache<number[]>(CACHE_TTL_MS, CACHE_LIMIT)
+
+/** A one-way key for a normalised query: the cache never holds the visitor's words. */
+const cacheKey = (normalised: string) => createHash('sha256').update(normalised).digest('hex')
 
 const normalise = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, MAX_QUERY_CHARS)
 
 async function queryVector(q: string): Promise<number[] | null> {
-  const key = normalise(q)
-  if (key === '') return null
+  const text = normalise(q)
+  if (text === '') return null
+  // The cache is keyed by a hash, so the words themselves are not kept in memory, only what they stand for.
+  const key = cacheKey(text)
   const hit = cache.get(key)
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.vector
+  if (hit) return hit
   const provider = getEmbeddingProvider()
   if (!provider) return null
-  const [vector] = await provider.embed([key], { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) })
-  if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
-  cache.set(key, { vector, at: Date.now() })
+  const [vector] = await provider.embed([text], { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) })
+  cache.set(key, vector)
   return vector
 }
 
 /** `settingOn` is the Site settings switch, read by the caller (the search page reads the cached global); without it, or without a key, nothing is sent. */
-export async function semanticStories(q: string, options: { settingOn: boolean | null | undefined; kinds?: readonly SearchKind[]; limit?: number }): Promise<SemanticHit[]> {
+export async function semanticStories(q: string, options: { settingOn: boolean | null | undefined; kinds?: readonly SearchKind[]; limit?: number; minSimilarity?: number }): Promise<SemanticHit[]> {
   if (!semanticSearchAllowed(options.settingOn)) return []
   const limit = options.limit ?? 20
   try {
@@ -58,7 +65,7 @@ export async function semanticStories(q: string, options: { settingOn: boolean |
     if (!vector) return []
     const payload = await getPayload({ config: configPromise })
     // Ask for more than needed: the kind filter and the similarity floor both thin the list.
-    const neighbours = (await nearestToVector(payload, vector, limit * 3)).filter((n) => n.similarity >= MIN_SEARCH_SIMILARITY)
+    const neighbours = (await nearestToVector(payload, vector, limit * 3)).filter((n) => n.similarity >= (options.minSimilarity ?? MIN_SEARCH_SIMILARITY))
     if (neighbours.length === 0) return []
 
     const found = await payload.find({

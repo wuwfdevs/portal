@@ -27,7 +27,7 @@ export function embeddingKey(env: Env = process.env): string | null {
 
 /**
  * Searching: a visitor's search words go to the embedding provider, which is a disclosure a key alone does not approve. It also needs the
- * **"Find stories by meaning in search" setting in Site settings** (a publisher or administrator turns it on, in the admin, with no deploy),
+ * **"Find stories by meaning in search" setting in Site settings** (an administrator turns it on, in the admin, with no deploy),
  * so a key can be set for indexing while search stays keyword-only until the owner decides (ROADMAP: Needs the owner).
  */
 export function semanticSearchAllowed(settingOn: boolean | null | undefined, env: Env = process.env): boolean {

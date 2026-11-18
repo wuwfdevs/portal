@@ -1,7 +1,9 @@
 import type { GlobalConfig } from 'payload'
 
 import { fieldRequires, requirePermission } from '@/access/permissions'
+import { TUNING_LIMITS } from '@/lib/embeddings/tuning'
 import { portalOriginProblem } from '@/lib/listening/config'
+import { storyEmbeddingEndpoints } from './storyEmbeddingEndpoints'
 import { revalidateSiteSettings } from './hooks/revalidateSiteSettings'
 
 /**
@@ -14,6 +16,7 @@ export const SiteSettings: GlobalConfig = {
   label: 'Site settings',
   access: { read: () => true, update: requirePermission('settings.manage') },
   hooks: { afterChange: [revalidateSiteSettings] },
+  endpoints: storyEmbeddingEndpoints,
   fields: [
     {
       name: 'embedHosts',
@@ -42,8 +45,63 @@ export const SiteSettings: GlobalConfig = {
       label: 'Find stories by meaning in search',
       admin: {
         description:
-          'When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site\'s privacy notice says so. It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)',
+          'When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site\'s privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)',
       },
+    },
+    {
+      type: 'collapsible',
+      label: 'Related stories and search by meaning',
+      admin: {
+        initCollapsed: false,
+        description:
+          'How stories are embedded (so each can be compared with the others), and how close two stories must be to be offered together. Saving this page applies the numbers to every story page and to search straight away.',
+      },
+      fields: [
+        {
+          name: 'relatedMinSimilarity',
+          type: 'number',
+          label: 'How closely related a story must be to appear under another story',
+          defaultValue: TUNING_LIMITS.relatedMinSimilarity.fallback,
+          min: TUNING_LIMITS.relatedMinSimilarity.min,
+          max: TUNING_LIMITS.relatedMinSimilarity.max,
+          admin: {
+            step: 0.05,
+            description:
+              'A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.',
+          },
+        },
+        {
+          name: 'searchMinSimilarity',
+          type: 'number',
+          label: 'How closely a story must match the words searched, to appear as a search result by meaning',
+          defaultValue: TUNING_LIMITS.searchMinSimilarity.fallback,
+          min: TUNING_LIMITS.searchMinSimilarity.min,
+          max: TUNING_LIMITS.searchMinSimilarity.max,
+          admin: {
+            step: 0.05,
+            description:
+              'A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.',
+          },
+        },
+        {
+          name: 'relatedMaxPerSeries',
+          type: 'number',
+          label: 'Most related stories from one show or series',
+          defaultValue: TUNING_LIMITS.relatedMaxPerSeries.fallback,
+          min: TUNING_LIMITS.relatedMaxPerSeries.min,
+          max: TUNING_LIMITS.relatedMaxPerSeries.max,
+          validate: (value: number | null | undefined) => (value == null || Number.isInteger(value) ? true : 'Enter a whole number.'),
+          admin: {
+            step: 1,
+            description: 'From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.',
+          },
+        },
+        {
+          name: 'storyEmbeddingsPanel',
+          type: 'ui',
+          admin: { components: { Field: '@/components/admin/StoryEmbeddingsPanel#StoryEmbeddingsPanel' } },
+        },
+      ],
     },
     {
       name: 'portalOrigin',

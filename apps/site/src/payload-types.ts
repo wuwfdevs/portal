@@ -4179,9 +4179,21 @@ export interface SiteSetting {
       }[]
     | null;
   /**
-   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so. It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
+   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
    */
   semanticSearch?: boolean | null;
+  /**
+   * A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.
+   */
+  relatedMinSimilarity?: number | null;
+  /**
+   * A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.
+   */
+  searchMinSimilarity?: number | null;
+  /**
+   * From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.
+   */
+  relatedMaxPerSeries?: number | null;
   /**
    * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
    */
@@ -6200,6 +6212,9 @@ export interface SiteSettingsSelect<T extends boolean = true> {
         id?: T;
       };
   semanticSearch?: T;
+  relatedMinSimilarity?: T;
+  searchMinSimilarity?: T;
+  relatedMaxPerSeries?: T;
   portalOrigin?: T;
   independencePolicy?: T;
   updatedAt?: T;

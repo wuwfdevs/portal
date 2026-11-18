@@ -118,6 +118,15 @@ entitlements and proof of performance are still the open Portal-side design abov
 - **Broadcast schedule hero** gained its missing bottom padding.
 - **`components/SectionNav` is the standard sub-navigation** (rule in `CLAUDE.md`). RadioLive's hub uses it (`lib/radiolive/nav.ts` lists only sections that render; the old bar linked to Artists, Encores and Support even when empty). **Not yet moved to it:** the Voyager's masthead nav (its own design), and the RadioLive show and artist pages, which keep a "back to RadioLive" breadcrumb. Not checked in a browser at 390 and 1440 px; do that before merging.
 
+## Embeddings admin panel and tunable thresholds (built 2026-11-18)
+
+Asked for by the owner so the archive can be embedded, and the thresholds set by eye, without a terminal. **Branch** `claude/awesome-thompson-lrv2xd`, no PR. Migration `20261118_154406_site_settings_embedding_tuning` (three `numeric` columns on `site_settings`, with defaults) tested up, down and up, `verify:migrations` passes.
+
+- **Site settings -> "Related stories and search by meaning"**: three numbers (related floor 0.1 to 0.9, default 0.35; search floor 0.05 to 0.9, default 0.2; most from one show 1 to 4, default 2). `lib/embeddings/tuning.ts` clamps them and falls back to the defaults; the story page and `/search` pass them to the pure ranking functions. Saving revalidates every page.
+- **The "Story embeddings" panel** (same place): "N of M published stories embedded", **Embed the next 20** / **Embed all waiting** (a loop of 20-story requests, with a stop button), and **Show examples**: five random stories with their eight nearest and whether the numbers on the form (saved or not) would show each. Endpoints under `/api/globals/site-settings/embeddings` (`GET` status, `POST .../run?after=<id>`, `GET .../examples?related=&perSeries=`), `lib/embeddings/admin.ts`.
+- **Who may use it: `settings.manage`, which only the administrator role holds** (editor and publisher do not; an integration test says so). The embed endpoints spend the provider key, and Site settings already needs this permission to save. **Open question for the owner: should publishers be able to tune the numbers?** That needs the three numbers in their own global with `content.publish` access (a field cannot be editable by a role that cannot save its global), a migration moving the columns, and the embed buttons staying administrator-only.
+- **Not covered:** the panel embeds stories with *no vector*. A story edited since it was embedded is re-embedded when it is saved; `backfill.ts` finds any that were not. The first-time estimate of size stays the script's dry run. Not checked in a browser (no admin login here): the panel is typechecked, linted and built but its look and its fetches have not been seen.
+
 ## Vector search and similar stories (built 2026-11-13; not yet run on real data)
 
 **Branch:** `claude/eloquent-einstein-acfwc9` (`wuwfdevs/portal`), **no PR opened** (ask before opening one). Migration `20261113_222100_story_embeddings` tested up, down and up;
@@ -136,7 +145,7 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
   small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
   like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
   failed page. Not shown in previews.
-- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; a publisher or administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
+- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; an administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
   nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
   "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the
   server's memory for an hour).
@@ -166,8 +175,8 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
 **Needs the owner:**
 - **Go-ahead to send WUWF story text to OpenAI, and the key.** A paid call: the dry run gives the count and size first; the cost at OpenAI's published rate for this model is small (an estimate from the
   story count: well under a dollar for the archive; **check the current price**). Set `OPENAI_API_KEY` on the site's Vercel project (server only).
-- **The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service): WUWF stories can contain such text. Settle it before the first `--apply`.
-- **Approval to send visitors' search words to OpenAI** (turn on Site settings -> "Find stories by meaning in search"), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
+- ~~**The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service)~~ **Settled by the owner, 2026-11-18.**
+- **Approval to send visitors' search words to OpenAI** (turn on Site settings -> "Find stories by meaning in search"). **Privacy wording written (2026-11-18):** `lib/embeddings/notice.ts` holds `PRIVACY_PAGE_PARAGRAPHS` for the privacy page. A one-line notice on `/search` was built and then removed (owner, 2026-11-18: nothing identifying the visitor is sent). **The paragraphs still have to be pasted onto the site's privacy page in the admin** (a Page; not done from code), and the switch stays off until they are there. The AP and News Service of Florida licence question is closed (owner, 2026-11-18). The search cache is now keyed by a hash of the words, not the words.
 - ~~**Enable the `vector` extension**~~ **Done (2026-11-13).** Staging: the migration created it (`CREATE EXTENSION IF NOT EXISTS vector`, schema `public`) when the preview build of this branch ran `payload migrate`
   on the shared staging database (`MIGRATE_ON_BUILD=1`), so the `payload_app` role can create it. Production: enabled by hand in the same schema (`public`, to match staging), version 0.8.2.
   **Production's database is empty (checked 2026-11-13): no tables and no `payload_migrations` ledger, so the site has never been set up there.** The embeddings migrations cannot be applied alone (they need `posts`); they go with the rest when production is first migrated (`pnpm payload migrate` with the production `DATABASE_URL`, deliberately, at the importer's step 3: `IMPORT.md`). Nothing was applied to production except the `vector` extension. Staging has `story_embeddings` and
@@ -176,7 +185,7 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
 - Whether **NPR and wire stories** should ever be embedded (they are not today); it depends on NPR's CDS terms (`ARCHITECTURE.md`, CDS sync).
 
 **Not built:** rate-limiting the search page (each uncached query is one embedding of about ten tokens, a negligible cost, but a bot could still make calls: add a limit if the key's usage ever shows it);
-a scheduled sweep (the backfill is run by hand; a failed save-time embed is logged and caught by the next run); an admin screen for embeddings; the "reviewed LLM pass" for alt text and topics (a separate item below).
+a scheduled sweep (the backfill is run by hand; a failed save-time embed is logged and caught by the next run); ~~an admin screen for embeddings~~ (built 2026-11-18, below); the "reviewed LLM pass" for alt text and topics (a separate item below).
 
 **Where it sits in the migration:** import, repair bodies, move shows (`IMPORT.md` steps 3 and 4), **then embed (step 5)**, then the post-import check. The site can go live without step 5 (keyword search and
 every page work), so it does not block the cutover, but **the migration is not complete until `backfill.ts` reports "vectors stored" equal to "eligible" and a second run embeds nothing**; the cutover
