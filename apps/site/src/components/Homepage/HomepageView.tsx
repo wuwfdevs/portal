@@ -42,7 +42,7 @@ const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
 /**
  * The home page (boards 1 and 2, first screen board 1h), filled from the Home page global and the newest published work.
  *
- * The top is the lead story beside The Briefing, built to fit the first screen: the picture is 16:9 and never taller than 40% of the window, so the
+ * The top is the lead story beside The Briefing, built to fit the first screen: the picture is 16:9 and never taller than half the window, so the
  * headline is in view, and The Briefing is the whole side column, its items spread to the lead's height so the two end on the same line.
  * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
  * linking to its section, ending with a link to every story) with the sponsor and promo rail beside the whole column from the video row down
@@ -92,9 +92,9 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
       ) : (
         <section aria-label="Top stories" className={cn('container grid gap-10 pt-8 md:pt-12', SIDE_COLUMN)}>
           <article className="relative flex flex-col gap-4">
-            {/* 16:9, but never taller than 40% of the window (360 px in a 900 px window), so the headline is above the fold. The picture is cropped to fit. */}
+            {/* A normal 16:9 (450 px at this width). Only a short window squeezes it, to half the window height, so the headline stays above the fold; the picture is cropped to fit. */}
             {leadImage && (
-              <div className="relative aspect-video max-h-[40vh] overflow-hidden rounded-sm bg-surface-3">
+              <div className="relative aspect-video max-h-[50vh] overflow-hidden rounded-sm bg-surface-3">
                 <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 60vw, 100vw" />
               </div>
             )}
