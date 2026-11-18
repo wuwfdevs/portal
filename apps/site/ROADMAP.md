@@ -1433,6 +1433,74 @@ design canvas has **no designs for** authors, events detail, standard pages, the
 or RadioLive artist and performance pages: each needs a design or reuses the closest template. Board 25 (member feeds) is a
 signed-in account page, not CMS content.
 
+## Network content: queue, sources and sections (design proposed 2026-11-18; nothing built)
+
+**Status.** A design worked out with the owner in conversation, with a mockup (claude.ai artifact "Network Content Queue": queue, sources, add by hand,
+section page). Everything below is **proposed** unless marked "from the CDS docs" or "from the repository". Nothing is built, and no migration exists.
+It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision above ("the CMS will import wire stories and let editors choose
+which to publish").
+
+**Today in Grove (as the owner described it).** WUSF stories fill the Florida News section, NPR stories the NPR News section and FPREN stories Weather,
+all automatically. Everything else is chosen by hand: Florida News Exchange stories are entered manually, and other NPR stations' stories are found
+through a "network" tab in Grove's admin that filters by an ID. What that ID is has not been checked.
+
+**What CDS provides (from the CDS docs at `npr.github.io/content-distribution-service`, read 2026-11-18).**
+- Any authorized client can read all CDS data, including other stations' documents. A key is tied to one client; stations request one from NPR Member
+  Partnership. The Portal's `NPR_CDS_TOKEN` is the Portal's client: **the site needs its own key**.
+- `GET /v1/documents` filters by `ownerHrefs` (an Organization V4 service, e.g. `https://organization.api.npr.org/v4/services/s583`), `collectionIds`
+  (NPR's own topics, programs and blogs; integers), `profileIds`, `ids`, and date ranges on `publishDateTime` and `editorialLastModifiedDateTime`
+  (`from...to`). Default sort is newest first. `limit` is at most 300, `limit + offset` at most 2000, and there are **no cursors**, so results can shift
+  between requests. Responses carry a `resources` array.
+- **Notifications (webhooks) are for NPR's internal users, not member stations.** A station polls. A deletion is not announced: a document that has gone
+  is found by asking for it by `ids`.
+- **Restricted content:** a document or asset with `isRestrictedToAuthorizedOrgServiceIds: true` must not be republished, indexed, or linked to publicly
+  by non-CDS users. A restricted asset inside an unrestricted story is hidden and the rest of the story is fine.
+- **Attribution:** there is no attribution field. Credit comes from a document's `branding` links to Organization V4 records (`brand.displayName`).
+- A station writes only documents whose ID carries its prefix (`PUT /v1/documents/<id>`), which is the outbound half of the existing CDS sync row.
+- **Not documented there, so unverified:** whether the same story from two stations shares one document, what the terms allow for storing or caching
+  documents (the docs defer to NPR's Terms of Use, which this session could not open), and any rate limits.
+
+**Proposed design.**
+1. **Two layers, not drafts.** A `network_items` collection holds every story the poll finds (headline, teaser, link, image address, credit, dates, CDS id,
+   status `new` / `held` / `dismissed` / `published`, restricted flag, a link to the post it produced). It has no versions or drafts and is disposable.
+   A `posts` record is created **only when a story is published** (automatically for sources set that way, by an editor for the rest), with `source` set to
+   `npr` or `wire` and the existing rules: read-only except headline, teaser and description, re-pulled, never archived separately. Imported but unpicked
+   stories are **not** draft posts: a draft means unfinished WUWF work, and candidates would bury the Stories list, add versions on every re-pull and
+   make purging risky (posts carry redirects and embeddings). **No bodies are stored** until NPR's storage terms are confirmed.
+2. **Sources are records.** A `network_sources` collection: name, how its stories are found (CDS owner service ID, CDS collection ID, or entered by hand),
+   suggested section, and mode (publishes on its own, or waits in the queue). Adding a station is a record, not a deploy. WUSF, NPR and FPREN would be
+   "publishes on its own"; other stations wait. **If WUSF and FPREN publish to CDS (unconfirmed) there is no feed adapter at all**; the Florida News Exchange
+   is the one source that is not CDS.
+3. **Polling.** A job per source asks CDS for documents changed since its last run (`editorialLastModifiedDateTime`), pages through them, and upserts by CDS
+   id. Documents flagged restricted are recorded as restricted and never shown for publishing or linked. A published story whose document has gone is
+   flagged for an editor, not silently removed.
+4. **Credit** comes from the document's branding links, looked up once per organization and cached.
+5. **How a story appears:** a link-out card (headline, teaser, image, "From <station>") by default. A full page on wuwf.org is **not offered** until NPR's
+   storage and republishing terms are confirmed; the wire-story rule (canonical to the original publisher, 410 once gone) already assumes this.
+6. **Florida News Exchange.** It runs on PRX's closed system and no public feed was found (Current report, undated). Ask WLRN or PRX for a station
+   credential; until then, "Add a story by hand" (paste a link, check the fields) creates a `network_items` row with `source: wire`. Do not scrape it.
+7. **Retention (proposed numbers; they would be Site settings, clamped like the embeddings thresholds):** untouched `new` items deleted after about 30 days;
+   `held` items flagged stale, not deleted; `dismissed` items keep only their key so they stay dismissed; published items stay while published, and
+   whether published network cards expire (then 410, as wire URLs do) is the owner's call. Deleting a merged group is all or nothing.
+8. **Admin is Payload.** Both collections and a custom queue view in the same admin, built like `StoryEmbeddingsPanel` and gated by `requirePermission`.
+   No separate admin application. A first version can be the stock list with filters and a "Publish" row action.
+9. **Relevance ranking is deferred.** Surfacing network stories that match local news by meaning needs a vector per candidate and sends their text to a
+   provider. The rule in `CLAUDE.md` stands (never embed NPR or wire stories), and restricted documents may not be indexed at all. Build the queue first,
+   with ranking behind an interface; a first ranker that sends nothing out (recency, section, place names) is possible.
+
+**Open questions (the owner, NPR, or a check in Grove).**
+- Is the ID in Grove's network tab an Organization V4 service ID (likely, from `ownerHrefs`), a collection ID, or something else?
+- Do WUSF and FPREN publish to CDS? If not, what do they offer?
+- NPR's Terms of Use on storing, caching and republishing documents (not read; `www.npr.org` was outside the sandbox's allowed hosts).
+- How many documents a day the sources deliver, which decides whether auto-published tiers become `posts` or are rendered from `network_items`.
+- Whether the same story from two stations can be recognised (shared document id, canonical URL, or only by headline), so "merge duplicates" may be
+  only "possible duplicate".
+- A CDS key for the site from NPR Member Partnership, and which scheduler runs the poll (the Portal has Vercel cron jobs; the site's has not been checked).
+- Florida News Exchange access through WLRN or PRX.
+
+**Not built:** the collections, the poll, the queue view, the manual form, the section-page cards, the retention job, restricted-content handling, and the
+read-only enforcement for `source ≠ wuwf` that `ARCHITECTURE.md` still lists as not built.
+
 ## Known gaps in what exists
 
 - **Story embeddings are built but not run** (see *Vector search and similar stories*): until the backfill runs there is no "Related stories" section and search is keyword-only. The similarity floors are uncalibrated starting values.
