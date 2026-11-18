@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { getPayload, type Payload, type Where } from 'payload'
 import config from '@/payload.config'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type { CdsReader } from '@/lib/network/sync'
 import { finderOf, runNetworkPoll } from '@/lib/network/run'
@@ -30,12 +30,16 @@ const story = (id: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 })
 
-/** A CDS that serves one set of stories for "what is new" and looks the rest up by id. */
+/**
+ * A CDS that serves one set of stories for "what is new" and looks stories up by id. A story it lists as new can be looked up too (as the real
+ * one can); `byId` adds or overrides stories, and a story that is in neither answer is one the source has pulled.
+ */
 function fakeCds(fresh: unknown[], byId: Record<string, unknown> = {}): CdsReader {
+  const known: Record<string, unknown> = { ...Object.fromEntries((fresh as { id: string }[]).map((d) => [d.id, d])), ...byId }
   return {
     async get(query) {
       const params = new URLSearchParams(query)
-      if (params.has('ids')) return { resources: params.get('ids')!.split(',').flatMap((id) => (id in byId ? [byId[id]] : [])) }
+      if (params.has('ids')) return { resources: params.get('ids')!.split(',').flatMap((id) => (id in known ? [known[id]] : [])) }
       return { resources: fresh }
     },
   }
@@ -47,8 +51,8 @@ async function source(data: Record<string, unknown> = {}): Promise<Doc> {
   return doc
 }
 
-const items = async (sourceId: number, extra: Where = {}) =>
-  (await payload.find({ collection: 'network-items', where: { and: [{ source: { equals: sourceId } }, extra] }, limit: 100, pagination: false, depth: 0, overrideAccess: true })).docs as unknown as Doc[]
+const items = async (sourceId: number, extra?: Where) =>
+  (await payload.find({ collection: 'network-items', where: extra ? { and: [{ source: { equals: sourceId } }, extra] } : { source: { equals: sourceId } }, limit: 100, pagination: false, depth: 0, overrideAccess: true })).docs as unknown as Doc[]
 
 const para = (text: string) => ({ type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', version: 1, text, format: 0, mode: 'normal', style: '', detail: 0 }] })
 
@@ -68,6 +72,12 @@ beforeAll(async () => {
   const { ensureTestSection } = await import('../helpers/section')
   section = await ensureTestSection(payload)
 }, 90_000)
+
+// A poll visits every active source, and the fake CDS answers every source with the same stories, so a source left over from an earlier test
+// would claim them first (one row per CDS id: the first source to find a story keeps it). Each test therefore starts with no active source.
+beforeEach(async () => {
+  await payload.update({ collection: 'network-sources', where: { active: { equals: true } }, data: { active: false } as never, overrideAccess: true, context: ctx })
+})
 
 afterAll(async () => {
   // Items first (they point at sources and posts), then the rest in reverse.

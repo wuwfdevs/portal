@@ -4,6 +4,7 @@ import { APIError } from 'payload'
 
 import { requirePermission } from '../../access/permissions'
 import { statusChangeAllowed, type NetworkStatus } from '../../lib/network/status'
+import { tombstoneFields } from '../../lib/network/tombstone'
 
 /** Fields only the poll writes. System writes skip field access, so these are closed to every staff request, including the API. */
 const systemOnly = { create: () => false, update: () => false }
@@ -44,6 +45,8 @@ export const NetworkItems: CollectionConfig = {
         if (!statusChangeAllowed(originalDoc.status as NetworkStatus, data.status as NetworkStatus, bySystem)) {
           throw new APIError(`A story that is "${originalDoc.status}" cannot be set to "${data.status}" by hand.`, 400, undefined, true)
         }
+        // A dismissed story keeps only its CDS id (so it is not found and queued again), never its words.
+        if (data.status === 'dismissed' && originalDoc.status !== 'dismissed') return { ...data, ...tombstoneFields() }
         return data
       },
     ],

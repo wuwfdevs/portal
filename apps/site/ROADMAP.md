@@ -1540,7 +1540,10 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
   profiles around it (`story`, `renderable`, `html-block`, `text`, `image-gallery`...), which the docs describe only in part; the repo's rule is to derive a
   converter from real data, not from memory. **Needs the site's CDS key (NPR Member Partnership) and `content.api.npr.org` allowed in the environment's network settings** (it answers 403 from this sandbox).
   Until then an `auto` source only queues, and says so in the poll summary (`awaitingAutoPublish`).
-- Scheduling the poll: nothing calls the route until a cron entry is added for the site's Vercel project (deployment choice; needs the owner and a plan that allows the frequency).
+- Scheduling the poll is **set** (owner, 2026-11-18): `apps/site/vercel.json` calls `/api/network/poll` every 15 minutes. It is **inert until the project has
+  real credentials**: no `CRON_SECRET`, every call is a 401; no `NPR_CDS_TOKEN`, an authorised call answers `{"status":"not_configured"}` before it opens the
+  database or the network (`tests/int/network-poll-route.int.spec.ts`). Vercel sends the `CRON_SECRET` header itself once the variable is set on the project. The
+  Portal already runs a 5-minute cron on the same team, so the frequency is allowed there; if a deploy is refused for the cron, the plan is the cause.
 - Section-page "From <station>" labels and the Track for external audio: they need a published network story to hang on.
 - Read-only enforcement for `source ≠ wuwf` (only headline, teaser and description editable) that `ARCHITECTURE.md` lists as not built: only meaningful once network posts exist.
 - Retention numbers as Site settings; a per-source "stale kept stories" flag; matching a station's `branding` link to a display name (Organization V4 lookup).
@@ -1811,7 +1814,7 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 - **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
 - **Network content (2026-11-18):** a **CDS key for the site** from NPR Member Partnership (`NPR_CDS_TOKEN`, a separate client from the Portal's) and
   `content.api.npr.org` in the environment's allowed hosts (it answers 403 from the sandbox), so the story converter can be built from real documents;
-  a cron entry for `/api/network/poll` (with `CRON_SECRET`); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
+  `CRON_SECRET` and `NPR_CDS_TOKEN` set on the site's Vercel project (the cron in `vercel.json` does nothing until both are there); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
   (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
   tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access

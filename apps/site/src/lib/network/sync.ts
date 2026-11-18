@@ -115,7 +115,9 @@ export async function syncSource(source: SourceToSync, deps: SyncDeps): Promise<
     result.cursor = nextCursor(found, since)
 
     // 2. The stories we already hold: still there, still unrestricted, and what they say now.
-    const held = await deps.store.heldIds(source.id, deps.recheckLimit ?? 200)
+    // (Not the ones this very run just found: CDS has just told us about them.)
+    const justFound = new Set(found.map((c) => c.cdsId))
+    const held = (await deps.store.heldIds(source.id, deps.recheckLimit ?? 200)).filter((id) => !justFound.has(id))
     if (held.length > 0) {
       const answers = []
       for (const query of buildRecheckQueries(held)) answers.push(parseDocumentsResponse(await deps.cds.get(query), now))

@@ -145,6 +145,15 @@ describe('syncSource: what we already hold', () => {
     expect(rows.get('still')?.title).toBe('Updated headline')
   })
 
+  it('does not re-check a story the same run just found', async () => {
+    const { cds, asked } = fakeCds({ fresh: [[doc('a')]] })
+    // The store reports the new story as held too (it was saved a moment ago), as the real one does.
+    const { store } = fakeStore(['a'])
+    const out = await run(SRC, cds, store)
+    expect(asked.some((q) => q.startsWith('ids='))).toBe(false)
+    expect(out.gone).toBe(0)
+  })
+
   it('asks nothing about held stories when there are none', async () => {
     const { cds, asked } = fakeCds()
     await run(SRC, cds, fakeStore().store)

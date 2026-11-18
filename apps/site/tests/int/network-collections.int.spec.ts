@@ -137,6 +137,14 @@ describe('network stories', () => {
     expect(((await move('dismissed')) as unknown as Doc).status).toBe('dismissed')
   })
 
+  it('lose their words the moment an editor dismisses them, keeping only the CDS id', async () => {
+    const x = await item(s.id, 25, { title: `Words ${run}`, teaser: 'Some words', canonicalUrl: 'https://station.example.org/words' })
+    await payload.update({ collection: 'network-items', id: x.id, data: { status: 'dismissed' } as never, user: editor, overrideAccess: false, context: ctx })
+    const after = await payload.findByID({ collection: 'network-items', id: x.id, overrideAccess: true, depth: 0 })
+    expect(after).toMatchObject({ status: 'dismissed', title: 'Dismissed', teaser: null, canonicalUrl: null, cdsId: `cds-${run}-25` })
+    expect(after.image?.href ?? null).toBeNull()
+  })
+
   it('cannot be marked published or gone by hand, and a dismissed one stays dismissed', async () => {
     const x = await item(s.id, 21)
     const move = (status: string) => payload.update({ collection: 'network-items', id: x.id, data: { status } as never, user: editor, overrideAccess: false, context: ctx })

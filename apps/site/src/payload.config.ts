@@ -63,6 +63,11 @@ export default buildConfig({
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeLogin: ['@/components/BeforeLogin'],
+      // The Network queue: stories from other stations and NPR waiting for an editor (ROADMAP -> Network content).
+      afterNavLinks: ['@/components/admin/NetworkQueue/NavLink#NetworkQueueNavLink'],
+      views: {
+        networkQueue: { Component: '@/components/admin/NetworkQueue#NetworkQueue', path: '/network-queue' },
+      },
     },
     importMap: {
       baseDir: path.resolve(dirname),
