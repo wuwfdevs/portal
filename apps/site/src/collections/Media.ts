@@ -9,7 +9,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 import { anyone } from '../access/anyone'
-import { requirePermission } from '../access/permissions'
+import { requireAnyPermission, requirePermission } from '../access/permissions'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -18,7 +18,8 @@ export const Media: CollectionConfig = {
   slug: 'media',
   folders: true,
   access: {
-    create: requirePermission('content.write'),
+    // Corporate support may add pictures (a sponsor's artwork for a placement); changing or deleting what is in the library stays with editorial staff.
+    create: requireAnyPermission('content.write', 'sponsorship.manage'),
     delete: requirePermission('content.write'),
     read: anyone,
     update: requirePermission('content.write'),

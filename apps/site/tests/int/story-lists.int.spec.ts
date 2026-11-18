@@ -73,6 +73,18 @@ describe('story lists', () => {
     expect(await loadStoryList('section', section.slug, 3)).toBeNull()
   })
 
+  it('lists every published story at /latest, whatever its section or origin, and never a draft', async () => {
+    await make('posts', { title: `Wire ${run}`, content: body, _status: 'published', section: otherSection.id, source: 'wire', publishedAt: '2090-04-01T12:00:00.000Z' })
+    const p1 = await loadStoryList('latest', 'latest', 1)
+    expect(p1).toMatchObject({ kind: 'latest', title: 'All stories', page: 1 })
+    expect(p1?.stories[0]?.title).toBe(`Wire ${run}`) // the newest, though it is not WUWF's own
+    const titles = (p1?.stories ?? []).map((x) => x.title)
+    expect(titles).toContain(`Elsewhere ${run}`)
+    expect(titles).not.toContain(`Draft ${run}`)
+    expect(p1!.totalDocs).toBeGreaterThanOrEqual(TOTAL + 2)
+    expect(await loadStoryList('latest', 'latest', 99_999)).toBeNull()
+  })
+
   it('lists a topic and a person the same way', async () => {
     const t = await loadStoryList('topic', topic.slug, 1)
     expect(t?.title).toBe(`Storms ${run}`)
@@ -89,8 +101,9 @@ describe('story lists', () => {
 
   it('names the lists a story belongs to, so publishing it can refresh them', async () => {
     const paths = await listPathsForStory(payload, { section: section.id, categories: [topic.id], contributors: [person.id] })
-    expect(paths.sort()).toEqual([`/${section.slug}`, `/people/${person.slug}`, `/tags/${topic.slug}`].sort())
-    expect(await listPathsForStory(payload, { section: null, categories: [], contributors: null })).toEqual([])
+    // Every story is also in the list of all stories.
+    expect(paths.sort()).toEqual(['/latest', `/${section.slug}`, `/people/${person.slug}`, `/tags/${topic.slug}`].sort())
+    expect(await listPathsForStory(payload, { section: null, categories: [], contributors: null })).toEqual(['/latest'])
     expect(await listPathsForStory(payload, null)).toEqual([])
   })
 
