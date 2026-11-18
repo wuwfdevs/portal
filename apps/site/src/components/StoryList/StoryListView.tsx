@@ -8,18 +8,24 @@ import { Media } from '@/components/Media'
 import RichText from '@/components/RichText'
 import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
+import { ListRail } from '@/components/Placements'
 import type { StoryListData } from '@/lib/lists/load'
+import type { PlacementTile } from '@/lib/placements/tiles'
+import type { Media as MediaDoc } from '@/payload-types'
+import { cn } from '@/utilities/ui'
 
-const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter' } as const
+const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter', latest: 'Latest' } as const
 
 /**
  * A page of stories in a section, under a topic, or by a person (the three share one layout). The first page opens with the
  * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly.
  */
-export function StoryListView({ data }: { data: StoryListData }) {
+export function StoryListView({ data, rail = [] }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[] }) {
   const { kind, slug, title, blurb, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
   const lead = page === 1 ? stories[0] : undefined
   const grid = page === 1 ? stories.slice(1) : stories
+  // A rail beside the stories only when a placement is aimed at this page; otherwise the page is exactly as it was.
+  const hasRail = rail.length > 0
 
   return (
     <div className="pb-20">
@@ -79,7 +85,8 @@ export function StoryListView({ data }: { data: StoryListData }) {
         </div>
       )}
 
-      <section aria-label="Stories" className="container mt-10">
+      <div className={cn('container mt-10', hasRail && 'grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]')}>
+      <section aria-label="Stories" className="min-w-0">
         {stories.length === 0 ? (
           <p className="text-base text-ink-3">
             There are no published stories here yet. <Link className="font-semibold text-wuwf-blue-700 underline" href="/">Go to the front page</Link>.
@@ -88,7 +95,7 @@ export function StoryListView({ data }: { data: StoryListData }) {
           <div className="flex flex-col gap-10">
             {lead && <Card className="md:max-w-[44rem]" doc={withLeadPicture(lead)} fixedImage showCategories />}
             {grid.length > 0 && (
-              <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className={cn('grid gap-6 sm:grid-cols-2', hasRail ? 'lg:grid-cols-2' : 'lg:grid-cols-3')}>
                 {grid.map((story) => (
                   <li key={story.id}>
                     <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
@@ -100,6 +107,8 @@ export function StoryListView({ data }: { data: StoryListData }) {
         )}
         <ListPagination kind={kind} page={page} slug={slug} totalPages={totalPages} />
       </section>
+      <ListRail tiles={rail} />
+      </div>
     </div>
   )
 }

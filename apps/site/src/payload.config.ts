@@ -31,6 +31,7 @@ import { EventSubmissionImages } from './collections/Events/EventSubmissionImage
 import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
 import { Events } from './collections/Events/Events'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
+import { PlacementItems } from './collections/PlacementItems'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
 import {
@@ -125,6 +126,7 @@ export default buildConfig({
     Series,
     Productions,
     Sponsors,
+    PlacementItems,
     UnderwritingAgreements,
     Users,
     PortalSignIns,

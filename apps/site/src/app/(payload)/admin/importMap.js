@@ -25,6 +25,7 @@ import { FolderTypeField as FolderTypeField_2b8867833a34864a02ddf429b0728a40 } f
 import { LinkRowLabel as LinkRowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
+import { NewsModuleRowLabel as NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea } from '@/Homepage/NewsModuleRowLabel'
 import { StoryEmbeddingsPanel as StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e } from '@/components/admin/StoryEmbeddingsPanel'
 import { LevelRowLabel as LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb } from '@/SupportPage/RowLabel'
 import { ChannelRowLabel as ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1 } from '@/globals/ListenLiveRowLabel'
@@ -61,6 +62,7 @@ export const importMap = {
   "@/Header/RowLabel#LinkRowLabel": LinkRowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
+  "@/Homepage/NewsModuleRowLabel#NewsModuleRowLabel": NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea,
   "@/components/admin/StoryEmbeddingsPanel#StoryEmbeddingsPanel": StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e,
   "@/SupportPage/RowLabel#LevelRowLabel": LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb,
   "@/globals/ListenLiveRowLabel#ChannelRowLabel": ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1,

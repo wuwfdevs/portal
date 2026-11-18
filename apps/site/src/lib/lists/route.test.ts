@@ -10,6 +10,11 @@ describe('parseListRequest', () => {
     expect(parseListRequest(['tags', 'storms', 'page', '12'])).toEqual({ kind: 'topic', slug: 'storms', page: 12 })
     expect(parseListRequest(['people', 'dave-dunwoody', 'page', '2'])).toEqual({ kind: 'person', slug: 'dave-dunwoody', page: 2 })
   })
+  it('reads /latest, the list of every story, with its pages', () => {
+    expect(parseListRequest(['latest'])).toEqual({ kind: 'latest', slug: 'latest', page: 1 })
+    expect(parseListRequest(['latest', 'page', '4'])).toEqual({ kind: 'latest', slug: 'latest', page: 4 })
+    for (const segs of [['latest', 'page', '1'], ['latest', 'page', '0'], ['latest', 'page'], ['latest', 'other'], ['latest', 'page', '2', 'x']]) expect(parseListRequest(segs), segs.join('/')).toBeNull()
+  })
   it('is not a list for anything else: a story path, a bare prefix, page 0 or 1, or a bad slug', () => {
     for (const segs of [
       [],
@@ -40,5 +45,13 @@ describe('listHref', () => {
       const href = listHref(kind, slug, page)
       expect(parseListRequest(href.split('/').filter(Boolean))).toEqual({ kind, slug, page })
     }
+  })
+})
+
+describe('listHref for /latest', () => {
+  it('is /latest for page 1 and /latest/page/<n> after it', () => {
+    expect(listHref('latest', 'latest')).toBe('/latest')
+    expect(listHref('latest', 'latest', 1)).toBe('/latest')
+    expect(listHref('latest', 'latest', 3)).toBe('/latest/page/3')
   })
 })
