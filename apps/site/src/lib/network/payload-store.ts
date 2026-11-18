@@ -93,7 +93,9 @@ export function payloadSyncStore(payload: Payload): SyncStore {
       const found = await payload.find({
         collection: 'network-items',
         where: { and: [{ source: { equals: sourceId } }, { status: { in: ['new', 'held', 'published'] } }] },
-        sort: '-lastSeenAt',
+        // Oldest check first. Refreshing a story sets its `lastSeenAt` to now, which sends it to the back, so a source with more held stories than
+        // one run re-checks still gets to all of them in turn. (Newest first would re-check the same few for ever and never reach the rest.)
+        sort: 'lastSeenAt',
         limit,
         pagination: false,
         depth: 0,

@@ -4,6 +4,7 @@ import config from '@/payload.config'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import type { CdsReader } from '@/lib/network/sync'
+import { payloadSyncStore } from '@/lib/network/payload-store'
 import { finderOf, runNetworkPoll } from '@/lib/network/run'
 
 // A whole poll against a real database with a fake CDS: stories saved once, restricted ones never, dismissed ones left alone, a held story
@@ -84,6 +85,35 @@ afterAll(async () => {
   const mine = await payload.find({ collection: 'network-items', where: { cdsId: { contains: run } }, limit: 500, pagination: false, depth: 0, overrideAccess: true })
   for (const d of mine.docs) await payload.delete({ collection: 'network-items', id: d.id, overrideAccess: true, context: ctx }).catch(() => undefined)
   for (const c of [...cleanup].reverse()) await payload.delete({ collection: c.collection as never, id: c.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+})
+
+describe('which held stories get re-checked', () => {
+  it('goes to the ones checked longest ago first, so every held story is reached in turn and none is starved', async () => {
+    const s = await source({ name: `Rotation ${run}`, serviceId: 's590' })
+    const hour = 3_600_000
+    for (let i = 1; i <= 5; i += 1) {
+      await payload.create({
+        collection: 'network-items',
+        overrideAccess: true,
+        context: ctx,
+        data: { title: `Held ${i} ${run}`, cdsId: `held${i}-${run}`, source: s.id, status: 'held', firstSeenAt: new Date(NOW.getTime() - 100 * hour).toISOString(), lastSeenAt: new Date(NOW.getTime() - (10 - i) * hour).toISOString() } as never,
+      })
+    }
+    const store = payloadSyncStore(payload)
+    // held1 was checked longest ago, held5 most recently.
+    expect(await store.heldIds(s.id, 2)).toEqual([`held1-${run}`, `held2-${run}`])
+
+    // Checking them refreshes their time, so the next run moves on to the next two, and then comes back round to the first.
+    // (Each check happens at its own time, as it would across real runs: equal times would leave the order undefined.)
+    const touch = (n: number) =>
+      payload.update({ collection: 'network-items', where: { cdsId: { equals: `held${n}-${run}` } }, data: { lastSeenAt: new Date(NOW.getTime() + n * 60_000).toISOString() } as never, overrideAccess: true, context: ctx })
+    await touch(1)
+    await touch(2)
+    expect(await store.heldIds(s.id, 2)).toEqual([`held3-${run}`, `held4-${run}`])
+    await touch(3)
+    await touch(4)
+    expect(await store.heldIds(s.id, 2)).toEqual([`held5-${run}`, `held1-${run}`])
+  })
 })
 
 describe('finderOf', () => {

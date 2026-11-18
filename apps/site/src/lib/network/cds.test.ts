@@ -171,6 +171,20 @@ describe('parseDocumentsResponse', () => {
     })
   })
 
+  it('reports how far a response reaches, restricted and non-story documents included, and nothing else about them', () => {
+    const parsed = parseDocumentsResponse(
+      response(
+        story({ id: 'a', publishDateTime: '2026-11-18T09:00:00Z' }),
+        story({ id: 'r', isRestrictedToAuthorizedOrgServiceIds: true, publishDateTime: '2026-11-18T11:00:00Z', title: 'Restricted words' }),
+        story({ id: 'p', profiles: [{ href: '/v1/profiles/podcast-episode', rels: ['type'] }], publishDateTime: '2026-11-18T10:00:00Z' }),
+      ),
+      NOW,
+    )
+    expect(parsed.newestPublishedAt).toBe('2026-11-18T11:00:00Z')
+    expect(JSON.stringify(parsed)).not.toContain('Restricted words')
+    expect(parseDocumentsResponse(response(), NOW).newestPublishedAt).toBeNull()
+  })
+
   it('does not invent: a document with no id, or no title, is counted as malformed and dropped', () => {
     const parsed = parseDocumentsResponse(response({ title: 'No id' }, story({ id: 'doc-x', title: '  ' }), 'nonsense', story()), NOW)
     expect(parsed.malformed).toBe(3)

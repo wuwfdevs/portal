@@ -27,7 +27,7 @@ export interface CdsReader {
 export interface SyncStore {
   /** Saves what was found. A story we already hold is refreshed (never created twice); a dismissed one is left alone. Returns the CDS ids that are new. */
   upsertCandidates(sourceId: SourceToSync['id'], candidates: NetworkCandidate[], now: Date): Promise<{ created: string[]; updated: string[] }>
-  /** CDS ids of this source's stories still worth checking (waiting, kept or published; not dismissed or gone), most recently seen first. */
+  /** CDS ids of this source's stories still worth checking (waiting, kept or published; not dismissed or gone), the ones checked longest ago first. */
   heldIds(sourceId: SourceToSync['id'], limit: number): Promise<string[]>
   /** Stories CDS no longer returns. A published one is flagged for an editor; nothing is removed. */
   markGone(cdsIds: string[], now: Date): Promise<void>
@@ -96,6 +96,8 @@ export async function syncSource(source: SourceToSync, deps: SyncDeps): Promise<
   try {
     // 1. What was published since the cursor.
     const found: NetworkCandidate[] = []
+    let newestRead: string | null = null
+    let reachedCeiling = false
     for (let page = 0; page < maxPages; page += 1) {
       const body = await deps.cds.get(buildNewStoriesQuery(source.finder, { since, offset: page * PAGE, limit: PAGE }))
       const parsed = parseDocumentsResponse(body, now)
@@ -103,7 +105,9 @@ export async function syncSource(source: SourceToSync, deps: SyncDeps): Promise<
       result.malformed += parsed.malformed
       result.notStory += parsed.notStory
       found.push(...parsed.candidates)
+      if (parsed.newestPublishedAt && (!newestRead || Date.parse(parsed.newestPublishedAt) > Date.parse(newestRead))) newestRead = parsed.newestPublishedAt
       if (extractResources(body).length < PAGE) break
+      reachedCeiling = page === maxPages - 1
     }
     result.found = found.length
     if (found.length > 0) {
@@ -112,7 +116,12 @@ export async function syncSource(source: SourceToSync, deps: SyncDeps): Promise<
       result.updated = saved.updated.length
       if (source.mode === 'auto') result.awaitingAutoPublish = saved.created
     }
-    result.cursor = nextCursor(found, since)
+    // The cursor follows how far we READ, not only what we kept: a page of restricted or non-story documents must still move it on, or the
+    // stories behind them are never reached. Reaching the end of what CDS had, it keeps an hour of overlap; stopping at the page ceiling, the
+    // next run starts exactly at the newest time read (the range is inclusive, and saving is idempotent), so an hour of overlap cannot
+    // hold it in place.
+    const read = [...found, ...(newestRead ? [{ publishedAt: newestRead }] : [])]
+    result.cursor = nextCursor(read, since, reachedCeiling ? 0 : 60)
 
     // 2. The stories we already hold: still there, still unrestricted, and what they say now.
     // (Not the ones this very run just found: CDS has just told us about them.)

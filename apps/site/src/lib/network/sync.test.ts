@@ -130,6 +130,62 @@ describe('syncSource: what is new', () => {
   })
 })
 
+/** A CDS that answers a new-stories query like the real one: stories from the cursor on, oldest first, paged by limit and offset. */
+function listCds(docs: Record<string, unknown>[]) {
+  const asked: string[] = []
+  const cds: CdsReader = {
+    async get(query) {
+      asked.push(query)
+      const params = new URLSearchParams(query)
+      const since = Date.parse(params.get('publishDateTime')!.replace('...', ''))
+      const offset = Number(params.get('offset') ?? 0)
+      const limit = Number(params.get('limit') ?? 20)
+      const sorted = docs.filter((d) => Date.parse(d.publishDateTime as string) >= since).sort((a, b) => Date.parse(a.publishDateTime as string) - Date.parse(b.publishDateTime as string))
+      return { resources: sorted.slice(offset, offset + limit) }
+    },
+  }
+  return { cds, asked }
+}
+
+describe('syncSource: the cursor and filtered stories', () => {
+  // 500 restricted stories (the most one run reads), then one ordinary story: the cursor must get past the restricted ones, or the
+  // ordinary story is never reached and every later run asks for the same five pages for ever.
+  const at = (minutes: number) => new Date(Date.parse('2026-11-18T08:00:00Z') + minutes * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const restricted = Array.from({ length: 500 }, (_, i) => doc(`r${i}`, { isRestrictedToAuthorizedOrgServiceIds: true, publishDateTime: at(i + 1) }))
+  const ordinary = doc('ordinary', { publishDateTime: at(501) })
+
+  it('moves the cursor past restricted stories, so a later story is still reached', async () => {
+    const { cds } = listCds([...restricted, ordinary])
+    const { store, rows } = fakeStore()
+    const first = await run({ ...SRC, cursor: new Date('2026-11-18T08:00:00Z') }, cds, store)
+    expect(first.found).toBe(0)
+    expect(first.restricted).toBe(500)
+    expect(first.cursor.getTime()).toBeGreaterThan(Date.parse('2026-11-18T08:00:00Z'))
+
+    const second = await run({ ...SRC, cursor: first.cursor }, cds, store)
+    expect(second.created).toEqual(['ordinary'])
+    expect([...rows.keys()]).toEqual(['ordinary'])
+  })
+
+  it('starts the next run exactly where a run that hit the page ceiling stopped, with no overlap that could stall it', async () => {
+    const { cds } = listCds([...restricted, ordinary])
+    const out = await run({ ...SRC, cursor: new Date('2026-11-18T08:00:00Z') }, cds, fakeStore().store)
+    expect(out.cursor.toISOString()).toBe(new Date(Date.parse(at(500))).toISOString())
+  })
+
+  it('still keeps an hour of overlap when a run reached the end of what CDS had', async () => {
+    const { cds } = listCds([doc('a', { publishDateTime: at(100) })])
+    const out = await run({ ...SRC, cursor: new Date('2026-11-18T08:00:00Z') }, cds, fakeStore().store)
+    expect(out.cursor.toISOString()).toBe(new Date(Date.parse(at(100)) - 3_600_000).toISOString())
+  })
+
+  it('moves the cursor on a short run of only restricted or non-story documents too', async () => {
+    const { cds } = listCds([doc('r', { isRestrictedToAuthorizedOrgServiceIds: true, publishDateTime: at(200) })])
+    const out = await run({ ...SRC, cursor: new Date('2026-11-18T08:00:00Z') }, cds, fakeStore().store)
+    expect(out.cursor.getTime()).toBeGreaterThan(Date.parse('2026-11-18T08:00:00Z'))
+  })
+})
+
 describe('syncSource: what we already hold', () => {
   it('flags a held story CDS no longer returns, and takes down one that turned restricted', async () => {
     const { cds, asked } = fakeCds({

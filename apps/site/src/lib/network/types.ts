@@ -61,4 +61,9 @@ export type ParsedDocuments = {
   seenIds: string[]
   /** The ids of the restricted ones. Only ids: nothing else about a restricted story is kept. */
   restrictedIds: string[]
+  /**
+   * The newest `publishDateTime` of any document in the response, kept or not. A timestamp only: it tells the poll how far it has read, so a
+   * page of restricted stories still moves the cursor forward and cannot block the stories behind it.
+   */
+  newestPublishedAt: string | null
 }

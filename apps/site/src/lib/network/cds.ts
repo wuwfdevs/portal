@@ -139,12 +139,15 @@ function isStoryDocument(doc: Rec): boolean {
 }
 
 export function parseDocumentsResponse(body: unknown, now: Date = new Date()): ParsedDocuments {
-  const result: ParsedDocuments = { candidates: [], restricted: 0, notStory: 0, malformed: 0, seenIds: [], restrictedIds: [] }
+  const result: ParsedDocuments = { candidates: [], restricted: 0, notStory: 0, malformed: 0, seenIds: [], restrictedIds: [], newestPublishedAt: null }
   for (const raw of extractResources(body)) {
     if (!isRecord(raw)) {
       result.malformed += 1
       continue
     }
+    // How far this response reaches, whatever becomes of the document: only the time is read, nothing else about a restricted story.
+    const published = dateString(raw.publishDateTime)
+    if (published && (!result.newestPublishedAt || Date.parse(published) > Date.parse(result.newestPublishedAt))) result.newestPublishedAt = published
     const cdsId = str(raw.id)
     if (!cdsId) {
       result.malformed += 1
