@@ -50,6 +50,14 @@ taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`li
   back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
   migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
 
+## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
+
+Two changes the owner asked for after reviewing board 1 and the three layouts drawn as boards 1a to 1c (the owner chose 1b).
+
+- **The sponsor rail now starts level with the short-video row and runs down beside the videos and the news** (it used to start under the videos, beside the news only). The videos and the news share one column (`HomepageView`; `VideoRow` takes a `className` so it can sit in a column). With no videos the rail simply starts beside the news; with no rail the column is full width, as before. On a phone the tiles follow the column, as before. With many tiles the rail can run taller than the column and leave blank space at the left before the banner; the home rail holds up to ten, so editors should keep it to about four or five.
+- **"Listen now" under The Briefing** (`components/Homepage/ListenNow.tsx`): LIVE, the channel and what is on it now and next, the channel buttons when there is more than one, one Listen live / Pause button, the player's status in words, and a link to the broadcast schedule. It is the site's one player (the same as the header's Listen live), so the stream keeps playing across pages and the bar takes over. On now and next come from the schedule through `/listen/now` (`useNowNext`), never invented: before it answers, or on a channel with no schedule, the card shows the channel's own name and description. **With no channels set it draws nothing.**
+- Checked with the real components rendered to HTML with the site's CSS at 1440, 1024 and 390 px (rail top level with the video row, Listen now under The Briefing and level with the lead, no sideways overflow; no videos, no rail and no channels each leave no empty box). Not checked: the stream itself, and the schedule answering, on a deployed preview.
+
 ## News sections, All stories and sponsor placements (built 2026-11-18)
 
 Prompted by the owner's review of the home page (one news list, no link to more stories, no ad places) and a read of the live wuwf.org home page
