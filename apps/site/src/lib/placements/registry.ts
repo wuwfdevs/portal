@@ -19,12 +19,10 @@ export interface PlacementSpec {
   shape: 'tiles' | 'band'
   /** The most tiles it holds. A band holds one: it is not a rotation. */
   max: number
-  /** Recommended artwork, as pixels wide by tall. Proposed, not yet confirmed by corporate support (the sponsorship page prices the website "Banner" as unconfirmed). */
+  /** Recommended artwork, as pixels wide by tall. Proposed, not yet confirmed by corporate support. */
   artwork: { width: number; height: number }
   /** A phone's artwork for a band, when it differs. */
   phoneArtwork?: { width: number; height: number }
-  /** The sponsorship product it sells (`Sponsorship` global, Digital page) by its current name. */
-  product: string
   /** Whether a screen draws it today. A placement that is not built is designed (`PLACEMENTS.md`) and has no admin fields. */
   built: boolean
 }
@@ -37,7 +35,6 @@ export const PLACEMENTS: Readonly<Record<PlacementId, PlacementSpec>> = {
     shape: 'tiles',
     max: 10,
     artwork: { width: 880, height: 704 },
-    product: 'Display ad',
     built: true,
   },
   'home.band': {
@@ -48,7 +45,6 @@ export const PLACEMENTS: Readonly<Record<PlacementId, PlacementSpec>> = {
     max: 1,
     artwork: { width: 1200, height: 200 },
     phoneArtwork: { width: 800, height: 400 },
-    product: 'Banner',
     built: true,
   },
   'section.rail': {
@@ -58,7 +54,6 @@ export const PLACEMENTS: Readonly<Record<PlacementId, PlacementSpec>> = {
     shape: 'tiles',
     max: 4,
     artwork: { width: 880, height: 704 },
-    product: 'Display ad',
     built: false,
   },
   'story.rail': {
@@ -68,7 +63,6 @@ export const PLACEMENTS: Readonly<Record<PlacementId, PlacementSpec>> = {
     shape: 'tiles',
     max: 2,
     artwork: { width: 880, height: 704 },
-    product: 'Display ad',
     built: false,
   },
   'story.inline': {
@@ -79,7 +73,6 @@ export const PLACEMENTS: Readonly<Record<PlacementId, PlacementSpec>> = {
     max: 1,
     artwork: { width: 1200, height: 200 },
     phoneArtwork: { width: 800, height: 400 },
-    product: 'Banner',
     built: false,
   },
 }

@@ -1,1 +1,0 @@
-Presence of this file makes preview builds seed the staging database (scripts/placements/seed-staging.ts). Delete it once staging has been seeded.

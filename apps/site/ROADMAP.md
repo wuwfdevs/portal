@@ -40,6 +40,14 @@ There is no "all stories" link on wuwf.org either.
   is imported *held* because its picture advertises Saturday Nov. 14, already past (the live site still shows it); **Emerald Coast Theatre** (Dec. 3 to 20) and the
   **Santa Rosa County tourism** tile ("Sept. to Nov.") need a last day set; four house tiles point at `wuwf.org/...` pages that do not exist here yet (apps, weather,
   Florida Storms); "Protect My Public Media" is a 300 by 170 picture enlarged by the live site (soft; ask for a bigger one).
+- **Staging was seeded 2026-11-18** (the owner asked that nothing be run from their machine, and this session has no staging credentials): a one-off step in `scripts/vercel-build.sh`,
+  run by the preview build with the site's own database and storage settings, added the Local News section (the only starter section staging has: it has 13 sections, no Music & Arts or
+  Florida News) and imported the ten tiles; read back afterwards from the database (one section, ten tiles, nine showing) and from the rendered preview (nine tiles, four "Sponsor
+  message" labels, no outside scripts). The step, its marker file and the script are **removed** (git history has them). **Production is not seeded**: after the production import, add
+  sections in Home page → News sections and run `import-rail.ts --apply --production` (or enter tiles in the admin). Reason it was needed: the migration seeds sections only where the Home page
+  row already exists, and staging's never had been saved.
+- **No packages on the site** (owner, 2026-11-18): placements carry no package, price or product reference, in the registry, the admin or the pages. Packaging and price are the Sponsorship pages'
+  and, later, the Portal's. The planned editor-created placements (below) follow the same rule.
 - **Migration `20261118_161412_news_sections_and_placements`** (plain SQL; tested up, down and up on rows; `verify:migrations` passes). It creates the new tables, **carries the old Local
   news list over as the first section**, adds Local News, Music & Arts and Florida News (5 each) only where the home page has none yet and those sections exist, then drops
   the old columns; `down` puts the first section back. **A database with no sections yet (production before the import) gets none: after the import, add them in Home

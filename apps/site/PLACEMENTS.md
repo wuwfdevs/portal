@@ -6,7 +6,8 @@ Rules live in `CLAUDE.md`; state and history in `ROADMAP.md`. The registry is `s
 ## What a placement is
 
 A placement is a **fixed, named place in a page's layout** that holds one sponsor's message or one of WUWF's own promotions. It is sold
-directly by corporate support (`/sponsor/digital` is the price list), not by an ad network.
+directly by corporate support, not by an ad network. **The site knows nothing about packages, prices or how a placement was sold** (owner,
+2026-11-18): those are contract and price, held on the Sponsorship pages and, later, in the Portal. A placement is only delivery: where, what, when.
 
 Rules every placement follows (they restate `CLAUDE.md`, "Decisions that are made", and the digital sponsorship page's promises):
 
@@ -27,17 +28,16 @@ Rules every placement follows (they restate `CLAUDE.md`, "Decisions that are mad
 
 ## The places
 
-| Key | Where | Holds | Artwork | Sells as | Built |
-| --- | --- | --- | --- | --- | --- |
-| `home.rail` | Beside the news on the home page; after the news on a phone | up to 10 tiles | 880 × 704 | Display ad | **Yes** |
-| `home.band` | A slim band after the news sections, before the podcasts | 1 | 1200 × 200 (phone 800 × 400) | Banner | **Yes** |
-| `section.rail` | Beside the stories on a section, topic or reporter page | up to 4 | 880 × 704 | Display ad | Designed |
-| `story.rail` | Beside the story text (wide screens); after the story on a phone | up to 2 | 880 × 704 | Display ad | Designed |
-| `story.inline` | One band after the opening paragraphs of a story | 1 | 1200 × 200 (phone 800 × 400) | Banner | Designed |
+| Key | Where | Holds | Artwork | Built |
+| --- | --- | --- | --- | --- |
+| `home.rail` | Beside the news on the home page; after the news on a phone | up to 10 tiles | 880 × 704 | **Yes** |
+| `home.band` | A slim band after the news sections, before the podcasts | 1 | 1200 × 200 (phone 800 × 400) | **Yes** |
+| `section.rail` | Beside the stories on a section, topic or reporter page | up to 4 | 880 × 704 | Designed |
+| `story.rail` | Beside the story text (wide screens); after the story on a phone | up to 2 | 880 × 704 | Designed |
+| `story.inline` | One band after the opening paragraphs of a story | 1 | 1200 × 200 (phone 800 × 400) | Designed |
 
 - **The banner is not a leaderboard.** It sits in the page's flow after the news, at most one sixth as tall as it is wide (the registry's test
-  holds that), never at the top. The website "Banner" row on `/sponsor/digital` is priced "on request" because its size is unconfirmed: **the
-  artwork sizes above are proposals** (880 wide is what the live rail serves today), and corporate support must confirm them before a sponsor
+  holds that), never at the top. **The artwork sizes above are proposals** (880 wide is what the live rail serves today), and corporate support must confirm them before a sponsor
   is sent a spec.
 - **One tile is one booking.** A band holds one message: it is not a rotation. A rail tile is its own booking, in the order corporate support
   sets. Order is a courtesy, not a price tier, until a decision says otherwise.
@@ -63,9 +63,9 @@ this global holds, so a placement is never empty only because a booking lapsed. 
 
 ## Outside the website
 
-These are sold on the same page but are **not website placements** and are not in the registry; the website must not pretend to hold them.
+These are **not website placements** and are not in the registry; the website must not pretend to hold them.
 
-| Product | Where it lives |
+| What | Where it lives |
 | --- | --- |
 | App banners (640 × 100, 640 × 200) and pre-roll | The WUWF app, not this site |
 | Stream audio pre-roll | The stream, scheduled in Traffic |
