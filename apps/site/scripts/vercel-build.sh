@@ -15,4 +15,12 @@ else
   echo "Not migrating (MIGRATE_ON_BUILD is not 1)"
 fi
 
+# One-off seeding of the shared staging database, for as long as `scripts/placements/SEED_ON_BUILD` exists, on previews only (the same switch as the
+# migration above). It fills an empty home page and an empty sponsor rail and never overwrites an editor's entries. A failure is reported and does
+# not stop the build: the site works without it, and the next build tries again.
+if [ "${MIGRATE_ON_BUILD:-}" = "1" ] && [ -f scripts/placements/SEED_ON_BUILD ]; then
+  echo "Seeding staging (scripts/placements/SEED_ON_BUILD)"
+  NODE_ENV=production pnpm exec tsx scripts/placements/seed-staging.ts || echo "Seeding failed; continuing without it"
+fi
+
 pnpm build
