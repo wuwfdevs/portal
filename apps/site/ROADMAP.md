@@ -50,15 +50,17 @@ taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`li
   back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
   migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
 
-## Home page first screen (built 2026-11-18, board 1h)
+## Home page first screen (built 2026-11-18; the band, board 1g without the Listen bar)
 
-The owner found the first screen poor at 1440 x 900: the picture took 665 px of the 835 under the header, the headline began below the fold, and The Briefing and the lead did not end on the same line. Four layouts were drawn on the canvas (boards 1d to 1g, then 1h); the owner chose A without "Listen now".
+The owner found the first screen poor at 1440 x 900: the picture took 665 px of the 835 under the header, the headline began below the fold, and The Briefing and the lead did not end on the same line. Five layouts were drawn on the canvas (boards 1d to 1h). The first build (board 1h: a two-column lead, picture capped at 40% of the window height) was merged, then the owner saw that the capped picture was too wide and short (800 x 360, 2.2:1) and would crop real photos badly (a 3:2 photo loses a third of its height, a portrait about three quarters). A half-window cap (a true 16:9 at 900, 2.46:1 at 650) was a stopgap; the owner then chose the band.
 
-- **The lead picture is 16:9 and never taller than 40% of the window** (`max-h-[40vh]`, 360 px at 900), cropped to fit. The headline, summary and byline are above the fold at 1440 x 900 and at 1366 x 650.
-- **The Briefing is the whole side column** and its items spread to the lead's height (`justify-between`), with the lead's byline pinned to its bottom, so the two end on the same line whatever the item count or headline lengths (measured with few items, a long lead, long Briefing headlines and a portrait photo).
-- **"Listen now" is gone** (`ListenNow.tsx` deleted): it duplicated the header's Listen live button and panel, made a schedule request on every home view, and was the reason the right column was taller than the lead. The player bar still appears once anything plays.
-- The Briefing column and the sponsor rail share `SIDE_COLUMN` (22rem), so they have the same left edge and width (352 px at 1440, 1366 and 1024). Section, topic and reporter pages keep a 20rem rail.
-- Not built from the board: the "Updated 7:42 a.m." time on The Briefing (nothing stores it) and the "Listen to the story" button under the lead.
+- **The lead is a band** (`HomepageView`): the story's words on the left (28.75rem), its picture on the right, a normal 16:9 (692 x 389 at 1440) that **never changes shape with the window** (no height cap), the byline level with the picture's bottom edge. The headline is at the top, so it is in view even in a short window (measured at 1440 x 900 and 1366 x 650). A long headline makes the band taller; the picture stays 16:9 and keeps the top. On a phone the picture comes first and everything stacks; with no picture the words take the full width.
+- **The Briefing is a row under it**, as many columns as there are stories (up to five); two columns on a tablet, one on a phone. It ends about y=740 at 1440 x 900, leaving the next module's top in view.
+- **"Listen now" is gone** (`ListenNow.tsx` was deleted earlier): it duplicated the header's Listen live button and the site's player, made a schedule request on every home view, and was why the right column had been taller than the lead. The player bar still appears once anything plays.
+- The side column (`SIDE_COLUMN`, 22rem) now exists only in the lower block: the videos and the news, with the sponsor rail beside them. Section, topic and reporter pages keep a 20rem rail.
+- Not built from the board: the "Updated 7:42 a.m." time on The Briefing (nothing stores it), the "Listen to the story" button under the lead, and the Listen bar (dropped on purpose).
+- **Crops follow the focal point.** A picture cropped to fit (`object-cover`) is cropped around the focal point an editor sets in the media library (`focalX`/`focalY`; `lib/media/focal.ts`, applied by `ImageMedia`), and around its centre when none is set. A picture shown whole (`object-contain`, a sponsor's artwork) is left alone. Phone check (320 to 1024 px): picture first, then words, then the Briefing; no sideways scroll, and each Briefing item is one tap target.
+
 
 ## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
 

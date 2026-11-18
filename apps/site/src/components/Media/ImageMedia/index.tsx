@@ -9,6 +9,7 @@ import React from 'react'
 import type { Props as MediaProps } from '../types'
 
 import { cssVariables } from '@/cssVariables'
+import { objectPositionOf } from '@/lib/media/focal'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
 
 const { breakpoints } = cssVariables
@@ -84,6 +85,10 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
         .map(([, value]) => `(max-width: ${value}px) ${value * 2}w`)
         .join(', ')
 
+  // A picture that is cropped to fit (`object-cover`) is cropped around the focal point the editor set in the media library, not the middle.
+  // A picture shown whole (`object-contain`, a sponsor's artwork) is left where it is: moving it would only shift it off-centre in its box.
+  const focus = srcFromProps ? undefined : imgClassName?.includes('object-cover') ? objectPositionOf(resource) : undefined
+
   return (
     <picture className={cn(pictureClassName)}>
       <NextImage
@@ -98,6 +103,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
         loading={loading}
         sizes={sizes}
         src={src}
+        style={focus ? { objectPosition: focus } : undefined}
         width={!fill ? width : undefined}
       />
     </picture>
