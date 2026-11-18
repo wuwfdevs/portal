@@ -1,7 +1,8 @@
 import type { ListeningQuery, ListeningQuestion } from '@wuwf/portal-contracts'
 
 /**
- * The inline asks (components B, C and D) put one question of a query into a story, a topic page or the end of an episode.
+ * The inline asks (components C and D) put one question of a query at the head of a topic page or the end of an episode. (A story shows
+ * the full question set instead, not this.)
  * They ask the query's FIRST question and nothing else, and send the response as a whole: so a query is only offered inline
  * when answering that one question can finish the response, that is, when no OTHER question is required. Otherwise the
  * Portal would (rightly) refuse to finalize, and the honest thing is the invitation to the full set, not a form that cannot

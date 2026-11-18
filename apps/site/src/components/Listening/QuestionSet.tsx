@@ -49,7 +49,14 @@ import { useRecorder } from './useRecorder'
  * answers the Portal already holds. The rules (the open window, required answers, caps, consent) are the Portal's; this
  * explains them before the button and shows what the Portal answers.
  */
-export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
+export const QuestionSet: React.FC<{
+  query: ListeningQuery
+  /**
+   * Placed inside a story rather than on its own page: the heading is an h2 (the story has the page's h1) and the page is not
+   * scrolled to the card when it loads. Everything else, every screen and every rule, is the same.
+   */
+  embedded?: boolean
+}> = ({ query, embedded = false }) => {
   const questions = query.questions
   const writing = query.allowTextAnswers
 
@@ -68,11 +75,15 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
   const question = questions[index] as ListeningQuestion
   const recorder = useRecorder(question.maxDurationSeconds)
   const heading = useRef<HTMLHeadingElement | null>(null)
+  const firstView = useRef({ screen, index })
+  const Heading = embedded ? 'h2' : 'h1'
 
   // A new screen or question moves focus to its heading, so a keyboard or screen-reader user lands where the page changed.
+  // Embedded in a story, the first screen is not a change: focusing it would scroll the reader past the story to the card.
   useEffect(() => {
+    if (embedded && firstView.current.screen === screen && firstView.current.index === index) return
     heading.current?.focus()
-  }, [screen, index])
+  }, [screen, index, embedded])
 
   const current = answerFor(answers, question.id)
   const mode = answerMode(writing, modes[question.id], current)
@@ -191,9 +202,9 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
       )}
 
       <div className="flex flex-col gap-4 px-5 py-8 sm:px-8">
-        <h1 className="font-serif text-[1.375rem] font-bold leading-snug text-ink outline-none" ref={heading} tabIndex={-1}>
+        <Heading className="font-serif text-[1.375rem] font-bold leading-snug text-ink outline-none" ref={heading} tabIndex={-1}>
           {stepTitle(screen, query, index, questions.length)}
-        </h1>
+        </Heading>
 
         {error && (
           <p className={noticeWarn} role="alert">

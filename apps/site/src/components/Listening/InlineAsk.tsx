@@ -15,15 +15,16 @@ import { cn } from '@/utilities/ui'
 
 import { answerSteps } from './answer-steps'
 import { ListenBack } from './ListenBack'
-import { buttonDark, buttonPrimary, buttonSecondary, checkRow, checkbox, eyebrow, field, noticeWarn, textarea } from './styles'
+import { buttonPrimary, buttonSecondary, checkRow, checkbox, eyebrow, field, noticeWarn, textarea } from './styles'
 import { useRecorder } from './useRecorder'
 
 /**
- * The one-question asks. B sits in a story, C at the head of a topic page, D at the end of an episode or video (board 6). All
- * three answer the query's FIRST question and send the response as a whole through the same server actions as the full set;
- * the Portal enforces every rule. One listening component to a page: the caller places exactly one.
+ * The one-question asks. C sits at the head of a topic page, D at the end of an episode or video (board 6). Both answer the
+ * query's FIRST question and send the response as a whole through the same server actions as the full set; the Portal enforces
+ * every rule. A story does not use this: it shows the full question set (`QuestionSet`, embedded). One listening component to a
+ * page: the caller places exactly one.
  */
-export type InlineVariant = 'story' | 'topic' | 'voice'
+export type InlineVariant = 'topic' | 'voice'
 
 interface Props {
   query: ListeningQuery
@@ -273,7 +274,7 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
   const body = sent ? (
     <p className="rounded-sm border border-wuwf-lime-600 bg-wuwf-lime-100 p-4 text-[0.9375rem]">
       <strong>Sent to {to}.</strong>{' '}
-      {variant === 'story' ? 'WUWF may use your answer, and may contact you only if you said so. ' : 'Nothing is published automatically. '}
+      Nothing is published automatically.{' '}
       <Link className="font-bold" href={hubHref}>
         See what others asked
       </Link>
@@ -310,7 +311,7 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
       {terms}
       {failure}
       <div className="flex flex-wrap items-center gap-3">
-        <button className={cn(variant === 'story' ? buttonDark : buttonPrimary, 'min-h-12 px-[22px] text-base')} disabled={!ready} onClick={send} type="button">
+        <button className={cn(buttonPrimary, 'min-h-12 px-[22px] text-base')} disabled={!ready} onClick={send} type="button">
           {sending ? 'Sending…' : `Send to ${to}`}
         </button>
         {variant === 'topic' && writeAllowed && mode === 'write' && (
@@ -330,32 +331,16 @@ export const InlineAsk: React.FC<Props> = ({ query, question, variant, fullSetHr
     </div>
   )
 
-  if (variant === 'topic') {
-    return (
-      <div>
-        <section aria-label="WUWF Listens" className="flex flex-col gap-3 bg-wuwf-blue-100 px-6 py-5">
-          <span className={eyebrow}>
-            {inlineEyebrow(query)}
-            {query.askedBy ? ` · asked by ${query.askedBy}` : ''}
-          </span>
-          {body}
-        </section>
-        {followThrough}
-      </div>
-    )
-  }
-
   return (
-    <section aria-label="WUWF Listens" className="flex flex-col gap-3 rounded-lg border-2 border-ink bg-surface p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className={cn(eyebrow, 'inline-flex items-center gap-2')}>
-          <MicIcon size={16} />
+    <div>
+      <section aria-label="WUWF Listens" className="flex flex-col gap-3 bg-wuwf-blue-100 px-6 py-5">
+        <span className={eyebrow}>
           {inlineEyebrow(query)}
+          {query.askedBy ? ` · asked by ${query.askedBy}` : ''}
         </span>
-        {query.askedBy && <span className="text-[0.8125rem] text-ink-3">Asked by {query.askedBy}</span>}
-      </div>
-      <h2 className="font-serif text-[1.5625rem] font-bold leading-tight text-ink">{question.prompt}</h2>
-      {body}
-    </section>
+        {body}
+      </section>
+      {followThrough}
+    </div>
   )
 }
