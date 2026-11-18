@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
+import fs from 'node:fs'
+import path from 'node:path'
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -42,6 +44,8 @@ describe('placements', () => {
     const found = await payload.find({ collection: 'placement-items', where: { zone: { equals: zone } }, limit: 100, depth: 0, pagination: false, overrideAccess: true })
     for (const d of found.docs) await payload.delete({ collection: 'placement-items', id: d.id, overrideAccess: true, context: ctx })
   }
+  const asMedia = async (name: string, file: { data: Buffer; mimetype: string }) =>
+    keep<{ id: number | string }>('media', { alt: name }, { ...file, name: `${name}-${run}.${file.mimetype.split('/')[1]}`, size: file.data.length })
   const picture = async (name: string) => {
     const data = await sharp({ create: { width: 8, height: 6, channels: 3, background: '#336699' } }).png().toBuffer()
     return keep<{ id: number | string }>('media', { alt: name }, { data, mimetype: 'image/png', name: `${name}-${run}.png`, size: data.length })
@@ -86,9 +90,30 @@ describe('placements', () => {
       await expect(payload.update({ collection: 'placement-items', id: house.id, data: { kind: 'sponsor', sponsor: sponsor.id } as never, ...as })).rejects.toThrow()
       await expect(payload.delete({ collection: 'placement-items', id: sold.id, ...as })).rejects.toThrow()
     })
+    it('lets corporate support add a picture to the library, so a placement can be made end to end, but not change or delete one', async () => {
+      const data = await sharp({ create: { width: 8, height: 6, channels: 3, background: '#663399' } }).png().toBuffer()
+      const as = staff(['sponsorship'])
+      const doc = await payload.create({ collection: 'media', data: { alt: 'Sponsor artwork' } as never, file: { data, mimetype: 'image/png', name: `sponsor-art-${run}.png`, size: data.length }, ...as })
+      made.push({ collection: 'media', id: doc.id })
+      await expect(payload.update({ collection: 'media', id: doc.id, data: { alt: 'Changed' } as never, ...as })).rejects.toThrow()
+      await expect(payload.delete({ collection: 'media', id: doc.id, ...as })).rejects.toThrow()
+      const placement = await make({ kind: 'house', image: doc.id }, as)
+      await payload.delete({ collection: 'placement-items', id: placement.id, overrideAccess: true, context: ctx })
+    })
     it('refuses editors, membership staff and signed-out visitors', async () => {
       for (const roles of [['editor'], ['membership']]) await expect(make({}, staff(roles))).rejects.toThrow()
       await expect(payload.create({ collection: 'placement-items', data: item() as never, overrideAccess: false })).rejects.toThrow()
+    })
+  })
+
+  describe('what the artwork may be', () => {
+    it('refuses a video or an animated picture, in the picture field and the phone-picture field, and takes a still one', async () => {
+      const mp4 = await asMedia('clip', { data: fs.readFileSync(path.resolve(__dirname, '../fixtures/one-second.mp4')), mimetype: 'video/mp4' })
+      const gif = await asMedia('moving', { data: await sharp({ create: { width: 8, height: 6, channels: 3, background: '#336699' } }).gif().toBuffer(), mimetype: 'image/gif' })
+      await expect(make({ image: mp4.id })).rejects.toThrow()
+      await expect(make({ image: gif.id })).rejects.toThrow()
+      await expect(make({ zone: 'home.band', image: img.id, phoneImage: mp4.id })).rejects.toThrow()
+      await expect(createdItem({ image: img.id })).resolves.toBeDefined()
     })
   })
 
@@ -142,6 +167,15 @@ describe('placements', () => {
       const extra = await createdItem({ zone: 'home.rail', name: `Extra ${run}` })
       await expect(payload.update({ collection: 'placement-items', id: docs[1]!.id, data: { enabled: true } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 10/)
       expect(extra.id).toBeTruthy()
+      await clearZone('home.rail')
+    })
+    it('counts a placement whose last day has passed and is then cleared, because it would run again', async () => {
+      await clearZone('home.rail')
+      for (let i = 0; i < 10; i++) await createdItem({ zone: 'home.rail', name: `Live ${i} ${run}` })
+      const ended = await createdItem({ zone: 'home.rail', name: `Ended then cleared ${run}`, runUntil: '2020-01-01T12:00:00.000Z' })
+      await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { runUntil: null } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 10/)
+      // Leaving the field out keeps what is stored: it stays ended, so it is not counted.
+      await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { alt: 'Edited' } as never, overrideAccess: true, context: ctx })).resolves.toBeDefined()
       await clearZone('home.rail')
     })
     it('holds one banner, not a rotation', async () => {

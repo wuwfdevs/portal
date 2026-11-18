@@ -2,6 +2,8 @@
 
 import { supportHref } from '@/lib/support-link'
 
+import { isStillPicture } from './media'
+
 import { liveTiles, tileAccessibleName, tileLabel, tileRel, type TileLike } from './pick'
 import { tileKey, ZONES, type ZoneId } from './registry'
 
@@ -35,8 +37,10 @@ export function placementTiles<M extends { url?: string | null }>(placement: Zon
   return running.flatMap((t, i) => {
     const image = loaded(t.image)
     const href = supportHref(t.href)
-    if (!image || !href) return []
+    // Only still pictures are drawn: a video in the library would otherwise play (the site draws video with autoplay).
+    if (!image || !href || !isStillPicture(image as { mimeType?: string | null })) return []
     const kind = t.kind === 'house' ? 'house' : 'sponsor'
+    const phone = loaded(t.phoneImage)
     return [
       {
         key: tileKey(placement, i + 1),
@@ -47,7 +51,7 @@ export function placementTiles<M extends { url?: string | null }>(placement: Zon
         href,
         rel: tileRel({ kind }, href),
         image,
-        phoneImage: loaded(t.phoneImage),
+        phoneImage: phone && isStillPicture(phone as { mimeType?: string | null }) ? phone : null,
       },
     ]
   })

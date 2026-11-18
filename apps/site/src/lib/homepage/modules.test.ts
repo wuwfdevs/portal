@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_STORIES_HREF, fallbackModule, fillModules, MODULE_COUNT, moduleCount } from './modules'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, MODULE_COUNT, moduleCount, newsBand } from './modules'
 
 const story = (id: number) => ({ id })
 const run = (...ids: number[]) => ids.map(story)
@@ -60,5 +60,19 @@ describe('fallbackModule', () => {
   it('is null when nothing is left, so no empty block is drawn', () => {
     expect(fallbackModule(run(1), run(1))).toBeNull()
     expect(fallbackModule([], [])).toBeNull()
+  })
+})
+
+describe('newsBand', () => {
+  it('is drawn with the rail and the all-stories link when the sections have no stories left but the page has news', () => {
+    expect(newsBand({ sectionRuns: 0, railTiles: 9, hasNews: true })).toEqual({ show: true, allStoriesLink: true })
+    expect(newsBand({ sectionRuns: 0, railTiles: 0, hasNews: true })).toEqual({ show: true, allStoriesLink: true })
+  })
+  it('is drawn with the sections, and with a rail and no news (placements need no stories), but links to all stories only when there is news', () => {
+    expect(newsBand({ sectionRuns: 3, railTiles: 0, hasNews: true })).toEqual({ show: true, allStoriesLink: true })
+    expect(newsBand({ sectionRuns: 0, railTiles: 2, hasNews: false })).toEqual({ show: true, allStoriesLink: false })
+  })
+  it('is not drawn on a site with no news, no sections and nothing in the rail', () => {
+    expect(newsBand({ sectionRuns: 0, railTiles: 0, hasNews: false })).toEqual({ show: false, allStoriesLink: false })
   })
 })

@@ -3,6 +3,7 @@ import type { CollectionAfterChangeHook, CollectionAfterDeleteHook, CollectionBe
 import { APIError } from 'payload'
 
 import { requireAnyPermission, userCan } from '@/access/permissions'
+import { STILL_IMAGE_MESSAGE, STILL_IMAGE_TYPES, isStillPicture } from '@/lib/placements/media'
 import { describeTarget, stillRunning, type PlacementRecord } from '@/lib/placements/resolve'
 import { artworkSize, BUILT_ZONES, isZoneId, TILE_ALT_MAX, ZONES } from '@/lib/placements/registry'
 import { revalidatePath, revalidateTag } from '@/lib/revalidate'
@@ -39,10 +40,13 @@ const checkKind: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
  * different placements aim at different pages and may overlap on some.
  */
 const checkCapacity: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
-  const zoneId = data?.zone ?? originalDoc?.zone
-  const enabled = data?.enabled ?? originalDoc?.enabled
+  // A field the save leaves out keeps its stored value; one it sets to null (a last day cleared) is null. `??` would treat both as missing and bring
+  // back the old value, so a placement whose last day had passed and was cleared would skip this check and run past the zone's capacity.
+  const given = <K extends 'zone' | 'enabled' | 'runUntil'>(key: K) => (data && key in data && data[key] !== undefined ? data[key] : originalDoc?.[key])
+  const zoneId = given('zone')
+  const enabled = given('enabled')
   if (!isZoneId(zoneId) || ZONES[zoneId].targetable || enabled === false) return data
-  if (!stillRunning({ enabled, runUntil: data?.runUntil ?? originalDoc?.runUntil }, new Date())) return data
+  if (!stillRunning({ enabled, runUntil: given('runUntil') }, new Date())) return data
   const others = await req.payload.find({
     collection: 'placement-items',
     where: { and: [{ zone: { equals: zoneId } }, { enabled: { equals: true } }, ...(originalDoc?.id ? [{ id: { not_equals: originalDoc.id } }] : [])] },
@@ -75,6 +79,21 @@ const afterDelete: CollectionAfterDeleteHook = ({ doc, req }) => {
   refresh(req)
   return doc
 }
+
+
+/** A placement's picture must be a still image: checked here, when it is saved, because the library takes video and animated pictures too. */
+const stillPicture = async (value: unknown, { req }: { req: { payload: { findByID: (a: never) => Promise<unknown> } } }): Promise<true | string> => {
+  if (value == null || value === '') return true
+  const id = typeof value === 'object' ? (value as { id?: string | number }).id : value
+  if (id == null) return true
+  try {
+    const media = (await req.payload.findByID({ collection: 'media', id, depth: 0, overrideAccess: true, select: { mimeType: true } } as never)) as { mimeType?: string | null }
+    return isStillPicture(media) ? true : STILL_IMAGE_MESSAGE
+  } catch {
+    return 'That picture could not be read. Choose another.'
+  }
+}
+const onlyStill = { mimeType: { in: [...STILL_IMAGE_TYPES] } }
 
 const zoneOf = (_: unknown, siblingData: { zone?: string } | undefined) => (isZoneId(siblingData?.zone) ? ZONES[siblingData.zone] : null)
 const inZone = (test: (z: (typeof ZONES)[keyof typeof ZONES]) => boolean) => (_: unknown, s: { zone?: string } | undefined) => {
@@ -138,6 +157,8 @@ export const PlacementItems: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
       required: true,
+      filterOptions: onlyStill,
+      validate: stillPicture as never,
       admin: { description: `The artwork. A rail tile is ${artworkSize(ZONES['home.rail'].artwork)}; a banner is ${artworkSize(ZONES['home.band'].artwork)}. The words in the picture are read by people who cannot see it, so say what it says below.` },
     },
     {
@@ -145,6 +166,8 @@ export const PlacementItems: CollectionConfig = {
       type: 'upload',
       relationTo: 'media',
       label: 'Picture for phones',
+      filterOptions: onlyStill,
+      validate: stillPicture as never,
       admin: { condition: inZone((z) => z.shape === 'band'), description: `Optional, ${artworkSize(ZONES['home.band'].phoneArtwork ?? ZONES['home.band'].artwork)}. Without it, phones get the wide picture, scaled down.` },
     },
     { name: 'alt', type: 'text', required: true, maxLength: TILE_ALT_MAX, label: 'What the picture says', admin: { description: 'Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".' } },

@@ -12,6 +12,7 @@ import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
+import { newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
@@ -47,6 +48,7 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
   const hasRail = placements.rail.length > 0
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
+  const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
 
   return (
     <div className="pb-20">
@@ -171,7 +173,7 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
 
       {slots.video && <VideoRow slot={slots.video} />}
 
-      {modules.length > 0 && (
+      {band.show && (
         <div className={cn('container mt-16 grid gap-12', hasRail && 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10')}>
           <div className="flex min-w-0 flex-col gap-14">
             {modules.map((module) => (
@@ -202,11 +204,13 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
                 )}
               </section>
             ))}
-            <p>
-              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
-                All stories
-              </Link>
-            </p>
+            {band.allStoriesLink && (
+              <p>
+                <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
+                  All stories
+                </Link>
+              </p>
+            )}
           </div>
           <HomeRail tiles={placements.rail} />
         </div>

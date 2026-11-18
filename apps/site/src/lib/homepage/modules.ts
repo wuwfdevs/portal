@@ -66,3 +66,12 @@ export function fallbackModule<T extends { id: Id }>(recent: readonly T[], shown
   const stories = recent.filter((s) => !taken.has(String(s.id))).slice(0, Math.max(0, count))
   return stories.length > 0 ? { key: 'latest', heading: 'Latest stories', href: ALL_STORIES_HREF, stories } : null
 }
+
+/**
+ * Whether the news band (the sections, "All stories" and the sponsor rail beside them) is drawn, and whether it has an "All stories" link. The band
+ * must not depend on there being stories left for the sections: when the lead, the Briefing and the feature have used every story there are no
+ * section runs, but the page has news, so the link to all of it and any placements still belong on it. Pure.
+ */
+export function newsBand(input: { sectionRuns: number; railTiles: number; hasNews: boolean }): { show: boolean; allStoriesLink: boolean } {
+  return { show: input.sectionRuns > 0 || input.railTiles > 0 || input.hasNews, allStoriesLink: input.hasNews }
+}
