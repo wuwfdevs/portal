@@ -1,15 +1,12 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
-import { GIVING_STARTER } from '../lib/giving/starter'
-
 /**
  * The Support page global becomes the Giving pages (boards 14, 14b, 14c, 14d): the Give page's card, levels and sections, Other ways to
  * give, Leave a legacy and the thank-you page, every word of it in the admin. The first-pass page's own fields (hero figures, "other
  * ways" line, businesses, fellowships, footer note) and its levels' button addresses go: the rethought boards replace them, and the
- * starter content below writes the boards' wording in their place. Levels from the first pass are cleared first because each level now
- * needs a monthly minimum, which an old row cannot have. The levels, the monthly minimums and the members' listening level are
- * written from the boards ($5, $10, $15 and $100 a month); an editor changes them in the admin afterwards. The `down` restores the
- * old tables and columns empty; the first-pass wording is not kept.
+ * boards' wording replaces them (written by the next migration, `giving_form_addresses`, because a migration that uses the Local API reads the
+ * *current* schema, so it can only run after every column it touches exists). Levels from the first pass are cleared first because each level
+ * now needs a monthly minimum, which an old row cannot have. The `down` restores the old tables and columns empty; the first-pass wording is not kept.
  */
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
@@ -430,8 +427,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "support_page" DROP COLUMN "fellowships_link_label";
   ALTER TABLE "support_page" DROP COLUMN "fellowships_link_url";
   ALTER TABLE "support_page" DROP COLUMN "gift_notice";`)
-
-  await payload.updateGlobal({ slug: 'support-page', data: GIVING_STARTER as never, req, overrideAccess: true, context: { disableRevalidate: true } })
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {

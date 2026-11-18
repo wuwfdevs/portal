@@ -17,6 +17,10 @@ const opening = (extra: Field[] = []): GroupField => group('hero', [text('eyebro
 /** A section's eyebrow and heading, for sections whose heading has no sentence under it. */
 const titled = (): Field[] => [text('eyebrow'), text('title')]
 
+/** Questions and answers, each with an optional link (e.g. to the form where a monthly gift is changed). */
+const faqItems = () =>
+  list('items', [text('question', { required: true }), area('answer', { required: true, maxLength: 1200 }), text('linkLabel'), href('linkHref', 'Link address')], { singular: 'Question', max: 12 })
+
 const line = (name: string, o: { max?: number; singular?: string; description?: string } = {}) =>
   list(name, [text('text', { required: true, maxLength: 300 })], { singular: o.singular ?? 'Line', plural: `${o.singular ?? 'Line'}s`, max: o.max ?? 8, description: o.description })
 
@@ -112,11 +116,25 @@ export const SupportPage: GlobalConfig = {
               'donationForm',
               [
                 {
+                  name: 'monthlyAddress',
+                  type: 'text',
+                  label: 'Monthly (sustaining) gift form',
+                  validate: validateSupportHref,
+                  admin: { description: 'WUWF’s form for a monthly gift, with the fund and attribution code already in the address. Every monthly Give button goes here.' },
+                },
+                {
+                  name: 'onceAddress',
+                  type: 'text',
+                  label: 'One-time gift form',
+                  validate: validateSupportHref,
+                  admin: { description: 'WUWF’s form for a one-time gift. Every one-time Give button goes here.' },
+                },
+                {
                   name: 'address',
                   type: 'text',
-                  label: 'Donation form address',
+                  label: 'Any other gift form',
                   validate: validateSupportHref,
-                  admin: { description: 'WUWF’s own donation form, with the fund and the attribution code already in the address. Every Give button goes here. Empty: no Give button is shown and the pages say to call.' },
+                  admin: { description: 'Used for a gift that has no form of its own above (or for both, if WUWF has one form). With no address at all, no Give button is shown and the pages say to call.' },
                 },
                 {
                   name: 'prefill',
@@ -199,7 +217,7 @@ export const SupportPage: GlobalConfig = {
               section('businesses', [text('title'), area('text', { maxLength: 500 }), text('buttonLabel'), href('buttonHref', 'Button address')]),
               section('faq', [
                 text('title'),
-                list('items', [text('question', { required: true }), area('answer', { required: true, maxLength: 1200 })], { singular: 'Question', max: 12 }),
+                faqItems(),
               ]),
             ]),
           ],
@@ -252,6 +270,8 @@ export const SupportPage: GlobalConfig = {
                   area('lead', { maxLength: 600 }),
                   text('buttonLabel'),
                   href('buttonHref', 'Button address'),
+                  text('secondaryLabel', { admin: { description: 'An optional second button, e.g. real estate beside vehicles.' } }),
+                  href('secondaryHref', 'Second button address'),
                   { name: 'showDetails', type: 'checkbox', label: 'Show the details to give a broker or fund', defaultValue: false },
                   line('steps', { description: 'How it works, in order.' }),
                   line('notes', { description: 'Good to know.' }),
@@ -281,7 +301,7 @@ export const SupportPage: GlobalConfig = {
               section('sample', [...heading(), area('quote', { maxLength: 700 }), area('quoteNote', { maxLength: 300 })]),
               section('steps', [...titled(), list('items', [text('title', { required: true }), area('text', { maxLength: 500 })], { singular: 'Step', max: 6 })]),
               section('recognition', [text('eyebrow'), area('text', { maxLength: 500 })]),
-              section('faq', [text('title'), list('items', [text('question', { required: true }), area('answer', { required: true, maxLength: 1200 })], { singular: 'Question', max: 12 })]),
+              section('faq', [text('title'), faqItems()]),
             ]),
           ],
         },

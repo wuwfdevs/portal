@@ -96,6 +96,8 @@ export type PanelView = WayPanel & {
   lead: string
   buttonLabel: string
   buttonHref: string
+  secondaryLabel: string
+  secondaryHref: string
   showDetails: boolean
   steps: string[]
   notes: string[]
@@ -117,6 +119,8 @@ export function panelViews(ways: SupportPage['ways']): PanelView[] {
         lead: p.lead?.trim() ?? '',
         buttonLabel: p.buttonLabel?.trim() ?? '',
         buttonHref: p.buttonHref?.trim() ?? '',
+        secondaryLabel: p.secondaryLabel?.trim() ?? '',
+        secondaryHref: p.secondaryHref?.trim() ?? '',
         showDetails: Boolean(p.showDetails),
         steps: textsOf(p.steps, 'text'),
         notes: textsOf(p.notes, 'text'),

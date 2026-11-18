@@ -11,8 +11,11 @@ import { formatMoney } from './money'
 import { benefitLines, levelFor, messagesFor, yearlyTotal, type Frequency, type GivingLevel, type MessageTier, type MessageWords } from './levels'
 
 export type DonationForm = {
-  /** The donation form's address, with the fund and attribution code already in it. Empty: there is nowhere to send a gift. */
+  /** The donation form's address, with the fund and attribution code already in it, for any gift without a form of its own below. */
   address?: string | null
+  /** WUWF's donation platform has a separate form for a sustaining (monthly) gift and for a one-time gift: each goes to its own when it has one. */
+  monthlyAddress?: string | null
+  onceAddress?: string | null
   /** True once someone has confirmed the form reads the amount and frequency from the link. Off, the link carries neither. */
   prefill?: boolean | null
   amountParam?: string | null
@@ -26,12 +29,16 @@ const PARAM = /^[A-Za-z0-9_.\-[\]]{1,40}$/
 const VALUE = /^[A-Za-z0-9_.-]{1,40}$/
 
 /**
- * Where "Give" goes for a chosen gift. Null when no address is set or it is not one we may link to (so no button is drawn).
+ * Where "Give" goes for a chosen gift: the form for its frequency, else the general one. Null when no address is set or it is not one we may
+ * link to (so no button is drawn).
  * Parameters already in the address (a fund, an attribution code) are kept; the amount and frequency are added only when
  * `prefill` is on and the names are valid. A whole-dollar amount only; a missing amount sends the frequency alone.
  */
 export function donationHref(form: DonationForm | null | undefined, gift?: { amount?: number | null; frequency?: Frequency }): string | null {
-  const address = form?.address?.trim()
+  // A form of its own for this frequency wins. If one is typed but is not an address we may link to, there is nothing to link to: falling back
+  // to the other form would send a monthly donor to the one-time form (or the reverse).
+  const own = (gift?.frequency === 'monthly' ? form?.monthlyAddress : gift?.frequency === 'once' ? form?.onceAddress : null)?.trim()
+  const address = own || form?.address?.trim()
   if (!address || !isAllowedSupportHref(address) || address.startsWith('mailto:')) return null
   if (!form?.prefill) return address
   const url = new URL(address, 'https://relative.invalid')

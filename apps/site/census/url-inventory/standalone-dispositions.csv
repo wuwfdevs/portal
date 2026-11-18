@@ -123,8 +123,8 @@ path,template,published,title,cluster,proposed_disposition,note
 /contact-us,/core/page/ContentPage.hbs,,Contact Us | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /convo,/core/page/ContentPage.hbs,,convo | WUWF,other-review,proposed:review,Needs a person to read it.
 /convo22,/core/page/ContentPage.hbs,,convo22 | WUWF,other-review,proposed:review,Needs a person to read it.
-/corporate-support,/core/page/ContentPage.hbs,,Corporate Support | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
-/corporate-testimonials,/core/page/ContentPage.hbs,,Corporate Testimonials | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/corporate-support,/core/page/ContentPage.hbs,,Corporate Support | WUWF,station-info,proposed:replace,Sponsorship page: replaced by the Sponsor WUWF pages (boards 16 to 20b); redirects to /sponsor (src/lib/giving/legacy-addresses.ts). Do not import.
+/corporate-testimonials,/core/page/ContentPage.hbs,,Corporate Testimonials | WUWF,station-info,proposed:replace,Sponsorship page: replaced by the Sponsor WUWF pages (boards 16 to 20b); redirects to /sponsor#testimonials (src/lib/giving/legacy-addresses.ts). Do not import.
 /corporation-for-public-broadcasting-reports-financial-information,/core/page/ContentPage.hbs,,Corporation for Public Broadcasting Reports - Financial Information | WUWF,other-review,proposed:review,Needs a person to read it.
 /cpb-info,/core/page/ContentPage.hbs,,CPB Info | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /cpos9,/core/page/ContentPage.hbs,,cpos9 | WUWF,test-scratch,proposed:drop,Test or scratch page.

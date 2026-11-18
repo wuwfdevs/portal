@@ -4229,7 +4229,15 @@ export interface SupportPage {
    */
   donationForm?: {
     /**
-     * WUWF’s own donation form, with the fund and the attribution code already in the address. Every Give button goes here. Empty: no Give button is shown and the pages say to call.
+     * WUWF’s form for a monthly gift, with the fund and attribution code already in the address. Every monthly Give button goes here.
+     */
+    monthlyAddress?: string | null;
+    /**
+     * WUWF’s form for a one-time gift. Every one-time Give button goes here.
+     */
+    onceAddress?: string | null;
+    /**
+     * Used for a gift that has no form of its own above (or for both, if WUWF has one form). With no address at all, no Give button is shown and the pages say to call.
      */
     address?: string | null;
     /**
@@ -4524,6 +4532,11 @@ export interface SupportPage {
         | {
             question: string;
             answer: string;
+            linkLabel?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            linkHref?: string | null;
             id?: string | null;
           }[]
         | null;
@@ -4575,6 +4588,14 @@ export interface SupportPage {
            * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
            */
           buttonHref?: string | null;
+          /**
+           * An optional second button, e.g. real estate beside vehicles.
+           */
+          secondaryLabel?: string | null;
+          /**
+           * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+           */
+          secondaryHref?: string | null;
           showDetails?: boolean | null;
           /**
            * How it works, in order.
@@ -4683,6 +4704,11 @@ export interface SupportPage {
         | {
             question: string;
             answer: string;
+            linkLabel?: string | null;
+            /**
+             * A page on this site (/support/ways), a secure https:// address, or mailto:. Leave empty for no link.
+             */
+            linkHref?: string | null;
             id?: string | null;
           }[]
         | null;
@@ -6200,6 +6226,8 @@ export interface SupportPageSelect<T extends boolean = true> {
   donationForm?:
     | T
     | {
+        monthlyAddress?: T;
+        onceAddress?: T;
         address?: T;
         prefill?: T;
         amountParam?: T;
@@ -6402,6 +6430,8 @@ export interface SupportPageSelect<T extends boolean = true> {
                 | {
                     question?: T;
                     answer?: T;
+                    linkLabel?: T;
+                    linkHref?: T;
                     id?: T;
                   };
             };
@@ -6436,6 +6466,8 @@ export interface SupportPageSelect<T extends boolean = true> {
               lead?: T;
               buttonLabel?: T;
               buttonHref?: T;
+              secondaryLabel?: T;
+              secondaryHref?: T;
               showDetails?: T;
               steps?:
                 | T
@@ -6552,6 +6584,8 @@ export interface SupportPageSelect<T extends boolean = true> {
                 | {
                     question?: T;
                     answer?: T;
+                    linkLabel?: T;
+                    linkHref?: T;
                     id?: T;
                   };
             };

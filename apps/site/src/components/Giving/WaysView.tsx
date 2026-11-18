@@ -85,8 +85,9 @@ export function WaysView({ content, selection }: { content: GivingContent; selec
                 {panel.eyebrow && <span className={`${eyebrow} text-wuwf-blue-700`}>{panel.eyebrow}</span>}
                 <h2 className="font-serif text-4xl font-bold leading-tight">{panel.title}</h2>
                 {panel.lead && <p className="text-lg text-ink-2">{panel.lead}</p>}
-                <div className="pt-1.5">
+                <div className="flex flex-wrap gap-3 pt-1.5">
                   <ButtonLink href={panel.buttonHref} label={panel.buttonLabel} />
+                  <ButtonLink href={panel.secondaryHref} label={panel.secondaryLabel} variant="outline" />
                 </div>
 
                 {panel.showDetails && rows.length > 0 && (

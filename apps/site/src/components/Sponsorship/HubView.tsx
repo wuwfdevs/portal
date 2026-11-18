@@ -120,7 +120,7 @@ export const HubView: React.FC<{ content: SponsorshipContent; programs: ProgramV
       )}
 
       {shown(h?.testimonials) && (
-        <Section {...headingProps(h.testimonials)} tone="grey">
+        <Section {...headingProps(h.testimonials)} id="testimonials" tone="grey">
           <ul className="m-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
             {(h.testimonials.items ?? []).map((t) => (
               <li key={t.id ?? t.name}>

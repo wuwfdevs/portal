@@ -59,6 +59,10 @@ describe('giving pages', () => {
 
   it.each(['javascript:alert(1)', 'http://insecure.example.org', '//evil.example.org', 'give now'])('refuses the address %j wherever an address is typed', async (bad) => {
     await expect(update({ donationForm: { address: bad } })).rejects.toThrow()
+    await expect(update({ donationForm: { monthlyAddress: bad } })).rejects.toThrow()
+    await expect(update({ donationForm: { onceAddress: bad } })).rejects.toThrow()
+    await expect(update({ give: { faq: { items: [{ question: 'q', answer: 'a', linkLabel: 'l', linkHref: bad }] } } })).rejects.toThrow()
+    await expect(update({ ways: { panels: [{ group: 'vehicles', slug: 'v', secondaryHref: bad }] } })).rejects.toThrow()
     await expect(update({ give: { more: { items: [{ title: 'x', href: bad }] } } })).rejects.toThrow()
     await expect(update({ ways: { panels: [{ group: 'vehicles', slug: 'v', buttonHref: bad }] } })).rejects.toThrow()
   })
@@ -80,7 +84,7 @@ describe('giving pages', () => {
         level('Day Sponsor', 15, { giftBenefits: [{ text: '{messages} on 88.1' }] }),
       ],
       messageTiers: [{ yearly: 180, count: 1 }, { yearly: 360, count: 2 }],
-      donationForm: { address: 'https://give.example.org/form?code=abc', prefill: true, amountParam: 'amount', frequencyParam: 'freq' },
+      donationForm: { address: 'https://give.example.org/form?code=abc', monthlyAddress: '', onceAddress: '', prefill: true, amountParam: 'amount', frequencyParam: 'freq' },
       give: { card: { monthlyAmounts: [{ amount: 15 }, { amount: 5 }, { amount: 30 }], monthlyDefault: 15, onceAmounts: [{ amount: 120 }], onceDefault: 120 } },
     })
     const page = await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false })
@@ -94,6 +98,17 @@ describe('giving pages', () => {
     expect(href.searchParams.get('code')).toBe('abc')
     expect(href.searchParams.get('amount')).toBe('30')
     expect(href.searchParams.get('freq')).toBe('monthly')
+  })
+
+  it('sends monthly gifts to the sustaining form and one-time gifts to the one-time form, as stored', async () => {
+    await update({
+      levels: [level('Member', 5)],
+      donationForm: { address: '', monthlyAddress: 'https://give.example.org/sustaining', onceAddress: 'https://give.example.org/one-time', prefill: false },
+      give: { card: { monthlyAmounts: [{ amount: 10 }], monthlyDefault: 10, onceAmounts: [{ amount: 60 }], onceDefault: 60 } },
+    })
+    const model = buildDonateModel(donateConfigOf(await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }))!)
+    expect(model.find((f) => f.key === 'monthly')!.options.map((o) => o.href)).toEqual(['https://give.example.org/sustaining', 'https://give.example.org/sustaining'])
+    expect(model.find((f) => f.key === 'once')!.options.map((o) => o.href)).toEqual(['https://give.example.org/one-time', 'https://give.example.org/one-time'])
   })
 
   it('shows no card when no amounts are offered', async () => {

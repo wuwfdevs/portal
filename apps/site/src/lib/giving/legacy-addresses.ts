@@ -7,6 +7,10 @@
 // `/donate` exists (the rest are 404). Grove also serves redirects no sitemap lists in general (ROADMAP), so an old giving address that is
 // not here, such as one printed in a newsletter or read on air, is a line to add. Search Console's links report is how to find them.
 //
+// Read and deliberately **not** redirected: `/how-can-i-promote-my-cause` routes an event to the Community Calendar, a business to
+// sponsorship, a nonprofit to the quarterly on-air spotlight and a story idea to the newsroom, so one destination would drop three of the
+// four; and `/our-corporate-sponsors` is a list of sponsor names with no page here to replace it. Both stay `proposed:keep`.
+//
 // The two dated stories under `/support/` are here because `support` is a path this site owns (`RESERVED_FIRST_SEGMENTS`): a record may not
 // take a path under it, so they could not be imported at their own addresses.
 
@@ -44,6 +48,8 @@ export const LEGACY_GIVING_REDIRECTS: readonly LegacyGivingRedirect[] = [
     permanent: true,
     why: 'Board 14 lists "A car, boat or property" as one way to give and opens the vehicle panel. That panel does not yet describe real estate: see the roadmap.',
   },
+  { source: '/corporate-support', destination: '/sponsor', permanent: true, why: 'Grove\'s sponsorship pitch (the audience, an on-air schedule that suits a budget): the Sponsor WUWF hub.' },
+  { source: '/corporate-testimonials', destination: '/sponsor#testimonials', permanent: true, why: 'Sponsors\' quotes: the hub has a testimonials section.' },
   {
     source: '/support/2014-10-31/wuwf-corporate-sponsors',
     destination: '/sponsor',

@@ -156,6 +156,29 @@ describe('donationHref', () => {
     expect(url.searchParams.has('freq')).toBe(false)
   })
 
+  it('sends a monthly gift to the sustaining form and a one-time gift to the one-time form, each falling back to the general address', () => {
+    const form = { address: 'https://give.example.org/any', monthlyAddress: 'https://give.example.org/sustaining', onceAddress: 'https://give.example.org/one-time' }
+    expect(donationHref(form, { amount: 10, frequency: 'monthly' })).toBe('https://give.example.org/sustaining')
+    expect(donationHref(form, { amount: 60, frequency: 'once' })).toBe('https://give.example.org/one-time')
+    expect(donationHref({ address: 'https://give.example.org/any', monthlyAddress: 'https://give.example.org/sustaining' }, { amount: 60, frequency: 'once' })).toBe('https://give.example.org/any')
+    expect(donationHref({ monthlyAddress: 'https://give.example.org/sustaining' }, { frequency: 'once' })).toBeNull()
+    expect(donationHref(form)).toBe('https://give.example.org/any') // no gift chosen: the general address
+  })
+
+  it('never sends a donor to the other frequency\'s form when theirs cannot be used', () => {
+    const form = { address: 'https://give.example.org/any', monthlyAddress: 'javascript:alert(1)', onceAddress: 'https://give.example.org/one-time' }
+    expect(donationHref(form, { amount: 10, frequency: 'monthly' })).toBeNull()
+    expect(donationHref({ monthlyAddress: 'http://insecure.example.org', onceAddress: 'https://give.example.org/one-time' }, { frequency: 'monthly' })).toBeNull()
+  })
+
+  it('adds the amount to the frequency\'s own form when pre-filling is on', () => {
+    const form = { monthlyAddress: 'https://give.example.org/sustaining?code=abc', prefill: true, amountParam: 'amount' }
+    const url = new URL(donationHref(form, { amount: 20, frequency: 'monthly' })!)
+    expect(url.pathname).toBe('/sustaining')
+    expect(url.searchParams.get('code')).toBe('abc')
+    expect(url.searchParams.get('amount')).toBe('20')
+  })
+
   it('handles a form on this site by path', () => {
     const form = { address: '/give/form', prefill: true, amountParam: 'amount' }
     expect(donationHref(form, { amount: 10, frequency: 'monthly' })).toBe('/give/form?amount=10')

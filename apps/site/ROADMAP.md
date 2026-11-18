@@ -61,7 +61,19 @@ and hand the donor to WUWF's donation form; the site never takes a gift.**
   changed. The giving global has **one** form address; per-frequency addresses (and a link to the update form for "change or stop a monthly gift") are the likely change: owner to confirm. Also:
   the vehicle partner has a real-estate page (`https://wuwf.careasy.org/real-estate-donation`), which is what the vehicles panel needs for `/real-estate-donation` to land on something that describes it;
   Grove's sustaining page names a different Member Services address (`trish@wuwf.org`) from the boards' (`lolly@wuwf.org`), so the address to publish is a decision.
-- **Open, owner:** whether Grove's corporate pages (`/corporate-support`, `/corporate-testimonials`, `/how-can-i-promote-my-cause`, all `proposed:keep`) now redirect to `/sponsor`; `/our-corporate-sponsors` has no equivalent yet.
+- **What Grove's giving pages showed about the donation form (2026-11-18), and what was built from it.** WUWF's form is NPR's donation platform, `donate.nprstations.org/wuwf/`, with **separate forms** for a
+  sustaining gift (`/wuwf-secure-pledge-form-sustaining`) and a one-time gift (`/wuwf-secure-pledge-form-one-time`), and a **sustainer update form** (`/sustainer-update-form`). The global now has a form
+  address for each frequency (a monthly gift goes to its form, a one-time gift to its own, the general address for anything else; a typed-but-unusable address is never replaced by the other frequency's
+  form), the Give FAQ items take an optional link (the monthly-gift question links the update form) and a way-to-give panel takes an optional second button (the vehicles panel links the partner's
+  real-estate page, `wuwf.careasy.org/real-estate-donation`). Migration `20261118_034853_giving_form_addresses` adds the columns and fills the three addresses, the FAQ link and the button from those
+  Grove links. **Pre-filling is still off**: nothing has confirmed these forms read an amount from the address. Still for the owner: the fund and attribution code in each address, whether the forms send a
+  donor back to `/support/thanks` (the thank-you page works without it), and whether they have the fields three panels assume (see the pre-launch list). Grove's sustaining page names a different Member
+  Services address (`trish@wuwf.org`) from the boards' (`lolly@wuwf.org`), so the address to publish is a decision.
+- **Migrations and the Local API (lesson, 2026-11-18).** A migration that writes through the Local API reads the *current* schema, so it breaks on a fresh database once a later migration adds a column to
+  the same global; `pnpm verify:migrations` caught it. The giving starter content is therefore written by the **last** migration that touches the global (`giving_form_addresses`), only when the global is
+  empty, and `giving_pages` is schema-only. Do not add a Local API write for this global to an earlier migration.
+- **Read on Grove and deliberately not redirected:** `/how-can-i-promote-my-cause` routes an event to the Community Calendar, a business to sponsorship, a nonprofit to the quarterly on-air spotlight and a
+  story idea to the newsroom (so one destination would drop three of four), and `/our-corporate-sponsors` is a list of sponsor names with no page here to replace it. Both stay `proposed:keep` for the importer.
 
 ## Sponsorship pages, boards 16 to 20b (built 2026-11-17)
 
