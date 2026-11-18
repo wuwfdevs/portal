@@ -59,7 +59,7 @@ The owner found the first screen poor at 1440 x 900: the picture took 665 px of 
 - **"Listen now" is gone** (`ListenNow.tsx` was deleted earlier): it duplicated the header's Listen live button and the site's player, made a schedule request on every home view, and was why the right column had been taller than the lead. The player bar still appears once anything plays.
 - The side column (`SIDE_COLUMN`, 22rem) now exists only in the lower block: the videos and the news, with the sponsor rail beside them. Section, topic and reporter pages keep a 20rem rail.
 - Not built from the board: the "Updated 7:42 a.m." time on The Briefing (nothing stores it), the "Listen to the story" button under the lead, and the Listen bar (dropped on purpose).
-- **Still open: crops.** A picture is cropped to 16:9 around its centre. The media library lets editors set a focal point (`focalX`/`focalY`), but nothing on the site uses it yet, so a portrait photo is cropped to its middle.
+- **Crops follow the focal point.** A picture cropped to fit (`object-cover`) is cropped around the focal point an editor sets in the media library (`focalX`/`focalY`; `lib/media/focal.ts`, applied by `ImageMedia`), and around its centre when none is set. A picture shown whole (`object-contain`, a sponsor's artwork) is left alone. Phone check (320 to 1024 px): picture first, then words, then the Briefing; no sideways scroll, and each Briefing item is one tap target.
 
 
 ## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
