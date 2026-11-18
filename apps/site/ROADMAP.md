@@ -1433,12 +1433,14 @@ design canvas has **no designs for** authors, events detail, standard pages, the
 or RadioLive artist and performance pages: each needs a design or reuses the closest template. Board 25 (member feeds) is a
 signed-in account page, not CMS content.
 
-## Network content: queue, sources and sections (design proposed 2026-11-18; nothing built)
+## Network content: queue, sources and sections (design agreed 2026-11-18; first slice built, publishing blocked)
 
-**Status.** A design worked out with the owner in conversation, with a mockup (claude.ai artifact "Network Content Queue": queue, sources,
-section page). Everything below is **proposed** unless marked "from the CDS docs" or "from the repository". Nothing is built, and no migration exists.
-It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision above ("the CMS will import wire stories and let editors choose
-which to publish").
+**Status.** Designed with the owner, with a mockup (claude.ai artifact "Network Content Queue": queue, sources, section page), and the owner
+approved building it (2026-11-18). **Built:** the collections, the poll, the queue view and the posts' original-address fields (list under *Built*, below).
+**Blocked:** anything that needs a real CDS response (the site's own key, and the CDS host in the sandbox's allowed list): the story-body converter,
+and therefore publishing a network story, which is why the queue's Publish button says "not available yet". Text below marked "from the CDS docs" was
+read from the CDS documentation; the rest is the design. It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision
+above ("the CMS will import wire stories and let editors choose which to publish").
 
 **Today in Grove (as the owner described it).** WUSF stories fill the Florida News section, NPR stories the NPR News section and FPREN stories Weather,
 all automatically. Everything else is chosen by hand: Florida News Exchange stories are entered manually, and other NPR stations' stories are found
@@ -1505,8 +1507,12 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 - Do WUSF and FPREN publish to CDS? If not, what do they offer?
 - Republishing is settled by the owner (item 5). NPR's Terms of Use on storing and caching documents have not been read (`www.npr.org` was outside the
   sandbox's allowed hosts); the owner's practice suggests no blocker, but it is unchecked.
-- Whether a story's images and audio are copied into our storage or referenced where NPR hosts them (restricted assets are hidden either way).
-  `rel=canonical` to the original publisher is decided (owner, 2026-11-18).
+- **Decided (owner, 2026-11-18):** a network story's images and audio are **referenced where NPR hosts them, not copied**: it matches "re-pulled, never
+  archived separately" (a pulled story or a newly restricted asset disappears with it), and audio is large. Images use the file's `hrefTemplate` (width,
+  quality, format) through Next's image proxy, with the plain `href` as the fallback; audio plays from the enclosure address, choosing one that is not
+  `tracked`, `sponsored` or `premium`, and only while `isAvailable` and before `streamExpirationDateTime` (all in `lib/network/cds.ts`). Still to check
+  with NPR: whether those hosts allow hotlinking and keep their addresses stable (the CDS docs are silent). If not, copy images and keep audio referenced.
+  `rel=canonical` to the original publisher is decided too.
 - How many documents a day the sources deliver. With full pages, every auto-published story is a real post with a body, so volume affects storage and
   the Stories list.
 - Whether the same story from two stations can be recognised (shared document id, canonical URL, or only by headline), so "merge duplicates" may be
@@ -1514,8 +1520,30 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
 - A CDS key for the site from NPR Member Partnership, and which scheduler runs the poll (the Portal has Vercel cron jobs; the site's has not been checked).
 - Florida News Exchange access through WLRN or PRX.
 
-**Not built:** the collections, the poll, the queue view, the CDS-to-post body converter, the original-address and credit fields on posts, the section-page labels, the retention job, restricted-content handling, and the
-read-only enforcement for `source ≠ wuwf` that `ARCHITECTURE.md` still lists as not built.
+**Built (2026-11-18; migration `20261118_221136_network_content`, tests up/down/up on a scratch database; unit and integration tests mutation-checked):**
+- `src/lib/network` (pure): CDS response parser with restricted filtering of stories and assets and the audio rules (`cds.ts`), RFC 6570 image
+  templates (`uri-template.ts`), the poll's queries, cursor and re-check classification (`poll.ts`), the orchestrator with CDS and the database injected
+  (`sync.ts`), status rules (`status.ts`), tombstones, retention numbers, the CDS client (`cds-client.ts`, needs `NPR_CDS_TOKEN`; unset means "not
+  set up", never an error), and the original-address and credit helpers.
+- Collections `network-sources` (publisher-only to change; a source is found by owner service ID or by collection ID, and is `queue` or `auto`) and
+  `network-items` (thin, disposable, no body, created only by the poll; an editor may keep, release and dismiss, never mark published or gone), group **Network**.
+- Posts: `original.url` (https only), `original.credit` and `original.cdsId` (unique) for a story that is not WUWF's. **`rel=canonical` points at the
+  original publisher** for those stories; **the sitemap lists only WUWF's own** published stories.
+- The poll: `lib/network/run.ts`, called by `GET|POST /api/network/poll` with `Authorization: Bearer $CRON_SECRET` (401 with no secret set). Per
+  source: new stories since the cursor (`publishDateTime`), then a re-check of stories held (`ids`): refreshed, flagged "removed at the source"
+  (published) or deleted (waiting), or, if they turned restricted, blanked to a tombstone and their post sent back to draft. Waiting stories first
+  found over 30 days ago are deleted (constant for now, `lib/network/retention.ts`; Site settings is the plan). A failed source records the error and keeps its cursor.
+- The queue: custom admin view `/admin/network-queue` (`components/admin/NetworkQueue`), filters by view and source, keep / release / dismiss.
+
+**Not built, and why:**
+- **The CDS story body converter, and so publishing** (by an editor, or on its own for `auto` sources). It needs a real CDS document's `layout` and the
+  profiles around it (`story`, `renderable`, `html-block`, `text`, `image-gallery`...), which the docs describe only in part; the repo's rule is to derive a
+  converter from real data, not from memory. **Needs the site's CDS key (NPR Member Partnership) and `content.api.npr.org` allowed in the environment's network settings** (it answers 403 from this sandbox).
+  Until then an `auto` source only queues, and says so in the poll summary (`awaitingAutoPublish`).
+- Scheduling the poll: nothing calls the route until a cron entry is added for the site's Vercel project (deployment choice; needs the owner and a plan that allows the frequency).
+- Section-page "From <station>" labels and the Track for external audio: they need a published network story to hang on.
+- Read-only enforcement for `source ≠ wuwf` (only headline, teaser and description editable) that `ARCHITECTURE.md` lists as not built: only meaningful once network posts exist.
+- Retention numbers as Site settings; a per-source "stale kept stories" flag; matching a station's `branding` link to a display name (Organization V4 lookup).
 
 ## Known gaps in what exists
 
@@ -1781,6 +1809,11 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
 - **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
+- **Network content (2026-11-18):** a **CDS key for the site** from NPR Member Partnership (`NPR_CDS_TOKEN`, a separate client from the Portal's) and
+  `content.api.npr.org` in the environment's allowed hosts (it answers 403 from the sandbox), so the story converter can be built from real documents;
+  a cron entry for `/api/network/poll` (with `CRON_SECRET`); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
+  (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
+  tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.

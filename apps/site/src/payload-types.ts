@@ -83,6 +83,8 @@ export interface Config {
     artists: Artist;
     performances: Performance;
     sections: Section;
+    'network-sources': NetworkSource;
+    'network-items': NetworkItem;
     categories: Category;
     contributors: Contributor;
     sites: Site;
@@ -133,6 +135,8 @@ export interface Config {
     artists: ArtistsSelect<false> | ArtistsSelect<true>;
     performances: PerformancesSelect<false> | PerformancesSelect<true>;
     sections: SectionsSelect<false> | SectionsSelect<true>;
+    'network-sources': NetworkSourcesSelect<false> | NetworkSourcesSelect<true>;
+    'network-items': NetworkItemsSelect<false> | NetworkItemsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     contributors: ContributorsSelect<false> | ContributorsSelect<true>;
     sites: SitesSelect<false> | SitesSelect<true>;
@@ -393,6 +397,23 @@ export interface Post {
    * NPR and wire stories are not WUWF's to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.
    */
   source: 'wuwf' | 'npr' | 'wire';
+  /**
+   * Where the original lives and who gets the credit. The story's canonical link points here, so search engines know it is a copy.
+   */
+  original?: {
+    /**
+     * The publisher's own address for this story (https).
+     */
+    url?: string | null;
+    /**
+     * The station or outlet that wrote it, as it should read: "WLRN", "Florida News Exchange".
+     */
+    credit?: string | null;
+    /**
+     * Set when the story is published from the Network queue. A re-pull matches on it, so the story cannot be duplicated.
+     */
+    cdsId?: string | null;
+  };
   /**
    * Set by the migration. Leave empty for new work.
    */
@@ -2158,6 +2179,116 @@ export interface Performance {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Stations and NPR sections whose stories reach the Network queue.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-sources".
+ */
+export interface NetworkSource {
+  id: number;
+  /**
+   * As readers should see it: "WLRN", "NPR News".
+   */
+  name: string;
+  findBy: 'owner' | 'collection';
+  /**
+   * An "s" and digits, such as s583: the station's Organization V4 service. Copy it from Grove's network tab.
+   */
+  serviceId?: string | null;
+  /**
+   * NPR's number for a topic, program or blog (CDS "Table of Aggregations").
+   */
+  collectionId?: number | null;
+  /**
+   * Publishing on its own puts every new, unrestricted story from this source on the site without an editor.
+   */
+  mode: 'queue' | 'auto';
+  /**
+   * The section its stories go to (suggested in the queue; used when publishing on its own).
+   */
+  section?: (number | null) | Section;
+  /**
+   * Uncheck to stop checking this source without deleting it.
+   */
+  active?: boolean | null;
+  /**
+   * Anything staff should know about this source.
+   */
+  notes?: string | null;
+  poll?: {
+    lastPolledAt?: string | null;
+    cursor?: string | null;
+    foundNew?: number | null;
+    skippedRestricted?: number | null;
+    error?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Stories waiting for an editor, and a record of what was found. The queue is the way to work through them.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-items".
+ */
+export interface NetworkItem {
+  id: number;
+  title: string;
+  status: 'new' | 'held' | 'dismissed' | 'published' | 'gone';
+  source: number | NetworkSource;
+  /**
+   * CDS's own id. The same story found twice is one row.
+   */
+  cdsId: string;
+  teaser?: string | null;
+  publishedAt?: string | null;
+  modifiedAt?: string | null;
+  canonicalUrl?: string | null;
+  ownerHrefs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  brandingHrefs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  image?: {
+    href?: string | null;
+    hrefTemplate?: string | null;
+    width?: number | null;
+    height?: number | null;
+    altText?: string | null;
+    caption?: string | null;
+    credit?: string | null;
+  };
+  imageDroppedAsRestricted?: boolean | null;
+  audio?: {
+    href?: string | null;
+    mimeType?: string | null;
+    durationSeconds?: number | null;
+  };
+  audioSkipped?: ('unavailable' | 'expired' | 'restricted' | 'premium' | 'tracked' | 'sponsored' | 'no-file') | null;
+  /**
+   * The story made from this one when it was published.
+   */
+  post?: (number | null) | Post;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  goneAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "portal-sign-ins".
  */
@@ -2506,6 +2637,14 @@ export interface PayloadLockedDocument {
         value: number | Section;
       } | null)
     | ({
+        relationTo: 'network-sources';
+        value: number | NetworkSource;
+      } | null)
+    | ({
+        relationTo: 'network-items';
+        value: number | NetworkItem;
+      } | null)
+    | ({
         relationTo: 'categories';
         value: number | Category;
       } | null)
@@ -2804,6 +2943,13 @@ export interface PostsSelect<T extends boolean = true> {
   section?: T;
   path?: T;
   source?: T;
+  original?:
+    | T
+    | {
+        url?: T;
+        credit?: T;
+        cdsId?: T;
+      };
   legacy?:
     | T
     | {
@@ -3319,6 +3465,73 @@ export interface SectionsSelect<T extends boolean = true> {
   generateSlug?: T;
   slug?: T;
   description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-sources_select".
+ */
+export interface NetworkSourcesSelect<T extends boolean = true> {
+  name?: T;
+  findBy?: T;
+  serviceId?: T;
+  collectionId?: T;
+  mode?: T;
+  section?: T;
+  active?: T;
+  notes?: T;
+  poll?:
+    | T
+    | {
+        lastPolledAt?: T;
+        cursor?: T;
+        foundNew?: T;
+        skippedRestricted?: T;
+        error?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-items_select".
+ */
+export interface NetworkItemsSelect<T extends boolean = true> {
+  title?: T;
+  status?: T;
+  source?: T;
+  cdsId?: T;
+  teaser?: T;
+  publishedAt?: T;
+  modifiedAt?: T;
+  canonicalUrl?: T;
+  ownerHrefs?: T;
+  brandingHrefs?: T;
+  image?:
+    | T
+    | {
+        href?: T;
+        hrefTemplate?: T;
+        width?: T;
+        height?: T;
+        altText?: T;
+        caption?: T;
+        credit?: T;
+      };
+  imageDroppedAsRestricted?: T;
+  audio?:
+    | T
+    | {
+        href?: T;
+        mimeType?: T;
+        durationSeconds?: T;
+      };
+  audioSkipped?: T;
+  post?: T;
+  firstSeenAt?: T;
+  lastSeenAt?: T;
+  goneAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

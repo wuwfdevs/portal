@@ -16,6 +16,8 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Sections } from './collections/Sections'
+import { NetworkItems } from './collections/Network/NetworkItems'
+import { NetworkSources } from './collections/Network/NetworkSources'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
@@ -117,6 +119,8 @@ export default buildConfig({
     Artists,
     Performances,
     Sections,
+    NetworkSources,
+    NetworkItems,
     Categories,
     Contributors,
     Sites,
