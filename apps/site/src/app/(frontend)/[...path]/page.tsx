@@ -19,6 +19,7 @@ import { StoryListView } from '@/components/StoryList/StoryListView'
 import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
+import { loadListRail } from '@/lib/placements/load'
 import { pathFromSegments } from '@/lib/paths'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
 import { parseShowSubpage, type ShowSubpage } from '@/lib/shows/subpaths'
@@ -115,7 +116,10 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   // Nothing owns this path: a redirect an editor made for it, or a real 404.
   if (result.kind === 'miss') return <PayloadRedirects url={result.url} />
   if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
-  if (result.kind === 'list') return <StoryListView data={result.data} />
+  if (result.kind === 'list') {
+    const { kind, targetId } = result.data
+    return <StoryListView data={result.data} rail={await loadListRail({ page: 'list', kind, id: targetId })} />
+  }
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
   if (result.kind === 'themed-subpage') {

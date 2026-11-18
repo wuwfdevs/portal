@@ -28,6 +28,8 @@ export interface StoryListData {
   profile: PersonProfile | null
   /** A topic's WUWF Listens question (its public id), asked at the head of the first page. Only a topic has one. */
   listeningQuestion: string | null
+  /** The section's, topic's or reporter's id, for aiming a placement at this page; null for the list of every story. */
+  targetId: string | number | null
   stories: HomeStory[]
   page: number
   totalPages: number
@@ -97,7 +99,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
   })
   // A page past the last is a 404, but an empty first page is a real (empty) list.
   if (page > 1 && result.docs.length === 0) return null
-  return { kind, slug, title, blurb, bio, profile, listeningQuestion, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
+  return { kind, slug, title, blurb, bio, profile, listeningQuestion, targetId: kind === 'latest' ? null : id, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
 })
 
 export const loadStoryListFor = (req: ListRequest) => loadStoryList(req.kind, req.slug, req.page)

@@ -67,19 +67,25 @@ export async function fetchPicture(url: string): Promise<{ data: Buffer; mimetyp
   return { data, mimetype }
 }
 
+/** The name each imported placement is given, so a second run finds it again and a rail made by hand is told apart from this import's. */
+export const placementName = (t: RailTileSource): string => `${nameOf(t)}: home page rail (imported from the live site)`
+
 /**
- * Puts the tiles in the media library (one record per source picture, found again by its address on a second run) and then in the rail.
- * Nothing is written without `apply`. A rail that already has tiles is left alone unless `replace`.
+ * Puts the tiles in the media library (one record per source picture, found again by its address on a second run), finds or makes each
+ * sponsor, and makes one placement per tile in the home page rail. Nothing is written without `apply`. A rail an editor has made by hand
+ * (any placement in the zone this import did not make) is left alone unless `replace`, which clears the zone first. A placement the import
+ * already made is not made twice, so a run that stopped part way is finished by running it again.
  */
 export async function importRail(payload: Payload, tiles: readonly RailTileSource[], opts: ImportOptions): Promise<{ reports: TileReport[]; railWritten: boolean; railSkippedBecause: string | null }> {
   const log = opts.log ?? (() => undefined)
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   const reports: TileReport[] = []
-  const rows: Record<string, unknown>[] = []
+  const planned: { tile: RailTileSource; mediaId: string | number; index: number }[] = []
 
-  const current = await payload.findGlobal({ slug: 'placements', depth: 0, overrideAccess: true })
-  const filled = (current.homeRail?.length ?? 0) > 0
-  const skipRail = filled && !opts.replace ? 'the rail already has tiles (use --replace to replace them)' : null
+  const inZone = await payload.find({ collection: 'placement-items', where: { zone: { equals: 'home.rail' } }, depth: 0, limit: 200, pagination: false, overrideAccess: true, select: { name: true } })
+  const mine = new Set(tiles.map(placementName))
+  const byHand = inZone.docs.filter((d) => !mine.has(d.name))
+  const skipRail = byHand.length > 0 && !opts.replace ? 'the rail already has placements made by hand (use --replace to clear it first)' : null
   if (skipRail) log(`note: ${skipRail}; pictures will still be copied, the rail will not be changed`)
 
   let fetched = false
@@ -113,15 +119,34 @@ export async function importRail(payload: Payload, tiles: readonly RailTileSourc
     }
     reports.push({ ...base, verdict, ...(t.note ? { detail: t.note } : {}) })
     log(`${String(i + 1).padStart(2)}. ${verdict.toUpperCase().padEnd(14)} ${t.kind.padEnd(7)} ${base.name}${t.enabled ? '' : '  (held, not shown)'}${t.note ? `\n      ${t.note}` : ''}`)
-    if (mediaId !== null) rows.push({ kind: t.kind, ...(t.kind === 'sponsor' ? { sponsor: t.sponsor } : {}), image: mediaId, alt: t.alt, href: t.href, enabled: t.enabled })
+    if (mediaId !== null) planned.push({ tile: t, mediaId, index: i })
   }
 
-  let railWritten = false
-  if (opts.apply && !skipRail && rows.length > 0) {
-    await payload.updateGlobal({ slug: 'placements', data: { homeRail: rows } as never, overrideAccess: true, context: { disableRevalidate: true } })
-    railWritten = true
+  let created = 0
+  if (opts.apply && !skipRail && planned.length > 0) {
+    if (opts.replace) {
+      for (const d of inZone.docs) await payload.delete({ collection: 'placement-items', id: d.id, overrideAccess: true, context: { disableRevalidate: true } })
+    }
+    const have = new Set(opts.replace ? [] : inZone.docs.map((d) => d.name))
+    for (const { tile: t, mediaId, index } of planned) {
+      const name = placementName(t)
+      if (have.has(name)) continue
+      let sponsorId: string | number | undefined
+      if (t.kind === 'sponsor') {
+        const sponsorName = t.sponsor!.trim()
+        const found = await payload.find({ collection: 'sponsors', where: { name: { equals: sponsorName } }, limit: 1, depth: 0, overrideAccess: true })
+        sponsorId = found.docs[0]?.id ?? (await payload.create({ collection: 'sponsors', data: { name: sponsorName } as never, overrideAccess: true, context: { disableRevalidate: true } })).id
+      }
+      await payload.create({
+        collection: 'placement-items',
+        overrideAccess: true,
+        context: { disableRevalidate: true },
+        data: { name, kind: t.kind, ...(sponsorId !== undefined ? { sponsor: sponsorId } : {}), zone: 'home.rail', order: (index + 1) * 10, image: mediaId, alt: t.alt, href: t.href, enabled: t.enabled } as never,
+      })
+      created++
+    }
   }
-  return { reports, railWritten, railSkippedBecause: skipRail }
+  return { reports, railWritten: created > 0, railSkippedBecause: skipRail }
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'tile'

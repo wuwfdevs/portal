@@ -1,4 +1,4 @@
-// Copies the ten tiles of the live wuwf.org home page's rail into this site's Placements global and media library (owner-approved one-time
+// Copies the ten tiles of the live wuwf.org home page's rail into this site's media library, Sponsors and Placements (owner-approved one-time
 // import, 2026-11-18). The tile list, with what each picture says and where each goes, is `rail-tiles.ts`; the rules are `import-rail-core.ts`.
 //
 //   pnpm exec tsx scripts/placements/import-rail.ts                        # DRY RUN (default): lists each tile, fetches and writes nothing
@@ -6,12 +6,12 @@
 //   pnpm exec tsx scripts/placements/import-rail.ts --apply --production   # the same on production (staging first)
 //
 //   --apply             without it nothing is fetched or changed
-//   --replace           also replace a rail that already has tiles (otherwise an editor's rail is never touched)
+//   --replace           also clear and replace a rail made by hand (otherwise an editor's placements are never touched)
 //   --production        allow the production project (refused without it)
 //   --local-rehearsal   lets it run against a scratch database on this machine (for testing the script itself)
 //
-// Safe to run again: a picture already in the library (found by the address it came from) is reused, and a rail that already has tiles is left
-// alone. After `--apply`, redeploy or revalidate the site (this script cannot refresh the site's cache), then have corporate support confirm
+// Safe to run again: a picture already in the library (found by the address it came from) is reused, a placement this import made is not made
+// twice, and a rail made by hand is left alone. After `--apply`, redeploy or revalidate the site (this script cannot refresh the site's cache), then have corporate support confirm
 // each tile's kind, dates and artwork: the Sinfonia tile is imported held (its event has passed) and two others name dates.
 
 import dotenv from 'dotenv'

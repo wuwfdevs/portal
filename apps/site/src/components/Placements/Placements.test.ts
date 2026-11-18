@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { Media } from '@/payload-types'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { HomeBand, HomeRail } from './index'
+import { HomeBand, HomeRail, ListRail } from './index'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
@@ -50,6 +50,20 @@ describe('the home page rail', () => {
     const html = rail([tile(), tile({ key: 'home.rail.2', image: media(2) })])
     expect(html).toContain('aria-label="Sponsors and promotions"')
     expect(html.match(/<li /g)).toHaveLength(2)
+  })
+})
+
+describe('the list pages rail', () => {
+  it('draws nothing when nothing is aimed at the page', () => {
+    expect(renderToStaticMarkup(React.createElement(ListRail, { tiles: [] }))).toBe('')
+  })
+  it('is the same labeled, sponsored, script-free rail, in its own zone', () => {
+    const html = renderToStaticMarkup(React.createElement(ListRail, { tiles: [tile({ key: 'list.rail.1' })] }))
+    expect(html).toContain('data-placement="list.rail"')
+    expect(html).toContain('data-placement="list.rail.1"')
+    expect(html).toContain('Sponsor message')
+    expect(html).toContain('rel="sponsored noopener noreferrer"')
+    expect(html).not.toMatch(/<script|<iframe/i)
   })
 })
 

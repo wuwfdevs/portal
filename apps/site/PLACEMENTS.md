@@ -1,97 +1,117 @@
 # Sponsor and promo placements
 
-The design of the fixed places on wuwf.org where a sponsor message or a house promotion sits, what is built, and what is deliberately not.
-Rules live in `CLAUDE.md`; state and history in `ROADMAP.md`. The registry is `src/lib/placements/registry.ts`; this file explains it.
+How sponsor messages and WUWF's own promotions reach the site: what a **zone** is, what a **placement** is, who may make one, what is built and what is
+not. Rules live in `CLAUDE.md`; state and history in `ROADMAP.md`. The zones are `src/lib/placements/registry.ts`; the collection editors use is
+`src/collections/PlacementItems.ts` (admin: **Commercial → Placements**); what runs on a page is decided by `src/lib/placements/resolve.ts`.
 
-## What a placement is
+## Two layers, so rethinking placements never needs a deploy
 
-A placement is a **fixed, named place in a page's layout** that holds one sponsor's message or one of WUWF's own promotions. It is sold
-directly by corporate support, not by an ad network. **The site knows nothing about packages, prices or how a placement was sold** (owner,
-2026-11-18): those are contract and price, held on the Sponsorship pages and, later, in the Portal. A placement is only delivery: where, what, when.
+- **A zone is code.** A fixed, named place in a page's layout: its shape (tile or band), how many it holds, the artwork size, whether a placement
+  can be aimed at particular pages. A zone needs layout and a screen that draws it, so a developer adds one. There are few, and they are generous.
+- **A placement is content.** One message in one zone, made, changed, aimed and retired by editors in the admin: kind, sponsor, picture, link, order,
+  dates and, in a zone on the list pages, which sections, topics or reporters it appears on. A new mix, a new sponsor, a different idea of what to
+  sell: none of it needs code.
 
-Rules every placement follows (they restate `CLAUDE.md`, "Decisions that are made", and the digital sponsorship page's promises):
+**The site knows nothing about packages, prices or how a placement was sold** (owner, 2026-11-18). A placement is delivery only: where, what, when.
+Packaging and price are the Sponsorship pages' and, later, the Portal's.
+
+## Rules every placement follows whatever an editor configures
+
+They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Decisions that are made"):
 
 - **Fixed and labeled.** The same place every time. A sponsor tile says **"Sponsor message"** above it. A house promotion (WUWF's own app,
-  weather, Book Club, advocacy) is not labeled as a sponsor, and a sponsor is never drawn as a house promotion: a tile with no kind is
-  labeled, because labeling a promotion is the safe mistake.
+  weather, Book Club, advocacy) is not labeled as a sponsor, and a placement with no kind is labeled, because labeling a promotion is the safe mistake.
 - **No leaderboard** across the top of a page, **no autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
   tracking**. A tile is a picture and a link: no script, no frame, no request to anyone else's server.
 - **Never above the news.** The first thing on a page is the story, the emergency notice or the player.
-- **Nothing empty.** A placement with nothing running draws nothing, not a box. The page closes up.
-- **Sponsor links** are marked `rel="sponsored"` and send no referrer; a link must be a page on this site or a secure https address.
-- **Separate from underwriting.** The "Support for this reporting" panel is editorial acknowledgment, resolved from an agreement and kept in sans
-  type on a neutral panel. A placement is a sponsor's own message in the sponsor's own artwork. They never share a component and never sit
-  inside each other.
-- **Proposed, not yet a rule:** no placement inside a members-only story, a live blog, an emergency page, a listening question or the giving
-  pages (`/support`), where asking for a gift should not compete with a sponsor. (`CLAUDE.md` says asking for member support on a page that
-  carries a sponsor message is fine; this is about not putting a sponsor inside those pages.)
+- **Nothing empty.** A zone with nothing running draws nothing, not a box. The page closes up.
+- **Never everywhere by accident.** A placement in a zone that can be aimed runs only on the pages it names, unless the editor chooses "every page".
+- **Sponsor links** are `rel="sponsored"` and send no referrer; a link must be a page on this site or a secure https address.
+- **Separate from underwriting.** The "Support for this reporting" panel is editorial acknowledgment, resolved from an agreement. A placement is a
+  sponsor's own message in the sponsor's own artwork. They never share a component and never sit inside each other.
+- **Proposed, not yet a rule:** no placement inside a members-only story, a live blog, an emergency page, a listening question or the giving pages
+  (`/support`). (`CLAUDE.md` says asking for member support on a page that carries a sponsor message is fine; this is about not putting a sponsor
+  inside those pages.) The story zones below are not built, so nothing yet reaches them.
 
-## The places
+## The zones
 
-| Key | Where | Holds | Artwork | Built |
-| --- | --- | --- | --- | --- |
-| `home.rail` | Beside the news on the home page; after the news on a phone | up to 10 tiles | 880 × 704 | **Yes** |
-| `home.band` | A slim band after the news sections, before the podcasts | 1 | 1200 × 200 (phone 800 × 400) | **Yes** |
-| `section.rail` | Beside the stories on a section, topic or reporter page | up to 4 | 880 × 704 | Designed |
-| `story.rail` | Beside the story text (wide screens); after the story on a phone | up to 2 | 880 × 704 | Designed |
-| `story.inline` | One band after the opening paragraphs of a story | 1 | 1200 × 200 (phone 800 × 400) | Designed |
+| Zone | Where | Holds (per page) | Can be aimed | Artwork | Built |
+| --- | --- | --- | --- | --- | --- |
+| `home.rail` | Beside the news on the home page; after the news on a phone | 10 | no | 880 × 704 | **Yes** |
+| `home.band` | A slim band after the news sections, before the podcasts | 1 | no | 1200 × 200 (phone 800 × 400) | **Yes** |
+| `list.rail` | Beside the stories on a section, topic, reporter or all-stories page | 4 | **yes** | 880 × 704 | **Yes** |
+| `story.rail` | Beside the story text (wide screens); after the story on a phone | 2 | yes | 880 × 704 | Designed |
+| `story.inline` | One band after a story's opening paragraphs | 1 | yes | 1200 × 200 (phone 800 × 400) | Designed |
 
-- **The banner is not a leaderboard.** It sits in the page's flow after the news, at most one sixth as tall as it is wide (the registry's test
-  holds that), never at the top. **The artwork sizes above are proposals** (880 wide is what the live rail serves today), and corporate support must confirm them before a sponsor
-  is sent a spec.
-- **One tile is one booking.** A band holds one message: it is not a rotation. A rail tile is its own booking, in the order corporate support
-  sets. Order is a courtesy, not a price tier, until a decision says otherwise.
-- **A tile's reference** is `<placement>.<position>` (`home.rail.3`), counted among the tiles that run. It is in the page as
-  `data-placement` so a booking, a screenshot and a support request can name the same tile. It is a reference, not a tracker.
-- **Designed, not built:** `section.rail`, `story.rail` and `story.inline` have a spec in the registry (`built: false`) and no admin fields and
-  no screen. Build one with the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that
-  caching). The registry's `built` flag is what the admin and the tests read.
+- **The banner is not a leaderboard.** It sits in the page's flow after the news, at most a sixth as tall as it is wide (a test holds that), never at
+  the top. **The artwork sizes are proposals** (880 wide is what the live rail serves today): corporate support confirms them before a sponsor is
+  sent a spec.
+- **A zone holds a fixed number, and a band is not a rotation.** The home page zones are one page each, so the admin **refuses a placement past the
+  capacity** and says what to do (switch one off, set its last day, delete one); a placement that is switched off or has ended does not count, so a full
+  rail can be rotated. `list.rail` is counted per page by the resolver (different placements aim at different pages and may overlap on some): it runs
+  them in order and shows the first four.
+- **A tile's reference** is `<zone>.<position>` (`list.rail.2`), counted among the tiles that run, and is in the page as `data-placement` so a booking,
+  a screenshot and a support request can name the same tile. It is a reference, not a tracker.
+- **Designed, not built:** `story.rail` and `story.inline` have a spec in the registry (`built: false`) and cannot be chosen in the admin. Build one with
+  the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that, and must respect the exclusions above).
 
-## What fills a placement
+## Making a placement (Commercial → Placements)
 
-**Today (interim):** corporate support or a publisher enters each tile in the admin, **Pages & hubs → Sponsor and promo placements**: kind (Sponsor
-or House promotion), the sponsor's name, the picture, what the picture says (read aloud, so kept to 160 characters), where it goes, optional first
-and last day (whole days, judged on the station's Central-time calendar day), and a Show switch. A tile that is off, outside its dates, missing its
-picture or with an address the site would refuse is left out, and the rest close up (`lib/placements/pick.ts`, tested). Who may edit: the
-`sponsorship.manage` permission (corporate support) or `content.publish` (publishers, who run the home page).
+Name (for staff), kind, sponsor (chosen from **Commercial → Sponsors**, so a sponsor is one record across underwriting and placements), zone,
+picture (and a phone picture for a band), what the picture says (read aloud, so kept to 160 characters), where it goes, **order** (lower runs first,
+ties go to the one made first), first and last day (whole days, judged on the station's Central-time calendar day), and a Show switch. In a zone that
+can be aimed: **only the pages chosen** (sections, topics, reporters, the all-stories page) or **every page**.
 
-**Later (open, and not a site-only job):** the Portal holds the deal (contract, sponsor, approved wording, proof of performance); see
-`ROADMAP.md`, "Sponsorship direction". The site stays the delivery surface and the registry above stays the vocabulary: the Portal's booking names
-a placement key, the site receives a signed, versioned snapshot after a signed notice and keeps a last-known-good copy (never a per-request call:
-the site must stay usable when sponsorship serving is down). The resolver gives a booked sponsor the tile, and falls back to the house promotions
-this global holds, so a placement is never empty only because a booking lapsed. **Do not build booking, billing or placement logic in Payload.**
+- **Who may:** corporate support (`sponsorship.manage`) and administrators make and change anything. Publishers (`content.publish`), who run the home
+  page, make and change **house promotions only**; they cannot make a sponsor placement, change one, or turn one into one. Everyone else, and the
+  public, cannot. The public reads only what is switched on.
+- **What is left out of a page:** a placement that is off, outside its dates, missing its picture, with an unsafe address, aimed elsewhere, or past the zone's
+  capacity. The rest close up.
+- **When a change shows:** saving, deleting or switching one refreshes every page that reads placements. A **first or last day** takes effect when the page
+  next refreshes (the home page within five minutes, a section or list page within the hour), not at the stroke of midnight.
+
+## Where the placements come from
+
+**Today (interim):** the records above. **Later (open, and not a site-only job):** the Portal holds the deal (contract, sponsor, approved wording, proof of
+performance); see `ROADMAP.md`, "Sponsorship direction". The pages never read the source: they call the resolver with a page and get tiles, so the
+Portal's signed, versioned booking snapshot (kept with a last-known-good copy, never a per-request call: the site must stay usable when sponsorship serving
+is down) can become a second source without touching a page, and this collection becomes the house promotions and the manual override.
+**Do not build booking, billing or proof of delivery in Payload.** The collection records what runs, not what was sold.
 
 ## Outside the website
 
-These are **not website placements** and are not in the registry; the website must not pretend to hold them.
+These are **not website zones** and are not in the registry; the website must not pretend to hold them.
 
 | What | Where it lives |
 | --- | --- |
 | App banners (640 × 100, 640 × 200) and pre-roll | The WUWF app, not this site |
 | Stream audio pre-roll | The stream, scheduled in Traffic |
 | Podcast spot | The podcast feed and audio, a Traffic and production matter |
-| E-newsletter message | The newsletter tool; "labeled, delivered to members" |
+| E-newsletter message | The newsletter tool |
 | On-air credits | Traffic's dayparts (`CLAUDE.md`, "Contracts with the Portal") |
 
 ## Decisions that are open
 
-1. **Artwork sizes** for the banner and the rail (above), and the website Banner's price. Corporate support.
+1. **Artwork sizes** for the banner and the rails (above). Corporate support.
 2. **Proof of performance.** No third-party tracking means no impression or click counts from an ad server. Whether WUWF reports views and clicks to
-   sponsors is undecided (`/sponsor/digital` promises nothing about it). A first-party, consent-aware count of rail views and clicks is possible
-   behind `ANALYTICS.md` and is not built; do not add it without a decision.
-3. **Ten tiles on a phone** is about 3,000 pixels of tiles after the news. Consider showing the first four, or a "Sponsors" disclosure, once
-   there is data on how far people scroll.
-4. **House promotions versus sponsors** in the rail: today they share the column in the editors' order, as on the live site. A rule that house
-   promotions only fill unsold slots is a policy for corporate support to set.
-5. **Whether a members-only reader sees fewer placements** (a membership benefit). Nothing here says so; the product claim "sponsor-free" about
-   WUWF originals is never to be made (`CLAUDE.md`).
+   sponsors is undecided. A first-party, consent-aware count of tile views and clicks is possible behind `ANALYTICS.md` and is not built; do not add it
+   without a decision.
+3. **Ten tiles on a phone** is about 3,000 pixels of tiles after the news. Consider showing the first four, or a "Sponsors" disclosure, once there is
+   data on how far people scroll.
+4. **House promotions versus sponsors** in a rail: they share the column in the order editors set, as on the live site. A rule that house promotions only
+   fill unsold places is a policy for corporate support to set.
+5. **Exclusions** ("every section except Commentary") and **targeting by story format or show** are not built; add them when a sale needs them.
+6. **A "where this placement shows" preview and a conflicts view** (two placements competing for a place) are not built. The resolver is deterministic
+   (order, then age), the home zones refuse overflow, and a list zone shows the first four; an admin overview is the next step if editors need to see it.
+7. **Whether a members-only reader sees fewer placements** (a membership benefit). Nothing here says so; "sponsor-free" is never to be claimed about
+   WUWF originals (`CLAUDE.md`).
 
 ## The one-time import of the live rail
 
-`scripts/placements/import-rail.ts` copied the ten tiles of the live wuwf.org home page into the media library and the rail (owner-approved,
-2026-11-18; pictures, links and what each says are in `scripts/placements/rail-tiles.ts`). Which were sponsors and which were WUWF's own was read
-from where each goes and what each says: **corporate support confirms each kind.** It imports the Sinfonia Gulf Coast tile **held**, because its
-picture advertises a concert on Saturday, Nov. 14, which had passed, and two tiles name dates (Emerald Coast Theatre, December 3 to 20; the Santa
-Rosa County tourism tile, "Sept. to Nov.") that need a last day set. It never overwrites a rail an editor has filled (`--replace` does), reuses
-pictures it already has, fetches only from the live page's picture host, three seconds apart, with a neutral client name, and is a dry run unless
-given `--apply`.
+`scripts/placements/import-rail.ts` copied the ten tiles of the live wuwf.org home page into the media library, **Sponsors** and **Placements** (owner-approved,
+2026-11-18; pictures, links and what each says are in `scripts/placements/rail-tiles.ts`; staging was seeded the same day). Which were sponsors and which were
+WUWF's own was read from where each goes and what each says: **corporate support confirms each kind.** The Sinfonia Gulf Coast tile is held (its picture
+advertises Saturday, Nov. 14, which had passed), and two tiles name dates (Emerald Coast Theatre, December 3 to 20; the Santa Rosa County tourism tile,
+"Sept. to Nov.") that need a last day set. The import never overwrites placements made by hand (`--replace` clears the zone first), reuses pictures it
+already has, does not make a placement twice, fetches only from the live page's picture host three seconds apart with a neutral client name, and is a dry run
+unless given `--apply`.

@@ -3,10 +3,10 @@
 import { supportHref } from '@/lib/support-link'
 
 import { liveTiles, tileAccessibleName, tileLabel, tileRel, type TileLike } from './pick'
-import { PLACEMENTS, tileKey, type PlacementId } from './registry'
+import { tileKey, ZONES, type ZoneId } from './registry'
 
 export interface StoredTile<M> extends TileLike {
-  id?: string | null
+  id?: string | number | null
   image?: M | string | number | null
   phoneImage?: M | string | number | null
 }
@@ -29,9 +29,9 @@ export interface PlacementTile<M> {
 
 const loaded = <M,>(v: M | string | number | null | undefined): M | null => (v && typeof v === 'object' ? v : null)
 
-/** The tiles of one placement that run `now`, in order, at most the placement's limit. A tile whose picture was not loaded is left out. */
-export function placementTiles<M extends { url?: string | null }>(placement: PlacementId, stored: readonly StoredTile<M>[] | null | undefined, now: Date): PlacementTile<M>[] {
-  const running = liveTiles(stored, now, PLACEMENTS[placement].max)
+/** The tiles that run `now` in a zone, in the order given, at most the zone's capacity. A tile whose picture was not loaded is left out. */
+export function placementTiles<M extends { url?: string | null }>(placement: ZoneId, stored: readonly StoredTile<M>[] | null | undefined, now: Date): PlacementTile<M>[] {
+  const running = liveTiles(stored, now, ZONES[placement].capacity)
   return running.flatMap((t, i) => {
     const image = loaded(t.image)
     const href = supportHref(t.href)

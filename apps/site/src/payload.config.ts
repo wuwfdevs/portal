@@ -31,6 +31,7 @@ import { EventSubmissionImages } from './collections/Events/EventSubmissionImage
 import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
 import { Events } from './collections/Events/Events'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
+import { PlacementItems } from './collections/PlacementItems'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
 import {
@@ -45,7 +46,6 @@ import { Header } from './Header/config'
 import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { ListenLive } from './globals/ListenLive'
-import { Placements } from './globals/Placements'
 import { Sponsorship } from './globals/Sponsorship'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
@@ -126,6 +126,7 @@ export default buildConfig({
     Series,
     Productions,
     Sponsors,
+    PlacementItems,
     UnderwritingAgreements,
     Users,
     PortalSignIns,
@@ -134,7 +135,7 @@ export default buildConfig({
     MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, Placements],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

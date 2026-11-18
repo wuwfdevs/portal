@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { liveTiles, stationDay, tileAccessibleName, tileLabel, tileRel, withinDates, type TileLike } from './pick'
-import { BUILT_PLACEMENTS, PLACEMENTS, tileKey } from './registry'
+import { BUILT_ZONES, tileKey, ZONES } from './registry'
 
 const image = { id: 1, url: '/media/a.png' }
 const tile = (over: Partial<TileLike> = {}): TileLike => ({ kind: 'sponsor', sponsor: 'Acme', enabled: true, href: 'https://acme.example/', alt: 'Acme', image, ...over })
@@ -98,20 +98,25 @@ describe('labels and links', () => {
   })
 })
 
-describe('the registry', () => {
-  it('names a tile by its placement and its position', () => {
+describe('the zone registry', () => {
+  it('names a tile by its zone and its position', () => {
     expect(tileKey('home.rail', 3)).toBe('home.rail.3')
     expect(tileKey('home.band', 0)).toBe('home.band.1')
   })
-  it('builds only the home page\'s rail and banner, and says so for the rest', () => {
-    expect(BUILT_PLACEMENTS.map((p) => p.id).sort()).toEqual(['home.band', 'home.rail'])
-    expect(PLACEMENTS['story.rail'].built).toBe(false)
+  it('builds the home page\'s rail and banner and the list pages\' rail, and says so for the rest', () => {
+    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'list.rail'])
+    expect(ZONES['story.rail'].built).toBe(false)
   })
-  it('holds ten tiles in the rail and one in a band (a band is not a rotation)', () => {
-    expect(PLACEMENTS['home.rail'].max).toBe(10)
-    for (const p of Object.values(PLACEMENTS)) if (p.shape === 'band') expect(p.max).toBe(1)
+  it('holds ten tiles in the home rail, four on a list page, and one in a band (a band is not a rotation)', () => {
+    expect(ZONES['home.rail'].capacity).toBe(10)
+    expect(ZONES['list.rail'].capacity).toBe(4)
+    for (const z of Object.values(ZONES)) if (z.shape === 'band') expect(z.capacity).toBe(1)
   })
-  it('has no leaderboard: no band is wider than six times its height', () => {
-    for (const p of Object.values(PLACEMENTS)) expect(p.artwork.width / p.artwork.height, p.id).toBeLessThanOrEqual(6)
+  it('lets only the zones on pages that have sections, topics or reporters be aimed', () => {
+    expect(Object.values(ZONES).filter((z) => z.targetable).map((z) => z.page).every((p) => p !== 'home')).toBe(true)
+    expect(ZONES['home.rail'].targetable).toBe(false)
+  })
+  it('has no leaderboard: no zone is wider than six times its height', () => {
+    for (const z of Object.values(ZONES)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
   })
 })

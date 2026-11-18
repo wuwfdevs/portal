@@ -91,6 +91,7 @@ export interface Config {
     series: Series;
     productions: Production;
     sponsors: Sponsor;
+    'placement-items': PlacementItem;
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
     'portal-sign-ins': PortalSignIn;
@@ -141,6 +142,7 @@ export interface Config {
     series: SeriesSelect<false> | SeriesSelect<true>;
     productions: ProductionsSelect<false> | ProductionsSelect<true>;
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
+    'placement-items': PlacementItemsSelect<false> | PlacementItemsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
@@ -173,7 +175,6 @@ export interface Config {
     'radiolive-hub': RadioliveHub;
     'listen-live': ListenLive;
     sponsorship: Sponsorship;
-    placements: Placement;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -186,7 +187,6 @@ export interface Config {
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
-    placements: PlacementsSelect<false> | PlacementsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2160,6 +2160,89 @@ export interface Performance {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Sponsor messages and WUWF promotions, each in a fixed place on the site. Make, change, aim and retire them here: no deploy needed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placement-items".
+ */
+export interface PlacementItem {
+  id: number;
+  /**
+   * For staff only, to find it again, e.g. "Alphastar: home rail, December".
+   */
+  name: string;
+  /**
+   * Anything paid or sponsored is a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
+   */
+  kind: 'sponsor' | 'house';
+  /**
+   * Who it is for. Add them under Commercial → Sponsors first if they are not listed.
+   */
+  sponsor?: (number | null) | Sponsor;
+  /**
+   * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
+   */
+  zone: 'home.rail' | 'home.band' | 'list.rail';
+  /**
+   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   */
+  image: number | Media;
+  /**
+   * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
+   */
+  phoneImage?: (number | null) | Media;
+  /**
+   * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
+   */
+  alt: string;
+  /**
+   * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
+   */
+  href: string;
+  /**
+   * A placement never shows everywhere unless you say so.
+   */
+  scope?: ('chosen' | 'all') | null;
+  /**
+   * Appears on each of these sections' pages (Local News, Music & Arts...).
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * Appears on each of these topics' pages.
+   */
+  topics?: (number | Category)[] | null;
+  /**
+   * Appears on each of these reporters' pages.
+   */
+  people?: (number | Contributor)[] | null;
+  /**
+   * Also appears on /latest, the list of every story.
+   */
+  includeLatest?: boolean | null;
+  /**
+   * Lower runs first when a place holds several. Ties go to the one made first.
+   */
+  order?: number | null;
+  /**
+   * Empty: already running.
+   */
+  runFrom?: string | null;
+  /**
+   * Empty: runs until switched off. The whole of this day counts.
+   */
+  runUntil?: string | null;
+  /**
+   * Switch off to hold it without deleting it.
+   */
+  enabled?: boolean | null;
+  /**
+   * Where this runs, in short.
+   */
+  where?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "portal-sign-ins".
  */
@@ -2538,6 +2621,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'sponsors';
         value: number | Sponsor;
+      } | null)
+    | ({
+        relationTo: 'placement-items';
+        value: number | PlacementItem;
       } | null)
     | ({
         relationTo: 'underwriting-agreements';
@@ -3505,6 +3592,32 @@ export interface SponsorsSelect<T extends boolean = true> {
   url?: T;
   logo?: T;
   notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placement-items_select".
+ */
+export interface PlacementItemsSelect<T extends boolean = true> {
+  name?: T;
+  kind?: T;
+  sponsor?: T;
+  zone?: T;
+  image?: T;
+  phoneImage?: T;
+  alt?: T;
+  href?: T;
+  scope?: T;
+  sections?: T;
+  topics?: T;
+  people?: T;
+  includeLatest?: T;
+  order?: T;
+  runFrom?: T;
+  runUntil?: T;
+  enabled?: T;
+  where?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6008,93 +6121,6 @@ export interface Sponsorship {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "placements".
- */
-export interface Placement {
-  id: number;
-  homeRail?:
-    | {
-        /**
-         * A paid or sponsored message is always a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
-         */
-        kind: 'sponsor' | 'house';
-        /**
-         * The sponsor's name as it should be credited.
-         */
-        sponsor?: string | null;
-        /**
-         * The artwork, 880 × 704 pixels. Text in the picture is read by people who cannot see it, so say what it says below.
-         */
-        image: number | Media;
-        /**
-         * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
-         */
-        alt: string;
-        /**
-         * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
-         */
-        href: string;
-        /**
-         * Empty: already running.
-         */
-        runFrom?: string | null;
-        /**
-         * Empty: runs until switched off. The whole of this day counts.
-         */
-        runUntil?: string | null;
-        /**
-         * Switch off to hold a tile without deleting it.
-         */
-        enabled?: boolean | null;
-        id?: string | null;
-      }[]
-    | null;
-  homeBand?:
-    | {
-        /**
-         * A paid or sponsored message is always a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
-         */
-        kind: 'sponsor' | 'house';
-        /**
-         * The sponsor's name as it should be credited.
-         */
-        sponsor?: string | null;
-        /**
-         * The artwork, 1200 × 200 pixels. Text in the picture is read by people who cannot see it, so say what it says below.
-         */
-        image: number | Media;
-        /**
-         * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
-         */
-        alt: string;
-        /**
-         * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
-         */
-        href: string;
-        /**
-         * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
-         */
-        phoneImage?: (number | null) | Media;
-        /**
-         * Empty: already running.
-         */
-        runFrom?: string | null;
-        /**
-         * Empty: runs until switched off. The whole of this day counts.
-         */
-        runUntil?: string | null;
-        /**
-         * Switch off to hold a tile without deleting it.
-         */
-        enabled?: boolean | null;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -7671,42 +7697,6 @@ export interface SponsorshipSelect<T extends boolean = true> {
               text?: T;
               label?: T;
             };
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "placements_select".
- */
-export interface PlacementsSelect<T extends boolean = true> {
-  homeRail?:
-    | T
-    | {
-        kind?: T;
-        sponsor?: T;
-        image?: T;
-        alt?: T;
-        href?: T;
-        runFrom?: T;
-        runUntil?: T;
-        enabled?: T;
-        id?: T;
-      };
-  homeBand?:
-    | T
-    | {
-        kind?: T;
-        sponsor?: T;
-        image?: T;
-        alt?: T;
-        href?: T;
-        phoneImage?: T;
-        runFrom?: T;
-        runUntil?: T;
-        enabled?: T;
-        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;

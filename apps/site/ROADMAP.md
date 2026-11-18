@@ -7,6 +7,37 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Editor-made placements (built 2026-11-18; supersedes the fixed rail and banner lists below)
+
+Prompted by the owner: editors should be able to create placements and decide the pages and sections they appear on, with no deploy to rethink the
+taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`lib/placements/registry.ts`); placements are records (**Commercial → Placements**, collection
+`placement-items`).
+
+- **Built zones:** `home.rail` (10), `home.band` (1) and the new **`list.rail`** (4 per page, beside the stories on a section, topic, reporter and the all-stories page, aimable at chosen
+  sections, topics, reporters and `/latest`, or at every list page; "chosen" with nothing chosen is refused, so nothing shows everywhere by accident). `story.rail` and `story.inline`
+  are designed, not built, and cannot be chosen.
+- **A placement:** name, kind (Sponsor, labeled; House promotion, unlabeled), sponsor (a record in **Commercial → Sponsors**, so one identity across underwriting and placements), zone, picture
+  (phone picture for a band), what it says (160 characters), link, order, first and last day, Show. **No package, price or product reference anywhere** (owner).
+- **Pure resolver** (`lib/placements/resolve.ts`, 18 tests): given a page and the records, which tiles run: zone and page kind, targeting, on/off, dates (Central-time days), picture, safe link,
+  then order (lower first, then oldest), up to the zone's capacity. Pages call it and nothing else, so the Portal's bookings can become a second source later without touching a page.
+- **Rules in the collection:** corporate support and administrators make and change anything; **publishers make and change house promotions only** (they cannot make a sponsor placement, change one, or turn one into
+  one); the public reads only what is on. The home zones **refuse a placement past their capacity** with what to do (switched-off and ended ones do not count, so a full rail can be rotated); a list zone is
+  counted per page by the resolver. Trusted server code (the import, tests) acts with no user and is not blocked by the who-may rule (found by a test: the first version blocked it).
+- **Caching:** placements are read once under the `placements` cache tag; saving, deleting or switching one refreshes every page that reads them. A first or last day takes effect when the page next refreshes
+  (home within 5 minutes, list pages within the hour).
+- **Migration `20261118_191825_placement_items`** (plain SQL; generated in two steps, add then drop, because Drizzle asks interactively whether new tables are renames; tested up, down and up on real rows and
+  on a fresh database): creates the collection, copies the old rail and banner into it in order (`order` spaced by ten), **finds or makes each sponsor in Sponsors from the old tile's plain-text name**
+  (an existing one is reused), drops the old `placements` global; `down` restores the rail (at most ten) and the banner. Its `down` had a latent flaw in the generated SQL (dropping a table with CASCADE and then
+  its constraint), found by running it; fixed with `IF EXISTS`. **Staging's ten tiles migrate when the preview builds**, and make five Sponsors there.
+- **`import-rail.ts`** now writes placements (and Sponsors); it makes none twice, never overwrites a rail made by hand (`--replace` clears the zone), and "rail written" means it made at least one.
+- **Checked** in a browser at 1440 and 390 px on a fresh database (53 migrations replayed): home 9 tiles; `/local-news` the Alphastar sponsor tile (labeled) then the house promo; `/music-arts` the house promo
+  only; `/latest` the house promo then Boyles & Boyles; no overflow, no console errors, no outside scripts. **Not checked:** the admin screens themselves.
+- **Not built (and said so in `PLACEMENTS.md`):** the "where this shows" preview and a conflicts view (the resolver is deterministic and the home zones refuse overflow, but an editor cannot see a list-page overlap),
+  exclusions ("every section except..."), targeting by story format or show, the story zones, proof of performance, the Portal source.
+- **Lessons.** (1) `payload migrate` after the dev server has run asks a data-loss question and hangs without a terminal; use a fresh scratch database. (2) **Never chain `migrate:down` after a failed up**: it rolls
+  back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
+  migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
+
 ## News sections, All stories and sponsor placements (built 2026-11-18)
 
 Prompted by the owner's review of the home page (one news list, no link to more stories, no ad places) and a read of the live wuwf.org home page
@@ -25,7 +56,7 @@ There is no "all stories" link on wuwf.org either.
 - **`/latest`: every published story, newest first, 12 a page** (a fourth list kind beside section, topic and person; same layout, paging, 404 past the
   end; `latest` is a reserved first segment). Publishing a story refreshes it. The starter's `/posts` list (titles only) is **gone**, redirected
   permanently to `/latest` (`/posts/page/1` to the plain address; other pages keep their number).
-- **Placements** (`PLACEMENTS.md` is the design; read it before adding one). A typed registry (`lib/placements/registry.ts`) names every fixed
+- **Placements** (first version, **superseded by *Editor-made placements* above**: the registry became zones and the global became a collection; `PLACEMENTS.md` is current). A typed registry (`lib/placements/registry.ts`) named every fixed
   place: **built** `home.rail` (up to ten tiles beside the news; after it on a phone) and `home.band` (one banner after the news sections, before the
   podcasts: never above the news, not a leaderboard); **designed, not built** `section.rail`, `story.rail`, `story.inline`. The new global **Sponsor and promo
   placements** (Pages & hubs; `sponsorship.manage` or `content.publish` may edit) holds the tiles: kind (Sponsor, drawn with "Sponsor message", or House

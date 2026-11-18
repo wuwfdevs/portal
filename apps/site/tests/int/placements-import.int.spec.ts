@@ -58,8 +58,24 @@ describe('the rail import', () => {
   })
   // A unique picture address per tile, so reruns of this file never collide with a leftover record.
   const tiles = RAIL_TILES.map((t, i) => ({ ...t, imageUrl: `${t.imageUrl}&test=${run}-${i}` }))
-  const setRail = (homeRail: unknown[]) => payload.updateGlobal({ slug: 'placements', data: { homeRail } as never, overrideAccess: true, context: ctx })
-  const rail = async () => (await payload.findGlobal({ slug: 'placements', depth: 0, overrideAccess: true })).homeRail ?? []
+  // The home page rail as placements, in the order they run, with each sponsor's name read back.
+  const rail = async () =>
+    (await payload.find({ collection: 'placement-items', where: { zone: { equals: 'home.rail' } }, sort: 'order', depth: 1, limit: 50, pagination: false, overrideAccess: true })).docs.map((d) => ({
+      kind: d.kind,
+      sponsor: typeof d.sponsor === 'object' && d.sponsor ? d.sponsor.name : null,
+      enabled: d.enabled,
+      href: d.href,
+      image: d.image,
+      order: d.order,
+    }))
+  const clearRail = async () => {
+    const found = await payload.find({ collection: 'placement-items', where: { zone: { equals: 'home.rail' } }, limit: 50, depth: 0, pagination: false, overrideAccess: true })
+    for (const d of found.docs) await payload.delete({ collection: 'placement-items', id: d.id, overrideAccess: true, context: ctx })
+  }
+  const clearSponsors = async () => {
+    const found = await payload.find({ collection: 'sponsors', where: { name: { in: RAIL_TILES.flatMap((t) => (t.sponsor ? [t.sponsor] : [])) } }, limit: 50, depth: 0, pagination: false, overrideAccess: true })
+    for (const d of found.docs) await payload.delete({ collection: 'sponsors', id: d.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+  }
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
@@ -75,13 +91,14 @@ describe('the rail import', () => {
   beforeEach(async () => {
     fetched.length = 0
     slept.length = 0
-    await setRail([])
+    await clearRail()
     await clearPictures()
   })
 
   afterAll(async () => {
-    await setRail([])
+    await clearRail()
     await clearPictures()
+    await clearSponsors()
   })
 
   it('a dry run lists every tile and fetches and changes nothing', async () => {
@@ -100,27 +117,29 @@ describe('the rail import', () => {
     const rows = await rail()
     expect(rows).toHaveLength(10)
     expect(rows.map((r) => [r.kind, r.sponsor ?? null, r.enabled])).toEqual(RAIL_TILES.map((t) => [t.kind, t.sponsor ?? null, t.enabled]))
+    expect(rows.map((r) => r.order)).toEqual(RAIL_TILES.map((_, i) => (i + 1) * 10))
     expect(rows.map((r) => r.href)).toEqual(RAIL_TILES.map((t) => t.href))
     for (const r of rows) expect(r.image).toBeTruthy()
   })
 
-  it('run again, it reuses the pictures it has and leaves a filled rail alone', async () => {
+  it('run again, it reuses the pictures it has and makes nothing twice', async () => {
     await importRail(payload, tiles, opts())
     const before = JSON.stringify(await rail())
     fetched.length = 0
     const again = await importRail(payload, tiles, opts())
     expect(fetched).toEqual([])
     expect(again.reports.map((r) => r.verdict)).toEqual(Array(10).fill('reused-picture'))
-    expect(again.railWritten).toBe(false)
-    expect(again.railSkippedBecause).toMatch(/already has tiles/)
+    expect(again.railWritten).toBe(false) // every placement it would make is already there
+    expect(again.railSkippedBecause).toBeNull()
     expect(JSON.stringify(await rail())).toBe(before)
   })
 
-  it('never overwrites an editor\'s rail, but does with --replace', async () => {
+  it('never overwrites a rail made by hand, but does with --replace', async () => {
     const first = await importRail(payload, tiles.slice(0, 1), opts())
     expect(first.railWritten).toBe(true)
     const mine = await importRail(payload, tiles.slice(1, 3), opts())
     expect(mine.railWritten).toBe(false)
+    expect(mine.railSkippedBecause).toMatch(/made by hand/)
     expect(await rail()).toHaveLength(1)
     const replaced = await importRail(payload, tiles.slice(1, 3), opts({ replace: true }))
     expect(replaced.railWritten).toBe(true)
