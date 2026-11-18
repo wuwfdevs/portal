@@ -1,47 +1,33 @@
-import type { ListeningQuestion } from '@wuwf/portal-contracts'
 import { describe, expect, it } from 'vitest'
 
-import { inlineEyebrow, inlineQuestion, otherQuestionCount, recipientName } from './inline'
+import { beginLabel, inlineEyebrow, placedEyebrow, recipientLine } from './inline'
 
-const FIELDS = { name: 'optional', email: 'optional', phone: 'hidden', city: 'optional', note: 'hidden' } as const
-const q = (position: number, required: boolean): ListeningQuestion => ({ id: `q${position}`, position, prompt: `P${position}`, guidance: null, required, maxDurationSeconds: 120 })
-
-describe('inlineQuestion', () => {
-  it('is the first question when the query is open', () => {
-    expect(inlineQuestion({ state: 'open', fields: FIELDS, questions: [q(2, false), q(1, true)] })?.id).toBe('q1')
-  })
-
-  it('is null when another question is required, because one answer could not finish the response', () => {
-    expect(inlineQuestion({ state: 'open', fields: FIELDS, questions: [q(1, false), q(2, true)] })).toBeNull()
-  })
-
-  it('is null for a query that is not open, or has no questions', () => {
-    expect(inlineQuestion({ state: 'closed', fields: FIELDS, questions: [q(1, false)] })).toBeNull()
-    expect(inlineQuestion({ state: 'not_yet_open', fields: FIELDS, questions: [q(1, false)] })).toBeNull()
-    expect(inlineQuestion({ state: 'open', fields: FIELDS, questions: [] })).toBeNull()
-  })
-
-  it('is null when the query requires a detail the inline form has no box for', () => {
-    expect(inlineQuestion({ state: 'open', fields: { ...FIELDS, city: 'required' }, questions: [q(1, false)] })).toBeNull()
-    expect(inlineQuestion({ state: 'open', fields: { ...FIELDS, name: 'required', email: 'required' }, questions: [q(1, false)] })?.id).toBe('q1')
-  })
-})
-
-describe('labels', () => {
-  it('names the first name, or WUWF', () => {
-    expect(recipientName({ askedBy: 'Leigh Ostrander' })).toBe('Leigh')
-    expect(recipientName({ askedBy: '  ' })).toBe('WUWF')
-    expect(recipientName({ askedBy: null })).toBe('WUWF')
-  })
-
+describe('eyebrows', () => {
   it('builds the eyebrow from the context, then the desk', () => {
     expect(inlineEyebrow({ contextLabel: 'Coastal Futures', fromLabel: 'from the news desk' })).toBe('WUWF Listens · Coastal Futures')
     expect(inlineEyebrow({ contextLabel: null, fromLabel: 'from the news desk' })).toBe('WUWF Listens · from the news desk')
     expect(inlineEyebrow({ contextLabel: null, fromLabel: null })).toBe('WUWF Listens')
   })
 
-  it('counts the other questions', () => {
-    expect(otherQuestionCount({ questions: [q(1, false), q(2, false)] })).toBe(1)
-    expect(otherQuestionCount({ questions: [q(1, false)] })).toBe(0)
+  it('adds who asked only when the Portal says', () => {
+    expect(placedEyebrow({ contextLabel: 'Coastal Futures', fromLabel: null, askedBy: 'Leigh Ostrander' })).toBe('WUWF Listens · Coastal Futures · asked by Leigh Ostrander')
+    expect(placedEyebrow({ contextLabel: null, fromLabel: null, askedBy: '  ' })).toBe('WUWF Listens')
+    expect(placedEyebrow({ contextLabel: null, fromLabel: null, askedBy: null })).toBe('WUWF Listens')
+  })
+})
+
+describe('placement copy', () => {
+  it('leads with recording only after an episode', () => {
+    expect(beginLabel('voice')).toBe('Record your answer')
+    expect(beginLabel('story')).toBe('Begin')
+    expect(beginLabel('topic')).toBe('Begin')
+    expect(beginLabel('page')).toBe('Begin')
+  })
+
+  it('names who receives a message, or WUWF', () => {
+    expect(recipientLine('Mary')).toBe('Sent to Mary.')
+    expect(recipientLine('  the Unearthing Florida team ')).toBe('Sent to the Unearthing Florida team.')
+    expect(recipientLine('  ')).toBe('Sent to WUWF.')
+    expect(recipientLine(undefined)).toBe('Sent to WUWF.')
   })
 })

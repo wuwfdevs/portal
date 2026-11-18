@@ -572,17 +572,15 @@ the signed upload address the Portal issues.
   a body is never logged), `visitor.ts` (the `wuwf_listening_visitor` cookie, 30 days, and the keyed per-day address hash), `flow.ts` (what
   each screen says and what blocks it), `send-answer.ts` (reserve, upload, complete: "saved" is said only after the Portal confirms),
   `inline.ts` (when a question can be answered inline), `hub.ts` (the hub's sentences), `messages.ts` (one sentence per refusal code).
-- `src/components/Listening`: `QuestionSet` (the full set, also embedded in a story), `InlineAsk` (C at the head of a topic page, D after an
-  episode), `Invite` (A), `HubView`, `ListeningInline` (the server component that places one of them and renders nothing when the question
+- `src/components/Listening`: `QuestionSet` (the full set; its `placement` is `page`, `story`, `topic` or `voice`), `Invite` (A, no longer placed anywhere), `HubView`, `ListeningInline` (the server component that places one of them and renders nothing when the question
   is closed or listening is not set up), `useRecorder` (native `MediaRecorder`; the microphone is asked for once).
 - Routes: `/listens` (the hub) and `/listens/<publicId>` (the full set). Server actions: `listens/actions.ts`.
 - Decisions made while building, to confirm: the hub lives at `/listens`; text buttons use `--wuwf-blue-700`, not the boards' `--wuwf-blue`
   (white on it is 3.4:1, under the site's 4.5:1); the full set offers Record and Write only when the query turns written answers on;
-  an inline ask (topic head, after an episode) answers the query's first question and is replaced by the invitation when another question is required or a detail
-  other than name and email is; no hub card shows a count of answers unless the question has an outcome.
+  every placement shows the query's full question set (owner decision, 2026-11-18; the one-question inline asks B, C and D were removed); no hub card shows a count of answers unless the question has an outcome.
 
 **Placing a question (built 2026-11-10).** `listeningAsk` is a story-body block (`blocks/ListeningAsk`: the question's code or its
-`/listens/<code>` address, and "in the story" (**the full question set, embedded: the same screens and rules as `/listens/<code>`, 2026-11-18, owner decision; it replaced the one-question box B**) or "after an episode or video" with an optional recipient and one line about what
+`/listens/<code>` address, and "in the story" (**the full question set, embedded: the same screens and rules as `/listens/<code>`, 2026-11-18, owner decision**) or "after an episode or video" (the same set, leading with recording) with an optional recipient and one line about what
 happens to it); a topic has an optional **Listening question** field and shows it at the head of its first page (`categories.listening_question`,
 migration `20261110_171043`). Both render `ListeningInline` through `loadPlacedQuery`, which sends no rate-limit hash and keeps the
 Portal's answer for five minutes, so a story or topic page that holds a question stays built ahead instead of rendering on every view (the
