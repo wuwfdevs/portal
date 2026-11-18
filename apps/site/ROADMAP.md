@@ -244,6 +244,10 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
   small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
   like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
   failed page. Not shown in previews.
+  **How it looks (redesigned 2026-11-18, canvas boards 3a to 3e, "More like this"):** `components/Article/RelatedStories` draws the closest story as a lead (picture, description) and the rest as short rows. A
+  story shows "Same topic / series / show" only when it really shares one with the story being read, and "From <date>" when it is over a year old; audio keeps `PlayAudioButton` (outside the stretched link). One story
+  takes the full width; a lead with no picture becomes a quiet panel; none renders no section and no heading. The wording and rules are the pure, tested `lib/embeddings/present.ts`. Not built from the boards: the
+  Option B "Next up" hand-off (3b), and a byline or reading time on an entry (the query does not select them).
 - **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; an administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
   nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
   "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the
