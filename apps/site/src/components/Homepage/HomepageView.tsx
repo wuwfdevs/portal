@@ -33,17 +33,17 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
   )
 
 /**
- * The home page's two columns: a main column and a side column of one fixed width. The lead section (the lead story; The Briefing) and the block
- * below it (videos and news; the sponsor rail) both use it, so the side column is the same width and starts at the same edge all the way down.
- * The rail's tiles are sized for 22rem (`Rail`).
+ * The home page's lower block has two columns: a main column and a side column of one fixed width (videos and news; the sponsor rail). The rail's
+ * tiles are sized for 22rem (`Rail`).
  */
 const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
 
 /**
- * The home page (boards 1 and 2, first screen board 1h), filled from the Home page global and the newest published work.
+ * The home page (boards 1 and 2, first screen board 1g), filled from the Home page global and the newest published work.
  *
- * The top is the lead story beside The Briefing, built to fit the first screen: the picture is 16:9 and never taller than half the window, so the
- * headline is in view, and The Briefing is the whole side column, its items spread to the lead's height so the two end on the same line.
+ * The top is a band built to fit the first screen at any window height: the lead story's words on the left and its picture on the right, a
+ * normal 16:9 that never changes shape with the window, the byline level with the picture's bottom edge; under it The Briefing as a row of up to
+ * five. Nothing in it is stretched to match anything else, and the headline is at the top, so it is in view in a short window too.
  * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
  * linking to its section, ending with a link to every story) with the sponsor and promo rail beside the whole column from the video row down
  * (board 1b), the sponsor banner, podcasts, then RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is
@@ -90,42 +90,46 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
           <p className="mt-4 text-lg text-ink-2">No stories have been published yet. They will appear here as soon as they are.</p>
         </section>
       ) : (
-        <section aria-label="Top stories" className={cn('container grid gap-10 pt-8 md:pt-12', SIDE_COLUMN)}>
-          <article className="relative flex flex-col gap-4">
-            {/* A normal 16:9 (450 px at this width). Only a short window squeezes it, to half the window height, so the headline stays above the fold; the picture is cropped to fit. */}
+        <section aria-label="Top stories" className="container pt-8 md:pt-12">
+          {/* The lead band: words left (28.75rem), picture right. On a phone the picture comes first and everything stacks. The words are top-aligned with the
+              byline pinned to the bottom, level with the bottom of the picture; the picture keeps its 16:9 and never stretches. */}
+          <article className="relative grid gap-5 lg:grid-cols-[28.75rem_minmax(0,1fr)] lg:gap-10">
             {leadImage && (
-              <div className="relative aspect-video max-h-[50vh] overflow-hidden rounded-sm bg-surface-3">
-                <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 60vw, 100vw" />
+              <div className="relative aspect-video overflow-hidden rounded-sm bg-surface-3 lg:col-start-2 lg:row-start-1 lg:self-start">
+                <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 58vw, 100vw" />
               </div>
             )}
-            {(leadKicker ?? kickerOf(lead)) && <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{leadKicker ?? kickerOf(lead)}</p>}
-            <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
-              {lead.path ? (
-                <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={lead.path}>
-                  {lead.title}
-                </Link>
-              ) : (
-                lead.title
-              )}
-            </h1>
-            {lead.meta?.description && <p className="max-w-[44rem] font-serif text-xl text-ink-2">{lead.meta.description}</p>}
-            {/* Pinned to the bottom: if The Briefing is the taller side, the lead's last line still ends level with it. */}
-            <p className="mt-auto text-sm text-ink-3">
-              {[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}
-            </p>
+            <div className={cn('flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-1', !leadImage && 'lg:col-span-2')}>
+              {(leadKicker ?? kickerOf(lead)) && <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{leadKicker ?? kickerOf(lead)}</p>}
+              <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight text-ink xl:text-4xl">
+                {lead.path ? (
+                  <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={lead.path}>
+                    {lead.title}
+                  </Link>
+                ) : (
+                  lead.title
+                )}
+              </h1>
+              {lead.meta?.description && <p className="line-clamp-4 max-w-[44rem] font-serif text-lg text-ink-2 md:text-xl">{lead.meta.description}</p>}
+              <p className="mt-auto pt-2 text-sm text-ink-3">
+                {[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}
+              </p>
+            </div>
           </article>
 
-          {/* The side column is The Briefing and nothing else. Its items spread to the lead's height, so the two end on the same line however many items or
-              lines of headline there are. The rule beside it sits in the gutter (not inside the column), so the column's content starts exactly where the rail's does below. */}
+          {/* The Briefing: a row of up to five, as many columns as there are stories. One column on a phone, two on a tablet. */}
           {top.length > 0 && (
-            <aside aria-labelledby="briefing-heading" className="relative flex min-w-0 flex-col lg:before:absolute lg:before:inset-y-0 lg:before:-left-5 lg:before:w-px lg:before:bg-rule">
+            <aside aria-labelledby="briefing-heading" className="mt-8">
               <h2 className="border-b-2 border-ink pb-2 text-xs font-bold uppercase tracking-widest text-ink-3" id="briefing-heading">
                 The Briefing
               </h2>
-              <ol className="flex flex-1 flex-col justify-between">
+              <ol className="grid sm:grid-cols-2 lg:[grid-template-columns:repeat(var(--briefing-columns),minmax(0,1fr))]" style={{ '--briefing-columns': top.length } as React.CSSProperties}>
                 {top.map((story, i) => (
-                  <li className="relative flex gap-4 border-b border-rule py-3" key={story.id}>
-                    <span aria-hidden="true" className="w-5 shrink-0 font-serif text-2xl font-bold text-wuwf-blue-700">
+                  <li
+                    className="relative flex gap-4 border-b border-rule py-4 sm:pr-5 lg:flex-col lg:gap-2 lg:border-b-0 lg:border-l lg:px-5 lg:py-4 lg:first:border-l-0 lg:first:pl-0 lg:last:pr-0"
+                    key={story.id}
+                  >
+                    <span aria-hidden="true" className="w-5 shrink-0 font-serif text-2xl font-bold leading-none text-wuwf-blue-700">
                       {i + 1}
                     </span>
                     <div className="flex flex-col gap-1">
