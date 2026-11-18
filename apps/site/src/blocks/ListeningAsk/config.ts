@@ -3,7 +3,8 @@ import type { Block } from 'payload'
 import { PUBLIC_ID_MESSAGE, publicIdFromInput } from '../../lib/listening/placement'
 
 /**
- * A WUWF Listens question inside a story (component B) or at the end of an episode or video (component D, voice first). The
+ * A WUWF Listens question inside a story, or at the end of an episode or video (leading with recording): either way the query's full
+ * question set, the same screens as its own page. The
  * question itself lives in the Portal; this block only says which one to show, so nothing about a submission, a consent or an
  * answer is stored here. It shows nothing at all once the question closes.
  *
@@ -28,8 +29,8 @@ export const ListeningAsk: Block = {
       required: true,
       defaultValue: 'story',
       options: [
-        { label: 'In the story: a short box to type or record an answer', value: 'story' },
-        { label: 'After an episode or video: leads with the microphone', value: 'voice' },
+        { label: 'In the story: the full question set, the same as the question’s own page', value: 'story' },
+        { label: 'After an episode or video: the full question set, leading with recording', value: 'voice' },
       ],
       admin: { layout: 'vertical' },
     },

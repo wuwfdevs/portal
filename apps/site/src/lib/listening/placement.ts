@@ -1,13 +1,12 @@
-import type { InlineVariant } from '@/components/Listening/InlineAsk'
-
 import { isPublicId } from './results'
 
 /**
- * Where an editor puts a listening question: in a story's body, or at the end of an episode or video. (The head of a topic
- * page is not a body block: it is a field on the topic.) The editor may paste the question's address from the Portal or the
- * website ("https://…/listens/abcd1234efgh5678") instead of just its code; both mean the same question.
+ * Where an editor puts a listening question: in a story's body (the full question set), or at the end of an episode or video
+ * (voice first). (The head of a topic page is not a body block: it is a field on the topic.) The editor may paste the question's
+ * address from the Portal or the website ("https://…/listens/abcd1234efgh5678") instead of just its code; both mean the same
+ * question.
  */
-export const PLACEMENT_VARIANTS = ['story', 'voice'] as const satisfies readonly InlineVariant[]
+export const PLACEMENT_VARIANTS = ['story', 'voice'] as const
 export type PlacementVariant = (typeof PLACEMENT_VARIANTS)[number]
 
 /** The question's public id from what an editor typed: the id itself, or an address ending `/listens/<id>`. Null when neither. */
