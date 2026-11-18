@@ -56,7 +56,7 @@ async function queryVector(q: string): Promise<number[] | null> {
 }
 
 /** `settingOn` is the Site settings switch, read by the caller (the search page reads the cached global); without it, or without a key, nothing is sent. */
-export async function semanticStories(q: string, options: { settingOn: boolean | null | undefined; kinds?: readonly SearchKind[]; limit?: number }): Promise<SemanticHit[]> {
+export async function semanticStories(q: string, options: { settingOn: boolean | null | undefined; kinds?: readonly SearchKind[]; limit?: number; minSimilarity?: number }): Promise<SemanticHit[]> {
   if (!semanticSearchAllowed(options.settingOn)) return []
   const limit = options.limit ?? 20
   try {
@@ -64,7 +64,7 @@ export async function semanticStories(q: string, options: { settingOn: boolean |
     if (!vector) return []
     const payload = await getPayload({ config: configPromise })
     // Ask for more than needed: the kind filter and the similarity floor both thin the list.
-    const neighbours = (await nearestToVector(payload, vector, limit * 3)).filter((n) => n.similarity >= MIN_SEARCH_SIMILARITY)
+    const neighbours = (await nearestToVector(payload, vector, limit * 3)).filter((n) => n.similarity >= (options.minSimilarity ?? MIN_SEARCH_SIMILARITY))
     if (neighbours.length === 0) return []
 
     const found = await payload.find({
