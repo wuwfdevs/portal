@@ -47,20 +47,21 @@ and hand the donor to WUWF's donation form; the site never takes a gift.**
 - **Also fixed:** the admin-navigation test did not list the `sponsorship` global (it failed since the sponsorship commit).
 - **Not done here:** links to `/support/...` from the header's About menu and the footer (both admin-edited globals; the header's Donate button already goes to `/support`); sitemap entries.
 - **Redirects from Grove's giving pages (built 2026-11-18, active when this site serves wuwf.org).** `src/lib/giving/legacy-addresses.ts` lists each address and why it goes where it does, and
-  `redirects.ts` (next.config, so no database and not subject to the doubled-`Location` problem under *Known gaps*) serves them ahead of any page:
-  `/thanks-for-your-support` and `/sustaining-membership` to `/support`; `/membership-levels-and-benefits` and `/day-sponsor-messages` to `/support#levels`; `/leave-a-legacy` to
-  `/support/legacy`; `/real-estate-donation` to `/support/ways?way=vehicles`. The donation page stays **307** (owner, 2026-11-06: it may be pointed at the donation form later); the others are **308**.
-  The six rows in `standalone-dispositions.csv` moved from `proposed:keep` to `proposed:replace`, so **the importer should skip them**: a redirect wins over an imported page at the same address.
-  Tests check each rule, that none loops or chains, and that a `?way=` destination opens that panel. **Not findable from this repository:** Grove serves redirects no sitemap lists (`/donate`,
-  a vehicle-donation address), so any other old giving address (newsletters, on-air mentions, Search Console's links report) is a one-line addition to that file. **Owner decisions:** (1) the board's
-  vehicle panel does not mention real estate, so `/real-estate-donation` lands on a page that does not describe it: add a line to that panel in the admin, or pick another destination; (2) whether the
-  corporate pages (`/corporate-support`, `/corporate-testimonials`, `/how-can-i-promote-my-cause`, all `proposed:keep`) should now redirect to `/sponsor`; `/our-corporate-sponsors` has no equivalent yet.
-- **Pre-launch (owner):** enter the **donation form address** and test whether it takes the amount from the link; confirm a **Member Services email** (the boards print one that looks like a
-  person's, and it is used in the starter content; a role address is better); confirm the broker details on Other ways (Recipient, Tax ID `59-6166292`, DTC `0725`, account `26796723`, taken from
-  the boards, which cite wuwf.org/leave-a-legacy) and the legacy sample bequest wording with the Foundation; that **the donation form has the fields three panels describe** (employer name and UWF
-  payroll deduction on "Through work"; "Giving for someone else?" with gift membership, in honor of and in memory of on "In someone's name"; where-the-gift-goes choices, which the Give FAQ
-  mentions); that **someone sends what "After you give" promises** (a note within the week, an invitation in the first months); the tax wording of the footer line; and the IT-04 notice if it
-  applies (the pages collect nothing). The boards' open note: nothing from the 2023 Station Fundraising Survey or NPR Audience Insights is on these pages.
+  `redirects.ts` (next.config, so no database and not subject to the doubled-`Location` problem under *Known gaps*) serves them ahead of any page: `/donate` and `/thanks-for-your-support` to
+  `/support` (**307**: owner, 2026-11-06, so they can be pointed at the donation form later); `/sustaining-membership` to `/support`; `/membership-levels-and-benefits` and `/day-sponsor-messages` to
+  `/support#levels`; `/leave-a-legacy` to `/support/legacy`; `/real-estate-donation` to `/support/ways?way=vehicles`; and the two stories under Grove's `/support/` section
+  (`/support/2014-10-31/wuwf-corporate-sponsors`, `/support/2017-02-08/wuwf-corporate-support`) to `/sponsor` (**308**; `support` is a path this site owns, so they could not be imported at their own
+  addresses). **Found by reading Grove's own pages (owner-approved 2026-11-18; robots.txt allows all; neutral client; 3 s apart; raw pages kept outside the repository):** `/donate` is not in any sitemap
+  (Grove answers it with a 301 to `/thanks-for-your-support`, and every Grove page links to it); 16 other likely addresses (`/give`, `/membership`, `/vehicle-donation`, `/planned-giving`...) are 404; Grove's
+  `/support` is a 200 section page, replaced by the Give page at the same address. The six inventory rows in `standalone-dispositions.csv` moved from `proposed:keep` to `proposed:replace`, so **the
+  importer should skip them** (a redirect wins over an imported page). Tests check each rule, that none loops or chains, and that a `?way=` destination opens that panel. Grove also serves redirects no
+  sitemap lists, so an old giving address printed in a newsletter or read on air is a one-line addition; Search Console's links report is how to find them.
+- **What Grove's giving pages showed about the donation form (2026-11-18).** WUWF's form is NPR's donation platform: `https://donate.nprstations.org/wuwf/` with **separate forms** for a one-time gift
+  (`/wuwf/wuwf-secure-pledge-form-one-time`) and a sustaining gift (`/wuwf/wuwf-secure-pledge-form-sustaining`), and a **sustainer update form** (`/wuwf/sustainer-update-form`) where a monthly gift is
+  changed. The giving global has **one** form address; per-frequency addresses (and a link to the update form for "change or stop a monthly gift") are the likely change: owner to confirm. Also:
+  the vehicle partner has a real-estate page (`https://wuwf.careasy.org/real-estate-donation`), which is what the vehicles panel needs for `/real-estate-donation` to land on something that describes it;
+  Grove's sustaining page names a different Member Services address (`trish@wuwf.org`) from the boards' (`lolly@wuwf.org`), so the address to publish is a decision.
+- **Open, owner:** whether Grove's corporate pages (`/corporate-support`, `/corporate-testimonials`, `/how-can-i-promote-my-cause`, all `proposed:keep`) now redirect to `/sponsor`; `/our-corporate-sponsors` has no equivalent yet.
 
 ## Sponsorship pages, boards 16 to 20b (built 2026-11-17)
 

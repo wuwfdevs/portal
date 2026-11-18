@@ -7,6 +7,7 @@ import { LEGACY_GIVING_REDIRECTS } from './giving/legacy-addresses'
 import { GIVING_STARTER } from './giving/starter'
 import { selectWay } from './giving/ways'
 import { isReservedPath } from './paths'
+import { SPONSOR_PATHS } from './sponsorship/paths'
 
 describe('static redirects', () => {
   it('sends Grove\'s old donation page to the Support page, temporarily so it can be repointed later', async () => {
@@ -30,12 +31,14 @@ describe('static redirects', () => {
   it('keeps every giving redirect out of loops and chains, on real pages only', () => {
     const sources = LEGACY_GIVING_REDIRECTS.map((r) => r.source)
     expect(new Set(sources).size).toBe(sources.length)
-    const pages = new Set<string>(Object.values(GIVING_PATHS))
+    const pages = new Set<string>([...Object.values(GIVING_PATHS), ...Object.values(SPONSOR_PATHS)])
     for (const r of LEGACY_GIVING_REDIRECTS) {
-      expect(r.source, r.source).toMatch(/^\/[a-z0-9-]+$/) // one segment, no trailing slash: Next already redirects the slash form
-      expect(isReservedPath(r.source), `${r.source} is on a path this site already owns, so it would never have been Grove's page`).toBe(false)
+      // One plain segment (Next already redirects the trailing-slash form), or a dated story under a section this site now owns.
+      expect(r.source, r.source).toMatch(/^\/[a-z0-9-]+(\/\d{4}-\d{2}-\d{2}\/[a-z0-9-]+)?$/)
+      if (r.source.split('/').length === 2) expect(isReservedPath(r.source), `${r.source} is on a path this site already owns, so it would never have been Grove's page`).toBe(false)
+      else expect(isReservedPath(r.source), `${r.source} is meant to be a Grove story under a section this site owns`).toBe(true)
       const path = r.destination.split(/[?#]/)[0]!
-      expect(pages.has(path), `${r.destination} is not one of the giving pages`).toBe(true)
+      expect(pages.has(path), `${r.destination} is not a page on this site (giving or sponsorship)`).toBe(true)
       expect(sources, `${r.source} sends to another redirect`).not.toContain(path)
     }
   })
@@ -49,8 +52,8 @@ describe('static redirects', () => {
     }
   })
 
-  it('makes the permanent ones permanent and leaves the donation page temporary', () => {
-    expect(LEGACY_GIVING_REDIRECTS.find((r) => r.source === '/thanks-for-your-support')?.permanent).toBe(false)
-    expect(LEGACY_GIVING_REDIRECTS.filter((r) => r.source !== '/thanks-for-your-support').every((r) => r.permanent)).toBe(true)
+  it('makes the permanent ones permanent and leaves the two donation addresses temporary', () => {
+    const temporary = ['/thanks-for-your-support', '/donate']
+    expect(LEGACY_GIVING_REDIRECTS.filter((r) => !r.permanent).map((r) => r.source).sort()).toEqual(temporary.sort())
   })
 })
