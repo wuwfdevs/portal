@@ -34,12 +34,13 @@ import {
   type LocalAnswer,
   type Screen,
 } from '@/lib/listening/flow'
+import { beginLabel, placedEyebrow, recipientLine, type ListeningPlacement } from '@/lib/listening/inline'
 import { saveAudioAnswer } from '@/lib/listening/send-answer'
 import { cn } from '@/utilities/ui'
 
 import { answerSteps } from './answer-steps'
 import { ListenBack } from './ListenBack'
-import { buttonDark, buttonLink, buttonPrimary, buttonSecondary, checkRow, checkbox, field, hint, label, noticeInfo, noticeWarn, textarea } from './styles'
+import { buttonDark, buttonLink, buttonPrimary, buttonSecondary, checkRow, checkbox, eyebrow, field, hint, label, noticeInfo, noticeWarn, textarea } from './styles'
 import { useRecorder } from './useRecorder'
 
 /**
@@ -49,7 +50,21 @@ import { useRecorder } from './useRecorder'
  * answers the Portal already holds. The rules (the open window, required answers, caps, consent) are the Portal's; this
  * explains them before the button and shows what the Portal answers.
  */
-export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
+export const QuestionSet: React.FC<{
+  query: ListeningQuery
+  /**
+   * Where it sits. The question's own page (`page`, the default) is the card alone. Anywhere else (`story`, `topic`, `voice`)
+   * it is the same card inside a frame: an eyebrow above it, an h2 (the host page has its own h1), and the page is not scrolled
+   * to it on load. A `topic` set starts as a slim invitation and opens in place; a `voice` set leads with recording and names
+   * who receives it. Every screen and every rule is the same in all four.
+   */
+  placement?: ListeningPlacement
+  /** `voice` only: who receives the message, and one line about what happens to it. */
+  recipient?: string
+  description?: string
+}> = ({ query, placement = 'page', recipient, description }) => {
+  const placed = placement !== 'page'
+  const [opened, setOpened] = useState(placement !== 'topic')
   const questions = query.questions
   const writing = query.allowTextAnswers
 
@@ -68,11 +83,21 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
   const question = questions[index] as ListeningQuestion
   const recorder = useRecorder(question.maxDurationSeconds)
   const heading = useRef<HTMLHeadingElement | null>(null)
+  const firstView = useRef<{ screen: Screen; index: number } | null>({ screen, index })
+  const Heading = placed ? 'h2' : 'h1'
 
   // A new screen or question moves focus to its heading, so a keyboard or screen-reader user lands where the page changed.
+  // Placed in another page, the first screen is not a change: focusing it would scroll the reader past the story to the card.
+  // A person opening a topic's invitation is a change, so opening clears that.
   useEffect(() => {
+    const first = firstView.current
+    if (placed && first && first.screen === screen && first.index === index) return
     heading.current?.focus()
-  }, [screen, index])
+  }, [screen, index, opened, placed])
+  const openInvitation = () => {
+    firstView.current = null
+    setOpened(true)
+  }
 
   const current = answerFor(answers, question.id)
   const mode = answerMode(writing, modes[question.id], current)
@@ -182,8 +207,8 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
   const consentBlocked = !consent.agreed ? submitBlockedReason(ready, false, []) : null
   const percent = progressPercent(screen, index, questions.length)
 
-  return (
-    <div className="mx-auto w-full max-w-xl overflow-hidden rounded-md border border-rule bg-surface shadow-2">
+  const card = (
+    <div className={cn('w-full overflow-hidden rounded-md border border-rule bg-surface shadow-2', !placed && 'mx-auto max-w-xl')}>
       {screen !== 'done' && (
         <div aria-hidden="true" className="h-[3px] bg-surface-3">
           <div className="h-full bg-wuwf-blue transition-[width] duration-300 ease-out" style={{ width: `${percent}%` }} />
@@ -191,9 +216,9 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
       )}
 
       <div className="flex flex-col gap-4 px-5 py-8 sm:px-8">
-        <h1 className="font-serif text-[1.375rem] font-bold leading-snug text-ink outline-none" ref={heading} tabIndex={-1}>
+        <Heading className="font-serif text-[1.375rem] font-bold leading-snug text-ink outline-none" ref={heading} tabIndex={-1}>
           {stepTitle(screen, query, index, questions.length)}
-        </h1>
+        </Heading>
 
         {error && (
           <p className={noticeWarn} role="alert">
@@ -204,13 +229,15 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
         {screen === 'intro' && (
           <div className="flex flex-col gap-4">
             {query.intro && <p className="whitespace-pre-wrap text-[0.9375rem] leading-relaxed text-ink-2">{query.intro}</p>}
+            {placement === 'voice' && description && <p className="text-[0.9375rem] leading-relaxed text-ink-2">{description}</p>}
             <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-4">{introSummary(query)}</p>
             <p className={noticeInfo}>
+              {placement === 'voice' && `${recipientLine(recipient)} `}
               Your answers go to WUWF for editorial review and will not be published automatically. WUWF may use one answer without using the others, and
               submitting doesn&apos;t guarantee use or a reply.
             </p>
             <button className={cn(buttonPrimary, 'w-full')} disabled={busy} onClick={begin} type="button">
-              {busy ? 'Opening…' : 'Begin'}
+              {busy ? 'Opening…' : beginLabel(placement)}
             </button>
           </div>
         )}
@@ -575,5 +602,28 @@ export const QuestionSet: React.FC<{ query: ListeningQuery }> = ({ query }) => {
         </div>
       </div>
     </div>
+  )
+
+  if (!placed) return card
+
+  // The frame: the same eyebrow on every placement, then the card, or, at a topic's head, the invitation that opens it.
+  return (
+    // A story or an episode already sets the reading width, so the set fills it; a topic's head is wider than a card should be.
+    <section aria-label="WUWF Listens" className={cn('flex w-full flex-col gap-3', placement === 'topic' && 'max-w-2xl')}>
+      <span className={eyebrow}>{placedEyebrow(query)}</span>
+      {opened ? (
+        card
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border border-rule bg-wuwf-blue-100 px-5 py-4">
+          <div className="flex min-w-60 flex-1 flex-col gap-0.5">
+            <strong className="font-serif text-lg leading-snug text-ink">{query.title}</strong>
+            <span className="text-sm text-ink-2">{introSummary(query)}</span>
+          </div>
+          <button className={cn(buttonPrimary, 'w-full sm:w-auto')} onClick={openInvitation} type="button">
+            Take part
+          </button>
+        </div>
+      )}
+    </section>
   )
 }

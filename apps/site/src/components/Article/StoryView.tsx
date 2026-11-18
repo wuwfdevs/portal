@@ -18,6 +18,7 @@ import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
 import { loadRelatedStories } from '@/lib/embeddings/related'
+import { resolveTuning } from '@/lib/embeddings/tuning'
 import { formatLongDate } from '@/lib/format'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { jsonLdText } from '@/lib/live/jsonld'
@@ -55,7 +56,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const minutes = readingMinutes(post.content)
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
   // Stories close in meaning (story embeddings). A preview shows none: a draft has no vector to compare, and it must not change anything.
-  const related = draft ? [] : await loadRelatedStories(post)
+  const related = draft ? [] : await loadRelatedStories(post, new Date(), resolveTuning(settings))
   const featuredAudio = named(post.featuredAudio)
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
   // A members-only story read by the public comes back without its body and audio (field access, fail closed).

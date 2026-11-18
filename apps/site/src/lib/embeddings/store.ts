@@ -112,3 +112,35 @@ export async function countEmbeddings(payload: Payload): Promise<number> {
   const [row] = await rows<{ n: number }>(payload, sql`SELECT count(*)::int AS "n" FROM "story_embeddings"`)
   return row?.n ?? 0
 }
+
+/**
+ * How many published WUWF stories there are and how many of them have a vector. Eligibility here is the cheap, database-side reading of
+ * "published and WUWF's own" (`source` is a required field, so never null); a story with no text at all is also counted, and there is
+ * practically none (a title is enough).
+ */
+export async function embeddingCoverage(payload: Payload): Promise<{ eligible: number; embedded: number }> {
+  const [row] = await rows<{ eligible: number; embedded: number }>(
+    payload,
+    sql`SELECT count(*)::int AS "eligible", count(e."post_id")::int AS "embedded"
+        FROM "posts" p LEFT JOIN "story_embeddings" e ON e."post_id" = p."id"
+        WHERE p."_status" = 'published' AND p."source" = 'wuwf'`,
+  )
+  return { eligible: row?.eligible ?? 0, embedded: row?.embedded ?? 0 }
+}
+
+/** The next published WUWF stories after `afterId` that have no vector, in id order. The cursor lets a run move past a story that cannot be embedded. */
+export async function missingPostIds(payload: Payload, afterId: number, limit: number): Promise<number[]> {
+  const found = await rows<{ id: number }>(
+    payload,
+    sql`SELECT p."id" FROM "posts" p LEFT JOIN "story_embeddings" e ON e."post_id" = p."id"
+        WHERE p."_status" = 'published' AND p."source" = 'wuwf' AND e."post_id" IS NULL AND p."id" > ${afterId}
+        ORDER BY p."id" LIMIT ${limit}`,
+  )
+  return found.map((r) => r.id)
+}
+
+/** A few stored stories picked at random, for the examples under the tuning settings. */
+export async function sampleEmbeddedPostIds(payload: Payload, count: number): Promise<number[]> {
+  const found = await rows<{ post_id: number }>(payload, sql`SELECT "post_id" FROM "story_embeddings" ORDER BY random() LIMIT ${count}`)
+  return found.map((r) => r.post_id)
+}

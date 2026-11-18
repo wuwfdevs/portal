@@ -23714,6 +23714,27 @@
           "notNull": false,
           "default": false
         },
+        "related_min_similarity": {
+          "name": "related_min_similarity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0.35
+        },
+        "search_min_similarity": {
+          "name": "search_min_similarity",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0.2
+        },
+        "related_max_per_series": {
+          "name": "related_max_per_series",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 2
+        },
         "portal_origin": {
           "name": "portal_origin",
           "type": "varchar",
@@ -27643,7 +27664,7 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": false,
-          "default": "'The best past sets, Thursdays 7–8 p.m.'"
+          "default": "'The best past sets, Thursdays 7\u20138 p.m.'"
         },
         "encores_text": {
           "name": "encores_text",
