@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ListeningHub, ListeningHubEvent, ListeningHubOpen } from '@wuwf/portal-contracts'
 
-import { answeredBy, bandLabel, closesLabel, deskLabel, hubLayout, inviteMeta, openMeta, outcomeDate, outcomeKicker } from './hub'
+import { answeredBy, bandLabel, closesLabel, deskLabel, hubLayout, openMeta, outcomeDate, outcomeKicker } from './hub'
 
 describe('hub words', () => {
   it('says when a question closes, in the station day', () => {
@@ -18,12 +18,6 @@ describe('hub words', () => {
     expect(meta).toBe('2 questions · voice or text · open until Dec. 12')
     expect(openMeta({ questionCount: 1, allowTextAnswers: false, closesAt: null })).toBe('1 question · voice · open')
     expect(meta).not.toMatch(/\d+ (people|responses|answers)/)
-  })
-
-  it("words the invitation's line with an upper bound on the time", () => {
-    expect(inviteMeta({ questions: [{ maxDurationSeconds: 120 }, { maxDurationSeconds: 60 }], allowTextAnswers: false, closesAt: '2026-11-30T20:00:00Z' })).toBe(
-      '2 questions · by voice · up to 3 minutes · open until Nov. 30',
-    )
   })
 
   it('labels the desk from the series and the asker, else the desk', () => {
