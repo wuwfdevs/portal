@@ -1,11 +1,15 @@
 import configPromise from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 
-import type { CardPostData } from '@/components/Card'
+import type { Post } from '@/payload-types'
 
 import { RELATED_CANDIDATES, pickRelated, type RelatedCandidate } from './rank'
 import { nearestToStory } from './store'
 import { DEFAULT_TUNING, type EmbeddingTuning } from './tuning'
+
+/** A similar story as the page needs it: what a card needs, plus the date, series and show that "More like this" says things about. */
+export type RelatedStory = Pick<Post, 'id' | 'path' | 'title' | 'categories' | 'meta' | 'publishedAt' | 'series' | 'production'> &
+  Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio'>>
 
 /**
  * "Similar stories" under a story: its stored vector's nearest neighbours, thinned by `pickRelated` (floor, recency, series cap) and
@@ -17,7 +21,7 @@ import { DEFAULT_TUNING, type EmbeddingTuning } from './tuning'
  * It never throws: no vector yet (a brand-new story, or before the backfill), no pgvector, or a database error all give an empty list,
  * and the page then simply has no such section. A story page must not fail because a recommendation could not be made.
  */
-export async function loadRelatedStories(post: { id: number | string }, now: Date = new Date(), tuning: EmbeddingTuning = DEFAULT_TUNING): Promise<(CardPostData & { id: number })[]> {
+export async function loadRelatedStories(post: { id: number | string }, now: Date = new Date(), tuning: EmbeddingTuning = DEFAULT_TUNING): Promise<RelatedStory[]> {
   try {
     const payload = await getPayload({ config: configPromise })
     const { candidates, byId } = await neighbourCandidates(payload, post.id)

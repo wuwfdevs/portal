@@ -9,6 +9,7 @@ import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
+import { RelatedStories } from '@/components/Article/RelatedStories'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
 import { ThemedEpisodeView } from '@/components/Show/themed/ThemedEpisodeView'
 import { showThemeOf } from '@/lib/shows/themes'
@@ -17,6 +18,7 @@ import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
+import { storyFactsOf } from '@/lib/embeddings/present'
 import { loadRelatedStories } from '@/lib/embeddings/related'
 import { resolveTuning } from '@/lib/embeddings/tuning'
 import { formatLongDate } from '@/lib/format'
@@ -192,20 +194,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         </section>
       )}
 
-      {related.length > 0 && (
-        <section aria-labelledby="related-heading" className="container mt-16 flex flex-col gap-6">
-          <div className="border-b-2 border-ink pb-2">
-            <h2 className="font-serif text-2xl font-bold" id="related-heading">
-              Related stories
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {related.map((doc) => (
-              <Card doc={doc} key={doc.id} showCategories />
-            ))}
-          </div>
-        </section>
-      )}
+      <RelatedStories current={storyFactsOf(post)} stories={related} />
     </article>
   )
 }
