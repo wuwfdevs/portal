@@ -45,6 +45,7 @@ import { Header } from './Header/config'
 import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { ListenLive } from './globals/ListenLive'
+import { Placements } from './globals/Placements'
 import { Sponsorship } from './globals/Sponsorship'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
@@ -133,7 +134,7 @@ export default buildConfig({
     MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, Placements],
   plugins: [...plugins, storagePlugin],
   secret: process.env.PAYLOAD_SECRET,
   sharp,

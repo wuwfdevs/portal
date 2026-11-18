@@ -7,6 +7,54 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## News sections, All stories and sponsor placements (built 2026-11-18)
+
+Prompted by the owner's review of the home page (one news list, no link to more stories, no ad places) and a read of the live wuwf.org home page
+(owner-approved 2026-11-18: robots.txt allows all; neutral client; one page plus ten pictures, 3 s apart; raw files kept outside the repository).
+The live page is a 70/30 layout: an untitled lead block, then titled runs for Music & Arts, Local News, Florida News and NPR News (each linking to its
+section or tag page; only NPR News has "Load More"), and a right-hand column of ten image tiles (five outside businesses and nonprofits, five of
+WUWF's own) with **no "Sponsor message" label** and uneven sizes; Google Publisher Tag is set up in the page head but draws no slot on the home page.
+There is no "all stories" link on wuwf.org either.
+
+- **News sections** (Home page → *News sections*; replaces the single "Local news" tab). An ordered list of up to six: heading, section, story count
+  (3 to 8, default 5), a Show switch. Each links to its section page ("More from ...") and the band ends with **All stories** (`/latest`). A story is
+  shown once on the page (lead, Briefing and feature take theirs first, then each section in order). A section with nothing left is left out; with
+  none configured, or none holding anything, one "Latest stories" run stands in, so the page is never blank. **Florida News is featured on purpose**
+  (owner): a section's run is every published story filed under it, whatever its `source`; the lead and the Briefing still fall back to WUWF's own
+  work only. With the rail beside the news (two columns), an odd count makes the first story span both columns. Pure rules `lib/homepage/modules.ts`.
+- **`/latest`: every published story, newest first, 12 a page** (a fourth list kind beside section, topic and person; same layout, paging, 404 past the
+  end; `latest` is a reserved first segment). Publishing a story refreshes it. The starter's `/posts` list (titles only) is **gone**, redirected
+  permanently to `/latest` (`/posts/page/1` to the plain address; other pages keep their number).
+- **Placements** (`PLACEMENTS.md` is the design; read it before adding one). A typed registry (`lib/placements/registry.ts`) names every fixed
+  place: **built** `home.rail` (up to ten tiles beside the news; after it on a phone) and `home.band` (one banner after the news sections, before the
+  podcasts: never above the news, not a leaderboard); **designed, not built** `section.rail`, `story.rail`, `story.inline`. The new global **Sponsor and promo
+  placements** (Pages & hubs; `sponsorship.manage` or `content.publish` may edit) holds the tiles: kind (Sponsor, drawn with "Sponsor message", or House
+  promotion, unlabeled), sponsor name, picture, what it says (alt, 160 characters), link (this site or https), first and last day (a whole day, on the
+  station's Central-time date), Show. A tile that is off, expired, not begun, without a picture or with an unsafe link is left out and the rest close up;
+  a placement with nothing draws nothing. Sponsor links are `rel="sponsored noopener noreferrer"`; every tile has the same shape (the picture is fitted, never
+  cropped, because sponsors' words are in the artwork); no script, frame or outside request. A failed read leaves the placements out and the news up.
+  **Interim source only:** which sponsor fills a place stays the Portal's design (see *Sponsorship direction*); no booking, billing or proof of delivery here.
+- **Imported the live rail** (`scripts/placements/import-rail.ts`, rehearsed on a local database with the real ten pictures; **run on staging by the owner**,
+  then production with `--production`: dry run by default, `--apply`, never overwrites a filled rail without `--replace`, reuses pictures it has).
+  **Corporate support must confirm each tile's kind** (sponsor or house) which I read from the destination and the picture; the **Sinfonia Gulf Coast** tile
+  is imported *held* because its picture advertises Saturday Nov. 14, already past (the live site still shows it); **Emerald Coast Theatre** (Dec. 3 to 20) and the
+  **Santa Rosa County tourism** tile ("Sept. to Nov.") need a last day set; four house tiles point at `wuwf.org/...` pages that do not exist here yet (apps, weather,
+  Florida Storms); "Protect My Public Media" is a 300 by 170 picture enlarged by the live site (soft; ask for a bigger one).
+- **Migration `20261118_161412_news_sections_and_placements`** (plain SQL; tested up, down and up on rows; `verify:migrations` passes). It creates the new tables, **carries the old Local
+  news list over as the first section**, adds Local News, Music & Arts and Florida News (5 each) only where the home page has none yet and those sections exist, then drops
+  the old columns; `down` puts the first section back. **A database with no sections yet (production before the import) gets none: after the import, add them in Home
+  page → News sections** (until then the page shows one "Latest stories" run).
+- **Not done:** an "All stories" link from the header or footer (admin-edited globals); NPR News as a module (needs wire stories imported and labeled "From NPR"); the three designed
+  placements; first-party view and click counts for sponsors (undecided: `PLACEMENTS.md`, "Decisions that are open"); the sponsor and Digital pages still say the website Banner is
+  priced on request, and the placement artwork sizes in the registry are **proposals** corporate support must confirm; the live page orders Music & Arts above Local News and this
+  site does not copy that (editors order the sections). Checked in a browser at 1440 and 390 px with seeded stories and the ten real tiles: no horizontal overflow, no console errors,
+  one `h1`, no duplicate ids, no third-party scripts, every tile labeled as it should be. **Not checked:** the admin screens themselves (no browser session in the admin).
+- **State.** Full suite **164 files, 1,954 tests pass** (new: modules, placements, the import, `/latest`, the rail and banner markup); typecheck and the production build pass; `verify:migrations` passes; lint has 0 new errors (the one old error is below).
+- **Lessons.** (1) My first draft of tile 3's link was a guess from an output cut at 70 characters, and wrong; the manifest is now checked against the saved page address by
+  address. (2) The field's 160-character alt limit caught four over-long alt texts in the manifest; the dry run now checks the same limit. (3) `pnpm lint` has **one old error**,
+  not from this work: `src/components/ListenLive/PlayerProvider.test.ts` line 35, `react/no-children-prop` (from the single-player commit); the site is not in CI, so it was not caught.
+  (4) A story-card test that pins nothing at the top of the page will see the lead and Briefing take the newest stories: pin them (`tests/int/homepage.int.spec.ts`).
+
 ## Giving pages, boards 14 to 14d (built 2026-11-17)
 
 The giving section of the reviewed canvas (rethought Nov. 17) is built as public pages: `/support` (14, the Give page), `/support/ways` (14b, other ways to give),

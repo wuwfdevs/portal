@@ -15,6 +15,9 @@ import type { HomepageSlots } from '@/lib/homepage/load-slots'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
+import { HomeBand, HomeRail } from '@/components/Placements'
+import type { HomePlacements } from '@/lib/placements/load'
+
 import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
 const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
@@ -31,14 +34,17 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
 /**
  * The home page (boards 1 and 2), filled from the Home page global and the newest published work.
  *
- * Below the news, in the board's order: short videos, the local list, podcasts, then RadioLive and Unearthing Florida side by side
- * (`./Slots`). Each slot is left out when it is switched off or has nothing to show.
+ * Below the lead, in the board's order: the fellowship feature, short videos, then the news band (a titled run of stories per section, each
+ * linking to its section, ending with a link to every story) with the sponsor and promo rail beside it, the sponsor banner, podcasts, then
+ * RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is switched off or has nothing to show; a
+ * placement with nothing running draws nothing, so no empty box is ever left.
  *
- * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, newsletters,
- * "From NPR", and sponsor placements. They are left out rather than drawn as controls that do nothing; each arrives with its feature.
+ * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, newsletters and "From NPR".
+ * They are left out rather than drawn as controls that do nothing; each arrives with its feature.
  */
-export function HomepageView({ data, slots, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; independenceHref?: string | null }) {
-  const { emergency, lead, leadKicker, top, feature, local } = data
+export function HomepageView({ data, slots, placements, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; placements: HomePlacements; independenceHref?: string | null }) {
+  const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
+  const hasRail = placements.rail.length > 0
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
 
@@ -165,27 +171,48 @@ export function HomepageView({ data, slots, independenceHref = null }: { data: H
 
       {slots.video && <VideoRow slot={slots.video} />}
 
-      {local.stories.length > 0 && (
-        <section aria-labelledby="local-heading" className="container mt-16">
-          <h2 className="font-serif text-3xl font-bold text-ink" id="local-heading">
-            {local.heading}
-          </h2>
-          <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3')}>
-            {local.stories.map((story) => (
-              <li key={story.id}>
-                <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-              </li>
+      {modules.length > 0 && (
+        <div className={cn('container mt-16 grid gap-12', hasRail && 'lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-10')}>
+          <div className="flex min-w-0 flex-col gap-14">
+            {modules.map((module) => (
+              <section aria-labelledby={`news-${module.key}`} key={module.key}>
+                <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
+                  {module.href ? (
+                    <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
+                      {module.heading}
+                    </Link>
+                  ) : (
+                    module.heading
+                  )}
+                </h2>
+                <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2', !hasRail && 'lg:grid-cols-3')}>
+                  {module.stories.map((story, i) => (
+                    // With two columns (the rail is beside the news), an odd count would leave a gap beside the last card, so the first story spans both.
+                    <li className={cn(hasRail && i === 0 && module.stories.length % 2 === 1 && 'sm:col-span-2')} key={story.id}>
+                      <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
+                    </li>
+                  ))}
+                </ul>
+                {module.href && (
+                  <p className="mt-6 text-base">
+                    <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
+                      More from {module.heading}
+                    </Link>
+                  </p>
+                )}
+              </section>
             ))}
-          </ul>
-          {local.href && (
-            <p className="mt-6 text-base">
-              <Link className="font-semibold text-wuwf-blue-700 underline" href={local.href}>
-                More {local.heading} stories
+            <p>
+              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
+                All stories
               </Link>
             </p>
-          )}
-        </section>
+          </div>
+          <HomeRail tiles={placements.rail} />
+        </div>
       )}
+
+      <HomeBand tile={placements.band} />
 
       {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
 

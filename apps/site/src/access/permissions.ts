@@ -16,6 +16,12 @@ export const requirePermission =
   ({ req }) =>
     userCan(req.user as WithRoles, permission)
 
+/** Collection or global access: allowed for staff holding any one of the permissions. */
+export const requireAnyPermission =
+  (...permissions: SitePermission[]): Access =>
+  ({ req }) =>
+    permissions.some((permission) => userCan(req.user as WithRoles, permission))
+
 /** Field access: allowed for staff holding the permission. */
 export const fieldRequires =
   (permission: SitePermission): FieldAccess =>

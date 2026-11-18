@@ -1,0 +1,74 @@
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it } from 'vitest'
+
+import type { Media } from '@/payload-types'
+import type { PlacementTile } from '@/lib/placements/tiles'
+
+import { HomeBand, HomeRail } from './index'
+
+const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
+const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
+  key: 'home.rail.1',
+  kind: 'sponsor',
+  label: 'Sponsor message',
+  sponsor: 'Acme',
+  name: 'Acme: tickets',
+  href: 'https://acme.example/',
+  rel: 'sponsored noopener noreferrer',
+  image: media(1),
+  phoneImage: null,
+  ...over,
+})
+const rail = (tiles: PlacementTile<Media>[]) => renderToStaticMarkup(React.createElement(HomeRail, { tiles }))
+const band = (t: PlacementTile<Media> | null) => renderToStaticMarkup(React.createElement(HomeBand, { tile: t }))
+
+describe('the home page rail', () => {
+  it('draws nothing at all when nothing runs, so no empty box is left', () => {
+    expect(rail([])).toBe('')
+  })
+  it('labels a sponsor tile "Sponsor message", links it out as sponsored with no referrer, and names the link by what the artwork says', () => {
+    const html = rail([tile()])
+    expect(html).toContain('Sponsor message')
+    expect(html).toContain('href="https://acme.example/"')
+    expect(html).toContain('rel="sponsored noopener noreferrer"')
+    expect(html).toContain('aria-label="Acme: tickets"')
+    expect(html).toContain('data-placement="home.rail.1"')
+  })
+  it('does not label a house promotion, and keeps a link to a page here on this site', () => {
+    const html = rail([tile({ kind: 'house', label: null, sponsor: null, href: '/weather', rel: undefined, name: 'Weather', key: 'home.rail.2' })])
+    expect(html).not.toContain('Sponsor message')
+    expect(html).toContain('href="/weather"')
+    expect(html).not.toContain('rel=')
+  })
+  it('gives every tile the same shape, whatever its artwork, and loads no script or outside frame', () => {
+    const html = rail([tile(), tile({ key: 'home.rail.2', image: media(2) })])
+    expect(html.match(/aspect-ratio:\s*880 \/ 704/g)).toHaveLength(2)
+    expect(html).not.toMatch(/<script|<iframe|<audio|<video/i)
+  })
+  it('is a labeled region listing each tile once', () => {
+    const html = rail([tile(), tile({ key: 'home.rail.2', image: media(2) })])
+    expect(html).toContain('aria-label="Sponsors and promotions"')
+    expect(html.match(/<li /g)).toHaveLength(2)
+  })
+})
+
+describe('the home page banner', () => {
+  it('draws nothing without a banner', () => {
+    expect(band(null)).toBe('')
+  })
+  it('is one labeled, sponsored link in a band no taller than a sixth of its width', () => {
+    const html = band(tile({ key: 'home.band.1', image: media(3) }))
+    expect(html).toContain('Sponsor message')
+    expect(html).toContain('rel="sponsored noopener noreferrer"')
+    expect(html).toMatch(/aspect-ratio:\s*1200 \/ 200/)
+    expect(html).not.toMatch(/<script|<iframe/i)
+  })
+  it('gives phones their own picture when there is one, and the wide picture alone when there is not', () => {
+    const without = band(tile({ key: 'home.band.1' }))
+    expect(without).not.toContain('md:hidden')
+    const withPhone = band(tile({ key: 'home.band.1', phoneImage: media(4) }))
+    expect(withPhone).toContain('md:hidden')
+    expect(withPhone).toMatch(/aspect-ratio:\s*800 \/ 400/)
+  })
+})

@@ -49,7 +49,14 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
   let id: string | number
   let where: Record<string, unknown>
 
-  if (kind === 'section') {
+  if (kind === 'latest') {
+    // Every published story, whatever its section or origin (WUWF's own, NPR, wire and partner work). The home page's lead and
+    // Briefing still come from WUWF's own work; this page is the whole archive, newest first.
+    id = 0
+    title = 'All stories'
+    blurb = 'Everything WUWF has published, newest first.'
+    where = {}
+  } else if (kind === 'section') {
     const s = (await payload.find({ collection: 'sections', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: false })).docs[0]
     if (!s) return null
     ;({ id, title } = s)

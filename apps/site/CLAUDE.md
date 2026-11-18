@@ -37,7 +37,12 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
 - The giving pages (`/support`, `/support/ways`, `/support/legacy`, `/support/thanks`, boards 14 to 14d) describe giving and hand the donor to WUWF's donation form; **this site never collects card, bank, payroll or other payment details, never records a gift, and never builds a gift form** (board 14a's payment steps are the donation form's job). **Every word, level, amount and address is the `Giving pages` global** (slug `support-page`); code holds behaviour. The link to the form carries the amount and frequency only when an editor has confirmed the form reads them, and the page's wording follows that switch.
 - The sponsorship pages (`/sponsor`, boards 16 to 20b) are the business-facing price list, not the ledger. **Every word, price, figure and source line is the `Sponsorship` global** (Pages & hubs), each optional section with a show/hide switch; code holds only behaviour (the estimator's arithmetic, form validation, markup). A bracket on a board is a review note and never prints; nothing unconfirmed carries a price. A proposal request is emailed to the address in that global (a staff-only field) and never stored. Credits follow the credit guidelines: no prices, claims or calls to buy.
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
-  placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.**
+  placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.** Every website placement is in
+  `src/lib/placements/registry.ts` and designed in `PLACEMENTS.md`; a sponsor tile says "Sponsor message", an empty placement draws nothing,
+  and booking logic stays out of Payload (the Portal's job).
+- The home page's news band is an editor-ordered list of sections (Home page → News sections), each linking to its section page and ending in
+  `/latest`, the list of every story. **Florida News (a partner's reporting) is featured on purpose** (owner, 2026-11-18): a section's run is every
+  published story filed under it, whatever its source; the lead and the Briefing stay WUWF's own.
 - **No polls or public tallies on open listening questions. No "sponsor-free" claims about WUWF originals.**
 - Asking for member support on a page that carries a sponsor message is fine.
 - The site is **not the ledger**. Gifts are made on WUWF's donation form; membership status comes from

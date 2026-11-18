@@ -10,7 +10,7 @@ import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
 import type { StoryListData } from '@/lib/lists/load'
 
-const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter' } as const
+const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter', latest: 'Latest' } as const
 
 /**
  * A page of stories in a section, under a topic, or by a person (the three share one layout). The first page opens with the

@@ -173,6 +173,7 @@ export interface Config {
     'radiolive-hub': RadioliveHub;
     'listen-live': ListenLive;
     sponsorship: Sponsorship;
+    placements: Placement;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -185,6 +186,7 @@ export interface Config {
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
+    placements: PlacementsSelect<false> | PlacementsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -4121,17 +4123,27 @@ export interface Homepage {
      */
     story?: (number | null) | Post;
   };
-  localNews?: {
-    heading?: string | null;
-    /**
-     * Which section fills this list. Leave empty for the newest stories from any section.
-     */
-    section?: (number | null) | Section;
-    /**
-     * How many stories to list (3 to 12).
-     */
-    count?: number | null;
-  };
+  newsModules?:
+    | {
+        /**
+         * The title readers see, e.g. "Local News".
+         */
+        heading: string;
+        /**
+         * Where its stories come from and where "More from..." goes.
+         */
+        section: number | Section;
+        /**
+         * How many stories to show (3 to 8).
+         */
+        count?: number | null;
+        /**
+         * Switch off to hold a section without deleting it.
+         */
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
   videoRow?: {
     enabled?: boolean | null;
     /**
@@ -5996,6 +6008,93 @@ export interface Sponsorship {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placements".
+ */
+export interface Placement {
+  id: number;
+  homeRail?:
+    | {
+        /**
+         * A paid or sponsored message is always a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
+         */
+        kind: 'sponsor' | 'house';
+        /**
+         * The sponsor's name as it should be credited.
+         */
+        sponsor?: string | null;
+        /**
+         * The artwork, 880 × 704 pixels. Text in the picture is read by people who cannot see it, so say what it says below.
+         */
+        image: number | Media;
+        /**
+         * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
+         */
+        alt: string;
+        /**
+         * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
+         */
+        href: string;
+        /**
+         * Empty: already running.
+         */
+        runFrom?: string | null;
+        /**
+         * Empty: runs until switched off. The whole of this day counts.
+         */
+        runUntil?: string | null;
+        /**
+         * Switch off to hold a tile without deleting it.
+         */
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  homeBand?:
+    | {
+        /**
+         * A paid or sponsored message is always a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
+         */
+        kind: 'sponsor' | 'house';
+        /**
+         * The sponsor's name as it should be credited.
+         */
+        sponsor?: string | null;
+        /**
+         * The artwork, 1200 × 200 pixels. Text in the picture is read by people who cannot see it, so say what it says below.
+         */
+        image: number | Media;
+        /**
+         * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
+         */
+        alt: string;
+        /**
+         * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
+         */
+        href: string;
+        /**
+         * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
+         */
+        phoneImage?: (number | null) | Media;
+        /**
+         * Empty: already running.
+         */
+        runFrom?: string | null;
+        /**
+         * Empty: runs until switched off. The whole of this day counts.
+         */
+        runUntil?: string | null;
+        /**
+         * Switch off to hold a tile without deleting it.
+         */
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "header_select".
  */
 export interface HeaderSelect<T extends boolean = true> {
@@ -6153,12 +6252,14 @@ export interface HomepageSelect<T extends boolean = true> {
         fellowship?: T;
         story?: T;
       };
-  localNews?:
+  newsModules?:
     | T
     | {
         heading?: T;
         section?: T;
         count?: T;
+        enabled?: T;
+        id?: T;
       };
   videoRow?:
     | T
@@ -7570,6 +7671,42 @@ export interface SponsorshipSelect<T extends boolean = true> {
               text?: T;
               label?: T;
             };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placements_select".
+ */
+export interface PlacementsSelect<T extends boolean = true> {
+  homeRail?:
+    | T
+    | {
+        kind?: T;
+        sponsor?: T;
+        image?: T;
+        alt?: T;
+        href?: T;
+        runFrom?: T;
+        runUntil?: T;
+        enabled?: T;
+        id?: T;
+      };
+  homeBand?:
+    | T
+    | {
+        kind?: T;
+        sponsor?: T;
+        image?: T;
+        alt?: T;
+        href?: T;
+        phoneImage?: T;
+        runFrom?: T;
+        runUntil?: T;
+        enabled?: T;
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;
