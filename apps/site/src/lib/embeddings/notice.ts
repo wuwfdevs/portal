@@ -2,11 +2,10 @@
  * The privacy wording for story embeddings, kept beside the behaviour it describes so the two change together (a sentence here that no
  * longer matches `search.ts` and `embedStory.ts` would be a false privacy notice). Pure: no Payload, no React.
  *
- * Two pieces of wording:
- * - `SEARCH_NOTICE`: one line on the search page, shown only while search by meaning is actually switched on (the key and the Site
- *   settings switch; `semanticSearchAllowed`). With it off, nothing leaves the site and nothing is said.
- * - `PRIVACY_PAGE_PARAGRAPHS`: the paragraphs for the site's privacy notice page (a Page edited in the admin). The "Find stories by meaning
- *   in search" switch must stay off until this is on that page (the switch's own description says so).
+ * `PRIVACY_PAGE_PARAGRAPHS` is the text for the site's privacy notice page (a Page edited in the admin). The "Find stories by meaning
+ * in search" switch must stay off until this is on that page (the switch's own description says so). There is deliberately no notice on
+ * the search page itself: nothing identifying the visitor is sent (owner decision, 2026-11-18), and the page that sends the words is
+ * reached only after they are typed, so such a line would inform too late to matter.
  *
  * What the wording promises is what the code does:
  * - Search words: sent from our server (never the browser, so no cookie, account or address of the visitor goes with them) as the input
@@ -15,9 +14,6 @@
  * - Stories: WUWF's own published stories only (title, dek, description and body), never an NPR or wire story; a members-only story from
  *   its title, dek and description only.
  */
-
-export const SEARCH_NOTICE =
-  'To find stories about the same topic in different words, the words you search for are sent to OpenAI, which turns them into numbers we compare with our stories. Nothing that identifies you goes with them, and we do not keep them.'
 
 export const PRIVACY_PAGE_HEADING = 'Search and related stories'
 

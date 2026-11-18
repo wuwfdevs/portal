@@ -42,7 +42,7 @@ export const SiteSettings: GlobalConfig = {
       label: 'Find stories by meaning in search',
       admin: {
         description:
-          'When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site\'s privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`; while this is on, the search page also shows a one-line notice). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)',
+          'When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site\'s privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)',
       },
     },
     {
