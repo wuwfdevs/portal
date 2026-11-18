@@ -8,6 +8,7 @@ import { MAX_QUERY_CHARS, semanticSearchAllowed } from './config'
 import { MIN_SEARCH_SIMILARITY } from './rank'
 import { getEmbeddingProvider } from './service'
 import { nearestToVector } from './store'
+import { ttlCache } from './ttl-cache'
 
 /**
  * Semantic search: stories whose meaning is close to the search words, found by embedding the query and asking for the nearest stored
@@ -33,7 +34,8 @@ export type SemanticHit = {
 const QUERY_TIMEOUT_MS = 3000
 const CACHE_LIMIT = 200
 const CACHE_TTL_MS = 60 * 60 * 1000
-const cache = new Map<string, { vector: number[]; at: number }>()
+// Entries remove themselves after the hour (see ttl-cache.ts): the privacy wording promises it.
+const cache = ttlCache<number[]>(CACHE_TTL_MS, CACHE_LIMIT)
 
 /** A one-way key for a normalised query: the cache never holds the visitor's words. */
 const cacheKey = (normalised: string) => createHash('sha256').update(normalised).digest('hex')
@@ -46,12 +48,11 @@ async function queryVector(q: string): Promise<number[] | null> {
   // The cache is keyed by a hash, so the words themselves are not kept in memory, only what they stand for.
   const key = cacheKey(text)
   const hit = cache.get(key)
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.vector
+  if (hit) return hit
   const provider = getEmbeddingProvider()
   if (!provider) return null
   const [vector] = await provider.embed([text], { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) })
-  if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
-  cache.set(key, { vector, at: Date.now() })
+  cache.set(key, vector)
   return vector
 }
 
