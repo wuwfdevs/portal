@@ -1933,6 +1933,14 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   `CRON_SECRET` and `NPR_CDS_TOKEN` set on the site's Vercel project (the cron in `vercel.json` does nothing until both are there); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
   (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
   tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
+- **The site's production database does not exist yet (checked 2026-11-18).** `wuwf-site-production` (`gyidqxhkkhajfazbcrug`) has the `payload_app` role, the
+  `wuwf-site-files` bucket and pgvector, and **no tables**: no `payload_migrations`, none of the 56 migrations applied. The Vercel Production environment has only
+  `OPENAI_API_KEY`, `PORTAL_LISTENING_SECRET` and the two public Supabase values; it has **no `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `PAYLOAD_SECRET`,
+  `CRON_SECRET`, `PORTAL_IDENTITY_SECRET` or storage keys**. So every site migration, `network_content` included, is applied to staging only (batch 42,
+  verified there 2026-11-18: tables owned by `payload_app`, indexes, foreign keys, enums, unique CDS ids, no Data API access) and still has to reach
+  production. `scripts/vercel-build.sh` never migrates a production build by itself ("apply its migrations deliberately, then deploy"), and a sandbox session has HTTPS
+  only, so it cannot run `payload migrate` against Postgres. It needs the production connection strings set on the Vercel Production environment
+  and one `payload migrate` run against `wuwf-site-production` (from a machine with Postgres access, or a production build with `MIGRATE_ON_BUILD=1` set for that build only).
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.
