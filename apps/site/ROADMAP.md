@@ -1698,6 +1698,10 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
   still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
   deletes its record, keeps the shared search and footer objects so search rows keep their links). After a push, **never rewrite a
   migration: add a new one**. Test a migration change against staging's state, not only a fresh database.
+  **Merging main is the same trap (2026-11-18, network content):** main's newer migrations made the pushed migration's schema snapshot stale, and it was
+  regenerated under a new timestamp. Staging already had the first one, so the copy failed with "type ... already exists" and every later preview build of
+  the branch went red until the original name was restored. If a merge makes a pushed migration's snapshot stale, **keep its name** (compare its `up()`
+  with the pushed one: it was identical) and regenerate only the `.json`; if the SQL itself must change, add a second migration.
 - **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
   had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
   Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
