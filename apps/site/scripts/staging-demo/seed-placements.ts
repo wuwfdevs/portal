@@ -26,5 +26,9 @@ const payload = await getPayload({ config })
 const { seedPlacementsDemo } = await import('./seed-placements-core')
 
 const report = await seedPlacementsDemo(payload, { apply: go, assetDir: path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets'), log: (l) => console.log(l) })
+// Placeholder pictures on the demonstration stories and the rest of the sample content that has none (rules: `placeholder-pictures.ts`).
+const { addPlaceholderPictures } = await import('./placeholder-pictures')
+const pictures = await addPlaceholderPictures(payload, { apply: go, log: (l) => console.log(l) })
+report.made.push(...pictures.map((l) => `picture: ${l}`))
 console.log(`\n${report.made.length} ${go ? 'made' : 'to make'}, ${report.kept.length} already there, ${report.skipped.length} skipped.`)
 process.exit(0)

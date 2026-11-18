@@ -93,7 +93,9 @@ export function StoryListView({ data, rail = [] }: { data: StoryListData; rail?:
           </p>
         ) : (
           <div className="flex flex-col gap-10">
-            {lead && <Card className="md:max-w-[44rem]" doc={withLeadPicture(lead)} fixedImage showCategories />}
+            {/* The lead lines up with the grid under it: the whole column beside a rail (the grid is two across), two of the grid's three columns
+                without one (`gap-6` is the grid's gap). A fixed width left its right edge short of the cards below. */}
+            {lead && <Card className={cn(!hasRail && 'lg:w-[calc((200%-1.5rem)/3)]')} doc={withLeadPicture(lead)} fixedImage showCategories />}
             {grid.length > 0 && (
               <ul className={cn('grid gap-6 sm:grid-cols-2', hasRail ? 'lg:grid-cols-2' : 'lg:grid-cols-3')}>
                 {grid.map((story) => (
