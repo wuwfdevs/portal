@@ -50,12 +50,22 @@ taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`li
   back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
   migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
 
+## Home page first screen (built 2026-11-18, board 1h)
+
+The owner found the first screen poor at 1440 x 900: the picture took 665 px of the 835 under the header, the headline began below the fold, and The Briefing and the lead did not end on the same line. Four layouts were drawn on the canvas (boards 1d to 1g, then 1h); the owner chose A without "Listen now".
+
+- **The lead picture is 16:9 and never taller than 40% of the window** (`max-h-[40vh]`, 360 px at 900), cropped to fit. The headline, summary and byline are above the fold at 1440 x 900 and at 1366 x 650.
+- **The Briefing is the whole side column** and its items spread to the lead's height (`justify-between`), with the lead's byline pinned to its bottom, so the two end on the same line whatever the item count or headline lengths (measured with few items, a long lead, long Briefing headlines and a portrait photo).
+- **"Listen now" is gone** (`ListenNow.tsx` deleted): it duplicated the header's Listen live button and panel, made a schedule request on every home view, and was the reason the right column was taller than the lead. The player bar still appears once anything plays.
+- The Briefing column and the sponsor rail share `SIDE_COLUMN` (22rem), so they have the same left edge and width (352 px at 1440, 1366 and 1024). Section, topic and reporter pages keep a 20rem rail.
+- Not built from the board: the "Updated 7:42 a.m." time on The Briefing (nothing stores it) and the "Listen to the story" button under the lead.
+
 ## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
 
 Two changes the owner asked for after reviewing board 1 and the three layouts drawn as boards 1a to 1c (the owner chose 1b).
 
 - **The sponsor rail now starts level with the short-video row and runs down beside the videos and the news** (it used to start under the videos, beside the news only). The videos and the news share one column (`HomepageView`; `VideoRow` takes a `className` so it can sit in a column). With no videos the rail simply starts beside the news; with no rail the column is full width, as before. On a phone the tiles follow the column, as before. With many tiles the rail can run taller than the column and leave blank space at the left before the banner; the home rail holds up to ten, so editors should keep it to about four or five.
-- **"Listen now" under The Briefing** (`components/Homepage/ListenNow.tsx`): LIVE, the channel and what is on it now and next, the channel buttons when there is more than one, one Listen live / Pause button, the player's status in words, and a link to the broadcast schedule. It is the site's one player (the same as the header's Listen live), so the stream keeps playing across pages and the bar takes over. On now and next come from the schedule through `/listen/now` (`useNowNext`), never invented: before it answers, or on a channel with no schedule, the card shows the channel's own name and description. **With no channels set it draws nothing.**
+- **"Listen now" under The Briefing** was built here and **removed later the same day** (owner decision: the header's Listen live button and the site's player already do it; see the next section).
 - **One two-column template (`SIDE_COLUMN`, a 22rem side column) for the lead section and for the videos-and-news block**, so The Briefing, Listen now and the rail start at the same edge and are the same width (the first version used a 1.7fr/1fr split above and a 20rem column below, so the rail sat about 70 px off). The rule beside The Briefing is drawn in the gutter, not inside the column. The lead picture is 16:9 at least and takes up spare height, and Listen now takes up spare height too, so the bottom of Listen now is always level with the lead's last line (measured with a normal lead, a portrait photo, and a lead taller than the right column).
 - Checked with the real components rendered to HTML with the site's CSS at 1440, 1024 and 390 px (rail top level with the video row, Listen now under The Briefing and level with the lead, no sideways overflow; no videos, no rail and no channels each leave no empty box). Not checked: the stream itself, and the schedule answering, on a deployed preview.
 
