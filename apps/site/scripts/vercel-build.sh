@@ -15,4 +15,12 @@ else
   echo "Not migrating (MIGRATE_ON_BUILD is not 1)"
 fi
 
+# One-off demonstration content for the shared staging database, for as long as `scripts/staging-demo/SEED_PLACEMENTS_ON_BUILD` exists, on previews only (the
+# same switch as the migration above). It only adds what is missing, labelled "Demonstration", and never changes what an editor set. A failure is reported
+# and does not stop the build: the site works without it, and the next build tries again.
+if [ "${MIGRATE_ON_BUILD:-}" = "1" ] && [ -f scripts/staging-demo/SEED_PLACEMENTS_ON_BUILD ]; then
+  echo "Seeding staging demonstration content (scripts/staging-demo/SEED_PLACEMENTS_ON_BUILD)"
+  NODE_ENV=production pnpm exec tsx scripts/staging-demo/seed-placements.ts --go || echo "Seeding failed; continuing without it"
+fi
+
 pnpm build

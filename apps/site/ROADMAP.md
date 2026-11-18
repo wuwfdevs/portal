@@ -7,6 +7,18 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Staging demonstration content for news sections and placements (2026-11-18)
+
+The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older
+`seed.ts`, same conventions: staging only, everything labelled **Demonstration**, safe to run twice, never changes what an editor set; dry run by default, `--go` to write) adds, only where missing:
+- **A Florida News section with six demonstration stories from a "partner"** (`source: wire`), so the owner's decision to feature partner content has something to show. Staging has no real Florida News or Music & Arts stories (it holds 242 real stories, all WUWF's own).
+- **The home page's news sections** (only while it has fewer than three; appended, never removed): Local News, Local Politics, Local Arts, Florida News, UWF News: real sections with real stories.
+- **A sample sponsor** ("Example Sponsor (demonstration)") and three plainly-labelled sample pictures (`scripts/staging-demo/assets/demo-sponsor-*.png`), used for a **home banner** with a phone picture and a sponsor tile.
+- **Five list-page placements, each aimed differently:** the sample sponsor on the Local News pages (10); the sample sponsor on the all-stories page (20); WUWF's own Book Club on Local Arts and Commentary (30); WUWF's own Protect My Public Media on one reporter (Dave Dunwoody) and one topic (City of Pensacola) (40); WUWF's own app on every list page (50). WUWF's own pictures and links are taken from the home rail already imported.
+- Real sponsors' artwork is **not** reused for aiming demonstrations: a real sponsor's ad on a page it did not buy would mislead anyone shown the staging site.
+- Run by the preview build (no staging credentials in a cloud session) while `scripts/staging-demo/SEED_PLACEMENTS_ON_BUILD` exists; the marker and the build hook are removed once staging has been seeded. Rehearsed on a scratch database shaped like staging (dry run, run, run again: 21 made, then 0), checked in a browser on every page it touches, tested (`tests/int/seed-placements.int.spec.ts`, 6 tests).
+- **Not demonstrable from seed data:** the who-may rules (they need signed-in users of each role), a placement past its last day (the Sinfonia tile is held instead), and the admin screens (not opened in a browser).
+
 ## Editor-made placements (built 2026-11-18; supersedes the fixed rail and banner lists below)
 
 Prompted by the owner: editors should be able to create placements and decide the pages and sections they appear on, with no deploy to rethink the
