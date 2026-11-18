@@ -93,6 +93,7 @@ export interface Config {
     series: Series;
     productions: Production;
     sponsors: Sponsor;
+    'placement-items': PlacementItem;
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
     'portal-sign-ins': PortalSignIn;
@@ -145,6 +146,7 @@ export interface Config {
     series: SeriesSelect<false> | SeriesSelect<true>;
     productions: ProductionsSelect<false> | ProductionsSelect<true>;
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
+    'placement-items': PlacementItemsSelect<false> | PlacementItemsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
@@ -2289,6 +2291,89 @@ export interface NetworkItem {
   createdAt: string;
 }
 /**
+ * Sponsor messages and WUWF promotions, each in a fixed place on the site. Make, change, aim and retire them here: no deploy needed.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placement-items".
+ */
+export interface PlacementItem {
+  id: number;
+  /**
+   * For staff only, to find it again, e.g. "Alphastar: home rail, December".
+   */
+  name: string;
+  /**
+   * Anything paid or sponsored is a Sponsor. Choose House promotion only for WUWF's own pages, apps and campaigns.
+   */
+  kind: 'sponsor' | 'house';
+  /**
+   * Who it is for. Add them under Commercial → Sponsors first if they are not listed.
+   */
+  sponsor?: (number | null) | Sponsor;
+  /**
+   * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
+   */
+  zone: 'home.rail' | 'home.band' | 'list.rail';
+  /**
+   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   */
+  image: number | Media;
+  /**
+   * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
+   */
+  phoneImage?: (number | null) | Media;
+  /**
+   * Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".
+   */
+  alt: string;
+  /**
+   * A page on this site (/weather) or a secure https:// address. Sponsor links are marked as sponsored and send no referrer.
+   */
+  href: string;
+  /**
+   * A placement never shows everywhere unless you say so.
+   */
+  scope?: ('chosen' | 'all') | null;
+  /**
+   * Appears on each of these sections' pages (Local News, Music & Arts...).
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * Appears on each of these topics' pages.
+   */
+  topics?: (number | Category)[] | null;
+  /**
+   * Appears on each of these reporters' pages.
+   */
+  people?: (number | Contributor)[] | null;
+  /**
+   * Also appears on /latest, the list of every story.
+   */
+  includeLatest?: boolean | null;
+  /**
+   * Lower runs first when a place holds several. Ties go to the one made first.
+   */
+  order?: number | null;
+  /**
+   * Empty: already running.
+   */
+  runFrom?: string | null;
+  /**
+   * Empty: runs until switched off. The whole of this day counts.
+   */
+  runUntil?: string | null;
+  /**
+   * Switch off to hold it without deleting it.
+   */
+  enabled?: boolean | null;
+  /**
+   * Where this runs, in short.
+   */
+  where?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "portal-sign-ins".
  */
@@ -2675,6 +2760,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'sponsors';
         value: number | Sponsor;
+      } | null)
+    | ({
+        relationTo: 'placement-items';
+        value: number | PlacementItem;
       } | null)
     | ({
         relationTo: 'underwriting-agreements';
@@ -3721,6 +3810,32 @@ export interface SponsorsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "placement-items_select".
+ */
+export interface PlacementItemsSelect<T extends boolean = true> {
+  name?: T;
+  kind?: T;
+  sponsor?: T;
+  zone?: T;
+  image?: T;
+  phoneImage?: T;
+  alt?: T;
+  href?: T;
+  scope?: T;
+  sections?: T;
+  topics?: T;
+  people?: T;
+  includeLatest?: T;
+  order?: T;
+  runFrom?: T;
+  runUntil?: T;
+  enabled?: T;
+  where?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "underwriting-agreements_select".
  */
 export interface UnderwritingAgreementsSelect<T extends boolean = true> {
@@ -4334,17 +4449,27 @@ export interface Homepage {
      */
     story?: (number | null) | Post;
   };
-  localNews?: {
-    heading?: string | null;
-    /**
-     * Which section fills this list. Leave empty for the newest stories from any section.
-     */
-    section?: (number | null) | Section;
-    /**
-     * How many stories to list (3 to 12).
-     */
-    count?: number | null;
-  };
+  newsModules?:
+    | {
+        /**
+         * The title readers see, e.g. "Local News".
+         */
+        heading: string;
+        /**
+         * Where its stories come from and where "More from..." goes.
+         */
+        section: number | Section;
+        /**
+         * How many stories to show (3 to 8).
+         */
+        count?: number | null;
+        /**
+         * Switch off to hold a section without deleting it.
+         */
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
   videoRow?: {
     enabled?: boolean | null;
     /**
@@ -6378,12 +6503,14 @@ export interface HomepageSelect<T extends boolean = true> {
         fellowship?: T;
         story?: T;
       };
-  localNews?:
+  newsModules?:
     | T
     | {
         heading?: T;
         section?: T;
         count?: T;
+        enabled?: T;
+        id?: T;
       };
   videoRow?:
     | T

@@ -14,6 +14,13 @@ describe('static redirects', () => {
     const all = await redirects!()
     expect(all).toContainEqual({ source: '/thanks-for-your-support', destination: '/support', permanent: false })
   })
+  it('sends the starter template\'s /posts list to /latest, page 1 to the plain address', async () => {
+    const all = await redirects!()
+    expect(all).toContainEqual({ source: '/posts', destination: '/latest', permanent: true })
+    expect(all).toContainEqual({ source: '/posts/page/1', destination: '/latest', permanent: true })
+    expect(all.findIndex((r) => r.source === '/posts/page/1')).toBeLessThan(all.findIndex((r) => r.source.startsWith('/posts/page/:')))
+    expect(all).toContainEqual({ source: '/posts/page/:pageNumber(\\d+)', destination: '/latest/page/:pageNumber', permanent: true })
+  })
   it('keeps the incompatible-browser redirect, and puts the specific redirect ahead of its catch-all', async () => {
     const all = await redirects!()
     expect(all.findIndex((r) => r.source === '/thanks-for-your-support')).toBeLessThan(all.findIndex((r) => r.destination === '/ie-incompatible.html'))

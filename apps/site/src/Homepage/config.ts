@@ -1,6 +1,7 @@
 import type { GlobalConfig } from 'payload'
 
 import { requirePermission } from '@/access/permissions'
+import { MAX_NEWS_MODULES } from '@/lib/homepage/modules'
 import { validateSupportHref } from '@/lib/support-link'
 
 import { revalidateHomepage } from './hooks/revalidateHomepage'
@@ -113,15 +114,32 @@ export const Homepage: GlobalConfig = {
           ],
         },
         {
-          label: 'Local news',
+          label: 'News sections',
+          description:
+            'The titled runs of stories below the lead and the Briefing, one per section (Local News, Music & Arts, Florida News...), in this order (drag to reorder). Each links to its section page, and a story is shown once on the page, so a story already above is skipped. The band ends with a link to every story. If no section here has stories, one "Latest stories" run stands in.',
           fields: [
             {
-              name: 'localNews',
-              type: 'group',
+              name: 'newsModules',
+              type: 'array',
+              label: 'Sections',
+              maxRows: MAX_NEWS_MODULES,
+              labels: { singular: 'Section', plural: 'Sections' },
+              admin: { components: { RowLabel: '@/Homepage/NewsModuleRowLabel#NewsModuleRowLabel' } },
               fields: [
-                { name: 'heading', type: 'text', defaultValue: 'Northwest Florida' },
-                { name: 'section', type: 'relationship', relationTo: 'sections', admin: { description: 'Which section fills this list. Leave empty for the newest stories from any section.' } },
-                { name: 'count', type: 'number', defaultValue: 6, min: 3, max: 12, admin: { description: 'How many stories to list (3 to 12).' } },
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'heading', type: 'text', required: true, maxLength: 60, admin: { width: '55%', description: 'The title readers see, e.g. "Local News".' } },
+                    { name: 'section', type: 'relationship', relationTo: 'sections', required: true, admin: { width: '45%', description: 'Where its stories come from and where "More from..." goes.' } },
+                  ],
+                },
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'count', type: 'number', defaultValue: 5, min: 3, max: 8, admin: { width: '50%', description: 'How many stories to show (3 to 8).' } },
+                    { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show this section', admin: { width: '50%', description: 'Switch off to hold a section without deleting it.' } },
+                  ],
+                },
               ],
             },
           ],

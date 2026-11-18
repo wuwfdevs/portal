@@ -7,6 +7,114 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Staging demonstration content for news sections and placements (2026-11-18)
+
+The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older
+`seed.ts`, same conventions: staging only, everything labelled **Demonstration**, safe to run twice, never changes what an editor set; dry run by default, `--go` to write) adds, only where missing:
+- **A Florida News section with six demonstration stories from a "partner"** (`source: wire`), so the owner's decision to feature partner content has something to show. Staging has no real Florida News or Music & Arts stories (it holds 242 real stories, all WUWF's own).
+- **The home page's news sections** (only while it has fewer than three; appended, never removed): Local News, Local Politics, Local Arts, Florida News, UWF News: real sections with real stories.
+- **A sample sponsor** ("Example Sponsor (demonstration)") and three plainly-labelled sample pictures (`scripts/staging-demo/assets/demo-sponsor-*.png`), used for a **home banner** with a phone picture and a sponsor tile.
+- **Five list-page placements, each aimed differently:** the sample sponsor on the Local News pages (10); the sample sponsor on the all-stories page (20); WUWF's own Book Club on Local Arts and Commentary (30); WUWF's own Protect My Public Media on one reporter (Dave Dunwoody) and one topic (City of Pensacola) (40); WUWF's own app on every list page (50). WUWF's own pictures and links are taken from the home rail already imported.
+- Real sponsors' artwork is **not** reused for aiming demonstrations: a real sponsor's ad on a page it did not buy would mislead anyone shown the staging site.
+- **Staging was seeded 2026-11-18** by the preview build (no staging credentials in a cloud session) through a temporary marker file and build hook, both now **removed** (git history has them); `seed-placements.ts` stays as a tool. Read back from the database (five news sections, six partner stories, the sample sponsor, 10 rail + 1 banner + 5 list placements) and from the rendered preview: home (5 sections, banner, 9 tiles, 5 sponsor labels), `/local-news`, `/latest`, a reporter page and `/local-arts` each showed the placements aimed at them. Staging has no Music & Arts section, so the home page starts with its own sections. Rehearsed on a scratch database shaped like staging (dry run, run, run again: 21 made, then 0), checked in a browser on every page it touches, tested (`tests/int/seed-placements.int.spec.ts`, 6 tests).
+- **Not demonstrable from seed data:** the who-may rules (they need signed-in users of each role), a placement past its last day (the Sinfonia tile is held instead), and the admin screens (not opened in a browser).
+
+## Editor-made placements (built 2026-11-18; supersedes the fixed rail and banner lists below)
+
+Prompted by the owner: editors should be able to create placements and decide the pages and sections they appear on, with no deploy to rethink the
+taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`lib/placements/registry.ts`); placements are records (**Commercial → Placements**, collection
+`placement-items`).
+
+- **Built zones:** `home.rail` (10), `home.band` (1) and the new **`list.rail`** (4 per page, beside the stories on a section, topic, reporter and the all-stories page, aimable at chosen
+  sections, topics, reporters and `/latest`, or at every list page; "chosen" with nothing chosen is refused, so nothing shows everywhere by accident). `story.rail` and `story.inline`
+  are designed, not built, and cannot be chosen.
+- **A placement:** name, kind (Sponsor, labeled; House promotion, unlabeled), sponsor (a record in **Commercial → Sponsors**, so one identity across underwriting and placements), zone, picture
+  (phone picture for a band), what it says (160 characters), link, order, first and last day, Show. **No package, price or product reference anywhere** (owner).
+- **Pure resolver** (`lib/placements/resolve.ts`, 18 tests): given a page and the records, which tiles run: zone and page kind, targeting, on/off, dates (Central-time days), picture, safe link,
+  then order (lower first, then oldest), up to the zone's capacity. Pages call it and nothing else, so the Portal's bookings can become a second source later without touching a page.
+- **Rules in the collection:** corporate support and administrators make and change anything; **publishers make and change house promotions only** (they cannot make a sponsor placement, change one, or turn one into
+  one); the public reads only what is on. The home zones **refuse a placement past their capacity** with what to do (switched-off and ended ones do not count, so a full rail can be rotated); a list zone is
+  counted per page by the resolver. Trusted server code (the import, tests) acts with no user and is not blocked by the who-may rule (found by a test: the first version blocked it).
+- **Caching:** placements are read once under the `placements` cache tag; saving, deleting or switching one refreshes every page that reads them. A first or last day takes effect when the page next refreshes
+  (home within 5 minutes, list pages within the hour).
+- **Migration `20261118_191825_placement_items`** (plain SQL; generated in two steps, add then drop, because Drizzle asks interactively whether new tables are renames; tested up, down and up on real rows and
+  on a fresh database): creates the collection, copies the old rail and banner into it in order (`order` spaced by ten), **finds or makes each sponsor in Sponsors from the old tile's plain-text name**
+  (an existing one is reused), drops the old `placements` global; `down` restores the rail (at most ten) and the banner. Its `down` had a latent flaw in the generated SQL (dropping a table with CASCADE and then
+  its constraint), found by running it; fixed with `IF EXISTS`. **Staging's ten tiles migrate when the preview builds**, and make five Sponsors there.
+- **`import-rail.ts`** now writes placements (and Sponsors); it makes none twice, never overwrites a rail made by hand (`--replace` clears the zone), and "rail written" means it made at least one.
+- **Checked** in a browser at 1440 and 390 px on a fresh database (53 migrations replayed): home 9 tiles; `/local-news` the Alphastar sponsor tile (labeled) then the house promo; `/music-arts` the house promo
+  only; `/latest` the house promo then Boyles & Boyles; no overflow, no console errors, no outside scripts. **Not checked:** the admin screens themselves.
+- **Not built (and said so in `PLACEMENTS.md`):** the "where this shows" preview and a conflicts view (the resolver is deterministic and the home zones refuse overflow, but an editor cannot see a list-page overlap),
+  exclusions ("every section except..."), targeting by story format or show, the story zones, proof of performance, the Portal source.
+- **Lessons.** (1) `payload migrate` after the dev server has run asks a data-loss question and hangs without a terminal; use a fresh scratch database. (2) **Never chain `migrate:down` after a failed up**: it rolls
+  back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
+  migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
+
+## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
+
+Two changes the owner asked for after reviewing board 1 and the three layouts drawn as boards 1a to 1c (the owner chose 1b).
+
+- **The sponsor rail now starts level with the short-video row and runs down beside the videos and the news** (it used to start under the videos, beside the news only). The videos and the news share one column (`HomepageView`; `VideoRow` takes a `className` so it can sit in a column). With no videos the rail simply starts beside the news; with no rail the column is full width, as before. On a phone the tiles follow the column, as before. With many tiles the rail can run taller than the column and leave blank space at the left before the banner; the home rail holds up to ten, so editors should keep it to about four or five.
+- **"Listen now" under The Briefing** (`components/Homepage/ListenNow.tsx`): LIVE, the channel and what is on it now and next, the channel buttons when there is more than one, one Listen live / Pause button, the player's status in words, and a link to the broadcast schedule. It is the site's one player (the same as the header's Listen live), so the stream keeps playing across pages and the bar takes over. On now and next come from the schedule through `/listen/now` (`useNowNext`), never invented: before it answers, or on a channel with no schedule, the card shows the channel's own name and description. **With no channels set it draws nothing.**
+- **One two-column template (`SIDE_COLUMN`, a 22rem side column) for the lead section and for the videos-and-news block**, so The Briefing, Listen now and the rail start at the same edge and are the same width (the first version used a 1.7fr/1fr split above and a 20rem column below, so the rail sat about 70 px off). The rule beside The Briefing is drawn in the gutter, not inside the column. The lead picture is 16:9 at least and takes up spare height, and Listen now takes up spare height too, so the bottom of Listen now is always level with the lead's last line (measured with a normal lead, a portrait photo, and a lead taller than the right column).
+- Checked with the real components rendered to HTML with the site's CSS at 1440, 1024 and 390 px (rail top level with the video row, Listen now under The Briefing and level with the lead, no sideways overflow; no videos, no rail and no channels each leave no empty box). Not checked: the stream itself, and the schedule answering, on a deployed preview.
+
+## News sections, All stories and sponsor placements (built 2026-11-18)
+
+Prompted by the owner's review of the home page (one news list, no link to more stories, no ad places) and a read of the live wuwf.org home page
+(owner-approved 2026-11-18: robots.txt allows all; neutral client; one page plus ten pictures, 3 s apart; raw files kept outside the repository).
+The live page is a 70/30 layout: an untitled lead block, then titled runs for Music & Arts, Local News, Florida News and NPR News (each linking to its
+section or tag page; only NPR News has "Load More"), and a right-hand column of ten image tiles (five outside businesses and nonprofits, five of
+WUWF's own) with **no "Sponsor message" label** and uneven sizes; Google Publisher Tag is set up in the page head but draws no slot on the home page.
+There is no "all stories" link on wuwf.org either.
+
+- **News sections** (Home page → *News sections*; replaces the single "Local news" tab). An ordered list of up to six: heading, section, story count
+  (3 to 8, default 5), a Show switch. Each links to its section page ("More from ...") and the band ends with **All stories** (`/latest`). A story is
+  shown once on the page (lead, Briefing and feature take theirs first, then each section in order). A section with nothing left is left out; with
+  none configured, or none holding anything, one "Latest stories" run stands in, so the page is never blank. **Florida News is featured on purpose**
+  (owner): a section's run is every published story filed under it, whatever its `source`; the lead and the Briefing still fall back to WUWF's own
+  work only. With the rail beside the news (two columns), an odd count makes the first story span both columns. Pure rules `lib/homepage/modules.ts`.
+- **`/latest`: every published story, newest first, 12 a page** (a fourth list kind beside section, topic and person; same layout, paging, 404 past the
+  end; `latest` is a reserved first segment). Publishing a story refreshes it. The starter's `/posts` list (titles only) is **gone**, redirected
+  permanently to `/latest` (`/posts/page/1` to the plain address; other pages keep their number).
+- **Placements** (first version, **superseded by *Editor-made placements* above**: the registry became zones and the global became a collection; `PLACEMENTS.md` is current). A typed registry (`lib/placements/registry.ts`) named every fixed
+  place: **built** `home.rail` (up to ten tiles beside the news; after it on a phone) and `home.band` (one banner after the news sections, before the
+  podcasts: never above the news, not a leaderboard); **designed, not built** `section.rail`, `story.rail`, `story.inline`. The new global **Sponsor and promo
+  placements** (Pages & hubs; `sponsorship.manage` or `content.publish` may edit) holds the tiles: kind (Sponsor, drawn with "Sponsor message", or House
+  promotion, unlabeled), sponsor name, picture, what it says (alt, 160 characters), link (this site or https), first and last day (a whole day, on the
+  station's Central-time date), Show. A tile that is off, expired, not begun, without a picture or with an unsafe link is left out and the rest close up;
+  a placement with nothing draws nothing. Sponsor links are `rel="sponsored noopener noreferrer"`; every tile has the same shape (the picture is fitted, never
+  cropped, because sponsors' words are in the artwork); no script, frame or outside request. A failed read leaves the placements out and the news up.
+  **Interim source only:** which sponsor fills a place stays the Portal's design (see *Sponsorship direction*); no booking, billing or proof of delivery here.
+- **Imported the live rail** (`scripts/placements/import-rail.ts`, rehearsed on a local database with the real ten pictures; **run on staging by the owner**,
+  then production with `--production`: dry run by default, `--apply`, never overwrites a filled rail without `--replace`, reuses pictures it has).
+  **Corporate support must confirm each tile's kind** (sponsor or house) which I read from the destination and the picture; the **Sinfonia Gulf Coast** tile
+  is imported *held* because its picture advertises Saturday Nov. 14, already past (the live site still shows it); **Emerald Coast Theatre** (Dec. 3 to 20) and the
+  **Santa Rosa County tourism** tile ("Sept. to Nov.") need a last day set; four house tiles point at `wuwf.org/...` pages that do not exist here yet (apps, weather,
+  Florida Storms); "Protect My Public Media" is a 300 by 170 picture enlarged by the live site (soft; ask for a bigger one).
+- **Staging was seeded 2026-11-18** (the owner asked that nothing be run from their machine, and this session has no staging credentials): a one-off step in `scripts/vercel-build.sh`,
+  run by the preview build with the site's own database and storage settings, added the Local News section (the only starter section staging has: it has 13 sections, no Music & Arts or
+  Florida News) and imported the ten tiles; read back afterwards from the database (one section, ten tiles, nine showing) and from the rendered preview (nine tiles, four "Sponsor
+  message" labels, no outside scripts). The step, its marker file and the script are **removed** (git history has them). **Production is not seeded**: after the production import, add
+  sections in Home page → News sections and run `import-rail.ts --apply --production` (or enter tiles in the admin). Reason it was needed: the migration seeds sections only where the Home page
+  row already exists, and staging's never had been saved.
+- **No packages on the site** (owner, 2026-11-18): placements carry no package, price or product reference, in the registry, the admin or the pages. Packaging and price are the Sponsorship pages'
+  and, later, the Portal's. The planned editor-created placements (below) follow the same rule.
+- **Migration `20261118_161412_news_sections_and_placements`** (plain SQL; tested up, down and up on rows; `verify:migrations` passes). It creates the new tables, **carries the old Local
+  news list over as the first section**, adds Local News, Music & Arts and Florida News (5 each) only where the home page has none yet and those sections exist, then drops
+  the old columns; `down` puts the first section back. **A database with no sections yet (production before the import) gets none: after the import, add them in Home
+  page → News sections** (until then the page shows one "Latest stories" run).
+- **Not done:** an "All stories" link from the header or footer (admin-edited globals); NPR News as a module (needs wire stories imported and labeled "From NPR"); the three designed
+  placements; first-party view and click counts for sponsors (undecided: `PLACEMENTS.md`, "Decisions that are open"); the sponsor and Digital pages still say the website Banner is
+  priced on request, and the placement artwork sizes in the registry are **proposals** corporate support must confirm; the live page orders Music & Arts above Local News and this
+  site does not copy that (editors order the sections). Checked in a browser at 1440 and 390 px with seeded stories and the ten real tiles: no horizontal overflow, no console errors,
+  one `h1`, no duplicate ids, no third-party scripts, every tile labeled as it should be. **Not checked:** the admin screens themselves (no browser session in the admin).
+- **State.** Full suite **164 files, 1,954 tests pass** (new: modules, placements, the import, `/latest`, the rail and banner markup); typecheck and the production build pass; `verify:migrations` passes; lint has 0 new errors (the one old error is below).
+- **Lessons.** (1) My first draft of tile 3's link was a guess from an output cut at 70 characters, and wrong; the manifest is now checked against the saved page address by
+  address. (2) The field's 160-character alt limit caught four over-long alt texts in the manifest; the dry run now checks the same limit. (3) `pnpm lint` has **one old error**,
+  not from this work: `src/components/ListenLive/PlayerProvider.test.ts` line 35, `react/no-children-prop` (from the single-player commit); the site is not in CI, so it was not caught.
+  (4) A story-card test that pins nothing at the top of the page will see the lead and Briefing take the newest stories: pin them (`tests/int/homepage.int.spec.ts`).
+
 ## Giving pages, boards 14 to 14d (built 2026-11-17)
 
 The giving section of the reviewed canvas (rethought Nov. 17) is built as public pages: `/support` (14, the Give page), `/support/ways` (14b, other ways to give),
@@ -145,6 +253,10 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
   small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
   like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
   failed page. Not shown in previews.
+  **How it looks (redesigned 2026-11-18, canvas boards 3a to 3e, "More like this"):** `components/Article/RelatedStories` draws the closest story as a lead (picture, description) and the rest as short rows. A
+  story shows "Same topic / series / show" only when it really shares one with the story being read, and "From <date>" when it is over a year old; audio keeps `PlayAudioButton` (outside the stretched link). One story
+  takes the full width; a lead with no picture becomes a quiet panel; none renders no section and no heading. The wording and rules are the pure, tested `lib/embeddings/present.ts`. Not built from the boards: the
+  Option B "Next up" hand-off (3b), and a byline or reading time on an entry (the query does not select them).
 - **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; an administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
   nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
   "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the

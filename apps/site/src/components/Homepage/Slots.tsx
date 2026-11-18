@@ -37,10 +37,13 @@ function SlotHeading({ id, kicker, title, href, linkLabel }: { id: string; kicke
   )
 }
 
-/** "Watch in a minute": the newest short videos, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions. */
-export function VideoRow({ slot }: { slot: NonNullable<HomepageSlots['video']> }) {
+/**
+ * "Watch in a minute": the newest short videos, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions.
+ * On the home page it shares a column with the news, beside the sponsor rail, so it takes the column's width (`className=""`); alone it is a page-wide section.
+ */
+export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
-    <section aria-labelledby="video-heading" className="container mt-16">
+    <section aria-labelledby="video-heading" className={className}>
       <SlotHeading href="/video" id="video-heading" kicker="Watch in a minute" linkLabel="All videos" title="Short videos from the region" />
       <ul className="mt-5 flex snap-x gap-4 overflow-x-auto pb-2">
         {slot.clips.map((clip) => {

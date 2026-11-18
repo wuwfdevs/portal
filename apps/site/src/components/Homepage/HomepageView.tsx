@@ -12,9 +12,14 @@ import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
+import { newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
+import { HomeBand, HomeRail } from '@/components/Placements'
+import type { HomePlacements } from '@/lib/placements/load'
+
+import { ListenNow } from './ListenNow'
 import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
 const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
@@ -31,16 +36,29 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
 /**
  * The home page (boards 1 and 2), filled from the Home page global and the newest published work.
  *
- * Below the news, in the board's order: short videos, the local list, podcasts, then RadioLive and Unearthing Florida side by side
- * (`./Slots`). Each slot is left out when it is switched off or has nothing to show.
+ * The top is the lead story beside The Briefing, with "Listen now" under it (`./ListenNow`: what is on the air and a button for the stream).
+ * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
+ * linking to its section, ending with a link to every story) with the sponsor and promo rail beside the whole column from the video row down
+ * (board 1b), the sponsor banner, podcasts, then RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is
+ * switched off or has nothing to show; a placement with nothing running draws nothing, so no empty box is ever left. With no videos the rail
+ * simply starts beside the news.
  *
- * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, newsletters,
- * "From NPR", and sponsor placements. They are left out rather than drawn as controls that do nothing; each arrives with its feature.
+ * Not here yet, because what they need is not built: the WUWF Listens question, newsletters and "From NPR". They are left out rather than
+ * drawn as controls that do nothing; each arrives with its feature.
  */
-export function HomepageView({ data, slots, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; independenceHref?: string | null }) {
-  const { emergency, lead, leadKicker, top, feature, local } = data
+/**
+ * The home page's two columns: a main column and a side column of one fixed width. The lead section (the lead story; The Briefing and Listen now)
+ * and the block below it (videos and news; the sponsor rail) both use it, so the side columns start at the same edge and are the same width. The
+ * rail's tiles are sized for 22rem (`Rail`).
+ */
+const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
+
+export function HomepageView({ data, slots, placements, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; placements: HomePlacements; independenceHref?: string | null }) {
+  const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
+  const hasRail = placements.rail.length > 0
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
+  const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
 
   return (
     <div className="pb-20">
@@ -71,11 +89,12 @@ export function HomepageView({ data, slots, independenceHref = null }: { data: H
           <p className="mt-4 text-lg text-ink-2">No stories have been published yet. They will appear here as soon as they are.</p>
         </section>
       ) : (
-        <section aria-label="Top stories" className="container grid gap-10 pt-8 md:pt-12 lg:grid-cols-[1.7fr_1fr]">
+        <section aria-label="Top stories" className={cn('container grid gap-10 pt-8 md:pt-12', SIDE_COLUMN)}>
           <article className="relative flex flex-col gap-4">
+            {/* 16:9 at least, and it takes up any extra height, so when the right column is taller the lead's last line still ends level with the bottom of Listen now. */}
             {leadImage && (
-              <div className="overflow-hidden rounded-sm bg-surface-3">
-                <Media imgClassName="w-full object-cover" priority resource={leadImage} />
+              <div className="relative aspect-video grow overflow-hidden rounded-sm bg-surface-3">
+                <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 60vw, 100vw" />
               </div>
             )}
             {(leadKicker ?? kickerOf(lead)) && <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{leadKicker ?? kickerOf(lead)}</p>}
@@ -94,34 +113,39 @@ export function HomepageView({ data, slots, independenceHref = null }: { data: H
             </p>
           </article>
 
-          {top.length > 0 && (
-            <aside aria-labelledby="briefing-heading" className="flex flex-col gap-4 lg:border-l lg:border-rule lg:pl-8">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="briefing-heading">
-                The Briefing
-              </h2>
-              <ol className="flex flex-col divide-y divide-rule">
-                {top.map((story, i) => (
-                  <li className="relative flex gap-4 py-4 first:pt-0" key={story.id}>
-                    <span aria-hidden="true" className="font-serif text-2xl font-bold text-wuwf-blue-700">
-                      {i + 1}
-                    </span>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-serif text-lg font-bold leading-snug">
-                        {story.path ? (
-                          <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={story.path}>
-                            {story.title}
-                          </Link>
-                        ) : (
-                          story.title
-                        )}
-                      </h3>
-                      <p className="text-xs text-ink-3">{[kickerOf(story), story.publishedAt ? formatLongDate(story.publishedAt) : null].filter(Boolean).join(' · ')}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </aside>
-          )}
+          {/* The right column: The Briefing, then "Listen now" under it, which takes up any extra height so its bottom is level with the lead's. The rule
+              beside it sits in the gutter (not inside the column), so the column's content starts exactly where the rail's does below; drawn only when there is a Briefing. */}
+          <div className={cn('relative flex min-w-0 flex-col gap-8', top.length > 0 && 'lg:before:absolute lg:before:inset-y-0 lg:before:-left-5 lg:before:w-px lg:before:bg-rule')}>
+            {top.length > 0 && (
+              <aside aria-labelledby="briefing-heading" className="flex flex-col gap-4">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="briefing-heading">
+                  The Briefing
+                </h2>
+                <ol className="flex flex-col divide-y divide-rule">
+                  {top.map((story, i) => (
+                    <li className="relative flex gap-4 py-4 first:pt-0" key={story.id}>
+                      <span aria-hidden="true" className="font-serif text-2xl font-bold text-wuwf-blue-700">
+                        {i + 1}
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <h3 className="font-serif text-lg font-bold leading-snug">
+                          {story.path ? (
+                            <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={story.path}>
+                              {story.title}
+                            </Link>
+                          ) : (
+                            story.title
+                          )}
+                        </h3>
+                        <p className="text-xs text-ink-3">{[kickerOf(story), story.publishedAt ? formatLongDate(story.publishedAt) : null].filter(Boolean).join(' · ')}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </aside>
+            )}
+            <ListenNow className="grow" />
+          </div>
         </section>
       )}
 
@@ -163,29 +187,52 @@ export function HomepageView({ data, slots, independenceHref = null }: { data: H
         </section>
       )}
 
-      {slots.video && <VideoRow slot={slots.video} />}
-
-      {local.stories.length > 0 && (
-        <section aria-labelledby="local-heading" className="container mt-16">
-          <h2 className="font-serif text-3xl font-bold text-ink" id="local-heading">
-            {local.heading}
-          </h2>
-          <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3')}>
-            {local.stories.map((story) => (
-              <li key={story.id}>
-                <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-              </li>
+      {/* The short videos and the news share one column, and the rail runs beside both from the top of the videos (board 1b). On a phone the rail follows. */}
+      {(slots.video || band.show) && (
+        <div className={cn('container mt-16 grid gap-12', hasRail && SIDE_COLUMN)}>
+          <div className="flex min-w-0 flex-col gap-14">
+            {slots.video && <VideoRow className="" slot={slots.video} />}
+            {modules.map((module) => (
+              <section aria-labelledby={`news-${module.key}`} key={module.key}>
+                <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
+                  {module.href ? (
+                    <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
+                      {module.heading}
+                    </Link>
+                  ) : (
+                    module.heading
+                  )}
+                </h2>
+                <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2', !hasRail && 'lg:grid-cols-3')}>
+                  {module.stories.map((story, i) => (
+                    // With two columns (the rail is beside the news), an odd count would leave a gap beside the last card, so the first story spans both.
+                    <li className={cn(hasRail && i === 0 && module.stories.length % 2 === 1 && 'sm:col-span-2')} key={story.id}>
+                      <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
+                    </li>
+                  ))}
+                </ul>
+                {module.href && (
+                  <p className="mt-6 text-base">
+                    <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
+                      More from {module.heading}
+                    </Link>
+                  </p>
+                )}
+              </section>
             ))}
-          </ul>
-          {local.href && (
-            <p className="mt-6 text-base">
-              <Link className="font-semibold text-wuwf-blue-700 underline" href={local.href}>
-                More {local.heading} stories
-              </Link>
-            </p>
-          )}
-        </section>
+            {band.allStoriesLink && (
+              <p>
+                <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
+                  All stories
+                </Link>
+              </p>
+            )}
+          </div>
+          <HomeRail tiles={placements.rail} />
+        </div>
       )}
+
+      <HomeBand tile={placements.band} />
 
       {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
 

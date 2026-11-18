@@ -1,7 +1,11 @@
-// The addresses of story lists: a section (`/local-news`), a topic (`/tags/storms`) and a person (`/people/dave-dunwoody`),
-// each with pages after the first at `<address>/page/<n>`. Grove used the first three shapes, so they are kept. Pure.
+// The addresses of story lists: a section (`/local-news`), a topic (`/tags/storms`), a person (`/people/dave-dunwoody`) and
+// everything (`/latest`), each with pages after the first at `<address>/page/<n>`. Grove used the first three shapes, so they are
+// kept; `/latest` is new (Grove had no list of every story) and `latest` is a reserved first segment, so no section can take it. Pure.
 
-export type ListKind = 'section' | 'topic' | 'person'
+export type ListKind = 'section' | 'topic' | 'person' | 'latest'
+
+/** The address of the list of every published story. */
+export const LATEST_SLUG = 'latest'
 
 export interface ListRequest {
   kind: ListKind
@@ -22,6 +26,12 @@ const PAGE_NUMBER = /^[2-9]$|^[1-9]\d{1,3}$/ // 2 and up, up to four digits
 export function parseListRequest(segments: readonly string[]): ListRequest | null {
   if (segments.length === 0) return null
   const [first, second] = segments
+  if (first === LATEST_SLUG) {
+    const rest = segments.slice(1)
+    if (rest.length === 0) return { kind: 'latest', slug: LATEST_SLUG, page: 1 }
+    if (rest.length === 2 && rest[0] === 'page' && PAGE_NUMBER.test(rest[1]!)) return { kind: 'latest', slug: LATEST_SLUG, page: Number(rest[1]) }
+    return null
+  }
   const prefixed = first === 'tags' || first === 'people'
   const kind: ListKind = first === 'tags' ? 'topic' : first === 'people' ? 'person' : 'section'
   const slug = prefixed ? second : first
@@ -34,6 +44,6 @@ export function parseListRequest(segments: readonly string[]): ListRequest | nul
 
 /** The address of a list page: the plain address for page 1, `/page/<n>` after it. */
 export function listHref(kind: ListKind, slug: string, page = 1): string {
-  const base = kind === 'topic' ? `/tags/${slug}` : kind === 'person' ? `/people/${slug}` : `/${slug}`
+  const base = kind === 'latest' ? `/${LATEST_SLUG}` : kind === 'topic' ? `/tags/${slug}` : kind === 'person' ? `/people/${slug}` : `/${slug}`
   return page > 1 ? `${base}/page/${page}` : base
 }

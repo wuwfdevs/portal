@@ -6,7 +6,8 @@ import type { Contributor, Fellowship, Homepage, Post } from '@/payload-types'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
-import { arrangeHomepage, remainingStories } from './select'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, MAX_NEWS_MODULES, MODULE_SLACK, moduleCount, type FilledModule } from './modules'
+import { arrangeHomepage } from './select'
 
 const named = <T extends object>(value: T | string | number | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
 const idOf = (value: { id: string | number } | string | number | null | undefined): string | number | null =>
@@ -23,8 +24,10 @@ export interface HomepageData {
   leadKicker: string | null
   top: HomeStory[]
   feature: { fellowship: Fellowship; story: HomeStory | null; acknowledgments: AcknowledgmentLine[] } | null
-  /** `href` is the section's own page when the list is filled from one section. */
-  local: { heading: string; stories: HomeStory[]; href: string | null }
+  /** The news band's titled runs, in the editors' order; each links to its section page. Never empty while any story is published. */
+  modules: FilledModule<HomeStory>[]
+  /** Where the band ends: every story, newest first. */
+  allStoriesHref: string
 }
 
 export const TOP_COUNT = 5
@@ -57,13 +60,21 @@ export async function loadHomepage(): Promise<HomepageData> {
   const topIds = (settings.topStories ?? []).map((t) => idOf(t as never)).filter((v): v is string | number => v !== null)
   const feat = settings.fellowshipFeature
   const featStoryId = feat?.enabled ? idOf(feat.story as never) : null
-  const sectionId = idOf(settings.localNews?.section as never)
-  const localCount = Math.min(12, Math.max(3, settings.localNews?.count ?? 6))
+  // The news band: each enabled row of "News sections" with a section and a heading (a row without either cannot be drawn).
+  const moduleRows = (settings.newsModules ?? [])
+    .filter((m) => m.enabled !== false)
+    .slice(0, MAX_NEWS_MODULES)
+    .map((m, i) => ({ key: m.id ?? `module-${i}`, heading: m.heading?.trim() ?? '', sectionId: idOf(m.section as never), count: moduleCount(m.count) }))
+    .filter((m): m is typeof m & { sectionId: string | number } => m.sectionId !== null && m.heading !== '')
 
-  const [recent, picked, localCandidates] = await Promise.all([
+  // A section's run is every published story filed under it, whatever its origin: Florida News is a partner's reporting and is featured on
+  // purpose (owner, 2026-11-18). The lead and the Briefing, which fall back to the newest work, stay WUWF's own.
+  const sectionIds = moduleRows.map((m) => m.sectionId)
+  const [recent, picked, sections, ...sectionStories] = await Promise.all([
     findStories({ source: { equals: 'wuwf' } }, RECENT_LIMIT),
     byIds([...(leadId !== null ? [leadId] : []), ...topIds, ...(featStoryId !== null ? [featStoryId] : [])]),
-    sectionId !== null ? findStories({ and: [{ source: { equals: 'wuwf' } }, { section: { equals: sectionId } }] }, RECENT_LIMIT) : Promise.resolve(null),
+    sectionIds.length > 0 ? payload.find({ collection: 'sections', where: { id: { in: sectionIds } }, limit: sectionIds.length, depth: 0, overrideAccess: false, pagination: false, select: { slug: true } }).then((r) => r.docs) : Promise.resolve([]),
+    ...moduleRows.map((m) => findStories({ section: { equals: m.sectionId } }, m.count + MODULE_SLACK)),
   ])
   const pickedById = new Map(picked.map((s) => [String(s.id), s]))
   const curatedLead = leadId !== null ? (pickedById.get(String(leadId)) ?? null) : null
@@ -85,8 +96,16 @@ export async function loadHomepage(): Promise<HomepageData> {
   }
 
   const shown = [lead, ...top, feature?.story].filter((s): s is HomeStory => Boolean(s))
-  const local = remainingStories(localCandidates ?? recent, shown, localCount)
-  const sectionSlug = sectionId !== null ? ((await payload.find({ collection: 'sections', where: { id: { equals: sectionId } }, limit: 1, depth: 0, overrideAccess: false, select: { slug: true } })).docs[0]?.slug ?? null) : null
+  const slugById = new Map(sections.map((sec) => [String(sec.id), sec.slug]))
+  const filled = fillModules(
+    moduleRows.map((m, i) => {
+      const slug = slugById.get(String(m.sectionId))
+      return { key: m.key, heading: m.heading, href: slug ? `/${slug}` : null, count: m.count, candidates: sectionStories[i] ?? [] }
+    }),
+    shown,
+  )
+  // With no section set up (a new site) or none holding anything, one run of the newest stories stands in, so the page is never blank.
+  const modules = filled.length > 0 ? filled : [fallbackModule(recent, shown)].filter((m): m is FilledModule<HomeStory> => m !== null)
 
   const e = settings.emergency
   return {
@@ -95,7 +114,8 @@ export async function loadHomepage(): Promise<HomepageData> {
     leadKicker: settings.leadKicker?.trim() || null,
     top,
     feature,
-    local: { heading: settings.localNews?.heading?.trim() || 'Northwest Florida', stories: local, href: sectionSlug ? `/${sectionSlug}` : null },
+    modules,
+    allStoriesHref: ALL_STORIES_HREF,
   }
 }
 
