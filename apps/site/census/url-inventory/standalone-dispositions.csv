@@ -137,7 +137,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /d,/core/page/Page.hbs,,Layout D Homepage - WUWF | WUWF,page-hbs,proposed:drop,"Promo lists, same layout as /eb: looks like a layout test."
 /daily-schedule-for-wuwf-hd2-classical,/core/page/ContentPage.hbs,,Daily Schedule for WUWF-HD2 (Classical) | WUWF,schedule-weather,proposed:replace,"Schedule, grid or weather page: replaced by the schedule and weather features, redirect to them."
 /dauphin-island-sea-lab,/core/page/ContentPage.hbs,,Dauphin Island Sea Lab | WUWF,other-review,proposed:review,Needs a person to read it.
-/day-sponsor-messages,/core/page/ContentPage.hbs,,Day Sponsor Messages | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/day-sponsor-messages,/core/page/ContentPage.hbs,,Day Sponsor Messages | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support#levels (src/lib/giving/legacy-addresses.ts). Do not import.
 /dbt,/core/page/ContentPage.hbs,,dbt | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /dc-effect,/core/section/SectionPage.hbs,,The D.C. Effect | WUWF,section-landing,proposed:redirect,"Listing page with an empty main; no content. Drop (test-news) or fold into the section list (dc-effect, a live blog exists at /live-updates/the-d-c-effect)."
 /debate-2,/core/page/ContentPage.hbs,,Debate | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -232,7 +232,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /ladysmith-black-mambazo,/core/page/ContentPage.hbs,,Ladysmith Black Mambazo | WUWF,other-review,proposed:review,Needs a person to read it.
 /landrum,/core/page/ContentPage.hbs,,Landrum | WUWF,uwf-event-webcast,proposed:archive-page,UWF webcast with a Vimeo or YouTube video: collect on one archive page if UWF links to it (check Search Console links report); otherwise 410.
 /learning,/core/page/ContentPage.hbs,,Welcome to the Learning Minute | WUWF,other-review,proposed:review,Needs a person to read it.
-/leave-a-legacy,/core/page/ContentPage.hbs,,Leave A Legacy | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/leave-a-legacy,/core/page/ContentPage.hbs,,Leave A Legacy | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support/legacy (src/lib/giving/legacy-addresses.ts). Do not import.
 /lecture,/core/page/ContentPage.hbs,,Seligman Lecture | WUWF,uwf-event-webcast,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
 /live-senate-vote,/core/page/ContentPage.hbs,,Live: Senate Vote | WUWF,other-review,proposed:review,Needs a person to read it.
 /local-music-scene,/core/section/SectionPage.hbs,,Local Music Scene | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
@@ -246,7 +246,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /maintenance-alert,/core/page/ContentPage.hbs,,Maintenance Alert | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
 /management,/core/page/ContentPage.hbs,,Management | WUWF,other-review,proposed:review,Needs a person to read it.
 /map-and-directions,/core/page/ContentPage.hbs,,Map and Directions | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
-/membership-levels-and-benefits,/core/page/ContentPage.hbs,,Membership Levels and Benefits | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/membership-levels-and-benefits,/core/page/ContentPage.hbs,,Membership Levels and Benefits | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support#levels (src/lib/giving/legacy-addresses.ts). Do not import.
 /moc-symposium-82126,/core/page/ContentPage.hbs,,MOC Symposium 82126 | WUWF,uwf-event-webcast,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
 /music-arts,/core/section/SectionPage.hbs,,Music & Arts | WUWF,section-landing,proposed:merge,"Listing page (promo lists), no editorial text. Served by the generated section list at the same address; no hub needed."
 /my-minute-60a,/core/page/ContentPage.hbs,,My Minute 60a | WUWF,other-review,proposed:review,Needs a person to read it.
@@ -288,7 +288,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /questions,/core/page/ContentPage.hbs,,Questions | WUWF,other-review,proposed:review,Needs a person to read it.
 /radicalism-isis-and-national-security,/core/page/ContentPage.hbs,,"Radicalism, ISIS, and National Security | WUWF",other-review,proposed:review,Needs a person to read it.
 /radiolive,/core/page/ContentPage.hbs,,RadioLive | WUWF,radiolive,proposed:replace,"Replaced by the new RadioLive page (app route /radiolive, reserved). Do not import. Read 2026-11-06 (owner-approved): facts and gaps kept in ROADMAP."
-/real-estate-donation,/core/page/ContentPage.hbs,,Real Estate Donation | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/real-estate-donation,/core/page/ContentPage.hbs,,Real Estate Donation | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support/ways?way=vehicles (src/lib/giving/legacy-addresses.ts). Do not import.
 /rlnext,/core/page/ContentPage.hbs,,rlnext | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /rltixw,/core/page/ContentPage.hbs,,rltixw | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /s60,/core/page/ContentPage.hbs,,s60a | WUWF,test-scratch,proposed:drop,Test or scratch page.
@@ -321,7 +321,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /state-of-the-university-2018,/core/page/ContentPage.hbs,,State of the University 2018 | WUWF,uwf-event-webcast,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
 /storycorps,/core/page/ContentPage.hbs,,StoryCorps | WUWF,other-review,proposed:review,Needs a person to read it.
 /stream,/core/page/ContentPage.hbs,,stream | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
-/sustaining-membership,/core/page/ContentPage.hbs,,Sustaining Membership | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/sustaining-membership,/core/page/ContentPage.hbs,,Sustaining Membership | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support (src/lib/giving/legacy-addresses.ts). Do not import.
 /symposium,/core/page/ContentPage.hbs,,Symposium | WUWF,uwf-event-webcast,proposed:410,"UWF webcast shell with no working video (empty, or a livestream.com embed): 410 Gone."
 /t2,/core/page/ContentPage.hbs,,T2 | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /t66543,/core/page/ContentPage.hbs,,T66543 | WUWF,test-scratch,proposed:drop,Test or scratch page.
@@ -334,7 +334,7 @@ path,template,published,title,cluster,proposed_disposition,note
 /testimonials,/core/page/ContentPage.hbs,,Testimonials | WUWF,test-scratch,proposed:drop,Test or scratch page.
 /testpage,/core/page/Page.hbs,,Homepage - WUWFT | WUWF,page-hbs,proposed:drop,Test page.
 /testwebcast,/core/page/ContentPage.hbs,,testwebcast | WUWF,test-scratch,proposed:drop,Test or scratch page.
-/thanks-for-your-support,/core/page/ContentPage.hbs,,Thanks for Your Support! | WUWF,station-info,proposed:keep,Station information or membership page: keep as a standard page at the same address.
+/thanks-for-your-support,/core/page/ContentPage.hbs,,Thanks for Your Support! | WUWF,station-info,proposed:replace,Giving page: replaced by the giving pages (boards 14 to 14d); redirects to /support (src/lib/giving/legacy-addresses.ts). Do not import.
 /the-capitol-steps,/core/page/ContentPage.hbs,,The Capitol Steps | WUWF,other-review,proposed:review,Needs a person to read it.
 /the-dissertation-process,/core/page/ContentPage.hbs,,The Dissertation Process | WUWF,other-review,proposed:review,Needs a person to read it.
 /the-pulse-of-the-panhandle,/core/page/ContentPage.hbs,,The Pulse Of The Panhandle | WUWF,other-review,proposed:review,Needs a person to read it.
