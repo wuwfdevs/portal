@@ -13,7 +13,201 @@ design canvas are described under *Sources* below.
 of section blocks, with blocks stored as JSON, page sets and page-level themes. **It reverses *Pages and templates* below ("structure a
 developer has set... not a blocks field") and the two "every word is the global" decisions in `CLAUDE.md`; those stay in force until
 the owner approves the plan and its phase 1 rewrites them.** It has four open decisions for the owner and starts with a phase that
-proves the risky parts on a scratch database. Do not start building from it without the owner's go-ahead.
+proves the risky parts on a scratch database. Do not start building from it without the owner's go-ahead. **Phase 0 has been run: see
+the next section.**
+
+## Phase 0 findings: blocks as JSON on Payload 3.92.1 (2026-11-19; investigation only, nothing committed but documents)
+
+What was run, what happened, and what `PAGE-BLOCKS.md` now says differently. Everything ran against a local scratch Postgres
+(`wuwf_scratch`, port 5433); no hosted database and no preview build was touched. Result per item: **pass**, **fail**, or **works with
+this caveat**. The throwaway field, blocks, renderer, test scripts and the generated migration were reverted and are not in the
+repository (the working tree held only documents afterwards).
+
+**Verdict:** drafts, autosave, restore, scheduled publish, live preview and the converter did **not** fail, so the plan was not stopped.
+Two findings change the design and the owner should see them before phase 1: the converter has **no `down`** (one can be written; one
+worked), and **a block must not read request data on the server** (it gives a cached page a 500). Recommendation: go ahead with JSON
+storage, with the changes listed at the end.
+
+### Setup, and what the "fresh sandbox" notes missed
+
+- Node: the sandbox already had 22.23.5, which satisfies the pin (`^22.23.4`), so no download was needed (check `node -v` first).
+- Postgres 16 from the roadmap's block, port 5433. **pgvector was not installed** and the migrations run `CREATE EXTENSION vector`:
+  `apt-get update && apt-get install -y postgresql-16-pgvector` worked through the sandbox proxy.
+- A scratch `.env.local` (ignored by git) pointed at `wuwf_scratch`. The baseline was every committed migration (`pnpm payload migrate`),
+  dumped once with `pg_dump` so each experiment could restart from it.
+- **Scripts that open Payload in development push schema to the database** ("Pulling schema"). Run them with `NODE_ENV=production`, and
+  `< /dev/null` on every Payload command, as the Lessons say. `next dev` pushes too, which is how the throwaway `sections` columns got made.
+- Next dev, `pnpm build` and `pnpm start` were run on the scratch database for items 1, 5 and 7 (about 1.5 minutes per build).
+  `pnpm build` passed with the scratch code in. Stop servers by pid, not `pkill -f`.
+- Test users: the first user created gets every role, so an administrator was made first, then an `editor` and a `publisher`.
+
+### Item 1: drafts, autosave, restore, scheduled publish, live preview: **works with this caveat**
+
+Ran, with a `sections` field (blocks defined once in the root `blocks`, listed with `blockReferences`) on `pages`:
+
+- **Draft, then publish.** A draft whose hero block lacks its required `title` saves. Publishing it fails with the error on the block
+  (`sections.0.title`). A draft skips validation, a publish does not, as everywhere.
+- **Autosave** through REST the way the admin sends it (the whole document, `?draft=true&autosave=true`, `_status: draft`): three
+  autosaves made one draft version row (versions 1 to 2). The public read and the public page stayed on the published blocks; the
+  preview route plus its cookie rendered the autosaved blocks.
+- **Restore.** `restoreVersion` and the admin's "Restore this version" button (with its confirmation) both made a new published version
+  holding the old blocks, block ids included (a deep comparison with the stored version was equal). An editor's restore of a version is
+  refused by the existing publish guard. The admin's Versions view rendered a per-block diff ("Sections > Block 01 > Title").
+- **Scheduled publish and unpublish.** A `schedulePublish` job queued with `user: { relationTo: 'users', value: id }` and a `waitUntil` a
+  second ahead did nothing when run early and published the draft blocks when run after (`success`); a scheduled unpublish returned the
+  page to draft. A job queued for an editor fails by the same guard. (A bare user id in the job's input is rejected as a "legacy job".)
+- **Live preview.** In the admin, the `#live-preview-toggler` button opened the preview iframe (`/next/preview?path=...`), which showed the
+  draft; typing in the hero's title field changed the iframe about 1.1 seconds later (autosave, then `RefreshRouteOnSave`). No page errors.
+- **Caveat (not caused by JSON):** a Local API write of a *draft* that sends only some fields (`{ sections }`, or `{ summary }` on a page
+  without blocks) can leave `title`, `slug` and `template` empty in that version row, and later writes and a scheduled publish inherit the
+  gap ("The following fields are invalid: Title, Slug"). Reproduced on a second scratch database with `blocksAsJSON` off, on a plain
+  `standard` page, so it is Payload's handling of partial draft data. The admin always sends the whole form, so editors are not exposed;
+  **any script that writes drafts (the phase 3 page migrations, fixtures, importers) must send whole documents**, or write published.
+- Not run: the existing `pnpm test:int` suite, and the version diff for more than one block type.
+
+### Item 2: a picture in a block is populated; a deleted picture: **works with this caveat**
+
+- At depth 1 the upload in a block, the upload and the relationship (to a page) in a list inside a block are all populated; `populate:
+  { media: { url: true } }` narrowed them; a public read of a published page populated the picture. For stories, `select: { title,
+  featuredMedia }` at depth 1 populated a media block and the images of a gallery (the shape `CARD_FIELDS` uses).
+- Deleting the media record raised no error and left the page document alone. Reads return the **bare id as a number** (at depth 1 and 0),
+  not `null`. Saving the page again with the dead id was accepted, as a draft and as a publish (the picture was not `required`; a required
+  upload was not tested). The page rendered with HTTP 200 and showed "no picture" because the component checked `typeof picture ===
+  'object'`; a component that reads `picture.url` on a number would render nothing for it, so every block component needs that check.
+- A bonus: `where: { 'sections.picture': { equals: id } }` finds the pages that still point at a picture, which is a cheap clean-up query.
+
+### Item 3: `where` on a field inside a block: **works with this caveat**
+
+Ran about 25 queries through the Local API. Worked: `equals`, `in`, `like`, `not_like`, `exists` (true and false), `and`, `or`, on
+`sections.blockType`, a text field, a select, a checkbox, an upload, a relationship inside a list inside a block, `layout.*` and
+`featuredMedia.blockType` (the old fields, now JSON), `fields.blockType` on forms, `version.sections.blockType` through `findVersions`,
+and with `draft: true`.
+
+- **`contains` fails** on a JSON field: the adapter builds an invalid JSON-path operator (`@ ~ "x"`), a database error. `like` is the
+  substitute: it is a case-insensitive regular-expression match, so it finds substrings.
+- **Values** must match `[\w @.\-+:]*` or the request is a 400 ("... is not allowed as a JSON query value"): no apostrophe, slash, comma
+  or `&`. Fine for block slugs, ids and short labels; not for searching free text.
+- **`not_equals` and `not_in` mean "some block is not X"**, so "pages with no hero" cannot be asked directly; find the pages with one and
+  exclude their ids.
+- There is no index on the `jsonb` column; a block query reads every page. Not measured; the pages table is small.
+- The REST query string uses the same code path and was not run separately.
+
+### Item 4: field-level access inside a blocks field: **pass**
+
+A hero block had `internalNote` (readable by `content.write`, settable by `content.publish`), `secret` (both publish only), and a field
+with a `beforeChange` hook that refuses a non-publisher. Run as a public reader, an editor and a publisher, Local API, `overrideAccess:
+false`:
+
+- Public read: neither field is returned. Editor read: `internalNote` yes, `secret` no. Publisher read: both.
+- Editor update that changes `internalNote`: the value is silently kept (the old one stays). Editor create with both set: neither stored.
+- **The editor cannot read `secret`, so the form never sends it back; the save kept it.** This held when the editor **reordered** the
+  blocks and when the editor **deleted** another block: the denied value stays with its block (it is merged back by block id, not by
+  position). A block sent with a **new id** (a paste or a duplicate) comes back without it, which is the safe direction.
+- The hook-based guard also worked inside a block (the editor was refused, the publisher allowed).
+- The access function received `id`, `doc`, `data`, `siblingData`, `blockData` and `req` on update, even for a block listed by
+  `blockReferences` (the docs say collection data is not available there; it was on this path; the read path was not probed).
+- So **`restrictedBlocksGuard` is not needed for a blocks field**, only for rich text. A test in the style of
+  `restricted-blocks.int.spec.ts` should still pin it for each restricted field in a section block.
+- Not run: the same by REST, and an editor editing in the admin.
+
+### Item 5: `filterOptions`, copy and paste: **works with this caveat**
+
+- The block picker lists the four generic blocks for a page whose set is `giving` and five once the set is changed to `sponsor` (the
+  sponsor-only block appears), **live, without a save**, because `filterOptions` is re-evaluated as the sibling field changes. It works
+  with `blockReferences` and reads the sibling field (`siblingData.pageSet`) from the same level.
+- **It also validates.** Publishing a `giving` page that holds the sponsor-only block fails ("The block "sectionSponsorRates" is not
+  allowed", on `sections.0.id`); the same as a draft saves. A sponsor page holding it publishes; switching that page to `giving` and
+  publishing fails until the block is removed. A page with no set rejects set-only blocks. **An unknown block slug is rejected** in this
+  field (the Lessons say Payload drops an unknown block in rich text; with `filterOptions` it is an error).
+- **Copy and paste in the admin:** the row menu has Move Down, Add Below, Duplicate, **Copy Row**, **Paste Row**, Remove. Copy Row on page
+  C, then Paste Row on page D put the block in D, with a **new block id**, and autosave stored it. **Paste Row replaces the row it is used
+  on** (the docs say to add an empty block and paste over it). Pasted over a block of another type, the old block's field names
+  (`heading`) stayed in the new block's JSON: stale keys, harmless to render.
+- Not run: pasting a set-only block into a page of another set (it would be refused at publish by the rule above), "Paste Fields" (the
+  field-level paste; the docs say it replaces every row), and copy and paste as an editor.
+
+### Item 6: the converter: **works with these caveats (read first)**
+
+- **Command.** `pnpm payload migrate:create blocks_to_json --file @payloadcms/db-postgres/blocks-as-json` (with `NODE_ENV=production` and
+  `< /dev/null`). The name `blocks-as-json` is a file in `@payloadcms/db-postgres/dist/predefinedMigrations`, loaded by
+  `getPredefinedMigration`; the work is in `@payloadcms/drizzle/dist/utilities/blocksToJsonMigrator.js`. Then `pnpm payload migrate`.
+- **What it wrote.** A migration (`src/migrations/<stamp>_blocks_to_json.ts`, about 130 lines of SQL and a migrator call), its `.json`
+  snapshot, an entry in `src/migrations/index.ts`, and **a rewrite of `payload.config.ts`** that added `blocksAsJSON: true` and also
+  reformatted the whole file with Prettier (blank lines removed, lines wrapped). The SQL drops the 34 block tables (`pages_blocks_*`,
+  `_pages_v_blocks_*`, `posts_blocks_*`, `_posts_v_blocks_*`, `forms_blocks_*`), their enum types, **the `categories_id` column, foreign key
+  and index on `pages_rels` and `_pages_v_rels`** (the archive block's relationship), and adds `jsonb` columns `pages.layout`,
+  `_pages_v.version_layout`, `posts.featured_media`, `_posts_v.version_featured_media` and `forms.fields`. `up` first writes every
+  document and version to `src/migrations/.payload-blocks-migration/entities-batch-N.json` (100 per batch), runs the SQL, then writes the
+  rows back through the adapter and deletes the batch files. The whole run is one transaction.
+- **Data.** Seeded with the flag off: 3 stories (a media block, a gallery whose images are a list, an embed; one story edited so it has two
+  versions), 3 pages (`layout` of media, form, archive with a **category** and with **selected documents**, a call to action with
+  **links, one a reference to a page**, a content block with **two columns of rich text**; one page edited so it has versions; one page
+  that is a draft only) and a form with text, email, select (options) and textarea fields: 15 documents and versions. Read through the
+  Local API (depth 0, drafts, versions) before and after: **zero differences**, including block ids and relationship ids. Timestamps were
+  left out of that comparison and were not checked. The Local API reads of old and new are the same
+  shape, so no code that reads `featuredMedia` or `layout` through Payload changes; nothing in `src` or `scripts` reads the block tables
+  or queries into those fields by SQL (searched).
+- **Down: not supported.** The generated `down()` is empty. `pnpm payload migrate:down` rolled back the record and left the JSON schema
+  and no block tables (a config with the flag off would then fail). Mirroring the converter backwards in a scratch script worked: read
+  every document and version while the JSON columns exist, make the schema diff with drizzle-kit from the JSON schema to the relational one
+  (`requireDrizzleKit()`, `generateDrizzleJson`, `generateMigration`), run it, then write the rows back with the flag off. Read through the
+  Local API afterwards: **zero differences** from the original. So a real `down` is about 40 lines; Payload does not ship it.
+- **Failure mode.** With the flag still `false` in the config when `payload migrate` ran, the write-back failed
+  (`column pages__rels.categories_id does not exist`). The transaction rolled back (block tables intact, no migration record), but the
+  batch file stayed in `src/migrations/.payload-blocks-migration/` (the next run clears it). Put that folder in `.gitignore`.
+- **`pnpm verify:migrations`** passed with the generated migration and the flag set (7 seconds), and **failed** when the flag was taken
+  out again (it listed the `CREATE TYPE`/`CREATE TABLE` statements for the block tables), so it covers the change.
+- **Order on a preview build.** `scripts/vercel-build.sh` runs `payload migrate` and then `pnpm build`, so the flag and the migration go in
+  one commit. Because every preview deployment shares the staging database, once staging is converted any preview of a branch without
+  the flag reads tables that are gone (reasoned, not run: staging was not touched).
+- Not run: against staging data (its volume is unknown here; batches of 100 are held in memory and written to disk), on Vercel, the existing
+  integration tests, a form submission through the form block.
+
+### Item 7: a block that needs request data: **fails as designed; works another way**
+
+Read first: `node_modules/next/dist/docs/01-app` (`caching-without-cache-components.md`, `use-search-params.md`, `connection.md`, the
+glossary on request-time APIs). This app does not enable `cacheComponents`. Tested on `pnpm build` then `pnpm start`, with scratch pages
+holding one `sectionQuery` block in different modes. Cache state read from `x-nextjs-cache` and `Cache-Control`, and from timestamps in
+the HTML.
+
+| Mode | Page at the build | Behaviour |
+|---|---|---|
+| none (control) | prerendered | `HIT`, `s-maxage=3600`; timestamp never changes |
+| `useSearchParams` in a client component inside `Suspense` | prerendered | `HIT`; the browser reads `?way=` (`mail`, `phone`, none); the HTML has the fallback |
+| `await connection()` or `await headers()` in a server block (inside `Suspense`) | skipped by the build, dynamic | 200, `Cache-Control: private, no-store`; a new timestamp and the request's `User-Agent` on every request; every other page stays `HIT` |
+| the route awaits `searchParams` because the page holds a `server` block | skipped by the build, dynamic | 200, `no-store`; `?way=one` and `?way=two` give different content |
+| **`connection()` or the route's `searchParams`, added to a page that was prerendered, by an editor's save** (`headers()` is the same kind of call and was not run for this case) | prerendered, then edited | after the revalidation, **500 on every request**, digest `DYNAMIC_SERVER_USAGE` (the message is hidden in production, only the digest is logged) |
+| the same page, `connection()` block removed again | | recovers: one `MISS`, then `HIT` |
+| `useSearchParams` block added to a prerendered page | prerendered, then edited | stays `HIT` after the edit; no error |
+
+So the plan's sentence "a block declares the need and the page is rendered per request" holds only for a page that was already dynamic at
+the build. The `connection()` lesson above (500 in a route with `revalidate`) is this same failure. An editor cannot tell which state a page
+is in, so a server block must not read request data. What works: the client component for a query parameter (run), a client-side fetch or
+a server action for a token (reasoned, not run), and a coded route for a page that must be rendered on the server per request. A
+separate observation, **not about sections**: on this build a page created after the build (not in `generateStaticParams` then) was
+served per request with `no-store`, including a plain `standard` page, and `revalidatePath` after saving did not change that. Pages
+present at the build were cached for an hour. The cause was not found, and Vercel was not checked; it deserves a look on staging, since it
+means a new editor-made page is not cached until the next deploy (and so does not hit the 500 above until a build prerenders it).
+
+### What `PAGE-BLOCKS.md` was changed to say
+
+Storage section: the converter's command and what it does, no `down` (write one), the flag-before-migrate order, shared staging and other
+branches' previews, the dead id as a number, stale keys after paste, the query operator limits, field-level access and `filterOptions`
+behaviour. Rendering section: the request-data rule replaces "a block declares the need". Risks table: three rows added. Phase 0 checklist
+ticked and annotated. Open decision 2 annotated (converting works; recommend it over rebuilding staging).
+
+### What phase 1 should carry over (not started)
+
+- A hand-written `down` for the storage migration, tested up, down, up on rows seeded with the flag off, with the comparison script's
+  idea: read every document and version through the Local API before and after, and diff. Revert the Prettier rewrite of the config. Add
+  `.payload-blocks-migration` to `.gitignore`.
+- A test over `src/blocks/sections` that fails on `headers`, `cookies`, `connection` or `searchParams` in a block's server code.
+- Block components check `typeof value === 'object'` before using a populated relation; a registry test can render each block with
+  the relation as a bare number.
+- Page-writing scripts send whole documents (the draft caveat). Use `like` and `equals`, never `contains`, in a query on a block field.
+- Keep a test for the restricted fields of a section block (read, create, update, reorder), as `restricted-blocks.int.spec.ts` does for
+  rich text.
+- Look at a new page's cache behaviour on a staging deployment before the sponsor pilot depends on it.
 
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
