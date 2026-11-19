@@ -27,6 +27,9 @@ describe('section blocks: rules over the source', () => {
   it('never read a settings global directly (the save reaches pages only through the cache tag)', () => {
     for (const f of sources) expect(text(f), rel(f)).not.toMatch(/\.findGlobal\s*\(/)
   })
+  it('never import the story renderer statically (the registry is loaded by the Payload config, which cannot load it)', () => {
+    for (const f of sources) expect(text(f), rel(f)).not.toMatch(/^import[^;\n]*from\s+'@\/components\/RichText'/m)
+  })
   it('never set HTML from a string', () => {
     for (const f of sources) expect(text(f), rel(f)).not.toContain('dangerouslySetInnerHTML')
   })

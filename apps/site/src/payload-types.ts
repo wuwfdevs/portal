@@ -70,6 +70,7 @@ export interface Config {
     sectionCards: SectionCards;
     sectionStats: SectionStats;
     sectionQuestions: SectionQuestions;
+    sectionText: SectionText;
     sectionClosingBand: SectionClosingBand;
   };
   collections: {
@@ -618,6 +619,50 @@ export interface SectionQuestions {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionText".
+ */
+export interface SectionText {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Text, pictures, audio, video and embeds: the same blocks as a story.
+   */
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionText';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionClosingBand".
  */
 export interface SectionClosingBand {
@@ -687,7 +732,8 @@ export interface Page {
    * Do not tell the sites it links to where the visitor came from.
    */
   noReferrer?: boolean | null;
-  sections?: (SectionFeature | SectionCards | SectionStats | SectionQuestions | SectionClosingBand)[] | null;
+  sections?:
+    (SectionFeature | SectionCards | SectionStats | SectionQuestions | SectionText | SectionClosingBand)[] | null;
   /**
    * A short lead shown under the title. Optional.
    */

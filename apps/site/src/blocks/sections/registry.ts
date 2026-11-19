@@ -12,6 +12,8 @@ import { Questions } from './Questions/config'
 import { QuestionsSection } from './Questions/Component'
 import { Stats } from './Stats/config'
 import { StatsSection } from './Stats/Component'
+import { Text } from './Text/config'
+import { TextSection } from './Text/Component'
 import type { SectionBlockEntry } from './types'
 
 /**
@@ -28,6 +30,7 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Cards', block: Cards, Component: CardsSection },
   { dir: 'Stats', block: Stats, Component: StatsSection },
   { dir: 'Questions', block: Questions, Component: QuestionsSection },
+  { dir: 'Text', block: Text, Component: TextSection },
   { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
 ]
 

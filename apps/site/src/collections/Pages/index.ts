@@ -237,7 +237,7 @@ export const Pages: CollectionConfig<'pages'> = {
   hooks: {
     beforeValidate: [ensureSlug('title')],
     afterChange: [redirectOnPathChange, revalidatePage],
-    beforeChange: [enforcePageSet, restrictedBlocksGuard(['body']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
+    beforeChange: [enforcePageSet, restrictedBlocksGuard(['body', 'sections']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {
