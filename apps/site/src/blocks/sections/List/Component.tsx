@@ -16,6 +16,7 @@ export interface ListData extends SectionData {
   section?: unknown
   topic?: unknown
   show?: unknown
+  allShows?: boolean | null
   count?: number | null
   moreLabel?: string | null
   moreHref?: string | null
@@ -36,6 +37,21 @@ function Title({ item, className }: { item: ListItem; className: string }) {
         item.title
       )}
     </h3>
+  )
+}
+
+/** An entry's lines of words (a show's tagline, then its summary), one paragraph each. Nothing when it has none. */
+function Summary({ item }: { item: ListItem }) {
+  const lines = (item.summary ?? '').split('\n').map((l) => l.trim()).filter(Boolean)
+  if (lines.length === 0) return null
+  return (
+    <>
+      {lines.map((line, i) => (
+        <p className={i === 0 && lines.length > 1 ? 'text-sm [color:var(--tone-muted)]' : 'text-base'} key={i}>
+          {line}
+        </p>
+      ))}
+    </>
   )
 }
 
@@ -101,6 +117,33 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
           </ul>
         )}
       </div>
+    )
+  } else if (variant === 'tiles') {
+    body = (
+      <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((item) => (
+          <li className="relative flex flex-col overflow-hidden rounded-lg border [background:var(--tone-card)] [border-color:var(--tone-card-rule)]" key={item.id}>
+            <Picture className="aspect-square rounded-none" item={item} />
+            <div className="flex flex-col gap-1 p-4">
+              <Title className="font-serif text-xl font-bold leading-snug" item={item} />
+              <Summary item={item} />
+              {item.meta && <p className="mt-1 text-xs font-semibold [color:var(--tone-muted)]">{item.meta}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  } else if (variant === 'rows') {
+    body = (
+      <ol className="flex max-w-3xl list-none flex-col p-0">
+        {items.map((item) => (
+          <li className="relative flex flex-col gap-1 border-t py-4 last:border-b [border-color:var(--tone-rule)]" key={item.id}>
+            {item.meta && <p className={eyebrow}>{item.meta}</p>}
+            <Title className="font-serif text-xl font-bold leading-snug" item={item} />
+            <Summary item={item} />
+          </li>
+        ))}
+      </ol>
     )
   } else {
     body = (

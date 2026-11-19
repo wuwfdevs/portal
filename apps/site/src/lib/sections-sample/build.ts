@@ -99,9 +99,13 @@ export const SAMPLES: Record<string, Maker> = {
       { source: 'videos' },
       { source: 'artists' },
       refs.topicId !== undefined ? { source: 'stories', scope: 'topic', topic: refs.topicId } : { source: 'stories', scope: 'latest' },
-    ][toneIndex % 6]!
-    return { ...head(`${label} · ${String(plan.source)}`), ...plan, count: variant === 'lead' ? 4 : 6, moreLabel: 'All stories', moreHref: '/latest' }
+      { source: 'shows' },
+      { source: 'episodes', allShows: true },
+    ]
+    const picked = plan[toneIndex % plan.length]!
+    return { ...head(`${label} · ${String(picked.source)}`), ...picked, count: variant === 'lead' ? 4 : 6, moreLabel: 'All stories', moreHref: '/latest' }
   },
+  sectionBroadcastSchedule: ({ label }) => head(label, 'The week’s programs for each stream, from the Listen live settings and NPR Cadence.'),
   sectionDates: ({ refs, toneIndex, label }) => ({
     ...head(label),
     source: (['typed', 'radiolive', 'events'] as const)[toneIndex % 3],

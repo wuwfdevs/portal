@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  artistListItem, audioOf, datePartsOf, isUpcoming, performanceDateItem, pictureOf, productionFeatured, relationId, storyFeatured, storyListItem, typedDateItem, upcomingDates,
+  artistListItem, audioOf, datePartsOf, episodeListItem, isUpcoming, performanceDateItem, pictureOf, productionFeatured, relationId, showListItem, storyFeatured, storyListItem, typedDateItem, upcomingDates,
 } from './shape'
 
 const media = { id: 5, url: '/media/a.jpg', alt: 'A guitar', width: 800, height: 600, mimeType: 'image/jpeg', updatedAt: '2026-11-01T00:00:00Z', focalX: 10, focalY: 90 }
@@ -49,6 +49,31 @@ describe('story and show shaping', () => {
   it('an artist links to its RadioLive page', () => {
     expect(artistListItem({ id: 1, name: 'Pat Byrn', slug: 'pat-byrn', photo: media })).toMatchObject({ id: 'artist-1', href: '/radiolive/artists/pat-byrn' })
     expect(artistListItem({ id: 1, slug: 'x' })).toBeNull()
+  })
+})
+
+describe('shows and episodes as list entries', () => {
+  const show = { id: 4, title: 'Gulf Coast Reports', path: '/shows/gulf-coast', tagline: 'Stories from the shore', summary: 'Weekly reporting.', heroImage: { id: 9, url: '/media/cover.jpg', alt: 'Cover' } }
+  it('a show has its cover, its tagline and summary on lines, and how many episodes and when the newest came out', () => {
+    const item = showListItem(show, { episodes: 12, latestPublishedAt: '2026-11-03T15:00:00.000Z' })
+    expect(item).toMatchObject({ id: 'show-4', title: 'Gulf Coast Reports', href: '/shows/gulf-coast', summary: 'Stories from the shore\nWeekly reporting.' })
+    expect(item?.image?.url).toBe('/media/cover.jpg')
+    expect(item?.meta).toBe('12 episodes · latest Nov 3, 2026')
+  })
+  it('says "1 episode", leaves the date off when there is none, and draws a bare cover id as no picture', () => {
+    expect(showListItem({ ...show, heroImage: 9, tagline: null, summary: null }, { episodes: 1 })).toMatchObject({ meta: '1 episode', image: null, summary: null })
+  })
+  it('leaves out a show with no title or id, and an address that is not on this site', () => {
+    expect(showListItem({ id: 1 }, { episodes: 0 })).toBeNull()
+    expect(showListItem({ title: 'X' }, { episodes: 0 })).toBeNull()
+    expect(showListItem({ ...show, path: 'https://evil.example' }, { episodes: 0 })?.href).toBeNull()
+  })
+  it('an episode carries its show, its date and its length', () => {
+    const e = { id: 7, title: 'Hurricane season', path: '/shows/gulf-coast/2026-11-03/hurricane', publishedAt: '2026-11-03T15:00:00.000Z', featuredAudio: { id: 2, url: '/a.mp3', durationSeconds: 1680 } }
+    expect(episodeListItem(e, 'Gulf Coast Reports')).toMatchObject({ id: 'post-7', title: 'Hurricane season', href: '/shows/gulf-coast/2026-11-03/hurricane', image: null })
+    expect(episodeListItem(e, 'Gulf Coast Reports')?.meta).toMatch(/^Gulf Coast Reports · Nov 3, 2026 · /)
+    expect(episodeListItem({ id: 8, title: 'No audio' }, null)?.meta).toBeNull()
+    expect(episodeListItem({ id: 8 }, null)).toBeNull()
   })
 })
 

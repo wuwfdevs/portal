@@ -46,6 +46,8 @@ import { OpenPrograms } from './OpenPrograms/config'
 import { OpenProgramsSection } from './OpenPrograms/Component'
 import { Packages } from './Packages/config'
 import { PackagesSection } from './Packages/Component'
+import { BroadcastSchedule } from './BroadcastSchedule/config'
+import { BroadcastScheduleSection } from './BroadcastSchedule/Component'
 import { Columns } from './Columns/config'
 import { ColumnsSection } from './Columns/Component'
 import { Illustration } from './Illustration/config'
@@ -80,6 +82,7 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Cards', block: Cards, Component: CardsSection },
   { dir: 'List', block: List, Component: ListSection },
   { dir: 'Dates', block: Dates, Component: DatesSection },
+  { dir: 'BroadcastSchedule', block: BroadcastSchedule, Component: BroadcastScheduleSection },
   { dir: 'Quotes', block: Quotes, Component: QuotesSection },
   { dir: 'Stats', block: Stats, Component: StatsSection },
   { dir: 'Steps', block: Steps, Component: StepsSection },

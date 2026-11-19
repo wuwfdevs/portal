@@ -83,3 +83,30 @@ describe('List section: the four layouts', () => {
     expect(view({}, [])).toBe('')
   })
 })
+
+describe('List section: tiles and rows (the podcast directory)', () => {
+  const shows: ListItem[] = [
+    { id: 'show-1', title: 'Gulf Coast Reports', href: '/shows/gulf-coast', image: picture, meta: '12 episodes · latest Nov 3, 2026', summary: 'Stories from the shore\nWeekly reporting.' },
+    { id: 'show-2', title: 'No cover', href: '/shows/none', image: null, meta: '1 episode', summary: null },
+  ]
+  it('tiles: a square picture, the show as one link, its lines and its count', () => {
+    const html = view({ variant: 'tiles' }, shows)
+    expect(html).toContain('aspect-square')
+    expect(html).toContain('Stories from the shore')
+    expect(html).toContain('Weekly reporting.')
+    expect(html).toContain('12 episodes · latest Nov 3, 2026')
+    expect(html.match(/<a /g)).toHaveLength(2)
+  })
+  it('rows: the details line first, then the title, and no picture', () => {
+    const html = view({ variant: 'rows' }, entries)
+    expect(html).not.toContain('<img')
+    expect(html.indexOf('Story · Nov 1, 2026')).toBeLessThan(html.indexOf('First story'))
+    expect(html).toContain('<ol')
+  })
+  it('asks for every listed show, and for episodes across all shows only when told', async () => {
+    await draw({ source: 'shows', count: 3, show: 2 })
+    expect(loadList).toHaveBeenLastCalledWith({ source: 'shows' })
+    await draw({ source: 'episodes', allShows: true, show: 2, count: 4 })
+    expect(loadList).toHaveBeenLastCalledWith({ source: 'episodes', all: true, count: 4 })
+  })
+})

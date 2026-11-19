@@ -7,6 +7,8 @@ export const LIST_VARIANTS = [
   { label: 'Rail: one row that scrolls sideways', value: 'rail' },
   { label: 'Numbered: a ranked list', value: 'numbered' },
   { label: 'Lead and list: one large, the rest beside it', value: 'lead' },
+  { label: 'Tiles: square pictures with a line or two of words', value: 'tiles' },
+  { label: 'Rows: a line of details, then the title, no pictures', value: 'rows' },
 ] as const
 
 /**
@@ -30,6 +32,7 @@ export const List = defineSection({
         options: [
           { label: 'Stories', value: 'stories' },
           { label: 'Episodes of a show', value: 'episodes' },
+          { label: 'Every listed show (the podcast directory)', value: 'shows' },
           { label: 'Video stories', value: 'videos' },
           { label: 'RadioLive artists', value: 'artists' },
         ],
@@ -47,8 +50,15 @@ export const List = defineSection({
       },
       { name: 'section', type: 'relationship', relationTo: 'sections', admin: { condition: (_, s) => s?.source === 'stories' && s?.scope === 'section' } },
       { name: 'topic', type: 'relationship', relationTo: 'categories', admin: { condition: (_, s) => s?.source === 'stories' && s?.scope === 'topic' } },
-      { name: 'show', type: 'relationship', relationTo: 'productions', admin: { condition: (_, s) => s?.source === 'episodes' } },
-      { name: 'count', type: 'number', min: 1, max: 12, defaultValue: 6, admin: { description: 'How many to show, 1 to 12.' } },
+      {
+        name: 'allShows',
+        type: 'checkbox',
+        label: 'Episodes from every listed show',
+        defaultValue: false,
+        admin: { description: 'The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.', condition: (_, s) => s?.source === 'episodes' },
+      },
+      { name: 'show', type: 'relationship', relationTo: 'productions', admin: { condition: (_, s) => s?.source === 'episodes' && s?.allShows !== true } },
+      { name: 'count', type: 'number', min: 1, max: 12, defaultValue: 6, admin: { description: 'How many to show, 1 to 12. A list of shows has every listed show.', condition: (_, s) => s?.source !== 'shows' } },
       { name: 'moreLabel', type: 'text', admin: { description: 'Optional link under the list: "All stories".' } },
       { name: 'moreHref', type: 'text', label: 'More link', validate: validateHref },
     ],

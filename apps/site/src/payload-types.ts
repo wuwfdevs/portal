@@ -72,6 +72,7 @@ export interface Config {
     sectionCards: SectionCards;
     sectionList: SectionList;
     sectionDates: SectionDates;
+    sectionBroadcastSchedule: SectionBroadcastSchedule;
     sectionQuotes: SectionQuotes;
     sectionStats: SectionStats;
     sectionSteps: SectionSteps;
@@ -1583,7 +1584,7 @@ export interface SectionList {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
-  variant: 'grid' | 'rail' | 'numbered' | 'lead';
+  variant: 'grid' | 'rail' | 'numbered' | 'lead' | 'tiles' | 'rows';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1596,16 +1597,20 @@ export interface SectionList {
    * Where the heading sits. A phone always shows it above.
    */
   placement?: ('stacked' | 'side') | null;
-  source: 'stories' | 'episodes' | 'videos' | 'artists';
+  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'artists';
   /**
    * Stories only.
    */
   scope?: ('latest' | 'section' | 'topic') | null;
   section?: (number | null) | Section;
   topic?: (number | null) | Category;
+  /**
+   * The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.
+   */
+  allShows?: boolean | null;
   show?: (number | null) | Production;
   /**
-   * How many to show, 1 to 12.
+   * How many to show, 1 to 12. A list of shows has every listed show.
    */
   count?: number | null;
   /**
@@ -1678,6 +1683,39 @@ export interface SectionDates {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionDates';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionBroadcastSchedule".
+ */
+export interface SectionBroadcastSchedule {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionBroadcastSchedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3189,6 +3227,7 @@ export interface Page {
         | SectionCards
         | SectionList
         | SectionDates
+        | SectionBroadcastSchedule
         | SectionQuotes
         | SectionStats
         | SectionSteps
@@ -6926,7 +6965,7 @@ export interface ListenLive {
       }[]
     | null;
   /**
-   * Cards under the player: on the radio, the app, smart speakers. Empty hides the section.
+   * Moved to the schedule page’s sections. Kept until phase 7.
    */
   otherWays?:
     | {

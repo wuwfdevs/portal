@@ -64,6 +64,7 @@ import * as migration_20261119_200000_sponsor_pages_clean2 from './20261119_2000
 import * as migration_20261119_222418_giving_settings from './20261119_222418_giving_settings';
 import * as migration_20261119_223000_giving_pages_as_sections from './20261119_223000_giving_pages_as_sections';
 import * as migration_20261119_233120_shared_text from './20261119_233120_shared_text';
+import * as migration_20261119_235000_station_pages_as_sections from './20261119_235000_station_pages_as_sections';
 
 export const migrations = [
   {
@@ -395,5 +396,10 @@ export const migrations = [
     up: migration_20261119_233120_shared_text.up,
     down: migration_20261119_233120_shared_text.down,
     name: '20261119_233120_shared_text'
+  },
+  {
+    up: migration_20261119_235000_station_pages_as_sections.up,
+    down: migration_20261119_235000_station_pages_as_sections.down,
+    name: '20261119_235000_station_pages_as_sections'
   },
 ];

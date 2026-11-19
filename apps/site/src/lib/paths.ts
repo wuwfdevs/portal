@@ -11,9 +11,9 @@ export const MAX_PATH_LENGTH = 512
 
 /**
  * First segments that page sets own: pages (records) live at them and under them, so a record may take a path there, but a **section** may not be named
- * one (its list would sit at the same address as the page and be hidden by it). `/sponsor` (phase 3) and `/support` (phase 4).
+ * one (its list would sit at the same address as the page and be hidden by it). `/sponsor` (phase 3), `/support` (phase 4) and `/podcasts` (phase 5: the podcast directory is a page of sections).
  */
-export const PAGE_SET_FIRST_SEGMENTS: ReadonlySet<string> = new Set(['sponsor', 'support'])
+export const PAGE_SET_FIRST_SEGMENTS: ReadonlySet<string> = new Set(['sponsor', 'support', 'podcasts'])
 
 /** The first segment of a request that a route, file or plugin already owns. A record may not take a path under one. */
 export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
@@ -26,7 +26,6 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'latest',
   'search',
   'live-updates',
-  'podcasts',
   'video',
   'radiolive',
   'account',
