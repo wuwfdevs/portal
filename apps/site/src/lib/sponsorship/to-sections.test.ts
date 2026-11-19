@@ -121,6 +121,14 @@ describe('the six sponsorship pages as sections', () => {
     const lists = (guidelines.columns as Array<{ sections: Array<{ blockType: string; mark: string }> }>).map((col) => col.sections[0]!)
     expect(lists.map((l) => l.mark)).toEqual(['check', 'cross'])
   })
+  it('keeps each guidelines list’s own visibility: a list an editor hid stays hidden in its column', () => {
+    const g = JSON.parse(JSON.stringify(starter)) as Sponsorship
+    g.guidelines!.leavesOut!.show = false
+    const cols = sponsorPagesFromGlobal(g).find((p) => p.path === '/sponsor/credit-guidelines')!.sections.find((s) => s.id.endsWith('includes'))!
+    const lists = (cols.columns as Array<{ sections: Array<{ hidden: boolean }> }>).map((c) => c.sections[0]!.hidden)
+    expect(lists).toEqual([false, true])
+    expect(cols.hidden).toBe(false)
+  })
   it('holds only sections a Columns block may hold, and never a Columns block', () => {
     for (const s of all.filter((x) => x.blockType === 'sectionColumns')) {
       for (const col of s.columns as Array<{ sections: Array<{ blockType: string }> }>) for (const h of col.sections) expect(INLINE_SLUGS as readonly string[], h.blockType).toContain(h.blockType)

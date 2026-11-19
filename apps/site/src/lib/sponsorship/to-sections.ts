@@ -87,7 +87,7 @@ const placementTable = (rows: readonly Placement[] | null | undefined) => {
 const TONE_DOWN = 'grey' as const
 
 /** A section held by a Columns block: the same shape as a page's, with no tone of its own (the Columns block's band carries it). */
-const held = (id: string, blockType: string, fields: Record<string, unknown>, variant?: string) => ({ id, blockType, hidden: false, ...(variant ? { variant } : {}), ...clean(fields) })
+const held = (id: string, blockType: string, fields: Record<string, unknown>, variant?: string, hidden = false) => ({ id, blockType, hidden, ...(variant ? { variant } : {}), ...clean(fields) })
 const illustration = (id: string, label: string, ex: { name?: string | null; line?: string | null; website?: string | null } | null | undefined, withLine = true) =>
   held(id, 'sectionIllustration', { label, caption: 'Sponsor message', name: t(ex?.name), line: withLine ? t(ex?.line) : undefined, website: withLine ? t(ex?.website) : undefined })
 
@@ -346,8 +346,8 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
         'plain',
         {
           columns: [
-            { sections: incItems.length > 0 ? [held('sponsor-credit-guidelines-includes-list', 'sectionCheckList', { heading: clean({ eyebrow: t(inc?.eyebrow), title: t(inc?.title) }), mark: 'check', items: incItems })] : [] },
-            { sections: lvItems.length > 0 ? [held('sponsor-credit-guidelines-leaves-out-list', 'sectionCheckList', { heading: clean({ eyebrow: t(lv?.eyebrow), title: t(lv?.title) }), mark: 'cross', items: lvItems })] : [] },
+            { sections: incItems.length > 0 ? [held('sponsor-credit-guidelines-includes-list', 'sectionCheckList', { heading: clean({ eyebrow: t(inc?.eyebrow), title: t(inc?.title) }), mark: 'check', items: incItems }, undefined, off(inc))] : [] },
+            { sections: lvItems.length > 0 ? [held('sponsor-credit-guidelines-leaves-out-list', 'sectionCheckList', { heading: clean({ eyebrow: t(lv?.eyebrow), title: t(lv?.title) }), mark: 'cross', items: lvItems }, undefined, off(lv))] : [] },
           ],
         },
         { variant: 'equal', anchor: 'includes', hidden: off(inc) && off(lv) },
