@@ -69,31 +69,26 @@ export function PickerSection({ block }: SectionProps<PickerData>) {
   return (
     <SectionBand block={block}>
       <SectionHeading heading={block.heading} />
-      <div className="flex flex-col gap-6">
+      {/* Inputs, choices and panels are siblings in one group, so a checked input's CSS peer rule reaches the choice and the panel after it. */}
+      <div aria-label={block.heading?.title?.trim() || 'Choose one'} className="flex flex-wrap gap-3" role="radiogroup">
         {options.map((o, i) => (
           <input className={`peer/p${i} sr-only`} defaultChecked={i === 0} id={`${key}-${i}`} key={`in-${o.id ?? i}`} name={key} type="radio" value={String(i)} />
         ))}
-        <div aria-label={block.heading?.title?.trim() || 'Choose one'} className="flex flex-wrap gap-3" role="group">
-          {options.map((o, i) => (
-            <label
-              className={cn(
-                'flex min-h-14 cursor-pointer flex-col justify-center rounded-sm border px-5 py-2 [border-color:currentColor] outline-offset-2',
-                CHOSEN[i],
-                FOCUS[i],
-              )}
-              htmlFor={`${key}-${i}`}
-              key={`lb-${o.id ?? i}`}
-            >
-              <span className="text-base">{o.label}</span>
-              {o.hint?.trim() && <span className="text-sm font-normal [color:var(--tone-muted)]">{o.hint}</span>}
-            </label>
-          ))}
-        </div>
+        {options.map((o, i) => (
+          <label
+            className={cn('flex min-h-14 cursor-pointer flex-col justify-center rounded-sm border px-5 py-2 [border-color:currentColor] outline-offset-2', CHOSEN[i], FOCUS[i])}
+            htmlFor={`${key}-${i}`}
+            key={`lb-${o.id ?? i}`}
+          >
+            <span className="text-base">{o.label}</span>
+            {o.hint?.trim() && <span className="text-sm font-normal [color:var(--tone-muted)]">{o.hint}</span>}
+          </label>
+        ))}
         {options.map((o, i) => {
           const points = linesOf(o.points)
           const price = priceOf(o)
           return (
-            <div className={cn('hidden max-w-3xl flex-col gap-3 border-t-4 pt-4 [border-color:var(--tone-rule)]', SHOW[i])} data-panel={i} key={`pn-${o.id ?? i}`}>
+            <div className={cn('mt-3 hidden w-full max-w-3xl flex-col gap-3 border-t-4 pt-4 [border-color:var(--tone-rule)]', SHOW[i])} data-panel={i} key={`pn-${o.id ?? i}`}>
               <h3 className="font-serif text-2xl font-bold">{o.title}</h3>
               {o.lead?.trim() && <p className="text-lg">{o.lead}</p>}
               {points.length > 0 && (

@@ -1998,21 +1998,21 @@ export interface SectionCredit {
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
   /**
-   * Whose acknowledgment to show: the line comes from its underwriting agreement. A page that is not one of these has no credit here.
+   * Whose acknowledgment to show: the line comes from its underwriting agreement. Not chosen, or no running agreement: nothing is drawn. A page that is not one of these has no credit here.
    */
-  target:
-    | {
+  target?:
+    | ({
         relationTo: 'productions';
         value: number | Production;
-      }
-    | {
+      } | null)
+    | ({
         relationTo: 'fellowships';
         value: number | Fellowship;
-      }
-    | {
+      } | null)
+    | ({
         relationTo: 'series';
         value: number | Series;
-      };
+      } | null);
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCredit';

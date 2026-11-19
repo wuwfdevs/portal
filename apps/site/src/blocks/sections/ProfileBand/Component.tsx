@@ -22,7 +22,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
     return (
       <SectionBand block={block}>
         <SectionHeading heading={block.heading} />
-        <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid list-none grid-cols-2 gap-4 p-0 sm:gap-6 lg:grid-cols-4">
           {people.map((p, i) => (
             <li className="flex flex-col gap-3" key={p.id ?? `${p.name}-${i}`}>
               {hasPicture(p.photo) && (

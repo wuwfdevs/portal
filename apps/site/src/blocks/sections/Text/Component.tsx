@@ -49,7 +49,7 @@ export async function TextSection({ block }: SectionProps<TextData>) {
   return (
     <SectionBand block={block}>
       <SectionHeading heading={block.heading} />
-      <RichText className={`max-w-3xl ${TONE_PROSE}`} data={block.body as never} enableGutter={false} />
+      <RichText className={`mx-0 max-w-3xl ${TONE_PROSE}`} data={block.body as never} enableGutter={false} />
     </SectionBand>
   )
 }

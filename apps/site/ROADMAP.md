@@ -352,6 +352,84 @@ covered by the integration tests). Not run: on Vercel.
 **Next.** Rebase open branches; look at the preview (a converted story, a sections page) and at a new page's cache behaviour on that deployment (phase 0
 item 7's open question); remove the `blocks` template; then phase 2, the library.
 
+## Phase 2: the section library (built 2026-11-19; not yet on staging; the exit is the owner looking at the sample page)
+
+`PAGE-BLOCKS.md` phase 2, on the owner's confirmed order (a first slice, then the guard and Text, then the typed blocks, then the data blocks), the
+Picker built with typed prices and a marked seam, and the guard extended before Text shipped. Rules for the result are in `CLAUDE.md` → *Pages and
+sections*; the map is `ARCHITECTURE.md`. No migration: a block is JSON. Nothing was pushed to or written on staging or production.
+
+**What was built.** 18 blocks, each with a config, a component, a test, a picker group and a 3:2 thumbnail, and one entry in `registry.ts`: Feature
+(hero, split), Featured record (hero, split), Profile band (about, roster), Cards, List (grid, rail, numbered, lead), Dates (rows, cards), Quotes,
+Stats (tiles, compare), Steps (grid, list), Questions, Callout (tint, quote), Check list, Table, Picker, Text, Credit, Support, Closing band. Shared
+parts in `blocks/sections/parts.tsx` (tone-aware buttons and links, the picture and the `typeof` check). The data blocks read through
+`lib/section-data` (pure `shape.ts` and `specs.ts`, tested; `load.ts` with the cached reads). `rules.test.ts` scans every block's source for request
+data, direct global reads, raw HTML, an unsafe link, free colour or HTML fields in a config, and static imports that would put Payload inside the
+registry (below).
+
+**The guard.** `restrictedBlocksGuard` read only a field's own rich text. `legacy-html-guard.ts` now walks every object in the value it is given, so a
+rich-text state nested in a block (the Text block's body, and any later block with rich text) is checked for preserved HTML and script widgets, keyed
+by block id (a moved section is not a change). The pages collection guards `['body', 'sections']`. Tests first, then the code: 4 unit tests failed
+before the change; an integration case (a page section as an editor, a publisher and an administrator) joins the existing walk over every place with
+story content; `restrictedBlocksGuard.test.ts` fails when a section block uses `bodyEditor` and pages does not guard `sections`. Mutation-checked: Pages
+guarding only `body`, and the walker back to root-only, each fail the unit and integration tests.
+
+**Findings (they changed the work).**
+- **The registry is loaded by the Payload CLI, which cannot load most of what a component imports.** `registry.ts` imports every component and the
+  config imports the registry, so a component that statically imports the story renderer (`server-only` modules through the listening block), the
+  global helper or a loader (they load the config: a cycle) made `pnpm generate:types` and the integration tests fail ("Cannot find package
+  'server-only'", a `.scss` error). Those are imported **inside** the async component, when it draws (`await import(...)`); `rules.test.ts` fails on a
+  static import. This is the one thing a new data block must know.
+- **A page holding a data block gets its own short cache window.** Run on a production build: the sample page answered `s-maxage=300` and an ordinary
+  page `s-maxage=3600`, from the loaders' `unstable_cache` windows (list 300, featured 600, dates 300, credit 300, one shared clock of 300). A stale
+  read cache survives a rebuild (`.next/cache`): after changing data, delete it before judging a build.
+- **The sample page's publish test found a required field**: Credit's `target` was required, so the sample could not publish on a database with no
+  fellowship or show. It is optional now, like every other data block's record (no record, nothing drawn).
+- **Audit, 988 text elements and 30 buttons across all six tones on the built page (headless Chromium, desktop width)**: no text under 4.5:1 (3:1 for
+  large text), no button fill under 3:1 against its ground; the same audit with the bar raised to 12 flags 382, so it can fail. The Text block needed
+  the typography plugin's colours pointed at the band's tone (`--tw-prose-*`); without it body text was dark on dark. The Picker's first markup could
+  not style the chosen option (a peer rule does not reach a label inside another element): inputs, choices and panels are siblings now.
+- **No horizontal scroll** at 375, 768 and 1280 px, and no console error, on the sample page.
+- **The Picker works with script off** (a mouse click on a choice and an arrow key both change the panel), because the options are radio buttons.
+
+**Checks (scratch database, local).** `pnpm typecheck`: clean. `pnpm lint`: no new error (the one existing error, `PlayerProvider.test.ts`, is untouched; the one warning in the new code's neighbourhood is phase 1's `any` in `blocks/sections/types.ts`). `pnpm test:int`: **221 files, 2,473 tests pass** (phase 1 ended at 198 files and 2,239). `pnpm build`: passes. `pnpm verify:migrations`: passes (no migration was added). `generate:types` and `generate:importmap` committed. Mutation checks, each by breaking the code and watching a test fail (all caught): a populated-relation
+check removed; a date that never expires; the Picker with no default; the Support link with no `supportHref`; a percentage bar without its clamp; a
+table row not padded; a List reading a hidden variant's field; Questions not a `<details>`; a hero without an `<h1>`; a Callout drawing without text;
+typed dates that never drop off; request data in a block; a static import of the story renderer. One survivor, the `typeof` check in `populatedMedia`
+(a second check on `url` also catches a bare id), got a direct unit test and was then caught.
+
+**The sample page.** `src/lib/sections-sample/build.ts` (pure; one maker per block, a test fails until a new block has one) builds 108 sections (every
+block in every tone; each variant at least once, dealt out across the tones) and `scripts/sections/seed-sample-page.ts` writes them as the page
+`internal-sections-sample`: a **draft** by default (open it in the admin and use Live preview, which has Mobile, Tablet and Desktop), `--publish` to
+make it live at `/internal-sections-sample` (noindex, no referrer, not linked). It refuses any database but staging or one on this machine, writes one
+page, reads the rest (pictures, a story, a section, a topic, a show, a fellowship), and `--fixtures` (a database on this machine only) first makes
+generated pictures, stories, episodes, artists and RadioLive nights. An integration test publishes the page with no records at all. On the scratch
+database it drew 106 of 108 sections (the two community-calendar Dates sections have no events there). **Not run on staging: the owner has not said to.**
+`pnpm seed:sections-sample` is the dry run; `pnpm seed:sections-sample --go` writes the draft.
+
+**What a reviewer will see that is not a bug.**
+- The sample is a mirror of the catalogue, not a design: the words are board 28's, the pictures on a scratch database are generated gradients.
+- A data block draws what its database holds; a section whose record or source is missing draws nothing (the community Dates, Credit without a
+  running agreement, Support without the donation form address in the Giving pages global).
+- Typed dates in the sample are set relative to the day the page was made, and one is already past on purpose (it must not draw).
+
+**Left out, on purpose (each is a decision or a later phase).**
+- **Picker prices are typed text.** The seam (`priceOf` in `Picker/Component.tsx`, the comment on `Picker/config.ts`, the `price` field's help text) is where
+  a reference to `sponsorship-settings` goes when phase 3 answers the open question.
+- **Featured record picks a story, an episode or a show, or the newest story of a section.** Leads computed from a rule (RadioLive's next show, the Voyager
+  and Unearthing leads) are phase 6.
+- **Rail has no arrow buttons** (board 28 draws one each, 44 px): it is a labelled region that scrolls and takes the keyboard (`role="region"`, `tabindex`).
+  Arrows need a client component; add them if the owner wants them.
+- **Table's cells are a typed list** (`hasMany` text per row), so an empty cell is a dash. **Check list is one list**; two lists on a page are two blocks.
+- **Closing band has no form.** The Unearthing tip, Voyager pitch and Barefoot Mary story forms (open decision 8) are not built.
+- **A-Z of artists** is not built (no page needs it yet). **Dates from the community calendar** reads `loadCalendar` for the next occurrences; it was
+  not run against real events on this database.
+- **Credit's panel stays a neutral light panel on every tone** (a credit is never in a sponsor's or a hub's colours); on the dark tone it is a light box.
+- **Support's address** is the Giving pages global's monthly form until phase 4 moves it into the giving settings.
+- **Open from phase 1, untouched:** the unused `blocks` template (its removal is its own small change) and the set footer line (phases 3 and 4).
+
+**Next.** The owner looks at the sample page (on staging, with the owner's go-ahead for the draft write, or from the screenshots and the script on a
+scratch database); then phase 3, the sponsor pages, which is the decision point in `PAGE-BLOCKS.md`.
+
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
 The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older

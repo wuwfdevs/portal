@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -347,8 +347,18 @@ Local API rendered with theme, tone, anchor and set navigation. An admin save wa
 
 ### Phase 2: the library
 
-- [ ] The library of about 18 blocks, with their variants, each with a thumbnail, over `PageParts`.
-- [ ] One internal sample page in staging that uses every block in every tone, for review at phone, tablet and desktop widths.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 2*. Not yet on staging.
+
+- [x] The library: 18 blocks with their variants, each with a thumbnail, a test and one registry entry. Built over the shared tone-aware parts in
+      `blocks/sections/parts.tsx` and the existing logic (`paragraphs`, `toStats`, `Acknowledgment`, `PlayAudioButton`, `FeatureSection` for the
+      Featured record); `PageParts` keeps its fixed colours for the pages built before sections, because its markup is not right on a dark tone.
+- [x] `restrictedBlocksGuard` walks `sections` (rich text inside block data) before the Text block shipped; tested as an editor, a publisher and an
+      administrator, and mutation-checked.
+- [x] The data blocks (Featured record, List, Dates, Credit) read through `lib/section-data` with their own `revalidate`, imported only when they draw.
+- [x] The Picker with typed prices and a marked seam for the settings reference (the question stays open until phase 3).
+- [x] The sample page (`lib/sections-sample`, `scripts/sections/seed-sample-page.ts`): 108 sections, every block in every tone, every variant at least
+      once; tested to publish; checked on a production build at 375, 768 and 1280 px (no horizontal scroll, no console error, text and button contrast).
+- [ ] **The sample page in staging, and the owner's look at it.** A draft write to one page, on the owner's go-ahead.
 
 **Exit:** the owner has looked at the sample page.
 
