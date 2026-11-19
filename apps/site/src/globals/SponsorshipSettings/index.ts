@@ -21,7 +21,7 @@ import { area, group, list, num, text } from '../fieldBuilders'
 export const SponsorshipSettings: GlobalConfig = {
   slug: 'sponsorship-settings',
   label: 'Sponsorship settings',
-  admin: { group: 'Site settings', livePreview: { url: '/sponsor' }, description: 'Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.' },
+  admin: { livePreview: { url: '/sponsor' }, description: 'Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.' },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: {
     afterChange: [

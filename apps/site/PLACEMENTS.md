@@ -2,7 +2,7 @@
 
 How sponsor messages and WUWF's own promotions reach the site: what a **zone** is, what a **placement** is, who may make one, what is built and what is
 not. Rules live in `CLAUDE.md`; state and history in `ROADMAP.md`. The zones are `src/lib/placements/registry.ts`; the collection editors use is
-`src/collections/PlacementItems.ts` (admin: **Commercial → Placements**); what runs on a page is decided by `src/lib/placements/resolve.ts`.
+`src/collections/PlacementItems.ts` (admin: **Sponsorship → Placements**); what runs on a page is decided by `src/lib/placements/resolve.ts`.
 
 ## Two layers, so rethinking placements never needs a deploy
 
@@ -55,9 +55,9 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 - **Designed, not built:** `story.rail` and `story.inline` have a spec in the registry (`built: false`) and cannot be chosen in the admin. Build one with
   the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that, and must respect the exclusions above).
 
-## Making a placement (Commercial → Placements)
+## Making a placement (Sponsorship → Placements)
 
-Name (for staff), kind, sponsor (chosen from **Commercial → Sponsors**, so a sponsor is one record across underwriting and placements), zone,
+Name (for staff), kind, sponsor (chosen from **Sponsorship → Sponsors**, so a sponsor is one record across underwriting and placements), zone,
 picture (and a phone picture for a band), what the picture says (read aloud, so kept to 160 characters), where it goes, **order** (lower runs first,
 ties go to the one made first), first and last day (whole days, judged on the station's Central-time calendar day), and a Show switch. In a zone that
 can be aimed: **only the pages chosen** (sections, topics, reporters, the all-stories page) or **every page**.

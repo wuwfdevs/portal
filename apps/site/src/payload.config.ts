@@ -53,6 +53,7 @@ import { Sponsorship } from './globals/Sponsorship'
 import { SponsorshipSettings } from './globals/SponsorshipSettings'
 import { SupportPage } from './SupportPage/config'
 import { plugins } from './plugins'
+import { adminNavGroups } from './plugins/adminNav'
 import { storagePlugin } from './plugins/storage'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
@@ -66,14 +67,18 @@ export default buildConfig({
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeLogin: ['@/components/BeforeLogin'],
-      // The Network queue: stories from other stations and NPR waiting for an editor (ROADMAP -> Network content).
-      afterNavLinks: ['@/components/admin/NetworkQueue/NavLink#NetworkQueueNavLink'],
-      views: {
-        networkQueue: { Component: '@/components/admin/NetworkQueue#NetworkQueue', path: '/network-queue' },
-      },
+      // The station's wordmark on the sign-in screen and its mark in the navigation (`components/admin/Brand`).
+      graphics: { Logo: '@/components/admin/Brand/Logo#AdminLogo', Icon: '@/components/admin/Brand/Icon#AdminIcon' },
+      // The sidebar is the tree in `lib/admin-nav.ts`, two levels deep (Payload's own is one level and cannot nest).
+      Nav: '@/components/admin/Nav#AdminNav',
     },
     importMap: {
       baseDir: path.resolve(dirname),
+    },
+    // The browser tab: "<page> - WUWF.org admin", with the station's mark.
+    meta: {
+      titleSuffix: ' - WUWF.org admin',
+      icons: [{ rel: 'icon', type: 'image/svg+xml', url: '/favicon.svg' }],
     },
     user: Users.slug,
     livePreview: {
@@ -152,7 +157,8 @@ export default buildConfig({
   ],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, SponsorshipSettings],
-  plugins: [...plugins, storagePlugin],
+  // `adminNavGroups` runs last so it also reaches the collections the other plugins add.
+  plugins: [...plugins, storagePlugin, adminNavGroups],
   secret: process.env.PAYLOAD_SECRET,
   sharp,
   // Payload's default is 20 MiB per file and 50 MiB per request, which rejects (HTTP 413) a long station recording.

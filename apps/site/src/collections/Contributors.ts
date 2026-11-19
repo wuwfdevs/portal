@@ -24,7 +24,7 @@ export const Contributors: CollectionConfig = {
     update: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
   },
-  admin: { group: 'Editorial', useAsTitle: 'name', defaultColumns: ['name', 'title', 'updatedAt'] },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'title', 'updatedAt'] },
   hooks: { beforeValidate: [ensureSlug('name')], beforeChange: [legacyIdentityWriteOnce, restrictedBlocksGuard(['biography'])],
     // Their page (/people/<slug>) shows the profile, so an edit must reach readers at once, under the old address too.
     afterChange: [

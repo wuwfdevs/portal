@@ -20,7 +20,6 @@ export const Categories: CollectionConfig = {
     update: requirePermission('content.write'),
   },
   admin: {
-    group: 'Editorial',
     useAsTitle: 'title',
   },
   hooks: { beforeValidate: [ensureSlug('title')], afterChange: [revalidateTopic] },

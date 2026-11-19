@@ -23,7 +23,6 @@ export const NetworkSources: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: {
-    group: 'Network',
     useAsTitle: 'name',
     defaultColumns: ['name', 'findBy', 'mode', 'section', 'active', 'lastPolledAt'],
     description: 'Stations and NPR sections whose stories reach the Network queue.',

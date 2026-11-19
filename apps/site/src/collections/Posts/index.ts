@@ -31,6 +31,8 @@ import { PERIOD_OPTIONS } from '../../lib/unearthing/periods'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
+  // Editors and the roadmap call them stories; the slug (and so the generated `Post` type) stays.
+  labels: { singular: 'Story', plural: 'Stories' },
   access: {
     create: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
@@ -54,7 +56,6 @@ export const Posts: CollectionConfig<'posts'> = {
     },
   },
   admin: {
-    group: 'Content',
     defaultColumns: ['title', 'path', 'updatedAt'],
     livePreview: {
       url: ({ data, req }) => generatePreviewPath({ collection: 'posts', data, req }),

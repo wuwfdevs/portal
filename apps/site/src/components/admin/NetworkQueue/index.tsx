@@ -1,37 +1,26 @@
 import { Gutter } from '@payloadcms/ui'
-import type { AdminViewServerProps } from 'payload'
+import type { ListViewServerProps } from 'payload'
 import React from 'react'
 
 import { userCan } from '@/access/permissions'
-import { ago, audioNote, imageNote, QUEUE_VIEWS, queueFilter } from '@/lib/network/queue'
+import { ago, audioNote, imageNote, pageRange, PUBLISH_AVAILABLE, QUEUE_PAGE_SIZE, QUEUE_VIEWS, queueFilter, queueHref, queuePage, thumbnailHref } from '@/lib/network/queue'
 
-import { NetworkQueueActions } from './Actions'
+import { SourceFilter } from './SourceFilter'
+import { QueueTable, type QueueRow } from './Table'
+import './queue.scss'
 
 /**
- * The Network queue: stories other stations and NPR published that are waiting for an editor (ROADMAP -> Network content). A custom admin
- * view at `/admin/network-queue`, drawn on the server from the real collections as the signed-in staff member, so what an editor sees is
- * what their permissions allow. Restricted stories are never here: they are filtered out before anything is saved.
+ * The Network queue: stories other stations and NPR published that are waiting for an editor (ROADMAP -> Network content). It is the list
+ * view of the Network stories collection, so there is one screen, not a queue beside a list of the same rows. Drawn on the server from the
+ * real collections as the signed-in staff member, so what an editor sees is what their permissions allow. Restricted stories are never
+ * here: they are filtered out before anything is saved.
  *
- * Uses Payload's own theme variables (it lives in the admin), not the public site's design tokens.
+ * It uses Payload's theme variables (it lives in the admin), which `app/(payload)/custom.scss` maps to the WUWF design tokens.
  */
-
-const card: React.CSSProperties = { border: '1px solid var(--theme-elevation-150)', borderRadius: 4, padding: 16, background: 'var(--theme-elevation-50)', display: 'grid', gap: 8 }
-const muted: React.CSSProperties = { color: 'var(--theme-elevation-600)', margin: 0, fontSize: 14 }
-const chip = (on: boolean): React.CSSProperties => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 44,
-  padding: '0 14px',
-  borderRadius: 22,
-  border: '1px solid var(--theme-elevation-300)',
-  background: on ? 'var(--theme-elevation-800)' : 'var(--theme-elevation-0)',
-  color: on ? 'var(--theme-elevation-0)' : 'var(--theme-text)',
-  textDecoration: 'none',
-})
 
 const first = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v)
 
-type ItemView = {
+type Doc = {
   id: number | string
   title: string
   teaser?: string | null
@@ -45,95 +34,107 @@ type ItemView = {
   audio?: { href?: string | null } | null
 }
 
-export async function NetworkQueue({ initPageResult, searchParams }: AdminViewServerProps) {
-  const { req } = initPageResult
-  const { payload, user } = req
+export async function NetworkQueue({ payload, user, searchParams }: ListViewServerProps) {
   const adminRoute = payload.config.routes.admin
+  const base = `${adminRoute}/collections/network-items`
 
   if (!userCan(user as never, 'content.write')) {
     return (
       <Gutter>
         <h1>Network queue</h1>
-        <p style={muted}>Your account cannot open this. Ask an administrator for the editor role.</p>
+        <p className="wuwf-queue__muted">Your account cannot open this. Ask an administrator for the editor role.</p>
       </Gutter>
     )
   }
 
   const filter = queueFilter({ view: first(searchParams?.view), source: first(searchParams?.source) })
-  const [items, sources] = await Promise.all([
-    payload.find({ collection: 'network-items', where: filter.where, sort: '-publishedAt', limit: 50, depth: 1, user, req, overrideAccess: false }),
-    payload.find({ collection: 'network-sources', where: { active: { equals: true } }, sort: 'name', limit: 100, pagination: false, depth: 0, user, req, overrideAccess: false }),
+  const requestedPage = queuePage(first(searchParams?.page))
+
+  const [sources, ...counts] = await Promise.all([
+    payload.find({ collection: 'network-sources', where: { active: { equals: true } }, sort: 'name', limit: 100, pagination: false, depth: 0, user, overrideAccess: false }),
+    // One count per tab, for the chosen source, so a tab says how much is behind it.
+    ...QUEUE_VIEWS.map((v) => payload.count({ collection: 'network-items', where: queueFilter({ view: v.key, source: filter.sourceId !== null ? String(filter.sourceId) : undefined }).where, user, overrideAccess: false })),
   ])
+  const countFor = Object.fromEntries(QUEUE_VIEWS.map((v, i) => [v.key, counts[i].totalDocs])) as Record<string, number>
+
+  const total = countFor[filter.view]
+  const range = pageRange(requestedPage, QUEUE_PAGE_SIZE, total)
+  const page = Math.min(requestedPage, range.pages)
+  const items = await payload.find({ collection: 'network-items', where: filter.where, sort: '-publishedAt', limit: QUEUE_PAGE_SIZE, page, depth: 1, user, overrideAccess: false })
+
   const now = new Date()
-  const href = (view: string, source: number | null) => `${adminRoute}/network-queue?view=${view}${source !== null ? `&source=${source}` : ''}`
+  const rows: QueueRow[] = (items.docs as unknown as Doc[]).map((item) => ({
+    id: String(item.id),
+    title: item.title,
+    teaser: item.teaser ?? null,
+    status: item.status,
+    source: typeof item.source === 'object' && item.source ? (item.source.name ?? null) : null,
+    found: ago(item.publishedAt, now),
+    image: thumbnailHref(item.image?.href),
+    hasAudio: Boolean(item.audio?.href),
+    original: item.canonicalUrl ?? null,
+    notes: [imageNote(item.imageDroppedAsRestricted), audioNote(item.audioSkipped)].filter((n): n is string => n !== null),
+    detailHref: `${base}/${item.id}`,
+  }))
+
+  const href = (state: { view?: typeof filter.view; source?: number | null; page?: number }) => queueHref(base, { view: filter.view, source: filter.sourceId, ...state })
+  const sourceList = sources.docs.map((s) => ({ id: Number(s.id), name: String(s.name) }))
+  const sourceHrefs = Object.fromEntries([['', href({ source: null, page: 1 })], ...sourceList.map((s) => [String(s.id), href({ source: s.id, page: 1 })] as const)])
 
   return (
     <Gutter>
-      <h1 style={{ marginBottom: 4 }}>Network queue</h1>
-      <p style={{ ...muted, maxWidth: 640 }}>
-        Stories from other stations and NPR that are waiting for an editor. Nothing here is on the site until it is published. Stories NPR marks as restricted never
-        appear: they are left out before anything is saved.
-      </p>
+      <div className="wuwf-queue">
+        <header className="wuwf-queue__head">
+          <h1>Network queue</h1>
+          <p className="wuwf-queue__muted">
+            Stories from other stations and NPR that are waiting for an editor. Nothing here is on the site until it is published. Stories NPR marks as restricted never appear: they
+            are left out before anything is saved.
+          </p>
+          {!PUBLISH_AVAILABLE ? (
+            <p className="wuwf-queue__banner" role="note">
+              <strong>Publishing is not available yet.</strong> It needs the story converter, which waits on the site’s NPR key. Until then you can keep stories for later or dismiss the
+              ones you will not use.
+            </p>
+          ) : null}
+        </header>
 
-      <nav aria-label="Filter the queue" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '16px 0' }}>
-        {QUEUE_VIEWS.map((v) => (
-          <a key={v.key} href={href(v.key, filter.sourceId)} aria-current={filter.view === v.key ? 'page' : undefined} style={chip(filter.view === v.key)}>
-            {v.label}
-          </a>
-        ))}
-        <span aria-hidden="true" style={{ alignSelf: 'center', color: 'var(--theme-elevation-400)' }}>
-          |
-        </span>
-        <a href={href(filter.view, null)} aria-current={filter.sourceId === null ? 'page' : undefined} style={chip(filter.sourceId === null)}>
-          All sources
-        </a>
-        {sources.docs.map((s) => (
-          <a key={s.id} href={href(filter.view, Number(s.id))} aria-current={filter.sourceId === Number(s.id) ? 'page' : undefined} style={chip(filter.sourceId === Number(s.id))}>
-            {s.name}
-          </a>
-        ))}
-      </nav>
+        <div className="wuwf-queue__filters">
+          <nav className="wuwf-queue__tabs" aria-label="Which stories">
+            {QUEUE_VIEWS.map((v) => (
+              <a key={v.key} href={href({ view: v.key, page: 1 })} aria-current={filter.view === v.key ? 'page' : undefined} className="wuwf-queue__tab">
+                {v.label} <span className="wuwf-queue__count">{countFor[v.key]}</span>
+              </a>
+            ))}
+          </nav>
+          {sourceList.length > 0 ? <SourceFilter sources={sourceList} current={filter.sourceId} hrefFor={sourceHrefs} /> : null}
+        </div>
 
-      {items.docs.length === 0 ? (
-        <p style={muted}>Nothing here. {sources.totalDocs === 0 ? 'There are no sources yet: add one under Network sources.' : 'New stories appear here after the next check.'}</p>
-      ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 12 }}>
-          {(items.docs as unknown as ItemView[]).map((item) => {
-            const sourceName = typeof item.source === 'object' && item.source ? item.source.name : null
-            const notes = [imageNote(item.imageDroppedAsRestricted), audioNote(item.audioSkipped)].filter((n): n is string => n !== null)
-            return (
-              <li key={item.id} style={card}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  {sourceName ? <strong>{sourceName}</strong> : null}
-                  {ago(item.publishedAt, now) ? <span style={muted}>{ago(item.publishedAt, now)}</span> : null}
-                  {item.status === 'held' ? <span style={muted}>Kept for later</span> : null}
-                  {item.status === 'gone' ? <strong style={{ color: 'var(--theme-warning-500)' }}>Removed at the source</strong> : null}
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>{item.title}</div>
-                {item.teaser ? <p style={{ margin: 0 }}>{item.teaser}</p> : null}
-                <p style={muted}>
-                  {item.image?.href ? 'Has a picture' : 'No picture'}. {item.audio?.href ? 'Has audio.' : 'No audio.'}
-                  {item.canonicalUrl ? (
-                    <>
-                      {' '}
-                      <a href={item.canonicalUrl} target="_blank" rel="noopener noreferrer">
-                        Open the original
-                      </a>
-                    </>
-                  ) : null}
-                </p>
-                {notes.map((n) => (
-                  <p key={n} style={{ ...muted, color: 'var(--theme-warning-500)' }}>
-                    {n}
-                  </p>
-                ))}
-                <NetworkQueueActions id={item.id} status={item.status} />
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      {items.totalDocs > items.docs.length ? <p style={muted}>Showing the newest {items.docs.length} of {items.totalDocs}.</p> : null}
+        {rows.length === 0 ? (
+          <p className="wuwf-queue__empty">
+            {sourceList.length === 0
+              ? 'There are no sources yet. Add one under Network sources, and its stories will appear here after the next check.'
+              : filter.view === 'waiting'
+                ? 'Nothing is waiting. New stories appear here after the next check.'
+                : filter.view === 'held'
+                  ? 'Nothing is kept for later.'
+                  : 'No story has been removed at its source.'}
+          </p>
+        ) : (
+          <QueueTable rows={rows} />
+        )}
+
+        {total > QUEUE_PAGE_SIZE ? (
+          <nav className="wuwf-queue__pages" aria-label="Pages of stories">
+            {page > 1 ? <a href={href({ page: page - 1 })}>← Newer</a> : <span />}
+            <span className="wuwf-queue__muted">
+              {range.from} to {range.to} of {total}
+            </span>
+            {page < range.pages ? <a href={href({ page: page + 1 })}>Older →</a> : <span />}
+          </nav>
+        ) : null}
+      </div>
     </Gutter>
   )
 }
+
+export default NetworkQueue

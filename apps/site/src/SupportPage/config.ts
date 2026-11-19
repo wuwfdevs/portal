@@ -78,7 +78,7 @@ const levelsField = withRowLabel(
 export const SupportPage: GlobalConfig = {
   slug: 'support-page',
   label: 'Giving pages',
-  admin: { group: 'Pages & hubs', livePreview: { url: '/support' } },
+  admin: { livePreview: { url: '/support' } },
   access: { read: () => true, update: canEdit },
   hooks: {
     afterChange: [

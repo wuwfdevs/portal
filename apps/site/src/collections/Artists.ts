@@ -16,7 +16,7 @@ export const Artists: CollectionConfig = {
   slug: 'artists',
   labels: { singular: 'Artist', plural: 'Artists' },
   access: { read: anyone, create: requirePermission('content.write'), update: requirePermission('content.write'), delete: requirePermission('content.publish') },
-  admin: { group: 'RadioLive', useAsTitle: 'name', defaultColumns: ['name', 'updatedAt'], description: 'Musicians who play RadioLive. Add one here, then put them in a show\'s lineup.' },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'updatedAt'], description: 'Musicians who play RadioLive. Add one here, then put them in a show\'s lineup.' },
   hooks: {
     beforeValidate: [ensureSlug('name')],
     afterChange: [({ doc, previousDoc, req: { context } }) => {

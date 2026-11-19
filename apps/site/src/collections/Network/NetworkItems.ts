@@ -23,7 +23,8 @@ const fromSource = (field: Field & { name: string }): Field => ({ ...field, acce
  */
 export const NetworkItems: CollectionConfig = {
   slug: 'network-items',
-  labels: { singular: 'Network story', plural: 'Network stories' },
+  // The plural is the screen's name (the list is the queue), so the sidebar, the dashboard and the page title all say the same thing.
+  labels: { singular: 'Network story', plural: 'Network queue' },
   access: {
     read: requirePermission('content.write'),
     // Rows are created and removed by the poll and the retention job. Editors change only a story's status (and may delete a stray).
@@ -32,10 +33,13 @@ export const NetworkItems: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: {
-    group: 'Network',
     useAsTitle: 'title',
     defaultColumns: ['title', 'status', 'source', 'publishedAt'],
-    description: 'Stories waiting for an editor, and a record of what was found. The queue is the way to work through them.',
+    description: 'Stories waiting for an editor, and a record of what was found.',
+    components: {
+      // The list of these stories is the Network queue (`components/admin/NetworkQueue`): one screen, not a queue beside a list of the same rows.
+      views: { list: { Component: '@/components/admin/NetworkQueue#NetworkQueue' } },
+    },
   },
   hooks: {
     beforeChange: [

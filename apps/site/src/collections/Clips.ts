@@ -27,7 +27,7 @@ export const Clips: CollectionConfig = {
     update: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
   },
-  admin: { group: 'Editorial', useAsTitle: 'title', defaultColumns: ['title', 'series', '_status', 'publishedAt'], description: 'Short vertical video. Needs captions to publish.' },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'series', '_status', 'publishedAt'], description: 'Short vertical video. Needs captions to publish.' },
   hooks: {
     beforeValidate: [ensureSlug('title')],
     beforeChange: [enforcePublishPermission, stampPublished],

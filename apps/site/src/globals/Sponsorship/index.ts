@@ -22,7 +22,7 @@ export const Sponsorship: GlobalConfig = {
   label: 'Sponsorship pages',
   // Hidden from the admin menu since phase 3 moved the six pages into `pages` (Pages → Sponsorship set): their words are on the pages' sections now and
   // editing this would change nothing a visitor sees. It keeps its data until phase 7 drops it, because the migration that moved the pages reads it.
-  admin: { group: 'Pages & hubs', hidden: true, description: 'Moved. The sponsorship pages are edited under Pages; prices and contact details under Sponsorship settings.' },
+  admin: { hidden: true, description: 'Moved. The sponsorship pages are edited under Pages; prices and contact details under Sponsorship settings.' },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: {
     afterChange: [

@@ -15,7 +15,7 @@ export const Sponsors: CollectionConfig = {
     // Editors may need to see who a fellowship's funder is; the public never reads this collection.
     read: ({ req }) => Boolean(req.user),
   },
-  admin: { group: 'Commercial', useAsTitle: 'name', defaultColumns: ['name', 'url', 'updatedAt'] },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'url', 'updatedAt'] },
   hooks: { beforeValidate: [ensureSlug('name')] },
   fields: [
     { name: 'name', type: 'text', required: true },

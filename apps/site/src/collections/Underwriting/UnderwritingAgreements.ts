@@ -21,7 +21,6 @@ export const UnderwritingAgreements: CollectionConfig = {
     read: ({ req }) => Boolean(req.user),
   },
   admin: {
-    group: 'Commercial',
     useAsTitle: 'label',
     defaultColumns: ['label', 'sponsor', 'kind', 'startsOn', 'endsOn', 'active'],
     description: 'Changing the wording here changes every page the agreement reaches.',
