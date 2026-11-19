@@ -112,7 +112,6 @@ export const PlacementItems: CollectionConfig = {
     delete: ownedBy,
   },
   admin: {
-    group: 'Commercial',
     useAsTitle: 'name',
     defaultColumns: ['name', 'kind', 'where', 'enabled', 'runUntil', 'order'],
     listSearchableFields: ['name'],

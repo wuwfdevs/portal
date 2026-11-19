@@ -32,7 +32,7 @@ const action = (name: string, label: string, defaultLabel: string, extra: Field[
  */
 export const Header: GlobalConfig = {
   slug: 'header',
-  admin: { group: 'Site settings', livePreview: { url: '/' } },
+  admin: { livePreview: { url: '/' } },
   access: {
     read: () => true,
     update: requirePermission('content.publish'),

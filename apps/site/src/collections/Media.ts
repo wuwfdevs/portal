@@ -25,7 +25,6 @@ export const Media: CollectionConfig = {
     update: requirePermission('content.write'),
   },
   admin: {
-    group: 'Media library',
     // The library is searched by name, alt text and credit; each is indexed so the search stays fast on thousands of files.
     listSearchableFields: ['filename', 'alt', 'credit'],
   },

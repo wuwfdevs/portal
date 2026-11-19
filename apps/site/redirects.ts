@@ -29,5 +29,8 @@ export const redirects: NextConfig['redirects'] = async () => {
     { source: '/posts/page/:pageNumber(\\d+)', destination: '/latest/page/:pageNumber', permanent: true },
   ]
 
-  return [...givingRedirects, ...postsRedirects, internetExplorerRedirect]
+  // The Network queue was a custom admin page of its own; it is now the list of Network stories (`collections/Network/NetworkItems.ts`), one screen.
+  const adminRedirects = [{ source: '/admin/network-queue', destination: '/admin/collections/network-items', permanent: false }]
+
+  return [...givingRedirects, ...postsRedirects, ...adminRedirects, internetExplorerRedirect]
 }

@@ -26,7 +26,6 @@ export const Events: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: {
-    group: 'Community calendar',
     useAsTitle: 'title',
     defaultColumns: ['title', 'review.status', 'firstDate', '_status'],
     listSearchableFields: ['title', 'venue.name', 'organization.name'],

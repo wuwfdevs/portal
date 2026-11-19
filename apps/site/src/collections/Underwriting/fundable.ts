@@ -33,7 +33,7 @@ export function fundableCollection(opts: {
       update: requirePermission('content.write'),
       delete: requirePermission('content.publish'),
     },
-    admin: { group: 'Editorial', useAsTitle: 'title', description: opts.description, defaultColumns: ['title', 'slug', 'updatedAt'] },
+    admin: { useAsTitle: 'title', description: opts.description, defaultColumns: ['title', 'slug', 'updatedAt'] },
     fields: [
       { name: 'title', type: 'text', required: true },
       slugField(),

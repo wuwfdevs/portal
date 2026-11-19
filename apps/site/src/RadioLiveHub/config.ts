@@ -15,7 +15,7 @@ import { revalidateRadioLiveHub } from './hooks/revalidate'
 export const RadioLiveHub: GlobalConfig = {
   slug: 'radiolive-hub',
   label: 'RadioLive page',
-  admin: { group: 'Pages & hubs', livePreview: { url: '/radiolive' } },
+  admin: { livePreview: { url: '/radiolive' } },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateRadioLiveHub] },
   fields: [

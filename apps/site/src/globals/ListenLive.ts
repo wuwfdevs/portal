@@ -11,7 +11,7 @@ import { revalidateTag, revalidatePath } from '@/lib/revalidate'
 export const ListenLive: GlobalConfig = {
   slug: 'listen-live',
   label: 'Listen live',
-  admin: { group: 'Site settings', livePreview: { url: '/schedule' } },
+  admin: { livePreview: { url: '/schedule' } },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: {
     afterChange: [

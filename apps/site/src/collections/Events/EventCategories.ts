@@ -10,7 +10,7 @@ export const EventCategories: CollectionConfig = {
   slug: 'event-categories',
   labels: { singular: 'Event category', plural: 'Event categories' },
   access: { read: anyone, create: requirePermission('content.publish'), update: requirePermission('content.publish'), delete: requirePermission('content.publish') },
-  admin: { group: 'Community calendar', useAsTitle: 'title', defaultColumns: ['title', 'slug'] },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'slug'] },
   defaultSort: 'title',
   fields: [
     { name: 'title', type: 'text', required: true },

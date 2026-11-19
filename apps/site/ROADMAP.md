@@ -1896,6 +1896,15 @@ above still apply to these feeds too.
 **Owner to confirm:** the members' panel wording ("This episode is for WUWF sustaining members…"); the Chenier licence (or keep Lora); the
 header-strip layout split; whether a members-only story should exist on staging before 7b (today nobody outside the staff can read it).
 
+### Admin sidebar and look (2026-11-19)
+
+Owner asked for a clearer admin hierarchy, a two-level sidebar, one Network screen and the brand's tokens and logo. Rules are in `CLAUDE.md` -> *The admin: sidebar and look*.
+
+- **Sidebar:** one tree (`src/lib/admin-nav.ts`) replaces the groups listed under *Admin organization* below: Stories, Pages, Shows & series, Events (Community calendar; RadioLive), Organize, Media library, Sponsorship, Members & accounts, System, Site settings. A custom `Nav` draws two levels; `plugins/adminNav.ts` sets each entity's group and sorts the config so the dashboard matches. "Users" is "Staff accounts", Posts are "Stories", Network stories are the "Network queue". Settings moved to their domain (Sponsorship settings under Sponsorship). Not built: the in-tree split of Pages by page set (sponsor, giving) as filtered links; nothing needs it until phase 4.
+- **Network queue** is the one Network screen (the list view of `network-items`), rebuilt: counts, source dropdown, thumbnails, paging, bulk actions, a confirm before Dismiss, one "Publishing is not available yet" banner. **Checked in a browser against seeded rows** (keep, bulk dismiss, a mixed bulk keep, paging, the source filter, phone width, dark mode). **Not checked:** a thumbnail that loads (the sandbox cannot reach NPR's image hosts, so only the blank fallback was seen), and whether NPR allows hotlinking (still open, above).
+- **Look:** Payload's variables come from the tokens (`lib/admin-theme`, `pnpm generate:admin-theme`), primary buttons are the station blue, the WUWF wordmark is on the sign-in screen and in the navigation, and the tab title and favicon are the station's. Light and dark mode both follow the tokens.
+- **Pre-existing, not touched:** `PlayerProvider.test.ts` fails lint (`react/no-children-prop`), and `revalidateSiteSettings.test.ts` reports an unhandled rejection from plugin-seo during `buildConfig` (`Cannot destructure property 'slug' of 'global'`); both reproduce on a clean tree.
+
 ### Admin organization and merged collections (2026-11-03)
 
 - **Sidebar groups:** Content (Posts, Pages), Media library (Media, Audio, Video), Editorial, Community calendar, Commercial,
@@ -2130,7 +2139,7 @@ through a "network" tab in Grove's admin that filters by an ID. What that ID is 
   source: new stories since the cursor (`publishDateTime`), then a re-check of stories held (`ids`): refreshed, flagged "removed at the source"
   (published) or deleted (waiting), or, if they turned restricted, blanked to a tombstone and their post sent back to draft. Waiting stories first
   found over 30 days ago are deleted (constant for now, `lib/network/retention.ts`; Site settings is the plan). A failed source records the error and keeps its cursor.
-- The queue: custom admin view `/admin/network-queue` (`components/admin/NetworkQueue`), filters by view and source, keep / release / dismiss.
+- The queue: first a custom admin view `/admin/network-queue`; since 2026-11-19 the **list view of `network-items`** (see *Admin sidebar and look*): tabs with counts, a source dropdown, paging, bulk keep / dismiss, dismiss confirms.
 
 **Not built, and why:**
 - **The CDS story body converter, and so publishing** (by an editor, or on its own for `auto` sources). It needs a real CDS document's `layout` and the

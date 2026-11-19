@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { ago, audioNote, imageNote, queueFilter } from './queue'
+import { ago, audioNote, bulkTargets, imageNote, pageRange, queueFilter, queueHref, queuePage, rowMoves, thumbnailHref } from './queue'
+import { statusChangeAllowed } from './status'
 
 describe('queueFilter', () => {
   it('shows waiting stories (new and kept) by default', () => {
@@ -52,5 +53,61 @@ describe('notes for what was left out', () => {
     expect(audioNote('not-a-reason')).toBeNull()
     expect(imageNote(true)).toMatch(/restricted/)
     expect(imageNote(false)).toBeNull()
+  })
+})
+
+describe('paging', () => {
+  it('reads a page number only when it is a plain positive whole number', () => {
+    expect(queuePage('3')).toBe(3)
+    for (const bad of [undefined, '', '0', '-2', '2.5', '1; drop', ['2'], 7]) expect(queuePage(bad), String(bad)).toBe(1)
+  })
+
+  it('says which stories a page shows', () => {
+    expect(pageRange(1, 25, 112)).toEqual({ from: 1, to: 25, pages: 5 })
+    expect(pageRange(5, 25, 112)).toEqual({ from: 101, to: 112, pages: 5 })
+    expect(pageRange(9, 25, 112)).toEqual({ from: 101, to: 112, pages: 5 })
+    expect(pageRange(1, 25, 0)).toEqual({ from: 0, to: 0, pages: 1 })
+  })
+})
+
+describe('queueHref', () => {
+  it('leaves the defaults out, so the plain address stays plain', () => {
+    expect(queueHref('/admin/collections/network-items', {})).toBe('/admin/collections/network-items')
+    expect(queueHref('/q', { view: 'waiting', source: null, page: 1 })).toBe('/q')
+  })
+  it('carries the view, source and page', () => {
+    expect(queueHref('/q', { view: 'held', source: 4, page: 3 })).toBe('/q?view=held&source=4&page=3')
+    expect(queueHref('/q', { source: 0 })).toBe('/q?source=0')
+  })
+})
+
+describe('thumbnailHref', () => {
+  it('draws a picture only from an https address', () => {
+    expect(thumbnailHref('https://media.npr.org/a.jpg')).toBe('https://media.npr.org/a.jpg')
+    for (const bad of ['http://media.npr.org/a.jpg', 'javascript:alert(1)', 'data:image/png;base64,AA', '//media.npr.org/a.jpg', 'not a url', '', null, undefined]) {
+      expect(thumbnailHref(bad), String(bad)).toBeNull()
+    }
+  })
+})
+
+describe('what an editor may do with a story', () => {
+  it('offers only moves that status.ts allows', () => {
+    for (const status of ['new', 'held', 'gone'] as const) {
+      const m = rowMoves(status)
+      if (m.keep) expect(statusChangeAllowed(status, m.keep.to, false), `${status} -> ${m.keep.to}`).toBe(true)
+      expect(statusChangeAllowed(status, 'dismissed', false), `${status} -> dismissed`).toBe(true)
+    }
+    expect(rowMoves('gone').keep).toBeNull()
+  })
+
+  it('applies a bulk action to the stories it may, and counts the rest', () => {
+    const rows = [
+      { id: '1', status: 'new' as const },
+      { id: '2', status: 'held' as const },
+      { id: '3', status: 'gone' as const },
+    ]
+    expect(bulkTargets(rows, 'held')).toEqual({ ids: ['1'], skipped: 2 })
+    expect(bulkTargets(rows, 'new')).toEqual({ ids: ['2'], skipped: 2 })
+    expect(bulkTargets(rows, 'dismissed')).toEqual({ ids: ['1', '2', '3'], skipped: 0 })
   })
 })

@@ -19,7 +19,7 @@ export const PublishingIdentities: CollectionConfig = {
     update: requirePermission('settings.manage'),
     delete: requirePermission('settings.manage'),
   },
-  admin: { group: 'Editorial', useAsTitle: 'name', defaultColumns: ['name', 'kind', 'updatedAt'] },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'kind', 'updatedAt'] },
   hooks: { beforeValidate: [ensureSlug('name')] },
   fields: [
     { name: 'name', type: 'text', required: true },

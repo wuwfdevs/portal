@@ -93,36 +93,32 @@ export interface Config {
     sectionInquiryForm: SectionInquiryForm;
   };
   collections: {
-    pages: Page;
     posts: Post;
-    'live-updates': LiveUpdate;
+    clips: Clip;
+    'network-items': NetworkItem;
+    'network-sources': NetworkSource;
+    pages: Page;
+    productions: Production;
+    series: Series;
+    fellowships: Fellowship;
+    seasons: Season;
+    'archive-items': ArchiveItem;
+    sites: Site;
     events: Event;
     'event-categories': EventCategory;
-    'submission-rate-limits': SubmissionRateLimit;
-    'event-submission-images': EventSubmissionImage;
+    performances: Performance;
+    artists: Artist;
+    sections: Section;
+    categories: Category;
+    contributors: Contributor;
+    'publishing-identities': PublishingIdentity;
     media: Media;
     audio: Audio;
     video: Video;
-    clips: Clip;
-    seasons: Season;
-    'archive-items': ArchiveItem;
-    artists: Artist;
-    performances: Performance;
-    sections: Section;
-    'network-sources': NetworkSource;
-    'network-items': NetworkItem;
-    categories: Category;
-    contributors: Contributor;
-    sites: Site;
-    'publishing-identities': PublishingIdentity;
-    fellowships: Fellowship;
-    series: Series;
-    productions: Production;
     sponsors: Sponsor;
     'placement-items': PlacementItem;
     'underwriting-agreements': UnderwritingAgreement;
     users: User;
-    'portal-sign-ins': PortalSignIn;
     'audience-profiles': AudienceProfile;
     memberships: Membership;
     'member-feeds': MemberFeed;
@@ -130,6 +126,10 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     search: Search;
+    'live-updates': LiveUpdate;
+    'submission-rate-limits': SubmissionRateLimit;
+    'event-submission-images': EventSubmissionImage;
+    'portal-sign-ins': PortalSignIn;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-folders': FolderInterface;
@@ -146,36 +146,32 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
-    'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
+    clips: ClipsSelect<false> | ClipsSelect<true>;
+    'network-items': NetworkItemsSelect<false> | NetworkItemsSelect<true>;
+    'network-sources': NetworkSourcesSelect<false> | NetworkSourcesSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    productions: ProductionsSelect<false> | ProductionsSelect<true>;
+    series: SeriesSelect<false> | SeriesSelect<true>;
+    fellowships: FellowshipsSelect<false> | FellowshipsSelect<true>;
+    seasons: SeasonsSelect<false> | SeasonsSelect<true>;
+    'archive-items': ArchiveItemsSelect<false> | ArchiveItemsSelect<true>;
+    sites: SitesSelect<false> | SitesSelect<true>;
     events: EventsSelect<false> | EventsSelect<true>;
     'event-categories': EventCategoriesSelect<false> | EventCategoriesSelect<true>;
-    'submission-rate-limits': SubmissionRateLimitsSelect<false> | SubmissionRateLimitsSelect<true>;
-    'event-submission-images': EventSubmissionImagesSelect<false> | EventSubmissionImagesSelect<true>;
+    performances: PerformancesSelect<false> | PerformancesSelect<true>;
+    artists: ArtistsSelect<false> | ArtistsSelect<true>;
+    sections: SectionsSelect<false> | SectionsSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    contributors: ContributorsSelect<false> | ContributorsSelect<true>;
+    'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
-    clips: ClipsSelect<false> | ClipsSelect<true>;
-    seasons: SeasonsSelect<false> | SeasonsSelect<true>;
-    'archive-items': ArchiveItemsSelect<false> | ArchiveItemsSelect<true>;
-    artists: ArtistsSelect<false> | ArtistsSelect<true>;
-    performances: PerformancesSelect<false> | PerformancesSelect<true>;
-    sections: SectionsSelect<false> | SectionsSelect<true>;
-    'network-sources': NetworkSourcesSelect<false> | NetworkSourcesSelect<true>;
-    'network-items': NetworkItemsSelect<false> | NetworkItemsSelect<true>;
-    categories: CategoriesSelect<false> | CategoriesSelect<true>;
-    contributors: ContributorsSelect<false> | ContributorsSelect<true>;
-    sites: SitesSelect<false> | SitesSelect<true>;
-    'publishing-identities': PublishingIdentitiesSelect<false> | PublishingIdentitiesSelect<true>;
-    fellowships: FellowshipsSelect<false> | FellowshipsSelect<true>;
-    series: SeriesSelect<false> | SeriesSelect<true>;
-    productions: ProductionsSelect<false> | ProductionsSelect<true>;
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
     'placement-items': PlacementItemsSelect<false> | PlacementItemsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
-    'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
     'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
     memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     'member-feeds': MemberFeedsSelect<false> | MemberFeedsSelect<true>;
@@ -183,6 +179,10 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
+    'live-updates': LiveUpdatesSelect<false> | LiveUpdatesSelect<true>;
+    'submission-rate-limits': SubmissionRateLimitsSelect<false> | SubmissionRateLimitsSelect<true>;
+    'event-submission-images': EventSubmissionImagesSelect<false> | EventSubmissionImagesSelect<true>;
+    'portal-sign-ins': PortalSignInsSelect<false> | PortalSignInsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-folders': PayloadFoldersSelect<false> | PayloadFoldersSelect<true>;
@@ -195,30 +195,30 @@ export interface Config {
   };
   fallbackLocale: null;
   globals: {
-    header: Header;
-    footer: Footer;
     homepage: Homepage;
-    'site-settings': SiteSetting;
     'support-page': SupportPage;
     'unearthing-hub': UnearthingHub;
     'voyager-hub': VoyagerHub;
     'radiolive-hub': RadioliveHub;
+    'sponsorship-settings': SponsorshipSetting;
+    header: Header;
+    footer: Footer;
+    'site-settings': SiteSetting;
     'listen-live': ListenLive;
     sponsorship: Sponsorship;
-    'sponsorship-settings': SponsorshipSetting;
   };
   globalsSelect: {
-    header: HeaderSelect<false> | HeaderSelect<true>;
-    footer: FooterSelect<false> | FooterSelect<true>;
     homepage: HomepageSelect<false> | HomepageSelect<true>;
-    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
+    'sponsorship-settings': SponsorshipSettingsSelect<false> | SponsorshipSettingsSelect<true>;
+    header: HeaderSelect<false> | HeaderSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
-    'sponsorship-settings': SponsorshipSettingsSelect<false> | SponsorshipSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2640,6 +2640,166 @@ export interface SectionInquiryForm {
   blockType: 'sectionInquiryForm';
 }
 /**
+ * Short vertical video. Needs captions to publish.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips".
+ */
+export interface Clip {
+  id: number;
+  title: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * One or two sentences under the title.
+   */
+  description?: string | null;
+  /**
+   * The clip, from the video library. Vertical (9:16) video fits best. Its poster picture is used before it plays.
+   */
+  video: number | Video;
+  /**
+   * Required. Paste the WebVTT file: it starts with the word WEBVTT, then timed lines. Shown by default.
+   */
+  captionsVtt: string;
+  /**
+   * The row it appears in, e.g. "After Isaias". Its funder line, if it has one, shows with the clip.
+   */
+  series?: (number | null) | Series;
+  /**
+   * The story or episode this clip came from. Gives the clip its "Read the story" button.
+   */
+  story?: (number | null) | Post;
+  /**
+   * The button's words. Default: "Read the story". For an episode: "Hear the episode".
+   */
+  ctaLabel?: string | null;
+  /**
+   * Who made it. If empty, the video file's credit is shown.
+   */
+  contributors?: (number | Contributor)[] | null;
+  /**
+   * Set when published, if empty.
+   */
+  publishedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Stories waiting for an editor, and a record of what was found.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-items".
+ */
+export interface NetworkItem {
+  id: number;
+  title: string;
+  status: 'new' | 'held' | 'dismissed' | 'published' | 'gone';
+  source: number | NetworkSource;
+  /**
+   * CDS's own id. The same story found twice is one row.
+   */
+  cdsId: string;
+  teaser?: string | null;
+  publishedAt?: string | null;
+  modifiedAt?: string | null;
+  canonicalUrl?: string | null;
+  ownerHrefs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  brandingHrefs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  image?: {
+    href?: string | null;
+    hrefTemplate?: string | null;
+    width?: number | null;
+    height?: number | null;
+    altText?: string | null;
+    caption?: string | null;
+    credit?: string | null;
+  };
+  imageDroppedAsRestricted?: boolean | null;
+  audio?: {
+    href?: string | null;
+    mimeType?: string | null;
+    durationSeconds?: number | null;
+  };
+  audioSkipped?: ('unavailable' | 'expired' | 'restricted' | 'premium' | 'tracked' | 'sponsored' | 'no-file') | null;
+  /**
+   * The story made from this one when it was published.
+   */
+  post?: (number | null) | Post;
+  firstSeenAt?: string | null;
+  lastSeenAt?: string | null;
+  goneAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Stations and NPR sections whose stories reach the Network queue.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-sources".
+ */
+export interface NetworkSource {
+  id: number;
+  /**
+   * As readers should see it: "WLRN", "NPR News".
+   */
+  name: string;
+  findBy: 'owner' | 'collection';
+  /**
+   * An "s" and digits, such as s583: the station's Organization V4 service. Copy it from Grove's network tab.
+   */
+  serviceId?: string | null;
+  /**
+   * NPR's number for a topic, program or blog (CDS "Table of Aggregations").
+   */
+  collectionId?: number | null;
+  /**
+   * Publishing on its own puts every new, unrestricted story from this source on the site without an editor.
+   */
+  mode: 'queue' | 'auto';
+  /**
+   * The section its stories go to (suggested in the queue; used when publishing on its own).
+   */
+  section?: (number | null) | Section;
+  /**
+   * Uncheck to stop checking this source without deleting it.
+   */
+  active?: boolean | null;
+  /**
+   * Anything staff should know about this source.
+   */
+  notes?: string | null;
+  poll?: {
+    lastPolledAt?: string | null;
+    cursor?: string | null;
+    foundNew?: number | null;
+    skippedRestricted?: number | null;
+    error?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
@@ -3136,6 +3296,49 @@ export interface Form {
   createdAt: string;
 }
 /**
+ * A show's Archive: documents, maps, photographs and recordings behind its episodes. The catalogue is public; a members-only item's file is not.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "archive-items".
+ */
+export interface ArchiveItem {
+  id: number;
+  title: string;
+  production: number | Production;
+  kind: 'document' | 'image' | 'map' | 'audio' | 'transcript';
+  /**
+   * Only members may open the file. Its title, description and source stay public in the catalogue.
+   */
+  membersOnly?: boolean | null;
+  /**
+   * Where it came from and when, e.g. "U.S. Army Corps of Engineers, 1903" or "Recorded 1996".
+   */
+  source?: string | null;
+  description?: string | null;
+  /**
+   * The episode it is cited in, if any.
+   */
+  episode?: (number | null) | Post;
+  /**
+   * Orders the catalogue, newest first. Defaults to when it was added.
+   */
+  sortDate?: string | null;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
  * Events on the community calendar, including those sent in through the public form (they arrive as drafts marked "Pending review"). Saving a draft is private; publishing approves it and makes it public.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3403,138 +3606,6 @@ export interface EventSubmissionImage {
   sizes?: {};
 }
 /**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "submission-rate-limits".
- */
-export interface SubmissionRateLimit {
-  id: number;
-  key: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Short vertical video. Needs captions to publish.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "clips".
- */
-export interface Clip {
-  id: number;
-  title: string;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * One or two sentences under the title.
-   */
-  description?: string | null;
-  /**
-   * The clip, from the video library. Vertical (9:16) video fits best. Its poster picture is used before it plays.
-   */
-  video: number | Video;
-  /**
-   * Required. Paste the WebVTT file: it starts with the word WEBVTT, then timed lines. Shown by default.
-   */
-  captionsVtt: string;
-  /**
-   * The row it appears in, e.g. "After Isaias". Its funder line, if it has one, shows with the clip.
-   */
-  series?: (number | null) | Series;
-  /**
-   * The story or episode this clip came from. Gives the clip its "Read the story" button.
-   */
-  story?: (number | null) | Post;
-  /**
-   * The button's words. Default: "Read the story". For an episode: "Hear the episode".
-   */
-  ctaLabel?: string | null;
-  /**
-   * Who made it. If empty, the video file's credit is shown.
-   */
-  contributors?: (number | Contributor)[] | null;
-  /**
-   * Set when published, if empty.
-   */
-  publishedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * A show's Archive: documents, maps, photographs and recordings behind its episodes. The catalogue is public; a members-only item's file is not.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "archive-items".
- */
-export interface ArchiveItem {
-  id: number;
-  title: string;
-  production: number | Production;
-  kind: 'document' | 'image' | 'map' | 'audio' | 'transcript';
-  /**
-   * Only members may open the file. Its title, description and source stay public in the catalogue.
-   */
-  membersOnly?: boolean | null;
-  /**
-   * Where it came from and when, e.g. "U.S. Army Corps of Engineers, 1903" or "Recorded 1996".
-   */
-  source?: string | null;
-  description?: string | null;
-  /**
-   * The episode it is cited in, if any.
-   */
-  episode?: (number | null) | Post;
-  /**
-   * Orders the catalogue, newest first. Defaults to when it was added.
-   */
-  sortDate?: string | null;
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * Musicians who play RadioLive. Add one here, then put them in a show's lineup.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "artists".
- */
-export interface Artist {
-  id: number;
-  name: string;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  /**
-   * A portrait, ideally 4:5. Give it alt text in the media library.
-   */
-  photo?: (number | null) | Media;
-  /**
-   * A few sentences. Only what the artist has approved.
-   */
-  bio?: string | null;
-  /**
-   * The artist's own site. A secure https:// address.
-   */
-  link?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * A RadioLive night. Add the lineup before it, the recording after.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3594,112 +3665,31 @@ export interface Performance {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * Stations and NPR sections whose stories reach the Network queue.
+ * Musicians who play RadioLive. Add one here, then put them in a show's lineup.
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "network-sources".
+ * via the `definition` "artists".
  */
-export interface NetworkSource {
+export interface Artist {
   id: number;
-  /**
-   * As readers should see it: "WLRN", "NPR News".
-   */
   name: string;
-  findBy: 'owner' | 'collection';
   /**
-   * An "s" and digits, such as s583: the station's Organization V4 service. Copy it from Grove's network tab.
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
-  serviceId?: string | null;
+  generateSlug?: boolean | null;
+  slug: string;
   /**
-   * NPR's number for a topic, program or blog (CDS "Table of Aggregations").
+   * A portrait, ideally 4:5. Give it alt text in the media library.
    */
-  collectionId?: number | null;
+  photo?: (number | null) | Media;
   /**
-   * Publishing on its own puts every new, unrestricted story from this source on the site without an editor.
+   * A few sentences. Only what the artist has approved.
    */
-  mode: 'queue' | 'auto';
+  bio?: string | null;
   /**
-   * The section its stories go to (suggested in the queue; used when publishing on its own).
+   * The artist's own site. A secure https:// address.
    */
-  section?: (number | null) | Section;
-  /**
-   * Uncheck to stop checking this source without deleting it.
-   */
-  active?: boolean | null;
-  /**
-   * Anything staff should know about this source.
-   */
-  notes?: string | null;
-  poll?: {
-    lastPolledAt?: string | null;
-    cursor?: string | null;
-    foundNew?: number | null;
-    skippedRestricted?: number | null;
-    error?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Stories waiting for an editor, and a record of what was found. The queue is the way to work through them.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "network-items".
- */
-export interface NetworkItem {
-  id: number;
-  title: string;
-  status: 'new' | 'held' | 'dismissed' | 'published' | 'gone';
-  source: number | NetworkSource;
-  /**
-   * CDS's own id. The same story found twice is one row.
-   */
-  cdsId: string;
-  teaser?: string | null;
-  publishedAt?: string | null;
-  modifiedAt?: string | null;
-  canonicalUrl?: string | null;
-  ownerHrefs?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  brandingHrefs?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  image?: {
-    href?: string | null;
-    hrefTemplate?: string | null;
-    width?: number | null;
-    height?: number | null;
-    altText?: string | null;
-    caption?: string | null;
-    credit?: string | null;
-  };
-  imageDroppedAsRestricted?: boolean | null;
-  audio?: {
-    href?: string | null;
-    mimeType?: string | null;
-    durationSeconds?: number | null;
-  };
-  audioSkipped?: ('unavailable' | 'expired' | 'restricted' | 'premium' | 'tracked' | 'sponsored' | 'no-file') | null;
-  /**
-   * The story made from this one when it was published.
-   */
-  post?: (number | null) | Post;
-  firstSeenAt?: string | null;
-  lastSeenAt?: string | null;
-  goneAt?: string | null;
+  link?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3783,18 +3773,6 @@ export interface PlacementItem {
    * Where this runs, in short.
    */
   where?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "portal-sign-ins".
- */
-export interface PortalSignIn {
-  id: number;
-  jti: string;
-  portalUserId: string;
-  expiresAt: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -3956,6 +3934,28 @@ export interface Search {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-rate-limits".
+ */
+export interface SubmissionRateLimit {
+  id: number;
+  key: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "portal-sign-ins".
+ */
+export interface PortalSignIn {
+  id: number;
+  jti: string;
+  portalUserId: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -4071,16 +4071,48 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'pages';
-        value: number | Page;
-      } | null)
-    | ({
         relationTo: 'posts';
         value: number | Post;
       } | null)
     | ({
-        relationTo: 'live-updates';
-        value: number | LiveUpdate;
+        relationTo: 'clips';
+        value: number | Clip;
+      } | null)
+    | ({
+        relationTo: 'network-items';
+        value: number | NetworkItem;
+      } | null)
+    | ({
+        relationTo: 'network-sources';
+        value: number | NetworkSource;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'productions';
+        value: number | Production;
+      } | null)
+    | ({
+        relationTo: 'series';
+        value: number | Series;
+      } | null)
+    | ({
+        relationTo: 'fellowships';
+        value: number | Fellowship;
+      } | null)
+    | ({
+        relationTo: 'seasons';
+        value: number | Season;
+      } | null)
+    | ({
+        relationTo: 'archive-items';
+        value: number | ArchiveItem;
+      } | null)
+    | ({
+        relationTo: 'sites';
+        value: number | Site;
       } | null)
     | ({
         relationTo: 'events';
@@ -4091,12 +4123,28 @@ export interface PayloadLockedDocument {
         value: number | EventCategory;
       } | null)
     | ({
-        relationTo: 'submission-rate-limits';
-        value: number | SubmissionRateLimit;
+        relationTo: 'performances';
+        value: number | Performance;
       } | null)
     | ({
-        relationTo: 'event-submission-images';
-        value: number | EventSubmissionImage;
+        relationTo: 'artists';
+        value: number | Artist;
+      } | null)
+    | ({
+        relationTo: 'sections';
+        value: number | Section;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'contributors';
+        value: number | Contributor;
+      } | null)
+    | ({
+        relationTo: 'publishing-identities';
+        value: number | PublishingIdentity;
       } | null)
     | ({
         relationTo: 'media';
@@ -4109,66 +4157,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'video';
         value: number | Video;
-      } | null)
-    | ({
-        relationTo: 'clips';
-        value: number | Clip;
-      } | null)
-    | ({
-        relationTo: 'seasons';
-        value: number | Season;
-      } | null)
-    | ({
-        relationTo: 'archive-items';
-        value: number | ArchiveItem;
-      } | null)
-    | ({
-        relationTo: 'artists';
-        value: number | Artist;
-      } | null)
-    | ({
-        relationTo: 'performances';
-        value: number | Performance;
-      } | null)
-    | ({
-        relationTo: 'sections';
-        value: number | Section;
-      } | null)
-    | ({
-        relationTo: 'network-sources';
-        value: number | NetworkSource;
-      } | null)
-    | ({
-        relationTo: 'network-items';
-        value: number | NetworkItem;
-      } | null)
-    | ({
-        relationTo: 'categories';
-        value: number | Category;
-      } | null)
-    | ({
-        relationTo: 'contributors';
-        value: number | Contributor;
-      } | null)
-    | ({
-        relationTo: 'sites';
-        value: number | Site;
-      } | null)
-    | ({
-        relationTo: 'publishing-identities';
-        value: number | PublishingIdentity;
-      } | null)
-    | ({
-        relationTo: 'fellowships';
-        value: number | Fellowship;
-      } | null)
-    | ({
-        relationTo: 'series';
-        value: number | Series;
-      } | null)
-    | ({
-        relationTo: 'productions';
-        value: number | Production;
       } | null)
     | ({
         relationTo: 'sponsors';
@@ -4185,10 +4173,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
-      } | null)
-    | ({
-        relationTo: 'portal-sign-ins';
-        value: number | PortalSignIn;
       } | null)
     | ({
         relationTo: 'audience-profiles';
@@ -4217,6 +4201,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'search';
         value: number | Search;
+      } | null)
+    | ({
+        relationTo: 'live-updates';
+        value: number | LiveUpdate;
+      } | null)
+    | ({
+        relationTo: 'submission-rate-limits';
+        value: number | SubmissionRateLimit;
+      } | null)
+    | ({
+        relationTo: 'event-submission-images';
+        value: number | EventSubmissionImage;
+      } | null)
+    | ({
+        relationTo: 'portal-sign-ins';
+        value: number | PortalSignIn;
       } | null)
     | ({
         relationTo: 'payload-folders';
@@ -4263,6 +4263,224 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  title?: T;
+  featuredMedia?:
+    | T
+    | {
+        mediaBlock?: T | MediaBlockSelect<T>;
+        gallery?: T | GalleryBlockSelect<T>;
+        videoPlayer?: T | VideoPlayerBlockSelect<T>;
+        embed?: T | EmbedBlockSelect<T>;
+      };
+  featuredAudio?: T;
+  content?: T;
+  relatedPosts?: T;
+  categories?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        image?: T;
+        description?: T;
+      };
+  publishedAt?: T;
+  section?: T;
+  path?: T;
+  source?: T;
+  original?:
+    | T
+    | {
+        url?: T;
+        credit?: T;
+        cdsId?: T;
+      };
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+        modifiedAt?: T;
+        nprId?: T;
+      };
+  contributors?: T;
+  format?: T;
+  dek?: T;
+  publishingIdentity?: T;
+  fellowship?: T;
+  live?:
+    | T
+    | {
+        coverage?: T;
+        endedAt?: T;
+        pinned?: T;
+        updates?: T;
+      };
+  series?: T;
+  production?: T;
+  season?: T;
+  episodeNumber?: T;
+  episodeType?: T;
+  fieldNoteKind?: T;
+  membersOnly?: T;
+  site?: T;
+  period?: T;
+  generateSlug?: T;
+  slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MediaBlock_select".
+ */
+export interface MediaBlockSelect<T extends boolean = true> {
+  media?: T;
+  caption?: T;
+  credit?: T;
+  source?: T;
+  altText?: T;
+  alignment?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock_select".
+ */
+export interface GalleryBlockSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  layout?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        title?: T;
+        caption?: T;
+        credit?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "VideoPlayerBlock_select".
+ */
+export interface VideoPlayerBlockSelect<T extends boolean = true> {
+  video?: T;
+  title?: T;
+  caption?: T;
+  poster?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmbedBlock_select".
+ */
+export interface EmbedBlockSelect<T extends boolean = true> {
+  url?: T;
+  title?: T;
+  width?: T;
+  height?: T;
+  caption?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "clips_select".
+ */
+export interface ClipsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
+  video?: T;
+  captionsVtt?: T;
+  series?: T;
+  story?: T;
+  ctaLabel?: T;
+  contributors?: T;
+  publishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-items_select".
+ */
+export interface NetworkItemsSelect<T extends boolean = true> {
+  title?: T;
+  status?: T;
+  source?: T;
+  cdsId?: T;
+  teaser?: T;
+  publishedAt?: T;
+  modifiedAt?: T;
+  canonicalUrl?: T;
+  ownerHrefs?: T;
+  brandingHrefs?: T;
+  image?:
+    | T
+    | {
+        href?: T;
+        hrefTemplate?: T;
+        width?: T;
+        height?: T;
+        altText?: T;
+        caption?: T;
+        credit?: T;
+      };
+  imageDroppedAsRestricted?: T;
+  audio?:
+    | T
+    | {
+        href?: T;
+        mimeType?: T;
+        durationSeconds?: T;
+      };
+  audioSkipped?: T;
+  post?: T;
+  firstSeenAt?: T;
+  lastSeenAt?: T;
+  goneAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "network-sources_select".
+ */
+export interface NetworkSourcesSelect<T extends boolean = true> {
+  name?: T;
+  findBy?: T;
+  serviceId?: T;
+  collectionId?: T;
+  mode?: T;
+  section?: T;
+  active?: T;
+  notes?: T;
+  poll?:
+    | T
+    | {
+        lastPolledAt?: T;
+        cursor?: T;
+        foundNew?: T;
+        skippedRestricted?: T;
+        error?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4386,20 +4604,6 @@ export interface ContentBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "MediaBlock_select".
- */
-export interface MediaBlockSelect<T extends boolean = true> {
-  media?: T;
-  caption?: T;
-  credit?: T;
-  source?: T;
-  altText?: T;
-  alignment?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ArchiveBlock_select".
  */
 export interface ArchiveBlockSelect<T extends boolean = true> {
@@ -4425,138 +4629,147 @@ export interface FormBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts_select".
+ * via the `definition` "productions_select".
  */
-export interface PostsSelect<T extends boolean = true> {
+export interface ProductionsSelect<T extends boolean = true> {
   title?: T;
-  featuredMedia?:
-    | T
-    | {
-        mediaBlock?: T | MediaBlockSelect<T>;
-        gallery?: T | GalleryBlockSelect<T>;
-        videoPlayer?: T | VideoPlayerBlockSelect<T>;
-        embed?: T | EmbedBlockSelect<T>;
-      };
-  featuredAudio?: T;
-  content?: T;
-  relatedPosts?: T;
-  categories?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        image?: T;
-        description?: T;
-      };
-  publishedAt?: T;
-  section?: T;
+  generateSlug?: T;
+  slug?: T;
+  summary?: T;
+  heroImage?: T;
   path?: T;
-  source?: T;
-  original?:
+  tagline?: T;
+  schedule?: T;
+  hosts?: T;
+  description?: T;
+  listed?: T;
+  kind?: T;
+  programUrl?: T;
+  theme?: T;
+  showSupport?:
     | T
     | {
-        url?: T;
-        credit?: T;
-        cdsId?: T;
+        eyebrow?: T;
+        heading?: T;
+        intro?: T;
+        donateUrl?: T;
+        donateLabel?: T;
+        questions?:
+          | T
+          | {
+              question?: T;
+              answer?: T;
+              id?: T;
+            };
       };
   legacy?:
     | T
     | {
         legacyPath?: T;
         groveId?: T;
-        modifiedAt?: T;
-        nprId?: T;
       };
-  contributors?: T;
-  format?: T;
-  dek?: T;
-  publishingIdentity?: T;
-  fellowship?: T;
-  live?:
-    | T
-    | {
-        coverage?: T;
-        endedAt?: T;
-        pinned?: T;
-        updates?: T;
-      };
-  series?: T;
-  production?: T;
-  season?: T;
-  episodeNumber?: T;
-  episodeType?: T;
-  fieldNoteKind?: T;
-  membersOnly?: T;
-  site?: T;
-  period?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "series_select".
+ */
+export interface SeriesSelect<T extends boolean = true> {
+  title?: T;
   generateSlug?: T;
   slug?: T;
+  summary?: T;
+  heroImage?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "fellowships_select".
+ */
+export interface FellowshipsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  summary?: T;
+  heroImage?: T;
+  eyebrow?: T;
+  missionHeadline?: T;
+  mission?: T;
+  focusAreas?:
+    | T
+    | {
+        title?: T;
+        blurb?: T;
+        id?: T;
+      };
+  fellow?: T;
+  termStartsOn?: T;
+  termEndsOn?: T;
+  agreements?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seasons_select".
+ */
+export interface SeasonsSelect<T extends boolean = true> {
+  production?: T;
+  number?: T;
+  title?: T;
+  summary?: T;
+  image?: T;
+  label?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "GalleryBlock_select".
+ * via the `definition` "archive-items_select".
  */
-export interface GalleryBlockSelect<T extends boolean = true> {
+export interface ArchiveItemsSelect<T extends boolean = true> {
   title?: T;
+  production?: T;
+  kind?: T;
+  membersOnly?: T;
+  source?: T;
   description?: T;
-  layout?: T;
-  images?:
-    | T
-    | {
-        image?: T;
-        title?: T;
-        caption?: T;
-        credit?: T;
-        id?: T;
-      };
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "VideoPlayerBlock_select".
- */
-export interface VideoPlayerBlockSelect<T extends boolean = true> {
-  video?: T;
-  title?: T;
-  caption?: T;
-  poster?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EmbedBlock_select".
- */
-export interface EmbedBlockSelect<T extends boolean = true> {
+  episode?: T;
+  sortDate?: T;
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
   url?: T;
-  title?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
   width?: T;
   height?: T;
-  caption?: T;
-  id?: T;
-  blockName?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "live-updates_select".
+ * via the `definition` "sites_select".
  */
-export interface LiveUpdatesSelect<T extends boolean = true> {
-  livePost?: T;
-  headline?: T;
-  body?: T;
-  postedAt?: T;
-  editedAt?: T;
-  authors?: T;
-  anchor?: T;
-  legacy?:
-    | T
-    | {
-        postId?: T;
-      };
+export interface SitesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  short?: T;
+  place?: T;
+  era?: T;
+  description?: T;
+  mapX?: T;
+  mapY?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4677,32 +4890,119 @@ export interface EventCategoriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "submission-rate-limits_select".
+ * via the `definition` "performances_select".
  */
-export interface SubmissionRateLimitsSelect<T extends boolean = true> {
-  key?: T;
+export interface PerformancesSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  startsAt?: T;
+  venue?: T;
+  lineup?: T;
+  description?: T;
+  photo?: T;
+  ticketsStatus?: T;
+  ticketsUrl?: T;
+  virtualTicketsUrl?: T;
+  recordingUrl?: T;
+  video?: T;
+  captionsVtt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "artists_select".
+ */
+export interface ArtistsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  photo?: T;
+  bio?: T;
+  link?: T;
   updatedAt?: T;
   createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-submission-images_select".
+ * via the `definition` "sections_select".
  */
-export interface EventSubmissionImagesSelect<T extends boolean = true> {
-  prefix?: T;
-  _objectKey?: T;
+export interface SectionsSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  description?: T;
   updatedAt?: T;
   createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-  sizes?: T | {};
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  listeningQuestion?: T;
+  parent?: T;
+  breadcrumbs?:
+    | T
+    | {
+        doc?: T;
+        url?: T;
+        label?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contributors_select".
+ */
+export interface ContributorsSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  title?: T;
+  bio?: T;
+  biography?: T;
+  links?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
+  photo?: T;
+  initials?: T;
+  legacy?:
+    | T
+    | {
+        legacyPath?: T;
+        groveId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-identities_select".
+ */
+export interface PublishingIdentitiesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  kind?: T;
+  tagline?: T;
+  description?: T;
+  homeUrl?: T;
+  logo?: T;
+  themeColors?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4867,355 +5167,6 @@ export interface VideoSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "clips_select".
- */
-export interface ClipsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  description?: T;
-  video?: T;
-  captionsVtt?: T;
-  series?: T;
-  story?: T;
-  ctaLabel?: T;
-  contributors?: T;
-  publishedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "seasons_select".
- */
-export interface SeasonsSelect<T extends boolean = true> {
-  production?: T;
-  number?: T;
-  title?: T;
-  summary?: T;
-  image?: T;
-  label?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "archive-items_select".
- */
-export interface ArchiveItemsSelect<T extends boolean = true> {
-  title?: T;
-  production?: T;
-  kind?: T;
-  membersOnly?: T;
-  source?: T;
-  description?: T;
-  episode?: T;
-  sortDate?: T;
-  prefix?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "artists_select".
- */
-export interface ArtistsSelect<T extends boolean = true> {
-  name?: T;
-  generateSlug?: T;
-  slug?: T;
-  photo?: T;
-  bio?: T;
-  link?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "performances_select".
- */
-export interface PerformancesSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  startsAt?: T;
-  venue?: T;
-  lineup?: T;
-  description?: T;
-  photo?: T;
-  ticketsStatus?: T;
-  ticketsUrl?: T;
-  virtualTicketsUrl?: T;
-  recordingUrl?: T;
-  video?: T;
-  captionsVtt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sections_select".
- */
-export interface SectionsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  description?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "network-sources_select".
- */
-export interface NetworkSourcesSelect<T extends boolean = true> {
-  name?: T;
-  findBy?: T;
-  serviceId?: T;
-  collectionId?: T;
-  mode?: T;
-  section?: T;
-  active?: T;
-  notes?: T;
-  poll?:
-    | T
-    | {
-        lastPolledAt?: T;
-        cursor?: T;
-        foundNew?: T;
-        skippedRestricted?: T;
-        error?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "network-items_select".
- */
-export interface NetworkItemsSelect<T extends boolean = true> {
-  title?: T;
-  status?: T;
-  source?: T;
-  cdsId?: T;
-  teaser?: T;
-  publishedAt?: T;
-  modifiedAt?: T;
-  canonicalUrl?: T;
-  ownerHrefs?: T;
-  brandingHrefs?: T;
-  image?:
-    | T
-    | {
-        href?: T;
-        hrefTemplate?: T;
-        width?: T;
-        height?: T;
-        altText?: T;
-        caption?: T;
-        credit?: T;
-      };
-  imageDroppedAsRestricted?: T;
-  audio?:
-    | T
-    | {
-        href?: T;
-        mimeType?: T;
-        durationSeconds?: T;
-      };
-  audioSkipped?: T;
-  post?: T;
-  firstSeenAt?: T;
-  lastSeenAt?: T;
-  goneAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories_select".
- */
-export interface CategoriesSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  listeningQuestion?: T;
-  parent?: T;
-  breadcrumbs?:
-    | T
-    | {
-        doc?: T;
-        url?: T;
-        label?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "contributors_select".
- */
-export interface ContributorsSelect<T extends boolean = true> {
-  name?: T;
-  generateSlug?: T;
-  slug?: T;
-  title?: T;
-  bio?: T;
-  biography?: T;
-  links?:
-    | T
-    | {
-        label?: T;
-        url?: T;
-        id?: T;
-      };
-  photo?: T;
-  initials?: T;
-  legacy?:
-    | T
-    | {
-        legacyPath?: T;
-        groveId?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sites_select".
- */
-export interface SitesSelect<T extends boolean = true> {
-  name?: T;
-  generateSlug?: T;
-  slug?: T;
-  short?: T;
-  place?: T;
-  era?: T;
-  description?: T;
-  mapX?: T;
-  mapY?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "publishing-identities_select".
- */
-export interface PublishingIdentitiesSelect<T extends boolean = true> {
-  name?: T;
-  generateSlug?: T;
-  slug?: T;
-  kind?: T;
-  tagline?: T;
-  description?: T;
-  homeUrl?: T;
-  logo?: T;
-  themeColors?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "fellowships_select".
- */
-export interface FellowshipsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  summary?: T;
-  heroImage?: T;
-  eyebrow?: T;
-  missionHeadline?: T;
-  mission?: T;
-  focusAreas?:
-    | T
-    | {
-        title?: T;
-        blurb?: T;
-        id?: T;
-      };
-  fellow?: T;
-  termStartsOn?: T;
-  termEndsOn?: T;
-  agreements?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "series_select".
- */
-export interface SeriesSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  summary?: T;
-  heroImage?: T;
-  agreements?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "productions_select".
- */
-export interface ProductionsSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  summary?: T;
-  heroImage?: T;
-  path?: T;
-  tagline?: T;
-  schedule?: T;
-  hosts?: T;
-  description?: T;
-  listed?: T;
-  kind?: T;
-  programUrl?: T;
-  theme?: T;
-  showSupport?:
-    | T
-    | {
-        eyebrow?: T;
-        heading?: T;
-        intro?: T;
-        donateUrl?: T;
-        donateLabel?: T;
-        questions?:
-          | T
-          | {
-              question?: T;
-              answer?: T;
-              id?: T;
-            };
-      };
-  legacy?:
-    | T
-    | {
-        legacyPath?: T;
-        groveId?: T;
-      };
-  agreements?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sponsors_select".
  */
 export interface SponsorsSelect<T extends boolean = true> {
@@ -5300,17 +5251,6 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "portal-sign-ins_select".
- */
-export interface PortalSignInsSelect<T extends boolean = true> {
-  jti?: T;
-  portalUserId?: T;
-  expiresAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5554,6 +5494,66 @@ export interface SearchSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "live-updates_select".
+ */
+export interface LiveUpdatesSelect<T extends boolean = true> {
+  livePost?: T;
+  headline?: T;
+  body?: T;
+  postedAt?: T;
+  editedAt?: T;
+  authors?: T;
+  anchor?: T;
+  legacy?:
+    | T
+    | {
+        postId?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "submission-rate-limits_select".
+ */
+export interface SubmissionRateLimitsSelect<T extends boolean = true> {
+  key?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-submission-images_select".
+ */
+export interface EventSubmissionImagesSelect<T extends boolean = true> {
+  prefix?: T;
+  _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?: T | {};
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "portal-sign-ins_select".
+ */
+export interface PortalSignInsSelect<T extends boolean = true> {
+  jti?: T;
+  portalUserId?: T;
+  expiresAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -5634,194 +5634,6 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header".
- */
-export interface Header {
-  id: number;
-  /**
-   * Left to right, after the logo. Each item is a plain link, or a menu that opens a panel of links under the header (board 27: News, Shows, Watch, Community, About). Drag to reorder.
-   */
-  navItems?:
-    | {
-        kind: 'link' | 'menu';
-        link?: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        /**
-         * The word in the header, e.g. "News".
-         */
-        label?: string | null;
-        /**
-         * The panel’s title, e.g. "Shows and podcasts". Empty uses the label.
-         */
-        heading?: string | null;
-        /**
-         * One sentence under the title. Optional.
-         */
-        blurb?: string | null;
-        links?:
-          | {
-              link: {
-                type?: ('reference' | 'custom') | null;
-                newTab?: boolean | null;
-                reference?:
-                  | ({
-                      relationTo: 'pages';
-                      value: number | Page;
-                    } | null)
-                  | ({
-                      relationTo: 'posts';
-                      value: number | Post;
-                    } | null);
-                url?: string | null;
-                label: string;
-              };
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.
-   */
-  actions?: {
-    listen?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    search?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    signIn?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    donate?: {
-      show?: boolean | null;
-      label?: string | null;
-      /**
-       * Where Donate goes: a page on this site ("/support") or a full https:// address.
-       */
-      href?: string | null;
-    };
-  };
-  /**
-   * An optional second row: fellowships, series and topics to feature. Empty hides the row.
-   */
-  sections?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer".
- */
-export interface Footer {
-  id: number;
-  /**
-   * Link columns, left to right, each with a heading.
-   */
-  columns?:
-    | {
-        heading: string;
-        links?:
-          | {
-              link: {
-                type?: ('reference' | 'custom') | null;
-                newTab?: boolean | null;
-                reference?:
-                  | ({
-                      relationTo: 'pages';
-                      value: number | Page;
-                    } | null)
-                  | ({
-                      relationTo: 'posts';
-                      value: number | Post;
-                    } | null);
-                url?: string | null;
-                label: string;
-              };
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The legal row under the columns (Public Inspection File, EEO report, privacy…).
-   */
-  navItems?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.
-   */
-  publicFile: {
-    /**
-     * The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.
-     */
-    url?: string | null;
-    label: string;
-    /**
-     * Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."
-     */
-    accessibilityContact?: string | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5918,48 +5730,6 @@ export interface Homepage {
      */
     episode?: (number | null) | Post;
   };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "site-settings".
- */
-export interface SiteSetting {
-  id: number;
-  /**
-   * Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
-   */
-  embedHosts?:
-    | {
-        host: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
-   */
-  semanticSearch?: boolean | null;
-  /**
-   * A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.
-   */
-  relatedMinSimilarity?: number | null;
-  /**
-   * A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.
-   */
-  searchMinSimilarity?: number | null;
-  /**
-   * From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.
-   */
-  relatedMaxPerSeries?: number | null;
-  /**
-   * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
-   */
-  portalOrigin?: string | null;
-  /**
-   * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
-   */
-  independencePolicy?: (number | null) | Page;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -6736,6 +6506,402 @@ export interface RadioliveHub {
      */
     href?: string | null;
   };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings".
+ */
+export interface SponsorshipSetting {
+  id: number;
+  /**
+   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
+   */
+  phone?: string | null;
+  address?: string | null;
+  /**
+   * Printed with the phone number at the foot of every sponsorship page.
+   */
+  serviceLine?: string | null;
+  /**
+   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
+   */
+  inquiryEmail?: string | null;
+  /**
+   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
+   */
+  inquiryNotice?: string | null;
+  /**
+   * Shown when the form cannot send because no address is set above. Include the phone number.
+   */
+  notSetUpMessage?: string | null;
+  /**
+   * Shown when sending fails. Include the phone number.
+   */
+  failedMessage?: string | null;
+  /**
+   * “What are you interested in?” on the form.
+   */
+  interests?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The budget ranges, first one is the default.
+   */
+  budgets?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The rate card, one row per daypart. The rate estimator reads these numbers.
+   */
+  dayparts?:
+    | {
+        label: string;
+        when?: string | null;
+        /**
+         * Dollars per credit, e.g. 55 or 25.5.
+         */
+        open: number;
+        m3: number;
+        m6: number;
+        y1: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The schedule sizes the estimator offers.
+   */
+  creditCounts?:
+    | {
+        count: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Extra discount for prepaying a rate-card schedule.
+   */
+  prepayPercent?: number | null;
+  /**
+   * Nonprofit discount off open rates.
+   */
+  nonprofitPercent?: number | null;
+  /**
+   * The Carpool Plan.
+   */
+  carpool?: {
+    /**
+     * Dollars for six months.
+     */
+    sixMonths?: number | null;
+    /**
+     * Dollars for a year.
+     */
+    oneYear?: number | null;
+  };
+  /**
+   * The new-sponsor packages.
+   */
+  packages?: {
+    /**
+     * What a drive-time credit normally costs, in dollars.
+     */
+    openDriveRate?: number | null;
+    /**
+     * What a first-time sponsor pays for one, in dollars.
+     */
+    newDriveRate?: number | null;
+    items?:
+      | {
+          name: string;
+          description?: string | null;
+          /**
+           * Dollars.
+           */
+          price: number;
+          /**
+           * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
+           */
+          value: number;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * The events and programs a business can back, in the order they appear. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
+   */
+  programs?:
+    | {
+        name: string;
+        kind: 'live-series' | 'festival' | 'community-program' | 'other';
+        status: 'open' | 'held' | 'not-yet-open';
+        /**
+         * What it is, in plain words.
+         */
+        description: string;
+        /**
+         * Ways to partner.
+         */
+        levels?:
+          | {
+              name: string;
+              description?: string | null;
+              /**
+               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
+               */
+              price?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
+         */
+        recognition?: string | null;
+        /**
+         * For example /radiolive. Empty for no link.
+         */
+        pageUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header".
+ */
+export interface Header {
+  id: number;
+  /**
+   * Left to right, after the logo. Each item is a plain link, or a menu that opens a panel of links under the header (board 27: News, Shows, Watch, Community, About). Drag to reorder.
+   */
+  navItems?:
+    | {
+        kind: 'link' | 'menu';
+        link?: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        /**
+         * The word in the header, e.g. "News".
+         */
+        label?: string | null;
+        /**
+         * The panel’s title, e.g. "Shows and podcasts". Empty uses the label.
+         */
+        heading?: string | null;
+        /**
+         * One sentence under the title. Optional.
+         */
+        blurb?: string | null;
+        links?:
+          | {
+              link: {
+                type?: ('reference' | 'custom') | null;
+                newTab?: boolean | null;
+                reference?:
+                  | ({
+                      relationTo: 'pages';
+                      value: number | Page;
+                    } | null)
+                  | ({
+                      relationTo: 'posts';
+                      value: number | Post;
+                    } | null);
+                url?: string | null;
+                label: string;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.
+   */
+  actions?: {
+    listen?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    search?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    signIn?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    donate?: {
+      show?: boolean | null;
+      label?: string | null;
+      /**
+       * Where Donate goes: a page on this site ("/support") or a full https:// address.
+       */
+      href?: string | null;
+    };
+  };
+  /**
+   * An optional second row: fellowships, series and topics to feature. Empty hides the row.
+   */
+  sections?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  /**
+   * Link columns, left to right, each with a heading.
+   */
+  columns?:
+    | {
+        heading: string;
+        links?:
+          | {
+              link: {
+                type?: ('reference' | 'custom') | null;
+                newTab?: boolean | null;
+                reference?:
+                  | ({
+                      relationTo: 'pages';
+                      value: number | Page;
+                    } | null)
+                  | ({
+                      relationTo: 'posts';
+                      value: number | Post;
+                    } | null);
+                url?: string | null;
+                label: string;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The legal row under the columns (Public Inspection File, EEO report, privacy…).
+   */
+  navItems?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.
+   */
+  publicFile: {
+    /**
+     * The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.
+     */
+    url?: string | null;
+    label: string;
+    /**
+     * Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."
+     */
+    accessibilityContact?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  /**
+   * Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
+   */
+  embedHosts?:
+    | {
+        host: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
+   */
+  semanticSearch?: boolean | null;
+  /**
+   * A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.
+   */
+  relatedMinSimilarity?: number | null;
+  /**
+   * A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.
+   */
+  searchMinSimilarity?: number | null;
+  /**
+   * From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.
+   */
+  relatedMaxPerSeries?: number | null;
+  /**
+   * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
+   */
+  portalOrigin?: string | null;
+  /**
+   * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
+   */
+  independencePolicy?: (number | null) | Page;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -7767,306 +7933,6 @@ export interface Sponsorship {
   createdAt?: string | null;
 }
 /**
- * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sponsorship-settings".
- */
-export interface SponsorshipSetting {
-  id: number;
-  /**
-   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
-   */
-  phone?: string | null;
-  address?: string | null;
-  /**
-   * Printed with the phone number at the foot of every sponsorship page.
-   */
-  serviceLine?: string | null;
-  /**
-   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
-   */
-  inquiryEmail?: string | null;
-  /**
-   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
-   */
-  inquiryNotice?: string | null;
-  /**
-   * Shown when the form cannot send because no address is set above. Include the phone number.
-   */
-  notSetUpMessage?: string | null;
-  /**
-   * Shown when sending fails. Include the phone number.
-   */
-  failedMessage?: string | null;
-  /**
-   * “What are you interested in?” on the form.
-   */
-  interests?:
-    | {
-        label: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The budget ranges, first one is the default.
-   */
-  budgets?:
-    | {
-        label: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The rate card, one row per daypart. The rate estimator reads these numbers.
-   */
-  dayparts?:
-    | {
-        label: string;
-        when?: string | null;
-        /**
-         * Dollars per credit, e.g. 55 or 25.5.
-         */
-        open: number;
-        m3: number;
-        m6: number;
-        y1: number;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The schedule sizes the estimator offers.
-   */
-  creditCounts?:
-    | {
-        count: number;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Extra discount for prepaying a rate-card schedule.
-   */
-  prepayPercent?: number | null;
-  /**
-   * Nonprofit discount off open rates.
-   */
-  nonprofitPercent?: number | null;
-  /**
-   * The Carpool Plan.
-   */
-  carpool?: {
-    /**
-     * Dollars for six months.
-     */
-    sixMonths?: number | null;
-    /**
-     * Dollars for a year.
-     */
-    oneYear?: number | null;
-  };
-  /**
-   * The new-sponsor packages.
-   */
-  packages?: {
-    /**
-     * What a drive-time credit normally costs, in dollars.
-     */
-    openDriveRate?: number | null;
-    /**
-     * What a first-time sponsor pays for one, in dollars.
-     */
-    newDriveRate?: number | null;
-    items?:
-      | {
-          name: string;
-          description?: string | null;
-          /**
-           * Dollars.
-           */
-          price: number;
-          /**
-           * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
-           */
-          value: number;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * The events and programs a business can back, in the order they appear. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
-   */
-  programs?:
-    | {
-        name: string;
-        kind: 'live-series' | 'festival' | 'community-program' | 'other';
-        status: 'open' | 'held' | 'not-yet-open';
-        /**
-         * What it is, in plain words.
-         */
-        description: string;
-        /**
-         * Ways to partner.
-         */
-        levels?:
-          | {
-              name: string;
-              description?: string | null;
-              /**
-               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
-               */
-              price?: string | null;
-              id?: string | null;
-            }[]
-          | null;
-        /**
-         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
-         */
-        recognition?: string | null;
-        /**
-         * For example /radiolive. Empty for no link.
-         */
-        pageUrl?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header_select".
- */
-export interface HeaderSelect<T extends boolean = true> {
-  navItems?:
-    | T
-    | {
-        kind?: T;
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        label?: T;
-        heading?: T;
-        blurb?: T;
-        links?:
-          | T
-          | {
-              link?:
-                | T
-                | {
-                    type?: T;
-                    newTab?: T;
-                    reference?: T;
-                    url?: T;
-                    label?: T;
-                  };
-              id?: T;
-            };
-        id?: T;
-      };
-  actions?:
-    | T
-    | {
-        listen?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        search?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        signIn?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        donate?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-              href?: T;
-            };
-      };
-  sections?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer_select".
- */
-export interface FooterSelect<T extends boolean = true> {
-  columns?:
-    | T
-    | {
-        heading?: T;
-        links?:
-          | T
-          | {
-              link?:
-                | T
-                | {
-                    type?: T;
-                    newTab?: T;
-                    reference?: T;
-                    url?: T;
-                    label?: T;
-                  };
-              id?: T;
-            };
-        id?: T;
-      };
-  navItems?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
-      };
-  publicFile?:
-    | T
-    | {
-        url?: T;
-        label?: T;
-        accessibilityContact?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "homepage_select".
  */
@@ -8124,27 +7990,6 @@ export interface HomepageSelect<T extends boolean = true> {
         enabled?: T;
         episode?: T;
       };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "site-settings_select".
- */
-export interface SiteSettingsSelect<T extends boolean = true> {
-  embedHosts?:
-    | T
-    | {
-        host?: T;
-        id?: T;
-      };
-  semanticSearch?: T;
-  relatedMinSimilarity?: T;
-  searchMinSimilarity?: T;
-  relatedMaxPerSeries?: T;
-  portalOrigin?: T;
-  independencePolicy?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -8689,6 +8534,248 @@ export interface RadioliveHubSelect<T extends boolean = true> {
         contactPhone?: T;
         href?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings_select".
+ */
+export interface SponsorshipSettingsSelect<T extends boolean = true> {
+  phone?: T;
+  address?: T;
+  serviceLine?: T;
+  inquiryEmail?: T;
+  inquiryNotice?: T;
+  notSetUpMessage?: T;
+  failedMessage?: T;
+  interests?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  budgets?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  dayparts?:
+    | T
+    | {
+        label?: T;
+        when?: T;
+        open?: T;
+        m3?: T;
+        m6?: T;
+        y1?: T;
+        id?: T;
+      };
+  creditCounts?:
+    | T
+    | {
+        count?: T;
+        id?: T;
+      };
+  prepayPercent?: T;
+  nonprofitPercent?: T;
+  carpool?:
+    | T
+    | {
+        sixMonths?: T;
+        oneYear?: T;
+      };
+  packages?:
+    | T
+    | {
+        openDriveRate?: T;
+        newDriveRate?: T;
+        items?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              value?: T;
+              id?: T;
+            };
+      };
+  programs?:
+    | T
+    | {
+        name?: T;
+        kind?: T;
+        status?: T;
+        description?: T;
+        levels?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              id?: T;
+            };
+        recognition?: T;
+        pageUrl?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header_select".
+ */
+export interface HeaderSelect<T extends boolean = true> {
+  navItems?:
+    | T
+    | {
+        kind?: T;
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        label?: T;
+        heading?: T;
+        blurb?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  actions?:
+    | T
+    | {
+        listen?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        search?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        signIn?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        donate?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+              href?: T;
+            };
+      };
+  sections?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  columns?:
+    | T
+    | {
+        heading?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  navItems?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        id?: T;
+      };
+  publicFile?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        accessibilityContact?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  embedHosts?:
+    | T
+    | {
+        host?: T;
+        id?: T;
+      };
+  semanticSearch?: T;
+  relatedMinSimilarity?: T;
+  searchMinSimilarity?: T;
+  relatedMaxPerSeries?: T;
+  portalOrigin?: T;
+  independencePolicy?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -9520,93 +9607,6 @@ export interface SponsorshipSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sponsorship-settings_select".
- */
-export interface SponsorshipSettingsSelect<T extends boolean = true> {
-  phone?: T;
-  address?: T;
-  serviceLine?: T;
-  inquiryEmail?: T;
-  inquiryNotice?: T;
-  notSetUpMessage?: T;
-  failedMessage?: T;
-  interests?:
-    | T
-    | {
-        label?: T;
-        id?: T;
-      };
-  budgets?:
-    | T
-    | {
-        label?: T;
-        id?: T;
-      };
-  dayparts?:
-    | T
-    | {
-        label?: T;
-        when?: T;
-        open?: T;
-        m3?: T;
-        m6?: T;
-        y1?: T;
-        id?: T;
-      };
-  creditCounts?:
-    | T
-    | {
-        count?: T;
-        id?: T;
-      };
-  prepayPercent?: T;
-  nonprofitPercent?: T;
-  carpool?:
-    | T
-    | {
-        sixMonths?: T;
-        oneYear?: T;
-      };
-  packages?:
-    | T
-    | {
-        openDriveRate?: T;
-        newDriveRate?: T;
-        items?:
-          | T
-          | {
-              name?: T;
-              description?: T;
-              price?: T;
-              value?: T;
-              id?: T;
-            };
-      };
-  programs?:
-    | T
-    | {
-        name?: T;
-        kind?: T;
-        status?: T;
-        description?: T;
-        levels?:
-          | T
-          | {
-              name?: T;
-              description?: T;
-              price?: T;
-              id?: T;
-            };
-        recognition?: T;
-        pageUrl?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "collections_widget".
  */
 export interface CollectionsWidget {
@@ -9625,12 +9625,12 @@ export interface TaskSchedulePublish {
     locale?: string | null;
     doc?:
       | ({
-          relationTo: 'pages';
-          value: number | Page;
-        } | null)
-      | ({
           relationTo: 'posts';
           value: number | Post;
+        } | null)
+      | ({
+          relationTo: 'pages';
+          value: number | Page;
         } | null);
     global?: string | null;
     user?: {

@@ -66,7 +66,6 @@ export const ArchiveItems: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: {
-    group: 'Content',
     useAsTitle: 'title',
     defaultColumns: ['title', 'production', 'kind', 'membersOnly', 'updatedAt'],
     description: "A show's Archive: documents, maps, photographs and recordings behind its episodes. The catalogue is public; a members-only item's file is not.",

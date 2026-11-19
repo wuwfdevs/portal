@@ -36,7 +36,7 @@ export const Sections: CollectionConfig = {
     update: requirePermission('content.publish'),
     delete: requirePermission('content.publish'),
   },
-  admin: { group: 'Editorial', useAsTitle: 'title', defaultColumns: ['title', 'slug'] },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'slug'] },
   hooks: { beforeValidate: [ensureSlug('title')], beforeChange: [checkSectionSlug] },
   fields: [
     { name: 'title', type: 'text', required: true },
