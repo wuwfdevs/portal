@@ -65,7 +65,9 @@ export interface Config {
   auth: {
     users: UserAuthOperations;
   };
-  blocks: {};
+  blocks: {
+    sectionCards: SectionCards;
+  };
   collections: {
     pages: Page;
     posts: Post;
@@ -228,6 +230,52 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCards".
+ */
+export interface SectionCards {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  cards?:
+    | {
+        title: string;
+        text?: string | null;
+        /**
+         * A short label above the title, e.g. "On air".
+         */
+        tag?: string | null;
+        /**
+         * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, not here.
+         */
+        price?: string | null;
+        href?: string | null;
+        /**
+         * The words on the link. Empty: "Read more".
+         */
+        linkLabel?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCards';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
@@ -236,7 +284,32 @@ export interface Page {
   /**
    * The structure of the page. A developer adds templates; staff fill them in.
    */
-  template: 'standard' | 'blocks';
+  template: 'standard' | 'blocks' | 'sections';
+  /**
+   * The group this page belongs to: it sets who may edit the page, its look, its sub-navigation and which section types can be added. Leave empty for a stand-alone page.
+   */
+  pageSet?: ('sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
+  /**
+   * Empty: the page set's theme.
+   */
+  theme?: 'wuwf' | null;
+  /**
+   * The page's name in its set's sub-navigation. Empty: the title.
+   */
+  navLabel?: string | null;
+  /**
+   * Lowest first. Empty: after the numbered pages.
+   */
+  navOrder?: number | null;
+  /**
+   * Ask search engines not to list this page.
+   */
+  noindex?: boolean | null;
+  /**
+   * Do not tell the sites it links to where the visitor came from.
+   */
+  noReferrer?: boolean | null;
+  sections?: SectionCards[] | null;
   /**
    * A short lead shown under the title. Optional.
    */
@@ -2858,6 +2931,13 @@ export interface PayloadMigration {
 export interface PagesSelect<T extends boolean = true> {
   title?: T;
   template?: T;
+  pageSet?: T;
+  theme?: T;
+  navLabel?: T;
+  navOrder?: T;
+  noindex?: T;
+  noReferrer?: T;
+  sections?: T | {};
   summary?: T;
   body?: T;
   hero?:

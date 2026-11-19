@@ -53,6 +53,8 @@ import * as migration_20261118_154406_site_settings_embedding_tuning from './202
 import * as migration_20261118_161412_news_sections_and_placements from './20261118_161412_news_sections_and_placements';
 import * as migration_20261118_191825_placement_items from './20261118_191825_placement_items';
 import * as migration_20261118_221136_network_content from './20261118_221136_network_content';
+import * as migration_20261119_031412_sections_pages from './20261119_031412_sections_pages';
+import * as migration_20261119_031427_blocks_to_json from './20261119_031427_blocks_to_json';
 
 export const migrations = [
   {
@@ -328,6 +330,16 @@ export const migrations = [
   {
     up: migration_20261118_221136_network_content.up,
     down: migration_20261118_221136_network_content.down,
-    name: '20261118_221136_network_content'
+    name: '20261118_221136_network_content',
+  },
+  {
+    up: migration_20261119_031412_sections_pages.up,
+    down: migration_20261119_031412_sections_pages.down,
+    name: '20261119_031412_sections_pages',
+  },
+  {
+    up: migration_20261119_031427_blocks_to_json.up,
+    down: migration_20261119_031427_blocks_to_json.down,
+    name: '20261119_031427_blocks_to_json'
   },
 ];
