@@ -291,16 +291,25 @@ Rendering and Shared data; page-level `noindex` and `noReferrer` fields; the pag
 Voyager and Unearthing, the 3:1 button check, the teal and lime bands); board 28 superseding boards 11 to 13 on layout; phases 2 and 6
 rewritten; Barefoot Mary and show pages out of scope; open decisions 5 to 8; two risks; a *Sources* section.
 
-## Phase 1: the sections foundation (built 2026-11-19 on the scratch database; not yet on staging)
+## Phase 1: the sections foundation (built 2026-11-19; applied to staging by the preview build of `946e5fef` and verified there)
 
 `PAGE-BLOCKS.md` phase 1, on the owner's instruction to proceed on the recommendations (tone list: add `teal` and `lime`; per-set edit
 permission as proposed; staging converted rather than rebuilt; Home stays a global). Rules for the result are in `CLAUDE.md` → *Pages and
 sections*; the map is `ARCHITECTURE.md` → *Pages built from sections*.
 
+**Applied to staging (2026-11-19, after the owner's go-ahead to push).** The preview build of `946e5fef` (READY in about 70 s) ran both migrations on
+`wuwf-site-staging`; verified afterwards with read-only queries through the Supabase connector: both recorded (57 in all); `jsonb` columns
+`posts.featured_media`, `_posts_v.version_featured_media`, `pages.layout`, `pages.sections`, `_pages_v.version_layout`, `_pages_v.version_sections`, `forms.fields`; the six
+page columns; **no `*_blocks_*` table, old block enum, foreign key to one, or `categories_id` column left**; the new enums and the `sections` template value
+present; tables owned by `payload_app`, no grants to `anon` or `authenticated`; **the data matches the pre-migration counts exactly**: 249 stories, 256 versions,
+247 stories with featured media, 232 media blocks, 15 galleries, 88 gallery images, 25 standard pages; no story has an unknown or a second featured-media block.
+Not verified: that a converted story and the sections page render on the preview (the sandbox cannot reach the deployment, and the tool that can creates a
+share link on it, which was not asked for), and the new-page caching question from phase 0 item 7.
+
 **State of the branch.** Pushed: the pure code and tests (themes, page sets, block registry, Cards, helpers; no schema, config or route change),
-and a commit that restores a migration snapshot an earlier commit had deleted by mistake. **Local, not pushed: the schema and wiring commit**,
-because pushing a branch makes its preview build run the new migrations on the shared staging database (`MIGRATE_ON_BUILD`), which breaks other
-branches' previews until they are rebased. It needs the owner's go-ahead.
+and a commit that restores a migration snapshot an earlier commit had deleted by mistake. The schema and wiring commit `d7cd3dee` was held until the owner
+said to push, because a pushed branch's preview build runs the new migrations on the shared staging database (`MIGRATE_ON_BUILD`), which breaks other
+branches' previews until they are rebased. **Open branches must be rebased onto this one** (their previews read block tables that no longer exist).
 
 **What was built.** Migrations `20261119_031412_sections_pages` (the `sections` template, page set, theme, navigation, `noindex`, `noReferrer`
 and `sections`) and `20261119_031427_blocks_to_json` (Payload's converter with a hand-written `down` and a skip when the tables are empty);
@@ -340,9 +349,8 @@ as its own small change after the pair is on staging, so the verified migration 
 globals of phases 3 and 4). An end-to-end admin save of a sections page in a browser (the picker, the fields and rendering were checked; the save was
 covered by the integration tests). Not run: on Vercel.
 
-**Next.** The owner's go-ahead to push; then check the migrations on staging with real queries through the Supabase connector (the two columns,
-the `jsonb` columns, no `*_blocks_*` tables, owner, no Data API access); look at a new page's cache behaviour on that deployment (phase 0 item 7's open
-question); then phase 2, the library.
+**Next.** Rebase open branches; look at the preview (a converted story, a sections page) and at a new page's cache behaviour on that deployment (phase 0
+item 7's open question); remove the `blocks` template; then phase 2, the library.
 
 ## Staging demonstration content for news sections and placements (2026-11-18)
 

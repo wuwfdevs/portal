@@ -325,11 +325,11 @@ below and in the *Risks* table; the two the owner should see before phase 1 are 
 
 ### Phase 1: foundation
 
-Built 2026-11-19 on the scratch database; **not yet applied to staging** (a pushed branch's preview build does that, and breaks other
-branches' previews; it waits for the owner's go-ahead). Details and numbers: `ROADMAP.md` → *Phase 1*.
+Built 2026-11-19 and **applied to staging** by the preview build of `946e5fef` after the owner's go-ahead; verified there with read-only
+queries (counts equal before and after, no block tables left). Open branches must be rebased onto it. Details and numbers: `ROADMAP.md` → *Phase 1*.
 
 - [x] Storage: migrations `sections_pages` (the page columns) then `blocks_to_json`, with a hand-written `down`; tested up, down, up on rows
-      (zero differences) and on an empty database; `verify:migrations` passes. Staging step still to do: apply and verify there.
+      (zero differences) and on an empty database; `verify:migrations` passes. Applied and verified on staging.
 - [x] `sections` template, root `blocks` registry, `RenderSections`, the shared field builder, anchor validation (one block, Cards, as the pattern).
 - [x] Page sets registry, per-set edit and publish permission (tested by role), set sub-navigation, `filterOptions`.
 - [x] Themes scaffold with the contrast test (text 4.5:1, button 3:1); `wuwf` only, with the `teal` and `lime` tones added.
