@@ -27,6 +27,7 @@ import { jsonLdText } from '@/lib/live/jsonld'
 import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
 import { readingMinutes } from '@/lib/reading'
 import { getAcknowledgments } from '@/lib/underwriting/load'
+import { membershipAppealOf } from '@/lib/shared-text'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { getServerSideURL } from '@/utilities/getURL'
 
@@ -53,6 +54,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const settings = await getCachedGlobal('site-settings', 1)()
   const policy = named(settings?.independencePolicy)
   const independenceHref = policy?.slug ? `/${policy.slug}` : null
+  const sharedText = await getCachedGlobal('shared-text', 0)()
   const hubHref = fellowship?.slug ? `/fellowships/${fellowship.slug}` : null
 
   const minutes = readingMinutes(post.content)
@@ -170,7 +172,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           {byline.map((c) => (
             <AuthorBox contributor={c} key={c.id} photo={bylinePhotos.get(c.id)} />
           ))}
-          <MembershipAppeal />
+          <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} />
         </div>
       </div>
 

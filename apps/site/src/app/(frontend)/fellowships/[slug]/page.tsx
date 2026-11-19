@@ -6,6 +6,7 @@ import { getPayload } from 'payload'
 
 import { FellowshipHub } from '@/components/Fellowship/FellowshipHub'
 import { loadFellowshipHub } from '@/lib/fellowship/load'
+import { fellowshipPolicyOf } from '@/lib/shared-text'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
 // A fellowship's hub. Agreements have terms, so the page also refreshes on a schedule; editing the fellowship or an
@@ -25,9 +26,9 @@ export default async function FellowshipPage({ params }: Args) {
   const data = await loadFellowshipHub(slug)
   if (!data) notFound()
 
-  const settings = await getCachedGlobal('site-settings', 1)()
+  const [settings, sharedText] = await Promise.all([getCachedGlobal('site-settings', 1)(), getCachedGlobal('shared-text', 0)()])
   const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
-  return <FellowshipHub data={data} independenceHref={policy?.slug ? `/${policy.slug}` : null} />
+  return <FellowshipHub data={data} explanation={fellowshipPolicyOf(sharedText?.fellowshipPolicy)} independenceHref={policy?.slug ? `/${policy.slug}` : null} />
 }
 
 export async function generateMetadata({ params }: Args): Promise<Metadata> {

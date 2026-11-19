@@ -209,6 +209,7 @@ export interface Config {
     header: Header;
     footer: Footer;
     'site-settings': SiteSetting;
+    'shared-text': SharedText;
     'listen-live': ListenLive;
     'support-page': SupportPage;
     sponsorship: Sponsorship;
@@ -223,6 +224,7 @@ export interface Config {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'shared-text': SharedTextSelect<false> | SharedTextSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
@@ -6826,6 +6828,70 @@ export interface SiteSetting {
   createdAt?: string | null;
 }
 /**
+ * The community calendar’s guidelines, the membership appeal and the fellowship explanation: words that appear on more than one page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shared-text".
+ */
+export interface SharedText {
+  id: number;
+  /**
+   * Shown on the event submission page, closed until a visitor opens it. With no paragraphs the panel is not drawn.
+   */
+  calendarGuidelines?: {
+    /**
+     * The panel’s heading on the event submission page.
+     */
+    title?: string | null;
+    paragraphs?:
+      | {
+          /**
+           * Optional bold opening words, such as “Deadlines.”
+           */
+          lead?: string | null;
+          /**
+           * An email address typed here becomes a link.
+           */
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * The band under every story and on the home page.
+   */
+  membershipAppeal?: {
+    /**
+     * One sentence. Empty hides the appeal.
+     */
+    text?: string | null;
+    buttonLabel?: string | null;
+    /**
+     * A page on this site (/support), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    buttonHref?: string | null;
+  };
+  /**
+   * On every fellowship’s page, under its work. With no items the section is not drawn.
+   */
+  fellowshipPolicy?: {
+    title?: string | null;
+    items?:
+      | {
+          term: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * The link to the editorial independence policy (chosen in Site settings).
+     */
+    linkLabel?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "listen-live".
  */
@@ -8940,6 +9006,47 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   relatedMaxPerSeries?: T;
   portalOrigin?: T;
   independencePolicy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shared-text_select".
+ */
+export interface SharedTextSelect<T extends boolean = true> {
+  calendarGuidelines?:
+    | T
+    | {
+        title?: T;
+        paragraphs?:
+          | T
+          | {
+              lead?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membershipAppeal?:
+    | T
+    | {
+        text?: T;
+        buttonLabel?: T;
+        buttonHref?: T;
+      };
+  fellowshipPolicy?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              term?: T;
+              text?: T;
+              id?: T;
+            };
+        linkLabel?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
