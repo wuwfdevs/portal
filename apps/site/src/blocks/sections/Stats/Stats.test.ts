@@ -49,3 +49,12 @@ describe('Stats section', () => {
     expect(out).not.toContain('<p class="max-w-4xl')
   })
 })
+
+describe('Stats section: a line under each tile, and a link under the figures', () => {
+  it('tiles draw the compare line under the figure, and the link when it is safe', () => {
+    const out = html({ variant: 'tiles', stats: [{ value: '79%', text: 'think more highly', compare: '43% of non-listeners say the same' }], source: 'S', moreLabel: 'See who is listening →', moreHref: '/sponsor/audience' })
+    expect(out).toContain('43% of non-listeners say the same')
+    expect(out).toContain('href="/sponsor/audience"')
+    expect(html({ stats: [{ value: '1', text: 'a' }], source: 'S', moreLabel: 'Go', moreHref: 'javascript:1' })).not.toContain('href=')
+  })
+})

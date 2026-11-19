@@ -3,7 +3,7 @@ import { colors, themeCss, type ThemeOverrides } from '@wuwf/design-tokens'
 /**
  * Page themes and tones (PAGE-BLOCKS.md → Themes). A page set picks a THEME: a small set of token overrides over the station's tokens
  * (`@wuwf/design-tokens`), the same mechanism the themed shows use (`lib/shows/themes.ts`). Within a page an editor picks a TONE for each
- * section: a named ground (`plain`, `grey`, `accent`, `dark`, `teal`, `lime`), never a colour. The theme decides what each tone looks
+ * section: a named ground (`plain`, `grey`, `accent`, `dark`, `teal`, `lime`, `softlime`), never a colour. The theme decides what each tone looks
  * like, so the same block is a different hub in a different theme. Colours are tokens, in code; no colour or CSS is stored in the CMS.
  *
  * `themes.test.ts` checks every tone of every built theme: text 4.5:1 on its ground, muted text 4.5:1, button text 4.5:1 on its fill, and
@@ -16,7 +16,7 @@ export const THEME_IDS = ['wuwf', 'radiolive', 'voyager', 'unearthing'] as const
 export type ThemeId = (typeof THEME_IDS)[number]
 
 /** The named grounds an editor can give a section. `teal` and `lime` are the bands the built sponsor and giving pages already use. */
-export const TONES = ['plain', 'grey', 'accent', 'dark', 'teal', 'lime'] as const
+export const TONES = ['plain', 'grey', 'accent', 'dark', 'teal', 'lime', 'softlime'] as const
 export type Tone = (typeof TONES)[number]
 
 export function isTone(value: unknown): value is Tone {
@@ -37,6 +37,15 @@ export interface ToneStyle {
   /** The band's primary button. */
   buttonFill: TokenName
   buttonText: TokenName
+  /** The colour of an eyebrow, a figure's rule, a price and a link: the band's accent (blue on light grounds, lime on dark). Text, so 4.5:1. */
+  accent: TokenName
+  /** The outlined button's text and border. Text, so 4.5:1. */
+  ghost: TokenName
+  /** The ground of a card or tile drawn on the band (a CSS value built from tokens), and its border. */
+  card: string
+  cardRule: string
+  /** A quiet tint on the band: a note, a chosen option. */
+  tint: string
 }
 
 export interface PageTheme {
@@ -48,8 +57,14 @@ export interface PageTheme {
   tones: Record<Tone, ToneStyle>
 }
 
-const onLight = { text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface' } as const
-const onDark = { text: 'surface', muted: 'surface-dark-text', buttonFill: 'wuwf-lime', buttonText: 'ink' } as const
+const onLight = {
+  text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
+  card: 'var(--color-surface)', cardRule: 'var(--color-rule-strong)', tint: 'var(--color-wuwf-blue-100)',
+} as const
+const onDark = {
+  text: 'surface', muted: 'surface-dark-text', buttonFill: 'wuwf-lime', buttonText: 'ink', accent: 'wuwf-lime', ghost: 'surface',
+  card: 'color-mix(in srgb, var(--color-surface) 6%, transparent)', cardRule: 'color-mix(in srgb, var(--color-surface) 18%, transparent)', tint: 'color-mix(in srgb, var(--color-surface) 10%, transparent)',
+} as const
 
 const wuwf: PageTheme = {
   id: 'wuwf',
@@ -59,10 +74,17 @@ const wuwf: PageTheme = {
   tones: {
     plain: { ground: 'surface', rule: 'rule', ...onLight, muted: 'ink-3' },
     grey: { ground: 'surface-2', rule: 'rule-strong', ...onLight, muted: 'ink-3' },
-    accent: { ground: 'wuwf-blue-100', rule: 'rule-strong', ...onLight },
+    accent: { ground: 'wuwf-blue-100', rule: 'rule-strong', ...onLight, tint: 'var(--color-surface)' },
     dark: { ground: 'surface-dark', rule: 'surface-dark-line', ...onDark },
     teal: { ground: 'wuwf-teal', rule: 'surface-dark-line', ...onDark },
-    lime: { ground: 'wuwf-lime', rule: 'ink-3', text: 'ink', muted: 'ink-2', buttonFill: 'ink', buttonText: 'surface' },
+    softlime: {
+      ground: 'wuwf-lime-100', rule: 'ink-3', text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
+      card: 'var(--color-surface)', cardRule: 'var(--color-wuwf-lime-600)', tint: 'color-mix(in srgb, var(--color-ink) 6%, transparent)',
+    },
+    lime: {
+      ground: 'wuwf-lime', rule: 'ink-3', text: 'ink', muted: 'ink-2', buttonFill: 'ink', buttonText: 'surface', accent: 'ink', ghost: 'ink',
+      card: 'var(--color-surface)', cardRule: 'var(--color-ink-3)', tint: 'color-mix(in srgb, var(--color-ink) 8%, transparent)',
+    },
   },
 }
 
@@ -96,7 +118,7 @@ export function themeColor(theme: PageTheme, token: TokenName): string {
 
 /**
  * The CSS for one theme under `[data-page-theme="<id>"]`: its token overrides, then one rule per tone that sets the band's ground and the
- * variables its block reads (`--tone-text`, `--tone-muted`, `--tone-rule`, `--tone-button`, `--tone-button-text`). Tones reference the
+ * variables its block reads (`--tone-text`, `--tone-muted`, `--tone-rule`, `--tone-button`, `--tone-button-text`, `--tone-accent`, `--tone-ghost`, `--tone-card`, `--tone-card-rule`, `--tone-tint`). Tones reference the
  * `--color-*` variables, so a theme's overrides reach them. Static, from code, so it is safe to inline.
  */
 export function pageThemeCss(theme: PageTheme): string {
@@ -108,7 +130,10 @@ export function pageThemeCss(theme: PageTheme): string {
       `${scope} [data-tone="${tone}"] {\n` +
         `  --tone-ground: var(--color-${t.ground});\n  --tone-text: var(--color-${t.text});\n  --tone-muted: var(--color-${t.muted});\n` +
         `  --tone-rule: var(--color-${t.rule});\n  --tone-button: var(--color-${t.buttonFill});\n  --tone-button-text: var(--color-${t.buttonText});\n` +
+        `  --tone-accent: var(--color-${t.accent});\n  --tone-ghost: var(--color-${t.ghost});\n  --tone-card: ${t.card};\n  --tone-card-rule: ${t.cardRule};\n  --tone-tint: ${t.tint};\n` +
         `  background-color: var(--tone-ground);\n  color: var(--tone-text);\n}`,
+      // Two bands of the same tone in a row read as one: the gap between them is a section gap, not two bands' padding.
+      `${scope} [data-tone="${tone}"] + [data-tone="${tone}"] {\n  padding-top: 2rem;\n}\n${scope} [data-tone="${tone}"]:has(+ [data-tone="${tone}"]) {\n  padding-bottom: 0;\n}`,
     )
   }
   return parts.filter(Boolean).join('\n')

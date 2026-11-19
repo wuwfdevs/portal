@@ -148,19 +148,21 @@ generator, scoped per-show theme overrides (values validated so a theme cannot b
 contrast helper whose tests pin the design system's own accessibility notes. The values must stay equal to the
 Portal's `src/lib/design-tokens.ts`. The site's Tailwind/CSS is not yet wired to it.
 
-## Pages built from sections (Partly built: the foundation; the pages move in later phases)
+## Pages built from sections (Partly built: the foundation, the library and the six sponsor pages; the other pages move in later phases)
 
 An editor-composed page is a `pages` record with `template: sections` and an ordered `sections` blocks field, stored as one `jsonb` column (`blocksAsJSON`). The plan, its phases and the findings behind it are `PAGE-BLOCKS.md` and `ROADMAP.md` → *Phase 0 findings*; the rules are `CLAUDE.md` → *Pages and sections*.
 
 | Piece | Where | State |
 |---|---|---|
-| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts and the 18-block library (phase 2) |
-| Page sets: theme, edit permission, sub-navigation, which set-only blocks are offered | `src/lib/page-sets/`, `access/pages.ts`, `hooks/enforcePageSet.ts` | Built; the set's footer line is wired with the settings globals (phases 3 and 4) |
+| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts, the 18-block library (phase 2) and the five sponsor-only blocks (phase 3) |
+| Page sets: theme, edit permission, sub-navigation, which set-only blocks are offered | `src/lib/page-sets/`, `access/pages.ts`, `hooks/enforcePageSet.ts` | Built; the sponsor set's footer line is wired (`components/Page/SetFooter.tsx`); the giving set's follows in phase 4 |
 | Page themes and tones: tokens in code, stylesheet generated, contrast tested | `src/lib/page-themes/`, `page-themes.css` | Built: the station theme; the three hub themes are named, not built |
 | The page, read by the catch-all route | `components/Page/SectionsPageView.tsx` | Built; reads the page record and the set's navigation, never the request |
 | The data behind the Featured record, List, Dates and Credit blocks: pure shaping, specs and cached loaders | `src/lib/section-data/` | Built (phase 2) |
 | The internal sample page: every block in every tone | `src/lib/sections-sample/`, `scripts/sections/seed-sample-page.ts` | Built; not yet on staging |
-| Set-only blocks, the settings globals | | Specified (phases 3 and 4) |
+| The sponsorship settings (prices, rates, contact, form choices, programs) and what reads them | `globals/SponsorshipSettings`, `lib/sponsorship/load.ts`, the five blocks under `blocks/sections/{RateEstimator,Packages,Carpool,OpenPrograms,InquiryForm}` | Built (phase 3) |
+| The six sponsor pages, written from the old global once, by migration | `lib/sponsorship/to-sections.ts`, `migrations/20261119_050400_sponsor_pages.ts` | Built (phase 3); on staging when its preview build has applied it |
+| The giving settings and its set-only blocks | | Specified (phase 4) |
 
 A page's cache window is the route's 3600 seconds unless a block loads time-dependent data through `unstable_cache` with a shorter `revalidate`; saving a settings global or a page in a set refreshes, through cache tags, the pages that read it.
 

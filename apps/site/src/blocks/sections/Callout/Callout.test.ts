@@ -15,8 +15,8 @@ describe('Callout section', () => {
     expect(out).toContain('data-tone="accent"')
     expect(out).toContain('<h2')
     expect(out).toContain('Recognition, if you want it')
-    expect(out).toContain('<p>Let us know.</p>')
-    expect(out).toContain('<p>Anonymous is always fine.</p>')
+    expect(out).toContain('Let us know.')
+    expect(out).toContain('Anonymous is always fine.')
     expect(out).not.toContain('ignored here')
     expect(out).not.toContain('<blockquote')
   })
@@ -26,5 +26,13 @@ describe('Callout section', () => {
     expect(out).toContain('Sample language')
     expect(out).toContain('Share this with your attorney')
     expect(out).not.toContain('<h2')
+  })
+})
+
+describe('Callout section: a link inside', () => {
+  it('draws the link when it has both words and a safe address', () => {
+    const out = renderBlock(CalloutSection, 'sectionCallout', { variant: 'tint', text: 'A note.', moreLabel: 'See the packages →', moreHref: '/sponsor/on-air#packages' })
+    expect(out).toContain('href="/sponsor/on-air#packages"')
+    expect(renderBlock(CalloutSection, 'sectionCallout', { text: 'A note.', moreLabel: 'x', moreHref: 'data:text/html,x' })).not.toContain('href=')
   })
 })

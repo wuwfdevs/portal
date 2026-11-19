@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
 
 export interface TextData extends SectionData {
@@ -47,8 +47,7 @@ export async function TextSection({ block }: SectionProps<TextData>) {
   if (!bodyHasContent(block.body)) return null
   const { default: RichText } = await import('@/components/RichText')
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       <RichText className={`mx-0 max-w-3xl ${TONE_PROSE}`} data={block.body as never} enableGutter={false} />
     </SectionBand>
   )

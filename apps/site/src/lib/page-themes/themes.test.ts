@@ -17,6 +17,10 @@ describe('page themes: contrast', () => {
         expect(contrastRatio(c(s.text), c(s.ground))).toBeGreaterThanOrEqual(4.5)
         expect(contrastRatio(c(s.muted), c(s.ground))).toBeGreaterThanOrEqual(4.5)
       })
+      it(`${theme.id} / ${tone}: the accent and the outlined button's colour are 4.5:1 on the ground (they are text)`, () => {
+        expect(contrastRatio(c(s.accent), c(s.ground))).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(c(s.ghost), c(s.ground))).toBeGreaterThanOrEqual(4.5)
+      })
       it(`${theme.id} / ${tone}: the button's text is 4.5:1 on its fill, and its fill is 3:1 against the ground`, () => {
         expect(contrastRatio(c(s.buttonText), c(s.buttonFill))).toBeGreaterThanOrEqual(4.5)
         expect(contrastRatio(c(s.buttonFill), c(s.ground))).toBeGreaterThanOrEqual(3)
@@ -28,7 +32,7 @@ describe('page themes: contrast', () => {
 describe('page themes: resolution and css', () => {
   it('names the four themes and every tone', () => {
     expect(THEME_IDS).toEqual(['wuwf', 'radiolive', 'voyager', 'unearthing'])
-    expect([...TONES]).toEqual(['plain', 'grey', 'accent', 'dark', 'teal', 'lime'])
+    expect([...TONES]).toEqual(['plain', 'grey', 'accent', 'dark', 'teal', 'lime', 'softlime'])
     expect(isTone('dark')).toBe(true)
     expect(isTone('#ff0000')).toBe(false)
   })

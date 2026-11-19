@@ -47,7 +47,9 @@ describe('checkPath', () => {
   it('knows which paths the site itself owns', () => {
     expect(isReservedPath('/search')).toBe(true)
     expect(isReservedPath('/search-and-rescue')).toBe(false)
-    expect(isReservedPath('/sponsor/on-air')).toBe(true) // the sponsorship pages (boards 16 to 20b)
+    expect(isReservedPath('/sponsor/on-air')).toBe(false) // the sponsorship pages are pages now (phase 3)
+    expect(isReservedPath('/sponsor')).toBe(false)
+    expect(isReservedPath('/sponsor/inquiry-token')).toBe(true) // the one address inside it that a route owns
     expect(isReservedPath('/local-news/2016-05-02/support')).toBe(false) // only the first segment is reserved
   })
 })

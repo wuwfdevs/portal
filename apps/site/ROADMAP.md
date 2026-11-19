@@ -428,7 +428,51 @@ database it drew 106 of 108 sections (the two community-calendar Dates sections 
 - **Open from phase 1, untouched:** the unused `blocks` template (its removal is its own small change) and the set footer line (phases 3 and 4).
 
 **Next.** The owner looks at the sample page (on staging, with the owner's go-ahead for the draft write, or from the screenshots and the script on a
-scratch database); then phase 3, the sponsor pages, which is the decision point in `PAGE-BLOCKS.md`.
+scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below), which is the decision point in `PAGE-BLOCKS.md`.
+
+## Phase 3: the sponsor pages (built 2026-11-19; the exit is the owner's, in staging)
+
+`PAGE-BLOCKS.md` phase 3, the pilot, on the owner's instruction to go as far as possible. It is built and tested locally; the preview build of the pushed branch (`ef54363`) applied both migrations to staging, **verified with read-only queries through the Supabase connector**: `payload_migrations` lists `sponsorship_settings` and `sponsor_pages`; the settings tables hold 1 row, 7 dayparts, 2 programs, 4 packages and 7 interests, equal to the old global's; `pages` holds the six sponsor pages (published, set `sponsor`, 11, 12, 6, 7, 5 and 11 sections) among 31. The production database was not touched (it stays empty until launch). **Phase 4 (giving) was not started: the plan makes this phase a decision point, and the owner has not yet reordered a section, hidden one or built a page in staging.**
+
+**What was built.**
+- **`sponsorship-settings`** (Site settings; publishers edit): contact details, the proposal form's choices and server messages, the rate card, the Carpool prices, the new-sponsor packages and the events and programs. Data only. Saving it revalidates `global_sponsorship-settings`. Migration `20261119_050302_sponsorship_settings` creates its tables and **copies the values from the old global in SQL** (so the migration does not depend on the config as it will be at replay).
+- **Five sponsor-only blocks** (`sets: ['sponsor']`): Rate estimator, Packages, Carpool plan, Open programs, Inquiry form. The plan named three; the Carpool and package prices are settings, so they are blocks that read them. Each has a config, component, test, thumbnail, registry entry and sample maker.
+- **Six pages** (`/sponsor`, `/sponsor/on-air`, `/sponsor/digital`, `/sponsor/events`, `/sponsor/audience`, `/sponsor/credit-guidelines`) written at their own addresses by migration `20261119_050400_sponsor_pages` (the Local API, from the old global's current words, through `lib/sponsorship/to-sections.ts`). 52 sections in all (none hidden). `down` removes the six pages; tested down and up on rows. The six routes and `components/Sponsorship/*` are deleted.
+- **The set's footer line** (`components/Page/SetFooter.tsx`, `lib/page-sets/footer.ts`): service line, corporate support's phone and address, and the credit guidelines link, under the last section.
+- Library changes the pages needed (each optional, each tested): Cards and Stats and Callout take one link under the section (`moreLabel`, `moreHref`); Cards takes a small-print `note`; Stats tiles show a `compare` line under a figure and use four columns for four or eight; Cards uses four columns for four; Feature's line may be several paragraphs; the Picker's panel now always sits on its own row (with seven choices it had sat beside the last one).
+- `/sponsor` is no longer a reserved first segment (`lib/paths.ts`); `RESERVED_PATHS` keeps the one address a route owns there, `/sponsor/inquiry-token`.
+
+**Decisions I made (the owner can reverse any).**
+- **A Picker's price is typed text** (the phase 2 open question): a block shows a price from the settings only when it exists to show it (the estimator, Packages, Carpool plan, Open programs). Nobody types a rate card number in a section.
+- **The goal picker's last goal** ("Back something WUWF puts on") was built from the programs open at the time. It is typed text now, made from the programs open when the migration ran; it no longer follows them. The Open programs section on `/sponsor/events` still does.
+- **The sector picker's two figure grids** became lines in each sector's panel ("Local: 65 median age...").
+- **The digital page's illustrations** (a sample sponsor in a dashed box) and their note were dropped; a section has nowhere to draw them. This is the one word a test lists as lost on purpose.
+- **The old `Sponsorship` global is hidden** in the admin (nothing reads it for a visitor) and kept, with its data, until phase 7.
+
+**The design pass (same day, after the owner's review of the first screenshots).** The first arrangement lost a great deal of the polish the coded pages had, and I had not opened the design canvas: I built the blocks from the plan's descriptions and judged the pages by whether the words survived. I then read board 28 and the sponsor boards (rendered with Playwright from the canvas artifact) and rebuilt the blocks to them. What changed, all in blocks and the theme, none in the architecture:
+- **Tone tokens**: `--tone-accent` (eyebrows, prices, links, marks: blue on light grounds, lime on dark), `--tone-ghost` (the outlined button), `--tone-card` and `--tone-card-rule` (the box of a card or tile; translucent on dark) and `--tone-tint` (a note, a chosen option). Contrast-tested for every tone. Two bands of the same tone in a row now read as one (the second gives up its top padding).
+- **Heading beside the content** (`placement: side`, a field on every block with a heading): the eyebrow, title, intro and link in a left column, the content on the right, as the hub boards compose "Your name arrives as support" and "Why it works" and the FAQ. A phone always stacks it.
+- **Feature** takes an aside: up to four figure tiles with a source line (the hub's dark opening band), or a sample sentence in a card (the on-air page); the split variant takes it too when it has no picture (the digital package band).
+- **Boxed figures and cards** at the boards' 8 px radius; Cards with a price and no link words use the price as the link ("From $23 a credit →"); Quotes, Questions, Callout (a tint box with the link on the right), Table (the boards' header style), Closing band, the sponsor blocks and the buttons (a filled primary, lime on dark; an outlined ghost) were restyled.
+- **Picker**: pill choices with the chosen one tinted; a panel with a total box and rows (a small label, a name, a detail, a figure on the right) for the goals, and rows for the sector figures.
+- **Check list** takes a second list beside the first and a detail line under a row (the credit guidelines' two columns).
+- The six pages were re-mapped onto these (`to-sections.ts`) and migration `20261119_150000_sponsor_pages_polish` rewrites the ones already on staging, **only if nobody has edited them since the first migration** (one version); an edited page is left as it is.
+
+**Second pass, with Columns (same day).** The owner said the old coded pages, not only the boards, were the final product, and proposed optional multi-column layouts as blocks that hold other blocks (as Grove does). Built: **Columns** and the inline-only **Illustration** (see `PAGE-BLOCKS.md` → *Columns*), a **soft lime** tone (the old pages' pale lime band), a **Callout `lime` variant** (the pale lime note box), a **Table `pairs` variant** (each row as a plain card beside a marked one), and compact compare bars. The pages were re-mapped to look like the old ones: the hub opens on the tinted band with its figures in a row below, "Why it works" is the dark band again, the notes are lime, the digital page draws its three sample sponsor messages beside the tables (Columns: Illustration | Table), the credit guidelines have their two lists in two columns and their pairs as cards, the package band is pale lime with the price set large. Migration `20261119_160000_sponsor_pages_polish2` rewrites the pages already on staging (only if they have at most two versions; see its comment for the one case it cannot tell). The check list's second list was removed (Columns replaces it); the heading-beside option and the hero aside stay (the hub boards use the first, the on-air page the second).
+
+**Still different from the old pages.** Spacing is a little looser and some tile text a little larger (a band is `py-14`, the old pages' sections were similar but their cards were tighter); the hero's single link is a filled button where the old pages had a text link; the picker's choices are rounder (`rounded-full`) with the chosen one solid dark as before. Otherwise the six pages hold the old pages' structure, words and look.
+
+**Findings.**
+- **The registry is loaded by the Payload CLI, and so is anything a block's component imports**, including a client component's server action. The inquiry form's action imported the loader at the top of its file, which would have pulled the Payload config into the registry; it is imported inside the action now.
+- **The path rule reserved `/sponsor`.** A record could not take an address under a first segment a route owns. The migration failed on it first; see the change above.
+- **The inquiry form on a cached page.** The old page was `force-dynamic` to give the form its timing token. The page is cached now, so the form fetches its token when shown. A visitor without script can read the form but not send it (the old page had the same limit for a form that was open a long time).
+- **A fidelity test found five things the first mapping lost** (a label above the goal's price, the events goal in the test fixture, two ids, the sample credit's quotation marks) before the owner could. `lib/sponsorship/to-sections.test.ts` keeps the list.
+
+**Checks (local).** `pnpm typecheck`: clean. `pnpm lint`: no new error (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 232 files, 2,573 tests, all passing (phase 2 ended at 221 files; one unhandled rejection from `plugin-seo` in `revalidateSiteSettings.test.ts` exists before phase 3 and is not from this work); `pnpm build`: passes; `pnpm verify:migrations`: passes (it replays every migration on an empty database, including the one that writes the six pages from the starting wording). The migrations applied to a fresh local database in order, down and up again on rows.
+
+**What the owner does next (the exit).** In staging: open Pages → Sponsorship set; reorder a section; hide one; add a section from the picker (it offers the library plus the five sponsor blocks); make a new sponsor page (it joins the sub-navigation by its `navOrder`). Change a rate in Sponsorship settings and watch the rate card change. If that is not comfortable, stop and revise before phase 4.
+
+**Left out, on purpose.** The Open programs section's heading counts what is open (one, two, more) with the three headings as fields; the estimator's "Your estimate" label and the table's column names are still in code, as before. Dropping the old global's page fields and tables is phase 7. The giving set's footer joins the sponsor set's in phase 4. The unused `blocks` template is still its own small change.
 
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
@@ -618,7 +662,9 @@ and hand the donor to WUWF's donation form; the site never takes a gift.**
 - **Read on Grove and deliberately not redirected:** `/how-can-i-promote-my-cause` routes an event to the Community Calendar, a business to sponsorship, a nonprofit to the quarterly on-air spotlight and a
   story idea to the newsroom (so one destination would drop three of four), and `/our-corporate-sponsors` is a list of sponsor names with no page here to replace it. Both stay `proposed:keep` for the importer.
 
-## Sponsorship pages, boards 16 to 20b (built 2026-11-17)
+## Sponsorship pages, boards 16 to 20b (built 2026-11-17; moved into `pages` as sections 2026-11-19, phase 3)
+
+**Moved.** The six pages are records in `pages` (the sponsor set) built from sections, and their prices, rates, contact details, form choices and programs are the `Sponsorship settings` global (see *Phase 3* above). The paragraphs below describe the content and behaviour as built on 2026-11-17 and are history where they say "the `Sponsorship` global" or name a route or view: `CLAUDE.md` → *Pages and sections* is the rule now. The old global is hidden and is dropped in phase 7.
 
 The "Sponsor WUWF" section of the reviewed canvas is built as public pages: `/sponsor` (16, the hub and the inquiry form), `/sponsor/on-air` (17),
 `/sponsor/digital` (18), `/sponsor/events` (19), `/sponsor/audience` (20) and `/sponsor/credit-guidelines` (20b). The boards (rethought Nov. 17, strategy

@@ -1,6 +1,6 @@
 import { validateHref } from '@/lib/section-links'
 
-import { defineSection, sectionFields } from '../fields'
+import { defineSection, moreLinkFields, sectionFields } from '../fields'
 
 /**
  * Cards: hand-typed cards, each with a title, text, an optional link, tag or price (PAGE-BLOCKS.md → Block catalogue). One level of
@@ -26,6 +26,8 @@ export const Cards = defineSection({
           { name: 'linkLabel', type: 'text', admin: { description: 'The words on the link. Empty: "Read more".' } },
         ],
       },
+      { name: 'note', type: 'textarea', admin: { description: 'Optional small print under the cards: a source, a condition.' } },
+      ...moreLinkFields(),
     ],
   }),
 })

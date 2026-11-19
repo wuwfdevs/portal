@@ -1,6 +1,7 @@
 import React from 'react'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
+import { eyebrowClass } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface TableData extends SectionData {
@@ -27,16 +28,37 @@ export function TableSection({ block }: SectionProps<TableData>) {
   if (!table) return null
   const caption = block.caption?.trim()
   const label = block.heading?.title?.trim() || caption || 'Table'
+  if (block.variant === 'pairs') {
+    // Each row as a pair of cards: the first plain, the second marked as the one to follow. The column names say which is which.
+    return (
+      <SectionBand block={block} heading={block.heading}>
+        <ul aria-label={label} className="m-0 flex list-none flex-col gap-4 p-0">
+          {table.body.map((cells, r) => (
+            <li className="grid gap-4 md:grid-cols-2" key={r}>
+              <div className="flex flex-col gap-2 rounded-lg border p-5 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]">
+                <span className="text-xs font-bold uppercase tracking-[0.08em] [color:var(--tone-muted)]">{table.head[0]}</span>
+                <p className="font-serif text-lg">{cells[0]}</p>
+              </div>
+              <div className="flex flex-col gap-2 rounded-lg border p-5 [background-color:var(--tone-tint)] [border-color:var(--tone-accent)]">
+                <span className={eyebrowClass}>{table.head[1]}</span>
+                <p className="font-serif text-lg">{cells[1]}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {caption && <p className="text-sm [color:var(--tone-muted)]">{caption}</p>}
+      </SectionBand>
+    )
+  }
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
-      <div aria-label={label} className="overflow-x-auto rounded-sm border [border-color:var(--tone-rule)]" role="region" tabIndex={0}>
+    <SectionBand block={block} heading={block.heading}>
+      <div aria-label={label} className="overflow-x-auto rounded-lg border [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]" role="region" tabIndex={0}>
         <table className="w-full min-w-[32rem] border-collapse text-left text-base">
           {caption && <caption className="p-3 text-left text-sm [color:var(--tone-muted)]">{caption}</caption>}
           <thead>
             <tr>
               {table.head.map((h, i) => (
-                <th className="border-b-2 px-4 py-3 font-bold [border-color:var(--tone-rule)]" key={`${h}-${i}`} scope="col">
+                <th className="border-b-2 px-4 py-3 text-xs font-bold uppercase tracking-[0.04em] [border-color:var(--tone-card-rule)] [color:var(--tone-muted)]" key={`${h}-${i}`} scope="col">
                   {h}
                 </th>
               ))}
@@ -47,11 +69,11 @@ export function TableSection({ block }: SectionProps<TableData>) {
               <tr key={r}>
                 {cells.map((c, i) =>
                   i === 0 ? (
-                    <th className="border-b px-4 py-3 font-bold [border-color:var(--tone-rule)]" key={i} scope="row">
+                    <th className="border-b px-4 py-3 font-bold [border-color:var(--tone-card-rule)]" key={i} scope="row">
                       {c}
                     </th>
                   ) : (
-                    <td className="border-b px-4 py-3 [border-color:var(--tone-rule)]" key={i}>
+                    <td className="border-b px-4 py-3 [border-color:var(--tone-card-rule)]" key={i}>
                       {c}
                     </td>
                   ),

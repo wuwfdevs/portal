@@ -20,8 +20,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
     const people = (block.people ?? []).filter((p): p is NonNullable<typeof p> => Boolean(p?.name?.trim()))
     if (people.length === 0) return null
     return (
-      <SectionBand block={block}>
-        <SectionHeading heading={block.heading} />
+      <SectionBand block={block} heading={block.heading}>
         <ul className="grid list-none grid-cols-2 gap-4 p-0 sm:gap-6 lg:grid-cols-4">
           {people.map((p, i) => (
             <li className="flex flex-col gap-3" key={p.id ?? `${p.name}-${i}`}>

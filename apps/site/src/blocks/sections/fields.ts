@@ -45,6 +45,7 @@ export function sectionFields(options: {
         { label: 'Dark', value: 'dark' },
         { label: 'Teal', value: 'teal' },
         { label: 'Lime', value: 'lime' },
+        { label: 'Soft lime', value: 'softlime' },
       ],
       admin: { description: 'The ground of the section. The page theme decides what each looks like.' },
     },
@@ -65,8 +66,18 @@ export function sectionFields(options: {
       fields: [
         { name: 'eyebrow', type: 'text' },
         { name: 'title', type: 'text' },
-        { name: 'intro', type: 'textarea' },
+        { name: 'intro', type: 'textarea', admin: { description: 'A blank line starts a new paragraph.' } },
       ],
+    })
+    fields.push({
+      name: 'placement',
+      type: 'select',
+      defaultValue: 'stacked',
+      options: [
+        { label: 'Above the content', value: 'stacked' },
+        { label: 'Beside the content (a column on the left, on a wide screen)', value: 'side' },
+      ],
+      admin: { description: 'Where the heading sits. A phone always shows it above.' },
     })
   }
   return [...fields, ...options.own]
@@ -106,4 +117,15 @@ export function actionsField(options: { name?: string; maxRows?: number; descrip
       { name: 'href', type: 'text', label: 'Link', required: true, validate: validateHref },
     ],
   }
+}
+
+/**
+ * One optional link under a block's content ("See the credit guidelines →"): a label and an address. Used by the blocks that often need a way
+ * on to a related page (Cards, Stats, Callout). Drawn by `SectionMore`, through `safeHref`; with no label or no safe address nothing is drawn.
+ */
+export function moreLinkFields(): Field[] {
+  return [
+    { name: 'moreLabel', type: 'text', admin: { description: 'Optional: the words of one link under the section, e.g. "See the credit guidelines →".' } },
+    { name: 'moreHref', type: 'text', label: 'Link for that', validate: validateHref },
+  ]
 }

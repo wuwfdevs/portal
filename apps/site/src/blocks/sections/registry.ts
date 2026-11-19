@@ -38,6 +38,20 @@ import { List } from './List/config'
 import { ListSection } from './List/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
+import { Carpool } from './Carpool/config'
+import { CarpoolSection } from './Carpool/Component'
+import { InquiryForm } from './InquiryForm/config'
+import { InquiryFormSection } from './InquiryForm/Component'
+import { OpenPrograms } from './OpenPrograms/config'
+import { OpenProgramsSection } from './OpenPrograms/Component'
+import { Packages } from './Packages/config'
+import { PackagesSection } from './Packages/Component'
+import { Columns } from './Columns/config'
+import { ColumnsSection } from './Columns/Component'
+import { Illustration } from './Illustration/config'
+import { IllustrationSection } from './Illustration/Component'
+import { RateEstimator } from './RateEstimator/config'
+import { RateEstimatorSection } from './RateEstimator/Component'
 import type { SectionBlockEntry } from './types'
 
 /**
@@ -68,6 +82,15 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Credit', block: Credit, Component: CreditSection },
   { dir: 'Support', block: Support, Component: SupportSection },
   { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
+  // Layout: Columns holds other sections (one level); Illustration is drawn only inside it.
+  { dir: 'Columns', block: Columns, Component: ColumnsSection },
+  { dir: 'Illustration', block: Illustration, Component: IllustrationSection, inlineOnly: true },
+  // Offered only on pages in the sponsor set (PAGE-BLOCKS.md → Block catalogue, set-only blocks). Each reads the Sponsorship settings.
+  { dir: 'RateEstimator', block: RateEstimator, Component: RateEstimatorSection, sets: ['sponsor'] },
+  { dir: 'Packages', block: Packages, Component: PackagesSection, sets: ['sponsor'] },
+  { dir: 'Carpool', block: Carpool, Component: CarpoolSection, sets: ['sponsor'] },
+  { dir: 'OpenPrograms', block: OpenPrograms, Component: OpenProgramsSection, sets: ['sponsor'] },
+  { dir: 'InquiryForm', block: InquiryForm, Component: InquiryFormSection, sets: ['sponsor'] },
 ]
 
 /** The blocks for the config's root `blocks`. */
@@ -82,7 +105,7 @@ export function sectionEntry(slug: unknown): SectionBlockEntry | undefined {
 /** The slugs the picker offers a page in this set: the library, plus the blocks that name the set. */
 export function blocksOfferedFor(set: unknown, entries: readonly SectionBlockEntry[] = SECTION_BLOCKS): string[] {
   const id: PageSetId | null = isPageSetId(set) ? set : null
-  return entries.filter((e) => !e.sets || (id !== null && e.sets.includes(id))).map((e) => e.block.slug)
+  return entries.filter((e) => !e.inlineOnly && (!e.sets || (id !== null && e.sets.includes(id)))).map((e) => e.block.slug)
 }
 
 /** The slugs set-only blocks name: for a test that each names a set that exists. */

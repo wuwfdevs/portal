@@ -202,6 +202,51 @@ export const SAMPLES: Record<string, Maker> = {
     heading: { eyebrow: label, title: 'Ready to talk?', intro: 'Tell us about your business and we will send a plan within two working days.' },
     actions: [{ label: 'Start a proposal', href: '/sponsor#inquire' }, { label: 'Call us', href: 'tel:+18504741234' }],
   }),
+  sectionColumns: ({ label }) => ({
+    heading: { eyebrow: label, title: 'Two things side by side' },
+    columns: [
+      { sections: [{ id: 'c1', blockType: 'sectionCheckList', hidden: false, mark: 'check', listTitle: 'A credit includes', items: [{ text: 'Your business name' }, { text: 'What you do, in plain words' }] }] },
+      { sections: [{ id: 'c2', blockType: 'sectionCheckList', hidden: false, mark: 'cross', listTitle: 'A credit leaves out', items: [{ text: 'Prices' }, { text: 'Claims to be the best' }] }] },
+    ],
+  }),
+  sectionIllustration: () => ({ label: 'Illustration · display ad', caption: 'Sponsor message', name: 'Example Credit Union', line: 'A member-owned credit union.', website: 'example.org' }),
+  // Set-only blocks (the sponsor set). The sample page is in no set, which refuses them, so `buildSampleSections` leaves them out; the makers are
+  // here so a new set-only block still has its words, and `build.test.ts` fails until it does.
+  sectionRateEstimator: ({ label }) => ({
+    heading: { eyebrow: label, title: 'On-air rates, by the credit' },
+    note: 'Rates are per credit. WUWF confirms every schedule.',
+    estimatorEyebrow: 'Estimate',
+    estimatorTitle: 'Estimate a schedule',
+    commitmentLabel: 'Length of commitment',
+    creditsLabel: 'Credits in the schedule',
+    estimatorDisclaimer: 'An estimate only.',
+    estimatorCta: 'Request a proposal',
+  }),
+  sectionPackages: ({ label }) => ({ heading: { eyebrow: label, title: 'New sponsor packages' }, packageLabel: 'Package', note: 'Credits run within twelve months.' }),
+  sectionCarpool: ({ label }) => ({
+    heading: { eyebrow: label, title: 'The Carpool Plan' },
+    perDayNote: 'or about $4 a day',
+    slotsNote: 'Credits air in the morning and afternoon drive.',
+    actions: [{ label: 'Ask about the Carpool Plan', href: '/sponsor#inquire' }],
+  }),
+  sectionOpenPrograms: ({ label }) => ({
+    heading: { eyebrow: label, title: 'Events and programs open to sponsors' },
+    titleOne: 'One program is open to sponsors',
+    emptyText: 'Nothing is open to sponsors right now.',
+    talkLabel: 'Talk to us about {name}',
+    moreLabel: 'About {name}',
+    levelsLabel: 'Ways to partner',
+    recognitionLabel: 'Where you are named:',
+  }),
+  sectionInquiryForm: ({ label }) => ({
+    heading: { eyebrow: label, title: 'Get a proposal', intro: 'Tell us what you want to achieve.\n\nCorporate support replies within two working days.' },
+    contactTitle: 'Prefer to talk?',
+    submitLabel: 'Request a proposal',
+    sendingLabel: 'Sending',
+    labels: { name: 'Your name', organization: 'Organization', email: 'Email', phone: 'Phone', interests: 'What are you interested in?', budget: 'Budget', message: 'Anything else?', required: 'required' },
+    thanksTitle: 'Thank you',
+    thanksPrefix: 'Here is what you told us you are interested in:',
+  }),
 }
 
 const variantsOf = (fields: ReadonlyArray<{ name?: string; options?: unknown }>): string[] => {
@@ -214,6 +259,7 @@ export function buildSampleSections(refs: SampleRefs): SampleSection[] {
   const out: SampleSection[] = []
   for (const entry of SECTION_BLOCKS) {
     const slug = entry.block.slug
+    if (entry.sets || entry.inlineOnly) continue // a set-only block cannot be on a page in no set, and an inline-only block is not on a page's own list (their samples are in SAMPLES, for the test)
     const make = SAMPLES[slug]
     if (!make) throw new Error(`No sample for ${slug}: add it to SAMPLES in lib/sections-sample/build.ts.`)
     const variants = variantsOf(entry.block.fields as never)

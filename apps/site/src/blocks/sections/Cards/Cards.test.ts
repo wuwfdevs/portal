@@ -40,3 +40,29 @@ describe('Cards section', () => {
     expect(out).toContain('>B<')
   })
 })
+
+describe('Cards section: small print and a link under the cards', () => {
+  it('draws the note and the link when it has them, and neither when it has not', () => {
+    const cards = [{ title: 'A' }]
+    const out = html({ cards, note: 'Source: MRI.', moreLabel: 'See the guidelines →', moreHref: '/sponsor/credit-guidelines' })
+    expect(out).toContain('Source: MRI.')
+    expect(out).toContain('href="/sponsor/credit-guidelines"')
+    expect(out).toContain('See the guidelines →')
+    const bare = html({ cards })
+    expect(bare).not.toContain('Source')
+    expect(bare).not.toContain('href=')
+  })
+  it('never draws an unsafe link under the cards', () => {
+    expect(html({ cards: [{ title: 'A' }], moreLabel: 'Go', moreHref: 'javascript:alert(1)' })).not.toContain('href=')
+  })
+})
+
+describe('Cards section: a price that is the link', () => {
+  it('uses the price as the link when the card has no words for it, with one arrow only', () => {
+    const out = html({ cards: [{ title: 'A', price: 'From $23 a credit', href: '/sponsor/on-air' }, { title: 'B', price: 'Priced on request →', href: '/sponsor/events' }] })
+    expect(out).toContain('From $23 a credit →')
+    expect(out).toContain('Priced on request →')
+    expect(out).not.toContain('→ →')
+    expect(out).not.toContain('Read more')
+  })
+})

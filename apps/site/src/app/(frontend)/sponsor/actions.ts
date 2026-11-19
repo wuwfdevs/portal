@@ -2,7 +2,6 @@
 
 import { HONEYPOT_FIELD, TOKEN_FIELD } from '@/lib/events/abuse'
 import { mailer } from '@/lib/email/mailer'
-import { loadInquirySettings } from '@/lib/sponsorship/load'
 import { inquiryTokenFor, inquiryTokenSecret } from '@/lib/sponsorship/secrets'
 import { processInquiry, tokenAfterRefusal } from '@/lib/sponsorship/submit'
 
@@ -30,6 +29,8 @@ export async function submitInquiry(_previous: InquiryState, formData: FormData)
   const token = formData.get(TOKEN_FIELD)
   const honeypot = formData.get(HONEYPOT_FIELD)
 
+  // Loaded when the action runs, not when the module does: the section registry reaches this file through the form, and the loader loads the Payload config.
+  const { loadInquirySettings } = await import('@/lib/sponsorship/load')
   const settings = await loadInquirySettings()
   const outcome = await processInquiry(
     { raw, token: typeof token === 'string' ? token : undefined, honeypot: typeof honeypot === 'string' ? honeypot : undefined, now: new Date() },

@@ -12,6 +12,8 @@ export interface SectionData {
   anchor?: string | null
   tone?: string | null
   variant?: string | null
+  /** Set by Columns on a section it holds: draw without a band of its own (the band around the columns carries the tone and the spacing). */
+  inline?: boolean
   heading?: { eyebrow?: string | null; title?: string | null; intro?: string | null } | null
 }
 
@@ -29,7 +31,7 @@ export type SectionProps<B extends SectionData = SectionData> = { block: B; cont
 export type SectionComponent<B extends SectionData = never> = (props: SectionProps<B>) => ReactNode | Promise<ReactNode>
 
 /** The groups the block picker sorts blocks into. */
-export const SECTION_GROUPS = ['Lead', 'Collections', 'Facts and steps', 'Action', 'Text'] as const
+export const SECTION_GROUPS = ['Lead', 'Layout', 'Collections', 'Facts and steps', 'Action', 'Text'] as const
 export type SectionGroup = (typeof SECTION_GROUPS)[number]
 
 export interface SectionBlockEntry {
@@ -39,4 +41,6 @@ export interface SectionBlockEntry {
   Component: SectionComponent<any>
   /** The page sets that offer this block. Absent: a library block, offered on every `sections` page. */
   sets?: readonly PageSetId[]
+  /** Offered only inside Columns, never on a page's own list (a section that means nothing alone). */
+  inlineOnly?: boolean
 }

@@ -3,7 +3,7 @@ import React from 'react'
 import { datesSpecOf } from '@/lib/section-data/specs'
 import { datePartsOf, typedDateItem, upcomingDates, type DateItem } from '@/lib/section-data/shape'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import { SectionLink } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
@@ -22,8 +22,7 @@ export function DatesView({ block, items }: { block: DatesData; items: readonly 
   const entries = items.map((item) => ({ item, when: datePartsOf(item.startsAt) }))
   const details = (e: (typeof entries)[number]) => [e.when.weekday, e.when.time, e.item.place].filter(Boolean).join(' · ')
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       {cards ? (
         <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {entries.map((e) => (

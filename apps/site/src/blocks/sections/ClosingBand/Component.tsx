@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { SectionBand } from '../SectionBand'
-import { SectionActions } from '../parts'
+import { eyebrowClass, SectionActions } from '../parts'
 import type { ActionData } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
@@ -19,7 +19,7 @@ export function ClosingBandSection({ block }: SectionProps<ClosingBandData>) {
     <SectionBand block={block}>
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-12">
         <div className="flex max-w-2xl flex-col gap-2">
-          {eyebrow && <p className="text-sm font-bold uppercase tracking-wider [color:var(--tone-muted)]">{eyebrow}</p>}
+          {eyebrow && <p className={eyebrowClass}>{eyebrow}</p>}
           <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{title}</h2>
           {intro && <p className="text-lg">{intro}</p>}
         </div>

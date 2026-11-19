@@ -5,12 +5,18 @@ import { defineSection, sectionFields } from '../fields'
  * shares its selected row. One list inside the block: `columns` are column names, and each row's `cells` are its cells in order, the
  * first being the row's name. A row short of cells is padded with blanks; a cell past the last column is dropped.
  */
+export const TABLE_VARIANTS = [
+  { label: 'Rows: a table with a header row', value: 'rows' },
+  { label: 'Pairs: each row is two cards side by side (two columns)', value: 'pairs' },
+] as const
+
 export const Table = defineSection({
   slug: 'sectionTable',
   singular: 'Table',
   plural: 'Tables',
   group: 'Facts and steps',
   fields: sectionFields({
+    variants: TABLE_VARIANTS,
     own: [
       { name: 'columns', type: 'text', hasMany: true, required: true, minRows: 2, maxRows: 6, admin: { description: 'The column names, left to right. Press Enter after each. The first names the rows ("Daypart").' } },
       {

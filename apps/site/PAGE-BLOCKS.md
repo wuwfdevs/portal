@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below: the owner reorders, hides and builds in staging before phase 4.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -146,6 +146,16 @@ field's data is **kept, never cleared**: switching the variant and back restores
 hidden field holding an invalid value is not validated. So a variant's component reads only its own variant's fields, no validation may
 rely on a hidden field, and leftover values are harmless but accumulate (the same clean-up script as for renamed fields).
 
+### Columns (added 2026-11-19, after the phase 3 review)
+
+**Optional multi-column layouts as a block that holds other blocks**, as Grove's modules nest. The first arrangement of the sponsor pages had no way to put two things side by side, and the old coded pages did (a sample sponsor message beside a rate table, "a credit includes" beside "a credit leaves out"); I had added one-off fields for some of them (a second list, a hero aside) before the owner proposed the general answer.
+- `sectionColumns` (group *Layout*): two or three columns, a layout variant (`equal`, `left-wide`, `right-wide`), each column a short list of sections. The tone, anchor and spacing are the Columns block's; what it holds draws **inline** (`SectionBand` renders a bare `div`, with its own heading if it has one). A phone stacks the columns in order. An empty column is dropped.
+- **One level only, and a short list** (`blocks/sections/inline.ts`): Text, Cards, Stats, Check list, Callout, Quotes, Table, Questions, Steps and Illustration. Not Feature (a hero is an `h1`), not Columns, not forms, pickers, data blocks or the set-only blocks. Stored as JSON, a nested blocks field keeps a type it does not list, so the field validates the rule itself (tested at publish).
+- **Anchors are unique across the page and its columns** (`duplicateAnchors` walks them). Hidden sections inside a column stay hidden. The rich-text guard walks every object already (tested on pages as a whole).
+- `sectionIllustration` is *inline-only* (`inlineOnly` in its registry entry: not offered on a page's own list): a dashed, decorative "sample" card with a label, a made-up sponsor and its address as text. The sample page leaves out inline-only and set-only blocks (they cannot sit on it).
+- Cost: every block draws through `SectionBand`, so inline mode is one branch there; `RenderSections` is loaded by Columns when it draws (the registry imports Columns, so it cannot import `RenderSections` at the top).
+- Not done: columns inside a set-only restriction (a nested block is not checked against the page set), a column width in pixels or percent (named layouts only), and Columns inside Columns.
+
 ### Anatomy of a section block
 
 `src/blocks/sections/<Name>/` holds `config.ts`, `Component.tsx` and a test. Every block gets the same first fields from one builder:
@@ -157,8 +167,8 @@ rely on a hidden field, and leftover values are harmless but accumulate (the sam
 - `heading`: eyebrow, title, intro, where the block has one.
 - `variant`: where the block has more than one layout (see above); a developer adds variants.
 
-Rules: a block is a full-width band and owns its own spacing; a block with nothing to show renders nothing; at most one level of list
-inside a block; a block's thumbnail (3:2) and picker group are part of its definition; no free colour, spacing or HTML fields.
+Rules: a block is a full-width band and owns its own spacing (inside Columns it draws bare); a block with nothing to show renders nothing; at most one level of list
+inside a block, and one level of nesting (Columns); a block's thumbnail (3:2) and picker group are part of its definition; no free colour, spacing or HTML fields.
 
 `components/PageParts` stays the rendering kit. Library blocks are thin configs over it; the existing view files are taken apart into
 blocks, not rewritten.
@@ -265,6 +275,8 @@ These addresses are contracts and get a test each: `/sponsor#inquire`, `/sponsor
 | Table | | typed rows only; not the on-air rate table, which lives in the estimator and shares its selected row (`RateEstimator.tsx:18-26`) |
 | Picker | | one option, one panel; sponsor goals, Audience sectors |
 | Closing band | | board 28's "Call to action · buttons" |
+| Columns | equal, left wide, right wide | two or three columns, each holding sections (added after phase 3) |
+| Illustration (inline only) | | a decorative sample card, in a column |
 
 *Open design question:* the last sponsor goal is generated from open event programs (`lib/sponsorship/goals.ts:26`) and goal prices are typed
 text today; how a Picker panel refers to a price in `sponsorship-settings` is not decided.
@@ -364,13 +376,20 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 2*. Not yet on staging.
 
 ### Phase 3: sponsor pages (the pilot)
 
-- [ ] `sponsorship-settings` global (data only); the sponsor-only blocks (rate estimator, inquiry form, open event programs).
-- [ ] Before any change, capture screenshots of the six pages at three widths; they are the reference.
-- [ ] Move the six pages; compare against the reference; anchor tests; inquiry form still sends.
-- [ ] Delete the six routes and `components/Sponsorship/*View.tsx`.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 3*. Pushed to the working branch; on staging only once its preview build has applied the two migrations.
+
+- [x] `sponsorship-settings` global (data only: contact, the form's choices, the rate card, Carpool, packages, events and programs), with a tag-revalidating hook;
+      the five sponsor-only blocks (Rate estimator, Packages, Carpool plan, Open programs, Inquiry form), each tested and registered with `sets: ['sponsor']`.
+      (The plan named three; the Carpool and package prices are settings too, so they are blocks that read them.)
+- [x] Reference screenshots of the six pages at 375, 768 and 1280 px, taken from the unchanged code before any change (a production build on a local database).
+- [x] The six pages moved by one migration at their own addresses (`lib/sponsorship/to-sections.ts`, pure; a test fails if a word of the old pages is lost);
+      compared with the reference (anchors, `#` links, text, no horizontal scroll, no console error); anchor tests; the inquiry form still sends (its action and
+      tests are unchanged; its token is fetched).
+- [x] The six routes and `components/Sponsorship/*` deleted.
+- [ ] **The owner's exit check in staging** (below). Not done: it needs the owner.
 
 **Exit, and a decision point:** in staging the owner reorders a section, hides one, and builds a new sponsor page from existing blocks
-without a developer. If that is not comfortable, stop here and revise before going on.
+without a developer. If that is not comfortable, stop here and revise before going on. **Phase 4 is not started.**
 
 ### Phase 4: giving pages
 
