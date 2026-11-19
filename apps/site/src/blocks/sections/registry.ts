@@ -12,6 +12,22 @@ import { Questions } from './Questions/config'
 import { QuestionsSection } from './Questions/Component'
 import { Stats } from './Stats/config'
 import { StatsSection } from './Stats/Component'
+import { Callout } from './Callout/config'
+import { CalloutSection } from './Callout/Component'
+import { CheckList } from './CheckList/config'
+import { CheckListSection } from './CheckList/Component'
+import { Picker } from './Picker/config'
+import { PickerSection } from './Picker/Component'
+import { ProfileBand } from './ProfileBand/config'
+import { ProfileBandSection } from './ProfileBand/Component'
+import { Quotes } from './Quotes/config'
+import { QuotesSection } from './Quotes/Component'
+import { Steps } from './Steps/config'
+import { StepsSection } from './Steps/Component'
+import { Support } from './Support/config'
+import { SupportSection } from './Support/Component'
+import { Table } from './Table/config'
+import { TableSection } from './Table/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
 import type { SectionBlockEntry } from './types'
@@ -27,10 +43,18 @@ import type { SectionBlockEntry } from './types'
  */
 export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Feature', block: Feature, Component: FeatureSection },
+  { dir: 'ProfileBand', block: ProfileBand, Component: ProfileBandSection },
   { dir: 'Cards', block: Cards, Component: CardsSection },
+  { dir: 'Quotes', block: Quotes, Component: QuotesSection },
   { dir: 'Stats', block: Stats, Component: StatsSection },
+  { dir: 'Steps', block: Steps, Component: StepsSection },
   { dir: 'Questions', block: Questions, Component: QuestionsSection },
+  { dir: 'Callout', block: Callout, Component: CalloutSection },
+  { dir: 'CheckList', block: CheckList, Component: CheckListSection },
+  { dir: 'Table', block: Table, Component: TableSection },
+  { dir: 'Picker', block: Picker, Component: PickerSection },
   { dir: 'Text', block: Text, Component: TextSection },
+  { dir: 'Support', block: Support, Component: SupportSection },
   { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
 ]
 

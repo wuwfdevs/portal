@@ -67,10 +67,18 @@ export interface Config {
   };
   blocks: {
     sectionFeature: SectionFeature;
+    sectionProfileBand: SectionProfileBand;
     sectionCards: SectionCards;
+    sectionQuotes: SectionQuotes;
     sectionStats: SectionStats;
+    sectionSteps: SectionSteps;
     sectionQuestions: SectionQuestions;
+    sectionCallout: SectionCallout;
+    sectionCheckList: SectionCheckList;
+    sectionTable: SectionTable;
+    sectionPicker: SectionPicker;
     sectionText: SectionText;
+    sectionSupport: SectionSupport;
     sectionClosingBand: SectionClosingBand;
   };
   collections: {
@@ -479,6 +487,52 @@ export interface Audio {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionProfileBand".
+ */
+export interface SectionProfileBand {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'about' | 'roster';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * About only. A blank line starts a new paragraph.
+   */
+  text?: string | null;
+  /**
+   * About only.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Roster only.
+   */
+  people?:
+    | {
+        name: string;
+        role?: string | null;
+        photo?: (number | null) | Media;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionProfileBand';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionCards".
  */
 export interface SectionCards {
@@ -522,6 +576,46 @@ export interface SectionCards {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCards';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionQuotes".
+ */
+export interface SectionQuotes {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  quotes?:
+    | {
+        /**
+         * Without the quotation marks: the page adds them.
+         */
+        quote: string;
+        name?: string | null;
+        /**
+         * A title, a business or a town: "Owner, Gulf Coast Hardware".
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionQuotes';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -581,6 +675,40 @@ export interface SectionStats {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionSteps".
+ */
+export interface SectionSteps {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'grid' | 'list';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  steps?:
+    | {
+        title: string;
+        text?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionSteps';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionQuestions".
  */
 export interface SectionQuestions {
@@ -616,6 +744,173 @@ export interface SectionQuestions {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionQuestions';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCallout".
+ */
+export interface SectionCallout {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'tint' | 'quote';
+  title?: string | null;
+  /**
+   * A blank line starts a new paragraph.
+   */
+  text: string;
+  /**
+   * Quote only: who said it, or where it comes from.
+   */
+  cite?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCallout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCheckList".
+ */
+export interface SectionCheckList {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  mark?: ('check' | 'cross' | 'dot') | null;
+  items?:
+    | {
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCheckList';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionTable".
+ */
+export interface SectionTable {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The column names, left to right. Press Enter after each. The first names the rows ("Daypart").
+   */
+  columns: string[];
+  rows?:
+    | {
+        /**
+         * One entry per column, in order. Type a dash for an empty cell.
+         */
+        cells: string[];
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Optional: what the table shows, for a screen reader and under the table.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionTable';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionPicker".
+ */
+export interface SectionPicker {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The first option is shown when the page opens.
+   */
+  options?:
+    | {
+        /**
+         * The choice, as a short name: "I'm new".
+         */
+        label: string;
+        /**
+         * A few words under the name on the choice.
+         */
+        hint?: string | null;
+        /**
+         * The panel's title.
+         */
+        title: string;
+        /**
+         * The panel's first sentence or two.
+         */
+        lead?: string | null;
+        /**
+         * One short line each, as a list in the panel.
+         */
+        points?: string | null;
+        /**
+         * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, so this will become a reference there.
+         */
+        price?: string | null;
+        linkLabel?: string | null;
+        linkHref?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionPicker';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -660,6 +955,40 @@ export interface SectionText {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionText';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionSupport".
+ */
+export interface SectionSupport {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The button. Empty: "Become a member".
+   */
+  label?: string | null;
+  /**
+   * A line under the button, e.g. "You will go to WUWF's secure donation form."
+   */
+  note?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionSupport';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -733,7 +1062,23 @@ export interface Page {
    */
   noReferrer?: boolean | null;
   sections?:
-    (SectionFeature | SectionCards | SectionStats | SectionQuestions | SectionText | SectionClosingBand)[] | null;
+    | (
+        | SectionFeature
+        | SectionProfileBand
+        | SectionCards
+        | SectionQuotes
+        | SectionStats
+        | SectionSteps
+        | SectionQuestions
+        | SectionCallout
+        | SectionCheckList
+        | SectionTable
+        | SectionPicker
+        | SectionText
+        | SectionSupport
+        | SectionClosingBand
+      )[]
+    | null;
   /**
    * A short lead shown under the title. Optional.
    */
