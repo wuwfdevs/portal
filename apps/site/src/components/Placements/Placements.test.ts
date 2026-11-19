@@ -41,10 +41,18 @@ describe('the home page rail', () => {
     expect(html).toContain('href="/weather"')
     expect(html).not.toContain('rel=')
   })
-  it('gives every tile the same shape, whatever its artwork, and loads no script or outside frame', () => {
-    const html = rail([tile(), tile({ key: 'home.rail.2', image: media(2) })])
-    expect(html.match(/aspect-ratio:\s*880 \/ 704/g)).toHaveLength(2)
+  it('fits each tile\'s box to its own picture, so no blank band is left above or below it, and loads no script or outside frame', () => {
+    const wide = { ...media(2), width: 1000, height: 400 } as Media
+    const tall = { ...media(3), width: 600, height: 900 } as Media
+    const html = rail([tile(), tile({ key: 'home.rail.2', image: wide }), tile({ key: 'home.rail.3', image: tall })])
+    expect(html.match(/aspect-ratio:\s*880 \/ 704/g)).toHaveLength(1)
+    expect(html).toMatch(/aspect-ratio:\s*1000 \/ 400/)
+    expect(html).toMatch(/aspect-ratio:\s*600 \/ 900/)
     expect(html).not.toMatch(/<script|<iframe|<audio|<video/i)
+  })
+  it('falls back to the zone\'s recommended shape for a picture whose size is not recorded', () => {
+    const unsized = { ...media(4), width: null, height: null } as Media
+    expect(rail([tile({ image: unsized })])).toMatch(/aspect-ratio:\s*880 \/ 704/)
   })
   it('is a labeled region listing each tile once', () => {
     const html = rail([tile(), tile({ key: 'home.rail.2', image: media(2) })])

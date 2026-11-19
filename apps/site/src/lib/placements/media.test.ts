@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isStillPicture, STILL_IMAGE_TYPES } from './media'
+import { isStillPicture, pictureShape, STILL_IMAGE_TYPES } from './media'
 import { placementTiles } from './tiles'
 
 const tile = (image: unknown, phoneImage?: unknown) => ({ kind: 'sponsor' as const, sponsor: 'Acme', enabled: true, href: 'https://acme.example/', alt: 'Acme', image: image as never, phoneImage: phoneImage as never })
@@ -20,6 +20,18 @@ describe('isStillPicture', () => {
     expect(isStillPicture({})).toBe(true)
     expect(isStillPicture(null)).toBe(false)
     expect(isStillPicture(undefined)).toBe(false)
+  })
+})
+
+describe('pictureShape', () => {
+  const zone = { width: 880, height: 704 }
+  it('is the picture\'s own size, so a box of that shape is as tall as the picture', () => {
+    expect(pictureShape({ width: 1000, height: 400 }, zone)).toEqual({ width: 1000, height: 400 })
+  })
+  it('takes the zone\'s shape when the size is missing, zero or not a number', () => {
+    for (const m of [null, undefined, {}, { width: 1000 }, { width: 0, height: 400 }, { width: 1000, height: -1 }, { width: Number.NaN, height: 400 }, { width: null, height: null }]) {
+      expect(pictureShape(m, zone)).toEqual(zone)
+    }
   })
 })
 
