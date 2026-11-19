@@ -14,7 +14,7 @@ of section blocks, with blocks stored as JSON, page sets and page-level themes. 
 developer has set... not a blocks field") and the two "every word is the global" decisions in `CLAUDE.md`; those stay in force until
 the owner approves the plan and its phase 1 rewrites them.** It has four open decisions for the owner and starts with a phase that
 proves the risky parts on a scratch database. Do not start building from it without the owner's go-ahead. **Phase 0 has been run: see
-the next section.**
+the next two sections.** The plan's block catalogue was then revised to board 28.
 
 ## Phase 0 findings: blocks as JSON on Payload 3.92.1 (2026-11-19; investigation only, nothing committed but documents)
 
@@ -208,6 +208,88 @@ ticked and annotated. Open decision 2 annotated (converting works; recommend it 
 - Keep a test for the restricted fields of a section block (read, create, update, reorder), as `restricted-blocks.int.spec.ts` does for
   rich text.
 - Look at a new page's cache behaviour on a staging deployment before the sponsor pilot depends on it.
+
+## Phase 0 findings, round 2: freshness, variants, settings, the address (2026-11-19; investigation only)
+
+Four more checks for `PAGE-BLOCKS.md`, run after the plan was revised to follow board 28 of the design canvas. Same method and the same rules as
+the first round (scratch Postgres on port 5433, `blocksAsJSON` on, a throwaway `sections` field; `NODE_ENV=production` for scripts; nothing
+hosted; everything reverted, the working tree held only documents). The first round's results were read and not repeated. Read before item 8:
+`node_modules/next/dist/docs/01-app` (`caching-without-cache-components.md`, `unstable_cache.md`, `revalidateTag.md`, `use-search-params.md`).
+Production behaviour was read from `pnpm build` then `pnpm start`. Drafts, live preview, the converter and item 8 did **not** fail.
+
+### Item 8: per-page freshness: **pass**
+
+The route has one setting (`revalidate = 3600`) and the hubs use 600, 1800 and 3600 today. Four prerendered pages each held a Dates-style
+block listing two shows, one ending 5.5 minutes after the server started, filtered by `endsAt > now` on the server:
+
+| Block's data | Page cache | The finished show |
+|---|---|---|
+| in the page record, nothing special | `s-maxage=3600`, render timestamp unchanged for 5.7 minutes | still listed at the last poll, 51 s after it ended (its window is 3600, so it would stay up to an hour) |
+| loaded with `unstable_cache(fn, key, { revalidate: 20 })` | **`s-maxage=20`** (this page only) | gone on the first request after the next regeneration (the poll 31 s after it ended) |
+| `unstable_cache` with `revalidate: false` and a tag | `s-maxage=3600` | listed until a call to `revalidateTag(tag, 'max')` (a scratch route handler); the first request after was stale, the next current |
+| in a client component that hides expired items | `s-maxage=3600` | with script: hidden; **without script: still listed** (the server cannot know the visitor's clock) |
+
+- The block's `revalidate` lowers the window of **the pages that hold it**, as the docs say ("the lowest `revalidate`... determines the
+  frequency"); the other pages stayed `HIT` at 3600, and the tag call refreshed only the page that read the tag.
+- So the plan's answer: a shared helper loads time-dependent data through `unstable_cache` with a `revalidate` the block (or variant) sets,
+  which gives each hub its own interval without a route each. A page so lowered is re-rendered at most once per window per cache, under traffic.
+- For a drop-off at a stated moment, a cron route calling `revalidateTag` works (run by hand here; the cron itself was not built, and
+  `vercel.json` has one cron today). A hide-in-the-browser step is a complement, not a fix.
+- Not run: on Vercel (its CDN's handling of `s-maxage=20`), a block that queries Payload by a computed "now" inside the cache function, and
+  `use cache` (this app does not enable `cacheComponents`; `unstable_cache` is the previous model and a later move is a cost).
+
+### Item 9: variant fields: **works with this caveat**
+
+A Feature block with a `variant` select (`hero`, `split`), a required `heroAudio` shown for `hero`, a required `ratio` and a custom-validated
+`splitNote` shown for `split`, through the Local API as a publisher and in the admin as a publisher:
+
+- A required field under a **false condition does not block a publish**: hero with no `ratio` and split with no `heroAudio` both published. A
+  required field under a **true** condition does ("This field is required"), and so does the custom `validate` for the visible variant.
+- A hidden field holding an **invalid** value (`ratio: 'bogus'` under `hero`) was accepted and stored: hidden fields are not validated.
+- **Data is kept, never cleared.** Updating a block from `hero` to `split` and back through the API left the old variant's fields in the
+  JSON, and a partial update (the new variant's fields only) kept them too. In the admin, switching the variant hid the fields and
+  published without error; the stored block kept `heroAudio`; switching back showed the old value; emptying the now-visible required field
+  blocked the publish with the error on that field.
+- A draft with `draft: true` saved a split block with nothing else filled in (without `draft: true` the same create is validated).
+- So: the component reads only its variant's fields, validation must not depend on a hidden field, and leftovers accumulate (clean up
+  with the same data script as for renamed fields). Not run: a conditional field that is a relationship or an upload.
+
+### Item 10: settings to pages: **works with this caveat**
+
+Four prerendered pages: two with a price block reading the `sponsorship` global's phone through `getCachedGlobal`, one reading it with
+`payload.findGlobal`, one with no price block. The global was saved over REST as a publisher (its existing hook calls
+`revalidateTag('global_sponsorship', 'max')` and `revalidatePath('/sponsor', 'layout')`):
+
+- The two `getCachedGlobal` pages went `STALE` and served the **old** value to the first visitor, then the new value from the second request on;
+  the page with no block was untouched. No page holding the block was left stale.
+- The page that read the global **directly** never changed (still the old value after three rounds): nothing ties it to the tag. It would
+  stay stale until its own window ends.
+- `revalidatePath('/sponsor', 'layout')` is irrelevant to a page at another path; the tag does the work.
+- `revalidateTag(tag, { expire: 0 })` (a blocking refresh for the first visitor) is documented and was not run.
+- Not run: a new settings global's hook, a page read in draft preview after a settings change, Vercel.
+
+### Item 11: a client block that starts from the address: **works with this caveat**
+
+A way-switcher block as a client component using `useSearchParams` inside `Suspense`, with the fallback holding the default panel, on a
+prerendered page; the same page with a server-side `searchParams` read for the comparison:
+
+- Cached page: `x-nextjs-cache: HIT`, `s-maxage=3600`. With script, `?way=mail` shows "give by mail" and no query shows the default.
+  **Without script** (JavaScript off), `?way=mail` shows the **default** panel, as the server HTML does. With script on a slow connection
+  (scripts held 1.5 s), first paint is the default and the chosen panel appears after hydration.
+- Cost, 100 sequential requests each, localhost, one client (ratios only; not a load test): cached **6.2 ms** and **3 database transactions**
+  in all; per request **14.6 ms** and **138 transactions** (about 1.4 and 40 rows per request). A per-request
+  page also cannot be served from the CDN, so the difference on Vercel is larger than here.
+- A requirement of `/support/ways` is that it works without script, so a client island is not enough for it: it stays server-chosen
+  (a coded route shell over the page record, `PAGE-BLOCKS.md` → Rendering). A query parameter that only refines a page (a highlight, a
+  prefilled amount) suits the client block.
+
+### What `PAGE-BLOCKS.md` was changed to say (this round)
+
+The catalogue was replaced (about 18 library blocks with variants, about 9 set-only, the reasons recorded, the open Picker price question);
+the block-or-variant rule and the variant findings were added to the Design section; the freshness, settings and address findings to
+Rendering and Shared data; page-level `noindex` and `noReferrer` fields; the page sets table shrunk; the theme notes (placeholder values for
+Voyager and Unearthing, the 3:1 button check, the teal and lime bands); board 28 superseding boards 11 to 13 on layout; phases 2 and 6
+rewritten; Barefoot Mary and show pages out of scope; open decisions 5 to 8; two risks; a *Sources* section.
 
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
@@ -2179,9 +2261,10 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 
 - The owner's draft *WUWF Grove to Payload Migration Plan* (2026-10-30): scope, disposition policy, pilot gates.
 - The project brief (revised) for this work, supplied by the owner.
-- Design canvas "WUWF.org Home Redesign" (26 boards) and the "WUWF Design System" (claude.ai artifacts named in the
-  brief). Read: boards 1–6, 14, 15, the phone homepage, the tokens. **Not yet read:** the Grove migration memo, the
-  RadioLive site canvas, and boards 7–13 and 16–25 (Milestone 2–3 material).
+- Design canvas "WUWF.org Home Redesign" (now **28 boards**) and the "WUWF Design System" (claude.ai artifacts named in the
+  brief). Read: boards 1–6, 14, 15, 28 (the section system, 2026-11-19), the phone homepage, the tokens. **Not yet read:** the Grove
+  migration memo, the RadioLive site canvas, and boards 7–13 and 16–25 (Milestone 2–3 material). How to read the canvas, and the board
+  files `PAGE-BLOCKS.md` depends on, are in its *Sources* section.
 - The Portal: `apps/portal/CLAUDE.md`, `docs/audience-listening-design.md`, `docs/underwriting-design.md`,
   `docs/ui-patterns.md`, `docs/logic-patterns.md`.
 - `wuwfdevs/barefootmary` (content and identity for the first themed show, Milestone 2) — not read yet.
