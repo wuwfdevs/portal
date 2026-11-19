@@ -4,9 +4,9 @@ import type { ServerProps } from 'payload'
 import { PREFERENCE_KEYS } from 'payload/shared'
 import React from 'react'
 
-import { ADMIN_NAV, isNavGroup, pruneNav, type NavGroup as TreeGroup, type NavItem } from '@/lib/admin-nav'
+import { ADMIN_NAV, isNavGroup, pruneNav, type NavGroup as TreeGroup, type NavItem, type NavNode } from '@/lib/admin-nav'
 
-import { AdminNavClient, type NavNode } from './Client'
+import { AdminNavClient } from './Client'
 
 /**
  * The admin sidebar: the tree in `lib/admin-nav.ts`, two levels deep, drawn with Payload's own pieces (its wrapper, hamburger, group

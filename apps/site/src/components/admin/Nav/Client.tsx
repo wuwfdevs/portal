@@ -4,13 +4,10 @@ import { Link, NavGroup } from '@payloadcms/ui'
 import { usePathname } from 'next/navigation'
 import React from 'react'
 
-/** One node of the sidebar, already resolved on the server: a link with its address, or a heading holding more nodes. */
-export type NavNode = { type: 'link'; label: string; href: string; id: string } | { type: 'group'; label: string; items: NavNode[] }
-
-const isActive = (pathname: string, href: string) => pathname.startsWith(href) && ['/', undefined].includes(pathname[href.length])
+import { isActivePath, startsOpen, type NavNode } from '@/lib/admin-nav'
 
 function NavLinkItem({ node, pathname }: { node: Extract<NavNode, { type: 'link' }>; pathname: string }) {
-  const active = isActive(pathname, node.href)
+  const active = isActivePath(pathname, node.href)
   const label = (
     <>
       {active ? <div className="nav__link-indicator" /> : null}
@@ -40,12 +37,12 @@ function NavNodes({ nodes, pathname, openState, depth }: { nodes: NavNode[]; pat
           <NavLinkItem key={node.id} node={node} pathname={pathname} />
         ) : depth === 0 ? (
           // A top-level group is a direct child of the sidebar's flex column, as in Payload's own: a wrapper here would shrink it to its text.
-          <NavGroup key={node.label} label={node.label} isOpen={openState[node.label]?.open}>
+          <NavGroup key={node.label} label={node.label} isOpen={startsOpen(node, pathname, openState)}>
             <NavNodes nodes={node.items} pathname={pathname} openState={openState} depth={depth + 1} />
           </NavGroup>
         ) : (
           <div key={node.label} className="wuwf-nav__sub">
-            <NavGroup label={node.label} isOpen={openState[node.label]?.open}>
+            <NavGroup label={node.label} isOpen={startsOpen(node, pathname, openState)}>
               <NavNodes nodes={node.items} pathname={pathname} openState={openState} depth={depth + 1} />
             </NavGroup>
           </div>
