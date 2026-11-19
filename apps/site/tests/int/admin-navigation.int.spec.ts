@@ -50,7 +50,7 @@ describe('admin navigation', async () => {
     const pageGlobals = navEntries()
       .filter((e) => e.kind === 'global' && e.group === 'Pages')
       .map((e) => globals.find((g) => g.slug === e.slug)!)
-    expect(pageGlobals.map((g) => g.slug).sort()).toEqual(['homepage', 'radiolive-hub', 'support-page', 'unearthing-hub', 'voyager-hub'])
+    expect(pageGlobals.map((g) => g.slug).sort()).toEqual(['homepage', 'radiolive-hub', 'unearthing-hub', 'voyager-hub'])
     for (const g of pageGlobals) expect(typeof g.admin?.livePreview === 'object' && g.admin.livePreview !== null && 'url' in g.admin.livePreview, g.slug).toBe(true)
   })
 

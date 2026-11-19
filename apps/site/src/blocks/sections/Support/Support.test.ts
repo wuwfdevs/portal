@@ -9,7 +9,7 @@ let global: unknown = null
 let fail = false
 vi.mock('@/utilities/getGlobals', () => ({
   getCachedGlobal: (slug: string) => async () => {
-    if (slug !== 'support-page') throw new Error(`unexpected global ${slug}`)
+    if (slug !== 'giving-settings') throw new Error(`unexpected global ${slug}`)
     if (fail) throw new Error('database down')
     return global
   },

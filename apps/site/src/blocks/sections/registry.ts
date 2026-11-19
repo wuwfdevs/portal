@@ -50,6 +50,16 @@ import { Columns } from './Columns/config'
 import { ColumnsSection } from './Columns/Component'
 import { Illustration } from './Illustration/config'
 import { IllustrationSection } from './Illustration/Component'
+import { GiftCard } from './GiftCard/config'
+import { GiftCardSection } from './GiftCard/Component'
+import { GivingContact } from './GivingContact/config'
+import { GivingContactSection } from './GivingContact/Component'
+import { GivingLevels } from './GivingLevels/config'
+import { GivingLevelsSection } from './GivingLevels/Component'
+import { ThankYou } from './ThankYou/config'
+import { ThankYouSection } from './ThankYou/Component'
+import { WaysToGive } from './WaysToGive/config'
+import { WaysToGiveSection } from './WaysToGive/Component'
 import { RateEstimator } from './RateEstimator/config'
 import { RateEstimatorSection } from './RateEstimator/Component'
 import type { SectionBlockEntry } from './types'
@@ -91,6 +101,12 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Carpool', block: Carpool, Component: CarpoolSection, sets: ['sponsor'] },
   { dir: 'OpenPrograms', block: OpenPrograms, Component: OpenProgramsSection, sets: ['sponsor'] },
   { dir: 'InquiryForm', block: InquiryForm, Component: InquiryFormSection, sets: ['sponsor'] },
+  // Offered only on pages in the giving set. Each reads the Giving settings (levels, amounts, the donation form, Member Services' contact details).
+  { dir: 'GiftCard', block: GiftCard, Component: GiftCardSection, sets: ['giving'] },
+  { dir: 'GivingLevels', block: GivingLevels, Component: GivingLevelsSection, sets: ['giving'] },
+  { dir: 'WaysToGive', block: WaysToGive, Component: WaysToGiveSection, sets: ['giving'] },
+  { dir: 'ThankYou', block: ThankYou, Component: ThankYouSection, sets: ['giving'] },
+  { dir: 'GivingContact', block: GivingContact, Component: GivingContactSection, sets: ['giving'] },
 ]
 
 /** The blocks for the config's root `blocks`. */

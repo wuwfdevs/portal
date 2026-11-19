@@ -247,6 +247,45 @@ export const SAMPLES: Record<string, Maker> = {
     thanksTitle: 'Thank you',
     thanksPrefix: 'Here is what you told us you are interested in:',
   }),
+  // Set-only blocks (the giving set): left out of the page for the same reason.
+  sectionGiftCard: ({ label }) => ({
+    label,
+    headline: 'Local news, NPR and music, paid for by the people who use them.',
+    line: 'A monthly gift is the most useful way to give: it lets the station plan.',
+    assurances: [{ text: 'Tax-deductible as allowed by law' }, { text: 'Change or stop anytime' }],
+    card: { monthlyLabel: 'Monthly', monthlySub: 'Most useful', onceLabel: 'One time', onceSub: 'Give once', otherLabel: 'Other', anyTitle: 'Any amount helps' },
+  }),
+  sectionGivingLevels: ({ label }) => ({
+    heading: { eyebrow: label, title: 'Membership levels' },
+    buttonLabel: 'Give at this level',
+    footnote: 'A level is a thank-you for a gift, not the thing being bought.',
+  }),
+  sectionWaysToGive: ({ label }) => ({
+    label,
+    headline: 'Other ways to give to WUWF',
+    line: 'Choose the way that fits your life.',
+    groups: [{ key: 'vehicles', label: 'Vehicle or boat', best: 'You have one to part with.', effort: 'One phone call' }],
+    panels: [{ group: 'vehicles', slug: 'vehicles', eyebrow: 'Vehicle or boat', title: 'Donate a vehicle', lead: 'We take care of the paperwork.', buttonLabel: 'Start a donation', buttonHref: '/support', steps: 'Tell us about it\nWe arrange the pickup', notes: 'Tax rules vary.' }],
+    stepsTitle: 'How it works',
+    notesTitle: 'Good to know',
+  }),
+  sectionThankYou: ({ label }) => ({
+    label,
+    title: 'Thank you. You are part of WUWF now.',
+    titleNamed: 'Thank you, {name}. You are part of WUWF now.',
+    body: 'Your gift keeps the station on the air.',
+    actions: [{ label: 'Listen live', href: '/listen' }],
+    nextTitle: 'What happens next',
+    next: [{ lead: 'This week.', text: 'A receipt arrives by email.' }],
+  }),
+  sectionGivingContact: ({ label, variant }) => ({
+    label,
+    headline: 'Talk to a person',
+    line: variant === 'line' ? 'Questions about your gift? Call {phone}.' : 'Member Services can help with any of this.',
+    cardTitle: 'Member Services',
+    callLabel: 'Call {phone}',
+    emailLabel: 'Email us',
+  }),
 }
 
 const variantsOf = (fields: ReadonlyArray<{ name?: string; options?: unknown }>): string[] => {

@@ -2,7 +2,7 @@ import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 import { cache } from 'react'
 
-import type { ArchiveItem, Media, Post, Season, SupportPage } from '@/payload-types'
+import type { ArchiveItem, GivingSetting, Media, Post, Season } from '@/payload-types'
 
 import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
 
@@ -51,18 +51,18 @@ export const loadThemedShow = cache(async (path: string, limits: { notes: number
   return { ...base, theme, fieldNotes: notes.docs as FieldNote[], totalFieldNotes: notes.totalDocs, archive: archive.docs, totalArchive: archive.totalDocs, seasonGroups: groupBySeason(seasons.docs, episodes), current: now ? { season: now, image: now.image && typeof now.image === 'object' ? now.image : null } : null }
 })
 
-export type StationLevel = NonNullable<SupportPage['levels']>[number]
+export type StationLevel = NonNullable<GivingSetting['levels']>[number]
 
-/** The station's membership levels, from the Support page settings, for a show's support page. Never the show's own. */
+/** The station's membership levels, from the Giving settings, for a show's support page. Never the show's own. */
 export const loadStationLevels = cache(async (): Promise<StationLevel[]> => {
   const payload = await getPayload({ config: configPromise })
-  const page = await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null)
+  const page = await payload.findGlobal({ slug: 'giving-settings', depth: 0, overrideAccess: false }).catch(() => null)
   return page?.levels ?? []
 })
 
-/** The station's qualifying level for members' listening, in words, from the Support page settings; null when unset. */
+/** The station's qualifying level for members' listening, in words, from the Giving settings; null when unset. */
 export const loadMembersListeningLevel = cache(async (): Promise<string | null> => {
   const payload = await getPayload({ config: configPromise })
-  const page = await payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null)
+  const page = await payload.findGlobal({ slug: 'giving-settings', depth: 0, overrideAccess: false }).catch(() => null)
   return page?.membersListeningLevel?.trim() || null
 })

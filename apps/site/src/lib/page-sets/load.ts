@@ -23,9 +23,9 @@ export const loadSetNavPages = (set: PageSetId) =>
         limit: 50,
         pagination: false,
         overrideAccess: false,
-        select: { title: true, path: true, navLabel: true, navOrder: true },
+        select: { title: true, path: true, navLabel: true, navOrder: true, noindex: true },
       })
-      return res.docs.map((d) => ({ title: d.title, path: d.path, navLabel: d.navLabel, navOrder: d.navOrder }))
+      return res.docs.map((d) => ({ title: d.title, path: d.path, navLabel: d.navLabel, navOrder: d.navOrder, noindex: d.noindex }))
     },
     ['page-set-nav', set, cacheGeneration()],
     { tags: [setNavTag(set)], revalidate: 3600 },

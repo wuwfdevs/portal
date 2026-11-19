@@ -5,7 +5,7 @@ import { APIError, slugField } from 'payload'
 import { anyone } from '../access/anyone'
 import { requirePermission } from '../access/permissions'
 import { ensureSlug } from '../hooks/ensureSlug'
-import { RESERVED_FIRST_SEGMENTS, SECTION_SLUG } from '../lib/paths'
+import { PAGE_SET_FIRST_SEGMENTS, RESERVED_FIRST_SEGMENTS, SECTION_SLUG } from '../lib/paths'
 
 /** A section's slug becomes the first part of every new story's address, so it has to be a safe path segment. */
 const checkSectionSlug: CollectionBeforeChangeHook = ({ data }) => {
@@ -14,7 +14,7 @@ const checkSectionSlug: CollectionBeforeChangeHook = ({ data }) => {
   if (!SECTION_SLUG.test(slug)) {
     throw new APIError('A section\'s address name uses lowercase letters, numbers and single hyphens only.', 400, undefined, true)
   }
-  if (RESERVED_FIRST_SEGMENTS.has(slug)) {
+  if (RESERVED_FIRST_SEGMENTS.has(slug) || PAGE_SET_FIRST_SEGMENTS.has(slug)) {
     throw new APIError(`"${slug}" belongs to the site itself and cannot be a section.`, 400, undefined, true)
   }
   return data

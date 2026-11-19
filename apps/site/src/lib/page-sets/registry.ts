@@ -27,7 +27,7 @@ export interface PageSetSpec {
 
 export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
   sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true },
-  giving: { id: 'giving', name: 'Giving', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true },
+  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true },
   listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false },
   voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false },
   unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false },

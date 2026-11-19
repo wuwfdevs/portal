@@ -35,7 +35,7 @@ export const ADMIN_NAV: readonly NavGroup[] = [
   {
     // The coded pages leave this list as they move into `pages` (PAGE-BLOCKS.md phases 4 to 7); Home is last to go.
     label: 'Pages',
-    items: [c('pages'), g('homepage'), g('support-page'), g('unearthing-hub'), g('voyager-hub'), g('radiolive-hub')],
+    items: [c('pages'), g('homepage'), g('unearthing-hub'), g('voyager-hub'), g('radiolive-hub')],
   },
   {
     label: 'Shows & series',
@@ -63,7 +63,7 @@ export const ADMIN_NAV: readonly NavGroup[] = [
   {
     // Staff and readers are different identities and different collections (CLAUDE.md, "Boundaries"); only the sidebar puts them side by side.
     label: 'Members & accounts',
-    items: [c('users'), c('audience-profiles'), c('memberships'), c('member-feeds')],
+    items: [c('users'), c('audience-profiles'), c('memberships'), c('member-feeds'), g('giving-settings')],
   },
   {
     label: 'System',
@@ -87,6 +87,7 @@ export const NAV_OMITTED: readonly { kind: NavEntityKind; slug: string; why: str
   { kind: 'collection', slug: 'event-submission-images', why: 'Pictures belong to a submitted event and are reached from it.' },
   { kind: 'collection', slug: 'portal-sign-ins', why: 'Records of one-time Portal tokens; never edited.' },
   { kind: 'global', slug: 'sponsorship', why: 'Moved into pages and Sponsorship settings; dropped in PAGE-BLOCKS.md phase 7.' },
+  { kind: 'global', slug: 'support-page', why: 'Moved into pages and Giving settings; dropped in PAGE-BLOCKS.md phase 7.' },
 ]
 
 /** Every link in the tree, in order, with the top-level heading it sits under. */

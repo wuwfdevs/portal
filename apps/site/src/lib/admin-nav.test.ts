@@ -50,13 +50,14 @@ describe('the admin sidebar tree', () => {
     expect(topGroupOf('collection', 'events')).toBe('Events')
     expect(topGroupOf('collection', 'users')).toBe('Members & accounts')
     expect(topGroupOf('global', 'sponsorship-settings')).toBe('Sponsorship')
+    expect(topGroupOf('global', 'giving-settings')).toBe('Members & accounts')
     expect(topGroupOf('collection', 'nope')).toBeNull()
   })
 })
 
 describe('pruneNav', () => {
   it('drops links a person cannot read and the headings left empty', () => {
-    const staffOnly = new Set(['users', 'audience-profiles', 'memberships', 'member-feeds'])
+    const staffOnly = new Set(['users', 'audience-profiles', 'memberships', 'member-feeds', 'giving-settings'])
     const pruned = pruneNav(ADMIN_NAV, (_k, slug) => !staffOnly.has(slug))
     expect(pruned.map((g) => g.label)).not.toContain('Members & accounts')
     expect(pruned.map((g) => g.label)).toContain('Stories')

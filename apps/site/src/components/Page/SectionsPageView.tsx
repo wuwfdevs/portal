@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { RenderSections } from '@/blocks/sections/RenderSections'
-import type { SectionData } from '@/blocks/sections/types'
+import type { SectionContext, SectionData } from '@/blocks/sections/types'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { SectionNav } from '@/components/SectionNav'
@@ -17,6 +17,8 @@ export interface SectionsPageData {
   pageSet?: string | null
   theme?: string | null
   sections?: SectionData[] | null
+  /** A page that asks not to be listed (the thank-you page) shows no strip of its set's pages. */
+  noindex?: boolean | null
 }
 
 /**
@@ -24,7 +26,7 @@ export interface SectionsPageData {
  * stays cached (PAGE-BLOCKS.md → Rendering). The theme is the page's own choice, else its set's, else the station's. Its sub-navigation is
  * the set's published pages, through `components/SectionNav`.
  */
-export async function SectionsPageView({ page, draft, url }: { page: SectionsPageData; draft: boolean; url: string }) {
+export async function SectionsPageView({ page, draft, url, query }: { page: SectionsPageData; draft: boolean; url: string; query?: SectionContext['query'] }) {
   const set = pageSetOf(page.pageSet)
   const theme = resolveTheme(page.theme, set?.theme)
   const items = set ? setNavItems(await loadSetNavPages(set.id)(), url) : []
@@ -33,8 +35,8 @@ export async function SectionsPageView({ page, draft, url }: { page: SectionsPag
       {/* Allows redirects for valid pages too */}
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
-      {set && items.length > 0 && <SectionNav label={set.name} items={items} />}
-      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id }} />
+      {set && !page.noindex && items.length > 0 && <SectionNav label={set.name} items={items} />}
+      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
     </article>
   )

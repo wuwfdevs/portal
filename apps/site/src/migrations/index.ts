@@ -61,6 +61,8 @@ import * as migration_20261119_150000_sponsor_pages_polish from './20261119_1500
 import * as migration_20261119_160000_sponsor_pages_polish2 from './20261119_160000_sponsor_pages_polish2';
 import * as migration_20261119_190000_sponsor_pages_clean from './20261119_190000_sponsor_pages_clean';
 import * as migration_20261119_200000_sponsor_pages_clean2 from './20261119_200000_sponsor_pages_clean2';
+import * as migration_20261119_222418_giving_settings from './20261119_222418_giving_settings';
+import * as migration_20261119_223000_giving_pages_as_sections from './20261119_223000_giving_pages_as_sections';
 
 export const migrations = [
   {
@@ -351,31 +353,41 @@ export const migrations = [
   {
     up: migration_20261119_050302_sponsorship_settings.up,
     down: migration_20261119_050302_sponsorship_settings.down,
-    name: '20261119_050302_sponsorship_settings'
+    name: '20261119_050302_sponsorship_settings',
   },
   {
     up: migration_20261119_050400_sponsor_pages.up,
     down: migration_20261119_050400_sponsor_pages.down,
-    name: '20261119_050400_sponsor_pages'
+    name: '20261119_050400_sponsor_pages',
   },
   {
     up: migration_20261119_150000_sponsor_pages_polish.up,
     down: migration_20261119_150000_sponsor_pages_polish.down,
-    name: '20261119_150000_sponsor_pages_polish'
+    name: '20261119_150000_sponsor_pages_polish',
   },
   {
     up: migration_20261119_160000_sponsor_pages_polish2.up,
     down: migration_20261119_160000_sponsor_pages_polish2.down,
-    name: '20261119_160000_sponsor_pages_polish2'
+    name: '20261119_160000_sponsor_pages_polish2',
   },
   {
     up: migration_20261119_190000_sponsor_pages_clean.up,
     down: migration_20261119_190000_sponsor_pages_clean.down,
-    name: '20261119_190000_sponsor_pages_clean'
+    name: '20261119_190000_sponsor_pages_clean',
   },
   {
     up: migration_20261119_200000_sponsor_pages_clean2.up,
     down: migration_20261119_200000_sponsor_pages_clean2.down,
-    name: '20261119_200000_sponsor_pages_clean2'
+    name: '20261119_200000_sponsor_pages_clean2',
+  },
+  {
+    up: migration_20261119_222418_giving_settings.up,
+    down: migration_20261119_222418_giving_settings.down,
+    name: '20261119_222418_giving_settings',
+  },
+  {
+    up: migration_20261119_223000_giving_pages_as_sections.up,
+    down: migration_20261119_223000_giving_pages_as_sections.down,
+    name: '20261119_223000_giving_pages_as_sections',
   },
 ];

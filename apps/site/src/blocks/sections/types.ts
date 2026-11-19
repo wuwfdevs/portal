@@ -24,6 +24,12 @@ export interface SectionContext {
   /** True when a signed-in editor is previewing a draft. */
   draft: boolean
   pageId: number | string | undefined
+  /**
+   * The request's query string, handed in by a coded route that has to answer it per request (`/support/ways?way=`, `/support/thanks?name=`), as
+   * the page-record renderer's one input from the request. `undefined` on every page the cached catch-all serves. A block reads it only from
+   * here, never from the request itself (PAGE-BLOCKS.md → Rendering).
+   */
+  query?: Record<string, string | string[] | undefined>
 }
 
 export type SectionProps<B extends SectionData = SectionData> = { block: B; context: SectionContext }

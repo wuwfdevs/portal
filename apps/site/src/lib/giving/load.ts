@@ -1,6 +1,9 @@
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
-import type { GivingContent } from './content'
+import type { GivingSettingsData } from './content'
 
-/** The giving pages' global, cached; saving it in the admin refreshes every page (the global's hook revalidates `global_support-page`). */
-export const loadGiving = (): Promise<GivingContent> => getCachedGlobal('support-page', 0)()
+/**
+ * The Giving settings, through the tagged cache: saving the global in the admin refreshes every page that holds a block reading it
+ * (`global_giving-settings`; the global's hook revalidates the tag). The donation form's addresses are public (they are links on the page).
+ */
+export const loadGivingSettings = (): Promise<GivingSettingsData> => getCachedGlobal('giving-settings', 0)() as Promise<GivingSettingsData>

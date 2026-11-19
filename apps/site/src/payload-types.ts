@@ -91,6 +91,11 @@ export interface Config {
     sectionCarpool: SectionCarpool;
     sectionOpenPrograms: SectionOpenPrograms;
     sectionInquiryForm: SectionInquiryForm;
+    sectionGiftCard: SectionGiftCard;
+    sectionGivingLevels: SectionGivingLevels;
+    sectionWaysToGive: SectionWaysToGive;
+    sectionThankYou: SectionThankYou;
+    sectionGivingContact: SectionGivingContact;
   };
   collections: {
     posts: Post;
@@ -196,28 +201,30 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     homepage: Homepage;
-    'support-page': SupportPage;
     'unearthing-hub': UnearthingHub;
     'voyager-hub': VoyagerHub;
     'radiolive-hub': RadioliveHub;
     'sponsorship-settings': SponsorshipSetting;
+    'giving-settings': GivingSetting;
     header: Header;
     footer: Footer;
     'site-settings': SiteSetting;
     'listen-live': ListenLive;
+    'support-page': SupportPage;
     sponsorship: Sponsorship;
   };
   globalsSelect: {
     homepage: HomepageSelect<false> | HomepageSelect<true>;
-    'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'sponsorship-settings': SponsorshipSettingsSelect<false> | SponsorshipSettingsSelect<true>;
+    'giving-settings': GivingSettingsSelect<false> | GivingSettingsSelect<true>;
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
+    'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
   };
   locale: null;
@@ -1822,6 +1829,11 @@ export interface SectionSteps {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionSteps';
@@ -2640,6 +2652,339 @@ export interface SectionInquiryForm {
   blockType: 'sectionInquiryForm';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionGiftCard".
+ */
+export interface SectionGiftCard {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  /**
+   * A short line above the headline: "Give to WUWF".
+   */
+  label?: string | null;
+  headline: string;
+  /**
+   * One or two sentences under the headline. A blank line starts a new paragraph.
+   */
+  line?: string | null;
+  /**
+   * The short lines under the opening text (tax-deductible, change or stop anytime, a phone number).
+   */
+  assurances?:
+    | {
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The words on the gift card. The amounts it offers, its levels and where it sends a gift are in Giving settings.
+   */
+  card?: {
+    monthlyLabel?: string | null;
+    monthlySub?: string | null;
+    onceLabel?: string | null;
+    onceSub?: string | null;
+    otherLabel?: string | null;
+    /**
+     * “At {amount} a month”.
+     */
+    titleMonthly?: string | null;
+    /**
+     * “At {amount}”.
+     */
+    titleOnce?: string | null;
+    /**
+     * The Day Sponsor line for one message: “A short personal message”.
+     */
+    messageOne?: string | null;
+    /**
+     * For several: “{count} short personal messages”.
+     */
+    messageMany?: string | null;
+    anyTitle?: string | null;
+    anyBenefits?:
+      | {
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * “Give {amount} a month”.
+     */
+    ctaMonthly?: string | null;
+    /**
+     * “Give {amount}”.
+     */
+    ctaOnce?: string | null;
+    ctaOther?: string | null;
+    /**
+     * Under the button when the donation form takes the amount from the link.
+     */
+    noteWithPrefill?: string | null;
+    /**
+     * Under the button when it does not: the donor chooses the amount again on the form.
+     */
+    noteWithoutPrefill?: string | null;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionGiftCard';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionGivingLevels".
+ */
+export interface SectionGivingLevels {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * On each level’s card: “Give at this level”. Empty: no link on the cards.
+   */
+  buttonLabel?: string | null;
+  /**
+   * Small print under the cards.
+   */
+  footnote?: string | null;
+  footnoteLinkLabel?: string | null;
+  footnoteLinkHref?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionGivingLevels';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionWaysToGive".
+ */
+export interface SectionWaysToGive {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  label?: string | null;
+  headline: string;
+  /**
+   * A blank line starts a new paragraph.
+   */
+  line?: string | null;
+  /**
+   * The choices across the top of the page, in this order.
+   */
+  groups?:
+    | {
+        key: 'vehicles' | 'assets' | 'work' | 'gift' | 'will';
+        label: string;
+        /**
+         * Who it suits: “You have one to part with.”
+         */
+        best?: string | null;
+        /**
+         * How much it takes: “One phone call”.
+         */
+        effort?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * What opens under a choice. A choice with several panels (Stock, IRA gift, Donor-advised fund) shows a second row.
+   */
+  panels?:
+    | {
+        group: 'vehicles' | 'assets' | 'work' | 'gift' | 'will';
+        /**
+         * The word in the address (?way=stock): lowercase letters, no spaces.
+         */
+        slug: string;
+        /**
+         * When a choice has several panels, the name on its second row.
+         */
+        tabLabel?: string | null;
+        eyebrow?: string | null;
+        title?: string | null;
+        lead?: string | null;
+        buttonLabel?: string | null;
+        buttonHref?: string | null;
+        /**
+         * An optional second button, e.g. real estate beside vehicles.
+         */
+        secondaryLabel?: string | null;
+        secondaryHref?: string | null;
+        showDetails?: boolean | null;
+        /**
+         * How it works, in order: one step to a line.
+         */
+        steps?: string | null;
+        /**
+         * Good to know: one note to a line.
+         */
+        notes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  stepsTitle?: string | null;
+  notesTitle?: string | null;
+  /**
+   * Over the details a broker or fund needs (their rows are in Giving settings).
+   */
+  detailsTitle?: string | null;
+  copyLabel?: string | null;
+  copiedLabel?: string | null;
+  detailsNote?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionWaysToGive';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionThankYou".
+ */
+export interface SectionThankYou {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  label?: string | null;
+  /**
+   * When the donation form sent no first name.
+   */
+  title?: string | null;
+  /**
+   * With one: “Thank you, {name}. You’re part of WUWF now.”
+   */
+  titleNamed?: string | null;
+  /**
+   * When the amount and frequency are not known.
+   */
+  body?: string | null;
+  /**
+   * {amount} becomes the amount: “Your monthly gift of {amount} is how…”
+   */
+  bodyMonthly?: string | null;
+  bodyOnce?: string | null;
+  /**
+   * Up to two buttons. The first is the main one.
+   */
+  actions?:
+    | {
+        label: string;
+        href: string;
+        id?: string | null;
+      }[]
+    | null;
+  nextTitle?: string | null;
+  /**
+   * What happens next, with when it happens first: “This week.” “A note from the station.”
+   */
+  next?:
+    | {
+        lead: string;
+        text?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  promptTitle?: string | null;
+  promptLabel?: string | null;
+  promptHref?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionThankYou';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionGivingContact".
+ */
+export interface SectionGivingContact {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'hero' | 'band' | 'line';
+  /**
+   * Hero only: a short line above the headline.
+   */
+  label?: string | null;
+  /**
+   * Hero and band. The line variant has none.
+   */
+  headline?: string | null;
+  /**
+   * Hero and band: the words under the headline. Line: the sentence, e.g. “Questions about your gift? Call WUWF Member Services at {phone}.”
+   */
+  line?: string | null;
+  cardTitle?: string | null;
+  cardText?: string | null;
+  /**
+   * Printed after the email address.
+   */
+  cardNote?: string | null;
+  /**
+   * The call button, e.g. “Call {phone}”. Empty: no button.
+   */
+  callLabel?: string | null;
+  /**
+   * The email button. Empty: no button.
+   */
+  emailLabel?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionGivingContact';
+}
+/**
  * Short vertical video. Needs captions to publish.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2861,6 +3206,11 @@ export interface Page {
         | SectionCarpool
         | SectionOpenPrograms
         | SectionInquiryForm
+        | SectionGiftCard
+        | SectionGivingLevels
+        | SectionWaysToGive
+        | SectionThankYou
+        | SectionGivingContact
       )[]
     | null;
   /**
@@ -5735,6 +6085,802 @@ export interface Homepage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub".
+ */
+export interface UnearthingHub {
+  id: number;
+  /**
+   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  production?: (number | null) | Production;
+  /**
+   * The small line above the title, e.g. "Northwest Florida to the Keys".
+   */
+  dateline?: string | null;
+  /**
+   * The "About the project" box: who makes it, since when, when it airs.
+   */
+  about?: string | null;
+  /**
+   * The episode shown large with its player. Empty means the newest episode.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Pairs a history episode with today's reporting on the same place. Leave the pairs empty to hide the band.
+   */
+  thenNow?: {
+    /**
+     * For example "People have rebuilt on this coast after storms for 500 years."
+     */
+    heading?: string | null;
+    blurb?: string | null;
+    pairs?:
+      | {
+          then: number | Post;
+          now: number | Post;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub".
+ */
+export interface VoyagerHub {
+  id: number;
+  /**
+   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  identity?: (number | null) | PublishingIdentity;
+  tagline?: string | null;
+  /**
+   * The large story at the top. Empty means the newest Voyager story.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * A Voyager podcast to show in the Multimedia band. Optional.
+   */
+  podcast?: (number | null) | Production;
+  /**
+   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
+   */
+  staff?:
+    | {
+        person: number | Contributor;
+        /**
+         * Their role this term, e.g. "News editor". Empty uses their title.
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  join?: {
+    heading?: string | null;
+    /**
+     * Say only what is true this term (who can join, whether editor roles are paid).
+     */
+    text?: string | null;
+    /**
+     * Where "Join the newsroom" goes. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  footnote?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub".
+ */
+export interface RadioliveHub {
+  id: number;
+  /**
+   * The RadioLive production. Its funder lines ("RadioLive is made possible by...") come from its underwriting agreements.
+   */
+  production?: (number | null) | Production;
+  tagline?: string | null;
+  /**
+   * The wide picture at the top. Give it alt text in the media library.
+   */
+  heroPhoto?: (number | null) | Media;
+  host?: {
+    kicker?: string | null;
+    heading?: string | null;
+    text?: string | null;
+    portrait?: (number | null) | Media;
+    /**
+     * Where "The story of RadioLive" goes. Empty hides it.
+     */
+    href?: string | null;
+  };
+  encores?: {
+    heading?: string | null;
+    text?: string | null;
+    linkLabel?: string | null;
+    /**
+     * Where the audio archive is. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  support?: {
+    heading?: string | null;
+    text?: string | null;
+    buttonLabel?: string | null;
+    /**
+     * The donation page. Empty hides the button.
+     */
+    href?: string | null;
+    /**
+     * Say only what the donation form really offers.
+     */
+    note?: string | null;
+  };
+  visit?: {
+    heading?: string | null;
+    /**
+     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
+     */
+    items?:
+      | {
+          /**
+           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
+           */
+          label: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
+   */
+  membership?: {
+    /**
+     * The level's name, e.g. "RadioLive 25".
+     */
+    heading?: string | null;
+    /**
+     * The price and what members receive, exactly as the station sells it.
+     */
+    text?: string | null;
+    /**
+     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
+     */
+    contactName?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    /**
+     * An optional page to join or learn more.
+     */
+    href?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings".
+ */
+export interface SponsorshipSetting {
+  id: number;
+  /**
+   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
+   */
+  phone?: string | null;
+  address?: string | null;
+  /**
+   * Printed with the phone number at the foot of every sponsorship page.
+   */
+  serviceLine?: string | null;
+  /**
+   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
+   */
+  inquiryEmail?: string | null;
+  /**
+   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
+   */
+  inquiryNotice?: string | null;
+  /**
+   * Shown when the form cannot send because no address is set above. Include the phone number.
+   */
+  notSetUpMessage?: string | null;
+  /**
+   * Shown when sending fails. Include the phone number.
+   */
+  failedMessage?: string | null;
+  /**
+   * “What are you interested in?” on the form.
+   */
+  interests?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The budget ranges, first one is the default.
+   */
+  budgets?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The rate card, one row per daypart. The rate estimator reads these numbers.
+   */
+  dayparts?:
+    | {
+        label: string;
+        when?: string | null;
+        /**
+         * Dollars per credit, e.g. 55 or 25.5.
+         */
+        open: number;
+        m3: number;
+        m6: number;
+        y1: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The schedule sizes the estimator offers.
+   */
+  creditCounts?:
+    | {
+        count: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Extra discount for prepaying a rate-card schedule.
+   */
+  prepayPercent?: number | null;
+  /**
+   * Nonprofit discount off open rates.
+   */
+  nonprofitPercent?: number | null;
+  /**
+   * The Carpool Plan.
+   */
+  carpool?: {
+    /**
+     * Dollars for six months.
+     */
+    sixMonths?: number | null;
+    /**
+     * Dollars for a year.
+     */
+    oneYear?: number | null;
+  };
+  /**
+   * The new-sponsor packages.
+   */
+  packages?: {
+    /**
+     * What a drive-time credit normally costs, in dollars.
+     */
+    openDriveRate?: number | null;
+    /**
+     * What a first-time sponsor pays for one, in dollars.
+     */
+    newDriveRate?: number | null;
+    items?:
+      | {
+          name: string;
+          description?: string | null;
+          /**
+           * Dollars.
+           */
+          price: number;
+          /**
+           * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
+           */
+          value: number;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * The events and programs a business can back, in the order they appear. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
+   */
+  programs?:
+    | {
+        name: string;
+        kind: 'live-series' | 'festival' | 'community-program' | 'other';
+        status: 'open' | 'held' | 'not-yet-open';
+        /**
+         * What it is, in plain words.
+         */
+        description: string;
+        /**
+         * Ways to partner.
+         */
+        levels?:
+          | {
+              name: string;
+              description?: string | null;
+              /**
+               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
+               */
+              price?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
+         */
+        recognition?: string | null;
+        /**
+         * For example /radiolive. Empty for no link.
+         */
+        pageUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Levels, amounts, the donation form and Member Services’ contact details. The words on each giving page are on the page’s sections.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "giving-settings".
+ */
+export interface GivingSetting {
+  id: number;
+  /**
+   * WUWF Member Services, as people read it: 850 473-7433. Links are built from the digits.
+   */
+  phone?: string | null;
+  /**
+   * A role address is best (people change; the address should not). Shown on the legacy and other-ways pages. Empty hides the Email buttons.
+   */
+  email?: string | null;
+  /**
+   * Where a check or a letter goes, on one line.
+   */
+  mailingAddress?: string | null;
+  /**
+   * Printed at the foot of every giving page. Have the tax wording reviewed before it is published.
+   */
+  serviceLine?: string | null;
+  /**
+   * Where a gift is made. This site never takes card, bank or payroll details.
+   */
+  donationForm?: {
+    /**
+     * WUWF’s form for a monthly gift, with the fund and attribution code already in the address. Every monthly Give button goes here.
+     */
+    monthlyAddress?: string | null;
+    /**
+     * WUWF’s form for a one-time gift. Every one-time Give button goes here.
+     */
+    onceAddress?: string | null;
+    /**
+     * Used for a gift that has no form of its own above (or for both, if WUWF has one form). With no address at all, no Give button is shown and the pages say to call.
+     */
+    address?: string | null;
+    /**
+     * Tick this only after testing that opening the form with the amount in the address really selects it (a first test with ?amount=20 did not). Off, the link carries neither and the page’s notes say so.
+     */
+    prefill?: boolean | null;
+    /**
+     * The name the form reads the amount from, e.g. amount. Letters, digits and _ - . only.
+     */
+    amountParam?: string | null;
+    /**
+     * The name the form reads monthly or one-time from, e.g. frequency.
+     */
+    frequencyParam?: string | null;
+    /**
+     * What it expects for a monthly gift. Empty sends “monthly”.
+     */
+    monthlyValue?: string | null;
+    /**
+     * What it expects for a one-time gift. Empty sends “once”.
+     */
+    onceValue?: string | null;
+    /**
+     * Shown instead of the Give button while there is no form address. {phone} becomes the number above.
+     */
+    notSetUp?: string | null;
+  };
+  /**
+   * The qualifying level, in words, e.g. "a sustaining membership of $10 a month or more". Shown wherever the site explains members-only episodes (show support pages, the members' panel, a reader's account). One level for the whole station: no show has its own. Empty shows no level.
+   */
+  membersListeningLevel?: string | null;
+  /**
+   * Lowest first or in any order; the page orders them by the monthly minimum. Perks are thanks for a gift, never the thing being bought, so describe them that way.
+   */
+  levels?:
+    | {
+        name: string;
+        /**
+         * As shown above the name: “$10 a month or more”.
+         */
+        amount?: string | null;
+        /**
+         * The smallest monthly gift in this level, in whole dollars. A one-time gift is counted by the year against the same line (12 times this).
+         */
+        minimumMonthly: number;
+        /**
+         * One plain sentence for pages that list the levels in passing (a show’s support page).
+         */
+        description?: string | null;
+        /**
+         * On the level’s card on the Give page.
+         */
+        benefits?:
+          | {
+              text: string;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * On the gift card when a gift lands in this level. A line may contain {messages}, which becomes the Day Sponsor line for that gift (and the line is left out when the gift earns none).
+         */
+        giftBenefits?:
+          | {
+              text: string;
+              id?: string | null;
+            }[]
+          | null;
+        emphasis?: ('standard' | 'featured' | 'leadership') | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Day Sponsor messages by the year’s giving. A monthly gift counts 12 times; a one-time gift counts once.
+   */
+  messageTiers?:
+    | {
+        /**
+         * In a year of giving, from this many dollars…
+         */
+        yearly: number;
+        /**
+         * …this many short messages on the air.
+         */
+        count: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The monthly amounts the gift card offers, in dollars.
+   */
+  monthlyAmounts?:
+    | {
+        amount: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The one-time amounts the gift card offers, in dollars.
+   */
+  onceAmounts?:
+    | {
+        amount: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The monthly amount chosen when the page opens. One of the amounts above; empty: the smallest.
+   */
+  monthlyDefault?: number | null;
+  /**
+   * The one-time amount chosen when the page opens. Empty: the smallest.
+   */
+  onceDefault?: number | null;
+  /**
+   * What a donor hands a broker, a fund or an employer to give to WUWF: the legal name, the tax ID, the address. Shown on the Other ways page where a panel asks for it, with a Copy button.
+   */
+  giftDetails?:
+    | {
+        label: string;
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header".
+ */
+export interface Header {
+  id: number;
+  /**
+   * Left to right, after the logo. Each item is a plain link, or a menu that opens a panel of links under the header (board 27: News, Shows, Watch, Community, About). Drag to reorder.
+   */
+  navItems?:
+    | {
+        kind: 'link' | 'menu';
+        link?: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        /**
+         * The word in the header, e.g. "News".
+         */
+        label?: string | null;
+        /**
+         * The panel’s title, e.g. "Shows and podcasts". Empty uses the label.
+         */
+        heading?: string | null;
+        /**
+         * One sentence under the title. Optional.
+         */
+        blurb?: string | null;
+        links?:
+          | {
+              link: {
+                type?: ('reference' | 'custom') | null;
+                newTab?: boolean | null;
+                reference?:
+                  | ({
+                      relationTo: 'pages';
+                      value: number | Page;
+                    } | null)
+                  | ({
+                      relationTo: 'posts';
+                      value: number | Post;
+                    } | null);
+                url?: string | null;
+                label: string;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.
+   */
+  actions?: {
+    listen?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    search?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    signIn?: {
+      show?: boolean | null;
+      label?: string | null;
+    };
+    donate?: {
+      show?: boolean | null;
+      label?: string | null;
+      /**
+       * Where Donate goes: a page on this site ("/support") or a full https:// address.
+       */
+      href?: string | null;
+    };
+  };
+  /**
+   * An optional second row: fellowships, series and topics to feature. Empty hides the row.
+   */
+  sections?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer".
+ */
+export interface Footer {
+  id: number;
+  /**
+   * Link columns, left to right, each with a heading.
+   */
+  columns?:
+    | {
+        heading: string;
+        links?:
+          | {
+              link: {
+                type?: ('reference' | 'custom') | null;
+                newTab?: boolean | null;
+                reference?:
+                  | ({
+                      relationTo: 'pages';
+                      value: number | Page;
+                    } | null)
+                  | ({
+                      relationTo: 'posts';
+                      value: number | Post;
+                    } | null);
+                url?: string | null;
+                label: string;
+              };
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The legal row under the columns (Public Inspection File, EEO report, privacy…).
+   */
+  navItems?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.
+   */
+  publicFile: {
+    /**
+     * The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.
+     */
+    url?: string | null;
+    label: string;
+    /**
+     * Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."
+     */
+    accessibilityContact?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  /**
+   * Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
+   */
+  embedHosts?:
+    | {
+        host: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
+   */
+  semanticSearch?: boolean | null;
+  /**
+   * A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.
+   */
+  relatedMinSimilarity?: number | null;
+  /**
+   * A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.
+   */
+  searchMinSimilarity?: number | null;
+  /**
+   * From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.
+   */
+  relatedMaxPerSeries?: number | null;
+  /**
+   * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
+   */
+  portalOrigin?: string | null;
+  /**
+   * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
+   */
+  independencePolicy?: (number | null) | Page;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "listen-live".
+ */
+export interface ListenLive {
+  id: number;
+  /**
+   * The live streams, in the order listeners see them. The first is the default. With no channels, the player, the Listen live button and the /listen page are hidden.
+   */
+  channels?:
+    | {
+        /**
+         * e.g. "WUWF 88.1".
+         */
+        name: string;
+        /**
+         * For the player bar, e.g. "88.1". Empty uses the name.
+         */
+        short?: string | null;
+        /**
+         * The stream’s https address from StreamGuys, e.g. https://wuwf.streamguys1.com/WUWFFM.mp3.
+         */
+        streamUrl: string;
+        /**
+         * Where "On now" and "Up next" come from: the channel’s ID in NPR Cadence (it appears in the address of Cadence’s schedule widget, after channelId=). Empty shows no schedule for this channel.
+         */
+        cadenceChannelId?: string | null;
+        /**
+         * One line, e.g. "News and information from NPR and WUWF."
+         */
+        description?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Cards under the player: on the radio, the app, smart speakers. Empty hides the section.
+   */
+  otherWays?:
+    | {
+        title: string;
+        text: string;
+        linkLabel?: string | null;
+        /**
+         * A page on this site ("/podcasts") or a full https address.
+         */
+        linkUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Moved. The giving pages are edited under Pages; levels, amounts and the donation form under Giving settings.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "support-page".
  */
 export interface SupportPage {
@@ -6324,636 +7470,6 @@ export interface SupportPage {
      */
     helpLine?: string | null;
   };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "unearthing-hub".
- */
-export interface UnearthingHub {
-  id: number;
-  /**
-   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
-   */
-  production?: (number | null) | Production;
-  /**
-   * The small line above the title, e.g. "Northwest Florida to the Keys".
-   */
-  dateline?: string | null;
-  /**
-   * The "About the project" box: who makes it, since when, when it airs.
-   */
-  about?: string | null;
-  /**
-   * The episode shown large with its player. Empty means the newest episode.
-   */
-  featured?: (number | null) | Post;
-  /**
-   * Pairs a history episode with today's reporting on the same place. Leave the pairs empty to hide the band.
-   */
-  thenNow?: {
-    /**
-     * For example "People have rebuilt on this coast after storms for 500 years."
-     */
-    heading?: string | null;
-    blurb?: string | null;
-    pairs?:
-      | {
-          then: number | Post;
-          now: number | Post;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "voyager-hub".
- */
-export interface VoyagerHub {
-  id: number;
-  /**
-   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
-   */
-  identity?: (number | null) | PublishingIdentity;
-  tagline?: string | null;
-  /**
-   * The large story at the top. Empty means the newest Voyager story.
-   */
-  featured?: (number | null) | Post;
-  /**
-   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
-   */
-  sections?: (number | Section)[] | null;
-  /**
-   * A Voyager podcast to show in the Multimedia band. Optional.
-   */
-  podcast?: (number | null) | Production;
-  /**
-   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
-   */
-  staff?:
-    | {
-        person: number | Contributor;
-        /**
-         * Their role this term, e.g. "News editor". Empty uses their title.
-         */
-        role?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  join?: {
-    heading?: string | null;
-    /**
-     * Say only what is true this term (who can join, whether editor roles are paid).
-     */
-    text?: string | null;
-    /**
-     * Where "Join the newsroom" goes. Empty hides the button.
-     */
-    href?: string | null;
-  };
-  footnote?: string | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "radiolive-hub".
- */
-export interface RadioliveHub {
-  id: number;
-  /**
-   * The RadioLive production. Its funder lines ("RadioLive is made possible by...") come from its underwriting agreements.
-   */
-  production?: (number | null) | Production;
-  tagline?: string | null;
-  /**
-   * The wide picture at the top. Give it alt text in the media library.
-   */
-  heroPhoto?: (number | null) | Media;
-  host?: {
-    kicker?: string | null;
-    heading?: string | null;
-    text?: string | null;
-    portrait?: (number | null) | Media;
-    /**
-     * Where "The story of RadioLive" goes. Empty hides it.
-     */
-    href?: string | null;
-  };
-  encores?: {
-    heading?: string | null;
-    text?: string | null;
-    linkLabel?: string | null;
-    /**
-     * Where the audio archive is. Empty hides the button.
-     */
-    href?: string | null;
-  };
-  support?: {
-    heading?: string | null;
-    text?: string | null;
-    buttonLabel?: string | null;
-    /**
-     * The donation page. Empty hides the button.
-     */
-    href?: string | null;
-    /**
-     * Say only what the donation form really offers.
-     */
-    note?: string | null;
-  };
-  visit?: {
-    heading?: string | null;
-    /**
-     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
-     */
-    items?:
-      | {
-          /**
-           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
-           */
-          label: string;
-          text: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
-   */
-  membership?: {
-    /**
-     * The level's name, e.g. "RadioLive 25".
-     */
-    heading?: string | null;
-    /**
-     * The price and what members receive, exactly as the station sells it.
-     */
-    text?: string | null;
-    /**
-     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
-     */
-    contactName?: string | null;
-    contactEmail?: string | null;
-    contactPhone?: string | null;
-    /**
-     * An optional page to join or learn more.
-     */
-    href?: string | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sponsorship-settings".
- */
-export interface SponsorshipSetting {
-  id: number;
-  /**
-   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
-   */
-  phone?: string | null;
-  address?: string | null;
-  /**
-   * Printed with the phone number at the foot of every sponsorship page.
-   */
-  serviceLine?: string | null;
-  /**
-   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
-   */
-  inquiryEmail?: string | null;
-  /**
-   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
-   */
-  inquiryNotice?: string | null;
-  /**
-   * Shown when the form cannot send because no address is set above. Include the phone number.
-   */
-  notSetUpMessage?: string | null;
-  /**
-   * Shown when sending fails. Include the phone number.
-   */
-  failedMessage?: string | null;
-  /**
-   * “What are you interested in?” on the form.
-   */
-  interests?:
-    | {
-        label: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The budget ranges, first one is the default.
-   */
-  budgets?:
-    | {
-        label: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The rate card, one row per daypart. The rate estimator reads these numbers.
-   */
-  dayparts?:
-    | {
-        label: string;
-        when?: string | null;
-        /**
-         * Dollars per credit, e.g. 55 or 25.5.
-         */
-        open: number;
-        m3: number;
-        m6: number;
-        y1: number;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The schedule sizes the estimator offers.
-   */
-  creditCounts?:
-    | {
-        count: number;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Extra discount for prepaying a rate-card schedule.
-   */
-  prepayPercent?: number | null;
-  /**
-   * Nonprofit discount off open rates.
-   */
-  nonprofitPercent?: number | null;
-  /**
-   * The Carpool Plan.
-   */
-  carpool?: {
-    /**
-     * Dollars for six months.
-     */
-    sixMonths?: number | null;
-    /**
-     * Dollars for a year.
-     */
-    oneYear?: number | null;
-  };
-  /**
-   * The new-sponsor packages.
-   */
-  packages?: {
-    /**
-     * What a drive-time credit normally costs, in dollars.
-     */
-    openDriveRate?: number | null;
-    /**
-     * What a first-time sponsor pays for one, in dollars.
-     */
-    newDriveRate?: number | null;
-    items?:
-      | {
-          name: string;
-          description?: string | null;
-          /**
-           * Dollars.
-           */
-          price: number;
-          /**
-           * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
-           */
-          value: number;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * The events and programs a business can back, in the order they appear. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
-   */
-  programs?:
-    | {
-        name: string;
-        kind: 'live-series' | 'festival' | 'community-program' | 'other';
-        status: 'open' | 'held' | 'not-yet-open';
-        /**
-         * What it is, in plain words.
-         */
-        description: string;
-        /**
-         * Ways to partner.
-         */
-        levels?:
-          | {
-              name: string;
-              description?: string | null;
-              /**
-               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
-               */
-              price?: string | null;
-              id?: string | null;
-            }[]
-          | null;
-        /**
-         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
-         */
-        recognition?: string | null;
-        /**
-         * For example /radiolive. Empty for no link.
-         */
-        pageUrl?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header".
- */
-export interface Header {
-  id: number;
-  /**
-   * Left to right, after the logo. Each item is a plain link, or a menu that opens a panel of links under the header (board 27: News, Shows, Watch, Community, About). Drag to reorder.
-   */
-  navItems?:
-    | {
-        kind: 'link' | 'menu';
-        link?: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        /**
-         * The word in the header, e.g. "News".
-         */
-        label?: string | null;
-        /**
-         * The panel’s title, e.g. "Shows and podcasts". Empty uses the label.
-         */
-        heading?: string | null;
-        /**
-         * One sentence under the title. Optional.
-         */
-        blurb?: string | null;
-        links?:
-          | {
-              link: {
-                type?: ('reference' | 'custom') | null;
-                newTab?: boolean | null;
-                reference?:
-                  | ({
-                      relationTo: 'pages';
-                      value: number | Page;
-                    } | null)
-                  | ({
-                      relationTo: 'posts';
-                      value: number | Post;
-                    } | null);
-                url?: string | null;
-                label: string;
-              };
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Each can be hidden or relabelled. Listen live shows only while Listen live has channels; Sign in only while audience sign-in is set up.
-   */
-  actions?: {
-    listen?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    search?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    signIn?: {
-      show?: boolean | null;
-      label?: string | null;
-    };
-    donate?: {
-      show?: boolean | null;
-      label?: string | null;
-      /**
-       * Where Donate goes: a page on this site ("/support") or a full https:// address.
-       */
-      href?: string | null;
-    };
-  };
-  /**
-   * An optional second row: fellowships, series and topics to feature. Empty hides the row.
-   */
-  sections?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer".
- */
-export interface Footer {
-  id: number;
-  /**
-   * Link columns, left to right, each with a heading.
-   */
-  columns?:
-    | {
-        heading: string;
-        links?:
-          | {
-              link: {
-                type?: ('reference' | 'custom') | null;
-                newTab?: boolean | null;
-                reference?:
-                  | ({
-                      relationTo: 'pages';
-                      value: number | Page;
-                    } | null)
-                  | ({
-                      relationTo: 'posts';
-                      value: number | Post;
-                    } | null);
-                url?: string | null;
-                label: string;
-              };
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * The legal row under the columns (Public Inspection File, EEO report, privacy…).
-   */
-  navItems?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Shown on every page. The FCC requires a link to the station's online public inspection file from the home page (47 CFR 73.3527), and a contact for people with disabilities who need help with the file's contents. Until the address is set, no link shows: set it before go-live.
-   */
-  publicFile: {
-    /**
-     * The station’s page on publicfiles.fcc.gov (for an FM station, /fm-profile/<call sign>). Open it to check before saving.
-     */
-    url?: string | null;
-    label: string;
-    /**
-     * Who helps people with disabilities with the public file, and how to reach them, e.g. "Questions about the public file, including accessibility: [name], [phone], [email]."
-     */
-    accessibilityContact?: string | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "site-settings".
- */
-export interface SiteSetting {
-  id: number;
-  /**
-   * Sites that load inside a story without the reader clicking, in addition to the built-in list (YouTube, Vimeo, Spotify, Apple Podcasts, SoundCloud, DocumentCloud, Datawrapper, Flourish, ArcGIS, the NPR player, Brightcove, Rumble). Any other public https site can still be embedded, but only loads after the reader clicks. The same list decides which script widgets load by themselves. Exact hostname, https only. Only add sites you trust: an embed runs that site's code in a frame on our page.
-   */
-  embedHosts?:
-    | {
-        host: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * When on, the words a visitor types into search are sent to OpenAI so search can also find stories about the same topic in different words. When off, search uses only the exact words and nothing a visitor types leaves this site. Turn it on only after the site's privacy notice says so (the wording to paste is `PRIVACY_PAGE_PARAGRAPHS` in `src/lib/embeddings/notice.ts`). It also needs the OpenAI key set on the server and the stories embedded; without them this setting does nothing. (It does not control which stories are embedded: that is the key and the embedding run.)
-   */
-  semanticSearch?: boolean | null;
-  /**
-   * A number from 0.1 to 0.9. Higher shows only stories that are very close in subject, so fewer stories get a "Related stories" section; lower shows looser matches, and a story with nothing close may still get four. 0.35 is a starting value, not a measurement: use the examples below to set it by eye.
-   */
-  relatedMinSimilarity?: number | null;
-  /**
-   * A number from 0.05 to 0.9. Search words are short and a story is long, so this runs lower than the number above (0.2 is the starting value). Higher gives fewer, more certain extra results. It only matters while "Find stories by meaning in search" is on.
-   */
-  searchMinSimilarity?: number | null;
-  /**
-   * From 1 to 4 (of the four shown). A run of instalments of one series is not variety, so this keeps one show from filling the list.
-   */
-  relatedMaxPerSeries?: number | null;
-  /**
-   * Where the Portal is, for the listening pages (table sessions, the after-page, the organizer room, kitchen tables). The address only, with https and no path, for example https://tools.example.org. Leave it empty to use the server's PORTAL_ORIGIN setting. The signing secret is never kept here: it stays a server setting.
-   */
-  portalOrigin?: string | null;
-  /**
-   * The editorial independence policy. Underwriting acknowledgments link to it. If empty, no link is shown.
-   */
-  independencePolicy?: (number | null) | Page;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "listen-live".
- */
-export interface ListenLive {
-  id: number;
-  /**
-   * The live streams, in the order listeners see them. The first is the default. With no channels, the player, the Listen live button and the /listen page are hidden.
-   */
-  channels?:
-    | {
-        /**
-         * e.g. "WUWF 88.1".
-         */
-        name: string;
-        /**
-         * For the player bar, e.g. "88.1". Empty uses the name.
-         */
-        short?: string | null;
-        /**
-         * The stream’s https address from StreamGuys, e.g. https://wuwf.streamguys1.com/WUWFFM.mp3.
-         */
-        streamUrl: string;
-        /**
-         * Where "On now" and "Up next" come from: the channel’s ID in NPR Cadence (it appears in the address of Cadence’s schedule widget, after channelId=). Empty shows no schedule for this channel.
-         */
-        cadenceChannelId?: string | null;
-        /**
-         * One line, e.g. "News and information from NPR and WUWF."
-         */
-        description?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Cards under the player: on the radio, the app, smart speakers. Empty hides the section.
-   */
-  otherWays?:
-    | {
-        title: string;
-        text: string;
-        linkLabel?: string | null;
-        /**
-         * A page on this site ("/podcasts") or a full https address.
-         */
-        linkUrl?: string | null;
-        id?: string | null;
-      }[]
-    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -7996,6 +8512,468 @@ export interface HomepageSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub_select".
+ */
+export interface UnearthingHubSelect<T extends boolean = true> {
+  production?: T;
+  dateline?: T;
+  about?: T;
+  featured?: T;
+  thenNow?:
+    | T
+    | {
+        heading?: T;
+        blurb?: T;
+        pairs?:
+          | T
+          | {
+              then?: T;
+              now?: T;
+              id?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub_select".
+ */
+export interface VoyagerHubSelect<T extends boolean = true> {
+  identity?: T;
+  tagline?: T;
+  featured?: T;
+  sections?: T;
+  podcast?: T;
+  staff?:
+    | T
+    | {
+        person?: T;
+        role?: T;
+        id?: T;
+      };
+  join?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        href?: T;
+      };
+  footnote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub_select".
+ */
+export interface RadioliveHubSelect<T extends boolean = true> {
+  production?: T;
+  tagline?: T;
+  heroPhoto?: T;
+  host?:
+    | T
+    | {
+        kicker?: T;
+        heading?: T;
+        text?: T;
+        portrait?: T;
+        href?: T;
+      };
+  encores?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        linkLabel?: T;
+        href?: T;
+      };
+  support?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        buttonLabel?: T;
+        href?: T;
+        note?: T;
+      };
+  visit?:
+    | T
+    | {
+        heading?: T;
+        items?:
+          | T
+          | {
+              label?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membership?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        contactName?: T;
+        contactEmail?: T;
+        contactPhone?: T;
+        href?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings_select".
+ */
+export interface SponsorshipSettingsSelect<T extends boolean = true> {
+  phone?: T;
+  address?: T;
+  serviceLine?: T;
+  inquiryEmail?: T;
+  inquiryNotice?: T;
+  notSetUpMessage?: T;
+  failedMessage?: T;
+  interests?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  budgets?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  dayparts?:
+    | T
+    | {
+        label?: T;
+        when?: T;
+        open?: T;
+        m3?: T;
+        m6?: T;
+        y1?: T;
+        id?: T;
+      };
+  creditCounts?:
+    | T
+    | {
+        count?: T;
+        id?: T;
+      };
+  prepayPercent?: T;
+  nonprofitPercent?: T;
+  carpool?:
+    | T
+    | {
+        sixMonths?: T;
+        oneYear?: T;
+      };
+  packages?:
+    | T
+    | {
+        openDriveRate?: T;
+        newDriveRate?: T;
+        items?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              value?: T;
+              id?: T;
+            };
+      };
+  programs?:
+    | T
+    | {
+        name?: T;
+        kind?: T;
+        status?: T;
+        description?: T;
+        levels?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              id?: T;
+            };
+        recognition?: T;
+        pageUrl?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "giving-settings_select".
+ */
+export interface GivingSettingsSelect<T extends boolean = true> {
+  phone?: T;
+  email?: T;
+  mailingAddress?: T;
+  serviceLine?: T;
+  donationForm?:
+    | T
+    | {
+        monthlyAddress?: T;
+        onceAddress?: T;
+        address?: T;
+        prefill?: T;
+        amountParam?: T;
+        frequencyParam?: T;
+        monthlyValue?: T;
+        onceValue?: T;
+        notSetUp?: T;
+      };
+  membersListeningLevel?: T;
+  levels?:
+    | T
+    | {
+        name?: T;
+        amount?: T;
+        minimumMonthly?: T;
+        description?: T;
+        benefits?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        giftBenefits?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        emphasis?: T;
+        id?: T;
+      };
+  messageTiers?:
+    | T
+    | {
+        yearly?: T;
+        count?: T;
+        id?: T;
+      };
+  monthlyAmounts?:
+    | T
+    | {
+        amount?: T;
+        id?: T;
+      };
+  onceAmounts?:
+    | T
+    | {
+        amount?: T;
+        id?: T;
+      };
+  monthlyDefault?: T;
+  onceDefault?: T;
+  giftDetails?:
+    | T
+    | {
+        label?: T;
+        value?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "header_select".
+ */
+export interface HeaderSelect<T extends boolean = true> {
+  navItems?:
+    | T
+    | {
+        kind?: T;
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        label?: T;
+        heading?: T;
+        blurb?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  actions?:
+    | T
+    | {
+        listen?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        search?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        signIn?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+            };
+        donate?:
+          | T
+          | {
+              show?: T;
+              label?: T;
+              href?: T;
+            };
+      };
+  sections?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "footer_select".
+ */
+export interface FooterSelect<T extends boolean = true> {
+  columns?:
+    | T
+    | {
+        heading?: T;
+        links?:
+          | T
+          | {
+              link?:
+                | T
+                | {
+                    type?: T;
+                    newTab?: T;
+                    reference?: T;
+                    url?: T;
+                    label?: T;
+                  };
+              id?: T;
+            };
+        id?: T;
+      };
+  navItems?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+            };
+        id?: T;
+      };
+  publicFile?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        accessibilityContact?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  embedHosts?:
+    | T
+    | {
+        host?: T;
+        id?: T;
+      };
+  semanticSearch?: T;
+  relatedMinSimilarity?: T;
+  searchMinSimilarity?: T;
+  relatedMaxPerSeries?: T;
+  portalOrigin?: T;
+  independencePolicy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "listen-live_select".
+ */
+export interface ListenLiveSelect<T extends boolean = true> {
+  channels?:
+    | T
+    | {
+        name?: T;
+        short?: T;
+        streamUrl?: T;
+        cadenceChannelId?: T;
+        description?: T;
+        id?: T;
+      };
+  otherWays?:
+    | T
+    | {
+        title?: T;
+        text?: T;
+        linkLabel?: T;
+        linkUrl?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "support-page_select".
  */
 export interface SupportPageSelect<T extends boolean = true> {
@@ -8418,391 +9396,6 @@ export interface SupportPageSelect<T extends boolean = true> {
                   };
             };
         helpLine?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "unearthing-hub_select".
- */
-export interface UnearthingHubSelect<T extends boolean = true> {
-  production?: T;
-  dateline?: T;
-  about?: T;
-  featured?: T;
-  thenNow?:
-    | T
-    | {
-        heading?: T;
-        blurb?: T;
-        pairs?:
-          | T
-          | {
-              then?: T;
-              now?: T;
-              id?: T;
-            };
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "voyager-hub_select".
- */
-export interface VoyagerHubSelect<T extends boolean = true> {
-  identity?: T;
-  tagline?: T;
-  featured?: T;
-  sections?: T;
-  podcast?: T;
-  staff?:
-    | T
-    | {
-        person?: T;
-        role?: T;
-        id?: T;
-      };
-  join?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        href?: T;
-      };
-  footnote?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "radiolive-hub_select".
- */
-export interface RadioliveHubSelect<T extends boolean = true> {
-  production?: T;
-  tagline?: T;
-  heroPhoto?: T;
-  host?:
-    | T
-    | {
-        kicker?: T;
-        heading?: T;
-        text?: T;
-        portrait?: T;
-        href?: T;
-      };
-  encores?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        linkLabel?: T;
-        href?: T;
-      };
-  support?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        buttonLabel?: T;
-        href?: T;
-        note?: T;
-      };
-  visit?:
-    | T
-    | {
-        heading?: T;
-        items?:
-          | T
-          | {
-              label?: T;
-              text?: T;
-              id?: T;
-            };
-      };
-  membership?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        contactName?: T;
-        contactEmail?: T;
-        contactPhone?: T;
-        href?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sponsorship-settings_select".
- */
-export interface SponsorshipSettingsSelect<T extends boolean = true> {
-  phone?: T;
-  address?: T;
-  serviceLine?: T;
-  inquiryEmail?: T;
-  inquiryNotice?: T;
-  notSetUpMessage?: T;
-  failedMessage?: T;
-  interests?:
-    | T
-    | {
-        label?: T;
-        id?: T;
-      };
-  budgets?:
-    | T
-    | {
-        label?: T;
-        id?: T;
-      };
-  dayparts?:
-    | T
-    | {
-        label?: T;
-        when?: T;
-        open?: T;
-        m3?: T;
-        m6?: T;
-        y1?: T;
-        id?: T;
-      };
-  creditCounts?:
-    | T
-    | {
-        count?: T;
-        id?: T;
-      };
-  prepayPercent?: T;
-  nonprofitPercent?: T;
-  carpool?:
-    | T
-    | {
-        sixMonths?: T;
-        oneYear?: T;
-      };
-  packages?:
-    | T
-    | {
-        openDriveRate?: T;
-        newDriveRate?: T;
-        items?:
-          | T
-          | {
-              name?: T;
-              description?: T;
-              price?: T;
-              value?: T;
-              id?: T;
-            };
-      };
-  programs?:
-    | T
-    | {
-        name?: T;
-        kind?: T;
-        status?: T;
-        description?: T;
-        levels?:
-          | T
-          | {
-              name?: T;
-              description?: T;
-              price?: T;
-              id?: T;
-            };
-        recognition?: T;
-        pageUrl?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "header_select".
- */
-export interface HeaderSelect<T extends boolean = true> {
-  navItems?:
-    | T
-    | {
-        kind?: T;
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        label?: T;
-        heading?: T;
-        blurb?: T;
-        links?:
-          | T
-          | {
-              link?:
-                | T
-                | {
-                    type?: T;
-                    newTab?: T;
-                    reference?: T;
-                    url?: T;
-                    label?: T;
-                  };
-              id?: T;
-            };
-        id?: T;
-      };
-  actions?:
-    | T
-    | {
-        listen?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        search?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        signIn?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-            };
-        donate?:
-          | T
-          | {
-              show?: T;
-              label?: T;
-              href?: T;
-            };
-      };
-  sections?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "footer_select".
- */
-export interface FooterSelect<T extends boolean = true> {
-  columns?:
-    | T
-    | {
-        heading?: T;
-        links?:
-          | T
-          | {
-              link?:
-                | T
-                | {
-                    type?: T;
-                    newTab?: T;
-                    reference?: T;
-                    url?: T;
-                    label?: T;
-                  };
-              id?: T;
-            };
-        id?: T;
-      };
-  navItems?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-            };
-        id?: T;
-      };
-  publicFile?:
-    | T
-    | {
-        url?: T;
-        label?: T;
-        accessibilityContact?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "site-settings_select".
- */
-export interface SiteSettingsSelect<T extends boolean = true> {
-  embedHosts?:
-    | T
-    | {
-        host?: T;
-        id?: T;
-      };
-  semanticSearch?: T;
-  relatedMinSimilarity?: T;
-  searchMinSimilarity?: T;
-  relatedMaxPerSeries?: T;
-  portalOrigin?: T;
-  independencePolicy?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "listen-live_select".
- */
-export interface ListenLiveSelect<T extends boolean = true> {
-  channels?:
-    | T
-    | {
-        name?: T;
-        short?: T;
-        streamUrl?: T;
-        cadenceChannelId?: T;
-        description?: T;
-        id?: T;
-      };
-  otherWays?:
-    | T
-    | {
-        title?: T;
-        text?: T;
-        linkLabel?: T;
-        linkUrl?: T;
-        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;
