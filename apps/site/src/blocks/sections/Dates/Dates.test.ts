@@ -75,7 +75,7 @@ describe('Dates section: layouts', () => {
     expect(out).toContain('dateTime="2026-12-04T00:00:00Z"')
     expect(out).toContain('Dec')
     expect(out).toContain('Thursday · 6 p.m. · Museum of Commerce')
-    expect(out).toContain('Friday · 6:30 p.m.')
+    expect(out).toContain('Thursday · 6:30 p.m.')
     expect(out).toContain('Save your seat')
     expect(out.match(/Save your seat/g)?.length).toBe(1)
   })

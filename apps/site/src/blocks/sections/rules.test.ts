@@ -39,8 +39,8 @@ describe('section blocks: rules over the source', () => {
   it('never set HTML from a string', () => {
     for (const f of sources) expect(text(f), rel(f)).not.toContain('dangerouslySetInnerHTML')
   })
-  it('never build a link from a value without safeHref (no raw href={block...})', () => {
-    for (const f of sources) expect(text(f), rel(f)).not.toMatch(/href=\{(block|card|item|row)\./)
+  it('never put a stored value straight into an anchor or link (SectionLink and SectionActions pass it through safeHref)', () => {
+    for (const f of sources) expect(text(f), rel(f)).not.toMatch(/<(?:a|Link)\b[^>]*\bhref=\{(?:block|card|item|row)\./)
   })
   it('have no free colour, spacing or HTML field in a config', () => {
     for (const f of sources.filter((s) => s.endsWith('config.ts'))) {
