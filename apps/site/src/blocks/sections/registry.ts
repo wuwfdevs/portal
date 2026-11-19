@@ -28,6 +28,14 @@ import { Support } from './Support/config'
 import { SupportSection } from './Support/Component'
 import { Table } from './Table/config'
 import { TableSection } from './Table/Component'
+import { Credit } from './Credit/config'
+import { CreditSection } from './Credit/Component'
+import { Dates } from './Dates/config'
+import { DatesSection } from './Dates/Component'
+import { FeaturedRecord } from './FeaturedRecord/config'
+import { FeaturedRecordSection } from './FeaturedRecord/Component'
+import { List } from './List/config'
+import { ListSection } from './List/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
 import type { SectionBlockEntry } from './types'
@@ -43,8 +51,11 @@ import type { SectionBlockEntry } from './types'
  */
 export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Feature', block: Feature, Component: FeatureSection },
+  { dir: 'FeaturedRecord', block: FeaturedRecord, Component: FeaturedRecordSection },
   { dir: 'ProfileBand', block: ProfileBand, Component: ProfileBandSection },
   { dir: 'Cards', block: Cards, Component: CardsSection },
+  { dir: 'List', block: List, Component: ListSection },
+  { dir: 'Dates', block: Dates, Component: DatesSection },
   { dir: 'Quotes', block: Quotes, Component: QuotesSection },
   { dir: 'Stats', block: Stats, Component: StatsSection },
   { dir: 'Steps', block: Steps, Component: StepsSection },
@@ -54,6 +65,7 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Table', block: Table, Component: TableSection },
   { dir: 'Picker', block: Picker, Component: PickerSection },
   { dir: 'Text', block: Text, Component: TextSection },
+  { dir: 'Credit', block: Credit, Component: CreditSection },
   { dir: 'Support', block: Support, Component: SupportSection },
   { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
 ]

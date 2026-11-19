@@ -1,7 +1,7 @@
 // Display formatting for the public site. The station is in Pensacola, so dates are shown in Central time
 // whatever the server's or the reader's clock says.
 
-const STATION_TIME_ZONE = 'America/Chicago'
+export const STATION_TIME_ZONE = 'America/Chicago'
 
 /** "Oct 28, 2026" */
 export function formatLongDate(iso: string | null | undefined): string {

@@ -33,6 +33,9 @@ describe('section blocks: rules over the source', () => {
   it('never import the global helper statically (it loads the Payload config, which loads this registry)', () => {
     for (const f of sources) expect(text(f), rel(f)).not.toMatch(/^import[^;\n]*from\s+'@\/utilities\/getGlobals'/m)
   })
+  it('never import a data loader statically (loaders load the Payload config, which loads this registry)', () => {
+    for (const f of sources) expect(text(f), rel(f)).not.toMatch(/^import[^;\n]*from\s+'(@payload-config|@\/lib\/section-data\/load|@\/lib\/events\/load|@\/lib\/underwriting\/load)'/m)
+  })
   it('never set HTML from a string', () => {
     for (const f of sources) expect(text(f), rel(f)).not.toContain('dangerouslySetInnerHTML')
   })
