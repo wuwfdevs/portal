@@ -8,6 +8,8 @@
 
 import type { Metadata } from 'next'
 
+import { canonicalOverride } from '../network/original'
+
 export const SITE_NAME = 'WUWF Public Media'
 export const DESCRIPTION_MAX = 160
 /** A sentence is a good place to stop only if it leaves a description worth reading. */
@@ -74,6 +76,8 @@ export interface StorySeoInput {
   authors: readonly string[]
   section?: string | null
   image?: { url: string; alt?: string | null } | null
+  /** The original publisher's address, for a story that is not WUWF's. It replaces the story's own path as the canonical link. */
+  canonicalUrl?: string | null
   siteUrl: string
 }
 
@@ -88,8 +92,9 @@ export function storyMetadata(i: StorySeoInput): Metadata {
   return {
     title,
     ...(description ? { description } : {}),
-    // The canonical address is the path itself (a trailing slash redirects to it; ROADMAP → URL scheme).
-    ...(i.path ? { alternates: { canonical: i.path } } : {}),
+    // The canonical address is the path itself (a trailing slash redirects to it; ROADMAP → URL scheme), except for another publisher's
+    // story, whose canonical is the original (owner decision, 2026-11-18).
+    ...(i.canonicalUrl ? { alternates: { canonical: i.canonicalUrl } } : i.path ? { alternates: { canonical: i.path } } : {}),
     openGraph: {
       type: 'article',
       title,
@@ -166,6 +171,8 @@ export function storySeoInputOf(
     contributors?: readonly NamedLike[] | null
     section?: NamedLike
     legacy?: DatedRecord['legacy']
+    source?: string | null
+    original?: { url?: string | null } | null
   },
   siteUrl: string,
 ): StorySeoInput {
@@ -183,6 +190,7 @@ export function storySeoInputOf(
     authors: (post.contributors ?? []).map(nameOf).filter((n): n is string => n !== null),
     section: nameOf(post.section),
     image: imageUrl ? { url: imageUrl, alt: media?.alt ?? null } : null,
+    canonicalUrl: canonicalOverride(post),
     siteUrl,
   }
 }

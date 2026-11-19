@@ -1557,6 +1557,143 @@ design canvas has **no designs for** authors, events detail, standard pages, the
 or RadioLive artist and performance pages: each needs a design or reuses the closest template. Board 25 (member feeds) is a
 signed-in account page, not CMS content.
 
+## Network content: queue, sources and sections (design agreed 2026-11-18; first slice built, publishing blocked)
+
+**Status.** Designed with the owner, with a mockup (claude.ai artifact "Network Content Queue": queue, sources, section page), and the owner
+approved building it (2026-11-18). **Built:** the collections, the poll, the queue view and the posts' original-address fields (list under *Built*, below).
+**Blocked:** anything that needs a real CDS response (the site's own key, and the CDS host in the sandbox's allowed list): the story-body converter,
+and therefore publishing a network story, which is why the queue's Publish button says "not available yet". Text below marked "from the CDS docs" was
+read from the CDS documentation; the rest is the design. It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision
+above ("the CMS will import wire stories and let editors choose which to publish").
+
+**Today in Grove (as the owner described it).** WUSF stories fill the Florida News section, NPR stories the NPR News section and FPREN stories Weather,
+all automatically. Everything else is chosen by hand: Florida News Exchange stories are entered manually, and other NPR stations' stories are found
+through a "network" tab in Grove's admin that filters by an ID. What that ID is has not been checked.
+
+**What CDS provides (from the CDS docs at `npr.github.io/content-distribution-service`, read 2026-11-18).**
+- Any authorized client can read all CDS data, including other stations' documents. A key is tied to one client; stations request one from NPR Member
+  Partnership. The Portal's `NPR_CDS_TOKEN` is the Portal's client: **the site needs its own key**.
+- `GET /v1/documents` filters by `ownerHrefs` (an Organization V4 service, e.g. `https://organization.api.npr.org/v4/services/s583`), `collectionIds`
+  (NPR's own topics, programs and blogs; integers), `profileIds`, `ids`, and date ranges on `publishDateTime` and `editorialLastModifiedDateTime`
+  (`from...to`). Default sort is newest first. `limit` is at most 300, `limit + offset` at most 2000, and there are **no cursors**, so results can shift
+  between requests. Responses carry a `resources` array.
+- **Notifications (webhooks) are for NPR's internal users, not member stations.** A station polls. A deletion is not announced: a document that has gone
+  is found by asking for it by `ids`.
+- **Restricted content:** a document or asset with `isRestrictedToAuthorizedOrgServiceIds: true` must not be republished, indexed, or linked to publicly
+  by non-CDS users. A restricted asset inside an unrestricted story is hidden and the rest of the story is fine.
+- **Attribution:** there is no attribution field. Credit comes from a document's `branding` links to Organization V4 records (`brand.displayName`).
+- A station writes only documents whose ID carries its prefix (`PUT /v1/documents/<id>`), which is the outbound half of the existing CDS sync row.
+- **Not documented there, so unverified:** whether the same story from two stations shares one document, what the terms allow for storing or caching
+  documents (the docs defer to NPR's Terms of Use, which this session could not open), and any rate limits.
+
+**Proposed design.**
+1. **Two layers, not drafts.** A `network_items` collection holds every story the poll finds (headline, teaser, link, image address, credit, dates, CDS id,
+   status `new` / `held` / `dismissed` / `published`, a link to the post it produced). It has no versions or drafts and is disposable.
+   A `posts` record is created **only when a story is published** (automatically for sources set that way, by an editor for the rest), with `source` set to
+   `npr` or `wire` and the existing rules: read-only except headline, teaser and description, re-pulled, never archived separately. Imported but unpicked
+   stories are **not** draft posts: a draft means unfinished WUWF work, and candidates would bury the Stories list, add versions on every re-pull and
+   make purging risky (posts carry redirects and embeddings). The candidate row stays thin, with no body. **The body is fetched from CDS at the moment of
+   publishing** (`GET /v1/documents/<id>` with `transclude=layout`, plus its assets) and converted to the post's blocks, and later polls re-pull a published
+   post from its source. That needs a converter from CDS document layout to Payload blocks, like Grove's (`src/lib/grove`); the CDS `story` profile and
+   layout have not been read yet.
+2. **Sources are records.** A `network_sources` collection: name, how its stories are found (CDS owner service ID or CDS collection ID),
+   suggested section, and mode (publishes on its own, or waits in the queue). Adding a station is a record, not a deploy. WUSF, NPR and FPREN would be
+   "publishes on its own"; other stations wait. **If WUSF and FPREN publish to CDS (unconfirmed) there is no feed adapter at all**; the Florida News Exchange
+   is the one source that is not CDS, and it is not a source record at all (item 6).
+3. **Polling.** A job per source asks CDS for documents changed since its last run (`editorialLastModifiedDateTime`), pages through them, and upserts by CDS
+   id. **Documents flagged restricted are filtered out at ingest**: not stored, not shown in the queue, not linked; the poll log only counts them.
+   A restricted asset inside an unrestricted story is dropped and the story kept. If a story already held (published or not) turns up restricted on a
+   later poll, it is unpublished and an editor is told. A published story whose document has gone is
+   flagged for an editor, not silently removed.
+4. **Credit** comes from the document's branding links, looked up once per organization and cached.
+5. **How a story appears: a full story page on wuwf.org, credited to the station that wrote it.** No link-out cards. Owner (2026-11-18): NPR's terms allow
+   republishing other stations' work, WUWF does it daily, and that is the default; only documents flagged restricted are excluded (the CDS docs agree: with
+   the flag missing or false, "the content may be syndicated or republished"). The page follows the "Wire story address shape" recommendation above
+   (bare `/{YYYY-MM-DD}/{slug}`, `source` set, `rel=canonical` to the original publisher, left out of our sitemap, labelled with its source), of which **`rel=canonical` to the original publisher is
+   decided (owner, 2026-11-18)**; the address shape itself is still awaiting the owner. Section pages list these stories like any other, labelled "From <station>".
+6. **Florida News Exchange.** It runs on PRX's closed system and no public feed was found (Current report, undated). Ask WLRN or PRX for a station
+   credential. Until then there is **no separate entry screen**: an editor makes an ordinary post in Stories with `source` set to "Wire or partner". A story typed
+   in has already been chosen, so it never enters the queue. What posts lack today is somewhere to say where the original lives and who gets the credit:
+   an original address (for `rel=canonical` and a source link) and a credit line, shown when `source` is not WUWF (the same two fields a published CDS
+   story needs). If WLRN
+   or PRX provide access, the exchange becomes an ordinary source record. Do not scrape it.
+7. **Retention (proposed numbers; they would be Site settings, clamped like the embeddings thresholds):** untouched `new` items deleted after about 30 days;
+   `held` items flagged stale, not deleted; `dismissed` items keep only their key so they stay dismissed; published items stay while published, and
+   whether published network stories expire (then 410, as wire URLs do) is the owner's call. Deleting a merged group is all or nothing.
+8. **Admin is Payload.** Both collections and a custom queue view in the same admin, built like `StoryEmbeddingsPanel` and gated by `requirePermission`.
+   No separate admin application. A first version can be the stock list with filters and a "Publish" row action.
+9. **Relevance ranking is deferred.** Surfacing network stories that match local news by meaning needs a vector per candidate and sends their text to a
+   provider. The rule in `CLAUDE.md` stands (never embed NPR or wire stories), and restricted documents may not be indexed at all. Build the queue first,
+   with ranking behind an interface; a first ranker that sends nothing out (recency, section, place names) is possible.
+
+**Open questions (the owner, NPR, or a check in Grove).**
+- Is the ID in Grove's network tab an Organization V4 service ID (likely, from `ownerHrefs`), a collection ID, or something else?
+- Do WUSF and FPREN publish to CDS? If not, what do they offer?
+- Republishing is settled by the owner (item 5). NPR's Terms of Use on storing and caching documents have not been read (`www.npr.org` was outside the
+  sandbox's allowed hosts); the owner's practice suggests no blocker, but it is unchecked.
+- **Decided (owner, 2026-11-18):** a network story's images and audio are **referenced where NPR hosts them, not copied**: it matches "re-pulled, never
+  archived separately" (a pulled story or a newly restricted asset disappears with it), and audio is large. Images use the file's `hrefTemplate` (width,
+  quality, format) through Next's image proxy, with the plain `href` as the fallback; audio plays from the enclosure address, choosing one that is not
+  `tracked`, `sponsored` or `premium`, and only while `isAvailable` and before `streamExpirationDateTime` (all in `lib/network/cds.ts`). Still to check
+  with NPR: whether those hosts allow hotlinking and keep their addresses stable (the CDS docs are silent). If not, copy images and keep audio referenced.
+  `rel=canonical` to the original publisher is decided too.
+- How many documents a day the sources deliver. With full pages, every auto-published story is a real post with a body, so volume affects storage and
+  the Stories list.
+- Whether the same story from two stations can be recognised (shared document id, canonical URL, or only by headline), so "merge duplicates" may be
+  only "possible duplicate".
+- A CDS key for the site from NPR Member Partnership, and which scheduler runs the poll (the Portal has Vercel cron jobs; the site's has not been checked).
+- Florida News Exchange access through WLRN or PRX.
+
+**Built (2026-11-18; migration `20261118_221136_network_content`, tests up/down/up on a scratch database; unit and integration tests mutation-checked):**
+- `src/lib/network` (pure): CDS response parser with restricted filtering of stories and assets and the audio rules (`cds.ts`), RFC 6570 image
+  templates (`uri-template.ts`), the poll's queries, cursor and re-check classification (`poll.ts`), the orchestrator with CDS and the database injected
+  (`sync.ts`), status rules (`status.ts`), tombstones, retention numbers, the CDS client (`cds-client.ts`, needs `NPR_CDS_TOKEN`; unset means "not
+  set up", never an error), and the original-address and credit helpers.
+- Collections `network-sources` (publisher-only to change; a source is found by owner service ID or by collection ID, and is `queue` or `auto`) and
+  `network-items` (thin, disposable, no body, created only by the poll; an editor may keep, release and dismiss, never mark published or gone), group **Network**.
+- Posts: `original.url` (https only), `original.credit` and `original.cdsId` (unique) for a story that is not WUWF's. **`rel=canonical` points at the
+  original publisher** for those stories; **the sitemap lists only WUWF's own** published stories.
+- The poll: `lib/network/run.ts`, called by `GET|POST /api/network/poll` with `Authorization: Bearer $CRON_SECRET` (401 with no secret set). Per
+  source: new stories since the cursor (`publishDateTime`), then a re-check of stories held (`ids`): refreshed, flagged "removed at the source"
+  (published) or deleted (waiting), or, if they turned restricted, blanked to a tombstone and their post sent back to draft. Waiting stories first
+  found over 30 days ago are deleted (constant for now, `lib/network/retention.ts`; Site settings is the plan). A failed source records the error and keeps its cursor.
+- The queue: custom admin view `/admin/network-queue` (`components/admin/NetworkQueue`), filters by view and source, keep / release / dismiss.
+
+**Not built, and why:**
+- **The CDS story body converter, and so publishing** (by an editor, or on its own for `auto` sources). It needs a real CDS document's `layout` and the
+  profiles around it (`story`, `renderable`, `html-block`, `text`, `image-gallery`...), which the docs describe only in part; the repo's rule is to derive a
+  converter from real data, not from memory. **Needs the site's CDS key (NPR Member Partnership) and `content.api.npr.org` allowed in the environment's network settings** (it answers 403 from this sandbox).
+  Until then an `auto` source only queues, and says so in the poll summary (`awaitingAutoPublish`).
+- Scheduling the poll is **set** (owner, 2026-11-18): `apps/site/vercel.json` calls `/api/network/poll` every 15 minutes. It is **inert until the project has
+  real credentials**: no `CRON_SECRET`, every call is a 401; no `NPR_CDS_TOKEN`, an authorised call answers `{"status":"not_configured"}` before it opens the
+  database or the network (`tests/int/network-poll-route.int.spec.ts`). Vercel sends the `CRON_SECRET` header itself once the variable is set on the project. The
+  Portal already runs a 5-minute cron on the same team, so the frequency is allowed there; if a deploy is refused for the cron, the plan is the cause.
+- Section-page "From <station>" labels and the Track for external audio: they need a published network story to hang on.
+- Read-only enforcement for `source ≠ wuwf` (only headline, teaser and description editable) that `ARCHITECTURE.md` lists as not built: only meaningful once network posts exist.
+- Retention numbers as Site settings; a per-source "stale kept stories" flag; matching a station's `branding` link to a display name (Organization V4 lookup).
+
+## Launch: initializing production (decided 2026-11-18)
+
+**Decision (owner, 2026-11-18).** The site is not deployed to production until the MVP is ready, and its production database is **empty on purpose** until then.
+A site migration is finished when it is applied to staging (`wuwf-site-staging`, `avgeycgvaufwdfzdsogi`; the preview build does it) and verified there with
+queries. It is **not** applied to `wuwf-site-production` one at a time: production gets every migration at once, in order, with one `payload migrate` at launch.
+(This is an exception to the root `CLAUDE.md` rule for the Portal's two live projects.) What makes that safe is that **a pushed migration is never renamed or
+rewritten** (see *Lessons*): the launch run replays the same files staging already ran.
+
+**State on 2026-11-18** (checked with the Supabase and Vercel connectors): `wuwf-site-production` (`gyidqxhkkhajfazbcrug`) has the `payload_app` role, the
+`wuwf-site-files` bucket and pgvector, and **no tables** (no `payload_migrations`). Staging has all 55 migrations recorded. The Vercel Production environment has only
+`OPENAI_API_KEY`, `PORTAL_LISTENING_SECRET` and the two public Supabase values.
+
+**At launch, in order:**
+1. Set the production values on the Vercel Production environment: `DATABASE_URL` (pooled, transaction mode), `DATABASE_MIGRATION_URL` (session mode), `PAYLOAD_SECRET`,
+   `CRON_SECRET`, `PREVIEW_SECRET`, `PORTAL_IDENTITY_SECRET`, the `S3_*` storage values for `wuwf-site-files`, `NPR_CDS_TOKEN`, and the rest the Preview environment has.
+   The `payload_app` password is in the owner's private files, not the repository.
+2. Run `payload migrate` once against `wuwf-site-production`: from a machine with Postgres access (`DATABASE_URL=<session url> pnpm payload migrate < /dev/null`), or
+   a one-off build with `MIGRATE_ON_BUILD=1` set for that build only and removed after. A sandbox session has HTTPS only and cannot do this.
+3. Verify like staging: the tables exist and are owned by `payload_app`, `payload_migrations` has one row per file in `src/migrations`, pgvector answers, and
+   `anon` and `authenticated` have no access to the new tables.
+4. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
+
 ## Known gaps in what exists
 
 - **Story embeddings are built but not run** (see *Vector search and similar stories*): until the backfill runs there is no "Related stories" section and search is keyword-only. The similarity floors are uncalibrated starting values.
@@ -1595,6 +1732,10 @@ signed-in account page, not CMS content.
   still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
   deletes its record, keeps the shared search and footer objects so search rows keep their links). After a push, **never rewrite a
   migration: add a new one**. Test a migration change against staging's state, not only a fresh database.
+  **Merging main is the same trap (2026-11-18, network content):** main's newer migrations made the pushed migration's schema snapshot stale, and it was
+  regenerated under a new timestamp. Staging already had the first one, so the copy failed with "type ... already exists" and every later preview build of
+  the branch went red until the original name was restored. If a merge makes a pushed migration's snapshot stale, **keep its name** (compare its `up()`
+  with the pushed one: it was identical) and regenerate only the `.json`; if the SQL itself must change, add a second migration.
 - **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
   had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
   Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
@@ -1821,6 +1962,13 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
 - **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
+- **Network content (2026-11-18):** a **CDS key for the site** from NPR Member Partnership (`NPR_CDS_TOKEN`, a separate client from the Portal's) and
+  `content.api.npr.org` in the environment's allowed hosts (it answers 403 from the sandbox), so the story converter can be built from real documents;
+  `CRON_SECRET` and `NPR_CDS_TOKEN` set on the site's Vercel project (the cron in `vercel.json` does nothing until both are there); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
+  (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
+  tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
+- **Launch: the site's production database (decided 2026-11-18, not a blocker).** `wuwf-site-production` is empty on purpose until the MVP launches; see
+  *Launch: initializing production*. Site migrations are applied to staging and verified there; production gets all of them at once at launch.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.

@@ -1,6 +1,7 @@
-import type { CollectionConfig, RichTextFieldValidation } from 'payload'
+import type { CollectionConfig, RichTextFieldValidation, TextFieldSingleValidation } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
+import { isHttpsAddress } from '../../lib/network/original'
 import { featuredMediaBlocks } from '../../blocks/body'
 import { bodyEditor } from '../../fields/bodyEditor'
 import { embedStoryAfterChange } from '../../hooks/embedStory'
@@ -208,6 +209,43 @@ export const Posts: CollectionConfig<'posts'> = {
         description:
           'NPR and wire stories are not WUWF\'s to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.',
       },
+    },
+    {
+      name: 'original',
+      type: 'group',
+      label: 'Original story',
+      admin: {
+        position: 'sidebar',
+        // Only a story from another station or from NPR has an original elsewhere.
+        condition: (data) => data?.source !== 'wuwf',
+        description: 'Where the original lives and who gets the credit. The story\'s canonical link points here, so search engines know it is a copy.',
+      },
+      fields: [
+        {
+          name: 'url',
+          type: 'text',
+          label: 'Original address',
+          validate: ((value: unknown) => {
+            if (value === undefined || value === null || value === '') return true
+            return isHttpsAddress(value) ? true : 'Use the full address, starting with https://'
+          }) as TextFieldSingleValidation,
+          admin: { description: 'The publisher\'s own address for this story (https).' },
+        },
+        {
+          name: 'credit',
+          type: 'text',
+          label: 'Credit line',
+          admin: { description: 'The station or outlet that wrote it, as it should read: "WLRN", "Florida News Exchange".' },
+        },
+        {
+          name: 'cdsId',
+          type: 'text',
+          label: 'NPR CDS document id',
+          unique: true,
+          index: true,
+          admin: { readOnly: true, description: 'Set when the story is published from the Network queue. A re-pull matches on it, so the story cannot be duplicated.' },
+        },
+      ],
     },
     {
       name: 'legacy',

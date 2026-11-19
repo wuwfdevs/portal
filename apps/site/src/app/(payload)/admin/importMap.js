@@ -29,7 +29,9 @@ import { NewsModuleRowLabel as NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679
 import { StoryEmbeddingsPanel as StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e } from '@/components/admin/StoryEmbeddingsPanel'
 import { LevelRowLabel as LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb } from '@/SupportPage/RowLabel'
 import { ChannelRowLabel as ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1 } from '@/globals/ListenLiveRowLabel'
+import { NetworkQueueNavLink as NetworkQueueNavLink_55102f3522d2d6acd23b6426459a0c06 } from '@/components/admin/NetworkQueue/NavLink'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
+import { NetworkQueue as NetworkQueue_e849784a6e4bce31f588a445b63c6f7f } from '@/components/admin/NetworkQueue'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
@@ -66,7 +68,9 @@ export const importMap = {
   "@/components/admin/StoryEmbeddingsPanel#StoryEmbeddingsPanel": StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e,
   "@/SupportPage/RowLabel#LevelRowLabel": LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb,
   "@/globals/ListenLiveRowLabel#ChannelRowLabel": ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1,
+  "@/components/admin/NetworkQueue/NavLink#NetworkQueueNavLink": NetworkQueueNavLink_55102f3522d2d6acd23b6426459a0c06,
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
+  "@/components/admin/NetworkQueue#NetworkQueue": NetworkQueue_e849784a6e4bce31f588a445b63c6f7f,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

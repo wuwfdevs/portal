@@ -52,6 +52,7 @@ import * as migration_20261118_034853_giving_form_addresses from './20261118_034
 import * as migration_20261118_154406_site_settings_embedding_tuning from './20261118_154406_site_settings_embedding_tuning';
 import * as migration_20261118_161412_news_sections_and_placements from './20261118_161412_news_sections_and_placements';
 import * as migration_20261118_191825_placement_items from './20261118_191825_placement_items';
+import * as migration_20261118_221136_network_content from './20261118_221136_network_content';
 
 export const migrations = [
   {
@@ -323,5 +324,10 @@ export const migrations = [
     up: migration_20261118_191825_placement_items.up,
     down: migration_20261118_191825_placement_items.down,
     name: '20261118_191825_placement_items',
+  },
+  {
+    up: migration_20261118_221136_network_content.up,
+    down: migration_20261118_221136_network_content.down,
+    name: '20261118_221136_network_content'
   },
 ];

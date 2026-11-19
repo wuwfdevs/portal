@@ -16,6 +16,8 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Sections } from './collections/Sections'
+import { NetworkItems } from './collections/Network/NetworkItems'
+import { NetworkSources } from './collections/Network/NetworkSources'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
@@ -62,6 +64,11 @@ export default buildConfig({
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeLogin: ['@/components/BeforeLogin'],
+      // The Network queue: stories from other stations and NPR waiting for an editor (ROADMAP -> Network content).
+      afterNavLinks: ['@/components/admin/NetworkQueue/NavLink#NetworkQueueNavLink'],
+      views: {
+        networkQueue: { Component: '@/components/admin/NetworkQueue#NetworkQueue', path: '/network-queue' },
+      },
     },
     importMap: {
       baseDir: path.resolve(dirname),
@@ -118,6 +125,8 @@ export default buildConfig({
     Artists,
     Performances,
     Sections,
+    NetworkSources,
+    NetworkItems,
     Categories,
     Contributors,
     Sites,

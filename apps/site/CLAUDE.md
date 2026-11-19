@@ -172,7 +172,25 @@ Stories are embedded for "Related stories" and semantic search (`src/lib/embeddi
 - **The similarity numbers are settings.** Site settings -> "Related stories and search by meaning" holds how close a story must be to appear under another (`relatedMinSimilarity`), how close to appear as a search result by meaning (`searchMinSimilarity`) and the most related stories from one show (`relatedMaxPerSeries`). `lib/embeddings/tuning.ts` (`resolveTuning`) clamps each to its range and falls back to the starting values in `rank.ts`, which are defaults, not measurements. Saving the global revalidates every page, so a change shows at once. Code reads them through `resolveTuning` and passes them down; the pure ranking functions never read settings.
 - **The Story embeddings panel (Site settings) is the backfill without a terminal.** `components/admin/StoryEmbeddingsPanel` shows coverage, embeds the waiting stories 20 at a time, and shows sample stories with the stories the current numbers would put under them (the same loading and picking as a story page: `neighbourCandidates`, `pickRelated`). Its endpoints (`globals/storyEmbeddingEndpoints.ts`, `lib/embeddings/admin.ts`) need `settings.manage` because they spend the provider key, and return counts only: never a key, a story's text or a vector. `scripts/embeddings/backfill.ts` is still how stale (edited) stories are found and how a first run is estimated; the panel embeds only stories with no vector.
 
+## Network content (stories from NPR and other stations)
+
+Built from the CDS docs and the owner's decisions of 2026-11-18; the record and the open questions are `ROADMAP.md` -> *Network content*.
+
+- **A network story is not a draft post.** Polled stories are `network-items` (thin, disposable, no body, system-written); a `post` exists only once a story is published, with `source` `npr` or `wire` and `original.url` / `original.credit` / `original.cdsId`. Its `rel=canonical` is the original publisher's address (`lib/network/original.ts`), and the sitemaps list only `source: wuwf`.
+- **A story NPR flags restricted (`isRestrictedToAuthorizedOrgServiceIds: true`) is never stored, shown or linked.** `lib/network/cds.ts` filters it out and only counts it; a restricted picture or audio file is dropped and the story kept. A held story that later turns restricted is blanked to a tombstone and its post goes back to draft. Do not add a path that keeps a restricted story's words.
+- **The site has its own CDS key** (`NPR_CDS_TOKEN`; never the Portal's). Unset means "not set up", never an error. The key and CDS response bodies never reach a log, an error message or a browser (`lib/network/cds-client.ts` reports only the status).
+- **Network images and audio are referenced where NPR hosts them, not copied.** Audio is chosen only if it is available, unexpired and not `tracked`, `sponsored` or `premium`.
+- **CDS has no push for stations**: the poll asks what was published since a cursor, then re-checks what we hold by `ids` (a removed story is simply absent). Use only documented parameters (`lib/network/poll.ts`).
+- **Do not write the story-body converter from memory.** Derive it from real CDS documents, as the Grove converter was (see "Migrating from Grove"). Until it exists nothing can publish a network story, and the queue says so.
+- Status changes on a `network-items` row are checked in `lib/network/status.ts`: an editor may keep, release and dismiss; `published` and `gone` come only from the system (`context.networkSystem`).
+
 ## Database
+
+**Migrations and environments (owner decision, 2026-11-18).** The site's production database (`wuwf-site-production`) is empty on purpose until the MVP launches.
+A site migration is done when it is applied to **staging** (`wuwf-site-staging`; a pushed branch's preview build applies it with `MIGRATE_ON_BUILD=1`) and **verified there with
+real queries** through the Supabase connector (tables and owner, indexes, foreign keys, enums, no Data API access). Do not apply migrations to production one by one and do
+not set `MIGRATE_ON_BUILD` for it: production gets all of them at once at launch (`ROADMAP.md` -> *Launch: initializing production*). That only works if **a pushed
+migration keeps its name and its SQL**: never rename, regenerate or edit one that has been pushed (if a merge makes its schema snapshot stale, keep the name and regenerate only the `.json`; if the SQL must change, add a new migration).
 
 PostgreSQL, **this app's own** Supabase project in hosted environments — never the Portal's two projects.
 Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
