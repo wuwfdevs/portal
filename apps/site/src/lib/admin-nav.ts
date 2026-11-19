@@ -124,3 +124,21 @@ export function pruneNav(tree: readonly NavGroup[], canRead: (kind: NavEntityKin
   }
   return tree.map(prune).filter((x): x is NavGroup => x !== null)
 }
+
+/** A resolved sidebar node, as the server hands it to the client: a link with its address, or a heading holding more nodes. */
+export type NavNode = { type: 'link'; label: string; href: string; id: string } | { type: 'group'; label: string; items: NavNode[] }
+
+/** Whether `pathname` is this address or somewhere under it (`/admin/collections/posts` and `/admin/collections/posts/12`, not `/admin/collections/posts-extra`). */
+export const isActivePath = (pathname: string, href: string): boolean => pathname.startsWith(href) && ['/', undefined].includes(pathname[href.length])
+
+/** Whether the page being shown is somewhere under this node, at any depth. */
+export const holdsCurrentPage = (node: NavNode, pathname: string): boolean =>
+  node.type === 'link' ? isActivePath(pathname, node.href) : node.items.some((item) => holdsCurrentPage(item, pathname))
+
+/**
+ * Whether a heading starts open. Headings start closed: a sidebar of ten open lists is clutter. A heading the person opened or closed keeps
+ * that choice (Payload stores it per person, by heading name); otherwise it is open only when the page they are on is inside it, so the
+ * sidebar always shows where they are.
+ */
+export const startsOpen = (node: Extract<NavNode, { type: 'group' }>, pathname: string, saved: Record<string, { open?: boolean }>): boolean =>
+  saved[node.label]?.open ?? holdsCurrentPage(node, pathname)

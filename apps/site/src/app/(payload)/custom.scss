@@ -48,8 +48,8 @@
   width: auto;
 }
 
-// The sidebar: headings in the design system's label style, the current place marked in the station blue, and a sub-group indented under
-// its heading with a thin rule so two levels read as two levels.
+// The sidebar: headings in the design system's label style and the current place marked in the station blue. A sub-group's heading sits level
+// with the links around it and only its children step in, so two levels read as two levels.
 .nav-group__toggle {
   color: var(--theme-elevation-600);
   font-size: 12px;
@@ -63,15 +63,24 @@
 }
 
 .wuwf-nav__sub {
-  margin: 0 0 4px 4px;
-  padding-left: 12px;
-  border-left: 1px solid var(--theme-elevation-150);
+  // A sub-heading is a peer of the links beside it, so it sits at their indent. Only what is inside it steps in, under a thin rule, so
+  // the parent reads as the parent and its children as its children.
+  margin: 0;
 
   .nav-group__toggle {
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    text-transform: none;
+    margin-bottom: 0;
+    padding-block: 2.5px;
+    color: var(--theme-text);
+    font-size: inherit;
     font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .nav-group__content {
+    margin: 0 0 4px 3px;
+    padding-left: 12px;
+    border-left: 1px solid var(--theme-elevation-150);
   }
 }
 

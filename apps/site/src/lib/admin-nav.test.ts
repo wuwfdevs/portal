@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ADMIN_NAV, NAV_OMITTED, isNavGroup, navEntries, pruneNav, topGroupOf, type NavGroup } from './admin-nav'
+import { ADMIN_NAV, NAV_OMITTED, holdsCurrentPage, isActivePath, isNavGroup, navEntries, pruneNav, startsOpen, topGroupOf, type NavGroup, type NavNode } from './admin-nav'
 
 describe('the admin sidebar tree', () => {
   const entries = navEntries()
@@ -70,5 +70,40 @@ describe('pruneNav', () => {
 
   it('returns nothing for a person who can read nothing', () => {
     expect(pruneNav(ADMIN_NAV, () => false)).toEqual([])
+  })
+})
+
+describe('which headings start open', () => {
+  const link = (slug: string): NavNode => ({ type: 'link', label: slug, href: `/admin/collections/${slug}`, id: `nav-${slug}` })
+  const group = (label: string, items: NavNode[]): Extract<NavNode, { type: 'group' }> => ({ type: 'group', label, items })
+  const events = group('Events', [group('Community calendar', [link('events')]), group('RadioLive', [link('performances'), link('artists')])])
+
+  it('matches an address and anything under it, and nothing that only starts with the same letters', () => {
+    expect(isActivePath('/admin/collections/posts', '/admin/collections/posts')).toBe(true)
+    expect(isActivePath('/admin/collections/posts/12', '/admin/collections/posts')).toBe(true)
+    expect(isActivePath('/admin/collections/posts-extra', '/admin/collections/posts')).toBe(false)
+    expect(isActivePath('/admin', '/admin/collections/posts')).toBe(false)
+  })
+
+  it('finds the current page at any depth', () => {
+    expect(holdsCurrentPage(events, '/admin/collections/artists')).toBe(true)
+    expect(holdsCurrentPage(events, '/admin/collections/artists/3')).toBe(true)
+    expect(holdsCurrentPage(events, '/admin/collections/posts')).toBe(false)
+  })
+
+  it('starts everything closed on a page that is under no heading (the dashboard)', () => {
+    for (const g of [events, ...events.items.filter((i): i is Extract<NavNode, { type: 'group' }> => i.type === 'group')]) expect(startsOpen(g, '/admin', {}), g.label).toBe(false)
+  })
+
+  it('opens exactly the headings on the way to the current page', () => {
+    const [calendar, radiolive] = events.items as Extract<NavNode, { type: 'group' }>[]
+    expect(startsOpen(events, '/admin/collections/performances', {})).toBe(true)
+    expect(startsOpen(radiolive!, '/admin/collections/performances', {})).toBe(true)
+    expect(startsOpen(calendar!, '/admin/collections/performances', {})).toBe(false)
+  })
+
+  it('keeps a choice the person made, over where they happen to be', () => {
+    expect(startsOpen(events, '/admin', { Events: { open: true } })).toBe(true)
+    expect(startsOpen(events, '/admin/collections/performances', { Events: { open: false } })).toBe(false)
   })
 })
