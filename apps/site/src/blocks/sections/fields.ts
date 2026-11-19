@@ -45,6 +45,7 @@ export function sectionFields(options: {
         { label: 'Dark', value: 'dark' },
         { label: 'Teal', value: 'teal' },
         { label: 'Lime', value: 'lime' },
+        { label: 'Soft lime', value: 'softlime' },
       ],
       admin: { description: 'The ground of the section. The page theme decides what each looks like.' },
     },

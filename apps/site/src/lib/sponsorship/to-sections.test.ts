@@ -4,6 +4,7 @@ import type { Sponsorship } from '@/payload-types'
 
 import { SECTION_BLOCKS } from '@/blocks/sections/registry'
 import { PAGE_SETS } from '@/lib/page-sets/registry'
+import { INLINE_SLUGS } from '@/blocks/sections/inline'
 import { duplicateAnchors } from '@/lib/sections-anchors'
 
 import { SPONSOR_PATHS } from './paths'
@@ -80,7 +81,7 @@ describe('the six sponsorship pages as sections', () => {
     }
     walk(all)
   })
-  it('lose no word of the old pages: everything an editor typed is on a section, or is on this short list', () => {
+  it('lose no word of the old pages: everything an editor typed is on a section', () => {
     const oldPages = { hub: starter.hub, onAir: starter.onAir, digital: starter.digital, events: starter.events, audience: starter.audience, guidelines: starter.guidelines }
     const there = norm(JSON.stringify(all.map((s) => s as SectionDoc)).replace(/\\n/g, ' '))
     // Words that moved to the settings (data, not page words), the form's server messages, and the two things that cannot be drawn by a block.
@@ -100,12 +101,30 @@ describe('the six sponsorship pages as sections', () => {
     expect(faq.hidden).toBe(true)
     expect(JSON.stringify(faq)).toContain((g.hub!.faq!.items![0]!.question as string).slice(0, 20))
   })
-  it('puts the hub’s four figures and their source in the hero beside its words', () => {
-    const hero = pages[0]!.sections[0]!
-    expect(hero.tone).toBe('dark')
-    expect(hero.aside).toBe('figures')
-    expect((hero.figures as unknown[]).length).toBe(4)
-    expect(hero.asideNote).toBeTruthy()
+  it('opens the hub on the tinted band, with its four figures and their source in a row below', () => {
+    const [hero, figures] = pages[0]!.sections
+    expect(hero!.tone).toBe('accent')
+    expect(figures!.blockType).toBe('sectionStats')
+    expect((figures!.stats as unknown[]).length).toBe(4)
+    expect(figures!.source).toBeTruthy()
+  })
+  it('draws the digital page’s three placement tables beside their illustrations, and the guidelines’ two lists in Columns', () => {
+    const digital = pages.find((p) => p.path === '/sponsor/digital')!.sections.filter((s) => s.blockType === 'sectionColumns')
+    expect(digital).toHaveLength(3)
+    for (const c of digital) {
+      const held = (c.columns as Array<{ sections: Array<{ blockType: string }> }>).flatMap((col) => col.sections.map((x) => x.blockType))
+      expect(held).toContain('sectionIllustration')
+      expect(held).toContain('sectionTable')
+    }
+    const guidelines = pages.find((p) => p.path === '/sponsor/credit-guidelines')!.sections.find((s) => s.id.endsWith('includes'))!
+    expect(guidelines.blockType).toBe('sectionColumns')
+    const lists = (guidelines.columns as Array<{ sections: Array<{ blockType: string; mark: string }> }>).map((col) => col.sections[0]!)
+    expect(lists.map((l) => l.mark)).toEqual(['check', 'cross'])
+  })
+  it('holds only sections a Columns block may hold, and never a Columns block', () => {
+    for (const s of all.filter((x) => x.blockType === 'sectionColumns')) {
+      for (const col of s.columns as Array<{ sections: Array<{ blockType: string }> }>) for (const h of col.sections) expect(INLINE_SLUGS as readonly string[], h.blockType).toContain(h.blockType)
+    }
   })
 })
 
@@ -113,7 +132,4 @@ describe('the six sponsorship pages as sections', () => {
 const hubInquiryServerMessage = (at: string): boolean => /^hub\.inquiry\.(notSetUpMessage|failedMessage)$/.test(at)
 
 /** Old words with no place on the new pages, said plainly here so the owner can see them. */
-const KNOWN_LOSSES: string[] = [
-  // The digital page drew small pictures of where a placement sits (a sample sponsor in a box). A section has nowhere to draw them, so the note about them goes too.
-  'digital.app.illustrationNote: Illustrations show placement, not final layouts.',
-]
+const KNOWN_LOSSES: string[] = []

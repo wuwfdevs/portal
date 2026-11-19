@@ -15,3 +15,12 @@ describe('section anchors', () => {
     expect(duplicateAnchors(undefined)).toEqual([])
   })
 })
+
+describe('duplicateAnchors: sections inside Columns', () => {
+  it('finds an anchor used once on the page and once inside a column', () => {
+    expect(duplicateAnchors([{ anchor: 'a' }, { columns: [{ sections: [{ anchor: 'a' }, { anchor: 'b' }] }, { sections: [{ anchor: 'b' }] }] }])).toEqual(['a', 'b'])
+  })
+  it('accepts distinct anchors across the page and its columns', () => {
+    expect(duplicateAnchors([{ anchor: 'a' }, { columns: [{ sections: [{ anchor: 'b' }] }, null] }])).toEqual([])
+  })
+})

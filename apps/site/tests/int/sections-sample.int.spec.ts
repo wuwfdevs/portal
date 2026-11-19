@@ -35,7 +35,7 @@ describe('the sample page publishes', () => {
     expect(page._status).toBe('published')
     const stored = (page.sections ?? []) as Array<{ blockType: string; tone: string }>
     // The page is in no set, so it holds the library blocks only (a set-only block would be refused).
-    const library = SECTION_BLOCKS.filter((e) => !e.sets)
+    const library = SECTION_BLOCKS.filter((e) => !e.sets && !e.inlineOnly)
     expect(stored).toHaveLength(library.length * TONES.length)
     for (const e of library) expect(new Set(stored.filter((s) => s.blockType === e.block.slug).map((s) => s.tone)).size, e.block.slug).toBe(TONES.length)
     expect(page.noindex).toBe(true)

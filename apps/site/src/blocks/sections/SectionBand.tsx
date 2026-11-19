@@ -15,10 +15,20 @@ import type { SectionData } from './types'
  */
 export function SectionBand({ block, heading, more, children }: { block: SectionData & { placement?: string | null }; heading?: SectionData['heading']; more?: React.ReactNode; children: React.ReactNode }) {
   const tone = isTone(block.tone) ? block.tone : 'plain'
+  if (block.inline) {
+    // Inside Columns: no band, no container, no tone of its own. The band around the columns sets the ground and the colours.
+    return (
+      <div data-section={block.blockType} id={block.anchor || undefined} className="flex min-w-0 flex-col gap-6">
+        <SectionHeading heading={heading} />
+        {children}
+        {more}
+      </div>
+    )
+  }
   const head = <SectionHeading heading={heading} />
   const side = block.placement === 'side' && Boolean(heading?.eyebrow?.trim() || heading?.title?.trim() || heading?.intro?.trim())
   return (
-    <section data-section={block.blockType} data-tone={tone} id={block.anchor || undefined} className="py-12 md:py-16">
+    <section data-section={block.blockType} data-tone={tone} id={block.anchor || undefined} className="py-12 md:py-14">
       {side ? (
         <div className="container grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)] lg:gap-12">
           <div className="flex flex-col items-start gap-5">

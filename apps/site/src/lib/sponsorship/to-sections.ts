@@ -11,7 +11,7 @@ import { INQUIRE_HREF, SPONSOR_PATHS, type SponsorPage } from './paths'
 import { openPrograms, summaryOf } from './programs'
 import { toCents } from './rates'
 
-type Tone = 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime'
+type Tone = 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime'
 export type SectionDoc = { id: string; blockType: string; hidden: boolean; tone: Tone } & Record<string, unknown>
 export interface PageRecord {
   slug: string
@@ -86,6 +86,11 @@ const placementTable = (rows: readonly Placement[] | null | undefined) => {
 
 const TONE_DOWN = 'grey' as const
 
+/** A section held by a Columns block: the same shape as a page's, with no tone of its own (the Columns block's band carries it). */
+const held = (id: string, blockType: string, fields: Record<string, unknown>, variant?: string) => ({ id, blockType, hidden: false, ...(variant ? { variant } : {}), ...clean(fields) })
+const illustration = (id: string, label: string, ex: { name?: string | null; line?: string | null; website?: string | null } | null | undefined, withLine = true) =>
+  held(id, 'sectionIllustration', { label, caption: 'Sponsor message', name: t(ex?.name), line: withLine ? t(ex?.line) : undefined, website: withLine ? t(ex?.website) : undefined })
+
 /** The six pages, in order, from the Sponsorship global. Sections an editor had switched off stay, hidden. */
 export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
   const nav = g.nav
@@ -97,7 +102,6 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
   {
     const p = pages.hub
     const h = g.hub
-    const heroStats = statRows(h?.heroStats)
     addHero(
       p,
       h?.hero,
@@ -105,12 +109,12 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
         ...(t(h?.hero?.primaryLabel) ? [{ label: t(h?.hero?.primaryLabel), href: INQUIRE_HREF }] : []),
         ...(t(h?.hero?.secondaryLabel) && !off(h?.places) ? [{ label: t(h?.hero?.secondaryLabel), href: '#places' }] : []),
       ].slice(0, 2) as Array<{ label: string; href: string }>,
-      heroStats.length > 0 ? { aside: 'figures', figures: heroStats.map((f) => ({ value: f.value, text: f.text })), asideNote: t(h?.heroSource) } : {},
-      'dark',
     )
+    const heroStats = statRows(h?.heroStats)
+    if (heroStats.length > 0) p.add('figures', 'sectionStats', 'plain', { stats: heroStats, source: t(h?.heroSource) }, { variant: 'tiles', hidden: !t(h?.heroSource) })
     if (h?.notAnAd) {
       const n = h.notAnAd
-      p.add('not-an-ad', 'sectionCards', 'plain', { ...headingOf(n), cards: cardRows(n.items), note: t(n.source), placement: 'side', moreLabel: t(n.linkLabel), moreHref: t(n.linkLabel) ? SPONSOR_PATHS.guidelines : undefined }, { hidden: off(n) })
+      p.add('not-an-ad', 'sectionCards', 'plain', { ...headingOf(n), cards: cardRows(n.items), note: t(n.source), moreLabel: t(n.linkLabel), moreHref: t(n.linkLabel) ? SPONSOR_PATHS.guidelines : undefined }, { hidden: off(n) })
     }
     if (h?.goals) {
       const gl = h.goals
@@ -163,12 +167,12 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
         },
         { anchor: 'places', hidden: off(pl) },
       )
-      if (t(pl.noteTitle)) p.add('places-note', 'sectionCallout', 'plain', { title: t(pl.noteTitle), text: t(pl.noteText) ?? t(pl.noteTitle), moreLabel: t(pl.noteLinkLabel), moreHref: t(pl.noteLinkLabel) ? `${SPONSOR_PATHS.onAir}#packages` : undefined }, { variant: 'tint', hidden: off(pl) })
+      if (t(pl.noteTitle)) p.add('places-note', 'sectionCallout', 'plain', { title: t(pl.noteTitle), text: t(pl.noteText) ?? t(pl.noteTitle), moreLabel: t(pl.noteLinkLabel), moreHref: t(pl.noteLinkLabel) ? `${SPONSOR_PATHS.onAir}#packages` : undefined }, { variant: 'lime', hidden: off(pl) })
     }
-    if (h?.why) p.add('why', 'sectionStats', 'plain', { ...headingOf(h.why), placement: 'side', stats: statRows(h.why.stats), source: t(h.why.source), moreLabel: t(h.why.linkLabel), moreHref: t(h.why.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.why) || !t(h.why.source) })
+    if (h?.why) p.add('why', 'sectionStats', 'dark', { ...headingOf(h.why), stats: statRows(h.why.stats), source: t(h.why.source), moreLabel: t(h.why.linkLabel), moreHref: t(h.why.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.why) || !t(h.why.source) })
     if (h?.who) p.add('who', 'sectionStats', 'plain', { ...headingOf(h.who), stats: statRows(h.who.stats), source: t(h.who.source), moreLabel: t(h.who.linkLabel), moreHref: t(h.who.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.who) || !t(h.who.source) })
     if (h?.testimonials) p.add('testimonials', 'sectionQuotes', TONE_DOWN, { ...headingOf(h.testimonials), quotes: (h.testimonials.items ?? []).filter((i) => t(i.quote)).map((i) => clean({ quote: t(i.quote), name: t(i.name), role: t(i.role) })) }, { anchor: 'testimonials', hidden: off(h.testimonials) })
-    if (h?.faq) p.add('faq', 'sectionQuestions', TONE_DOWN, { ...headingOf(h.faq), placement: 'side', items: (h.faq.items ?? []).filter((i) => t(i.question) && t(i.answer)).map((i) => clean({ question: t(i.question), answer: t(i.answer), linkLabel: t(i.linkLabel), linkHref: t(i.linkHref) })) }, { hidden: off(h.faq) })
+    if (h?.faq) p.add('faq', 'sectionQuestions', 'plain', { ...headingOf(h.faq), items: (h.faq.items ?? []).filter((i) => t(i.question) && t(i.answer)).map((i) => clean({ question: t(i.question), answer: t(i.answer), linkLabel: t(i.linkLabel), linkHref: t(i.linkHref) })) }, { hidden: off(h.faq) })
     const q = h?.inquiry
     if (q) {
       const l = q.labels
@@ -212,7 +216,7 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
       const r = a.rates
       p.add('rates', 'sectionRateEstimator', 'plain', { ...headingOf(r), note: t(r.note), estimatorEyebrow: t(r.estimatorEyebrow), estimatorTitle: t(r.estimatorTitle), commitmentLabel: t(r.commitmentLabel), creditsLabel: t(r.creditsLabel), estimatorDisclaimer: t(r.estimatorDisclaimer), estimatorCta: t(r.estimatorCta) }, { anchor: 'rates', hidden: off(r) })
     }
-    if (t(a?.sharing?.title)) p.add('sharing', 'sectionCallout', 'plain', { title: t(a?.sharing?.title), text: t(a?.sharing?.text) ?? t(a?.sharing?.title) }, { variant: 'tint', hidden: off(a?.rates) })
+    if (t(a?.sharing?.title)) p.add('sharing', 'sectionCallout', 'plain', { title: t(a?.sharing?.title), text: t(a?.sharing?.text) ?? t(a?.sharing?.title) }, { variant: 'lime', hidden: off(a?.rates) })
     if (a?.carpool) {
       const c = a.carpool
       p.add('carpool', 'sectionCarpool', TONE_DOWN, { ...headingOf(c), perDayNote: t(c.perDayNote), slotsNote: t(c.slotsNote), actions: t(c.ctaLabel) ? [{ label: t(c.ctaLabel)!, href: INQUIRE_HREF }] : [] }, { anchor: 'carpool', hidden: off(c) })
@@ -240,16 +244,28 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
     const p = pages.digital
     const d = g.digital
     addHero(p, d?.hero)
-    if (d?.website) p.add('website', 'sectionTable', 'plain', { ...headingOf(d.website), ...placementTable(d.website.placements) }, { hidden: off(d.website) })
-    if (d?.app) p.add('app', 'sectionTable', TONE_DOWN, { ...headingOf(d.app), ...placementTable(d.app.placements) }, { hidden: off(d.app) })
-    if (d?.newsletter) p.add('newsletter', 'sectionTable', 'plain', { ...headingOf(d.newsletter), ...placementTable(d.newsletter.placements) }, { hidden: off(d.newsletter) })
+    const ex = g.example
+    const table = (id: string, rows: readonly Placement[] | null | undefined, caption?: string | null) => held(id, 'sectionTable', { ...placementTable(rows), caption: t(caption) }, 'rows')
+    const placementBand = (key: string, tone: Tone, sec: { show?: boolean | null; eyebrow?: string | null; title?: string | null; body?: string | null; placements?: readonly Placement[] | null; illustrationNote?: string | null } | null | undefined, left: ReturnType<typeof held>[]) => {
+      if (!sec) return
+      p.add(
+        key,
+        'sectionColumns',
+        tone,
+        { ...headingOf(sec), columns: [{ sections: left }, { sections: [table(`sponsor-digital-${key}-table`, sec.placements, sec.illustrationNote)] }] },
+        { variant: 'right-wide', hidden: off(sec) },
+      )
+    }
+    placementBand('website', 'plain', d?.website, [illustration('sponsor-digital-website-mock', 'Illustration · display ad', ex)])
+    placementBand('app', TONE_DOWN, d?.app, [illustration('sponsor-digital-app-banner', 'Illustration · banner', ex, false), illustration('sponsor-digital-app-preroll', 'Illustration · pre-roll, 0:10', ex, false)])
+    placementBand('newsletter', 'plain', d?.newsletter, [illustration('sponsor-digital-newsletter-mock', 'Illustration · e-newsletter', ex, true)])
     if (d?.package) {
       const k = d.package
       const price = typeof k.price === 'number' && t(k.priceSuffix) ? true : undefined
       p.add(
         'package',
         'sectionFeature',
-        'lime',
+        'softlime',
         { label: t(k.eyebrow), headline: t(k.title), line: t(k.body), ...(price ? { aside: 'figures', figures: [{ value: formatMoney(toCents(k.price)), text: t(k.priceSuffix) ?? '' }].filter((f) => f.text) } : {}) },
         { variant: 'split', hidden: off(k) },
       )
@@ -326,21 +342,20 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
     if (inc || lv) {
       p.add(
         'includes',
-        'sectionCheckList',
+        'sectionColumns',
         'plain',
         {
-          heading: clean({ eyebrow: t(inc?.eyebrow) ?? t(lv?.eyebrow) }),
-          listTitle: t(inc?.title),
-          mark: 'check',
-          items: incItems,
-          second: lvItems.length > 0 ? clean({ title: t(lv?.title), mark: 'cross', items: lvItems }) : undefined,
+          columns: [
+            { sections: incItems.length > 0 ? [held('sponsor-credit-guidelines-includes-list', 'sectionCheckList', { heading: clean({ eyebrow: t(inc?.eyebrow), title: t(inc?.title) }), mark: 'check', items: incItems })] : [] },
+            { sections: lvItems.length > 0 ? [held('sponsor-credit-guidelines-leaves-out-list', 'sectionCheckList', { heading: clean({ eyebrow: t(lv?.eyebrow), title: t(lv?.title) }), mark: 'cross', items: lvItems })] : [] },
+          ],
         },
-        { anchor: 'includes', hidden: off(inc) && off(lv) },
+        { variant: 'equal', anchor: 'includes', hidden: off(inc) && off(lv) },
       )
     }
     if (gd?.side) {
       const s = gd.side
-      p.add('side', 'sectionTable', 'plain', { ...headingOf(s), columns: [t(s.adLabel) ?? 'An ad', t(s.creditLabel) ?? 'A credit'], rows: (s.pairs ?? []).filter((r) => t(r.ad) || t(r.credit)).map((r) => ({ cells: [t(r.ad) ?? '–', t(r.credit) ?? '–'] })) }, { hidden: off(s) })
+      p.add('side', 'sectionTable', TONE_DOWN, { ...headingOf(s), columns: [t(s.adLabel) ?? 'An ad', t(s.creditLabel) ?? 'A credit'], rows: (s.pairs ?? []).filter((r) => t(r.ad) || t(r.credit)).map((r) => ({ cells: [t(r.ad) ?? '–', t(r.credit) ?? '–'] })) }, { variant: 'pairs', hidden: off(s) })
     }
     if (gd?.rules) p.add('rules', 'sectionCards', TONE_DOWN, { heading: clean({ eyebrow: t(gd.rules.eyebrow), title: t(gd.rules.title) }), cards: cardRows(gd.rules.items), note: t(gd.rules.source) }, { hidden: off(gd.rules) })
     addClosing(p, gd?.closing)

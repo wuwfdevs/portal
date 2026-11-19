@@ -39,3 +39,11 @@ describe('Table section', () => {
     expect(out).toContain('>Morning Drive<')
   })
 })
+
+describe('Table section: pairs', () => {
+  it('draws each row as two cards, the second marked as the one to follow, with the column names as labels', () => {
+    const out = renderBlock(TableSection, 'sectionTable', { variant: 'pairs', columns: ['An ad would say', 'A credit says'], rows: [{ cells: ['Come in this weekend.', 'Support comes from Example.'] }] })
+    for (const s of ['An ad would say', 'A credit says', 'Come in this weekend.', 'Support comes from Example.']) expect(out).toContain(s)
+    expect(out).not.toContain('<table')
+  })
+})

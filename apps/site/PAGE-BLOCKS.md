@@ -146,6 +146,16 @@ field's data is **kept, never cleared**: switching the variant and back restores
 hidden field holding an invalid value is not validated. So a variant's component reads only its own variant's fields, no validation may
 rely on a hidden field, and leftover values are harmless but accumulate (the same clean-up script as for renamed fields).
 
+### Columns (added 2026-11-19, after the phase 3 review)
+
+**Optional multi-column layouts as a block that holds other blocks**, as Grove's modules nest. The first arrangement of the sponsor pages had no way to put two things side by side, and the old coded pages did (a sample sponsor message beside a rate table, "a credit includes" beside "a credit leaves out"); I had added one-off fields for some of them (a second list, a hero aside) before the owner proposed the general answer.
+- `sectionColumns` (group *Layout*): two or three columns, a layout variant (`equal`, `left-wide`, `right-wide`), each column a short list of sections. The tone, anchor and spacing are the Columns block's; what it holds draws **inline** (`SectionBand` renders a bare `div`, with its own heading if it has one). A phone stacks the columns in order. An empty column is dropped.
+- **One level only, and a short list** (`blocks/sections/inline.ts`): Text, Cards, Stats, Check list, Callout, Quotes, Table, Questions, Steps and Illustration. Not Feature (a hero is an `h1`), not Columns, not forms, pickers, data blocks or the set-only blocks. Stored as JSON, a nested blocks field keeps a type it does not list, so the field validates the rule itself (tested at publish).
+- **Anchors are unique across the page and its columns** (`duplicateAnchors` walks them). Hidden sections inside a column stay hidden. The rich-text guard walks every object already (tested on pages as a whole).
+- `sectionIllustration` is *inline-only* (`inlineOnly` in its registry entry: not offered on a page's own list): a dashed, decorative "sample" card with a label, a made-up sponsor and its address as text. The sample page leaves out inline-only and set-only blocks (they cannot sit on it).
+- Cost: every block draws through `SectionBand`, so inline mode is one branch there; `RenderSections` is loaded by Columns when it draws (the registry imports Columns, so it cannot import `RenderSections` at the top).
+- Not done: columns inside a set-only restriction (a nested block is not checked against the page set), a column width in pixels or percent (named layouts only), and Columns inside Columns.
+
 ### Anatomy of a section block
 
 `src/blocks/sections/<Name>/` holds `config.ts`, `Component.tsx` and a test. Every block gets the same first fields from one builder:
@@ -157,8 +167,8 @@ rely on a hidden field, and leftover values are harmless but accumulate (the sam
 - `heading`: eyebrow, title, intro, where the block has one.
 - `variant`: where the block has more than one layout (see above); a developer adds variants.
 
-Rules: a block is a full-width band and owns its own spacing; a block with nothing to show renders nothing; at most one level of list
-inside a block; a block's thumbnail (3:2) and picker group are part of its definition; no free colour, spacing or HTML fields.
+Rules: a block is a full-width band and owns its own spacing (inside Columns it draws bare); a block with nothing to show renders nothing; at most one level of list
+inside a block, and one level of nesting (Columns); a block's thumbnail (3:2) and picker group are part of its definition; no free colour, spacing or HTML fields.
 
 `components/PageParts` stays the rendering kit. Library blocks are thin configs over it; the existing view files are taken apart into
 blocks, not rewritten.
@@ -265,6 +275,8 @@ These addresses are contracts and get a test each: `/sponsor#inquire`, `/sponsor
 | Table | | typed rows only; not the on-air rate table, which lives in the estimator and shares its selected row (`RateEstimator.tsx:18-26`) |
 | Picker | | one option, one panel; sponsor goals, Audience sectors |
 | Closing band | | board 28's "Call to action · buttons" |
+| Columns | equal, left wide, right wide | two or three columns, each holding sections (added after phase 3) |
+| Illustration (inline only) | | a decorative sample card, in a column |
 
 *Open design question:* the last sponsor goal is generated from open event programs (`lib/sponsorship/goals.ts:26`) and goal prices are typed
 text today; how a Picker panel refers to a price in `sponsorship-settings` is not decided.

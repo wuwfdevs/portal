@@ -32,7 +32,7 @@ describe('page themes: contrast', () => {
 describe('page themes: resolution and css', () => {
   it('names the four themes and every tone', () => {
     expect(THEME_IDS).toEqual(['wuwf', 'radiolive', 'voyager', 'unearthing'])
-    expect([...TONES]).toEqual(['plain', 'grey', 'accent', 'dark', 'teal', 'lime'])
+    expect([...TONES]).toEqual(['plain', 'grey', 'accent', 'dark', 'teal', 'lime', 'softlime'])
     expect(isTone('dark')).toBe(true)
     expect(isTone('#ff0000')).toBe(false)
   })

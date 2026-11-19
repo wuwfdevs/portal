@@ -53,6 +53,17 @@ describe('the sponsorship pages as sections', () => {
     ).rejects.toThrow()
   })
 
+  it('refuses a Columns block that holds a section it may not (a hero, or another Columns block), and accepts one that holds a check list', async () => {
+    const col = (...sections: Array<Record<string, unknown>>) => ({ sections })
+    const list = { blockType: 'sectionCheckList', mark: 'check', items: [{ text: 'a' }] }
+    const make = (sections: unknown[], slug: string) =>
+      payload.create({ collection: 'pages', draft: false, ...asUser(publisher), data: { title: `Cols ${slug} ${run}`, slug: `cols-${slug}-${run}`, path: `/it-cols-${slug}-${run}`, template: 'sections', sections, _status: 'published' } as never })
+    const ok = await make([{ blockType: 'sectionColumns', columns: [col(list), col(list)] }], 'ok')
+    created.push(ok.id)
+    await expect(make([{ blockType: 'sectionColumns', columns: [col({ blockType: 'sectionFeature', headline: 'H' }), col(list)] }], 'hero')).rejects.toThrow()
+    await expect(make([{ blockType: 'sectionColumns', columns: [col({ blockType: 'sectionColumns', columns: [col(list), col(list)] }), col(list)] }], 'nest')).rejects.toThrow()
+  })
+
   it('serves the settings to the public without the staff-only address, and shows it to a publisher', async () => {
     await payload.updateGlobal({ slug: 'sponsorship-settings', data: { phone: '850 473-7453', inquiryEmail: `corporate-${run}@example.org` } as never, overrideAccess: true, context: { disableRevalidate: true } })
     const pub = await payload.findGlobal({ slug: 'sponsorship-settings', depth: 0, overrideAccess: false })

@@ -15,7 +15,10 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="plain"] + [data-tone="plain"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="plain"]:has(+ [data-tone="plain"]) {
+  padding-bottom: 0;
 }
 [data-page-theme="wuwf"] [data-tone="grey"] {
   --tone-ground: var(--color-surface-2);
@@ -33,7 +36,10 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="grey"] + [data-tone="grey"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="grey"]:has(+ [data-tone="grey"]) {
+  padding-bottom: 0;
 }
 [data-page-theme="wuwf"] [data-tone="accent"] {
   --tone-ground: var(--color-wuwf-blue-100);
@@ -51,7 +57,10 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="accent"] + [data-tone="accent"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="accent"]:has(+ [data-tone="accent"]) {
+  padding-bottom: 0;
 }
 [data-page-theme="wuwf"] [data-tone="dark"] {
   --tone-ground: var(--color-surface-dark);
@@ -69,7 +78,10 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="dark"] + [data-tone="dark"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="dark"]:has(+ [data-tone="dark"]) {
+  padding-bottom: 0;
 }
 [data-page-theme="wuwf"] [data-tone="teal"] {
   --tone-ground: var(--color-wuwf-teal);
@@ -87,7 +99,10 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="teal"] + [data-tone="teal"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="teal"]:has(+ [data-tone="teal"]) {
+  padding-bottom: 0;
 }
 [data-page-theme="wuwf"] [data-tone="lime"] {
   --tone-ground: var(--color-wuwf-lime);
@@ -105,5 +120,29 @@
   color: var(--tone-text);
 }
 [data-page-theme="wuwf"] [data-tone="lime"] + [data-tone="lime"] {
-  padding-top: 0;
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="lime"]:has(+ [data-tone="lime"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="wuwf"] [data-tone="softlime"] {
+  --tone-ground: var(--color-wuwf-lime-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-wuwf-lime-600);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="softlime"] + [data-tone="softlime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="wuwf"] [data-tone="softlime"]:has(+ [data-tone="softlime"]) {
+  padding-bottom: 0;
 }

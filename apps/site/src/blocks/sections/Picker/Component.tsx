@@ -49,14 +49,14 @@ export function linesOf(value: string | null | undefined): string[] {
 // Tailwind finds a class only when it is written out whole, so every option's peer name is spelled here, up to the most options a picker takes.
 const SHOW = ['peer-checked/p0:flex', 'peer-checked/p1:flex', 'peer-checked/p2:flex', 'peer-checked/p3:flex', 'peer-checked/p4:flex', 'peer-checked/p5:flex', 'peer-checked/p6:flex', 'peer-checked/p7:flex']
 const CHOSEN = [
-  'peer-checked/p0:[background-color:var(--tone-tint)] peer-checked/p0:[border-color:var(--tone-accent)] peer-checked/p0:[color:var(--tone-accent)]',
-  'peer-checked/p1:[background-color:var(--tone-tint)] peer-checked/p1:[border-color:var(--tone-accent)] peer-checked/p1:[color:var(--tone-accent)]',
-  'peer-checked/p2:[background-color:var(--tone-tint)] peer-checked/p2:[border-color:var(--tone-accent)] peer-checked/p2:[color:var(--tone-accent)]',
-  'peer-checked/p3:[background-color:var(--tone-tint)] peer-checked/p3:[border-color:var(--tone-accent)] peer-checked/p3:[color:var(--tone-accent)]',
-  'peer-checked/p4:[background-color:var(--tone-tint)] peer-checked/p4:[border-color:var(--tone-accent)] peer-checked/p4:[color:var(--tone-accent)]',
-  'peer-checked/p5:[background-color:var(--tone-tint)] peer-checked/p5:[border-color:var(--tone-accent)] peer-checked/p5:[color:var(--tone-accent)]',
-  'peer-checked/p6:[background-color:var(--tone-tint)] peer-checked/p6:[border-color:var(--tone-accent)] peer-checked/p6:[color:var(--tone-accent)]',
-  'peer-checked/p7:[background-color:var(--tone-tint)] peer-checked/p7:[border-color:var(--tone-accent)] peer-checked/p7:[color:var(--tone-accent)]',
+  'peer-checked/p0:[background-color:var(--tone-text)] peer-checked/p0:[border-color:var(--tone-text)] peer-checked/p0:[color:var(--tone-ground)]',
+  'peer-checked/p1:[background-color:var(--tone-text)] peer-checked/p1:[border-color:var(--tone-text)] peer-checked/p1:[color:var(--tone-ground)]',
+  'peer-checked/p2:[background-color:var(--tone-text)] peer-checked/p2:[border-color:var(--tone-text)] peer-checked/p2:[color:var(--tone-ground)]',
+  'peer-checked/p3:[background-color:var(--tone-text)] peer-checked/p3:[border-color:var(--tone-text)] peer-checked/p3:[color:var(--tone-ground)]',
+  'peer-checked/p4:[background-color:var(--tone-text)] peer-checked/p4:[border-color:var(--tone-text)] peer-checked/p4:[color:var(--tone-ground)]',
+  'peer-checked/p5:[background-color:var(--tone-text)] peer-checked/p5:[border-color:var(--tone-text)] peer-checked/p5:[color:var(--tone-ground)]',
+  'peer-checked/p6:[background-color:var(--tone-text)] peer-checked/p6:[border-color:var(--tone-text)] peer-checked/p6:[color:var(--tone-ground)]',
+  'peer-checked/p7:[background-color:var(--tone-text)] peer-checked/p7:[border-color:var(--tone-text)] peer-checked/p7:[color:var(--tone-ground)]',
 ]
 const FOCUS = [
   'peer-focus-visible/p0:outline',

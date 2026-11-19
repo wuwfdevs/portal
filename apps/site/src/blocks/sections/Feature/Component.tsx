@@ -63,7 +63,13 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
   const asideNote = block.asideNote?.trim()
   const quote = block.asideText?.trim()
   const aside =
-    block.aside === 'figures' && figures.length > 0 ? (
+    block.aside === 'figures' && figures.length === 1 ? (
+      // One figure is a price or a number to remember: set large, with no box.
+      <p className="m-0 flex flex-col lg:items-end lg:text-right">
+        <span className="font-serif text-5xl font-bold leading-none md:text-6xl">{figures[0]!.value}</span>
+        <span className="text-lg">{figures[0]!.text}</span>
+      </p>
+    ) : block.aside === 'figures' && figures.length > 0 ? (
       <div className="flex flex-col gap-3">
         <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
           {figures.map((f, i) => (

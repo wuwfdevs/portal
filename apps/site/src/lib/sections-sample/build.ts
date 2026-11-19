@@ -202,6 +202,14 @@ export const SAMPLES: Record<string, Maker> = {
     heading: { eyebrow: label, title: 'Ready to talk?', intro: 'Tell us about your business and we will send a plan within two working days.' },
     actions: [{ label: 'Start a proposal', href: '/sponsor#inquire' }, { label: 'Call us', href: 'tel:+18504741234' }],
   }),
+  sectionColumns: ({ label }) => ({
+    heading: { eyebrow: label, title: 'Two things side by side' },
+    columns: [
+      { sections: [{ id: 'c1', blockType: 'sectionCheckList', hidden: false, mark: 'check', listTitle: 'A credit includes', items: [{ text: 'Your business name' }, { text: 'What you do, in plain words' }] }] },
+      { sections: [{ id: 'c2', blockType: 'sectionCheckList', hidden: false, mark: 'cross', listTitle: 'A credit leaves out', items: [{ text: 'Prices' }, { text: 'Claims to be the best' }] }] },
+    ],
+  }),
+  sectionIllustration: () => ({ label: 'Illustration · display ad', caption: 'Sponsor message', name: 'Example Credit Union', line: 'A member-owned credit union.', website: 'example.org' }),
   // Set-only blocks (the sponsor set). The sample page is in no set, which refuses them, so `buildSampleSections` leaves them out; the makers are
   // here so a new set-only block still has its words, and `build.test.ts` fails until it does.
   sectionRateEstimator: ({ label }) => ({
@@ -251,7 +259,7 @@ export function buildSampleSections(refs: SampleRefs): SampleSection[] {
   const out: SampleSection[] = []
   for (const entry of SECTION_BLOCKS) {
     const slug = entry.block.slug
-    if (entry.sets) continue // a set-only block cannot be on a page in no set (its sample is in SAMPLES, for the test)
+    if (entry.sets || entry.inlineOnly) continue // a set-only block cannot be on a page in no set, and an inline-only block is not on a page's own list (their samples are in SAMPLES, for the test)
     const make = SAMPLES[slug]
     if (!make) throw new Error(`No sample for ${slug}: add it to SAMPLES in lib/sections-sample/build.ts.`)
     const variants = variantsOf(entry.block.fields as never)

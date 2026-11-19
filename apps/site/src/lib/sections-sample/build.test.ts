@@ -14,7 +14,7 @@ describe('the sample page', () => {
     expect(Object.keys(SAMPLES).sort()).toEqual(SECTION_BLOCKS.map((e) => e.block.slug).sort())
   })
   it('leaves out the set-only blocks (the page is in no set, which would refuse them), and uses every library block in every tone, once each', () => {
-    const library = SECTION_BLOCKS.filter((e) => !e.sets)
+    const library = SECTION_BLOCKS.filter((e) => !e.sets && !e.inlineOnly)
     expect(library.length).toBeLessThan(SECTION_BLOCKS.length)
     expect(sections).toHaveLength(library.length * TONES.length)
     expect(sections.some((s) => SECTION_BLOCKS.find((e) => e.block.slug === s.blockType)?.sets)).toBe(false)
@@ -24,7 +24,7 @@ describe('the sample page', () => {
     }
   })
   it('shows every variant of every library block at least once', () => {
-    for (const e of SECTION_BLOCKS.filter((x) => !x.sets)) {
+    for (const e of SECTION_BLOCKS.filter((x) => !x.sets && !x.inlineOnly)) {
       const f = e.block.fields.find((x) => 'name' in x && x.name === 'variant') as { options?: Array<{ value: string }> } | undefined
       if (!f?.options) continue
       const shown = new Set(sections.filter((s) => s.blockType === e.block.slug).map((s) => s.variant))

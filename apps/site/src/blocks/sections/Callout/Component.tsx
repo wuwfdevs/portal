@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { paragraphs } from '@/lib/page-content'
+import { cn } from '@/utilities/ui'
 
 import { SectionBand } from '../SectionBand'
 import { SectionMore } from '../parts'
@@ -38,7 +39,7 @@ export function CalloutSection({ block }: SectionProps<CalloutData>) {
   }
   return (
     <SectionBand block={block}>
-      <div className="flex flex-col gap-4 rounded-sm p-6 md:flex-row md:items-center md:justify-between md:gap-8 [background-color:var(--tone-tint)]">
+      <div className={cn('flex flex-col gap-4 rounded-lg p-6 md:flex-row md:items-center md:justify-between md:gap-8', block.variant === 'lime' ? 'border text-ink [background-color:var(--color-wuwf-lime-100)] [border-color:var(--color-wuwf-lime-600)] [--tone-accent:var(--color-wuwf-blue-700)]' : '[background-color:var(--tone-tint)]')}>
         <div className="flex max-w-3xl flex-col gap-2">
           {title && <h2 className="font-serif text-xl font-bold leading-tight">{title}</h2>}
           {paras.map((p) => (

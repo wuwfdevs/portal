@@ -23,15 +23,3 @@ describe('Check list section', () => {
     expect(html({ items, mark: 'star' })).toContain('✓')
   })
 })
-
-describe('Check list section: a second list beside the first', () => {
-  const html2 = (block: Record<string, unknown>) => renderBlock(CheckListSection, 'sectionCheckList', block)
-  it('draws both lists with their titles and marks', () => {
-    const out = html2({ listTitle: 'A credit includes', mark: 'check', items: [{ text: 'Your name' }], second: { title: 'A credit leaves out', mark: 'cross', items: [{ text: 'Prices' }] } })
-    for (const s of ['A credit includes', 'Your name', 'A credit leaves out', 'Prices', '✓', '✕']) expect(out).toContain(s)
-  })
-  it('draws the second list alone when the first is empty, and nothing when both are', () => {
-    expect(html2({ second: { items: [{ text: 'Prices' }] } })).toContain('Prices')
-    expect(html2({ second: { items: [] } })).toBe('')
-  })
-})

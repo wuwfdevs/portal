@@ -1,7 +1,5 @@
 import React from 'react'
 
-import { cn } from '@/utilities/ui'
-
 import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
 
@@ -10,7 +8,6 @@ export interface CheckListData extends SectionData {
   listTitle?: string | null
   mark?: string | null
   items?: Rows
-  second?: { title?: string | null; mark?: string | null; items?: Rows } | null
   placement?: string | null
 }
 
@@ -39,17 +36,14 @@ function List({ title, mark, rows }: { title?: string | null; mark?: string | nu
   )
 }
 
-/** Check list. The mark is decoration (the list is a list); a row needs its words. A second list draws beside the first. */
+/** Check list. The mark is decoration (the list is a list); a row needs its words. */
 export function CheckListSection({ block }: SectionProps<CheckListData>) {
-  const first = rowsOf(block.items)
-  const second = rowsOf(block.second?.items)
-  if (first.length === 0 && second.length === 0) return null
-  const both = first.length > 0 && second.length > 0
+  const rows = rowsOf(block.items)
+  if (rows.length === 0) return null
   return (
     <SectionBand block={block} heading={block.heading}>
-      <div className={cn('grid gap-8', both && 'lg:grid-cols-2', !both && 'max-w-3xl')}>
-        {first.length > 0 && <List mark={block.mark} rows={first} title={block.listTitle} />}
-        {second.length > 0 && <List mark={block.second?.mark} rows={second} title={block.second?.title} />}
+      <div className="max-w-3xl">
+        <List mark={block.mark} rows={rows} title={block.listTitle} />
       </div>
     </SectionBand>
   )

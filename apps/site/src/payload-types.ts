@@ -84,6 +84,8 @@ export interface Config {
     sectionCredit: SectionCredit;
     sectionSupport: SectionSupport;
     sectionClosingBand: SectionClosingBand;
+    sectionColumns: SectionColumns;
+    sectionIllustration: SectionIllustration;
     sectionRateEstimator: SectionRateEstimator;
     sectionPackages: SectionPackages;
     sectionCarpool: SectionCarpool;
@@ -268,7 +270,7 @@ export interface SectionFeature {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'hero' | 'split';
   /**
    * A short line above the headline: "Next show · Thursday, Dec. 3".
@@ -535,7 +537,7 @@ export interface SectionFeaturedRecord {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'hero' | 'split';
   mode: 'pick' | 'newest';
   /**
@@ -1456,7 +1458,7 @@ export interface SectionProfileBand {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'about' | 'roster';
   heading?: {
     eyebrow?: string | null;
@@ -1509,7 +1511,7 @@ export interface SectionCards {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1571,7 +1573,7 @@ export interface SectionList {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'grid' | 'rail' | 'numbered' | 'lead';
   heading?: {
     eyebrow?: string | null;
@@ -1622,7 +1624,7 @@ export interface SectionDates {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'rows' | 'cards';
   heading?: {
     eyebrow?: string | null;
@@ -1684,7 +1686,7 @@ export interface SectionQuotes {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1731,7 +1733,7 @@ export interface SectionStats {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'tiles' | 'compare';
   heading?: {
     eyebrow?: string | null;
@@ -1799,7 +1801,7 @@ export interface SectionSteps {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   variant: 'grid' | 'list';
   heading?: {
     eyebrow?: string | null;
@@ -1840,7 +1842,7 @@ export interface SectionQuestions {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1885,8 +1887,8 @@ export interface SectionCallout {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
-  variant: 'tint' | 'quote';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'tint' | 'quote' | 'lime';
   title?: string | null;
   /**
    * A blank line starts a new paragraph.
@@ -1921,7 +1923,7 @@ export interface SectionCheckList {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1949,23 +1951,6 @@ export interface SectionCheckList {
         id?: string | null;
       }[]
     | null;
-  /**
-   * Optional.
-   */
-  second?: {
-    /**
-     * e.g. "A credit leaves out".
-     */
-    title?: string | null;
-    mark?: ('check' | 'cross' | 'dot') | null;
-    items?:
-      | {
-          text: string;
-          detail?: string | null;
-          id?: string | null;
-        }[]
-      | null;
-  };
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCheckList';
@@ -1986,7 +1971,8 @@ export interface SectionTable {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'rows' | 'pairs';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2036,7 +2022,7 @@ export interface SectionPicker {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2133,7 +2119,7 @@ export interface SectionText {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2184,7 +2170,7 @@ export interface SectionCredit {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   /**
    * Whose acknowledgment to show: the line comes from its underwriting agreement. Not chosen, or no running agreement: nothing is drawn. A page that is not one of these has no credit here.
    */
@@ -2221,7 +2207,7 @@ export interface SectionSupport {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2262,7 +2248,7 @@ export interface SectionClosingBand {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2291,6 +2277,103 @@ export interface SectionClosingBand {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionColumns".
+ */
+export interface SectionColumns {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'equal' | 'left-wide' | 'right-wide';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Two or three columns. The wider-column layouts use the first two.
+   */
+  columns?:
+    | {
+        sections?:
+          | (
+              | SectionText
+              | SectionCards
+              | SectionStats
+              | SectionCheckList
+              | SectionCallout
+              | SectionQuotes
+              | SectionTable
+              | SectionQuestions
+              | SectionSteps
+              | SectionIllustration
+            )[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionColumns';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionIllustration".
+ */
+export interface SectionIllustration {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  /**
+   * What it shows, e.g. "Illustration · display ad".
+   */
+  label: string;
+  /**
+   * The small label on the sample, e.g. "Sponsor message".
+   */
+  caption?: string | null;
+  /**
+   * The sample sponsor’s name. Not a real sponsor.
+   */
+  name?: string | null;
+  /**
+   * One line about the sample sponsor.
+   */
+  line?: string | null;
+  /**
+   * The sample address, as text (it is not a link).
+   */
+  website?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionIllustration';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionRateEstimator".
  */
 export interface SectionRateEstimator {
@@ -2305,7 +2388,7 @@ export interface SectionRateEstimator {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2360,7 +2443,7 @@ export interface SectionPackages {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2401,7 +2484,7 @@ export interface SectionCarpool {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2449,7 +2532,7 @@ export interface SectionOpenPrograms {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2504,7 +2587,7 @@ export interface SectionInquiryForm {
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -2611,6 +2694,8 @@ export interface Page {
         | SectionCredit
         | SectionSupport
         | SectionClosingBand
+        | SectionColumns
+        | SectionIllustration
         | SectionRateEstimator
         | SectionPackages
         | SectionCarpool

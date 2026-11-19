@@ -33,13 +33,13 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
   return (
     <SectionBand block={block} heading={block.heading} more={<SectionMore block={block} />}>
       {compare ? (
-        <ul className="flex list-none flex-col gap-8 p-0">
+        <ul className="flex list-none flex-col gap-4 p-0">
           {rows.map((r, i) => {
             const a = percentOf(r.value)
             const b = percentOf(r.compare)
             return (
-              <li className="flex flex-col gap-3" key={`${r.text}-${i}`}>
-                <p className="max-w-3xl text-lg font-bold">{r.text}</p>
+              <li className="flex flex-col gap-1.5" key={`${r.text}-${i}`}>
+                <p className="max-w-3xl text-base">{r.text}</p>
                 <Bar label={block.valueLabel} pct={a} value={r.value} />
                 {r.compare && <Bar label={block.compareLabel} muted pct={b} value={r.compare} />}
               </li>
@@ -51,7 +51,7 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
           {rows.map((r, i) => (
             <li className="flex flex-col gap-1.5 rounded-lg border p-5 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]" key={`${r.text}-${i}`}>
               <span className="font-serif text-4xl font-bold leading-none">{r.value}</span>
-              <span className="text-base">{r.text}</span>
+              <span className="text-sm">{r.text}</span>
               {r.compare && <span className="text-sm [color:var(--tone-muted)]">{r.compare}</span>}
             </li>
           ))}
@@ -65,16 +65,14 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
 function Bar({ label, value, pct, muted }: { label?: string | null; value: string; pct: number | null; muted?: boolean }) {
   const name = label?.trim()
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline gap-3">
-        <span className="font-serif text-3xl font-bold leading-none">{value}</span>
-        {name && <span className="text-base [color:var(--tone-muted)]">{name}</span>}
-      </div>
+    <div className="flex items-center gap-3">
       {pct !== null && (
-        <div aria-hidden="true" className="h-3 w-full overflow-hidden rounded-sm border [border-color:var(--tone-rule)]">
-          <div className="h-full rounded-[2px]" style={{ width: `${pct}%`, backgroundColor: muted ? 'var(--tone-card-rule)' : 'var(--tone-accent)' }} />
-        </div>
+        <div aria-hidden="true" className="h-3.5 max-w-[calc(100%-10rem)] rounded-[2px]" style={{ width: `${pct}%`, backgroundColor: muted ? 'var(--color-ink-4)' : 'var(--color-wuwf-lime-600)' }} />
       )}
+      <span className={cn('text-sm', muted ? '[color:var(--tone-muted)]' : 'font-bold')}>
+        {value}
+        {name ? ` · ${name}` : ''}
+      </span>
     </div>
   )
 }
