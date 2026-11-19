@@ -7,6 +7,14 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Proposed: pages built from sections (2026-11-19; a plan, nothing built)
+
+`PAGE-BLOCKS.md` is a plan to move every editor-composed page (sponsor, giving, the hubs) into the `pages` collection as an ordered list
+of section blocks, with blocks stored as JSON, page sets and page-level themes. **It reverses *Pages and templates* below ("structure a
+developer has set... not a blocks field") and the two "every word is the global" decisions in `CLAUDE.md`; those stay in force until
+the owner approves the plan and its phase 1 rewrites them.** It has four open decisions for the owner and starts with a phase that
+proves the risky parts on a scratch database. Do not start building from it without the owner's go-ahead.
+
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
 The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older
