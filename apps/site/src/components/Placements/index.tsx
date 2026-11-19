@@ -4,6 +4,7 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Media } from '@/components/Media'
+import { pictureShape } from '@/lib/placements/media'
 import { ZONES, type ZoneId } from '@/lib/placements/registry'
 import type { PlacementTile } from '@/lib/placements/tiles'
 import { cn } from '@/utilities/ui'
@@ -32,26 +33,30 @@ const BAND_SHAPE = ZONES['home.band'].artwork
 const PHONE_SHAPE = ZONES['home.band'].phoneArtwork ?? BAND_SHAPE
 
 /**
- * A rail of tiles in a zone: one under another on a phone, two across on a tablet, one column beside the page on a wide screen. Every tile has
- * the same shape (the picture is fitted inside it, never cropped, because sponsors' artwork carries their words). Nothing here loads a script
- * or an outside request: a tile is a picture and a link. With no tiles it draws nothing, so no empty box is left.
+ * A rail of tiles in a zone: one under another on a phone, two across on a tablet, one column beside the page on a wide screen. Each tile's box
+ * takes its own picture's shape, so it is exactly as tall as the picture and the gaps between tiles are the same all the way down (the picture is
+ * shown whole, never cropped, because sponsors' artwork carries their words). The zone's recommended shape is used only for a picture whose size is
+ * not recorded. Nothing here loads a script or an outside request: a tile is a picture and a link. With no tiles it draws nothing, so no empty box is left.
  */
 export function Rail({ zone, tiles, className }: { zone: ZoneId; tiles: readonly Tile[]; className?: string }) {
   if (tiles.length === 0) return null
-  const shape = ZONES[zone].artwork
+  const fallback = ZONES[zone].artwork
   return (
     <aside aria-label="Sponsors and promotions" className={className} data-placement={zone}>
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1">
-        {tiles.map((tile) => (
-          <li data-placement={tile.key} key={tile.key}>
-            {tile.label && <Label>{tile.label}</Label>}
-            <TileLink tile={tile}>
-              <span className="relative block overflow-hidden rounded-sm border border-rule bg-surface-2" style={{ aspectRatio: `${shape.width} / ${shape.height}` }}>
-                <Media fill imgClassName="object-contain" pictureClassName="contents" resource={tile.image} size="(min-width: 1024px) 22rem, (min-width: 640px) 50vw, 100vw" />
-              </span>
-            </TileLink>
-          </li>
-        ))}
+      <ul className="grid items-start gap-6 sm:grid-cols-2 lg:grid-cols-1">
+        {tiles.map((tile) => {
+          const shape = pictureShape(tile.image, fallback)
+          return (
+            <li data-placement={tile.key} key={tile.key}>
+              {tile.label && <Label>{tile.label}</Label>}
+              <TileLink tile={tile}>
+                <span className="relative block overflow-hidden rounded-sm border border-rule bg-surface-2" style={{ aspectRatio: `${shape.width} / ${shape.height}` }}>
+                  <Media fill imgClassName="object-contain" pictureClassName="contents" resource={tile.image} size="(min-width: 1024px) 22rem, (min-width: 640px) 50vw, 100vw" />
+                </span>
+              </TileLink>
+            </li>
+          )
+        })}
       </ul>
     </aside>
   )
