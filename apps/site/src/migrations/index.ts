@@ -60,6 +60,7 @@ import * as migration_20261119_050400_sponsor_pages from './20261119_050400_spon
 import * as migration_20261119_150000_sponsor_pages_polish from './20261119_150000_sponsor_pages_polish';
 import * as migration_20261119_160000_sponsor_pages_polish2 from './20261119_160000_sponsor_pages_polish2';
 import * as migration_20261119_190000_sponsor_pages_clean from './20261119_190000_sponsor_pages_clean';
+import * as migration_20261119_200000_sponsor_pages_clean2 from './20261119_200000_sponsor_pages_clean2';
 
 export const migrations = [
   {
@@ -371,5 +372,10 @@ export const migrations = [
     up: migration_20261119_190000_sponsor_pages_clean.up,
     down: migration_20261119_190000_sponsor_pages_clean.down,
     name: '20261119_190000_sponsor_pages_clean'
+  },
+  {
+    up: migration_20261119_200000_sponsor_pages_clean2.up,
+    down: migration_20261119_200000_sponsor_pages_clean2.down,
+    name: '20261119_200000_sponsor_pages_clean2'
   },
 ];
