@@ -1,10 +1,13 @@
 import React from 'react'
 
 import { SectionBand } from '../SectionBand'
+import { SectionMore } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface StepsData extends SectionData {
   steps?: Array<{ id?: string | null; title?: string | null; text?: string | null } | null> | null
+  moreLabel?: string | null
+  moreHref?: string | null
 }
 
 /** Steps. A step needs its title. The numbers come from the order, in a real ordered list. */
@@ -13,7 +16,7 @@ export function StepsSection({ block }: SectionProps<StepsData>) {
   if (rows.length === 0) return null
   const list = block.variant === 'list'
   return (
-    <SectionBand block={block} heading={block.heading}>
+    <SectionBand block={block} heading={block.heading} more={<SectionMore block={block} />}>
       {list ? (
         <ol className="flex max-w-3xl list-none flex-col gap-4 p-0">
           {rows.map((s, i) => (

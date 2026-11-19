@@ -2,17 +2,26 @@ import Link from 'next/link'
 import React from 'react'
 
 import type { SectionNavItem } from '@/components/SectionNav'
-import { sponsorFooter } from '@/lib/page-sets/footer'
+import { givingFooter, sponsorFooter } from '@/lib/page-sets/footer'
 import type { PageSetSpec } from '@/lib/page-sets/registry'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 
 /**
  * The line a set prints under its last section (the set's `footerLine`). The sponsor set prints the Sponsorship settings' service line, the
  * phone and address of corporate support, and a link to the credit guidelines. Read through `getCachedGlobal`, so saving the settings reaches
- * every page of the set. The giving set joins in phase 4.
+ * every page of the set. The giving set prints the Giving settings' service line alone, as the giving pages always did.
  */
 export async function SetFooter({ set, items }: { set: PageSetSpec; items: readonly SectionNavItem[] }) {
-  if (!set.footerLine || set.id !== 'sponsor') return null
+  if (!set.footerLine) return null
+  if (set.id === 'giving') {
+    const line = givingFooter(await getCachedGlobal('giving-settings', 0)())
+    return line ? (
+      <footer className="border-t border-rule bg-surface-2">
+        <p className="container py-6 text-sm text-ink-2">{line}</p>
+      </footer>
+    ) : null
+  }
+  if (set.id !== 'sponsor') return null
   const settings = await getCachedGlobal('sponsorship-settings', 0)()
   const view = sponsorFooter(settings, items)
   if (!view) return null

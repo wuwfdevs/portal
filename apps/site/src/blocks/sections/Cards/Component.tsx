@@ -19,6 +19,7 @@ export interface CardsData extends SectionData {
     linkLabel?: string | null
   } | null> | null
   note?: string | null
+  placement?: string | null
   moreLabel?: string | null
   moreHref?: string | null
 }
@@ -27,9 +28,11 @@ export interface CardsData extends SectionData {
 export function CardsSection({ block }: SectionProps<CardsData>) {
   const cards = (block.cards ?? []).filter((c): c is NonNullable<typeof c> => Boolean(c?.title?.trim()))
   if (cards.length === 0) return null
+  // With the heading beside the cards they have about two thirds of the width, so four cards sit two by two rather than in four narrow columns.
+  const side = block.placement === 'side'
   return (
     <SectionBand block={block} heading={block.heading} more={<SectionMore block={block} />}>
-      <ul className={cn('grid list-none gap-6 p-0 sm:grid-cols-2', cards.length === 2 ? 'lg:grid-cols-2' : cards.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+      <ul className={cn('grid list-none gap-6 p-0 sm:grid-cols-2', cards.length === 2 || (side && cards.length % 4 === 0) ? 'lg:grid-cols-2' : cards.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {cards.map((card, i) => {
           const href = safeHref(card.href)
           const price = card.price?.trim()

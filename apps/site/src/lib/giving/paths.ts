@@ -1,4 +1,4 @@
-/** The giving pages. Routes are structure, so they live in code; every label and sentence is in the admin. */
+/** The giving pages' addresses. They are records in `pages` (the giving set); two of them, ways and thanks, are also coded shells that render their record with the request's query (`app/(frontend)/support`). */
 export const GIVING_PATHS = {
   give: '/support',
   ways: '/support/ways',
@@ -7,9 +7,6 @@ export const GIVING_PATHS = {
 } as const
 
 export type GivingPage = keyof typeof GIVING_PATHS
-
-/** The pages that sit in the "Ways to give" strip. The thank-you page is where a gift ends, not a place to browse to, so it is not in it. */
-export const GIVING_NAV_PAGES = ['give', 'legacy', 'ways'] as const satisfies readonly GivingPage[]
 
 /** The Give page's gift card, so a link from another page can land on it. */
 export const GIVE_HREF = `${GIVING_PATHS.give}#give`

@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below: the owner reorders, hides and builds in staging before phase 4.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below. Phase 4 (the giving pages) was built on the owner's instruction to go ahead, before the phase 3 exit check in staging; see its checklist.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -389,14 +389,24 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 3*. Pushed to the working branch; 
 - [ ] **The owner's exit check in staging** (below). Not done: it needs the owner.
 
 **Exit, and a decision point:** in staging the owner reorders a section, hides one, and builds a new sponsor page from existing blocks
-without a developer. If that is not comfortable, stop here and revise before going on. **Phase 4 is not started.**
+without a developer. If that is not comfortable, stop here and revise before going on. **Phase 4 was started on the owner's instruction before this check was done; if the check finds the model wrong, phase 4 is revised with it.**
 
 ### Phase 4: giving pages
 
-- [ ] `giving-settings` global; giving-only blocks (gift amount card, levels, ways switcher, thank-you hero).
-- [ ] Move the four pages; old-address redirects still land (`lib/giving/legacy-addresses.ts`); the "never collects payment details" rule
-      and the form-address fallback are unchanged and tested.
-- [ ] Membership staff can edit giving pages and no others.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 4: the giving pages*. On staging only once its preview build has applied the two migrations.
+
+- [x] `giving-settings` global (levels, message tiers, the gift card's amounts, the donation form's addresses and switch, Member Services' contact details,
+      the broker details, the members' listening level), with a tag-revalidating hook; the account page, the shows' support pages and the Support block read it.
+      Five giving-only blocks, each tested and registered with `sets: ['giving']`: Gift card, Giving levels, Ways to give, Thank-you and Giving contact.
+      (The plan named four; the phone and email are settings too, so the contact is a block that reads them.)
+- [x] The four pages moved by one migration at their own addresses (`lib/giving/to-sections.ts`, pure; a test fails if a word of the old pages is lost);
+      compared with the old pages at 375, 768 and 1280 px (no horizontal scroll, no console error, one h1 each). The old coded views are deleted.
+- [x] Old-address redirects still land (`lib/giving/legacy-addresses.ts`, tested against the pages and the ways); the "never collects payment details" rule and the
+      form-address fallback are unchanged and tested (the Gift card test fails on an input for card, bank or payroll details).
+- [x] `/support/ways` and `/support/thanks` stay coded shells that render their record with the request's query (`SectionContext.query`): the open way and the
+      donor's name are decided on the server and work without script, and no block reads the request.
+- [x] Membership staff can edit and publish giving pages and the giving settings, and no others (`tests/int/giving-pages.int.spec.ts`, `giving-settings.int.spec.ts`).
+- [ ] **The owner's look at the four pages in staging.** Not done: it needs the owner.
 
 ### Phase 5: words still in code
 

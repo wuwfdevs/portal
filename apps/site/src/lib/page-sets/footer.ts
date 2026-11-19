@@ -1,4 +1,4 @@
-// The line under the last section of a page in a set with a footer (the sponsor set; the giving set follows in phase 4). Pure: the settings go in, what
+// The line under the last section of a page in a set with a footer (the sponsor and giving sets). Pure: the settings go in, what
 // to print comes out. The words "Corporate support" are the one fixed phrase; the line, phone, address and the guidelines link are the settings'.
 
 import { phoneHref } from '@/lib/page-content'
@@ -33,4 +33,13 @@ export function sponsorFooter(settings: SponsorFooterSettings | null | undefined
     address,
     link: guidelines ? { label: guidelines.label, href: guidelines.href } : null,
   }
+}
+
+export interface GivingFooterSettings {
+  serviceLine?: string | null
+}
+
+/** What the giving footer prints: the Giving settings' service line (the University line and the tax wording), or nothing when it is empty. */
+export function givingFooter(settings: GivingFooterSettings | null | undefined): string | null {
+  return settings?.serviceLine?.trim() || null
 }

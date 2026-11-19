@@ -12,14 +12,14 @@ export interface SupportData extends SectionData {
 }
 
 /**
- * The donation form's address, from the Giving pages global through the cache tag (`global_support-page`): a save in the admin refreshes
+ * The donation form's address, from the Giving settings through the cache tag (`global_giving-settings`): a save in the admin refreshes
  * every page holding this block. Loaded when the block is drawn, not when the registry is read (the registry is imported by the Payload
  * config, which cannot load the global helper). A failed read is "no address", and the block draws nothing.
  */
 async function donationFormAddress(): Promise<string | null> {
   try {
     const { getCachedGlobal } = await import('@/utilities/getGlobals')
-    const page = (await getCachedGlobal('support-page', 0)()) as { donationForm?: { monthlyAddress?: string | null } | null } | null
+    const page = (await getCachedGlobal('giving-settings', 0)()) as { donationForm?: { monthlyAddress?: string | null } | null } | null
     return supportHref(page?.donationForm?.monthlyAddress)
   } catch {
     return null

@@ -5,34 +5,15 @@
 import type { Sponsorship } from '@/payload-types'
 
 import { fill } from '@/lib/page-content'
+import { SectionsPage, clean, headingOf, off, t, type PageRecord, type Tone } from '@/lib/page-sets/sections-kit'
 
 import { formatMoney } from './money'
 import { INQUIRE_HREF, SPONSOR_PATHS, type SponsorPage } from './paths'
 import { openPrograms, summaryOf } from './programs'
 import { toCents } from './rates'
 
-type Tone = 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime'
-export type SectionDoc = { id: string; blockType: string; hidden: boolean; tone: Tone } & Record<string, unknown>
-export interface PageRecord {
-  slug: string
-  path: string
-  title: string
-  navLabel: string
-  navOrder: number
-  description: string
-  sections: SectionDoc[]
-}
-
-const t = (s: string | null | undefined): string | undefined => (s?.trim() ? s.trim() : undefined)
-const clean = <T extends Record<string, unknown>>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '')) as T
-type Shown = { show?: boolean | null } | null | undefined
-const off = (s: Shown): boolean => s?.show === false
-
-type Heading = { eyebrow?: string | null; title?: string | null; body?: string | null }
-const headingOf = (h: Heading | null | undefined) => {
-  const heading = clean({ eyebrow: t(h?.eyebrow), title: t(h?.title), intro: t(h?.body) })
-  return Object.keys(heading).length > 0 ? { heading } : {}
-}
+// The shapes and helpers every page mapper shares are in the kit; `SectionDoc` and `PageRecord` are re-exported for what already imports them here.
+export type { PageRecord, SectionDoc } from '@/lib/page-sets/sections-kit'
 
 type Stat = { value?: string | null; text?: string | null; compare?: string | null }
 const statRows = (rows: readonly Stat[] | null | undefined) =>
@@ -42,19 +23,9 @@ const DEFAULT_NAV: Record<SponsorPage, string> = { hub: 'Sponsor WUWF', onAir: '
 const SLUGS: Record<SponsorPage, string> = { hub: 'sponsor', onAir: 'sponsor-on-air', digital: 'sponsor-digital', events: 'sponsor-events', audience: 'sponsor-audience', guidelines: 'sponsor-credit-guidelines' }
 const ORDER: SponsorPage[] = ['hub', 'onAir', 'digital', 'events', 'audience', 'guidelines']
 
-class Page {
-  sections: SectionDoc[] = []
-  constructor(private readonly key: SponsorPage) {}
-  add(name: string, blockType: string, tone: Tone, fields: Record<string, unknown>, opts: { anchor?: string; hidden?: boolean; variant?: string } = {}): void {
-    this.sections.push({
-      id: `${SLUGS[this.key]}-${name}`,
-      blockType,
-      hidden: opts.hidden ?? false,
-      tone,
-      ...(opts.anchor ? { anchor: opts.anchor } : {}),
-      ...(opts.variant ? { variant: opts.variant } : {}),
-      ...clean(fields),
-    })
+class Page extends SectionsPage {
+  constructor(key: SponsorPage) {
+    super(SLUGS[key])
   }
 }
 

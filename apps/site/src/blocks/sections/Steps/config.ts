@@ -1,4 +1,4 @@
-import { defineSection, sectionFields } from '../fields'
+import { defineSection, moreLinkFields, sectionFields } from '../fields'
 
 export const STEPS_VARIANTS = [
   { label: 'Grid: a large numeral each', value: 'grid' },
@@ -23,6 +23,7 @@ export const Steps = defineSection({
           { name: 'text', type: 'textarea' },
         ],
       },
+      ...moreLinkFields(),
     ],
   }),
 })

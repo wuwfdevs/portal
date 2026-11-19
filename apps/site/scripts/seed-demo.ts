@@ -103,10 +103,10 @@ await payload.updateGlobal({ slug: 'footer', overrideAccess: true, context: { di
   navItems: [],
 } })
 
-// The giving pages (boards 14 to 14d). Their wording is the reviewed boards', written once by the migration that created them, so the
+// The giving pages (boards 14 to 14d). Their wording is the reviewed boards', written once by the migrations that created them, so the
 // seed only points the Give button at an example address (the real donation form is not wired in yet). Pre-filling stays off, because
-// nothing has confirmed the form reads an amount from its address.
-await payload.updateGlobal({ slug: 'support-page', overrideAccess: true, context: { disableRevalidate: true }, data: {
+// nothing has confirmed the form reads an amount from its address. The address is the Giving settings'.
+await payload.updateGlobal({ slug: 'giving-settings', overrideAccess: true, context: { disableRevalidate: true }, data: {
   donationForm: { address: 'https://give.example.org/donate', prefill: false },
 } })
 

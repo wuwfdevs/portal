@@ -32,7 +32,7 @@ export default async function AccountPage({ searchParams }: Args) {
   const payload = await getPayload({ config: configPromise })
   const [status, support] = await Promise.all([
     membershipStatus(payload, user.id, new Date()),
-    payload.findGlobal({ slug: 'support-page', depth: 0, overrideAccess: false }).catch(() => null),
+    payload.findGlobal({ slug: 'giving-settings', depth: 0, overrideAccess: false }).catch(() => null),
   ])
   const level = support?.membersListeningLevel?.trim() || null
   const profile = status.state === 'active' ? (await payload.find({ collection: 'audience-profiles', where: { supabaseUserId: { equals: user.id } }, limit: 1, depth: 0, overrideAccess: true, pagination: false })).docs[0] : undefined

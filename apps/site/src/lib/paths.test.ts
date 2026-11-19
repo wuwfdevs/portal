@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkPath, draftPreviewPath, isReservedPath, localDate, pagePath, pathFromSegments, SECTION_SLUG, storyPath } from './paths'
+import { checkPath, draftPreviewPath, isReservedPath, localDate, PAGE_SET_FIRST_SEGMENTS, pagePath, pathFromSegments, RESERVED_FIRST_SEGMENTS, SECTION_SLUG, storyPath } from './paths'
+
+describe('first segments owned by page sets', () => {
+  it('let a page take a path there, and keep a section from being named one', () => {
+    for (const path of ['/support', '/support/ways', '/sponsor', '/sponsor/on-air']) expect(checkPath(path), path).toEqual({ ok: true })
+    expect([...PAGE_SET_FIRST_SEGMENTS].sort()).toEqual(['sponsor', 'support'])
+    for (const s of PAGE_SET_FIRST_SEGMENTS) expect(RESERVED_FIRST_SEGMENTS.has(s)).toBe(false)
+  })
+})
 
 describe('checkPath', () => {
   it.each([
@@ -32,7 +40,8 @@ describe('checkPath', () => {
     ['/a\\b', /\\/],
     ['/a\u0000b', /control/],
     ['/' + 'x'.repeat(600), /at most/],
-    ['/support', /belongs to the site/],
+    ['/search', /belongs to the site/],
+    ['/support/2014-10-31/wuwf-corporate-sponsors', /belongs to the site/], // a Grove story redirected to the sponsorship pages: nothing may be imported at it
     ['/admin/anything', /belongs to the site/],
     ['/posts/a-story', /belongs to the site/],
     ['/pages-sitemap.xml', /belongs to the site/],

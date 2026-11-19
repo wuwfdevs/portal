@@ -67,6 +67,9 @@ const levelsField = withRowLabel(
 )
 
 /**
+ * **Moved (PAGE-BLOCKS.md phase 4): hidden, and kept with its data until phase 7 drops it. Nothing reads it for a visitor; the four giving pages are
+ * records in `pages` (the giving set) and their levels, amounts and addresses are the `Giving settings` global.** It is what the pages were written from.
+ *
  * The giving pages: Give (board 14), Other ways to give (14b), Leave a legacy (14c) and the thank-you page (14d). Every word, level,
  * amount and address on them is edited here, with a show/hide switch on each optional section; the migration that built this fills
  * it with the reviewed boards' wording. What stays in code is behaviour: which level a gift lands in, how the link to the donation
@@ -78,7 +81,7 @@ const levelsField = withRowLabel(
 export const SupportPage: GlobalConfig = {
   slug: 'support-page',
   label: 'Giving pages',
-  admin: { livePreview: { url: '/support' } },
+  admin: { hidden: true, livePreview: { url: '/support' }, description: 'Moved. The giving pages are edited under Pages; levels, amounts and the donation form under Giving settings.' },
   access: { read: () => true, update: canEdit },
   hooks: {
     afterChange: [

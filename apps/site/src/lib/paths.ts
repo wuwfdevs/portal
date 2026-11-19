@@ -9,6 +9,12 @@ export const STATION_TIME_ZONE = 'America/Chicago'
 
 export const MAX_PATH_LENGTH = 512
 
+/**
+ * First segments that page sets own: pages (records) live at them and under them, so a record may take a path there, but a **section** may not be named
+ * one (its list would sit at the same address as the page and be hidden by it). `/sponsor` (phase 3) and `/support` (phase 4).
+ */
+export const PAGE_SET_FIRST_SEGMENTS: ReadonlySet<string> = new Set(['sponsor', 'support'])
+
 /** The first segment of a request that a route, file or plugin already owns. A record may not take a path under one. */
 export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'admin',
@@ -19,7 +25,6 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'posts',
   'latest',
   'search',
-  'support',
   'live-updates',
   'podcasts',
   'video',
@@ -43,9 +48,15 @@ const FORBIDDEN_CHARS = /[\u0000- \u007f?#\\%]/
 
 /**
  * Single addresses a route owns inside a first segment that records may use. The sponsorship pages are records at /sponsor and under it
- * (PAGE-BLOCKS.md, phase 3); the inquiry form's token comes from a route handler at the one address below.
+ * (PAGE-BLOCKS.md, phase 3) and the giving pages at /support and under it (phase 4); the inquiry form's token comes from a route handler at the
+ * one address below. (`/support/ways` and `/support/thanks` are routes too, but only to hand their own record the query: the record owns the address.)
  */
-export const RESERVED_PATHS: ReadonlySet<string> = new Set(['/sponsor/inquiry-token'])
+export const RESERVED_PATHS: ReadonlySet<string> = new Set([
+  '/sponsor/inquiry-token',
+  // Two Grove stories that lived under /support/ and are redirected to the sponsorship pages (`lib/giving/legacy-addresses.ts`): nothing may be imported at them.
+  '/support/2014-10-31/wuwf-corporate-sponsors',
+  '/support/2017-02-08/wuwf-corporate-support',
+])
 
 export function isReservedPath(path: string): boolean {
   const first = path.split('/').filter(Boolean)[0] ?? ''

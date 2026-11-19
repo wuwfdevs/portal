@@ -4,8 +4,6 @@ import { donateConfigOf, levelViews } from './content'
 import { buildDonateModel, donationHref, type DonateConfig } from './donate'
 import { benefitLines, levelFor, messagePhrase, messagesFor, yearlyTotal, type GivingLevel, type MessageTier } from './levels'
 import { formatMoney } from './money'
-import { givingNavItems, givingNavTitle } from './nav'
-import { GIVING_NAV_PAGES } from './paths'
 import { readThanks, thanksText } from './thanks'
 import { detailsText, groupTarget, selectWay, type WayGroup, type WayPanel } from './ways'
 
@@ -98,13 +96,13 @@ describe('what the admin holds', () => {
   })
 
   it('offers each amount once, smallest first, and no frequency without amounts', () => {
-    const cfg = donateConfigOf({ give: { card: { monthlyAmounts: [{ amount: 20 }, { amount: 5 }, { amount: 20 }, { amount: 0 }], onceAmounts: [] } } } as never)!
+    const cfg = donateConfigOf({ monthlyAmounts: [{ amount: 20 }, { amount: 5 }, { amount: 20 }, { amount: 0 }], onceAmounts: [] } as never)!
     expect(cfg.frequencies.map((f) => [f.key, f.amounts])).toEqual([['monthly', [5, 20]]])
     expect(cfg.frequencies[0]!.defaultAmount).toBe(5)
   })
 
   it('falls back to a plain template when an editor clears one that carries a placeholder', () => {
-    const cfg = donateConfigOf({ give: { card: { monthlyAmounts: [{ amount: 10 }], titleMonthly: '', ctaMonthly: '  ' } } } as never)!
+    const cfg = donateConfigOf({ monthlyAmounts: [{ amount: 10 }] } as never, { titleMonthly: '', ctaMonthly: '  ' })!
     expect(cfg.titleMonthly).toBe('At {amount} a month')
     expect(cfg.ctaMonthly).toBe('Give {amount} a month')
   })
@@ -331,20 +329,5 @@ describe('other ways to give', () => {
         { label: 'DTC number', value: '0725' },
       ]),
     ).toBe('Recipient: WUWF Public Radio\nDTC number: 0725')
-  })
-})
-
-describe('the Ways to give strip', () => {
-  it('lists the three pages, marks the current one, and uses the names the admin gives', () => {
-    const items = givingNavItems('legacy', { give: 'Membership', legacy: 'Legacy giving' })
-    expect(items.map((i) => i.href)).toEqual(['/support', '/support/legacy', '/support/ways'])
-    expect(items.find((i) => i.current)?.label).toBe('Legacy giving')
-    expect(items.map((i) => i.label)).toEqual(['Membership', 'Legacy giving', 'Other ways to give'])
-    expect(GIVING_NAV_PAGES).not.toContain('thanks')
-  })
-
-  it('has a default title', () => {
-    expect(givingNavTitle(null)).toBe('Ways to give')
-    expect(givingNavTitle({ title: ' Give ' })).toBe('Give')
   })
 })

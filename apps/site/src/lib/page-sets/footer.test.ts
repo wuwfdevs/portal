@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { sponsorFooter } from './footer'
+import { givingFooter, sponsorFooter } from './footer'
 
 const nav = [
   { label: 'On air', href: '/sponsor/on-air' },
@@ -20,5 +20,13 @@ describe('the sponsorship footer line', () => {
     const f = sponsorFooter({ phone: 'ask us' }, [])
     expect(f?.link).toBeNull()
     expect(f?.phone).toEqual({ text: 'ask us', href: null })
+  })
+})
+
+describe('the giving footer line', () => {
+  it('prints the Giving settings’ service line, and nothing when it is empty', () => {
+    expect(givingFooter({ serviceLine: ' A service of the University of West Florida. ' })).toBe('A service of the University of West Florida.')
+    expect(givingFooter({ serviceLine: '  ' })).toBeNull()
+    expect(givingFooter(null)).toBeNull()
   })
 })
