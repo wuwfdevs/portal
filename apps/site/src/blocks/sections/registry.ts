@@ -4,6 +4,14 @@ import { isPageSetId, type PageSetId } from '@/lib/page-sets/registry'
 
 import { Cards } from './Cards/config'
 import { CardsSection } from './Cards/Component'
+import { ClosingBand } from './ClosingBand/config'
+import { ClosingBandSection } from './ClosingBand/Component'
+import { Feature } from './Feature/config'
+import { FeatureSection } from './Feature/Component'
+import { Questions } from './Questions/config'
+import { QuestionsSection } from './Questions/Component'
+import { Stats } from './Stats/config'
+import { StatsSection } from './Stats/Component'
 import type { SectionBlockEntry } from './types'
 
 /**
@@ -15,7 +23,13 @@ import type { SectionBlockEntry } from './types'
  * The definitions are put in the config's root `blocks` once and listed by `blockReferences` on the pages field, so the same block can be
  * offered elsewhere without growing the config.
  */
-export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [{ dir: 'Cards', block: Cards, Component: CardsSection }]
+export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
+  { dir: 'Feature', block: Feature, Component: FeatureSection },
+  { dir: 'Cards', block: Cards, Component: CardsSection },
+  { dir: 'Stats', block: Stats, Component: StatsSection },
+  { dir: 'Questions', block: Questions, Component: QuestionsSection },
+  { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
+]
 
 /** The blocks for the config's root `blocks`. */
 export const sectionBlockDefinitions: Block[] = SECTION_BLOCKS.map((e) => e.block)

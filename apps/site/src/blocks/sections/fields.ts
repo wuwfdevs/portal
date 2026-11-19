@@ -1,5 +1,6 @@
 import type { Block, Field } from 'payload'
 
+import { validateHref } from '@/lib/section-links'
 import { isValidAnchor } from '@/lib/sections-anchors'
 
 import { SECTION_GROUPS, type SectionGroup } from './types'
@@ -87,5 +88,22 @@ export function defineSection(def: {
     labels: { singular: def.singular, plural: def.plural ?? `${def.singular}s` },
     admin: { group: def.group, images: { thumbnail: { url: thumbnailUrl(def.slug), alt: `${def.singular} section` } } },
     fields: def.fields,
+  }
+}
+
+/**
+ * A short list of buttons: a label and a link each. Used by the blocks that lead or close (Feature, Closing band, Support). A link is
+ * validated here and drawn only through `safeHref` (`SectionActions`); a button with no label or no safe address is not drawn.
+ */
+export function actionsField(options: { name?: string; maxRows?: number; description?: string } = {}): Field {
+  return {
+    name: options.name ?? 'actions',
+    type: 'array',
+    maxRows: options.maxRows ?? 2,
+    admin: { description: options.description ?? 'Up to two buttons. The first is the main one.' },
+    fields: [
+      { name: 'label', type: 'text', required: true },
+      { name: 'href', type: 'text', label: 'Link', required: true, validate: validateHref },
+    ],
   }
 }
