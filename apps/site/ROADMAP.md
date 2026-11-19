@@ -329,8 +329,14 @@ Lint: no errors in the new code; one existing error in `src/components/ListenLiv
   migration's snapshot, whatever the Lessons say about keeping only the newest.
 - `blockReferences` is typed by the generated block slugs, so `pnpm generate:types` is needed after a block is added.
 
-**Not done, and why.** Converting any page on the `blocks` template and removing that template, `RenderBlocks`, `heros/` and the starter's page-only
-blocks: whether staging holds such a page cannot be checked from here. Applying and verifying on staging. The set footer line (it needs the settings
+**Staging, read 2026-11-19 (read-only, Supabase connector, project `wuwf-site-staging`).** At migration `20261118_221136_network_content` (55 recorded),
+so both new migrations are simply pending. 25 pages, all `standard`; none has a layout block (0 call to action, content, media, archive or form
+blocks) and no page-category relation; 0 forms. 249 stories and 256 story versions, 247 stories with featured media: 232 media blocks and 15
+galleries (88 images, 21 at most in one), and 231 and 16 (91 images) in versions; no video or embed blocks. 44 MB in all. So the converter moves
+about 500 documents and versions, in batches of 100, and the whole `blocks` template can go without converting a page.
+
+**Not done, and why.** Removing the `blocks` template, `RenderBlocks`, `heros/` and the starter's page-only blocks: now safe (the data above), but done
+as its own small change after the pair is on staging, so the verified migration pair is not regenerated for it. Applying and verifying on staging. The set footer line (it needs the settings
 globals of phases 3 and 4). An end-to-end admin save of a sections page in a browser (the picker, the fields and rendering were checked; the save was
 covered by the integration tests). Not run: on Vercel.
 

@@ -334,8 +334,11 @@ branches' previews; it waits for the owner's go-ahead). Details and numbers: `RO
 - [x] Page sets registry, per-set edit and publish permission (tested by role), set sub-navigation, `filterOptions`.
 - [x] Themes scaffold with the contrast test (text 4.5:1, button 3:1); `wuwf` only, with the `teal` and `lime` tones added.
 - [x] Tests that fail when a block lacks a component, a test, a thumbnail or a picker group (mutation-checked).
-- [ ] **Not done:** convert any page on the `blocks` template, then remove that template, `RenderBlocks`, `heros/` and the starter's page-only
-      blocks. Whether staging holds any such page cannot be checked from the sandbox; do it when the storage migration is on staging.
+- [ ] **Not done, now safe:** remove the `blocks` template, `RenderBlocks`, `heros/` and the starter's page-only blocks. Staging was read on
+      2026-11-19 (read-only, through the Supabase connector): all 25 pages are `standard`, none has a `layout` block, a hero is used by none, and
+      the production database is empty, so there is nothing to convert. Done as its own small change after the migration pair is on staging
+      (the verified pair is not reopened for it): it drops the `layout` and `hero` columns, and touches the page view, the rich-text renderer, the
+      pages collection and two integration tests that build pages with a hero and a layout.
 - [x] `CLAUDE.md` (*Decisions that are made*, a new *Pages and sections* rule set), `ROADMAP.md` and `ARCHITECTURE.md`.
 
 **Exit:** an editor can make an empty `sections` page in staging; nothing public has changed. (Checked on the scratch database: in a browser the admin
