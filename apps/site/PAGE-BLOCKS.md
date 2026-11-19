@@ -393,7 +393,7 @@ without a developer. If that is not comfortable, stop here and revise before goi
 
 ### Phase 4: giving pages
 
-Built 2026-11-19; see `ROADMAP.md` → *Phase 4: the giving pages*. On staging only once its preview build has applied the two migrations.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 4: the giving pages*. Applied to staging by the preview build of `469682d` and verified there (`ROADMAP.md`); the owner's look is next.
 
 - [x] `giving-settings` global (levels, message tiers, the gift card's amounts, the donation form's addresses and switch, Member Services' contact details,
       the broker details, the members' listening level), with a tag-revalidating hook; the account page, the shows' support pages and the Support block read it.
