@@ -129,6 +129,29 @@ describe('the six sponsorship pages as sections', () => {
     expect(lists).toEqual([false, true])
     expect(cols.hidden).toBe(false)
   })
+  it('never draws the same figure or the same section title twice on a page', () => {
+    for (const page of pages) {
+      const figures: string[] = []
+      const titles: string[] = []
+      const walk = (s: Record<string, unknown>) => {
+        for (const f of [...((s.stats as Array<{ value: string; text: string }> | undefined) ?? []), ...((s.figures as Array<{ value: string; text: string }> | undefined) ?? [])]) figures.push(`${f.value} ${f.text}`)
+        const t = ((s.heading as { title?: string } | undefined)?.title ?? (s.headline as string | undefined) ?? '').trim()
+        if (t && s.blockType !== 'sectionFeature') titles.push(t)
+        if (s.blockType === 'sectionColumns') for (const col of (s.columns as Array<{ sections: Array<Record<string, unknown>> }> | undefined) ?? []) col.sections.forEach(walk)
+      }
+      page.sections.forEach(walk)
+      const dupes = (xs: string[]) => xs.filter((x, i) => xs.indexOf(x) !== i)
+      expect(dupes(figures).filter((f) => !KNOWN_REPEATS.includes(`${page.path}: ${f}`)), `${page.path}: a figure appears twice`).toEqual([])
+      expect(dupes(titles), `${page.path}: a title appears twice`).toEqual([])
+    }
+  })
+  it('keeps the hub’s headings above their content, as the old page did, and the figures only in their own row', () => {
+    const hub = pages[0]!.sections
+    expect(hub.filter((s) => s.placement === 'side')).toEqual([])
+    const hero = hub[0]!
+    expect(hero.aside).toBeUndefined()
+    expect(hero.figures).toBeUndefined()
+  })
   it('holds only sections a Columns block may hold, and never a Columns block', () => {
     for (const s of all.filter((x) => x.blockType === 'sectionColumns')) {
       for (const col of s.columns as Array<{ sections: Array<{ blockType: string }> }>) for (const h of col.sections) expect(INLINE_SLUGS as readonly string[], h.blockType).toContain(h.blockType)
@@ -138,6 +161,9 @@ describe('the six sponsorship pages as sections', () => {
 
 /** The server messages of the form belong to the settings (the action reads them), not to a section. */
 const hubInquiryServerMessage = (at: string): boolean => /^hub\.inquiry\.(notSetUpMessage|failedMessage)$/.test(at)
+
+/** Figures the old pages themselves showed twice (the editors' own words: the hub's row of figures and "Why it works" both give the 66% one). A new repeat fails the test. */
+const KNOWN_REPEATS = ['/sponsor: 66% find the businesses they hear on public radio more credible than ads elsewhere']
 
 /** Old words with no place on the new pages, said plainly here so the owner can see them. */
 const KNOWN_LOSSES: string[] = []
