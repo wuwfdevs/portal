@@ -291,6 +291,53 @@ Rendering and Shared data; page-level `noindex` and `noReferrer` fields; the pag
 Voyager and Unearthing, the 3:1 button check, the teal and lime bands); board 28 superseding boards 11 to 13 on layout; phases 2 and 6
 rewritten; Barefoot Mary and show pages out of scope; open decisions 5 to 8; two risks; a *Sources* section.
 
+## Phase 1: the sections foundation (built 2026-11-19 on the scratch database; not yet on staging)
+
+`PAGE-BLOCKS.md` phase 1, on the owner's instruction to proceed on the recommendations (tone list: add `teal` and `lime`; per-set edit
+permission as proposed; staging converted rather than rebuilt; Home stays a global). Rules for the result are in `CLAUDE.md` → *Pages and
+sections*; the map is `ARCHITECTURE.md` → *Pages built from sections*.
+
+**State of the branch.** Pushed: the pure code and tests (themes, page sets, block registry, Cards, helpers; no schema, config or route change),
+and a commit that restores a migration snapshot an earlier commit had deleted by mistake. **Local, not pushed: the schema and wiring commit**,
+because pushing a branch makes its preview build run the new migrations on the shared staging database (`MIGRATE_ON_BUILD`), which breaks other
+branches' previews until they are rebased. It needs the owner's go-ahead.
+
+**What was built.** Migrations `20261119_031412_sections_pages` (the `sections` template, page set, theme, navigation, `noindex`, `noReferrer`
+and `sections`) and `20261119_031427_blocks_to_json` (Payload's converter with a hand-written `down` and a skip when the tables are empty);
+`blocksAsJSON: true`; `pages.sections` as a blocks field from the root `blocks` registry, with `filterOptions` by page set and an anchor check;
+the Cards block; `RenderSections`, `SectionBand`; page themes and tones (`teal`, `lime` added) with a generated `page-themes.css`; the page sets
+registry with `access/pages.ts` and `hooks/enforcePageSet.ts`; the set sub-navigation (cached under a tag that saving a page in the set revalidates);
+`noindex` and `noReferrer` in the page metadata; `keepOnlyBlockTypes` on stories' featured media.
+
+**Checks (scratch database, local).** `pnpm typecheck`: clean. `pnpm build`: passes (47 s). `pnpm verify:migrations`: passes, and fails when the flag is
+removed. The whole integration suite: **198 files, 2,239 tests pass**. New tests: themes (contrast of every tone, text 4.5:1 and button 3:1; a
+lime button on white measures 1.50), page sets (by role), set navigation, anchors, safe links, the block registry (mutation-checked: a removed
+thumbnail, a removed block test and an unregistered directory each fail it), the Cards block, and `tests/int/sections-pages.int.spec.ts` (10 tests: the
+field, refusals at publish, and who may create, edit, move, publish and read by page set; mutation-checked by breaking the read rule and the set guard).
+Lint: no errors in the new code; one existing error in `src/components/ListenLive/PlayerProvider.test.ts` (`react/no-children-prop`), not touched.
+
+**Findings (they changed the work).**
+- **The converter reads through the config as it is when it runs.** `verify:migrations` failed on a fresh database because the converter selected
+  page columns that a later migration adds. Fixed by ordering the pair (columns first, then the conversion) and by skipping the data pass on empty
+  tables. Tested with content: both migrations in one run, then both rolled back, then both again, read back through the Local API with zero
+  differences each time (the simple seed of phase 0: 2 stories, 3 versions, 1 page, 2 page versions, 1 form), and on an empty database. Consequence
+  for staging: apply it before any later migration that changes pages, stories or forms. It also means the earlier advice "merge the storage
+  migration on its own" no longer holds: the page columns must go with it.
+- **JSON storage keeps an unknown block type** in a field with no `filterOptions` (relational storage dropped it). One existing test caught it (a
+  story's featured media dropping a pull quote); a field hook restores the old behaviour for that field.
+- **A staged deletion rode into a pushed commit** and removed the newest migration snapshot; restored in the next commit. The repository keeps every
+  migration's snapshot, whatever the Lessons say about keeping only the newest.
+- `blockReferences` is typed by the generated block slugs, so `pnpm generate:types` is needed after a block is added.
+
+**Not done, and why.** Converting any page on the `blocks` template and removing that template, `RenderBlocks`, `heros/` and the starter's page-only
+blocks: whether staging holds such a page cannot be checked from here. Applying and verifying on staging. The set footer line (it needs the settings
+globals of phases 3 and 4). An end-to-end admin save of a sections page in a browser (the picker, the fields and rendering were checked; the save was
+covered by the integration tests). Not run: on Vercel.
+
+**Next.** The owner's go-ahead to push; then check the migrations on staging with real queries through the Supabase connector (the two columns,
+the `jsonb` columns, no `*_blocks_*` tables, owner, no Data API access); look at a new page's cache behaviour on that deployment (phase 0 item 7's open
+question); then phase 2, the library.
+
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
 The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older

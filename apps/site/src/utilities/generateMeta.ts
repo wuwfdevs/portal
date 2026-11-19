@@ -28,6 +28,9 @@ export const generateMeta = async (args: { doc: Partial<Page> | Partial<Post> | 
     }),
     // The canonical address is the path itself (a trailing slash redirects to it; ROADMAP → URL scheme).
     ...(doc?.path ? { alternates: { canonical: doc.path } } : {}),
+    // Page-level switches of a page built from sections (the thank-you page sets both): not listed by search engines; no referrer sent on.
+    ...(doc && 'noindex' in doc && doc.noindex ? { robots: { index: false, follow: false } } : {}),
+    ...(doc && 'noReferrer' in doc && doc.noReferrer ? { referrer: 'no-referrer' as const } : {}),
   }
 }
 

@@ -3,6 +3,7 @@ import type { CollectionConfig, RichTextFieldValidation, TextFieldSingleValidati
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
 import { isHttpsAddress } from '../../lib/network/original'
 import { featuredMediaBlocks } from '../../blocks/body'
+import { keepOnlyBlockTypes } from '../../hooks/dropUnknownBlocks'
 import { bodyEditor } from '../../fields/bodyEditor'
 import { embedStoryAfterChange } from '../../hooks/embedStory'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
@@ -78,6 +79,8 @@ export const Posts: CollectionConfig<'posts'> = {
               label: 'Featured media',
               maxRows: 1,
               blocks: featuredMediaBlocks,
+              // Stored as JSON, a blocks field keeps any block type it is given; relational storage dropped one it did not offer.
+              hooks: { beforeChange: [keepOnlyBlockTypes(featuredMediaBlocks.map((b) => b.slug))] },
               admin: { description: 'The picture, gallery or video that opens the story. Add one.' },
             },
             {

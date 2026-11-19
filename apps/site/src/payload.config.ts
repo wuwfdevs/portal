@@ -4,6 +4,7 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { sectionBlockDefinitions } from './blocks/sections/registry'
 import { storyEmbeddingsSchema } from './db/storyEmbeddings'
 import { ArchiveItems } from './collections/ArchiveItems'
 import { AudienceProfiles } from './collections/AudienceProfiles'
@@ -107,7 +108,12 @@ export default buildConfig({
     // is missing; on Supabase it must be enabled on the project first (ROADMAP: Needs the owner).
     extensions: ['vector'],
     afterSchemaInit: [storyEmbeddingsSchema],
+    // Blocks fields (stories' featured media, form fields, page sections) are one jsonb column each, not a table per block type.
+    // Database-wide. Switching it needs a migration that moves the data (migration blocks_to_json; PAGE-BLOCKS.md).
+    blocksAsJSON: true,
   }),
+  // Section blocks, defined once and listed by `blockReferences` on the pages field (src/blocks/sections/registry.ts).
+  blocks: sectionBlockDefinitions,
   collections: [
     Pages,
     Posts,

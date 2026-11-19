@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -51,7 +51,7 @@ code (phase 5).
 4. **How far editors may go on the bespoke hubs.** Blocks can be reordered and removed by anyone who can edit the page; Payload has no
    lock on a blocks row. Proposed: accept it (drafts, preview and version history make a mistake cheap to undo).
 5. **The tone list.** Board 28 has four tones (`plain`, `grey`, `accent`, `dark`). The built pages also use teal and lime bands. Either add
-   `teal` and `lime` tones, or accept that the sponsor and giving bands change colour when they move.
+   `teal` and `lime` tones, or accept that the sponsor and giving bands change colour when they move. *Built on the recommendation (2026-11-19): `teal` and `lime` tones are in the station theme; the owner can still say otherwise.*
 6. **The Unearthing explore map and timeline.** Kept as a set-only block only if the owner wants it; board 28 marks it "decision pending".
 7. **`themeColors` on publishing identities.** It stores colours in the CMS as a JSON field, which a theme now replaces. Retire it when
    the themes ship, or keep it for shows (`lib/shows/themes.ts` does not read it).
@@ -77,6 +77,12 @@ live preview, population, `where` queries and field-level access all work with b
 - **The converter has no `down`.** The generated `down()` is empty: `migrate:down` marks the migration undone and leaves the JSON schema.
   A working reverse (read the JSON, create the tables with the same drizzle-kit diff run backwards, write the rows back) was built as a
   scratch script and round-tripped with no differences, so phase 1 writes it by hand into the migration's `down` (and tests up, down, up).
+- **The converter reads through the config as it is when it runs.** So on a database whose tables lack a column a later migration adds, it fails
+  (found by `verify:migrations`, which replays every migration on an empty database). The pair is therefore ordered `sections_pages` (the
+  page columns) then `blocks_to_json`, and `blocks_to_json` skips its data pass when the tables are empty (a replay, a fresh install,
+  production before launch). On a database holding content, apply it before any later migration that changes pages, stories or forms.
+- **A blocks field with no `filterOptions` keeps an unknown block type** when stored as JSON (relational storage dropped it). A story's
+  featured media has the old behaviour back through `keepOnlyBlockTypes`; the pages' `sections` keeps unknown types on purpose (see above).
 - **Staging is shared by every preview build.** Once staging is converted, a preview of any branch without the flag and the migration reads
   tables that no longer exist. Say so in the phase 1 pull request and rebase open branches before it merges.
 - Lost: database-enforced links from a block to media or pages. A deleted item leaves a dead id, as it already does in story bodies
@@ -319,15 +325,22 @@ below and in the *Risks* table; the two the owner should see before phase 1 are 
 
 ### Phase 1: foundation
 
-- [ ] Storage migration (`blocksAsJSON`), applied to staging by the preview build and verified there.
-- [ ] `sections` template, root `blocks` registry, `RenderSections`, the shared field builder, anchor validation.
-- [ ] Page sets registry, per-set edit permission, set sub-navigation, `filterOptions`.
-- [ ] Themes scaffold with the contrast test; `wuwf` only.
-- [ ] Tests that fail when a block lacks a component, a test, a thumbnail or a picker group.
-- [ ] Convert any page on the `blocks` template, then remove that template, `RenderBlocks`, `heros/` and the starter's page-only blocks.
-- [ ] Update `CLAUDE.md` (*Decisions that are made*, a new *Pages and sections* rule set), `ROADMAP.md` and `ARCHITECTURE.md`.
+Built 2026-11-19 on the scratch database; **not yet applied to staging** (a pushed branch's preview build does that, and breaks other
+branches' previews; it waits for the owner's go-ahead). Details and numbers: `ROADMAP.md` → *Phase 1*.
 
-**Exit:** an editor can make an empty `sections` page in staging; nothing public has changed.
+- [x] Storage: migrations `sections_pages` (the page columns) then `blocks_to_json`, with a hand-written `down`; tested up, down, up on rows
+      (zero differences) and on an empty database; `verify:migrations` passes. Staging step still to do: apply and verify there.
+- [x] `sections` template, root `blocks` registry, `RenderSections`, the shared field builder, anchor validation (one block, Cards, as the pattern).
+- [x] Page sets registry, per-set edit and publish permission (tested by role), set sub-navigation, `filterOptions`.
+- [x] Themes scaffold with the contrast test (text 4.5:1, button 3:1); `wuwf` only, with the `teal` and `lime` tones added.
+- [x] Tests that fail when a block lacks a component, a test, a thumbnail or a picker group (mutation-checked).
+- [ ] **Not done:** convert any page on the `blocks` template, then remove that template, `RenderBlocks`, `heros/` and the starter's page-only
+      blocks. Whether staging holds any such page cannot be checked from the sandbox; do it when the storage migration is on staging.
+- [x] `CLAUDE.md` (*Decisions that are made*, a new *Pages and sections* rule set), `ROADMAP.md` and `ARCHITECTURE.md`.
+
+**Exit:** an editor can make an empty `sections` page in staging; nothing public has changed. (Checked on the scratch database: in a browser the admin
+offered the Sections template, its page-set and navigation fields and a block picker with Cards under "Collections"; pages made through the
+Local API rendered with theme, tone, anchor and set navigation. An admin save was not driven end to end; staging waits for the push.)
 
 ### Phase 2: the library
 
@@ -400,7 +413,7 @@ that is rejected.
 | A time-dependent block shows a finished item for up to an hour | The block loads through `unstable_cache` with its own `revalidate`; a tag and a scheduled refresh where a stated time matters |
 | A block reads a settings global directly and never refreshes | Blocks read settings through `getCachedGlobal`; a test over `src/blocks/sections` |
 | A hub redesign pleases nobody | Owner sign-off per hub in phase 6; board 11 to 13 copy and content kept |
-| Converting staging breaks other branches' previews, which share it | Merge the storage migration on its own, announce it, rebase open branches |
+| Converting staging breaks other branches' previews, which share it | Merge the storage and page-column migrations together, announce it, rebase open branches |
 
 ## Sources
 
