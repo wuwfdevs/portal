@@ -78,3 +78,8 @@ export function SectionImage({ image, className, imgClassName, priority }: { ima
 
 /** The small label above a heading: an eyebrow, a date line. */
 export const eyebrowClass = 'text-sm font-bold uppercase tracking-wider [color:var(--tone-muted)]'
+
+/** The optional link under a block's content (`moreLinkFields`). Nothing is drawn without a label or a safe address. */
+export function SectionMore({ block }: { block: { moreLabel?: string | null; moreHref?: string | null } }) {
+  return <SectionLink href={block.moreHref} label={block.moreLabel} />
+}

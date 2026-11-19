@@ -1,6 +1,4 @@
-// The on-air rate card's arithmetic (board 17). Pure. The numbers are the admin's (On air tab); this only reads them.
-
-import type { Sponsorship } from '@/payload-types'
+// The on-air rate card's arithmetic (board 17). Pure. The numbers are the admin's (Sponsorship settings → On-air rates); this only reads them.
 
 import { formatMoney, percentOff } from './money'
 
@@ -17,7 +15,13 @@ export type RateCard = { rows: RateRow[]; counts: number[]; prepayPercent: numbe
 
 export const toCents = (dollars: number | null | undefined): number => Math.round((dollars ?? 0) * 100)
 
-type Rates = NonNullable<NonNullable<Sponsorship['onAir']>['rates']>
+/** What the rate card reads from the settings global: the daypart rows, the schedule sizes and the two percentages. */
+export type Rates = {
+  dayparts?: Array<{ label?: string | null; when?: string | null; open?: number | null; m3?: number | null; m6?: number | null; y1?: number | null }> | null
+  creditCounts?: Array<{ count?: number | null }> | null
+  prepayPercent?: number | null
+  nonprofitPercent?: number | null
+}
 
 /** The rate card from the admin's rows: rows with a name and four prices, counts that are whole positive numbers. */
 export function rateCard(rates: Rates | null | undefined): RateCard {

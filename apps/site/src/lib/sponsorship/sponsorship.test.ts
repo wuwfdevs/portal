@@ -2,13 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import type { Sponsorship } from '@/payload-types'
 
-import { fill, listOf, paragraphs, phoneHref, shown, toStats } from './content'
-import { goalList } from './goals'
+import { fill, listOf, paragraphs, phoneHref, shown, toStats } from '@/lib/page-content'
+
 import { chosenInterests, inquiryEmail, validateInquiry } from './inquiry'
 import { formatMoney, percentOff } from './money'
-import { sponsorNavItems } from './nav'
 import { packageViews, perMonth } from './packages'
-import { SPONSOR_PATHS } from './paths'
 import { openPrograms, summaryOf } from './programs'
 import { commitmentNeverCostsMore, estimateSchedule, rateCard } from './rates'
 import { SPONSORSHIP_STARTER as STARTER } from './starter'
@@ -95,14 +93,10 @@ describe('the starting content (the reviewed boards, in the admin)', () => {
     expect(perMonth(1430, 12)).toBe('$119.17')
   })
 
-  const goals = goalList(starter.hub?.goals, [{ name: 'RadioLive', summary: 'Monthly live music.' }])
-  it('has the six board goals plus one built from the open programs, each with lines', () => {
-    expect(goals).toHaveLength(7)
-    for (const g of goals) expect(g.mix.length).toBeGreaterThanOrEqual(2 - (g.key === 'events-and-programs' ? 1 : 0))
-    expect(goals.at(-1)).toMatchObject({ name: 'Back something WUWF puts on', total: 'Priced on request' })
-  })
-  it('leaves the events goal out when no program is open', () => {
-    expect(goalList(starter.hub?.goals, [])).toHaveLength(6)
+  const goals = (starter.hub?.goals?.items ?? []).map((g) => ({ name: g.name as string, total: g.total as string }))
+  it('has the six board goals, each with lines', () => {
+    expect(goals).toHaveLength(6)
+    for (const g of starter.hub?.goals?.items ?? []) expect(g.lines?.length ?? 0).toBeGreaterThanOrEqual(2)
   })
   it('quotes goal totals that match the packages and rates', () => {
     const byName = Object.fromEntries(goals.map((g) => [g.name, g]))
@@ -159,14 +153,5 @@ describe('the inquiry (board 16)', () => {
     expect(mail?.subject).not.toMatch(/[\r\n]/)
     expect(mail?.replyTo).toBe('pat@example.com')
     expect(chosenInterests([])).toBe('nothing in particular yet')
-  })
-})
-
-describe('navigation', () => {
-  it('lists all six pages under the admin’s names, marks the current one, and falls back to plain names', () => {
-    const items = sponsorNavItems('digital', { digital: 'Online' })
-    expect(items.map((i) => i.href)).toEqual(Object.values(SPONSOR_PATHS))
-    expect(items.find((i) => i.current)?.label).toBe('Online')
-    expect(items[0]!.label).toBe('Sponsor WUWF')
   })
 })

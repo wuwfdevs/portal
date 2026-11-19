@@ -28,3 +28,11 @@ describe('Callout section', () => {
     expect(out).not.toContain('<h2')
   })
 })
+
+describe('Callout section: a link inside', () => {
+  it('draws the link when it has both words and a safe address', () => {
+    const out = renderBlock(CalloutSection, 'sectionCallout', { variant: 'tint', text: 'A note.', moreLabel: 'See the packages →', moreHref: '/sponsor/on-air#packages' })
+    expect(out).toContain('href="/sponsor/on-air#packages"')
+    expect(renderBlock(CalloutSection, 'sectionCallout', { text: 'A note.', moreLabel: 'x', moreHref: 'data:text/html,x' })).not.toContain('href=')
+  })
+})

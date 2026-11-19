@@ -38,6 +38,16 @@ import { List } from './List/config'
 import { ListSection } from './List/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
+import { Carpool } from './Carpool/config'
+import { CarpoolSection } from './Carpool/Component'
+import { InquiryForm } from './InquiryForm/config'
+import { InquiryFormSection } from './InquiryForm/Component'
+import { OpenPrograms } from './OpenPrograms/config'
+import { OpenProgramsSection } from './OpenPrograms/Component'
+import { Packages } from './Packages/config'
+import { PackagesSection } from './Packages/Component'
+import { RateEstimator } from './RateEstimator/config'
+import { RateEstimatorSection } from './RateEstimator/Component'
 import type { SectionBlockEntry } from './types'
 
 /**
@@ -68,6 +78,12 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Credit', block: Credit, Component: CreditSection },
   { dir: 'Support', block: Support, Component: SupportSection },
   { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
+  // Offered only on pages in the sponsor set (PAGE-BLOCKS.md → Block catalogue, set-only blocks). Each reads the Sponsorship settings.
+  { dir: 'RateEstimator', block: RateEstimator, Component: RateEstimatorSection, sets: ['sponsor'] },
+  { dir: 'Packages', block: Packages, Component: PackagesSection, sets: ['sponsor'] },
+  { dir: 'Carpool', block: Carpool, Component: CarpoolSection, sets: ['sponsor'] },
+  { dir: 'OpenPrograms', block: OpenPrograms, Component: OpenProgramsSection, sets: ['sponsor'] },
+  { dir: 'InquiryForm', block: InquiryForm, Component: InquiryFormSection, sets: ['sponsor'] },
 ]
 
 /** The blocks for the config's root `blocks`. */

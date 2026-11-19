@@ -26,8 +26,10 @@ describe('admin navigation', async () => {
   })
 
   it('groups the page-like globals together and offers live preview on each', () => {
-    const hubs = globals.filter((g) => g.admin?.group === 'Pages & hubs')
-    expect(hubs.map((g) => g.slug).sort()).toEqual(['homepage', 'radiolive-hub', 'sponsorship', 'support-page', 'unearthing-hub', 'voyager-hub'])
+    // The Sponsorship global is hidden: its six pages moved into `pages` (phase 3), and it is kept only until phase 7 drops it.
+    const hubs = globals.filter((g) => g.admin?.group === 'Pages & hubs' && !g.admin?.hidden)
+    expect(hubs.map((g) => g.slug).sort()).toEqual(['homepage', 'radiolive-hub', 'support-page', 'unearthing-hub', 'voyager-hub'])
+    expect(globals.find((g) => g.slug === 'sponsorship')?.admin?.hidden).toBe(true)
     for (const g of hubs) expect(typeof g.admin?.livePreview === 'object' && g.admin.livePreview !== null && 'url' in g.admin.livePreview, g.slug).toBe(true)
   })
 

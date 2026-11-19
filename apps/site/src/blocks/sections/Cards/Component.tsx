@@ -2,8 +2,10 @@ import Link from 'next/link'
 import React from 'react'
 
 import { isInternalHref, safeHref } from '@/lib/section-links'
+import { cn } from '@/utilities/ui'
 
 import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionMore } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface CardsData extends SectionData {
@@ -16,6 +18,9 @@ export interface CardsData extends SectionData {
     href?: string | null
     linkLabel?: string | null
   } | null> | null
+  note?: string | null
+  moreLabel?: string | null
+  moreHref?: string | null
 }
 
 /** Cards. Draws nothing when no card has a title. A link is drawn only when its address passes `safeHref`. */
@@ -25,7 +30,7 @@ export function CardsSection({ block }: SectionProps<CardsData>) {
   return (
     <SectionBand block={block}>
       <SectionHeading heading={block.heading} />
-      <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className={cn('grid list-none gap-6 p-0 sm:grid-cols-2', cards.length === 2 ? 'lg:grid-cols-2' : cards.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {cards.map((card, i) => {
           const href = safeHref(card.href)
           const label = card.linkLabel?.trim() || 'Read more'
@@ -49,6 +54,8 @@ export function CardsSection({ block }: SectionProps<CardsData>) {
           )
         })}
       </ul>
+      {block.note?.trim() && <p className="max-w-4xl text-sm [color:var(--tone-muted)]">{block.note}</p>}
+      <SectionMore block={block} />
     </SectionBand>
   )
 }

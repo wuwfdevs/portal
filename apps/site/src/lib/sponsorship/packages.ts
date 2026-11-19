@@ -1,11 +1,9 @@
-// New-sponsor packages and the Carpool Plan, read from the admin's On air tab. Pure.
-
-import type { Sponsorship } from '@/payload-types'
+// New-sponsor packages and the Carpool Plan, read from the Sponsorship settings. Pure.
 
 import { formatMoney } from './money'
 import { toCents } from './rates'
 
-type Packages = NonNullable<NonNullable<Sponsorship['onAir']>['packages']>
+type Packages = { items?: Array<{ id?: string | null; name?: string | null; description?: string | null; price?: number | null; value?: number | null }> | null }
 
 export type PackageView = { key: string; number: number; name: string; description: string; price: string; priceCents: number; valueLine: string }
 

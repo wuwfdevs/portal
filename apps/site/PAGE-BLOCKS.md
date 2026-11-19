@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below: the owner reorders, hides and builds in staging before phase 4.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -364,13 +364,20 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 2*. Not yet on staging.
 
 ### Phase 3: sponsor pages (the pilot)
 
-- [ ] `sponsorship-settings` global (data only); the sponsor-only blocks (rate estimator, inquiry form, open event programs).
-- [ ] Before any change, capture screenshots of the six pages at three widths; they are the reference.
-- [ ] Move the six pages; compare against the reference; anchor tests; inquiry form still sends.
-- [ ] Delete the six routes and `components/Sponsorship/*View.tsx`.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 3*. Pushed to the working branch; on staging only once its preview build has applied the two migrations.
+
+- [x] `sponsorship-settings` global (data only: contact, the form's choices, the rate card, Carpool, packages, events and programs), with a tag-revalidating hook;
+      the five sponsor-only blocks (Rate estimator, Packages, Carpool plan, Open programs, Inquiry form), each tested and registered with `sets: ['sponsor']`.
+      (The plan named three; the Carpool and package prices are settings too, so they are blocks that read them.)
+- [x] Reference screenshots of the six pages at 375, 768 and 1280 px, taken from the unchanged code before any change (a production build on a local database).
+- [x] The six pages moved by one migration at their own addresses (`lib/sponsorship/to-sections.ts`, pure; a test fails if a word of the old pages is lost);
+      compared with the reference (anchors, `#` links, text, no horizontal scroll, no console error); anchor tests; the inquiry form still sends (its action and
+      tests are unchanged; its token is fetched).
+- [x] The six routes and `components/Sponsorship/*` deleted.
+- [ ] **The owner's exit check in staging** (below). Not done: it needs the owner.
 
 **Exit, and a decision point:** in staging the owner reorders a section, hides one, and builds a new sponsor page from existing blocks
-without a developer. If that is not comfortable, stop here and revise before going on.
+without a developer. If that is not comfortable, stop here and revise before going on. **Phase 4 is not started.**
 
 ### Phase 4: giving pages
 

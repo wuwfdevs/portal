@@ -84,6 +84,11 @@ export interface Config {
     sectionCredit: SectionCredit;
     sectionSupport: SectionSupport;
     sectionClosingBand: SectionClosingBand;
+    sectionRateEstimator: SectionRateEstimator;
+    sectionPackages: SectionPackages;
+    sectionCarpool: SectionCarpool;
+    sectionOpenPrograms: SectionOpenPrograms;
+    sectionInquiryForm: SectionInquiryForm;
   };
   collections: {
     pages: Page;
@@ -198,6 +203,7 @@ export interface Config {
     'radiolive-hub': RadioliveHub;
     'listen-live': ListenLive;
     sponsorship: Sponsorship;
+    'sponsorship-settings': SponsorshipSetting;
   };
   globalsSelect: {
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -210,6 +216,7 @@ export interface Config {
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
+    'sponsorship-settings': SponsorshipSettingsSelect<false> | SponsorshipSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -1498,6 +1505,15 @@ export interface SectionCards {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Optional small print under the cards: a source, a condition.
+   */
+  note?: string | null;
+  /**
+   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCards';
@@ -1675,7 +1691,7 @@ export interface SectionStats {
          */
         text: string;
         /**
-         * Compare only: the second figure ("43%").
+         * Compare: the second figure ("43%"). Tiles: an optional line under the figure ("43% of non-listeners say the same").
          */
         compare?: string | null;
         id?: string | null;
@@ -1689,6 +1705,11 @@ export interface SectionStats {
    * Compare only: who the second figure is about ("Non-listeners").
    */
   compareLabel?: string | null;
+  /**
+   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   /**
    * Where the figures come from and what they are a share of: "Nielsen Audio, Pensacola metro, Spring 2026."
    */
@@ -1796,6 +1817,11 @@ export interface SectionCallout {
    * Quote only: who said it, or where it comes from.
    */
   cite?: string | null;
+  /**
+   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCallout';
@@ -2089,6 +2115,238 @@ export interface SectionClosingBand {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionRateEstimator".
+ */
+export interface SectionRateEstimator {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Printed under the rate card.
+   */
+  note?: string | null;
+  estimatorEyebrow?: string | null;
+  estimatorTitle?: string | null;
+  /**
+   * The label of the length-of-commitment choices, e.g. "Length of commitment".
+   */
+  commitmentLabel?: string | null;
+  /**
+   * The label of the schedule-size choices, e.g. "Credits in the schedule".
+   */
+  creditsLabel?: string | null;
+  /**
+   * e.g. "An estimate. WUWF confirms every schedule."
+   */
+  estimatorDisclaimer?: string | null;
+  /**
+   * The button under the estimate. It goes to the proposal form.
+   */
+  estimatorCta?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionRateEstimator';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionPackages".
+ */
+export interface SectionPackages {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Printed above each package number, e.g. "Package".
+   */
+  packageLabel?: string | null;
+  /**
+   * Printed under the packages.
+   */
+  note?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionPackages';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCarpool".
+ */
+export interface SectionCarpool {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Shown by the one-year price, e.g. "or about $4 a day".
+   */
+  perDayNote?: string | null;
+  slotsNote?: string | null;
+  /**
+   * One button, usually to the proposal form.
+   */
+  actions?:
+    | {
+        label: string;
+        href: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCarpool';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionOpenPrograms".
+ */
+export interface SectionOpenPrograms {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The heading when one program is open. Empty: the heading above is used.
+   */
+  titleOne?: string | null;
+  /**
+   * The heading when two are open. Empty: the heading above is used.
+   */
+  titleTwo?: string | null;
+  /**
+   * Shown when no program is open.
+   */
+  emptyText?: string | null;
+  /**
+   * Button text; {name} becomes the program’s name. The button goes to the proposal form.
+   */
+  talkLabel?: string | null;
+  /**
+   * Link text; {name} becomes the program’s name. Drawn only when the program has a page.
+   */
+  moreLabel?: string | null;
+  levelsLabel?: string | null;
+  recognitionLabel?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionOpenPrograms';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionInquiryForm".
+ */
+export interface SectionInquiryForm {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The line above the phone number and address, e.g. "Prefer to talk?".
+   */
+  contactTitle?: string | null;
+  submitLabel?: string | null;
+  sendingLabel?: string | null;
+  /**
+   * A line under the button that points to the credit guidelines. Empty: no line.
+   */
+  guidelinesNote?: string | null;
+  /**
+   * The words of that link. It goes to /sponsor/credit-guidelines.
+   */
+  guidelinesLink?: string | null;
+  /**
+   * The form’s field labels.
+   */
+  labels?: {
+    name?: string | null;
+    organization?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    interests?: string | null;
+    budget?: string | null;
+    message?: string | null;
+    /**
+     * Read to screen readers after a required field’s name, e.g. "required".
+     */
+    required?: string | null;
+  };
+  thanksTitle?: string | null;
+  /**
+   * Said before what they chose, e.g. "Here’s what you told us you’re interested in:".
+   */
+  thanksPrefix?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionInquiryForm';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
@@ -2142,6 +2400,11 @@ export interface Page {
         | SectionCredit
         | SectionSupport
         | SectionClosingBand
+        | SectionRateEstimator
+        | SectionPackages
+        | SectionCarpool
+        | SectionOpenPrograms
+        | SectionInquiryForm
       )[]
     | null;
   /**
@@ -6233,6 +6496,8 @@ export interface ListenLive {
   createdAt?: string | null;
 }
 /**
+ * Moved. The sponsorship pages are edited under Pages; prices and contact details under Sponsorship settings.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sponsorship".
  */
@@ -7202,6 +7467,172 @@ export interface Sponsorship {
       label?: string | null;
     };
   };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings".
+ */
+export interface SponsorshipSetting {
+  id: number;
+  /**
+   * Corporate support’s phone number as people read it, e.g. 850 473-7453. The link is built from the digits.
+   */
+  phone?: string | null;
+  address?: string | null;
+  /**
+   * Printed with the phone number at the foot of every sponsorship page.
+   */
+  serviceLine?: string | null;
+  /**
+   * Corporate support’s address. Every “Request a proposal” is emailed here (through WUWF’s mail service) and the site keeps no copy. Only staff can see this field; it is never sent to a visitor’s browser. Empty, the form says online requests are not set up and gives the phone number.
+   */
+  inquiryEmail?: string | null;
+  /**
+   * The sentence under “Request a proposal”: how WUWF uses what a business sends. The University of West Florida IT-04 policy notice goes here once it is reviewed.
+   */
+  inquiryNotice?: string | null;
+  /**
+   * Shown when the form cannot send because no address is set above. Include the phone number.
+   */
+  notSetUpMessage?: string | null;
+  /**
+   * Shown when sending fails. Include the phone number.
+   */
+  failedMessage?: string | null;
+  /**
+   * “What are you interested in?” on the form.
+   */
+  interests?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The budget ranges, first one is the default.
+   */
+  budgets?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The rate card, one row per daypart. The rate estimator reads these numbers.
+   */
+  dayparts?:
+    | {
+        label: string;
+        when?: string | null;
+        /**
+         * Dollars per credit, e.g. 55 or 25.5.
+         */
+        open: number;
+        m3: number;
+        m6: number;
+        y1: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The schedule sizes the estimator offers.
+   */
+  creditCounts?:
+    | {
+        count: number;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Extra discount for prepaying a rate-card schedule.
+   */
+  prepayPercent?: number | null;
+  /**
+   * Nonprofit discount off open rates.
+   */
+  nonprofitPercent?: number | null;
+  /**
+   * The Carpool Plan.
+   */
+  carpool?: {
+    /**
+     * Dollars for six months.
+     */
+    sixMonths?: number | null;
+    /**
+     * Dollars for a year.
+     */
+    oneYear?: number | null;
+  };
+  /**
+   * The new-sponsor packages.
+   */
+  packages?: {
+    /**
+     * What a drive-time credit normally costs, in dollars.
+     */
+    openDriveRate?: number | null;
+    /**
+     * What a first-time sponsor pays for one, in dollars.
+     */
+    newDriveRate?: number | null;
+    items?:
+      | {
+          name: string;
+          description?: string | null;
+          /**
+           * Dollars.
+           */
+          price: number;
+          /**
+           * What the same credits cost at the rate card, in dollars. The page shows “You save” as the difference.
+           */
+          value: number;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * The events and programs a business can back, in the order they appear. A new one is one more row with the same fields. Only rows set to “Open to sponsors” are shown. Never state a price you have not confirmed: an empty price shows “Priced on request”.
+   */
+  programs?:
+    | {
+        name: string;
+        kind: 'live-series' | 'festival' | 'community-program' | 'other';
+        status: 'open' | 'held' | 'not-yet-open';
+        /**
+         * What it is, in plain words.
+         */
+        description: string;
+        /**
+         * Ways to partner.
+         */
+        levels?:
+          | {
+              name: string;
+              description?: string | null;
+              /**
+               * Only a price corporate support has confirmed. Empty shows “Priced on request”.
+               */
+              price?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        /**
+         * Where a partner is named. Follows the credit guidelines. Empty says nothing.
+         */
+        recognition?: string | null;
+        /**
+         * For example /radiolive. Empty for no link.
+         */
+        pageUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -8786,6 +9217,93 @@ export interface SponsorshipSelect<T extends boolean = true> {
               text?: T;
               label?: T;
             };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sponsorship-settings_select".
+ */
+export interface SponsorshipSettingsSelect<T extends boolean = true> {
+  phone?: T;
+  address?: T;
+  serviceLine?: T;
+  inquiryEmail?: T;
+  inquiryNotice?: T;
+  notSetUpMessage?: T;
+  failedMessage?: T;
+  interests?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  budgets?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  dayparts?:
+    | T
+    | {
+        label?: T;
+        when?: T;
+        open?: T;
+        m3?: T;
+        m6?: T;
+        y1?: T;
+        id?: T;
+      };
+  creditCounts?:
+    | T
+    | {
+        count?: T;
+        id?: T;
+      };
+  prepayPercent?: T;
+  nonprofitPercent?: T;
+  carpool?:
+    | T
+    | {
+        sixMonths?: T;
+        oneYear?: T;
+      };
+  packages?:
+    | T
+    | {
+        openDriveRate?: T;
+        newDriveRate?: T;
+        items?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              value?: T;
+              id?: T;
+            };
+      };
+  programs?:
+    | T
+    | {
+        name?: T;
+        kind?: T;
+        status?: T;
+        description?: T;
+        levels?:
+          | T
+          | {
+              name?: T;
+              description?: T;
+              price?: T;
+              id?: T;
+            };
+        recognition?: T;
+        pageUrl?: T;
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;

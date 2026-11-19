@@ -8,16 +8,21 @@ import { validateSupportHref } from '@/lib/support-link'
 import { area, closing, group, hero, heading, href, list, num, section, source, stats, text } from './helpers'
 
 /**
- * Sponsorship pages (boards 16 to 20b, /sponsor). Every word, price, figure and source line on those pages is edited here, with
- * a show/hide switch on each optional section. What stays in code is behaviour: the estimator's arithmetic, the form's validation
- * and the markup. The migration that creates this fills it with the reviewed boards' wording; nothing is hard-coded behind it.
+ * MOVED (PAGE-BLOCKS.md, phase 3). The six sponsorship pages are records in `pages` (the sponsor set) and their words are on their sections;
+ * the prices, rates and contact details are in `sponsorship-settings`. This global is what they were written from, kept (and hidden) until
+ * phase 7 drops it. Nothing reads it for a visitor any more.
+ *
+ * It was: every word, price, figure and source line on /sponsor, with a show/hide switch on each optional section. The migration that creates
+ * it filled it with the reviewed boards' wording.
  *
  * This is the public price list, not the ledger: no sponsor, contract or placement is held here. The deal lives in the Portal.
  */
 export const Sponsorship: GlobalConfig = {
   slug: 'sponsorship',
   label: 'Sponsorship pages',
-  admin: { group: 'Pages & hubs', livePreview: { url: '/sponsor' } },
+  // Hidden from the admin menu since phase 3 moved the six pages into `pages` (Pages → Sponsorship set): their words are on the pages' sections now and
+  // editing this would change nothing a visitor sees. It keeps its data until phase 7 drops it, because the migration that moved the pages reads it.
+  admin: { group: 'Pages & hubs', hidden: true, description: 'Moved. The sponsorship pages are edited under Pages; prices and contact details under Sponsorship settings.' },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: {
     afterChange: [

@@ -88,7 +88,8 @@ export function PickerSection({ block }: SectionProps<PickerData>) {
           const points = linesOf(o.points)
           const price = priceOf(o)
           return (
-            <div className={cn('mt-3 hidden w-full max-w-3xl flex-col gap-3 border-t-4 pt-4 [border-color:var(--tone-rule)]', SHOW[i])} data-panel={i} key={`pn-${o.id ?? i}`}>
+            <div className={cn('mt-3 hidden basis-full flex-col border-t-4 pt-4 [border-color:var(--tone-rule)]', SHOW[i])} data-panel={i} key={`pn-${o.id ?? i}`}>
+              <div className="flex max-w-3xl flex-col gap-3">
               <h3 className="font-serif text-2xl font-bold">{o.title}</h3>
               {o.lead?.trim() && <p className="text-lg">{o.lead}</p>}
               {points.length > 0 && (
@@ -100,6 +101,7 @@ export function PickerSection({ block }: SectionProps<PickerData>) {
               )}
               {price && <p className="text-lg font-bold">{price}</p>}
               <SectionActions actions={[{ label: o.linkLabel, href: o.linkHref }]} />
+              </div>
             </div>
           )
         })}

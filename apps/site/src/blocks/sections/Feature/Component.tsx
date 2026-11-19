@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
+import { paragraphs } from '@/lib/page-content'
 import { trackFromAudio } from '@/lib/player/track'
 import { cn } from '@/utilities/ui'
 
@@ -28,7 +29,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
   if (!headline) return null
   const split = block.variant === 'split'
   const label = block.label?.trim()
-  const line = block.line?.trim()
+  const lines = paragraphs(block.line)
   const audio = populatedMedia(block.audio as { id: number; url?: string | null; title?: string | null; credit?: string | null; durationSeconds?: number | null } | null | undefined)
   const track = audio ? trackFromAudio(audio as Parameters<typeof trackFromAudio>[0], { title: headline }) : null
   const hasImage = populatedMedia(block.image as object | null | undefined) !== null && Boolean((block.image as { url?: string | null }).url)
@@ -41,7 +42,13 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       ) : (
         <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">{headline}</h1>
       )}
-      {line && <p className="max-w-2xl text-lg md:text-xl">{line}</p>}
+      {lines.length > 0 && (
+        <div className="flex max-w-2xl flex-col gap-3 text-lg md:text-xl">
+          {lines.map((l) => (
+            <p key={l}>{l}</p>
+          ))}
+        </div>
+      )}
       <SectionActions actions={block.actions} className="pt-2" />
       {track && <PlayAudioButton track={track} />}
     </div>

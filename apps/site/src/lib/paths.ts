@@ -20,7 +20,6 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'latest',
   'search',
   'support',
-  'sponsor',
   'live-updates',
   'podcasts',
   'video',
@@ -42,9 +41,15 @@ export type PathCheck = { ok: true } | { ok: false; reason: string }
 
 const FORBIDDEN_CHARS = /[\u0000- \u007f?#\\%]/
 
+/**
+ * Single addresses a route owns inside a first segment that records may use. The sponsorship pages are records at /sponsor and under it
+ * (PAGE-BLOCKS.md, phase 3); the inquiry form's token comes from a route handler at the one address below.
+ */
+export const RESERVED_PATHS: ReadonlySet<string> = new Set(['/sponsor/inquiry-token'])
+
 export function isReservedPath(path: string): boolean {
   const first = path.split('/').filter(Boolean)[0] ?? ''
-  return RESERVED_FIRST_SEGMENTS.has(first) || /-sitemap\.xml$/.test(first)
+  return RESERVED_FIRST_SEGMENTS.has(first) || /-sitemap\.xml$/.test(first) || RESERVED_PATHS.has(path)
 }
 
 /** The address of a live blog. It lives under `/live-updates`, a first segment that is otherwise reserved for the site's own routes. */

@@ -3,6 +3,7 @@ import React from 'react'
 import { toStats } from '@/lib/page-content'
 
 import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionMore } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface StatsData extends SectionData {
@@ -10,6 +11,8 @@ export interface StatsData extends SectionData {
   valueLabel?: string | null
   compareLabel?: string | null
   source?: string | null
+  moreLabel?: string | null
+  moreHref?: string | null
 }
 
 /** "79%" → 79; "79.5 %" → 79.5; anything else (a count, a dollar figure) → null, and the row draws no bar. Clamped to 0 to 100. */
@@ -43,16 +46,18 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
           })}
         </ul>
       ) : (
-        <ul className="grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className={`grid list-none gap-6 p-0 sm:grid-cols-2 ${rows.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           {rows.map((r, i) => (
             <li className="flex flex-col gap-2 border-t-4 pt-4 [border-color:var(--tone-rule)]" key={`${r.text}-${i}`}>
               <span className="font-serif text-5xl font-bold leading-none">{r.value}</span>
               <span className="text-lg">{r.text}</span>
+              {r.compare && <span className="text-base [color:var(--tone-muted)]">{r.compare}</span>}
             </li>
           ))}
         </ul>
       )}
       {source && <p className="max-w-4xl text-sm [color:var(--tone-muted)]">{source}</p>}
+      <SectionMore block={block} />
     </SectionBand>
   )
 }

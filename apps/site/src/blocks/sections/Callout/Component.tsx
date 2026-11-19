@@ -3,12 +3,15 @@ import React from 'react'
 import { paragraphs } from '@/lib/page-content'
 
 import { SectionBand } from '../SectionBand'
+import { SectionMore } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface CalloutData extends SectionData {
   title?: string | null
   text?: string | null
   cite?: string | null
+  moreLabel?: string | null
+  moreHref?: string | null
 }
 
 /** Callout. Draws nothing without its text. The tint is the band's own text colour at a low strength, so it is right on every tone. */
@@ -28,6 +31,7 @@ export function CalloutSection({ block }: SectionProps<CalloutData>) {
             ))}
           </blockquote>
           {cite && <p className="text-base [color:var(--tone-muted)]">{cite}</p>}
+          <SectionMore block={block} />
         </figure>
       </SectionBand>
     )
@@ -39,6 +43,7 @@ export function CalloutSection({ block }: SectionProps<CalloutData>) {
         {paras.map((p) => (
           <p key={p}>{p}</p>
         ))}
+        <SectionMore block={block} />
       </div>
     </SectionBand>
   )

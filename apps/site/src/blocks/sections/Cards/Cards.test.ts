@@ -40,3 +40,19 @@ describe('Cards section', () => {
     expect(out).toContain('>B<')
   })
 })
+
+describe('Cards section: small print and a link under the cards', () => {
+  it('draws the note and the link when it has them, and neither when it has not', () => {
+    const cards = [{ title: 'A' }]
+    const out = html({ cards, note: 'Source: MRI.', moreLabel: 'See the guidelines →', moreHref: '/sponsor/credit-guidelines' })
+    expect(out).toContain('Source: MRI.')
+    expect(out).toContain('href="/sponsor/credit-guidelines"')
+    expect(out).toContain('See the guidelines →')
+    const bare = html({ cards })
+    expect(bare).not.toContain('Source')
+    expect(bare).not.toContain('href=')
+  })
+  it('never draws an unsafe link under the cards', () => {
+    expect(html({ cards: [{ title: 'A' }], moreLabel: 'Go', moreHref: 'javascript:alert(1)' })).not.toContain('href=')
+  })
+})

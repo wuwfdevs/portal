@@ -58,3 +58,11 @@ describe('Feature section', () => {
     expect(out).not.toContain('href="/ok"')
   })
 })
+
+describe('Feature section: a line of several paragraphs', () => {
+  it('draws each paragraph on its own', () => {
+    const out = html({ headline: 'H', line: 'First paragraph.\n\nSecond paragraph.' })
+    expect(out).toContain('<p>First paragraph.</p>')
+    expect(out).toContain('<p>Second paragraph.</p>')
+  })
+})

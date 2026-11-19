@@ -5,6 +5,7 @@ import type { SectionData } from '@/blocks/sections/types'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { SectionNav } from '@/components/SectionNav'
+import { SetFooter } from '@/components/Page/SetFooter'
 import { loadSetNavPages } from '@/lib/page-sets/load'
 import { setNavItems } from '@/lib/page-sets/nav'
 import { pageSetOf } from '@/lib/page-sets/registry'
@@ -34,6 +35,7 @@ export async function SectionsPageView({ page, draft, url }: { page: SectionsPag
       {draft && <LivePreviewListener />}
       {set && items.length > 0 && <SectionNav label={set.name} items={items} />}
       <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id }} />
+      {set && <SetFooter items={items} set={set} />}
     </article>
   )
 }
