@@ -66,7 +66,24 @@ export interface Config {
     users: UserAuthOperations;
   };
   blocks: {
+    sectionFeature: SectionFeature;
+    sectionFeaturedRecord: SectionFeaturedRecord;
+    sectionProfileBand: SectionProfileBand;
     sectionCards: SectionCards;
+    sectionList: SectionList;
+    sectionDates: SectionDates;
+    sectionQuotes: SectionQuotes;
+    sectionStats: SectionStats;
+    sectionSteps: SectionSteps;
+    sectionQuestions: SectionQuestions;
+    sectionCallout: SectionCallout;
+    sectionCheckList: SectionCheckList;
+    sectionTable: SectionTable;
+    sectionPicker: SectionPicker;
+    sectionText: SectionText;
+    sectionCredit: SectionCredit;
+    sectionSupport: SectionSupport;
+    sectionClosingBand: SectionClosingBand;
   };
   collections: {
     pages: Page;
@@ -230,9 +247,9 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SectionCards".
+ * via the `definition` "SectionFeature".
  */
-export interface SectionCards {
+export interface SectionFeature {
   /**
    * Parks the section without deleting it. It does not show on the page.
    */
@@ -245,79 +262,65 @@ export interface SectionCards {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
-  heading?: {
-    eyebrow?: string | null;
-    title?: string | null;
-    intro?: string | null;
-  };
-  cards?:
+  variant: 'hero' | 'split';
+  /**
+   * A short line above the headline: "Next show · Thursday, Dec. 3".
+   */
+  label?: string | null;
+  headline: string;
+  /**
+   * One or two sentences under the headline.
+   */
+  line?: string | null;
+  /**
+   * Up to two buttons. The first is the main one.
+   */
+  actions?:
     | {
-        title: string;
-        text?: string | null;
-        /**
-         * A short label above the title, e.g. "On air".
-         */
-        tag?: string | null;
-        /**
-         * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, not here.
-         */
-        price?: string | null;
-        href?: string | null;
-        /**
-         * The words on the link. Empty: "Read more".
-         */
-        linkLabel?: string | null;
+        label: string;
+        href: string;
         id?: string | null;
       }[]
     | null;
+  /**
+   * Its description (alt text) is what a screen reader says.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Optional. A play button that hands the audio to the site's player.
+   */
+  audio?: (number | null) | Audio;
+  /**
+   * Split only.
+   */
+  ratio?: ('portrait' | 'standard' | 'wide') | null;
+  /**
+   * Split only.
+   */
+  imageSide?: ('right' | 'left') | null;
   id?: string | null;
   blockName?: string | null;
-  blockType: 'sectionCards';
+  blockType: 'sectionFeature';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages".
+ * via the `definition` "media".
  */
-export interface Page {
+export interface Media {
   id: number;
-  title: string;
   /**
-   * The structure of the page. A developer adds templates; staff fill them in.
+   * What the picture shows, for people who cannot see it. A story can override this where the same picture is used differently.
    */
-  template: 'standard' | 'blocks' | 'sections';
+  alt?: string | null;
   /**
-   * The group this page belongs to: it sets who may edit the page, its look, its sub-navigation and which section types can be added. Leave empty for a stand-alone page.
+   * Who made it, e.g. "Photo: Jane Doe / WUWF". A story can override this for one use.
    */
-  pageSet?: ('sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
+  credit?: string | null;
   /**
-   * Empty: the page set's theme.
+   * Where it came from or who owns the rights, when that is not the same as the credit.
    */
-  theme?: 'wuwf' | null;
-  /**
-   * The page's name in its set's sub-navigation. Empty: the title.
-   */
-  navLabel?: string | null;
-  /**
-   * Lowest first. Empty: after the numbered pages.
-   */
-  navOrder?: number | null;
-  /**
-   * Ask search engines not to list this page.
-   */
-  noindex?: boolean | null;
-  /**
-   * Do not tell the sites it links to where the visitor came from.
-   */
-  noReferrer?: boolean | null;
-  sections?: SectionCards[] | null;
-  /**
-   * A short lead shown under the title. Optional.
-   */
-  summary?: string | null;
-  /**
-   * Text, pictures, audio, video and embeds, the same blocks as a story.
-   */
-  body?: {
+  source?: string | null;
+  caption?: {
     root: {
       type: string;
       children: {
@@ -332,92 +335,214 @@ export interface Page {
     };
     [k: string]: unknown;
   } | null;
-  hero: {
-    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
-    richText?: {
-      root: {
-        type: string;
-        children: {
-          type: any;
-          version: number;
-          [k: string]: unknown;
-        }[];
-        direction: ('ltr' | 'rtl') | null;
-        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-        indent: number;
-        version: number;
-      };
-      [k: string]: unknown;
-    } | null;
-    links?:
-      | {
-          link: {
-            type?: ('reference' | 'custom') | null;
-            newTab?: boolean | null;
-            reference?:
-              | ({
-                  relationTo: 'pages';
-                  value: number | Page;
-                } | null)
-              | ({
-                  relationTo: 'posts';
-                  value: number | Post;
-                } | null);
-            url?: string | null;
-            label: string;
-            /**
-             * Choose how the link should be rendered.
-             */
-            appearance?: ('default' | 'outline') | null;
-          };
-          id?: string | null;
-        }[]
-      | null;
-    media?: (number | null) | Media;
-  };
-  layout?: (CallToActionBlock | ContentBlock | MediaBlock | ArchiveBlock | FormBlock)[] | null;
-  meta?: {
-    title?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-    description?: string | null;
-  };
-  publishedAt?: string | null;
   /**
    * Set by the migration. Leave empty for new work.
    */
   legacy?: {
     /**
-     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field.
+     * The address this file was copied from. The import matches on it, so a picture used in many stories is stored once and a re-run cannot duplicate it. Cannot be changed once set.
      */
-    legacyPath?: string | null;
-    /**
-     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
-     */
-    groveId?: string | null;
-    /**
-     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
-     */
-    modifiedAt?: string | null;
-    /**
-     * NPR's identifier for this item, when it has one.
-     */
-    nprId?: string | null;
+    sourceUrl?: string | null;
   };
-  /**
-   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
-   */
-  path?: string | null;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
+  prefix?: string | null;
+  _objectKey?: string | null;
+  folder?: (number | null) | FolderInterface;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    square?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    small?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    medium?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    large?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    xlarge?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    og?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payload-folders".
+ */
+export interface FolderInterface {
+  id: number;
+  name: string;
+  folder?: (number | null) | FolderInterface;
+  documentsAndFolders?: {
+    docs?: (
+      | {
+          relationTo?: 'payload-folders';
+          value: number | FolderInterface;
+        }
+      | {
+          relationTo?: 'media';
+          value: number | Media;
+        }
+    )[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  folderType?: 'media'[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audio".
+ */
+export interface Audio {
+  id: number;
+  /**
+   * What a listener sees on the player, e.g. "Listen to this story".
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Only WUWF members may hear it (a members' episode). The public cannot play or download it from its address.
+   */
+  membersOnly?: boolean | null;
+  /**
+   * Who produced it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFeaturedRecord".
+ */
+export interface SectionFeaturedRecord {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'hero' | 'split';
+  mode: 'pick' | 'newest';
+  /**
+   * A story or episode (episodes are stories with audio), or a show.
+   */
+  record?:
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
+      } | null)
+    | ({
+        relationTo: 'productions';
+        value: number | Production;
+      } | null);
+  /**
+   * The newest published story filed under it.
+   */
+  section?: (number | null) | Section;
+  /**
+   * The line above the headline. Empty: "Story" or "Show".
+   */
+  label?: string | null;
+  /**
+   * The button. Empty: "Read the story" or "See the show".
+   */
+  actionLabel?: string | null;
+  /**
+   * Split only.
+   */
+  ratio?: ('portrait' | 'standard' | 'wide') | null;
+  /**
+   * Split only.
+   */
+  imageSide?: ('right' | 'left') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFeaturedRecord';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -630,147 +755,6 @@ export interface MediaBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  /**
-   * What the picture shows, for people who cannot see it. A story can override this where the same picture is used differently.
-   */
-  alt?: string | null;
-  /**
-   * Who made it, e.g. "Photo: Jane Doe / WUWF". A story can override this for one use.
-   */
-  credit?: string | null;
-  /**
-   * Where it came from or who owns the rights, when that is not the same as the credit.
-   */
-  source?: string | null;
-  caption?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * The address this file was copied from. The import matches on it, so a picture used in many stories is stored once and a re-run cannot duplicate it. Cannot be changed once set.
-     */
-    sourceUrl?: string | null;
-  };
-  prefix?: string | null;
-  _objectKey?: string | null;
-  folder?: (number | null) | FolderInterface;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    square?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    small?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    medium?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    large?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    xlarge?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    og?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-  };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payload-folders".
- */
-export interface FolderInterface {
-  id: number;
-  name: string;
-  folder?: (number | null) | FolderInterface;
-  documentsAndFolders?: {
-    docs?: (
-      | {
-          relationTo?: 'payload-folders';
-          value: number | FolderInterface;
-        }
-      | {
-          relationTo?: 'media';
-          value: number | Media;
-        }
-    )[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  folderType?: 'media'[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "GalleryBlock".
  */
 export interface GalleryBlock {
@@ -893,52 +877,6 @@ export interface EmbedBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'embed';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "audio".
- */
-export interface Audio {
-  id: number;
-  /**
-   * What a listener sees on the player, e.g. "Listen to this story".
-   */
-  title: string;
-  description?: string | null;
-  /**
-   * Only WUWF members may hear it (a members' episode). The public cannot play or download it from its address.
-   */
-  membersOnly?: boolean | null;
-  /**
-   * Who produced it, e.g. "WUWF News".
-   */
-  credit?: string | null;
-  /**
-   * Length in seconds. Optional; shown next to the player when set.
-   */
-  durationSeconds?: number | null;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
-     */
-    sourceUrl?: string | null;
-  };
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1471,6 +1409,849 @@ export interface Site {
   mapY?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionProfileBand".
+ */
+export interface SectionProfileBand {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'about' | 'roster';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * About only. A blank line starts a new paragraph.
+   */
+  text?: string | null;
+  /**
+   * About only.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Roster only.
+   */
+  people?:
+    | {
+        name: string;
+        role?: string | null;
+        photo?: (number | null) | Media;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionProfileBand';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCards".
+ */
+export interface SectionCards {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  cards?:
+    | {
+        title: string;
+        text?: string | null;
+        /**
+         * A short label above the title, e.g. "On air".
+         */
+        tag?: string | null;
+        /**
+         * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, not here.
+         */
+        price?: string | null;
+        href?: string | null;
+        /**
+         * The words on the link. Empty: "Read more".
+         */
+        linkLabel?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCards';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionList".
+ */
+export interface SectionList {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'grid' | 'rail' | 'numbered' | 'lead';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  source: 'stories' | 'episodes' | 'videos' | 'artists';
+  /**
+   * Stories only.
+   */
+  scope?: ('latest' | 'section' | 'topic') | null;
+  section?: (number | null) | Section;
+  topic?: (number | null) | Category;
+  show?: (number | null) | Production;
+  /**
+   * How many to show, 1 to 12.
+   */
+  count?: number | null;
+  /**
+   * Optional link under the list: "All stories".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionList';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionDates".
+ */
+export interface SectionDates {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'rows' | 'cards';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  source: 'typed' | 'radiolive' | 'events';
+  /**
+   * The most dates to show, 1 to 12. The soonest come first.
+   */
+  count?: number | null;
+  /**
+   * The words on each date's link. Empty: "Details".
+   */
+  actionLabel?: string | null;
+  /**
+   * Dates I type here only.
+   */
+  items?:
+    | {
+        title: string;
+        /**
+         * In Central time. A date with no time: choose 12:00 a.m.
+         */
+        startsAt: string;
+        /**
+         * Optional. After it passes the date drops off.
+         */
+        endsAt?: string | null;
+        place?: string | null;
+        href?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionDates';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionQuotes".
+ */
+export interface SectionQuotes {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  quotes?:
+    | {
+        /**
+         * Without the quotation marks: the page adds them.
+         */
+        quote: string;
+        name?: string | null;
+        /**
+         * A title, a business or a town: "Owner, Gulf Coast Hardware".
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionQuotes';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionStats".
+ */
+export interface SectionStats {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'tiles' | 'compare';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  stats?:
+    | {
+        /**
+         * The figure as it should read: "22,500", "79%".
+         */
+        value: string;
+        /**
+         * What it counts: "listen in a typical week".
+         */
+        text: string;
+        /**
+         * Compare only: the second figure ("43%").
+         */
+        compare?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Compare only: who the first figure is about ("NPR listeners").
+   */
+  valueLabel?: string | null;
+  /**
+   * Compare only: who the second figure is about ("Non-listeners").
+   */
+  compareLabel?: string | null;
+  /**
+   * Where the figures come from and what they are a share of: "Nielsen Audio, Pensacola metro, Spring 2026."
+   */
+  source: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionStats';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionSteps".
+ */
+export interface SectionSteps {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'grid' | 'list';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  steps?:
+    | {
+        title: string;
+        text?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionSteps';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionQuestions".
+ */
+export interface SectionQuestions {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  items?:
+    | {
+        question: string;
+        /**
+         * A blank line starts a new paragraph.
+         */
+        answer: string;
+        linkLabel?: string | null;
+        linkHref?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionQuestions';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCallout".
+ */
+export interface SectionCallout {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  variant: 'tint' | 'quote';
+  title?: string | null;
+  /**
+   * A blank line starts a new paragraph.
+   */
+  text: string;
+  /**
+   * Quote only: who said it, or where it comes from.
+   */
+  cite?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCallout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCheckList".
+ */
+export interface SectionCheckList {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  mark?: ('check' | 'cross' | 'dot') | null;
+  items?:
+    | {
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCheckList';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionTable".
+ */
+export interface SectionTable {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The column names, left to right. Press Enter after each. The first names the rows ("Daypart").
+   */
+  columns: string[];
+  rows?:
+    | {
+        /**
+         * One entry per column, in order. Type a dash for an empty cell.
+         */
+        cells: string[];
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Optional: what the table shows, for a screen reader and under the table.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionTable';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionPicker".
+ */
+export interface SectionPicker {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The first option is shown when the page opens.
+   */
+  options?:
+    | {
+        /**
+         * The choice, as a short name: "I'm new".
+         */
+        label: string;
+        /**
+         * A few words under the name on the choice.
+         */
+        hint?: string | null;
+        /**
+         * The panel's title.
+         */
+        title: string;
+        /**
+         * The panel's first sentence or two.
+         */
+        lead?: string | null;
+        /**
+         * One short line each, as a list in the panel.
+         */
+        points?: string | null;
+        /**
+         * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, so this will become a reference there.
+         */
+        price?: string | null;
+        linkLabel?: string | null;
+        linkHref?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionPicker';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionText".
+ */
+export interface SectionText {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Text, pictures, audio, video and embeds: the same blocks as a story.
+   */
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionText';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionCredit".
+ */
+export interface SectionCredit {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  /**
+   * Whose acknowledgment to show: the line comes from its underwriting agreement. Not chosen, or no running agreement: nothing is drawn. A page that is not one of these has no credit here.
+   */
+  target?:
+    | ({
+        relationTo: 'productions';
+        value: number | Production;
+      } | null)
+    | ({
+        relationTo: 'fellowships';
+        value: number | Fellowship;
+      } | null)
+    | ({
+        relationTo: 'series';
+        value: number | Series;
+      } | null);
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionCredit';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionSupport".
+ */
+export interface SectionSupport {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * The button. Empty: "Become a member".
+   */
+  label?: string | null;
+  /**
+   * A line under the button, e.g. "You will go to WUWF's secure donation form."
+   */
+  note?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionSupport';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionClosingBand".
+ */
+export interface SectionClosingBand {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    intro?: string | null;
+  };
+  /**
+   * Up to two buttons. The first is the main one.
+   */
+  actions?:
+    | {
+        label: string;
+        href: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionClosingBand';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * The structure of the page. A developer adds templates; staff fill them in.
+   */
+  template: 'standard' | 'blocks' | 'sections';
+  /**
+   * The group this page belongs to: it sets who may edit the page, its look, its sub-navigation and which section types can be added. Leave empty for a stand-alone page.
+   */
+  pageSet?: ('sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
+  /**
+   * Empty: the page set's theme.
+   */
+  theme?: 'wuwf' | null;
+  /**
+   * The page's name in its set's sub-navigation. Empty: the title.
+   */
+  navLabel?: string | null;
+  /**
+   * Lowest first. Empty: after the numbered pages.
+   */
+  navOrder?: number | null;
+  /**
+   * Ask search engines not to list this page.
+   */
+  noindex?: boolean | null;
+  /**
+   * Do not tell the sites it links to where the visitor came from.
+   */
+  noReferrer?: boolean | null;
+  sections?:
+    | (
+        | SectionFeature
+        | SectionFeaturedRecord
+        | SectionProfileBand
+        | SectionCards
+        | SectionList
+        | SectionDates
+        | SectionQuotes
+        | SectionStats
+        | SectionSteps
+        | SectionQuestions
+        | SectionCallout
+        | SectionCheckList
+        | SectionTable
+        | SectionPicker
+        | SectionText
+        | SectionCredit
+        | SectionSupport
+        | SectionClosingBand
+      )[]
+    | null;
+  /**
+   * A short lead shown under the title. Optional.
+   */
+  summary?: string | null;
+  /**
+   * Text, pictures, audio, video and embeds, the same blocks as a story.
+   */
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  hero: {
+    type: 'none' | 'highImpact' | 'mediumImpact' | 'lowImpact';
+    richText?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+    links?:
+      | {
+          link: {
+            type?: ('reference' | 'custom') | null;
+            newTab?: boolean | null;
+            reference?:
+              | ({
+                  relationTo: 'pages';
+                  value: number | Page;
+                } | null)
+              | ({
+                  relationTo: 'posts';
+                  value: number | Post;
+                } | null);
+            url?: string | null;
+            label: string;
+            /**
+             * Choose how the link should be rendered.
+             */
+            appearance?: ('default' | 'outline') | null;
+          };
+          id?: string | null;
+        }[]
+      | null;
+    media?: (number | null) | Media;
+  };
+  layout?: (CallToActionBlock | ContentBlock | MediaBlock | ArchiveBlock | FormBlock)[] | null;
+  meta?: {
+    title?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+    description?: string | null;
+  };
+  publishedAt?: string | null;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The Grove path this came from, e.g. /local-news/2026-10-16/a-story. Set by the migration and then fixed; the live address is the address field.
+     */
+    legacyPath?: string | null;
+    /**
+     * Grove's contentId for this page (a UUID). Set by the migration and then fixed; a re-run matches on it, so it cannot duplicate.
+     */
+    groveId?: string | null;
+    /**
+     * When Grove last modified this page (its dateModifiedISO). Kept apart from the date this record was last saved here.
+     */
+    modifiedAt?: string | null;
+    /**
+     * NPR's identifier for this item, when it has one.
+     */
+    nprId?: string | null;
+  };
+  /**
+   * The address this is served at, e.g. /local-news/2026-10-16/a-story. Made for you at first publish and then fixed. Only a publisher can change it; changing a live address adds a redirect from the old one.
+   */
+  path?: string | null;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

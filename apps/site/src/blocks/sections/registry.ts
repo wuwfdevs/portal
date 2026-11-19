@@ -4,6 +4,40 @@ import { isPageSetId, type PageSetId } from '@/lib/page-sets/registry'
 
 import { Cards } from './Cards/config'
 import { CardsSection } from './Cards/Component'
+import { ClosingBand } from './ClosingBand/config'
+import { ClosingBandSection } from './ClosingBand/Component'
+import { Feature } from './Feature/config'
+import { FeatureSection } from './Feature/Component'
+import { Questions } from './Questions/config'
+import { QuestionsSection } from './Questions/Component'
+import { Stats } from './Stats/config'
+import { StatsSection } from './Stats/Component'
+import { Callout } from './Callout/config'
+import { CalloutSection } from './Callout/Component'
+import { CheckList } from './CheckList/config'
+import { CheckListSection } from './CheckList/Component'
+import { Picker } from './Picker/config'
+import { PickerSection } from './Picker/Component'
+import { ProfileBand } from './ProfileBand/config'
+import { ProfileBandSection } from './ProfileBand/Component'
+import { Quotes } from './Quotes/config'
+import { QuotesSection } from './Quotes/Component'
+import { Steps } from './Steps/config'
+import { StepsSection } from './Steps/Component'
+import { Support } from './Support/config'
+import { SupportSection } from './Support/Component'
+import { Table } from './Table/config'
+import { TableSection } from './Table/Component'
+import { Credit } from './Credit/config'
+import { CreditSection } from './Credit/Component'
+import { Dates } from './Dates/config'
+import { DatesSection } from './Dates/Component'
+import { FeaturedRecord } from './FeaturedRecord/config'
+import { FeaturedRecordSection } from './FeaturedRecord/Component'
+import { List } from './List/config'
+import { ListSection } from './List/Component'
+import { Text } from './Text/config'
+import { TextSection } from './Text/Component'
 import type { SectionBlockEntry } from './types'
 
 /**
@@ -15,7 +49,26 @@ import type { SectionBlockEntry } from './types'
  * The definitions are put in the config's root `blocks` once and listed by `blockReferences` on the pages field, so the same block can be
  * offered elsewhere without growing the config.
  */
-export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [{ dir: 'Cards', block: Cards, Component: CardsSection }]
+export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
+  { dir: 'Feature', block: Feature, Component: FeatureSection },
+  { dir: 'FeaturedRecord', block: FeaturedRecord, Component: FeaturedRecordSection },
+  { dir: 'ProfileBand', block: ProfileBand, Component: ProfileBandSection },
+  { dir: 'Cards', block: Cards, Component: CardsSection },
+  { dir: 'List', block: List, Component: ListSection },
+  { dir: 'Dates', block: Dates, Component: DatesSection },
+  { dir: 'Quotes', block: Quotes, Component: QuotesSection },
+  { dir: 'Stats', block: Stats, Component: StatsSection },
+  { dir: 'Steps', block: Steps, Component: StepsSection },
+  { dir: 'Questions', block: Questions, Component: QuestionsSection },
+  { dir: 'Callout', block: Callout, Component: CalloutSection },
+  { dir: 'CheckList', block: CheckList, Component: CheckListSection },
+  { dir: 'Table', block: Table, Component: TableSection },
+  { dir: 'Picker', block: Picker, Component: PickerSection },
+  { dir: 'Text', block: Text, Component: TextSection },
+  { dir: 'Credit', block: Credit, Component: CreditSection },
+  { dir: 'Support', block: Support, Component: SupportSection },
+  { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
+]
 
 /** The blocks for the config's root `blocks`. */
 export const sectionBlockDefinitions: Block[] = SECTION_BLOCKS.map((e) => e.block)

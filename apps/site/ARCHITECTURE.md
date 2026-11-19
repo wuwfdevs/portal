@@ -154,11 +154,13 @@ An editor-composed page is a `pages` record with `template: sections` and an ord
 
 | Piece | Where | State |
 |---|---|---|
-| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields and one block (Cards) |
+| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts and the 18-block library (phase 2) |
 | Page sets: theme, edit permission, sub-navigation, which set-only blocks are offered | `src/lib/page-sets/`, `access/pages.ts`, `hooks/enforcePageSet.ts` | Built; the set's footer line is wired with the settings globals (phases 3 and 4) |
 | Page themes and tones: tokens in code, stylesheet generated, contrast tested | `src/lib/page-themes/`, `page-themes.css` | Built: the station theme; the three hub themes are named, not built |
 | The page, read by the catch-all route | `components/Page/SectionsPageView.tsx` | Built; reads the page record and the set's navigation, never the request |
-| The library (about 18 blocks), set-only blocks, the settings globals | | Specified (phases 2 to 4) |
+| The data behind the Featured record, List, Dates and Credit blocks: pure shaping, specs and cached loaders | `src/lib/section-data/` | Built (phase 2) |
+| The internal sample page: every block in every tone | `src/lib/sections-sample/`, `scripts/sections/seed-sample-page.ts` | Built; not yet on staging |
+| Set-only blocks, the settings globals | | Specified (phases 3 and 4) |
 
 A page's cache window is the route's 3600 seconds unless a block loads time-dependent data through `unstable_cache` with a shorter `revalidate`; saving a settings global or a page in a set refreshes, through cache tags, the pages that read it.
 
