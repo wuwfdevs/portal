@@ -100,11 +100,12 @@ describe('the six sponsorship pages as sections', () => {
     expect(faq.hidden).toBe(true)
     expect(JSON.stringify(faq)).toContain((g.hub!.faq!.items![0]!.question as string).slice(0, 20))
   })
-  it('hides a figures block that has no source, rather than publishing figures alone', () => {
-    const g = JSON.parse(JSON.stringify(starter)) as Sponsorship
-    g.hub!.heroSource = ''
-    const s = sponsorPagesFromGlobal(g)[0]!.sections.find((x) => x.id === 'sponsor-figures')!
-    expect(s.hidden).toBe(true)
+  it('puts the hub’s four figures and their source in the hero beside its words', () => {
+    const hero = pages[0]!.sections[0]!
+    expect(hero.tone).toBe('dark')
+    expect(hero.aside).toBe('figures')
+    expect((hero.figures as unknown[]).length).toBe(4)
+    expect(hero.asideNote).toBeTruthy()
   })
 })
 

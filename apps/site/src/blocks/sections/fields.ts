@@ -65,8 +65,18 @@ export function sectionFields(options: {
       fields: [
         { name: 'eyebrow', type: 'text' },
         { name: 'title', type: 'text' },
-        { name: 'intro', type: 'textarea' },
+        { name: 'intro', type: 'textarea', admin: { description: 'A blank line starts a new paragraph.' } },
       ],
+    })
+    fields.push({
+      name: 'placement',
+      type: 'select',
+      defaultValue: 'stacked',
+      options: [
+        { label: 'Above the content', value: 'stacked' },
+        { label: 'Beside the content (a column on the left, on a wide screen)', value: 'side' },
+      ],
+      admin: { description: 'Where the heading sits. A phone always shows it above.' },
     })
   }
   return [...fields, ...options.own]

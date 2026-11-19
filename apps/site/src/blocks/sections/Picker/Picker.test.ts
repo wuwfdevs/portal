@@ -58,3 +58,15 @@ describe('Picker section', () => {
     expect(out).not.toContain('href=')
   })
 })
+
+describe('Picker section: a panel with a total and rows', () => {
+  it('draws the total with its label and the rows with their label, name, detail and figure', () => {
+    const out = renderBlock(PickerSection, 'sectionPicker', {
+      options: [
+        { label: 'A', title: 'Panel A', total: '$1,430 a year', totalLabel: 'What it could look like', span: 'For 52 weeks.', lines: [{ label: 'On air', name: 'The Carpool Plan', detail: 'One message a week.', price: '$1,430' }] },
+        { label: 'B', title: 'Panel B' },
+      ],
+    })
+    for (const s of ['What it could look like', '$1,430 a year', 'For 52 weeks.', 'On air', 'The Carpool Plan', 'One message a week.', '$1,430']) expect(out).toContain(s)
+  })
+})

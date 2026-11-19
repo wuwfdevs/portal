@@ -23,7 +23,7 @@ export const Estimator: React.FC<{ card: RateCard; copy: EstimatorCopy }> = ({ c
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="overflow-x-auto rounded-sm border border-rule-strong bg-surface text-ink">
+      <div className="overflow-x-auto rounded-lg border border-rule-strong bg-surface text-ink">
         <table className="w-full min-w-[40rem] border-collapse text-left text-[0.9375rem]">
           <caption className="sr-only">On-air rate card: price per credit by daypart and length of commitment. Choose a row to use it in the estimate below.</caption>
           <thead>
@@ -65,7 +65,7 @@ export const Estimator: React.FC<{ card: RateCard; copy: EstimatorCopy }> = ({ c
       </div>
       {copy.note && <p className="text-sm [color:var(--tone-muted)]">{copy.note}</p>}
 
-      <div className="grid gap-6 rounded-sm border border-rule-strong bg-surface p-6 text-ink md:p-8 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid gap-6 rounded-lg border border-rule-strong bg-surface p-6 text-ink md:p-8 lg:grid-cols-[1.2fr_1fr]">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1">
             {copy.eyebrow && <span className="text-xs font-bold uppercase tracking-[0.08em] text-wuwf-blue-700">{copy.eyebrow}</span>}

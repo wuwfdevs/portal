@@ -11,7 +11,7 @@ import { LIMITS } from '@/lib/sponsorship/inquiry'
 import { SPONSOR_PATHS } from '@/lib/sponsorship/paths'
 
 const control =
-  'min-h-11 w-full rounded-sm border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-on-air-red'
+  'min-h-11 w-full rounded-lg border border-rule-strong bg-surface px-3 py-2 text-base text-ink aria-[invalid=true]:border-2 aria-[invalid=true]:border-on-air-red'
 
 export type InquiryCopy = {
   submit: string
@@ -114,7 +114,7 @@ export const Form: React.FC<{ copy: InquiryCopy; interests: string[]; budgets: s
   }
 
   return (
-    <form action={action} className="flex flex-col gap-5 rounded-sm border border-rule-strong bg-surface p-6 text-ink md:p-8" noValidate={false}>
+    <form action={action} className="flex flex-col gap-5 rounded-lg border border-rule-strong bg-surface p-6 text-ink md:p-8" noValidate={false}>
       {state.status === 'error' && state.message && (
         <div className="rounded-sm border-2 border-on-air-red bg-surface p-4" ref={summary} role="alert" tabIndex={-1}>
           <p className="font-semibold">{state.message}</p>

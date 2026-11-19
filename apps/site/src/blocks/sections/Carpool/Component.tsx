@@ -4,7 +4,7 @@ import { formatMoney } from '@/lib/sponsorship/money'
 import { perMonth } from '@/lib/sponsorship/packages'
 import { toCents } from '@/lib/sponsorship/rates'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import { SectionActions, type ActionData } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
@@ -27,13 +27,12 @@ export async function CarpoolSection({ block }: SectionProps<CarpoolData>) {
   if (prices.length === 0) return null
   const slots = block.slotsNote?.trim()
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       <dl className="grid gap-4 sm:grid-cols-2">
         {prices.map((p) => (
-          <div className="flex flex-col gap-1 rounded-sm border border-rule-strong bg-surface p-5 text-ink" key={p.key}>
+          <div className="flex flex-col gap-1 rounded-lg border p-5 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]" key={p.key}>
             <dd className="order-1 font-serif text-4xl font-bold">{formatMoney(toCents(p.price))}</dd>
-            <dt className="order-2 text-sm font-normal text-ink-2">
+            <dt className="order-2 text-sm font-normal [color:var(--tone-muted)]">
               {p.label} · {perMonth(p.price, p.months)} a month{p.note ? `, ${p.note}` : ''}
             </dt>
           </div>

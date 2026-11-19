@@ -2,7 +2,7 @@ import React from 'react'
 
 import { rateCard } from '@/lib/sponsorship/rates'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
 import { Estimator } from './Estimator'
 
@@ -25,8 +25,7 @@ export async function RateEstimatorSection({ block }: SectionProps<RateEstimator
   const card = rateCard(settings)
   if (card.rows.length === 0 || card.counts.length === 0) return null
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       <Estimator
         card={card}
         copy={{

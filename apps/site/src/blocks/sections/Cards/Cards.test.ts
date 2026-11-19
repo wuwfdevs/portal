@@ -56,3 +56,13 @@ describe('Cards section: small print and a link under the cards', () => {
     expect(html({ cards: [{ title: 'A' }], moreLabel: 'Go', moreHref: 'javascript:alert(1)' })).not.toContain('href=')
   })
 })
+
+describe('Cards section: a price that is the link', () => {
+  it('uses the price as the link when the card has no words for it, with one arrow only', () => {
+    const out = html({ cards: [{ title: 'A', price: 'From $23 a credit', href: '/sponsor/on-air' }, { title: 'B', price: 'Priced on request →', href: '/sponsor/events' }] })
+    expect(out).toContain('From $23 a credit →')
+    expect(out).toContain('Priced on request →')
+    expect(out).not.toContain('→ →')
+    expect(out).not.toContain('Read more')
+  })
+})

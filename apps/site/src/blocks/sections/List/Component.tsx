@@ -4,7 +4,7 @@ import React from 'react'
 import { listSpecOf } from '@/lib/section-data/specs'
 import type { ListItem } from '@/lib/section-data/shape'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import { safeHref } from '@/lib/section-links'
 
 import { SectionImage, SectionLink } from '../parts'
@@ -116,8 +116,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
     )
   }
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       {body}
       {more}
     </SectionBand>

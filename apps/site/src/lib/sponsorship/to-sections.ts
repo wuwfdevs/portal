@@ -62,8 +62,8 @@ type Hero = { eyebrow?: string | null; title?: string | null; body?: string | nu
 const heroActions = (hero: Hero | null | undefined, extra: Array<{ label?: string; href: string }> = []) =>
   [...(t(hero?.linkLabel) && t(hero?.linkHref) ? [{ label: t(hero?.linkLabel)!, href: t(hero?.linkHref)! }] : []), ...extra].filter((a) => a.label).slice(0, 2)
 
-const addHero = (page: Page, hero: Hero | null | undefined, actions = heroActions(hero)) =>
-  page.add('hero', 'sectionFeature', 'accent', { label: t(hero?.eyebrow), headline: t(hero?.title), line: t(hero?.body), actions }, { variant: 'hero' })
+const addHero = (page: Page, hero: Hero | null | undefined, actions = heroActions(hero), extra: Record<string, unknown> = {}, tone: Tone = 'accent') =>
+  page.add('hero', 'sectionFeature', tone, { label: t(hero?.eyebrow), headline: t(hero?.title), line: t(hero?.body), actions, ...extra }, { variant: 'hero' })
 
 type Closing = { title?: string | null; text?: string | null; label?: string | null }
 const addClosing = (page: Page, c: Closing | null | undefined) => {
@@ -86,12 +86,6 @@ const placementTable = (rows: readonly Placement[] | null | undefined) => {
 
 const TONE_DOWN = 'grey' as const
 
-/** "What it could look like: $2,000 a month · 26 weeks": a Picker panel's one price line, with the words the goal picker put above it. */
-const priceLine = (label: string | null | undefined, total: string | null | undefined, span: string | null | undefined): string | undefined => {
-  const figures = [t(total), t(span)].filter(Boolean).join(' · ')
-  return figures ? [t(label), figures].filter(Boolean).join(': ') : undefined
-}
-
 /** The six pages, in order, from the Sponsorship global. Sections an editor had switched off stay, hidden. */
 export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
   const nav = g.nav
@@ -103,28 +97,34 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
   {
     const p = pages.hub
     const h = g.hub
-    addHero(p, h?.hero, [
-      ...(t(h?.hero?.primaryLabel) ? [{ label: t(h?.hero?.primaryLabel), href: INQUIRE_HREF }] : []),
-      ...(t(h?.hero?.secondaryLabel) && !off(h?.places) ? [{ label: t(h?.hero?.secondaryLabel), href: '#places' }] : []),
-    ].slice(0, 2) as Array<{ label: string; href: string }>)
     const heroStats = statRows(h?.heroStats)
-    if (heroStats.length > 0) p.add('figures', 'sectionStats', 'plain', { stats: heroStats, source: t(h?.heroSource) }, { variant: 'tiles', hidden: !t(h?.heroSource) })
+    addHero(
+      p,
+      h?.hero,
+      [
+        ...(t(h?.hero?.primaryLabel) ? [{ label: t(h?.hero?.primaryLabel), href: INQUIRE_HREF }] : []),
+        ...(t(h?.hero?.secondaryLabel) && !off(h?.places) ? [{ label: t(h?.hero?.secondaryLabel), href: '#places' }] : []),
+      ].slice(0, 2) as Array<{ label: string; href: string }>,
+      heroStats.length > 0 ? { aside: 'figures', figures: heroStats.map((f) => ({ value: f.value, text: f.text })), asideNote: t(h?.heroSource) } : {},
+      'dark',
+    )
     if (h?.notAnAd) {
       const n = h.notAnAd
-      p.add('not-an-ad', 'sectionCards', 'plain', { ...headingOf(n), cards: cardRows(n.items), note: t(n.source), moreLabel: t(n.linkLabel), moreHref: t(n.linkLabel) ? SPONSOR_PATHS.guidelines : undefined }, { hidden: off(n) })
+      p.add('not-an-ad', 'sectionCards', 'plain', { ...headingOf(n), cards: cardRows(n.items), note: t(n.source), placement: 'side', moreLabel: t(n.linkLabel), moreHref: t(n.linkLabel) ? SPONSOR_PATHS.guidelines : undefined }, { hidden: off(n) })
     }
     if (h?.goals) {
       const gl = h.goals
+      const lineRows = (rows: ReadonlyArray<{ channel?: string | null; what?: string | null; detail?: string | null; price?: string | null }> | null | undefined) =>
+        (rows ?? []).filter((l) => t(l.what)).map((l) => clean({ label: t(l.channel), name: t(l.what), detail: t(l.detail), price: t(l.price) }))
       const options = (gl.items ?? []).filter((i) => t(i.name)).map((i) =>
         clean({
           label: t(i.name),
           title: t(i.title) ?? t(i.name),
           lead: t(i.lead),
-          points: (i.lines ?? [])
-            .filter((l) => t(l.what))
-            .map((l) => [[t(l.channel), t(l.what)].filter(Boolean).join(' · '), t(l.detail) ? `— ${t(l.detail)}` : '', t(l.price) ? `(${t(l.price)})` : ''].filter(Boolean).join(' '))
-            .join('\n'),
-          price: priceLine(gl.looksLikeLabel, i.total, i.span),
+          totalLabel: t(gl.looksLikeLabel),
+          total: t(i.total),
+          span: t(i.span),
+          lines: lineRows(i.lines),
           linkLabel: t(gl.ctaLabel),
           linkHref: t(gl.ctaLabel) ? INQUIRE_HREF : undefined,
         }),
@@ -137,8 +137,10 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
             label: t(eg?.name),
             title: t(eg?.title) ?? t(eg?.name),
             lead: t(eg?.lead),
-            points: programs.map((pr) => [`Events and programs · ${pr.name}`, summaryOf(pr.description) ? `— ${summaryOf(pr.description)}` : '', t(eg?.linePrice) ? `(${t(eg?.linePrice)})` : ''].filter(Boolean).join(' ')).join('\n'),
-            price: priceLine(gl.looksLikeLabel, eg?.total, eg?.span),
+            totalLabel: t(gl.looksLikeLabel),
+            total: t(eg?.total),
+            span: t(eg?.span),
+            lines: programs.map((pr) => clean({ label: 'Events and programs', name: pr.name, detail: summaryOf(pr.description), price: t(eg?.linePrice) })),
             linkLabel: t(gl.ctaLabel),
             linkHref: t(gl.ctaLabel) ? INQUIRE_HREF : undefined,
           }),
@@ -156,24 +158,24 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
           ...headingOf(pl),
           cards: (pl.items ?? []).filter((i) => t(i.title)).map((i) => {
             const key = (i.page ?? 'onAir') as SponsorPage
-            return clean({ title: t(i.title), text: [t(i.body), t(i.detail)].filter(Boolean).join(' '), price: t(i.price), href: SPONSOR_PATHS[key], linkLabel: `See ${navName(key)}` })
+            return clean({ title: t(i.title), text: [t(i.body), t(i.detail)].filter(Boolean).join(' '), price: t(i.price), href: SPONSOR_PATHS[key] })
           }),
         },
         { anchor: 'places', hidden: off(pl) },
       )
       if (t(pl.noteTitle)) p.add('places-note', 'sectionCallout', 'plain', { title: t(pl.noteTitle), text: t(pl.noteText) ?? t(pl.noteTitle), moreLabel: t(pl.noteLinkLabel), moreHref: t(pl.noteLinkLabel) ? `${SPONSOR_PATHS.onAir}#packages` : undefined }, { variant: 'tint', hidden: off(pl) })
     }
-    if (h?.why) p.add('why', 'sectionStats', 'dark', { ...headingOf(h.why), stats: statRows(h.why.stats), source: t(h.why.source), moreLabel: t(h.why.linkLabel), moreHref: t(h.why.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.why) || !t(h.why.source) })
+    if (h?.why) p.add('why', 'sectionStats', 'plain', { ...headingOf(h.why), placement: 'side', stats: statRows(h.why.stats), source: t(h.why.source), moreLabel: t(h.why.linkLabel), moreHref: t(h.why.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.why) || !t(h.why.source) })
     if (h?.who) p.add('who', 'sectionStats', 'plain', { ...headingOf(h.who), stats: statRows(h.who.stats), source: t(h.who.source), moreLabel: t(h.who.linkLabel), moreHref: t(h.who.linkLabel) ? SPONSOR_PATHS.audience : undefined }, { variant: 'tiles', hidden: off(h.who) || !t(h.who.source) })
     if (h?.testimonials) p.add('testimonials', 'sectionQuotes', TONE_DOWN, { ...headingOf(h.testimonials), quotes: (h.testimonials.items ?? []).filter((i) => t(i.quote)).map((i) => clean({ quote: t(i.quote), name: t(i.name), role: t(i.role) })) }, { anchor: 'testimonials', hidden: off(h.testimonials) })
-    if (h?.faq) p.add('faq', 'sectionQuestions', 'plain', { ...headingOf(h.faq), items: (h.faq.items ?? []).filter((i) => t(i.question) && t(i.answer)).map((i) => clean({ question: t(i.question), answer: t(i.answer), linkLabel: t(i.linkLabel), linkHref: t(i.linkHref) })) }, { hidden: off(h.faq) })
+    if (h?.faq) p.add('faq', 'sectionQuestions', TONE_DOWN, { ...headingOf(h.faq), placement: 'side', items: (h.faq.items ?? []).filter((i) => t(i.question) && t(i.answer)).map((i) => clean({ question: t(i.question), answer: t(i.answer), linkLabel: t(i.linkLabel), linkHref: t(i.linkHref) })) }, { hidden: off(h.faq) })
     const q = h?.inquiry
     if (q) {
       const l = q.labels
       p.add(
         'inquire',
         'sectionInquiryForm',
-        TONE_DOWN,
+        'plain',
         {
           ...headingOf(q),
           contactTitle: t(q.contactTitle),
@@ -194,8 +196,7 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
   {
     const p = pages.onAir
     const a = g.onAir
-    addHero(p, a?.hero)
-    if (t(a?.hero?.quote)) p.add('sample-credit', 'sectionCallout', 'plain', { title: t(a?.hero?.quoteLabel), text: `“${t(a?.hero?.quote)}”`, cite: t(a?.hero?.quoteNote) }, { variant: 'quote' })
+    addHero(p, a?.hero, heroActions(a?.hero), t(a?.hero?.quote) ? { aside: 'quote', asideLabel: t(a?.hero?.quoteLabel), asideText: `“${t(a?.hero?.quote)}”`, asideNote: t(a?.hero?.quoteNote) } : {})
     if (a?.credit) {
       const c = a.credit
       p.add(
@@ -206,7 +207,7 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
         { hidden: off(c) },
       )
     }
-    if (a?.buy) p.add('buy', 'sectionCards', TONE_DOWN, { ...headingOf(a.buy), cards: (a.buy.items ?? []).filter((i) => t(i.title)).map((i) => clean({ title: t(i.title), text: t(i.text), price: t(i.price), href: `#${i.anchor ?? 'rates'}`, linkLabel: `${t(i.title)} →` })) }, { hidden: off(a.buy) })
+    if (a?.buy) p.add('buy', 'sectionCards', TONE_DOWN, { ...headingOf(a.buy), cards: (a.buy.items ?? []).filter((i) => t(i.title)).map((i) => clean({ title: t(i.title), text: t(i.text), price: t(i.price), href: `#${i.anchor ?? 'rates'}` })) }, { hidden: off(a.buy) })
     if (a?.rates) {
       const r = a.rates
       p.add('rates', 'sectionRateEstimator', 'plain', { ...headingOf(r), note: t(r.note), estimatorEyebrow: t(r.estimatorEyebrow), estimatorTitle: t(r.estimatorTitle), commitmentLabel: t(r.commitmentLabel), creditsLabel: t(r.creditsLabel), estimatorDisclaimer: t(r.estimatorDisclaimer), estimatorCta: t(r.estimatorCta) }, { anchor: 'rates', hidden: off(r) })
@@ -244,8 +245,14 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
     if (d?.newsletter) p.add('newsletter', 'sectionTable', 'plain', { ...headingOf(d.newsletter), ...placementTable(d.newsletter.placements) }, { hidden: off(d.newsletter) })
     if (d?.package) {
       const k = d.package
-      const price = typeof k.price === 'number' ? `${formatMoney(toCents(k.price))}${t(k.priceSuffix) ? ` ${t(k.priceSuffix)}` : ''}` : undefined
-      p.add('package', 'sectionFeature', 'lime', { label: t(k.eyebrow), headline: t(k.title), line: [t(k.body), price].filter(Boolean).join('\n\n') }, { variant: 'split', hidden: off(k) })
+      const price = typeof k.price === 'number' && t(k.priceSuffix) ? true : undefined
+      p.add(
+        'package',
+        'sectionFeature',
+        'lime',
+        { label: t(k.eyebrow), headline: t(k.title), line: t(k.body), ...(price ? { aside: 'figures', figures: [{ value: formatMoney(toCents(k.price)), text: t(k.priceSuffix) ?? '' }].filter((f) => f.text) } : {}) },
+        { variant: 'split', hidden: off(k) },
+      )
     }
     if (d?.rules) p.add('rules', 'sectionCards', 'plain', { ...headingOf(d.rules), cards: cardRows(d.rules.items) }, { hidden: off(d.rules) })
     addClosing(p, d?.closing)
@@ -290,13 +297,13 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
     }
     if (a?.sectors) {
       const s = a.sectors
-      const line = (label: string | null | undefined, st: Stat) => `${t(label) ? `${t(label)}: ` : ''}${t(st.value)} ${t(st.text)}`
+      const sectorLines = (label: string | null | undefined, rows: readonly Stat[] | null | undefined) => statRows(rows).map((st) => clean({ label: t(label), name: st.text, price: st.value }))
       const options = (s.items ?? []).filter((i) => t(i.name)).map((i) =>
         clean({
           label: t(i.name),
           title: t(i.title) ?? t(i.name),
           lead: t(i.lead),
-          points: [...statRows(i.local).map((st) => line(s.localLabel, st)), ...statRows(i.national).map((st) => line(s.nationalLabel, st))].join('\n'),
+          lines: [...sectorLines(s.localLabel, i.local), ...sectorLines(s.nationalLabel, i.national)],
           linkLabel: t(s.talkLabel) ? fill(s.talkLabel, { short: t(i.short) ?? t(i.name)! }) : undefined,
           linkHref: t(s.talkLabel) ? INQUIRE_HREF : undefined,
         }),
@@ -312,8 +319,25 @@ export function sponsorPagesFromGlobal(g: Sponsorship): PageRecord[] {
     const p = pages.guidelines
     const gd = g.guidelines
     addHero(p, gd?.hero)
-    if (gd?.includes) p.add('includes', 'sectionCheckList', 'plain', { heading: clean({ eyebrow: t(gd.includes.eyebrow), title: t(gd.includes.title) }), mark: 'check', items: (gd.includes.items ?? []).filter((i) => t(i.text)).map((i) => ({ text: t(i.text)! })) }, { anchor: 'includes', hidden: off(gd.includes) })
-    if (gd?.leavesOut) p.add('leaves-out', 'sectionCheckList', TONE_DOWN, { heading: clean({ eyebrow: t(gd.leavesOut.eyebrow), title: t(gd.leavesOut.title) }), mark: 'cross', items: (gd.leavesOut.items ?? []).filter((i) => t(i.heading)).map((i) => ({ text: [t(i.heading), t(i.examples)].filter(Boolean).join(': ') })) }, { anchor: 'leaves-out', hidden: off(gd.leavesOut) })
+    const inc = gd?.includes
+    const lv = gd?.leavesOut
+    const incItems = (inc?.items ?? []).filter((i) => t(i.text)).map((i) => ({ text: t(i.text)! }))
+    const lvItems = (lv?.items ?? []).filter((i) => t(i.heading)).map((i) => clean({ text: t(i.heading), detail: t(i.examples) }))
+    if (inc || lv) {
+      p.add(
+        'includes',
+        'sectionCheckList',
+        'plain',
+        {
+          heading: clean({ eyebrow: t(inc?.eyebrow) ?? t(lv?.eyebrow) }),
+          listTitle: t(inc?.title),
+          mark: 'check',
+          items: incItems,
+          second: lvItems.length > 0 ? clean({ title: t(lv?.title), mark: 'cross', items: lvItems }) : undefined,
+        },
+        { anchor: 'includes', hidden: off(inc) && off(lv) },
+      )
+    }
     if (gd?.side) {
       const s = gd.side
       p.add('side', 'sectionTable', 'plain', { ...headingOf(s), columns: [t(s.adLabel) ?? 'An ad', t(s.creditLabel) ?? 'A credit'], rows: (s.pairs ?? []).filter((r) => t(r.ad) || t(r.credit)).map((r) => ({ cells: [t(r.ad) ?? '–', t(r.credit) ?? '–'] })) }, { hidden: off(s) })

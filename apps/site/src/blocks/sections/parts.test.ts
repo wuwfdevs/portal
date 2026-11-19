@@ -18,7 +18,7 @@ describe('SectionActions and SectionLink', () => {
     const out = actions([{ label: 'One', href: '/one' }, { label: 'Two', href: 'https://example.org/two' }])
     expect(out.indexOf('One')).toBeLessThan(out.indexOf('Two'))
     expect(out).toContain('--tone-button')
-    expect(out).toContain('border-2')
+    expect(out).toContain('--tone-ghost')
     expect(out).toContain('rel="noopener noreferrer"')
   })
   it('draws nothing for no buttons, an unsafe address, a missing label, or an empty list', () => {

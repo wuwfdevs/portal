@@ -18,6 +18,11 @@ export interface FeatureData extends SectionData {
   audio?: unknown
   ratio?: string | null
   imageSide?: string | null
+  aside?: string | null
+  figures?: Array<{ id?: string | null; value?: string | null; text?: string | null } | null> | null
+  asideLabel?: string | null
+  asideText?: string | null
+  asideNote?: string | null
 }
 
 const RATIO_CLASS: Record<string, string> = { portrait: 'aspect-[4/5]', standard: 'aspect-[4/3]', wide: 'aspect-video' }
@@ -40,10 +45,10 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       {split ? (
         <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
       ) : (
-        <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight md:text-6xl">{headline}</h1>
+        <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight md:text-[3.5rem]">{headline}</h1>
       )}
       {lines.length > 0 && (
-        <div className="flex max-w-2xl flex-col gap-3 text-lg md:text-xl">
+        <div className="flex max-w-3xl flex-col gap-3 text-lg md:text-[1.1875rem] md:leading-normal">
           {lines.map((l) => (
             <p key={l}>{l}</p>
           ))}
@@ -54,7 +59,40 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
     </div>
   )
 
+  const figures = (block.figures ?? []).filter((f): f is NonNullable<typeof f> => Boolean(f?.value?.trim() && f.text?.trim()))
+  const asideNote = block.asideNote?.trim()
+  const quote = block.asideText?.trim()
+  const aside =
+    block.aside === 'figures' && figures.length > 0 ? (
+      <div className="flex flex-col gap-3">
+        <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
+          {figures.map((f, i) => (
+            <li className="flex flex-col gap-1.5 rounded-lg border p-4 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]" key={f.id ?? i}>
+              <span className="font-serif text-3xl font-bold leading-none">{f.value}</span>
+              <span className="text-sm">{f.text}</span>
+            </li>
+          ))}
+        </ul>
+        {asideNote && <p className="text-xs [color:var(--tone-muted)]">{asideNote}</p>}
+      </div>
+    ) : block.aside === 'quote' && quote ? (
+      <figure className="m-0 flex flex-col gap-3 rounded-lg border p-6 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]">
+        {block.asideLabel?.trim() && <figcaption className={eyebrowClass}>{block.asideLabel}</figcaption>}
+        <blockquote className="m-0 font-serif text-xl leading-snug">{quote}</blockquote>
+        {asideNote && <p className="text-sm [color:var(--tone-muted)]">{asideNote}</p>}
+      </figure>
+    ) : null
   if (split) {
+    if (aside && !hasImage) {
+      return (
+        <SectionBand block={block}>
+          <div className="grid items-center gap-8 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
+            {words}
+            {aside}
+          </div>
+        </SectionBand>
+      )
+    }
     return (
       <SectionBand block={block}>
         <div className={cn('grid items-center gap-8 md:grid-cols-2 md:gap-12', !hasImage && 'md:grid-cols-1')}>
@@ -70,7 +108,14 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
   }
   return (
     <SectionBand block={block}>
-      {words}
+      {aside ? (
+        <div className="grid items-center gap-8 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
+          {words}
+          {aside}
+        </div>
+      ) : (
+        words
+      )}
       {hasImage && (
         <div className="aspect-video overflow-hidden rounded-sm">
           <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" priority />

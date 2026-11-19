@@ -66,3 +66,20 @@ describe('Feature section: a line of several paragraphs', () => {
     expect(out).toContain('<p>Second paragraph.</p>')
   })
 })
+
+describe('Feature section: a panel beside the hero', () => {
+  it('draws up to four figures and their note beside the words', () => {
+    const out = html({ variant: 'hero', headline: 'H', aside: 'figures', figures: [{ value: '22,500', text: 'listen weekly' }, { value: '79%', text: 'think highly' }, { value: '', text: 'no number' }], asideNote: 'Source: Nielsen.' })
+    expect(out).toContain('22,500')
+    expect(out).toContain('79%')
+    expect(out).not.toContain('no number')
+    expect(out).toContain('Source: Nielsen.')
+  })
+  it('draws a sample sentence in a card, and nothing when the aside is none or empty', () => {
+    const out = html({ variant: 'hero', headline: 'H', aside: 'quote', asideLabel: 'What it sounds like', asideText: '“Support comes from Example.”', asideNote: 'Not a real sponsor.' })
+    expect(out).toContain('What it sounds like')
+    expect(out).toContain('Support comes from Example.')
+    expect(html({ variant: 'hero', headline: 'H', aside: 'none', figures: [{ value: '1', text: 'a' }] })).not.toContain('<li')
+    expect(html({ variant: 'hero', headline: 'H', aside: 'quote' })).not.toContain('<figure')
+  })
+})

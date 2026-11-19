@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
 
 export interface StepsData extends SectionData {
@@ -13,8 +13,7 @@ export function StepsSection({ block }: SectionProps<StepsData>) {
   if (rows.length === 0) return null
   const list = block.variant === 'list'
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading}>
       {list ? (
         <ol className="flex max-w-3xl list-none flex-col gap-4 p-0">
           {rows.map((s, i) => (

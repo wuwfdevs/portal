@@ -17,6 +17,10 @@ describe('page themes: contrast', () => {
         expect(contrastRatio(c(s.text), c(s.ground))).toBeGreaterThanOrEqual(4.5)
         expect(contrastRatio(c(s.muted), c(s.ground))).toBeGreaterThanOrEqual(4.5)
       })
+      it(`${theme.id} / ${tone}: the accent and the outlined button's colour are 4.5:1 on the ground (they are text)`, () => {
+        expect(contrastRatio(c(s.accent), c(s.ground))).toBeGreaterThanOrEqual(4.5)
+        expect(contrastRatio(c(s.ghost), c(s.ground))).toBeGreaterThanOrEqual(4.5)
+      })
       it(`${theme.id} / ${tone}: the button's text is 4.5:1 on its fill, and its fill is 3:1 against the ground`, () => {
         expect(contrastRatio(c(s.buttonText), c(s.buttonFill))).toBeGreaterThanOrEqual(4.5)
         expect(contrastRatio(c(s.buttonFill), c(s.ground))).toBeGreaterThanOrEqual(3)

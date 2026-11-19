@@ -23,8 +23,8 @@ export function CalloutSection({ block }: SectionProps<CalloutData>) {
     const cite = block.cite?.trim()
     return (
       <SectionBand block={block}>
-        <figure className="flex max-w-3xl flex-col gap-3 border-l-4 py-2 pl-6 [border-color:var(--tone-rule)]">
-          {title && <figcaption className="text-sm font-bold uppercase tracking-wider [color:var(--tone-muted)]">{title}</figcaption>}
+        <figure className="m-0 flex max-w-3xl flex-col gap-3 rounded-sm p-6 [background-color:var(--tone-tint)]">
+          {title && <figcaption className="text-xs font-bold uppercase tracking-[0.08em] [color:var(--tone-accent)]">{title}</figcaption>}
           <blockquote className="flex flex-col gap-3 font-serif text-2xl leading-snug">
             {paras.map((p) => (
               <p key={p}>{p}</p>
@@ -38,11 +38,15 @@ export function CalloutSection({ block }: SectionProps<CalloutData>) {
   }
   return (
     <SectionBand block={block}>
-      <div className="flex max-w-3xl flex-col gap-2 rounded-sm border p-6 [background-color:color-mix(in_srgb,var(--tone-text)_8%,transparent)] [border-color:var(--tone-rule)]">
-        {title && <h2 className="font-serif text-2xl font-bold">{title}</h2>}
-        {paras.map((p) => (
-          <p key={p}>{p}</p>
-        ))}
+      <div className="flex flex-col gap-4 rounded-sm p-6 md:flex-row md:items-center md:justify-between md:gap-8 [background-color:var(--tone-tint)]">
+        <div className="flex max-w-3xl flex-col gap-2">
+          {title && <h2 className="font-serif text-xl font-bold leading-tight">{title}</h2>}
+          {paras.map((p) => (
+            <p className="text-base" key={p}>
+              {p}
+            </p>
+          ))}
+        </div>
         <SectionMore block={block} />
       </div>
     </SectionBand>

@@ -33,6 +33,30 @@ export const Feature = defineSection({
       { name: 'image', type: 'upload', relationTo: 'media', admin: { description: 'Its description (alt text) is what a screen reader says.' } },
       { name: 'audio', type: 'upload', relationTo: 'audio', admin: { description: 'Optional. A play button that hands the audio to the site\'s player.' } },
       {
+        name: 'aside',
+        type: 'select',
+        defaultValue: 'none',
+        options: [
+          { label: 'Nothing beside the words', value: 'none' },
+          { label: 'Figures: up to four tiles beside the words', value: 'figures' },
+          { label: 'A sample sentence in a card beside the words', value: 'quote' },
+        ],
+        admin: { description: 'A panel beside the words (for the split, when it has no picture).' },
+      },
+      {
+        name: 'figures',
+        type: 'array',
+        maxRows: 4,
+        admin: { condition: (_, s) => s?.aside === 'figures' },
+        fields: [
+          { name: 'value', type: 'text', required: true },
+          { name: 'text', type: 'text', required: true },
+        ],
+      },
+      { name: 'asideLabel', type: 'text', admin: { description: 'The small label on the card.', condition: (_, s) => s?.aside === 'quote' } },
+      { name: 'asideText', type: 'textarea', admin: { description: 'The sentence, with its quotation marks if it has them.', condition: (_, s) => s?.aside === 'quote' } },
+      { name: 'asideNote', type: 'textarea', admin: { description: 'Small print under the tiles or the card: a source, a note.', condition: (_, s) => s?.aside !== 'none' && Boolean(s?.aside) } },
+      {
         name: 'ratio',
         type: 'select',
         defaultValue: 'standard',

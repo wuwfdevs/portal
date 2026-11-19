@@ -6,8 +6,16 @@
   --tone-rule: var(--color-rule);
   --tone-button: var(--color-wuwf-blue-700);
   --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-blue-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="plain"] + [data-tone="plain"] {
+  padding-top: 0;
 }
 [data-page-theme="wuwf"] [data-tone="grey"] {
   --tone-ground: var(--color-surface-2);
@@ -16,8 +24,16 @@
   --tone-rule: var(--color-rule-strong);
   --tone-button: var(--color-wuwf-blue-700);
   --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-blue-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="grey"] + [data-tone="grey"] {
+  padding-top: 0;
 }
 [data-page-theme="wuwf"] [data-tone="accent"] {
   --tone-ground: var(--color-wuwf-blue-100);
@@ -26,8 +42,16 @@
   --tone-rule: var(--color-rule-strong);
   --tone-button: var(--color-wuwf-blue-700);
   --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-surface);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="accent"] + [data-tone="accent"] {
+  padding-top: 0;
 }
 [data-page-theme="wuwf"] [data-tone="dark"] {
   --tone-ground: var(--color-surface-dark);
@@ -36,8 +60,16 @@
   --tone-rule: var(--color-surface-dark-line);
   --tone-button: var(--color-wuwf-lime);
   --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="dark"] + [data-tone="dark"] {
+  padding-top: 0;
 }
 [data-page-theme="wuwf"] [data-tone="teal"] {
   --tone-ground: var(--color-wuwf-teal);
@@ -46,8 +78,16 @@
   --tone-rule: var(--color-surface-dark-line);
   --tone-button: var(--color-wuwf-lime);
   --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="teal"] + [data-tone="teal"] {
+  padding-top: 0;
 }
 [data-page-theme="wuwf"] [data-tone="lime"] {
   --tone-ground: var(--color-wuwf-lime);
@@ -56,6 +96,14 @@
   --tone-rule: var(--color-ink-3);
   --tone-button: var(--color-ink);
   --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-ink);
+  --tone-ghost: var(--color-ink);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-ink-3);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
   background-color: var(--tone-ground);
   color: var(--tone-text);
+}
+[data-page-theme="wuwf"] [data-tone="lime"] + [data-tone="lime"] {
+  padding-top: 0;
 }

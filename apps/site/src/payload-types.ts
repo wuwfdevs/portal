@@ -298,6 +298,29 @@ export interface SectionFeature {
    */
   audio?: (number | null) | Audio;
   /**
+   * A panel beside the words (for the split, when it has no picture).
+   */
+  aside?: ('none' | 'figures' | 'quote') | null;
+  figures?:
+    | {
+        value: string;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * The small label on the card.
+   */
+  asideLabel?: string | null;
+  /**
+   * The sentence, with its quotation marks if it has them.
+   */
+  asideText?: string | null;
+  /**
+   * Small print under the tiles or the card: a source, a note.
+   */
+  asideNote?: string | null;
+  /**
    * Split only.
    */
   ratio?: ('portrait' | 'standard' | 'wide') | null;
@@ -1438,8 +1461,15 @@ export interface SectionProfileBand {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * About only. A blank line starts a new paragraph.
    */
@@ -1483,8 +1513,15 @@ export interface SectionCards {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   cards?:
     | {
         title: string;
@@ -1539,8 +1576,15 @@ export interface SectionList {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   source: 'stories' | 'episodes' | 'videos' | 'artists';
   /**
    * Stories only.
@@ -1583,8 +1627,15 @@ export interface SectionDates {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   source: 'typed' | 'radiolive' | 'events';
   /**
    * The most dates to show, 1 to 12. The soonest come first.
@@ -1637,8 +1688,15 @@ export interface SectionQuotes {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   quotes?:
     | {
         /**
@@ -1678,8 +1736,15 @@ export interface SectionStats {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   stats?:
     | {
         /**
@@ -1739,8 +1804,15 @@ export interface SectionSteps {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   steps?:
     | {
         title: string;
@@ -1772,8 +1844,15 @@ export interface SectionQuestions {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   items?:
     | {
         question: string;
@@ -1846,15 +1925,47 @@ export interface SectionCheckList {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Optional: a title over the list, e.g. "A credit includes".
+   */
+  listTitle?: string | null;
   mark?: ('check' | 'cross' | 'dot') | null;
   items?:
     | {
         text: string;
+        /**
+         * Optional: a smaller line under it, e.g. examples.
+         */
+        detail?: string | null;
         id?: string | null;
       }[]
     | null;
+  /**
+   * Optional.
+   */
+  second?: {
+    /**
+     * e.g. "A credit leaves out".
+     */
+    title?: string | null;
+    mark?: ('check' | 'cross' | 'dot') | null;
+    items?:
+      | {
+          text: string;
+          detail?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionCheckList';
@@ -1879,8 +1990,15 @@ export interface SectionTable {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * The column names, left to right. Press Enter after each. The first names the rows ("Daypart").
    */
@@ -1922,8 +2040,15 @@ export interface SectionPicker {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * The first option is shown when the page opens.
    */
@@ -1949,6 +2074,36 @@ export interface SectionPicker {
          * One short line each, as a list in the panel.
          */
         points?: string | null;
+        /**
+         * Small words over the total, e.g. "What it could look like".
+         */
+        totalLabel?: string | null;
+        /**
+         * A big figure typed as it should read, e.g. "$1,430 a year".
+         */
+        total?: string | null;
+        /**
+         * A line under the total.
+         */
+        span?: string | null;
+        /**
+         * Optional rows on the right of the panel: a small label, a name, a detail and a figure on the right.
+         */
+        lines?:
+          | {
+              /**
+               * Small capitals over the name, e.g. "On air".
+               */
+              label?: string | null;
+              name: string;
+              detail?: string | null;
+              /**
+               * Typed as it should read.
+               */
+              price?: string | null;
+              id?: string | null;
+            }[]
+          | null;
         /**
          * Typed as it should read, e.g. "From $23 a credit". Prices that change live in a settings page, so this will become a reference there.
          */
@@ -1982,8 +2137,15 @@ export interface SectionText {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * Text, pictures, audio, video and embeds: the same blocks as a story.
    */
@@ -2063,8 +2225,15 @@ export interface SectionSupport {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * The button. Empty: "Become a member".
    */
@@ -2097,8 +2266,15 @@ export interface SectionClosingBand {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * Up to two buttons. The first is the main one.
    */
@@ -2133,8 +2309,15 @@ export interface SectionRateEstimator {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * Printed under the rate card.
    */
@@ -2181,8 +2364,15 @@ export interface SectionPackages {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * Printed above each package number, e.g. "Package".
    */
@@ -2215,8 +2405,15 @@ export interface SectionCarpool {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * Shown by the one-year price, e.g. "or about $4 a day".
    */
@@ -2256,8 +2453,15 @@ export interface SectionOpenPrograms {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * The heading when one program is open. Empty: the heading above is used.
    */
@@ -2304,8 +2508,15 @@ export interface SectionInquiryForm {
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
     intro?: string | null;
   };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
   /**
    * The line above the phone number and address, e.g. "Prefer to talk?".
    */

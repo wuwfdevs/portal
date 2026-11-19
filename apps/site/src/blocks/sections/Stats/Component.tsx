@@ -1,8 +1,9 @@
 import React from 'react'
 
 import { toStats } from '@/lib/page-content'
+import { cn } from '@/utilities/ui'
 
-import { SectionBand, SectionHeading } from '../SectionBand'
+import { SectionBand } from '../SectionBand'
 import { SectionMore } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
@@ -10,6 +11,7 @@ export interface StatsData extends SectionData {
   stats?: Array<{ id?: string | null; value?: string | null; text?: string | null; compare?: string | null } | null> | null
   valueLabel?: string | null
   compareLabel?: string | null
+  placement?: string | null
   source?: string | null
   moreLabel?: string | null
   moreHref?: string | null
@@ -29,8 +31,7 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
   const source = block.source?.trim()
   const compare = block.variant === 'compare'
   return (
-    <SectionBand block={block}>
-      <SectionHeading heading={block.heading} />
+    <SectionBand block={block} heading={block.heading} more={<SectionMore block={block} />}>
       {compare ? (
         <ul className="flex list-none flex-col gap-8 p-0">
           {rows.map((r, i) => {
@@ -46,19 +47,18 @@ export function StatsSection({ block }: SectionProps<StatsData>) {
           })}
         </ul>
       ) : (
-        <ul className={`grid list-none gap-6 p-0 sm:grid-cols-2 ${rows.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        <ul className={cn('grid list-none gap-4 p-0 sm:grid-cols-2', block.placement === 'side' ? 'xl:grid-cols-3' : rows.length % 4 === 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
           {rows.map((r, i) => (
-            <li className="flex flex-col gap-2 border-t-4 pt-4 [border-color:var(--tone-rule)]" key={`${r.text}-${i}`}>
-              <span className="font-serif text-5xl font-bold leading-none">{r.value}</span>
-              <span className="text-lg">{r.text}</span>
-              {r.compare && <span className="text-base [color:var(--tone-muted)]">{r.compare}</span>}
+            <li className="flex flex-col gap-1.5 rounded-lg border p-5 [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]" key={`${r.text}-${i}`}>
+              <span className="font-serif text-4xl font-bold leading-none">{r.value}</span>
+              <span className="text-base">{r.text}</span>
+              {r.compare && <span className="text-sm [color:var(--tone-muted)]">{r.compare}</span>}
             </li>
           ))}
         </ul>
       )}
       {source && <p className="max-w-4xl text-sm [color:var(--tone-muted)]">{source}</p>}
-      <SectionMore block={block} />
-    </SectionBand>
+          </SectionBand>
   )
 }
 
@@ -72,7 +72,7 @@ function Bar({ label, value, pct, muted }: { label?: string | null; value: strin
       </div>
       {pct !== null && (
         <div aria-hidden="true" className="h-3 w-full overflow-hidden rounded-sm border [border-color:var(--tone-rule)]">
-          <div className="h-full" style={{ width: `${pct}%`, backgroundColor: muted ? 'var(--tone-rule)' : 'var(--tone-button)' }} />
+          <div className="h-full rounded-[2px]" style={{ width: `${pct}%`, backgroundColor: muted ? 'var(--tone-card-rule)' : 'var(--tone-accent)' }} />
         </div>
       )}
     </div>

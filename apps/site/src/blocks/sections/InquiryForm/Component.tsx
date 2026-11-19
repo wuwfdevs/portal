@@ -3,6 +3,7 @@ import React from 'react'
 import { paragraphs, phoneHref } from '@/lib/page-content'
 
 import { SectionBand } from '../SectionBand'
+import { eyebrowClass } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 import { Form } from './Form'
 
@@ -34,7 +35,7 @@ export async function InquiryFormSection({ block }: SectionProps<InquiryFormData
     <SectionBand block={block}>
       <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr]">
         <div className="flex flex-col gap-3">
-          {t(heading?.eyebrow) && <p className="text-sm font-bold uppercase tracking-wider [color:var(--tone-muted)]">{heading?.eyebrow}</p>}
+          {t(heading?.eyebrow) && <p className={eyebrowClass}>{heading?.eyebrow}</p>}
           {t(heading?.title) && <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{heading?.title}</h2>}
           {intro.length > 0 && (
             <div className="flex flex-col gap-2 text-lg [color:var(--tone-muted)]">
@@ -43,12 +44,12 @@ export async function InquiryFormSection({ block }: SectionProps<InquiryFormData
               ))}
             </div>
           )}
-          <p className="text-base">
+          <p className="flex flex-col gap-1 rounded-lg border p-4 text-base [background-color:var(--tone-card)] [border-color:var(--tone-card-rule)]">
             {t(block.contactTitle) && <strong className="block">{block.contactTitle}</strong>}
             {settings.phone && (
               <>
                 {tel ? (
-                  <a className="font-bold underline" href={tel}>
+                  <a className="font-bold underline [color:var(--tone-accent)]" href={tel}>
                     {settings.phone}
                   </a>
                 ) : (
