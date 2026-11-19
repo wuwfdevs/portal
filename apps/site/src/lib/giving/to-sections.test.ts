@@ -117,6 +117,15 @@ describe('the four giving pages as sections', () => {
     expect(monthly.hidden).toBe(true)
     expect(pages[0]!.sections.find((s) => s.id.endsWith('-monthly'))!.hidden).toBe(false)
   })
+  it('give the block that carries a page’s headline one even when an editor had cleared the opening title, so the migration can publish it', () => {
+    const cleared = givingPagesFromGlobal({ give: { hero: { eyebrow: 'Give' } }, ways: { hero: { eyebrow: 'Ways' } }, legacy: { hero: { eyebrow: 'Legacy' } }, thanks: {} } as SupportPage)
+    expect(cleared.slice(0, 3).map((p) => [p.title, p.sections[0]!.headline])).toEqual([
+      ['Give to WUWF', 'Give to WUWF'],
+      ['Other ways to give to WUWF', 'Other ways to give to WUWF'],
+      ['Leave a legacy to WUWF', 'Leave a legacy to WUWF'],
+    ])
+    expect(cleared[3]!.sections[0]!.title).toBe('Thank you')
+  })
   it('leave out what has nothing to show (no contact title, no sample quote, no fellowships title)', () => {
     const bare = givingPagesFromGlobal({ ways: { hero: { title: 'Ways' } }, legacy: { hero: { title: 'Legacy' } }, give: { hero: { title: 'Give' } }, thanks: {} } as SupportPage)
     expect(bare[1]!.sections.map((s) => s.blockType)).toEqual(['sectionWaysToGive'])

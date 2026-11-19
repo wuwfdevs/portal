@@ -17,6 +17,9 @@ const DEFAULT_NAV: Record<'give' | 'legacy' | 'ways', string> = { give: 'Members
 /** The order of the strip under the header: Membership, Leave a legacy, Other ways to give (as the old strip listed them). */
 const NAV_ORDER: Record<'give' | 'legacy' | 'ways', number> = { give: 1, legacy: 2, ways: 3 }
 
+/** What a page is called when an editor had cleared its opening title: a headline is required on the block that carries it, so the migration never writes one without. */
+const TITLES = { give: 'Give to WUWF', ways: 'Other ways to give to WUWF', legacy: 'Leave a legacy to WUWF' } as const
+
 class Page extends SectionsPage {
   constructor(key: GivingPage) {
     super(SLUGS[key])
@@ -63,7 +66,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
       'dark',
       {
         label: t(give?.hero?.eyebrow),
-        headline: t(give?.hero?.title),
+        headline: t(give?.hero?.title) ?? TITLES.give,
         line: t(give?.hero?.body),
         assurances: lineTexts(give?.hero?.assurances).map((text) => ({ text })),
         card: clean({
@@ -169,7 +172,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
     out.push({
       slug: SLUGS.give,
       path: GIVING_PATHS.give,
-      title: t(give?.hero?.title) ?? 'Give to WUWF',
+      title: t(give?.hero?.title) ?? TITLES.give,
       navLabel: navName('give'),
       navOrder: NAV_ORDER.give,
       description: paragraphs(give?.hero?.body)[0] ?? 'Become a WUWF member, give in the way that fits your life, or fund reporting for Northwest Florida.',
@@ -188,7 +191,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
       'grey',
       {
         label: t(w?.hero?.eyebrow),
-        headline: t(w?.hero?.title),
+        headline: t(w?.hero?.title) ?? TITLES.ways,
         line: t(w?.hero?.body),
         groups: rows(w?.groups, (r) => Boolean(r.key && t(r.label)), (r) => ({ key: r.key, label: t(r.label), best: t(r.best), effort: t(r.effort) })),
         panels: rows(
@@ -224,7 +227,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
     out.push({
       slug: SLUGS.ways,
       path: GIVING_PATHS.ways,
-      title: t(w?.hero?.title) ?? 'Other ways to give to WUWF',
+      title: t(w?.hero?.title) ?? TITLES.ways,
       navLabel: navName('ways'),
       navOrder: NAV_ORDER.ways,
       description: paragraphs(w?.hero?.body)[0] ?? '',
@@ -243,7 +246,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
       'dark',
       {
         label: t(l?.hero?.eyebrow),
-        headline: t(l?.hero?.title),
+        headline: t(l?.hero?.title) ?? TITLES.legacy,
         line: t(l?.hero?.body),
         cardTitle: t(card?.title),
         cardText: t(card?.text),
@@ -279,7 +282,7 @@ export function givingPagesFromGlobal(g: SupportPage): PageRecord[] {
     out.push({
       slug: SLUGS.legacy,
       path: GIVING_PATHS.legacy,
-      title: t(l?.hero?.title) ?? 'Leave a legacy to WUWF',
+      title: t(l?.hero?.title) ?? TITLES.legacy,
       navLabel: navName('legacy'),
       navOrder: NAV_ORDER.legacy,
       description: paragraphs(l?.hero?.body)[0] ?? '',
