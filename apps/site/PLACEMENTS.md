@@ -101,7 +101,10 @@ can be aimed: **only the pages chosen** (sections, topics, reporters, the all-st
 - **What is left out of a page:** a placement that is off, outside its dates, missing its picture, with an unsafe address, aimed elsewhere, or past the zone's
   capacity. The rest close up.
 - **When a change shows:** saving, deleting or switching one refreshes every page that reads placements. A **first or last day** takes effect when the page
-  next refreshes (the home page within five minutes, a section or list page within the hour), not at the stroke of midnight.
+  next refreshes (the home page within five minutes, a section or list page within the hour), **and a scheduled refresh just after Central midnight** (`/api/placements/day-boundary`,
+  called at 05:05 and 06:05 UTC by `vercel.json`, so it lands after the station's midnight in both summer and winter) redraws the pages that read placements, so a flat-rate
+  sponsor whose week starts on Monday starts on Monday. **An exclusive place (a top unit) is booked by dates**: the admin refuses a second placement for the same place and page
+  whose dates overlap one already booked, naming it (`lib/placements/conflicts.ts`), and lets next week's sponsor be booked while this week's runs.
 
 ## Where the placements come from
 
