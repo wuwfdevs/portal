@@ -48,16 +48,16 @@ function Cover({ card, className, label }: { card: PodcastCard; className: strin
   )
 }
 
-/** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
-export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
+/**
+ * The podcasts' content: one show with its newest episode to play here (with its funder line), and more shows beside it. The band, heading and container around it are the
+ * caller's: the coded home page's `PodcastsSlot` and the Show spotlight block draw it the same way.
+ */
+export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
   const { featured, acknowledgments, others } = slot
   const ep = featured.latest
   const track = trackFromAudio(audioOf(ep), { title: ep.title, href: ep.path })
   return (
-    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
-      <div className="container flex flex-col gap-6">
-        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} rule={false} title="Podcasts made in Pensacola" />
-        <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
           <article className="flex flex-col gap-6 rounded-md border border-rule bg-surface p-6 sm:flex-row">
             {featured.show.path ? (
               <Link aria-label={featured.show.title} className="block self-start" href={featured.show.path}>
@@ -113,6 +113,16 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
             </ul>
           )}
         </div>
+  )
+}
+
+/** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
+export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
+  return (
+    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
+      <div className="container flex flex-col gap-6">
+        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} rule={false} title="Podcasts made in Pensacola" />
+        <PodcastsBody independenceHref={independenceHref} slot={slot} />
       </div>
     </section>
   )

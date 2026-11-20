@@ -1,23 +1,18 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { Contributor, Fellowship, Homepage, Post } from '@/payload-types'
+import type { Fellowship, Homepage } from '@/payload-types'
 
 import { type BannerData, bannerOf } from '@/lib/banner'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
+import { CARD_FIELDS, type HomeStory } from './story'
 import { ALL_STORIES_HREF, fallbackModule, fillModules, MAX_NEWS_MODULES, MODULE_SLACK, moduleCount, type FilledModule } from './modules'
 import { arrangeHomepage } from './select'
 
-const named = <T extends object>(value: T | string | number | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
 const idOf = (value: { id: string | number } | string | number | null | undefined): string | number | null =>
   value == null ? null : typeof value === 'object' ? value.id : value
-
-/** The fields a homepage card needs; the story body is never loaded. */
-export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format' | 'featuredAudio'>
-
-export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true, featuredAudio: true } as const
 
 export interface HomepageData {
   /** The site banner, whatever its scope; the home page draws it only when it is meant for the home page (`bannerFor`). */
@@ -120,14 +115,4 @@ export async function loadHomepage(): Promise<HomepageData> {
   }
 }
 
-/** "By Leigh Ostrander, Dave Dunwoody", or null when the story names no one. */
-export function bylineOf(story: Pick<HomeStory, 'contributors'>): string | null {
-  const names = (story.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter((n): n is string => Boolean(n))
-  return names.length > 0 ? `By ${names.join(', ')}` : null
-}
-
-/** The section's name when it was loaded, for the small label above a headline. */
-export function kickerOf(story: Pick<HomeStory, 'section' | 'categories'>): string | null {
-  const section = named<{ title?: string }>(story.section as never)
-  return section?.title ?? null
-}
+export { bylineOf, CARD_FIELDS, kickerOf, type HomeStory } from './story'

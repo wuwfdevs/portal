@@ -87,6 +87,11 @@ export interface Config {
     sectionClosingBand: SectionClosingBand;
     sectionColumns: SectionColumns;
     sectionIllustration: SectionIllustration;
+    sectionFrontPage: SectionFrontPage;
+    sectionFellowshipFeature: SectionFellowshipFeature;
+    sectionNewsRun: SectionNewsRun;
+    sectionShowSpotlight: SectionShowSpotlight;
+    sectionFeaturePanels: SectionFeaturePanels;
     sectionRateEstimator: SectionRateEstimator;
     sectionPackages: SectionPackages;
     sectionCarpool: SectionCarpool;
@@ -1606,9 +1611,9 @@ export interface SectionList {
    * Where the heading sits. A phone always shows it above.
    */
   placement?: ('stacked' | 'side') | null;
-  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'artists';
+  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'clips' | 'artists';
   /**
-   * Stories only.
+   * Stories, and short videos (by their story's section). A topic is for stories only.
    */
   scope?: ('latest' | 'section' | 'topic') | null;
   section?: (number | null) | Section;
@@ -2432,6 +2437,170 @@ export interface SectionIllustration {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionIllustration';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFrontPage".
+ */
+export interface SectionFrontPage {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  /**
+   * The large story. Leave empty to lead with the newest story of WUWF's own.
+   */
+  lead?: (number | null) | Post;
+  /**
+   * Optional small label above the headline, e.g. "After Isaias". Empty: the story's section.
+   */
+  leadKicker?: string | null;
+  /**
+   * Up to five, in the order shown under the lead. Any left empty are filled with the newest stories.
+   */
+  topStories?: (number | Post)[] | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFrontPage';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFellowshipFeature".
+ */
+export interface SectionFellowshipFeature {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  fellowship: number | Fellowship;
+  /**
+   * The story to feature. Leave empty to feature the fellowship's newest.
+   */
+  story?: (number | null) | Post;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFellowshipFeature';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionNewsRun".
+ */
+export interface SectionNewsRun {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Where its stories come from and where "More from…" goes.
+   */
+  section: number | Section;
+  /**
+   * How many stories to show (3 to 8).
+   */
+  count?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionNewsRun';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionShowSpotlight".
+ */
+export interface SectionShowSpotlight {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Optional. The show to feature. Leave empty to feature the show with the newest episode.
+   */
+  featuredShow?: (number | null) | Production;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionShowSpotlight';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFeaturePanels".
+ */
+export interface SectionFeaturePanels {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  radioLive?: boolean | null;
+  unearthing?: boolean | null;
+  /**
+   * Optional. An Unearthing Florida episode to feature. Empty: the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.
+   */
+  unearthingEpisode?: (number | null) | Post;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFeaturePanels';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3387,7 +3556,7 @@ export interface Page {
   /**
    * The group this page belongs to: it sets who may edit the page, its look, its sub-navigation and which section types can be added. Leave empty for a stand-alone page.
    */
-  pageSet?: ('sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
+  pageSet?: ('home' | 'sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
   /**
    * Empty: the page set's theme.
    */
@@ -3431,6 +3600,11 @@ export interface Page {
         | SectionClosingBand
         | SectionColumns
         | SectionIllustration
+        | SectionFrontPage
+        | SectionFellowshipFeature
+        | SectionNewsRun
+        | SectionShowSpotlight
+        | SectionFeaturePanels
         | SectionRateEstimator
         | SectionPackages
         | SectionCarpool

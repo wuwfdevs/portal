@@ -67,6 +67,12 @@ export const SAMPLES: Record<string, Maker> = {
     ratio: (['wide', 'standard', 'portrait'] as const)[toneIndex % 3],
     imageSide: toneIndex % 2 === 0 ? 'left' : 'right',
   }),
+  // The home set's blocks. They read what the database holds (the newest stories, a section's, the shows), so on a database without it they draw nothing.
+  sectionFrontPage: ({ refs }) => ({ ...(refs.postId !== undefined ? { lead: refs.postId } : {}), leadKicker: 'Sample lead' }),
+  sectionFellowshipFeature: ({ refs }) => ({ ...(refs.fellowshipId !== undefined ? { fellowship: refs.fellowshipId } : {}), ...(refs.postId !== undefined ? { story: refs.postId } : {}) }),
+  sectionNewsRun: ({ refs, label }) => ({ ...head(label), ...(refs.sectionId !== undefined ? { section: refs.sectionId } : {}), count: 4 }),
+  sectionShowSpotlight: ({ refs }) => ({ ...(refs.productionId !== undefined ? { featuredShow: refs.productionId } : {}) }),
+  sectionFeaturePanels: () => ({ radioLive: true, unearthing: true }),
   sectionProfileBand: ({ refs, toneIndex, variant, label }) =>
     variant === 'roster'
       ? {

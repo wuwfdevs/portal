@@ -36,7 +36,7 @@ code (phase 5).
 | Record with a fixed template | its own collection (unchanged) | Stories, shows, episodes, artists, RadioLive shows, fellowships, clips, live blogs, section and topic lists |
 | Application | coded route (unchanged) | Listening flows, account, search, community calendar, event submission |
 | Settings and shared data | globals | Header, footer, site settings, listen live, giving settings, sponsorship settings |
-| **Exception** | `homepage` global (unchanged) | Home: one sponsor rail spans several sections and stories are de-duplicated across them, so it does not split into independent blocks. Revisit last |
+| **Exception, being replaced** | `homepage` global (unchanged until the switch) | Home was left as a global because one sponsor rail spans several sections and stories are de-duplicated across them. Both are now done by the page (the **home set**, below); the page of blocks is built beside the coded one at `/home-blocks`, and `/` is switched when the owner has compared them |
 
 ## Open decisions for the owner
 
@@ -47,7 +47,7 @@ code (phase 5).
    Proposed: convert in a migration (Payload ships a converter). The alternative is to rebuild staging from the import. *Phase 0: the
    converter moved a seeded set of posts, pages and a form with no differences, so conversion is workable; it has no `down`, and
    other branches' previews break against a converted staging (see Design → Storage).*
-3. **Home stays a global** until phase 7. Confirm.
+3. **Home stays a global** until phase 7. *Superseded 2026-11-20: built as blocks beside the coded page, switched on the owner's say (see "Home" below).*
 4. **How far editors may go on the bespoke hubs.** Blocks can be reordered and removed by anyone who can edit the page; Payload has no
    lock on a blocks row. Proposed: accept it (drafts, preview and version history make a mistake cheap to undo).
 5. **The tone list.** Board 28 has four tones (`plain`, `grey`, `accent`, `dark`). The built pages also use teal and lime bands. Either add
@@ -433,7 +433,7 @@ owner's eye before it is built.
 ### Phase 7: close out
 
 - [ ] Drop the emptied page globals and their tables; remove dead loaders.
-- [ ] Decide on Home with what has been learned.
+- [x] Decide on Home with what has been learned: **built as blocks beside the coded page (2026-11-20)**; switching `/` is the owner's call after comparing (see "Home").
 - [ ] Editor notes: what a section is, copy and paste (and that "Paste Fields" replaces every section on the page), page sets.
 
 ## Out of scope
@@ -472,3 +472,28 @@ that is rejected.
 - **What was and was not read.** The review behind this revision read board 28 and the code. It did not read boards 11 to 25, so each
   hub's new look, and the token values for the Voyager and Unearthing themes, still need the owner's eye before phase 6 builds them.
 - The audit of the 40 public routes (2026-11-18) and Payload's 3.92.1 docs and adapter source, as at the top of this file.
+
+
+## Home (built 2026-11-20, beside the coded page; `/` is not switched)
+
+The home page can be a page of blocks in a new **home set** (`PAGE_SETS.home`, edited by publishers). The two things that made it "not blockable" were solved **by the page, not
+by the editor**:
+
+- **No story twice** is an **ordered pass** in `RenderSections` (`lib/page-slots`, `claimInOrder`): for a set with `dedupe`, every block that lists stories says in the page's order
+  which it would show (`claimRequest` in its registry entry), and each is handed the newest that nothing above it took, as `context.claims`. The Front page lead and the Fellowship
+  feature pin theirs first; each News run takes the newest of its section that is left. The reads are cached for the render, so asking twice costs nothing.
+- **Sponsor places are slots of the set, never blocks** (`PageSetSpec.slots`): the top unit, a row of three above each News run (`anchor`), the rows that did not fit after the last run
+  (a tile that runs is always drawn), and the band. The layout draws them from tiles the page's coded route loaded (`context.slots`), so a publisher **cannot delete, hide or duplicate paid
+  delivery**, and a page of any other set, or one the cached catch-all serves, draws none. The Front page lead lays the top unit out itself (`drawsTop`: between the lead and The Briefing
+  on a phone); a page without such a block gets it after its first section. Sets that must carry no sponsor message (`giving`, `listens`, `sponsor`) have `placements: false`.
+
+The home set's blocks (offered only in the set; each reuses the coded page's view, so a card, the lead band and the funder panel look the same): **Front page lead** (`FrontPage`: the
+lead and The Briefing, curated or the newest of WUWF's own), **Fellowship feature**, **News run** (a section's newest, `More from…` in the header), **Show spotlight** (podcasts),
+**Feature panels** (RadioLive and Unearthing Florida), plus the library's **List** with the new **Short videos** source. The Banner is the site banner (a global in the layout), not a block.
+
+**The page of blocks is `/home-blocks`** (a coded shell, `CODED_SHELL_PATHS`, refreshed every five minutes like `/`; noindex). `pnpm seed:home-blocks` writes it from the Home page global as
+it is today (`lib/homepage/to-sections.ts`, tested to lose no news section or setting); the dry run lists what the blocks do not carry over. **Compared 2026-11-20 on a local database
+with fixture content at 1440 and 390 px: the same headings in the same order, the same sponsor places, the top unit under the header on a wide screen and between the lead and The Briefing on a
+phone.** Not carried over yet: the "All stories" button, the membership appeal at the foot, the "Latest stories" fallback when no news section has stories, and a pinned short-video series.
+**To switch `/`:** have the owner compare the two on staging, close those gaps (or accept them), then make `/` render this page record (the way `/home-blocks` does) and retire the Home page
+global's tabs (phase 7). Until then the global keeps running the home page and the two are separate.

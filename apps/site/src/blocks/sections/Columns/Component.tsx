@@ -38,7 +38,7 @@ export async function ColumnsSection({ block, context }: SectionProps<ColumnsDat
       <div className={cn('grid items-start gap-8 lg:gap-10', grid)}>
         {filled.map((col, i) => (
           <div className="flex min-w-0 flex-col gap-8" key={col.id ?? i}>
-            <RenderSections context={context} sections={heldBy(col).map((s) => ({ ...s, inline: true }))} />
+            <RenderSections context={{ ...context, slots: undefined, claims: undefined }} sections={heldBy(col).map((s) => ({ ...s, inline: true }))} />
           </div>
         ))}
       </div>

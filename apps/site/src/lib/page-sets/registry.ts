@@ -2,6 +2,7 @@ import type { SitePermission } from '@wuwf/portal-contracts'
 
 import { userCan } from '@/access/permissions'
 import type { ThemeId } from '@/lib/page-themes/themes'
+import type { ZoneId } from '@/lib/placements/registry'
 
 /**
  * Page sets (PAGE-BLOCKS.md → Page sets). Code, in the manner of placement zones (`lib/placements/registry.ts`): a set is a small record
@@ -10,7 +11,7 @@ import type { ThemeId } from '@/lib/page-themes/themes'
  *
  * A page with no set is a plain page: the station's theme, `content.write` to edit, library blocks only.
  */
-export const PAGE_SET_IDS = ['sponsor', 'giving', 'listens', 'voyager', 'unearthing', 'radiolive'] as const
+export const PAGE_SET_IDS = ['home', 'sponsor', 'giving', 'listens', 'voyager', 'unearthing', 'radiolive'] as const
 export type PageSetId = (typeof PAGE_SET_IDS)[number]
 
 export interface PageSetSpec {
@@ -28,17 +29,36 @@ export interface PageSetSpec {
    * conversation with the station: a sponsor message sits in neither (the proposed rule in `PLACEMENTS.md`, decided 2026-11-20).
    */
   placements: boolean
+  /**
+   * The sponsor places the page's layout draws (never an editor among the sections, so paid delivery cannot be deleted, hidden or duplicated): the zone for the top
+   * unit, for the rows of the rail between its news runs, and for the band after them. Only meaningful with `placements`; `null` for a set with none.
+   */
+  slots: { top: ZoneId; rail: ZoneId; band: ZoneId } | null
+  /** Whether sections that list stories take them in the page's order, so a story appears once on the page (`lib/page-slots`). */
+  dedupe: boolean
   /** Whether the set draws a strip of its pages under the header. The Listens pages are two screens of one flow, not a place to browse between. */
   subNav: boolean
 }
 
 export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
-  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, subNav: true },
-  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, subNav: true },
-  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, subNav: false },
-  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, subNav: true },
-  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, subNav: true },
-  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, subNav: true },
+  home: {
+    id: 'home',
+    name: 'Home page',
+    theme: 'wuwf',
+    // The home page is run by publishers: making something appear on the front page is publishing (`Homepage` global).
+    editBy: ['content.publish'],
+    footerLine: false,
+    placements: true,
+    slots: { top: 'home.top', rail: 'home.rail', band: 'home.band' },
+    dedupe: true,
+    subNav: false,
+  },
+  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true },
+  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true },
+  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, slots: null, dedupe: false, subNav: false },
+  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
+  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
+  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
 }
 
 /** What staff need to edit a page that is in no set. */
