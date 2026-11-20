@@ -508,7 +508,7 @@ scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below),
 
 ## Phase 5: words still in code (built 2026-11-19; the exit is the owner's, in staging)
 
-`PAGE-BLOCKS.md` phase 5, on the owner's instruction to proceed (phases 3 and 4 still wait for the owner's look in staging). Built and tested locally on a scratch Postgres 16 with pgvector; **not yet on staging** (see "Staging" below for what is recorded once the preview build has applied the three migrations).
+`PAGE-BLOCKS.md` phase 5, on the owner's instruction to proceed (phases 3 and 4 still wait for the owner's look in staging). Built and tested locally on a scratch Postgres 16 with pgvector, then **applied to staging by the preview build of `365d41e` and verified there** (below). The production database was not touched (it stays empty until launch).
 
 **What was built.**
 - **Shared text** (`shared-text`, Site settings group; publishers and administrators edit). The community calendar's guidelines (paragraphs, each with an optional bold lead-in; an email typed in one becomes a mailto link, through `linkEmails`), the membership appeal (text, button label, button address, checked by the support-link rule) and the fellowship explanation (title, items, the policy link's label). Read through `getCachedGlobal` (tag `global_shared-text`); every screen draws nothing for a part that is empty. Migration `20261119_233120_shared_text` creates the tables and copies the old words from `lib/shared-text/starter.ts`; tested down, up, down, up. The story page, home page, fellowship page and event submission page read it.
@@ -533,7 +533,11 @@ scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below),
 
 **Left out, on purpose.** Dropping the Listen live global's hidden cards field is phase 7. The Unearthing, Voyager and RadioLive hubs are phase 6. The season report list waits for suite phase F.
 
-**Checks (local).** `pnpm typecheck` clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm verify:migrations` passes. Integration and build results are at the foot of this section.
+**Checks (local).** `pnpm typecheck` clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 253 files, 2,800 tests, all passing (phase 4 ended at 242 files and 2,694). `pnpm build`: passes. `pnpm verify:migrations` passes.
+
+**Staging (`wuwf-site-staging`), verified with read-only queries through the Supabase connector.** `payload_migrations` lists `shared_text`, `station_pages_as_sections` and `listens_pages_as_sections` (batch 50). `pages` holds `/schedule` (3 sections: Feature, Broadcast schedule, Cards), `/podcasts` (3: Feature, List, List), `/listens` (7, set `listens`) and `/listens/host` (2, set `listens`), all published. `shared_text` holds 1 row, 5 guideline paragraphs and 3 fellowship items, with the old membership appeal's words; the three tables are owned by `payload_app`, have no row-level security and no `anon` or `authenticated` access, and each child table has its foreign key and three indexes. The deployment is READY.
+
+**What the owner does next (the exit).** In staging: open `/schedule`, `/podcasts`, `/listens` and `/listens/host` and compare them with the live site; open Pages and reorder a section on the schedule page; open Site settings → Shared text and change the membership appeal, then open a story and the home page. Note that staging's Portal address is the preview Portal, so `/listens` shows whatever that Portal has open (or the "not set up" sentence).
 
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
