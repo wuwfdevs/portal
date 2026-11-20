@@ -506,6 +506,39 @@ scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below),
 
 **Checks (local).** `pnpm typecheck`: clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 242 files, 2,694 tests, all passing (phase 3 ended at 232 files and 2,573); the one unhandled rejection from `plugin-seo` in `revalidateSiteSettings.test.ts` exists before this work. `pnpm build`: passes. `pnpm verify:migrations`: passes.
 
+## Phase 5: words still in code (built 2026-11-19; the exit is the owner's, in staging)
+
+`PAGE-BLOCKS.md` phase 5, on the owner's instruction to proceed (phases 3 and 4 still wait for the owner's look in staging). Built and tested locally on a scratch Postgres 16 with pgvector, then **applied to staging by the preview build of `365d41e` and verified there** (below). The production database was not touched (it stays empty until launch).
+
+**What was built.**
+- **Shared text** (`shared-text`, Site settings group; publishers and administrators edit). The community calendar's guidelines (paragraphs, each with an optional bold lead-in; an email typed in one becomes a mailto link, through `linkEmails`), the membership appeal (text, button label, button address, checked by the support-link rule) and the fellowship explanation (title, items, the policy link's label). Read through `getCachedGlobal` (tag `global_shared-text`); every screen draws nothing for a part that is empty. Migration `20261119_233120_shared_text` creates the tables and copies the old words from `lib/shared-text/starter.ts`; tested down, up, down, up. The story page, home page, fellowship page and event submission page read it.
+- **Broadcast schedule block** and a restyled week view (tone tokens, no fixed colours). The loader (`lib/live/week.ts`) reads the clock through a one-minute cache, so a page holding the block is regenerated at least that often and "today" is never a day behind.
+- **List** gained the **shows** source, **episodes from every listed show** (`allShows`), and the layouts **tiles** and **rows**. Both new reads reuse `loadDirectory`, so a show's page and the directory agree. A show save now also revalidates tag `section-data:list`.
+- **Five Listens blocks** (set-only): Ask WUWF, Open questions, Sessions and tables, Outcomes, Host form. Each Portal-data block is a pure view over `SectionContext.listeningHub` (tested with a hub fixture) and an async wrapper that loads its client form with `await import()` (the registry is read by the Payload CLI, which cannot load the `server-only` modules the forms reach).
+- **Four pages written by migrations** at their own addresses: `20261119_235000_station_pages_as_sections` (`/schedule`, `/podcasts`; the schedule's cards come from the Listen live global's current rows) and `20261119_235500_listens_pages_as_sections` (`/listens`, `/listens/host`, in the listens set, from `lib/listening/hub-pages.ts`; a test fails if a word of the old pages is lost). Both leave a page that already exists at the address (or holding the slug) alone. `down` removes only the pages they wrote.
+- **Deleted:** the `/schedule` and `/podcasts` routes, `components/Show/DirectoryView.tsx`, `components/Listening/Hub.tsx`. `/listens` and `/listens/host` are coded shells that render their record.
+- New in the platform: `SectionContext.listeningHub` (the one place a request's Portal answer reaches a block), `PageSetSpec.subNav`, `lib/page-sets/sections-kit` unchanged.
+
+**Decisions I made (the owner can reverse any).**
+- **A new Shared text global, not Site settings**: Site settings is administrator-only, and an editor should be able to change a guideline.
+- **The listens set has no strip.** The old pages had none.
+- **The Listens words are on the sections; what the Portal sends is drawn by the blocks.** The tile labels inside a campaign band ("Answer on your own", "Join a session", "Answer", "Save a seat") are component text, like a button's label; the long lines (the empty state, the table tile's explanation, the voice-only intro) are fields on the section.
+- **The jump links under the hub's headline** point at the anchors the mapper gives the other sections (`now`, `help-us-report`, `join-a-session`, `kitchen-table`, `came-of-it`, the Ask form). An editor who renames one breaks that link; the field says so.
+
+**Compared with the old pages** (dev renders of the new pages at 375, 768 and 1280 px, the hub with a fake Portal answering on localhost; no horizontal scroll, no console error, one h1 each). **Still different from the old pages:**
+- Schedule: "Press **Listen live**" is no longer bold (a Feature line is plain text); with no stream set up the page shows only its opening (it used to answer not found); the week sits in a grey band.
+- Podcasts: with no show or episode listed, the page draws its heading only (it used to say "No shows are listed yet."); the latest episodes are a ruled list in a grey band and the show cards are tiles in the card colours; a show with a cover shows it square, as before.
+- Listens: the hub's section order and words are unchanged; the Ask WUWF box, a kitchen table and the host form sit in a white card (they carry their own light styling), so on a plain ground the host form now has a padded card around it; when the Portal is not set up or cannot be read, the opening still draws (it used to be replaced by a title and the message). The host page's "← WUWF Listens" is a button (a Feature action) where it was a text link. `/listens/host` is no longer a static page (it renders the record through the shell).
+- Shared text: none; the words are copied exactly.
+
+**Left out, on purpose.** Dropping the Listen live global's hidden cards field is phase 7. The Unearthing, Voyager and RadioLive hubs are phase 6. The season report list waits for suite phase F.
+
+**Checks (local).** `pnpm typecheck` clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 253 files, 2,800 tests, all passing (phase 4 ended at 242 files and 2,694). `pnpm build`: passes. `pnpm verify:migrations` passes.
+
+**Staging (`wuwf-site-staging`), verified with read-only queries through the Supabase connector.** `payload_migrations` lists `shared_text`, `station_pages_as_sections` and `listens_pages_as_sections` (batch 50). `pages` holds `/schedule` (3 sections: Feature, Broadcast schedule, Cards), `/podcasts` (3: Feature, List, List), `/listens` (7, set `listens`) and `/listens/host` (2, set `listens`), all published. `shared_text` holds 1 row, 5 guideline paragraphs and 3 fellowship items, with the old membership appeal's words; the three tables are owned by `payload_app`, have no row-level security and no `anon` or `authenticated` access, and each child table has its foreign key and three indexes. The deployment is READY.
+
+**What the owner does next (the exit).** In staging: open `/schedule`, `/podcasts`, `/listens` and `/listens/host` and compare them with the live site; open Pages and reorder a section on the schedule page; open Site settings → Shared text and change the membership appeal, then open a story and the home page. Note that staging's Portal address is the preview Portal, so `/listens` shows whatever that Portal has open (or the "not set up" sentence).
+
 ## Staging demonstration content for news sections and placements (2026-11-18)
 
 The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older

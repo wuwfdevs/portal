@@ -3,7 +3,7 @@
 // blocks draw what these return. Every function treats a relation as untrusted: a deleted picture or story leaves a bare id, and a
 // record that cannot be drawn is left out, never half-drawn.
 
-import { STATION_TIME_ZONE } from '@/lib/format'
+import { STATION_TIME_ZONE, formatDuration, formatLongDate } from '@/lib/format'
 
 export interface PictureData {
   id: number | string
@@ -25,13 +25,15 @@ export interface AudioData {
   durationSeconds: number | null
 }
 
-/** One entry of a List: a story, an episode, a video story or an artist. */
+/** One entry of a List: a story, an episode, a video story, an artist or a show. */
 export interface ListItem {
   id: string
   title: string
   href: string | null
   image: PictureData | null
   meta: string | null
+  /** Lines under the title (a show's tagline, then its summary), one per line; `null` for an entry that has none. */
+  summary?: string | null
 }
 
 /** What a Featured record leads with: a story, an episode or a show. */
@@ -106,6 +108,35 @@ export function storyListItem(doc: unknown): ListItem | null {
   const format = str(p.format)
   const bits = [format ? FORMAT_WORDS[format] ?? null : null, shortDate(p.publishedAt)].filter((b): b is string => b !== null)
   return { id: `post-${id}`, title, href: sitePath(p.path), image: pictureOf(meta?.image), meta: bits.length > 0 ? bits.join(' · ') : null }
+}
+
+/**
+ * A show (an original production) as a List entry: its name, its address, its cover, its tagline and summary, and how many episodes it has and when the
+ * newest came out. `facts` come from the directory's own count, so the line says what the old directory page said.
+ */
+export function showListItem(doc: unknown, facts: { episodes: number; latestPublishedAt?: unknown }): ListItem | null {
+  const p = obj(doc)
+  const title = str(p?.title)
+  const id = idOf(p?.id)
+  if (!p || !title || id === null) return null
+  const latest = str(facts.latestPublishedAt)
+  const count = Number.isFinite(facts.episodes) && facts.episodes >= 0 ? Math.floor(facts.episodes) : 0
+  const meta = `${count} ${count === 1 ? 'episode' : 'episodes'}${latest ? ` · latest ${formatLongDate(latest)}` : ''}`
+  const summary = [str(p.tagline), str(p.summary)].filter((l): l is string => l !== null).join('\n')
+  return { id: `show-${id}`, title, href: sitePath(p.path), image: pictureOf(p.heroImage), meta, summary: summary || null }
+}
+
+/** An episode, with the name of the show it belongs to, its date and its length: "Show · Nov. 3, 2026 · 28 min". */
+export function episodeListItem(doc: unknown, showTitle: string | null): ListItem | null {
+  const p = obj(doc)
+  const title = str(p?.title)
+  const id = idOf(p?.id)
+  if (!p || !title || id === null) return null
+  const published = str(p.publishedAt)
+  const audio = audioOf(p.featuredAudio)
+  const length = audio?.durationSeconds ? formatDuration(audio.durationSeconds) : ''
+  const bits = [showTitle, published ? formatLongDate(published) : null, length || null].filter((b): b is string => Boolean(b))
+  return { id: `post-${id}`, title, href: sitePath(p.path), image: null, meta: bits.length > 0 ? bits.join(' · ') : null }
 }
 
 /** A story as a Featured record. The line is the story's description, else its dek. */

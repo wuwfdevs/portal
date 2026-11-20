@@ -5,6 +5,7 @@ import type { Contributor, Media as MediaDoc } from '@/payload-types'
 
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
+import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
 export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: 'teal' | 'plain' }> = ({ children, href, tone = 'plain' }) => {
   const cls =
@@ -52,14 +53,20 @@ export const AuthorBox: React.FC<{ contributor: Contributor; photo?: MediaDoc | 
   </div>
 )
 
-export const MembershipAppeal: React.FC = () => (
-  <aside aria-label="Support WUWF" className="flex flex-col gap-3 rounded-sm bg-wuwf-blue-100 p-6 md:flex-row md:items-center md:justify-between">
-    <p className="font-serif text-xl font-bold text-ink">Reporting like this takes weeks on one street. Members make it possible.</p>
-    <Link
-      className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
-      href="/support"
-    >
-      Become a member
-    </Link>
-  </aside>
-)
+/** The membership appeal. Its words are the Shared text global's (`membershipAppealOf`); with none, it is not drawn. */
+export const MembershipAppeal: React.FC<{ appeal: MembershipAppealWords | null }> = ({ appeal }) => {
+  if (!appeal) return null
+  return (
+    <aside aria-label="Support WUWF" className="flex flex-col gap-3 rounded-sm bg-wuwf-blue-100 p-6 md:flex-row md:items-center md:justify-between">
+      <p className="font-serif text-xl font-bold text-ink">{appeal.text}</p>
+      {appeal.button && (
+        <Link
+          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
+          href={appeal.button.href}
+        >
+          {appeal.button.label}
+        </Link>
+      )}
+    </aside>
+  )
+}

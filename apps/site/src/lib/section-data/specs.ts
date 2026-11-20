@@ -3,7 +3,7 @@
 
 import { relationId } from './shape'
 
-export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists'] as const
+export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists', 'shows'] as const
 export type ListSource = (typeof LIST_SOURCES)[number]
 export const LIST_SCOPES = ['latest', 'section', 'topic'] as const
 export type ListScope = (typeof LIST_SCOPES)[number]
@@ -13,6 +13,8 @@ export type ListSpec =
   | { source: 'stories'; scope: 'latest'; count: number }
   | { source: 'stories'; scope: 'section' | 'topic'; id: number | string; count: number }
   | { source: 'episodes'; id: number | string; count: number }
+  | { source: 'episodes'; all: true; count: number }
+  | { source: 'shows' }
   | { source: 'videos'; count: number }
   | { source: 'artists'; count: number }
 
@@ -22,7 +24,7 @@ const count = (v: unknown, fallback: number, max: number): number => {
 }
 
 /** What a List reads, or null when its source needs a section, topic or show that is not chosen (or was deleted: a bare id still counts, and reads nothing). */
-export function listSpecOf(block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; count?: unknown }): ListSpec | null {
+export function listSpecOf(block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown }): ListSpec | null {
   const n = count(block.count, 6, LIST_MAX)
   switch (block.source) {
     case 'stories': {
@@ -33,6 +35,7 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
       return { source: 'stories', scope: 'latest', count: n }
     }
     case 'episodes': {
+      if (block.allShows === true) return { source: 'episodes', all: true, count: n }
       const id = relationId(block.show)
       return id === null ? null : { source: 'episodes', id, count: n }
     }
@@ -40,6 +43,8 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
       return { source: 'videos', count: n }
     case 'artists':
       return { source: 'artists', count: n }
+    case 'shows':
+      return { source: 'shows' }
     default:
       return null
   }

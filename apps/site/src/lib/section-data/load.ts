@@ -14,12 +14,13 @@ import { getPayload, type Where } from 'payload'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { loadCalendar } from '@/lib/events/load'
 import { zonedInstant } from '@/lib/events/schedule'
+import { loadDirectory } from '@/lib/shows/load'
 import { getFellowshipHubAcknowledgments, getProductionHubAcknowledgments, getSeriesHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
 import type { CreditSpec, DatesSpec, FeaturedSpec, ListSpec } from './specs'
 import {
-  artistListItem, performanceDateItem, productionFeatured, storyFeatured, storyListItem, upcomingDates,
+  artistListItem, episodeListItem, performanceDateItem, productionFeatured, showListItem, storyFeatured, storyListItem, upcomingDates,
   DEFAULT_DURATION_HOURS, type DateItem, type FeaturedItem, type ListItem,
 } from './shape'
 
@@ -41,6 +42,16 @@ const readList = async (spec: ListSpec): Promise<ListItem[]> => {
     const found = await payload.find({ collection: 'artists', depth: 1, limit: spec.count, sort: 'name', overrideAccess: false, draft: false })
     return found.docs.map(artistListItem).filter((i): i is ListItem => i !== null)
   }
+  // The podcast directory's own read (every listed original show with its count, and the newest episodes across them) is the one source for
+  // both: a show's page and the directory agree because they share it.
+  if (spec.source === 'shows') {
+    const { shows } = await loadDirectory()
+    return shows.map((row) => showListItem(row.show, { episodes: row.episodes, latestPublishedAt: row.latest?.publishedAt })).filter((i): i is ListItem => i !== null)
+  }
+  if (spec.source === 'episodes' && 'all' in spec) {
+    const { latestEpisodes } = await loadDirectory()
+    return latestEpisodes.slice(0, spec.count).map((e) => episodeListItem(e, e.showTitle)).filter((i): i is ListItem => i !== null)
+  }
   const where: Where =
     spec.source === 'stories'
       ? spec.scope === 'section'
@@ -49,7 +60,7 @@ const readList = async (spec: ListSpec): Promise<ListItem[]> => {
           ? { categories: { equals: spec.id } }
           : {}
       : spec.source === 'episodes'
-        ? { and: [{ production: { equals: spec.id } }, { format: { equals: 'audio' } }] }
+        ? { and: [{ production: { equals: 'id' in spec ? spec.id : 0 } }, { format: { equals: 'audio' } }] }
         : { format: { equals: 'video' } }
   const found = await payload.find({ collection: 'posts', where, depth: 1, limit: spec.count, sort: '-publishedAt', overrideAccess: false, draft: false })
   return found.docs.map(storyListItem).filter((i): i is ListItem => i !== null)

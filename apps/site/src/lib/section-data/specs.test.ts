@@ -12,6 +12,12 @@ describe('listSpecOf', () => {
     expect(listSpecOf({ source: 'videos', show: 3 })).toEqual({ source: 'videos', count: 6 })
     expect(listSpecOf({ source: 'artists', count: 3 })).toEqual({ source: 'artists', count: 3 })
   })
+  it('reads every listed show for the shows source, and episodes from every show only when asked', () => {
+    expect(listSpecOf({ source: 'shows', count: 3, show: 4 })).toEqual({ source: 'shows' })
+    expect(listSpecOf({ source: 'episodes', allShows: true, show: 4, count: 5 })).toEqual({ source: 'episodes', all: true, count: 5 })
+    expect(listSpecOf({ source: 'episodes', allShows: false, show: 4 })).toEqual({ source: 'episodes', id: 4, count: 6 })
+    expect(listSpecOf({ source: 'episodes', allShows: 'yes' })).toBeNull()
+  })
   it('has no spec when the choice a source needs is missing, or the source is unknown', () => {
     expect(listSpecOf({ source: 'stories', scope: 'section' })).toBeNull()
     expect(listSpecOf({ source: 'stories', scope: 'topic', topic: null })).toBeNull()

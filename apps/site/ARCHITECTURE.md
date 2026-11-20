@@ -154,7 +154,7 @@ An editor-composed page is a `pages` record with `template: sections` and an ord
 
 | Piece | Where | State |
 |---|---|---|
-| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts, the 18-block library (phase 2), the five sponsor-only blocks (phase 3) and the five giving-only blocks (phase 4) |
+| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts, the 18-block library (phase 2), the five sponsor-only blocks (phase 3), the five giving-only blocks (phase 4), and in phase 5 the Broadcast schedule block, the shows source of List, and the five listens-only blocks |
 | Page sets: theme, edit permission, sub-navigation, which set-only blocks are offered | `src/lib/page-sets/`, `access/pages.ts`, `hooks/enforcePageSet.ts` | Built; both sets' footer lines are wired (`components/Page/SetFooter.tsx`); a `noindex` page is left out of its set's strip |
 | Page themes and tones: tokens in code, stylesheet generated, contrast tested | `src/lib/page-themes/`, `page-themes.css` | Built: the station theme; the three hub themes are named, not built |
 | The page, read by the catch-all route | `components/Page/SectionsPageView.tsx` | Built; reads the page record and the set's navigation, never the request |
@@ -162,6 +162,7 @@ An editor-composed page is a `pages` record with `template: sections` and an ord
 | The internal sample page: every block in every tone | `src/lib/sections-sample/`, `scripts/sections/seed-sample-page.ts` | Built; not yet on staging |
 | The sponsorship settings (prices, rates, contact, form choices, programs) and what reads them | `globals/SponsorshipSettings`, `lib/sponsorship/load.ts`, the five blocks under `blocks/sections/{RateEstimator,Packages,Carpool,OpenPrograms,InquiryForm}` | Built (phase 3) |
 | The six sponsor pages, written from the old global once, by migration | `lib/sponsorship/to-sections.ts`, `migrations/20261119_050400_sponsor_pages.ts` | Built (phase 3); on staging when its preview build has applied it |
+| The schedule, podcast directory and WUWF Listens pages, written once by migration; the Shared text global | `lib/station-pages`, `lib/listening/hub-pages.ts`, `globals/SharedText.ts`, `lib/shared-text`, `migrations/20261119_{233120,235000,235500}_*` | Built (phase 5); on staging when its preview build has applied them |
 | The giving settings (levels, amounts, the donation form, contact, broker details) and what reads them | `globals/GivingSettings`, `lib/giving/load.ts`, the five blocks under `blocks/sections/{GiftCard,GivingLevels,WaysToGive,ThankYou,GivingContact}`; also read by the account page and the shows' support pages | Built (phase 4) |
 | The four giving pages, written from the old global once, by migration; two are coded shells that hand their record the query | `lib/giving/to-sections.ts`, `migrations/20261119_223000_giving_pages_as_sections.ts`, `components/Page/SectionsRoute.tsx`, `app/(frontend)/support/{ways,thanks}` | Built (phase 4); on staging when its preview build has applied it |
 

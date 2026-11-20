@@ -18,6 +18,7 @@ import { cn } from '@/utilities/ui'
 
 import { HomeBand, HomeRail } from '@/components/Placements'
 import type { HomePlacements } from '@/lib/placements/load'
+import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
 import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
@@ -54,7 +55,19 @@ const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
  * Not here yet, because what they need is not built: the WUWF Listens question, newsletters and "From NPR". They are left out rather than
  * drawn as controls that do nothing; each arrives with its feature.
  */
-export function HomepageView({ data, slots, placements, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; placements: HomePlacements; independenceHref?: string | null }) {
+export function HomepageView({
+  data,
+  slots,
+  placements,
+  appeal = null,
+  independenceHref = null,
+}: {
+  data: HomepageData
+  slots: HomepageSlots
+  placements: HomePlacements
+  appeal?: MembershipAppealWords | null
+  independenceHref?: string | null
+}) {
   const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
   const hasRail = placements.rail.length > 0
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
@@ -247,7 +260,7 @@ export function HomepageView({ data, slots, placements, independenceHref = null 
       )}
 
       <section className="container mt-16 max-w-[60rem]">
-        <MembershipAppeal />
+        <MembershipAppeal appeal={appeal} />
       </section>
     </div>
   )

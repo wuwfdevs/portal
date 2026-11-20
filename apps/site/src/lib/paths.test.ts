@@ -4,8 +4,8 @@ import { checkPath, draftPreviewPath, isReservedPath, localDate, PAGE_SET_FIRST_
 
 describe('first segments owned by page sets', () => {
   it('let a page take a path there, and keep a section from being named one', () => {
-    for (const path of ['/support', '/support/ways', '/sponsor', '/sponsor/on-air']) expect(checkPath(path), path).toEqual({ ok: true })
-    expect([...PAGE_SET_FIRST_SEGMENTS].sort()).toEqual(['sponsor', 'support'])
+    for (const path of ['/support', '/support/ways', '/sponsor', '/sponsor/on-air', '/podcasts']) expect(checkPath(path), path).toEqual({ ok: true })
+    expect([...PAGE_SET_FIRST_SEGMENTS].sort()).toEqual(['podcasts', 'sponsor', 'support'])
     for (const s of PAGE_SET_FIRST_SEGMENTS) expect(RESERVED_FIRST_SEGMENTS.has(s)).toBe(false)
   })
 })

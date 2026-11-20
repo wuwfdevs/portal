@@ -73,7 +73,7 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     // Last, and the only heading made of globals alone: Payload's dashboard lists every collection's group before any global-only group,
     // so this is where the dashboard puts it too. `admin-nav.test.ts` holds the order.
     label: 'Site settings',
-    items: [g('header'), g('footer'), g('site-settings'), g('listen-live')],
+    items: [g('header'), g('footer'), g('site-settings'), g('shared-text'), g('listen-live')],
   },
 ]
 

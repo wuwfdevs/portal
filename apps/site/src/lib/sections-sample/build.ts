@@ -99,9 +99,13 @@ export const SAMPLES: Record<string, Maker> = {
       { source: 'videos' },
       { source: 'artists' },
       refs.topicId !== undefined ? { source: 'stories', scope: 'topic', topic: refs.topicId } : { source: 'stories', scope: 'latest' },
-    ][toneIndex % 6]!
-    return { ...head(`${label} · ${String(plan.source)}`), ...plan, count: variant === 'lead' ? 4 : 6, moreLabel: 'All stories', moreHref: '/latest' }
+      { source: 'shows' },
+      { source: 'episodes', allShows: true },
+    ]
+    const picked = plan[toneIndex % plan.length]!
+    return { ...head(`${label} · ${String(picked.source)}`), ...picked, count: variant === 'lead' ? 4 : 6, moreLabel: 'All stories', moreHref: '/latest' }
   },
+  sectionBroadcastSchedule: ({ label }) => head(label, 'The week’s programs for each stream, from the Listen live settings and NPR Cadence.'),
   sectionDates: ({ refs, toneIndex, label }) => ({
     ...head(label),
     source: (['typed', 'radiolive', 'events'] as const)[toneIndex % 3],
@@ -286,6 +290,21 @@ export const SAMPLES: Record<string, Maker> = {
     callLabel: 'Call {phone}',
     emailLabel: 'Email us',
   }),
+  sectionAskWuwf: ({ label }) => ({
+    label,
+    headline: 'Your questions shape our reporting.',
+    line: 'Ask us something. Suggest a story. Answer a reporter. A person at WUWF reads every word.',
+    jumpLinks: true,
+  }),
+  sectionListeningOpen: ({ label, variant }) => ({
+    ...head(label, 'Each question is open for a while, and there is more than one way to answer it.'),
+    emptyText: 'No reporter has a question open right now. Check back soon.',
+    tableText: 'Gather a few people in your kitchen, a break room or a church hall. Your phone reads the question and records the conversation once everyone agrees.',
+    voiceOnlyIntro: variant === 'reporters' ? 'One reporter, one story, a few minutes by voice.' : undefined,
+  }),
+  sectionListeningSessions: ({ label }) => head(label, 'Sit down with your neighbors at a table, and a WUWF journalist listens to what was said.'),
+  sectionListeningOutcomes: ({ label }) => head(label),
+  sectionHostForm: ({ label }) => head(label),
 }
 
 const variantsOf = (fields: ReadonlyArray<{ name?: string; options?: unknown }>): string[] => {

@@ -2,7 +2,7 @@
 
 **Status: proposed 2026-11-19. Nothing here is built. Phase 0 was run on a scratch database the same day: see "Phase 0 findings" in
 `ROADMAP.md`; its checklist below is annotated and the Design section is corrected where it found a difference. The block catalogue
-was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below. Phase 4 (the giving pages) was built on the owner's instruction to go ahead, before the phase 3 exit check in staging; see its checklist.** Rules live in
+was then cut to follow board 28 ("Section system") of the design canvas, checked against the code; see *Sources*.** **Phase 1 (the foundation) was built the same day; see its checklist. Phase 2 (the library) was built the same day too, awaiting the owner's look at the sample page. Phase 3 (the sponsor pages) was built the same day, and is the decision point below. Phase 4 (the giving pages) was built on the owner's instruction to go ahead, before the phase 3 exit check in staging; see its checklist. Phase 5 (words still in code) was built the next day on the same footing; see its checklist for where it differs from this plan.** Rules live in
 `CLAUDE.md`; state and history in `ROADMAP.md`. This file is the
 design and the order of work for moving editor-composed pages into the `pages` collection as an ordered list of section blocks. It
 follows a section-by-section audit of all 40 public routes (2026-11-18) and a check against Payload's 3.92.1 docs and adapter source.
@@ -410,10 +410,14 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 4: the giving pages*. Applied to s
 
 ### Phase 5: words still in code
 
-- [ ] WUWF Listens hub as a `sections` page (the report list and the three Portal data blocks); `/listens/host` intro from the same source.
-- [ ] Schedule and podcasts as `sections` pages (List and Dates blocks).
-- [ ] Not pages, so not blocks: the community calendar guidelines and the membership appeal move to Site settings; the fellowship
-      "How it works" text moves to the fellowship record or Site settings.
+Built 2026-11-19; see `ROADMAP.md` → *Phase 5*. **Where the code did not fit the plan, the code won and the difference is listed here.**
+
+- [x] **WUWF Listens hub and `/listens/host` as `sections` pages** in the listens set. The plan said "the report list and the three Portal data blocks"; the season reports (suite phase F) are not built, so there is no report list. The Portal-data blocks are **Open questions** (variants: campaigns, reporters' questions), **Sessions and tables** (variants: sessions, tables) and **Outcomes**, plus **Ask WUWF** (the opening, with its form) and **Host form**; all set-only (`sets: ['listens']`). The hub stays a **coded shell** (`/listens` reads the Portal per request with the reader's hashed address, which a block may not read): the route loads the answer and hands it to the sections as `SectionContext.listeningHub`. `/listens/host` is a shell too, so the address is not taken by `/listens/<publicId>`. The listens set draws **no sub-navigation strip** (`subNav: false`): the pages were two screens of one flow, not a place to browse.
+- [x] **Schedule and podcasts as `sections` pages.** The plan said "(List and Dates blocks)". Dates does not read Cadence and List had no show source, so: a new **Broadcast schedule** block (the Listen live streams and NPR Cadence; library, any tone), and List gained a **shows** source (every listed original show, from the directory's own read), episodes **across all shows**, and two layouts (**tiles**, **rows**). The schedule's "other ways to listen" cards moved from the Listen live global to a Cards section on the page; the global's field is hidden and kept until phase 7. `/podcasts` is no longer a reserved first segment (it joins `PAGE_SET_FIRST_SEGMENTS`: a section may not be named it).
+- [x] **Not pages, so not blocks.** The community calendar's guidelines, the membership appeal (under every story and on the home page) and the fellowship "How the fellowship works" explanation are a new **Shared text** global (slug `shared-text`, Site settings group; **publishers** edit it, because Site settings is the administrator's). The plan said "Site settings"/"the fellowship record"; the fellowship text is the same for every fellowship, so it is shared, not per record.
+- [ ] **The owner's look** at the five pages in staging (below).
+
+**Exit:** the owner has looked at `/schedule`, `/podcasts`, `/listens` and `/listens/host`, and has edited the shared text.
 
 ### Phase 6: the three hubs, redesigned to board 28
 

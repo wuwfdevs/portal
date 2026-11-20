@@ -1,6 +1,7 @@
 import type { Block } from 'payload'
 import type { ReactNode } from 'react'
 
+import type { HubLoad } from '@/lib/listening/load'
 import type { PageSetId } from '@/lib/page-sets/registry'
 import type { ThemeId } from '@/lib/page-themes/themes'
 
@@ -30,6 +31,11 @@ export interface SectionContext {
    * here, never from the request itself (PAGE-BLOCKS.md → Rendering).
    */
   query?: Record<string, string | string[] | undefined>
+  /**
+   * What the Portal answered for the hub, loaded by the coded route that renders the Listens page per request (`/listens`; the Portal's rate limit needs the
+   * reader's hashed address, which only the route may read). `undefined` on every page the cached catch-all serves: the Listens blocks then draw nothing.
+   */
+  listeningHub?: HubLoad
 }
 
 export type SectionProps<B extends SectionData = SectionData> = { block: B; context: SectionContext }

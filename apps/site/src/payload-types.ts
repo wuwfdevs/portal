@@ -72,6 +72,7 @@ export interface Config {
     sectionCards: SectionCards;
     sectionList: SectionList;
     sectionDates: SectionDates;
+    sectionBroadcastSchedule: SectionBroadcastSchedule;
     sectionQuotes: SectionQuotes;
     sectionStats: SectionStats;
     sectionSteps: SectionSteps;
@@ -96,6 +97,11 @@ export interface Config {
     sectionWaysToGive: SectionWaysToGive;
     sectionThankYou: SectionThankYou;
     sectionGivingContact: SectionGivingContact;
+    sectionAskWuwf: SectionAskWuwf;
+    sectionListeningOpen: SectionListeningOpen;
+    sectionListeningSessions: SectionListeningSessions;
+    sectionListeningOutcomes: SectionListeningOutcomes;
+    sectionHostForm: SectionHostForm;
   };
   collections: {
     posts: Post;
@@ -209,6 +215,7 @@ export interface Config {
     header: Header;
     footer: Footer;
     'site-settings': SiteSetting;
+    'shared-text': SharedText;
     'listen-live': ListenLive;
     'support-page': SupportPage;
     sponsorship: Sponsorship;
@@ -223,6 +230,7 @@ export interface Config {
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'shared-text': SharedTextSelect<false> | SharedTextSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
@@ -1581,7 +1589,7 @@ export interface SectionList {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
-  variant: 'grid' | 'rail' | 'numbered' | 'lead';
+  variant: 'grid' | 'rail' | 'numbered' | 'lead' | 'tiles' | 'rows';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -1594,16 +1602,20 @@ export interface SectionList {
    * Where the heading sits. A phone always shows it above.
    */
   placement?: ('stacked' | 'side') | null;
-  source: 'stories' | 'episodes' | 'videos' | 'artists';
+  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'artists';
   /**
    * Stories only.
    */
   scope?: ('latest' | 'section' | 'topic') | null;
   section?: (number | null) | Section;
   topic?: (number | null) | Category;
+  /**
+   * The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.
+   */
+  allShows?: boolean | null;
   show?: (number | null) | Production;
   /**
-   * How many to show, 1 to 12.
+   * How many to show, 1 to 12. A list of shows has every listed show.
    */
   count?: number | null;
   /**
@@ -1676,6 +1688,39 @@ export interface SectionDates {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionDates';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionBroadcastSchedule".
+ */
+export interface SectionBroadcastSchedule {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionBroadcastSchedule';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2985,6 +3030,186 @@ export interface SectionGivingContact {
   blockType: 'sectionGivingContact';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionAskWuwf".
+ */
+export interface SectionAskWuwf {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  /**
+   * A short line above the headline.
+   */
+  label?: string | null;
+  headline: string;
+  /**
+   * A blank line starts a new paragraph.
+   */
+  line?: string | null;
+  /**
+   * Under the line: Answer a question, See what came of other people’s answers, Ask WUWF something, Host a table of your own and Host a listening session. Each is shown only when there is something to go to. They point at sections with the anchors now, help-us-report, came-of-it, kitchen-table and the Ask form.
+   */
+  jumpLinks?: boolean | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionAskWuwf';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionListeningOpen".
+ */
+export interface SectionListeningOpen {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'campaigns' | 'reporters';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Campaigns only. Shown when the whole hub has nothing open, no session, no table and nothing answered: “No reporter has a question open right now. Check back soon.”
+   */
+  emptyText?: string | null;
+  /**
+   * Campaigns only. The words in the tile that starts a table: where to gather and what the phone does.
+   */
+  tableText?: string | null;
+  /**
+   * Reporters’ questions only. The line under the heading when none of the questions takes a written answer (the intro above says “or in writing”).
+   */
+  voiceOnlyIntro?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionListeningOpen';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionListeningSessions".
+ */
+export interface SectionListeningSessions {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'sessions' | 'tables';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionListeningSessions';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionListeningOutcomes".
+ */
+export interface SectionListeningOutcomes {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionListeningOutcomes';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionHostForm".
+ */
+export interface SectionHostForm {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionHostForm';
+}
+/**
  * Short vertical video. Needs captions to publish.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3187,6 +3412,7 @@ export interface Page {
         | SectionCards
         | SectionList
         | SectionDates
+        | SectionBroadcastSchedule
         | SectionQuotes
         | SectionStats
         | SectionSteps
@@ -3211,6 +3437,11 @@ export interface Page {
         | SectionWaysToGive
         | SectionThankYou
         | SectionGivingContact
+        | SectionAskWuwf
+        | SectionListeningOpen
+        | SectionListeningSessions
+        | SectionListeningOutcomes
+        | SectionHostForm
       )[]
     | null;
   /**
@@ -6826,6 +7057,70 @@ export interface SiteSetting {
   createdAt?: string | null;
 }
 /**
+ * The community calendar’s guidelines, the membership appeal and the fellowship explanation: words that appear on more than one page.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shared-text".
+ */
+export interface SharedText {
+  id: number;
+  /**
+   * Shown on the event submission page, closed until a visitor opens it. With no paragraphs the panel is not drawn.
+   */
+  calendarGuidelines?: {
+    /**
+     * The panel’s heading on the event submission page.
+     */
+    title?: string | null;
+    paragraphs?:
+      | {
+          /**
+           * Optional bold opening words, such as “Deadlines.”
+           */
+          lead?: string | null;
+          /**
+           * An email address typed here becomes a link.
+           */
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * The band under every story and on the home page.
+   */
+  membershipAppeal?: {
+    /**
+     * One sentence. Empty hides the appeal.
+     */
+    text?: string | null;
+    buttonLabel?: string | null;
+    /**
+     * A page on this site (/support), a secure https:// address, or mailto:. Leave empty for no link.
+     */
+    buttonHref?: string | null;
+  };
+  /**
+   * On every fellowship’s page, under its work. With no items the section is not drawn.
+   */
+  fellowshipPolicy?: {
+    title?: string | null;
+    items?:
+      | {
+          term: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * The link to the editorial independence policy (chosen in Site settings).
+     */
+    linkLabel?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "listen-live".
  */
@@ -6860,7 +7155,7 @@ export interface ListenLive {
       }[]
     | null;
   /**
-   * Cards under the player: on the radio, the app, smart speakers. Empty hides the section.
+   * Moved to the schedule page’s sections. Kept until phase 7.
    */
   otherWays?:
     | {
@@ -8940,6 +9235,47 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   relatedMaxPerSeries?: T;
   portalOrigin?: T;
   independencePolicy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "shared-text_select".
+ */
+export interface SharedTextSelect<T extends boolean = true> {
+  calendarGuidelines?:
+    | T
+    | {
+        title?: T;
+        paragraphs?:
+          | T
+          | {
+              lead?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membershipAppeal?:
+    | T
+    | {
+        text?: T;
+        buttonLabel?: T;
+        buttonHref?: T;
+      };
+  fellowshipPolicy?:
+    | T
+    | {
+        title?: T;
+        items?:
+          | T
+          | {
+              term?: T;
+              text?: T;
+              id?: T;
+            };
+        linkLabel?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

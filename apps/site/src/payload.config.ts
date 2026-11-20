@@ -53,6 +53,7 @@ import { Sponsorship } from './globals/Sponsorship'
 import { SponsorshipSettings } from './globals/SponsorshipSettings'
 import { SupportPage } from './SupportPage/config'
 import { GivingSettings } from './globals/GivingSettings'
+import { SharedText } from './globals/SharedText'
 import { plugins } from './plugins'
 import { adminNavGroups } from './plugins/adminNav'
 import { storagePlugin } from './plugins/storage'
@@ -157,7 +158,7 @@ export default buildConfig({
     MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, SponsorshipSettings, GivingSettings],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, SponsorshipSettings, GivingSettings, SharedText],
   // `adminNavGroups` runs last so it also reaches the collections the other plugins add.
   plugins: [...plugins, storagePlugin, adminNavGroups],
   secret: process.env.PAYLOAD_SECRET,
