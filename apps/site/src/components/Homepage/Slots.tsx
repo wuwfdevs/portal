@@ -38,14 +38,20 @@ function SlotHeading({ id, kicker, title, href, linkLabel }: { id: string; kicke
 }
 
 /**
- * "Watch in a minute": the newest short videos, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions.
- * On the home page it shares a column with the news, beside the sponsor rail, so it takes the column's width (`className=""`); alone it is a page-wide section.
+ * Short videos: the newest clips, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions.
+ * On the home page it sits in the news column and is drawn like the news sections beside it (a ruled serif heading that links to its page,
+ * the content, then a link to all of it at the bottom), not like the banded slots below, which use `SlotHeading`. It takes the column's
+ * width (`className=""`); alone it is a page-wide section.
  */
 export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
     <section aria-labelledby="video-heading" className={className}>
-      <SlotHeading href="/video" id="video-heading" kicker="Watch in a minute" linkLabel="All videos" title="Short videos from the region" />
-      <ul className="mt-5 flex snap-x gap-4 overflow-x-auto pb-2">
+      <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id="video-heading">
+        <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href="/video">
+          Short videos from the region
+        </Link>
+      </h2>
+      <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-2">
         {slot.clips.map((clip) => {
           const time = formatDuration(clip.durationSeconds)
           return (
@@ -71,6 +77,11 @@ export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNul
           )
         })}
       </ul>
+      <p className="mt-6 text-base">
+        <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href="/video">
+          All videos
+        </Link>
+      </p>
     </section>
   )
 }
