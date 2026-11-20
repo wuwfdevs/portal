@@ -9,6 +9,7 @@ import RichText from '@/components/RichText'
 import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
 import { ListRail, TopUnit } from '@/components/Placements'
+import { StoryGrid } from '@/components/StoryGrid'
 import { TitledSection } from '@/components/TitledSection'
 import { ClipRail } from '@/components/Video/ClipRail'
 import type { StoryListData } from '@/lib/lists/load'
@@ -112,15 +113,7 @@ export function StoryListView({ data, rail = [], clips = [], top = null }: { dat
                 <ClipRail clips={clips} label={`Short videos from ${title}`} />
               </TitledSection>
             )}
-            {grid.length > 0 && (
-              <ul className={cn('grid gap-6 sm:grid-cols-2', hasRail ? 'lg:grid-cols-2' : 'lg:grid-cols-3')}>
-                {grid.map((story) => (
-                  <li key={story.id}>
-                    <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                  </li>
-                ))}
-              </ul>
-            )}
+            <StoryGrid beside={hasRail} stories={grid} />
           </div>
         )}
         <ListPagination kind={kind} page={page} slug={slug} totalPages={totalPages} />

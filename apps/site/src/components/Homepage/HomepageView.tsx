@@ -7,15 +7,14 @@ import type { Media as MediaDoc } from '@/payload-types'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Banner } from '@/components/Banner'
 import { Chip, MembershipAppeal } from '@/components/Article/Parts'
-import { Card } from '@/components/Card'
-import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
+import { StoryGrid } from '@/components/StoryGrid'
 import { TitledSection } from '@/components/TitledSection'
 import { bannerFor } from '@/lib/banner'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
-import { leadSpanClass, newsBand } from '@/lib/homepage/modules'
+import { newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
@@ -194,14 +193,7 @@ export function HomepageView({
             <React.Fragment key={module.key}>
               {flow.before[i] && <SponsorRow items={flow.before[i]} />}
               <TitledSection href={module.href} id={`news-${module.key}`} more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null} title={module.heading}>
-                <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {module.stories.map((story, j) => (
-                    // The first story spans columns so the grid has no short last row (leadSpanClass).
-                    <li className={cn(j === 0 && leadSpanClass(module.stories.length))} key={story.id}>
-                      <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                    </li>
-                  ))}
-                </ul>
+                <StoryGrid spanFirst stories={module.stories} />
               </TitledSection>
             </React.Fragment>
           ))}

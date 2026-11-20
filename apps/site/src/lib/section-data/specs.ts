@@ -3,7 +3,7 @@
 
 import { relationId } from './shape'
 
-export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists', 'shows'] as const
+export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists', 'shows', 'clips'] as const
 export type ListSource = (typeof LIST_SOURCES)[number]
 export const LIST_SCOPES = ['latest', 'section', 'topic'] as const
 export type ListScope = (typeof LIST_SCOPES)[number]
@@ -16,6 +16,8 @@ export type ListSpec =
   | { source: 'episodes'; all: true; count: number }
   | { source: 'shows' }
   | { source: 'videos'; count: number }
+  | { source: 'clips'; scope: 'latest'; count: number }
+  | { source: 'clips'; scope: 'section'; id: number | string; count: number }
   | { source: 'artists'; count: number }
 
 const count = (v: unknown, fallback: number, max: number): number => {
@@ -41,6 +43,14 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
     }
     case 'videos':
       return { source: 'videos', count: n }
+    case 'clips': {
+      // The newest short videos, or the ones whose story is filed in a section (`lib/video/section`). A section that is not chosen (or was deleted) reads nothing.
+      if (block.scope === 'section') {
+        const id = relationId(block.section)
+        return id === null ? null : { source: 'clips', scope: 'section', id, count: n }
+      }
+      return { source: 'clips', scope: 'latest', count: n }
+    }
     case 'artists':
       return { source: 'artists', count: n }
     case 'shows':

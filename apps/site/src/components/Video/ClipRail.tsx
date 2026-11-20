@@ -8,7 +8,7 @@ import type { ClipView } from '@/lib/video/load'
  * A row of short-video posters that scrolls sideways: the home page's short-video row and the video strip on a section page. Each clip is one link
  * to its own page, where it plays with captions; nothing loads or plays here. Draws nothing without clips.
  */
-export function ClipRail({ clips, label }: { clips: readonly ClipView[]; label: string }) {
+export function ClipRail({ clips, label, toned = false }: { clips: readonly ClipView[]; label: string; /** Colour the words from the band's tone (`--tone-*`), as a section block does, instead of the page's fixed ink. */ toned?: boolean }) {
   if (clips.length === 0) return null
   return (
     <ul aria-label={label} className="flex snap-x gap-4 overflow-x-auto pb-2">
@@ -29,10 +29,10 @@ export function ClipRail({ clips, label }: { clips: readonly ClipView[]; label: 
               </span>
               {time && <span className="absolute bottom-2 right-2 rounded-sm bg-surface-dark/80 px-1.5 py-0.5 font-mono text-[11px] text-surface">{time}</span>}
             </span>
-            <Link className="text-base font-bold leading-snug text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={`/video/${clip.slug}`}>
+            <Link className={toned ? 'text-base font-bold leading-snug after:absolute after:inset-0 hover:underline' : 'text-base font-bold leading-snug text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline'} href={`/video/${clip.slug}`}>
               {clip.title}
             </Link>
-            {clip.by && <span className="text-sm text-ink-3">{clip.by}</span>}
+            {clip.by && <span className={toned ? 'text-sm [color:var(--tone-muted)]' : 'text-sm text-ink-3'}>{clip.by}</span>}
           </li>
         )
       })}

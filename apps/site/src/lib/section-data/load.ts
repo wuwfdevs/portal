@@ -15,6 +15,8 @@ import { getCachedGlobal } from '@/utilities/getGlobals'
 import { loadCalendar } from '@/lib/events/load'
 import { zonedInstant } from '@/lib/events/schedule'
 import { loadDirectory } from '@/lib/shows/load'
+import { loadClips, type ClipView } from '@/lib/video/load'
+import { clipsForSection } from '@/lib/video/section'
 import { getFellowshipHubAcknowledgments, getProductionHubAcknowledgments, getSeriesHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
@@ -66,6 +68,17 @@ const readList = async (spec: ListSpec): Promise<ListItem[]> => {
   return found.docs.map(storyListItem).filter((i): i is ListItem => i !== null)
 }
 const cachedList = unstable_cache(readList, ['section-list'], { revalidate: SECTION_REVALIDATE.list, tags: [...TAGS, 'section-data:list'] })
+
+const readClips = async (spec: Extract<ListSpec, { source: 'clips' }>): Promise<ClipView[]> => {
+  const all = await loadClips()
+  return spec.scope === 'section' ? clipsForSection(all, spec.id, spec.count) : all.slice(0, spec.count)
+}
+const cachedClips = unstable_cache(readClips, ['section-clips'], { revalidate: SECTION_REVALIDATE.list, tags: [...TAGS, 'section-data:list', 'clips'] })
+
+/** The short videos a List of clips shows: the newest, or the ones whose story is in a section. Empty when there are none. */
+export async function loadClipList(spec: Extract<ListSpec, { source: 'clips' }>): Promise<ClipView[]> {
+  return cachedClips(spec)
+}
 
 /** The entries a List shows. An empty list (nothing published, a deleted section) is `[]`. */
 export async function loadList(spec: ListSpec): Promise<ListItem[]> {
