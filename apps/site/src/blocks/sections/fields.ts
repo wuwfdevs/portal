@@ -120,12 +120,12 @@ export function actionsField(options: { name?: string; maxRows?: number; descrip
 }
 
 /**
- * One optional link under a block's content ("See the credit guidelines →"): a label and an address. Used by the blocks that often need a way
+ * One optional link for a block ("See the credit guidelines →"), drawn in the section's heading row (after the content when the section has no heading): a label and an address. Used by the blocks that often need a way
  * on to a related page (Cards, Stats, Callout). Drawn by `SectionMore`, through `safeHref`; with no label or no safe address nothing is drawn.
  */
 export function moreLinkFields(): Field[] {
   return [
-    { name: 'moreLabel', type: 'text', admin: { description: 'Optional: the words of one link under the section, e.g. "See the credit guidelines →".' } },
+    { name: 'moreLabel', type: 'text', admin: { description: 'Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".' } },
     { name: 'moreHref', type: 'text', label: 'Link for that', validate: validateHref },
   ]
 }

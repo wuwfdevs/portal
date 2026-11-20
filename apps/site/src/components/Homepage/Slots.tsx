@@ -6,6 +6,7 @@ import type { Media as MediaDoc } from '@/payload-types'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
+import { SectionHeader } from '@/components/SectionHeader'
 import { ShowFrame } from '@/components/RadioLive/parts'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import type { HomepageSlots, PodcastCard } from '@/lib/homepage/load-slots'
@@ -20,37 +21,15 @@ import { audioOf, type Episode } from '@/lib/shows/load'
 
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
 
-/** The section heading the boards use: a small blue label, a serif heading, and a link to everything on the right. */
-function SlotHeading({ id, kicker, title, href, linkLabel }: { id: string; kicker: string; title: string; href: string; linkLabel: string }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-4">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{kicker}</p>
-        <h2 className="mt-1 font-serif text-3xl font-bold leading-tight text-ink" id={id}>
-          {title}
-        </h2>
-      </div>
-      <Link className="inline-flex min-h-11 items-center text-base font-bold text-wuwf-blue-700 underline" href={href}>
-        {linkLabel}
-      </Link>
-    </div>
-  )
-}
-
 /**
  * Short videos: the newest clips, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions.
- * On the home page it sits in the news column and is drawn like the news sections beside it (a ruled serif heading that links to its page,
- * the content, then a link to all of it at the bottom), not like the banded slots below, which use `SlotHeading`. It takes the column's
- * width (`className=""`); alone it is a page-wide section.
+ * On the home page it sits in the news column and has the same ruled header as the news sections beside it, with "All videos" in the header.
+ * It takes the column's width (`className=""`); alone it is a page-wide section.
  */
 export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
     <section aria-labelledby="video-heading" className={className}>
-      <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id="video-heading">
-        <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href="/video">
-          Short videos from the region
-        </Link>
-      </h2>
+      <SectionHeader href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} title="Short videos from the region" />
       <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-2">
         {slot.clips.map((clip) => {
           const time = formatDuration(clip.durationSeconds)
@@ -77,11 +56,6 @@ export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNul
           )
         })}
       </ul>
-      <p className="mt-6 text-base">
-        <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href="/video">
-          All videos
-        </Link>
-      </p>
     </section>
   )
 }
@@ -106,7 +80,7 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
   return (
     <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
       <div className="container flex flex-col gap-6">
-        <SlotHeading href="/podcasts" id="podcasts-heading" kicker="WUWF originals" linkLabel="All podcasts" title="Podcasts made in Pensacola" />
+        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} rule={false} title="Podcasts made in Pensacola" />
         <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
           <article className="flex flex-col gap-6 rounded-md border border-rule bg-surface p-6 sm:flex-row">
             {featured.show.path ? (

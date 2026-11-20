@@ -9,6 +9,7 @@ import { Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
+import { SectionHeader } from '@/components/SectionHeader'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
@@ -206,15 +207,12 @@ export function HomepageView({
             <React.Fragment key={module.key}>
               {flow.before[i] && <SponsorRow items={flow.before[i]} />}
               <section aria-labelledby={`news-${module.key}`}>
-                <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
-                  {module.href ? (
-                    <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
-                      {module.heading}
-                    </Link>
-                  ) : (
-                    module.heading
-                  )}
-                </h2>
+                <SectionHeader
+                  href={module.href}
+                  id={`news-${module.key}`}
+                  more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null}
+                  title={module.heading}
+                />
                 <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {module.stories.map((story, j) => (
                     // The first story spans columns so the grid has no short last row (leadSpanClass).
@@ -223,13 +221,6 @@ export function HomepageView({
                     </li>
                   ))}
                 </ul>
-                {module.href && (
-                  <p className="mt-6 text-base">
-                    <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
-                      More from {module.heading}
-                    </Link>
-                  </p>
-                )}
               </section>
             </React.Fragment>
           ))}

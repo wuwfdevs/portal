@@ -159,9 +159,8 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
     )
   }
   return (
-    <SectionBand block={block} heading={block.heading}>
+    <SectionBand block={block} heading={block.heading} more={more}>
       {body}
-      {more}
     </SectionBand>
   )
 }

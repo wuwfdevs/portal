@@ -1564,7 +1564,7 @@ export interface SectionCards {
    */
   note?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1619,7 +1619,7 @@ export interface SectionList {
    */
   count?: number | null;
   /**
-   * Optional link under the list: "All stories".
+   * Optional link at the top right of the list: "All stories".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1825,7 +1825,7 @@ export interface SectionStats {
    */
   compareLabel?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1875,7 +1875,7 @@ export interface SectionSteps {
       }[]
     | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1956,7 +1956,7 @@ export interface SectionCallout {
    */
   cite?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;

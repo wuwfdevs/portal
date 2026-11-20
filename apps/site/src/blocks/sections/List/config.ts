@@ -59,7 +59,7 @@ export const List = defineSection({
       },
       { name: 'show', type: 'relationship', relationTo: 'productions', admin: { condition: (_, s) => s?.source === 'episodes' && s?.allShows !== true } },
       { name: 'count', type: 'number', min: 1, max: 12, defaultValue: 6, admin: { description: 'How many to show, 1 to 12. A list of shows has every listed show.', condition: (_, s) => s?.source !== 'shows' } },
-      { name: 'moreLabel', type: 'text', admin: { description: 'Optional link under the list: "All stories".' } },
+      { name: 'moreLabel', type: 'text', admin: { description: 'Optional link at the top right of the list: "All stories".' } },
       { name: 'moreHref', type: 'text', label: 'More link', validate: validateHref },
     ],
   }),
