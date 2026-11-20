@@ -21,6 +21,7 @@ import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
 import { loadListRail } from '@/lib/placements/load'
 import { pathFromSegments } from '@/lib/paths'
+import { CODED_SHELL_PATHS } from '@/lib/page-sets/shells'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
 import { parseShowSubpage, type ShowSubpage } from '@/lib/shows/subpaths'
 import { loadMembersListeningLevel, loadStationLevels, loadThemedShow, type ThemedShowData } from '@/lib/shows/themed-load'
@@ -36,6 +37,7 @@ import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
 // reached, so these pages also refresh on a schedule.
 export const revalidate = 3600
 
+// A page whose address a coded route also owns (`CODED_SHELL_PATHS`) is not built here: a prerendered copy has no request data and would be served in the shell's place.
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
   const [posts, pages] = await Promise.all(
@@ -44,7 +46,7 @@ export async function generateStaticParams() {
     ),
   )
   return [...(posts?.docs ?? []), ...(pages?.docs ?? [])]
-    .filter((doc): doc is typeof doc & { path: string } => typeof doc.path === 'string' && doc.path.length > 1)
+    .filter((doc): doc is typeof doc & { path: string } => typeof doc.path === 'string' && doc.path.length > 1 && !CODED_SHELL_PATHS.has(doc.path))
     .map(({ path }) => ({ path: path.split('/').filter(Boolean) }))
 }
 
