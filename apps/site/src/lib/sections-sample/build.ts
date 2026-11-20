@@ -290,6 +290,21 @@ export const SAMPLES: Record<string, Maker> = {
     callLabel: 'Call {phone}',
     emailLabel: 'Email us',
   }),
+  sectionAskWuwf: ({ label }) => ({
+    label,
+    headline: 'Your questions shape our reporting.',
+    line: 'Ask us something. Suggest a story. Answer a reporter. A person at WUWF reads every word.',
+    jumpLinks: true,
+  }),
+  sectionListeningOpen: ({ label, variant }) => ({
+    ...head(label, 'Each question is open for a while, and there is more than one way to answer it.'),
+    emptyText: 'No reporter has a question open right now. Check back soon.',
+    tableText: 'Gather a few people in your kitchen, a break room or a church hall. Your phone reads the question and records the conversation once everyone agrees.',
+    voiceOnlyIntro: variant === 'reporters' ? 'One reporter, one story, a few minutes by voice.' : undefined,
+  }),
+  sectionListeningSessions: ({ label }) => head(label, 'Sit down with your neighbors at a table, and a WUWF journalist listens to what was said.'),
+  sectionListeningOutcomes: ({ label }) => head(label),
+  sectionHostForm: ({ label }) => head(label),
 }
 
 const variantsOf = (fields: ReadonlyArray<{ name?: string; options?: unknown }>): string[] => {

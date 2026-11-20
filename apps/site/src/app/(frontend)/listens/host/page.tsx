@@ -1,30 +1,13 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import React from 'react'
 
-import { HostForm } from '@/components/Listening/HostForm'
-import { eyebrow } from '@/components/Listening/styles'
+import { SectionsRoute, sectionsRouteMetadata } from '@/components/Page/SectionsRoute'
+import { LISTENS_HOST_PATH } from '@/lib/listening/hub-pages'
 
-/** Host a listening session (board 5c). The form works only if the Portal is set up; if it is not, sending says so. */
-export default function HostPage() {
-  return (
-    <section className="container flex flex-col gap-6 py-12 md:py-14">
-      <div className="flex max-w-2xl flex-col gap-3">
-        <Link className="text-sm font-bold text-wuwf-blue-700" href="/listens">
-          ← WUWF Listens
-        </Link>
-        <span className={eyebrow}>Host a session</span>
-        <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight md:text-5xl">Bring a listening session to your table.</h1>
-        <p className="font-serif text-xl leading-snug text-ink-2">
-          Invite a few people to talk about something that matters where you live, or open it to anyone. You can ask for a WUWF journalist to join. A person at WUWF reads every request and will write back within a week.
-        </p>
-      </div>
-      <HostForm />
-    </section>
-  )
-}
+export const generateMetadata = (): Promise<Metadata> => sectionsRouteMetadata(LISTENS_HOST_PATH)
 
-export const metadata: Metadata = {
-  title: 'Host a listening session',
-  description: 'Ask to bring a WUWF listening session to your table, by invitation or open to the public.',
+// Host a listening session is a page in the listens set. This route exists so `/listens/host` is a page and not a listening question's address
+// (`/listens/<publicId>` is the next route up); it renders the record with its sections. The form works only if the Portal is set up; if it is not, sending says so.
+export default async function HostPage() {
+  return <SectionsRoute path={LISTENS_HOST_PATH} query={{}} />
 }

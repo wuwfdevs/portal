@@ -4,6 +4,7 @@ import { draftMode } from 'next/headers'
 import { notFound } from 'next/navigation'
 import React, { cache } from 'react'
 
+import type { HubLoad } from '@/lib/listening/load'
 import type { Page } from '@/payload-types'
 
 import { SectionsPageView, type SectionsPageData } from '@/components/Page/SectionsPageView'
@@ -25,9 +26,9 @@ export const loadSectionsRecord = cache(async (path: string): Promise<{ page: Pa
   return { page: hit.doc, draft }
 })
 
-export async function SectionsRoute({ path, query }: { path: string; query: Record<string, string | string[] | undefined> }) {
+export async function SectionsRoute({ path, query, listeningHub }: { path: string; query: Record<string, string | string[] | undefined>; listeningHub?: HubLoad }) {
   const { page, draft } = await loadSectionsRecord(path)
-  return <SectionsPageView draft={draft} page={page as unknown as SectionsPageData} query={query} url={path} />
+  return <SectionsPageView draft={draft} listeningHub={listeningHub} page={page as unknown as SectionsPageData} query={query} url={path} />
 }
 
 export async function sectionsRouteMetadata(path: string): Promise<Metadata> {

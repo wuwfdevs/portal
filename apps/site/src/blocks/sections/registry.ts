@@ -46,6 +46,16 @@ import { OpenPrograms } from './OpenPrograms/config'
 import { OpenProgramsSection } from './OpenPrograms/Component'
 import { Packages } from './Packages/config'
 import { PackagesSection } from './Packages/Component'
+import { AskWuwf } from './AskWuwf/config'
+import { AskWuwfSection } from './AskWuwf/Component'
+import { HostForm } from './HostForm/config'
+import { HostFormSection } from './HostForm/Component'
+import { ListeningOpen } from './ListeningOpen/config'
+import { ListeningOpenSection } from './ListeningOpen/Component'
+import { ListeningOutcomes } from './ListeningOutcomes/config'
+import { ListeningOutcomesSection } from './ListeningOutcomes/Component'
+import { ListeningSessions } from './ListeningSessions/config'
+import { ListeningSessionsSection } from './ListeningSessions/Component'
 import { BroadcastSchedule } from './BroadcastSchedule/config'
 import { BroadcastScheduleSection } from './BroadcastSchedule/Component'
 import { Columns } from './Columns/config'
@@ -110,6 +120,12 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'WaysToGive', block: WaysToGive, Component: WaysToGiveSection, sets: ['giving'] },
   { dir: 'ThankYou', block: ThankYou, Component: ThankYouSection, sets: ['giving'] },
   { dir: 'GivingContact', block: GivingContact, Component: GivingContactSection, sets: ['giving'] },
+  // Offered only on pages in the listens set. The first four read the Portal's hub through the page context; the host form sends a request to the Portal.
+  { dir: 'AskWuwf', block: AskWuwf, Component: AskWuwfSection, sets: ['listens'] },
+  { dir: 'ListeningOpen', block: ListeningOpen, Component: ListeningOpenSection, sets: ['listens'] },
+  { dir: 'ListeningSessions', block: ListeningSessions, Component: ListeningSessionsSection, sets: ['listens'] },
+  { dir: 'ListeningOutcomes', block: ListeningOutcomes, Component: ListeningOutcomesSection, sets: ['listens'] },
+  { dir: 'HostForm', block: HostForm, Component: HostFormSection, sets: ['listens'] },
 ]
 
 /** The blocks for the config's root `blocks`. */

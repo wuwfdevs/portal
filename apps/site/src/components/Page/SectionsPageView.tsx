@@ -26,17 +26,29 @@ export interface SectionsPageData {
  * stays cached (PAGE-BLOCKS.md → Rendering). The theme is the page's own choice, else its set's, else the station's. Its sub-navigation is
  * the set's published pages, through `components/SectionNav`.
  */
-export async function SectionsPageView({ page, draft, url, query }: { page: SectionsPageData; draft: boolean; url: string; query?: SectionContext['query'] }) {
+export async function SectionsPageView({
+  page,
+  draft,
+  url,
+  query,
+  listeningHub,
+}: {
+  page: SectionsPageData
+  draft: boolean
+  url: string
+  query?: SectionContext['query']
+  listeningHub?: SectionContext['listeningHub']
+}) {
   const set = pageSetOf(page.pageSet)
   const theme = resolveTheme(page.theme, set?.theme)
-  const items = set ? setNavItems(await loadSetNavPages(set.id)(), url) : []
+  const items = set && set.subNav ? setNavItems(await loadSetNavPages(set.id)(), url) : []
   return (
     <article data-page-theme={theme.id}>
       {/* Allows redirects for valid pages too */}
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
-      {set && !page.noindex && items.length > 0 && <SectionNav label={set.name} items={items} />}
-      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}) }} />
+      {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav label={set.name} items={items} />}
+      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
     </article>
   )
