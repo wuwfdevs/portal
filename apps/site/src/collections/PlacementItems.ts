@@ -246,7 +246,7 @@ export const PlacementItems: CollectionConfig = {
       admin: {
         condition: (_, s) => s?.kind === 'house' && s?.zone === 'home.rail',
         description:
-          'Optional. On the home page every sponsor tile that is running always shows. When the last row of tiles is short, WUWF promotions marked here complete it (up to three), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s ten. With none marked, the last row is centered instead.',
+          'Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s ten. With none marked, the short row\'s tiles are centered instead.',
       },
     },
     {

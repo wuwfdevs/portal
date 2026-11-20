@@ -553,13 +553,15 @@ The owner asked that staging hold enough demonstration data to show every featur
 - **Staging was seeded 2026-11-18** by the preview build (no staging credentials in a cloud session) through a temporary marker file and build hook, both now **removed** (git history has them); `seed-placements.ts` stays as a tool. Read back from the database (five news sections, six partner stories, the sample sponsor, 10 rail + 1 banner + 5 list placements) and from the rendered preview: home (5 sections, banner, 9 tiles, 5 sponsor labels), `/local-news`, `/latest`, a reporter page and `/local-arts` each showed the placements aimed at them. Staging has no Music & Arts section, so the home page starts with its own sections. Rehearsed on a scratch database shaped like staging (dry run, run, run again: 21 made, then 0), checked in a browser on every page it touches, tested (`tests/int/seed-placements.int.spec.ts`, 6 tests).
 - **Not demonstrable from seed data:** the who-may rules (they need signed-in users of each role), a placement past its last day (the Sinfonia tile is held instead), and the admin screens (not opened in a browser).
 
-## Sponsor rail redesign (built 2026-11-20)
+## Sponsor rail redesign (built 2026-11-20, reworked the same day)
 
 From the canvas "Sponsor Rail Redesign" (owner-reviewed). **Done:** one card for every tile (label strip with "Sponsor message" or "From WUWF" and the sponsor's name, artwork in a 5:4 frame with a blurred copy of
-the picture behind small art); the home page tiles flow as one list (a pair beside each news section with at least three stories, then every tile left in "More from our sponsors" after the banner, completed
-by optional WUWF promotions marked "Can fill a gap", else centered); migration `20261120_162233_placement_fills_gaps` (one nullable-default column). Pure logic `lib/placements/flow.ts`, `resolveFillers`, `fillsFrame`;
-tests in `flow.test.ts`, `resolve.test.ts`, `media.test.ts`, `Placements.test.ts` and `tests/int/placements.int.spec.ts`. **Not done:** the list pages (section, topic, reporter) keep their rail (now the new card);
-a "where each tile shows" admin preview (`PLACEMENTS.md`, open item 6); an artwork template for sponsors (corporate support confirms the 880 x 704 size first). **Not checked in a browser yet.**
+the picture behind small art); migration `20261120_162233_placement_fills_gaps` (one nullable-default column, "Can fill a gap" on a house promotion); `lib/placements/flow.ts`, `resolveFillers`, `fillsFrame`.
+**The first layout (PR 388) put a pair of tiles in a side column beside each news section; on staging a section is about 1,800 px tall and a pair about 660 px, so two thirds of every section was blank and the
+video row had no tile. Reworked as option B:** the tiles are full-width rows of three between the sections (the first just below the videos), the news cards run three across with the lead story spanning so no row is
+short (`leadSpanClass`), and a short last row is completed by optional promotions or centered. **Lesson:** the pair was sized against placeholder sections; check a layout against the real page's heights before building it.
+**Not done:** the list pages (section, topic, reporter) keep their side rail (now the new card); a "where each tile shows" admin preview (`PLACEMENTS.md`, open item 6); an artwork template for sponsors (corporate support
+confirms the 880 x 704 size first). **Not yet checked in a browser at three widths.**
 
 ## Editor-made placements (built 2026-11-18; supersedes the fixed rail and banner lists below)
 

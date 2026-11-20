@@ -160,7 +160,7 @@ describe('gap fillers', () => {
     expect(resolveFillers(records, NOW).map((t) => t.name)).toEqual(['ok'])
   })
   it('are never more than a row can need, and are empty when there are none', () => {
-    expect(resolveFillers(Array.from({ length: 6 }, (_, i) => filler({ order: i })), NOW)).toHaveLength(3)
+    expect(resolveFillers(Array.from({ length: 6 }, (_, i) => filler({ order: i })), NOW)).toHaveLength(2)
     expect(resolveFillers([], NOW)).toEqual([])
     expect(resolveFillers(null, NOW)).toEqual([])
   })

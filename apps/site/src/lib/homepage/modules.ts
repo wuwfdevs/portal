@@ -75,3 +75,15 @@ export function fallbackModule<T extends { id: Id }>(recent: readonly T[], shown
 export function newsBand(input: { sectionRuns: number; railTiles: number; hasNews: boolean }): { show: boolean; allStoriesLink: boolean } {
   return { show: input.sectionRuns > 0 || input.railTiles > 0 || input.hasNews, allStoriesLink: input.hasNews }
 }
+
+/**
+ * The columns a news section's first (lead) story spans, so the card grid has no gap in its last row: two columns on a tablet and three on a wide screen.
+ * An odd count spans two on a tablet; on a wide screen a count one more than a multiple of three spans two (5, 8), one that is one more than a multiple
+ * of three on its own (4, 7) spans all three, and a multiple of three needs no span. Whole class names, so Tailwind generates them. Pure.
+ */
+export function leadSpanClass(count: number): string {
+  const n = Math.max(0, Math.floor(count))
+  const tablet = n % 2 === 1 ? 'sm:col-span-2' : ''
+  const wide = (n + 1) % 3 === 0 ? 'lg:col-span-2' : n % 3 === 1 ? 'lg:col-span-3' : n % 2 === 1 ? 'lg:col-span-1' : ''
+  return [tablet, wide].filter(Boolean).join(' ')
+}

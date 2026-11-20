@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_STORIES_HREF, fallbackModule, fillModules, MODULE_COUNT, moduleCount, newsBand } from './modules'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, leadSpanClass, MODULE_COUNT, moduleCount, newsBand } from './modules'
 
 const story = (id: number) => ({ id })
 const run = (...ids: number[]) => ids.map(story)
@@ -74,5 +74,26 @@ describe('newsBand', () => {
   })
   it('is not drawn on a site with no news, no sections and nothing in the rail', () => {
     expect(newsBand({ sectionRuns: 0, railTiles: 0, hasNews: false })).toEqual({ show: false, allStoriesLink: false })
+  })
+})
+
+describe('leadSpanClass', () => {
+  // The grid is two columns on a tablet and three on a wide screen; the first card spans so no row is left short.
+  const fills = (count: number) => {
+    const cls = leadSpanClass(count)
+    const tabletLead = cls.includes('sm:col-span-2') ? 2 : 1
+    const wideLead = cls.includes('lg:col-span-3') ? 3 : cls.includes('lg:col-span-2') ? 2 : 1
+    return { tablet: (count - 1 + tabletLead) % 2 === 0, wide: (count - 1 + wideLead) % 3 === 0 }
+  }
+  it('leaves no short last row at either width for every count a section can hold', () => {
+    for (let n = 3; n <= 8; n++) expect(fills(n), `${n} stories`).toEqual({ tablet: true, wide: true })
+  })
+  it('spans two columns for five and eight stories on a wide screen, all three for four and seven, and none for three and six', () => {
+    expect(leadSpanClass(5)).toBe('sm:col-span-2 lg:col-span-2')
+    expect(leadSpanClass(8)).toBe('lg:col-span-2')
+    expect(leadSpanClass(4)).toBe('lg:col-span-3')
+    expect(leadSpanClass(7)).toBe('sm:col-span-2 lg:col-span-3')
+    expect(leadSpanClass(6)).toBe('')
+    expect(leadSpanClass(3)).toBe('sm:col-span-2 lg:col-span-1')
   })
 })
