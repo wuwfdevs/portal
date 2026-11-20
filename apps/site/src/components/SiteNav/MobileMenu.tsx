@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import React, { useEffect, useId, useRef, useState } from 'react'
 
@@ -21,13 +22,21 @@ const FOCUSABLE = 'a[href], button:not([disabled])'
  * the Menu button, and so does following a link or any navigation. The panel's heading and one-sentence blurb are for the
  * desktop panel only; on a phone the reader came for the links.
  */
-export const MobileMenu: React.FC<{ items: Item[] }> = ({ items }) => {
+export const MobileMenu: React.FC<MobileMenuProps> = (props) => {
   const pathname = usePathname()
   // Keyed on the path, so a navigation remounts the menu closed.
-  return <Menu items={items} key={pathname} />
+  return <Menu {...props} key={pathname} />
 }
 
-const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
+type MobileMenuProps = {
+  items: Item[]
+  /** The header's Search button, when it is shown: on a phone it is a field at the top of the sheet, not an icon in the row. */
+  search?: { label: string } | null
+  /** The header's Sign in button, when it is shown: a phone's row has no room for it, so it sits at the foot of the sheet. */
+  signIn?: { label: string } | null
+}
+
+const Menu: React.FC<MobileMenuProps> = ({ items, search, signIn }) => {
   const [open, setOpen] = useState(false)
   const [section, setSection] = useState<number | null>(null)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -39,6 +48,17 @@ const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
     setOpen(false)
     if (returnFocus) trigger.current?.focus()
   }
+
+  // The sheet is hidden from `lg` up (the desktop bar takes over), but hiding it does not close it: widening the window
+  // (a rotated tablet) would leave the page's scroll locked behind a sheet nobody can see. Close it at the breakpoint.
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setOpen(false)
+    }
+    desktop.addEventListener('change', onChange)
+    return () => desktop.removeEventListener('change', onChange)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -77,7 +97,7 @@ const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-sm px-2 text-base font-semibold text-ink hover:bg-surface-2"
+        className="-ml-2 flex size-11 shrink-0 items-center justify-center rounded-sm text-ink hover:bg-surface-2"
         onClick={() => setOpen(true)}
         ref={trigger}
         type="button"
@@ -85,7 +105,7 @@ const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
         <svg aria-hidden="true" fill="none" height="22" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" width="22">
           <path d="M4 7h16M4 12h16M4 17h16" />
         </svg>
-        <span className="sr-only sm:not-sr-only">Menu</span>
+        <span className="sr-only">Menu</span>
       </button>
 
       {open && (
@@ -104,6 +124,24 @@ const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
               </svg>
             </button>
           </div>
+
+          {search && (
+            <form action="/search" className="container flex shrink-0 gap-2 border-b border-rule py-3" role="search">
+              <label className="sr-only" htmlFor={`${baseId}-search`}>
+                {search.label}
+              </label>
+              <input
+                className="h-11 min-w-0 flex-1 rounded-sm border border-rule-strong bg-surface px-3 text-base text-ink"
+                id={`${baseId}-search`}
+                name="q"
+                placeholder="Search stories, shows and video"
+                type="search"
+              />
+              <button className="min-h-11 shrink-0 rounded-sm bg-wuwf-blue-700 px-4 text-base font-bold text-surface hover:bg-wuwf-blue-600" type="submit">
+                Search
+              </button>
+            </form>
+          )}
 
           {/* Following any link inside closes the sheet, including a link to the page the reader is already on. */}
           <nav
@@ -158,6 +196,14 @@ const Menu: React.FC<{ items: Item[] }> = ({ items }) => {
               )}
             </ul>
           </nav>
+
+          {signIn && (
+            <div className="shrink-0 border-t border-rule">
+              <Link className={row} href="/account" onClick={() => setOpen(false)}>
+                {signIn.label}
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>
