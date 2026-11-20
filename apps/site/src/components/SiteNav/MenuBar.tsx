@@ -14,8 +14,8 @@ const tab =
 /**
  * The header's items (board 27), in the order the editors set: a plain link, or a menu. A menu is a real button with
  * aria-expanded that opens one panel under the header; opening another closes the first. Escape closes it and returns
- * focus to its button; so does a click outside it or a navigation. On a phone the row scrolls sideways under the logo
- * and the panel spans the screen.
+ * focus to its button; so does a click outside it or a navigation. Desktop only (`lg` and up): below that the same items
+ * are `MobileMenu`'s sheet, since a row that scrolls sideways hides what is past its edge.
  */
 export const MenuBar: React.FC<{ items: Item[] }> = ({ items }) => {
   // Keyed on the path, so a navigation remounts the bar with every menu closed.
@@ -56,8 +56,8 @@ const Bar: React.FC<{ items: Item[] }> = ({ items }) => {
   const current = open === null ? undefined : items[open]
 
   return (
-    <div className="order-last -mx-4 w-[calc(100%+2rem)] lg:order-none lg:mx-0 lg:w-auto lg:flex-1" ref={root}>
-      <nav aria-label="Primary" className="flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible lg:px-0">
+    <div className="hidden lg:block lg:flex-1" ref={root}>
+      <nav aria-label="Primary" className="flex flex-wrap gap-1">
         {items.map((item, i) =>
           item.kind === 'menu' ? (
             <button

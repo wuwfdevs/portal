@@ -3,6 +3,8 @@ import React from 'react'
 
 import { cn } from '@/utilities/ui'
 
+import { FadeScroller } from './FadeScroller'
+
 export type SectionNavItem = {
   label: string
   /** A page (`/radiolive/artists`) or a place on the page (`#shows`). */
@@ -16,7 +18,8 @@ export type SectionNavItem = {
  * RadioLive). Use this, not a hand-built row of links, so every section behaves the same way:
  *
  * - one real `<nav>` landmark with a list of links, labelled with the section's name;
- * - one line at every width: on a phone the links scroll sideways instead of wrapping into a second and third row;
+ * - one line at every width: on a phone the links scroll sideways instead of wrapping into a second and third row, and the
+ *   edge with more beyond it fades (`FadeScroller`, the one client piece here), so a cut-off link reads as "scroll for more";
  * - every link is at least 44px tall to touch;
  * - the current page is marked with `aria-current="page"` and an underline, not by colour alone;
  * - only items that lead somewhere: the caller leaves out a link to a part of the page that is not rendered.
@@ -57,7 +60,10 @@ export const SectionNav: React.FC<{
           </span>
         )}
         {items.length > 0 && (
-          <nav aria-label={label} className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto px-1 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-1 md:px-0">
+          <FadeScroller
+            className="-mx-4 w-[calc(100%+2rem)] overflow-x-auto px-1 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-1 md:px-0"
+            label={label}
+          >
             <ul className="flex">
               {items.map((item) => (
                 <li className="shrink-0" key={`${item.href}-${item.label}`}>
@@ -73,7 +79,7 @@ export const SectionNav: React.FC<{
                 </li>
               ))}
             </ul>
-          </nav>
+          </FadeScroller>
         )}
       </div>
     </div>
