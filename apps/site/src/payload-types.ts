@@ -4477,11 +4477,11 @@ export interface PlacementItem {
    */
   zone: 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.rail' | 'story.inline';
   /**
-   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 970 × 250 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
    */
   image: number | Media;
   /**
-   * Optional, 800 × 400 pixels (a top unit: 800 × 400 pixels). Without it, phones get the wide picture, scaled down.
+   * Optional, 800 × 400 pixels (a top unit: 640 × 200 pixels). Without it, phones get the wide picture, scaled down.
    */
   phoneImage?: (number | null) | Media;
   /**

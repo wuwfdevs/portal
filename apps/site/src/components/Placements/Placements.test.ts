@@ -152,19 +152,22 @@ describe('a top unit', () => {
   it('draws nothing without a tile', () => {
     expect(top(null)).toBe('')
   })
-  it('is one labeled, sponsored link in the standard billboard shape, with no script or frame', () => {
+  it('is one labeled, sponsored link in the slim strip shape, with no script or frame', () => {
     const html = top(tile({ key: 'home.top.1', image: media(7) }))
     expect(html).toContain('Sponsor message')
     expect(html).toContain('rel="sponsored noopener noreferrer"')
     expect(html).toContain('data-placement="home.top.1"')
-    expect(html).toMatch(/aspect-ratio:\s*970 \/ 250/)
+    expect(html).toMatch(/aspect-ratio:\s*1600 \/ 200/)
     expect(html).not.toMatch(/<script|<iframe|<video|<audio/i)
   })
   it('gives phones their own picture when there is one', () => {
     expect(top(tile({ key: 'home.top.1' }))).not.toContain('md:hidden')
     const withPhone = top(tile({ key: 'home.top.1', phoneImage: media(8) }))
     expect(withPhone).toContain('md:hidden')
-    expect(withPhone).toMatch(/aspect-ratio:\s*800 \/ 400/)
+    expect(withPhone).toMatch(/aspect-ratio:\s*640 \/ 200/)
+  })
+  it('is the width of the page\'s content, not a narrower box', () => {
+    expect(top(tile({ key: 'home.top.1' }))).not.toMatch(/max-w-\[/)
   })
   it('says "From WUWF" for a house promotion, never "Sponsor message"', () => {
     const html = top(house({ key: 'home.top.1' }))

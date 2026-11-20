@@ -23,9 +23,11 @@ export const Card: React.FC<{
   doc?: CardPostData
   /** Show the picture in a fixed 3:2 frame, cropped to fill it, so a grid of cards lines up whatever shape the pictures are. */
   fixedImage?: boolean
+  /** Another aspect for the fixed frame at wider screens (a lead card that spans columns, `leadFrameClass`), as whole Tailwind classes. */
+  frameClassName?: string
   showCategories?: boolean
   title?: string
-}> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
+}> = ({ className, doc, fixedImage, frameClassName, showCategories, title: titleFromProps }) => {
   const { path, categories, meta, title, format, publishingIdentity, featuredAudio } = doc || {}
   const { description, image: metaImage } = meta || {}
 
@@ -46,7 +48,7 @@ export const Card: React.FC<{
     >
       {metaImage && typeof metaImage !== 'string' && (
         fixedImage ? (
-          <div className="relative aspect-[3/2] w-full overflow-hidden bg-surface-3">
+          <div className={cn('relative aspect-[3/2] w-full overflow-hidden bg-surface-3', frameClassName)}>
             <Media imgClassName="absolute inset-0 size-full object-cover" resource={metaImage} size="33vw" />
           </div>
         ) : (

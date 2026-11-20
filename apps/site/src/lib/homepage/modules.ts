@@ -60,6 +60,18 @@ export function fillModules<T extends { id: Id }>(requests: readonly ModuleReque
   return filled
 }
 
+/**
+ * The picture frame of a lead card that spans columns (`leadSpanClass`), as a whole Tailwind class. A 3:2 frame at two or three columns wide would be as tall as the rest
+ * of the row put together, and the card beside it would stretch to match and leave a blank panel; so the frame gets wider as the card does: 2:1 across a tablet's row, 3:1 over
+ * two of three columns (measured: about as tall as its neighbour's picture and words) and 7:2 over all three, where nothing sits beside it. A card that does not span keeps 3:2, and a phone is always 3:2. Pure.
+ */
+export function leadFrameClass(count: number): string {
+  const n = Math.max(0, Math.floor(count))
+  const tablet = n % 2 === 1 ? 'sm:aspect-[2/1]' : ''
+  const wide = (n + 1) % 3 === 0 ? 'lg:aspect-[3/1]' : n % 3 === 1 ? 'lg:aspect-[7/2]' : n % 2 === 1 ? 'lg:aspect-[3/2]' : ''
+  return [tablet, wide].filter(Boolean).join(' ')
+}
+
 /** The stand-in when no module has anything: the newest stories nothing above shows, headed "Latest stories", linking to all of them. */
 export function fallbackModule<T extends { id: Id }>(recent: readonly T[], shown: readonly { id: Id }[], count: number = MODULE_COUNT.fallback + 1): FilledModule<T> | null {
   const taken = new Set(shown.map((s) => String(s.id)))

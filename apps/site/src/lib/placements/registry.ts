@@ -42,9 +42,13 @@ export interface ZoneSpec {
   built: boolean
 }
 
-/** The standard billboard, in pixels: the one shape a top unit may take, and the tallest. A top unit is never taller than this ratio (a test holds it). */
-export const TOP_UNIT_ARTWORK = { width: 970, height: 250 } as const
-export const TOP_UNIT_PHONE_ARTWORK = { width: 800, height: 400 } as const
+/**
+ * A top unit's shape, in pixels: a slim strip the width of the page's content, eight times as wide as it is tall (the leaderboard shape), so it carries a sponsor's message
+ * without pushing the story down: about 150 px tall on a wide screen (a 970 by 250 billboard was about 290 px with its label, and narrower than the page). It is the one shape a top
+ * unit may take and never taller than this ratio (a test holds it). The phone picture is taller in proportion, since a phone is narrow.
+ */
+export const TOP_UNIT_ARTWORK = { width: 1600, height: 200 } as const
+export const TOP_UNIT_PHONE_ARTWORK = { width: 640, height: 200 } as const
 
 export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
   'home.top': {

@@ -116,17 +116,18 @@ describe('the zone registry', () => {
     expect(Object.values(ZONES).filter((z) => z.targetable).map((z) => z.page).every((p) => p !== 'home')).toBe(true)
     expect(ZONES['home.rail'].targetable).toBe(false)
   })
-  it('has no leaderboard strip: no zone is wider than six times its height', () => {
-    for (const z of Object.values(ZONES)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
+  it('keeps every zone but a top unit to six wide for one tall', () => {
+    for (const z of Object.values(ZONES).filter((x) => !x.top)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
   })
-  it('allows a top unit only as the standard billboard shape: one exclusive unit, never wider than 970 by 250', () => {
+  it('allows a top unit only as a slim strip: one exclusive unit, eight wide for one tall at most, so it does not push the story down', () => {
     const tops = Object.values(ZONES).filter((z) => z.top)
     expect(tops.map((z) => z.id).sort()).toEqual(['home.top', 'list.top'])
     for (const z of tops) {
       expect(z.capacity, z.id).toBe(1)
       expect(z.exclusive, z.id).toBe(true)
       expect(z.shape, z.id).toBe('band')
-      expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(970 / 250)
+      expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(8)
+      expect(z.artwork.width / z.artwork.height, z.id).toBeGreaterThanOrEqual(6)
     }
     expect(ZONES['home.top'].targetable).toBe(false)
     expect(ZONES['list.top'].targetable).toBe(true)

@@ -22,7 +22,7 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 - **Fixed and labeled.** The same place every time. A sponsor tile says **"Sponsor message"** above it, on a strip in the site's own type, with the sponsor's
   name. A house promotion (WUWF's own app, weather, Book Club, advocacy) says **"From WUWF"** in the same place and is never labeled as a sponsor
   (changed 2026-11-20: it used to carry no label, so a reader could not tell it from an ad). A placement with no kind is labeled as a sponsor, because labeling a promotion as a sponsor is the safe mistake.
-- **A top unit, not a leaderboard strip** (changed 2026-11-20): the one exclusive unit of `home.top` and `list.top`, in the standard 970 by 250 billboard shape, directly under the header and the banner, is allowed. **No autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
+- **A top unit: a slim strip, not a tall billboard** (changed 2026-11-20): the one exclusive unit of `home.top` and `list.top`, in a slim strip the width of the page's content (1600 by 200, eight wide for one tall: about 150 px tall; changed the same day from a 970 by 250 billboard, which was narrower than the page and about 290 px tall with its label), directly under the header and the banner, is allowed. **No autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
   tracking**. A tile is a picture and a link: no script, no frame, no request to anyone else's server.
 - **The emergency notice always comes first.** Changed 2026-11-20 (it was "never above the news"). Under the header a page may carry its one top unit, and on a phone the unit follows the lead story's headline and picture (or the list's title), so a story is always what the first screen shows. **While an emergency banner is on (for that page) the top unit is not drawn** (`exclusions.ts`); a quiet notice banner does not hold it back. Nothing else is above the news: the band, the rail and the tiles still sit after or between it.
 - **Nothing empty.** A zone with nothing running draws nothing, not a box. The page closes up.
@@ -38,10 +38,10 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 
 | Zone | Where | Holds (per page) | Can be aimed | Artwork | Built |
 | --- | --- | --- | --- | --- | --- |
-| `home.top` | Directly under the header on the home page (on a phone, after the lead story's headline and picture); held back while an emergency banner is on | 1, exclusive | no | 970 × 250 (phone 800 × 400) | **Yes** |
+| `home.top` | Directly under the header on the home page (on a phone, after the lead story's headline and picture); held back while an emergency banner is on | 1, exclusive | no | 1600 × 200 (phone 640 × 200) | **Yes** |
 | `home.rail` | Between the news sections (rows of three); after the news on a phone | 9 (target 6) | no | 880 × 704 | **Yes** |
 | `home.band` | A slim band after the news sections, before the podcasts | 1 | no | 1200 × 200 (phone 800 × 400) | **Yes** |
-| `list.top` | Under the title of a section, topic, reporter or all-stories page: **a section's presenting sponsor**; held back while an emergency banner is on | 1 per page, exclusive | **yes** | 970 × 250 (phone 800 × 400) | **Yes** |
+| `list.top` | Under the title of a section, topic, reporter or all-stories page: **a section's presenting sponsor**; held back while an emergency banner is on | 1 per page, exclusive | **yes** | 1600 × 200 (phone 640 × 200) | **Yes** |
 | `list.rail` | Beside the stories on a section, topic, reporter or all-stories page | 4 | **yes** | 880 × 704 | **Yes** |
 | `story.rail` | Beside the story text (wide screens); after the story on a phone | 2 | yes | 880 × 704 | **Yes** |
 | `story.inline` | One band after a story's fourth paragraph (a story of at least six) | 1 | yes | 1200 × 200 (phone 800 × 400) | **Yes** |

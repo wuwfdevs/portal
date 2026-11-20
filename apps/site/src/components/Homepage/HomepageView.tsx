@@ -80,7 +80,7 @@ export function HomepageView({
         <section aria-label="Top stories" className="container flex flex-col pt-8 md:pt-12">
           {/* The top unit (`home.top`): directly under the header on a wide screen, so above the lead. On a phone it follows the lead story's headline and picture, so a
               story is always what the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
-          {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-8 md:mt-0" tile={homeTop} />}
+          {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
           <LeadArticle className="order-1 md:order-2" lead={lead} leadKicker={leadKicker} />
 
           <Briefing className="order-3 mt-8" top={top} />

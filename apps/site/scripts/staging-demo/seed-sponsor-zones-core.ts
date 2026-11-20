@@ -63,22 +63,32 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
     note('made', `picture ${file}`)
     return doc
   }
-  const top = await picture('demo-sponsor-top.png', `${DEMO} top unit`)
-  const topPhone = await picture('demo-sponsor-top-phone.png', `${DEMO} top unit for phones`)
+  const top = await picture('demo-sponsor-top-wide.png', `${DEMO} top unit`)
+  const topPhone = await picture('demo-sponsor-top-wide-phone.png', `${DEMO} top unit for phones`)
   const tile = await picture('demo-sponsor-tile.png', `${DEMO} sponsor tile`)
   const band = await picture('demo-sponsor-banner.png', `${DEMO} sponsor banner`)
   const bandPhone = await picture('demo-sponsor-banner-phone.png', `${DEMO} sponsor banner for phones`)
 
-  const place = async (name: string, data: Record<string, unknown>) => {
-    if (await first('placement-items', { name: { equals: name } })) return note('kept', `placement "${name}"`)
-    await create('placement-items', { name, ...data })
-    note('made', `placement "${name}"`)
+  // `refreshPictures`: a top unit's shape changed (970 by 250 became 1600 by 200), so a demonstration placement made with the old picture gets the new one. Only these
+  // demonstration records are touched, and only when their picture is not already the current one.
+  const place = async (name: string, data: Record<string, unknown>, opts2: { refreshPictures?: boolean } = {}) => {
+    const existing = await first<{ id: string | number; image?: unknown; phoneImage?: unknown }>('placement-items', { name: { equals: name } })
+    if (!existing) {
+      await create('placement-items', { name, ...data })
+      return note('made', `placement "${name}"`)
+    }
+    const idOf = (v: unknown) => (v && typeof v === 'object' ? (v as { id: string | number }).id : v)
+    if (opts2.refreshPictures && data.image && String(idOf(existing.image)) !== String(data.image)) {
+      if (opts.apply) await payload.update({ collection: 'placement-items', id: existing.id, data: { image: data.image, phoneImage: data.phoneImage ?? null } as never, overrideAccess: true, context: ctx })
+      return note('made', `placement "${name}": picture replaced with the current top-unit shape`)
+    }
+    note('kept', `placement "${name}"`)
   }
   const common = { kind: 'sponsor', sponsor: sponsor?.id, enabled: true, href: '/sponsor' }
 
   // ---- the home page's top unit -----------------------------------------------------------------------------------------------------------
   if (top && sponsor) {
-    await place(`${DEMO}: example sponsor, home page top unit`, { ...common, zone: 'home.top', image: top.id, phoneImage: topPhone?.id, alt: `${DEMO} top unit: example sponsor, your message here`, order: 10 })
+    await place(`${DEMO}: example sponsor, home page top unit`, { ...common, zone: 'home.top', image: top.id, phoneImage: topPhone?.id, alt: `${DEMO} top unit: example sponsor, your message here`, order: 10 }, { refreshPictures: true })
   }
 
   // ---- a presenting sponsor on two section pages, and the story zones on stories in them ----------------------------------------------------
@@ -89,7 +99,7 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
       continue
     }
     const where = { scope: 'chosen', sections: [section.id] }
-    if (top && sponsor) await place(`${DEMO}: example sponsor, ${slug} presenting sponsor`, { ...common, zone: 'list.top', image: top.id, phoneImage: topPhone?.id, alt: `${DEMO} presenting sponsor: example sponsor, your message here`, ...where, order: 10 })
+    if (top && sponsor) await place(`${DEMO}: example sponsor, ${slug} presenting sponsor`, { ...common, zone: 'list.top', image: top.id, phoneImage: topPhone?.id, alt: `${DEMO} presenting sponsor: example sponsor, your message here`, ...where, order: 10 }, { refreshPictures: true })
     if (tile && sponsor) await place(`${DEMO}: example sponsor, ${slug} story rail`, { ...common, zone: 'story.rail', image: tile.id, alt: `${DEMO} tile: example sponsor, your message here`, ...where, order: 10 })
     if (band && sponsor) await place(`${DEMO}: example sponsor, ${slug} story band`, { ...common, zone: 'story.inline', image: band.id, phoneImage: bandPhone?.id, alt: `${DEMO} band: example sponsor, your message here`, ...where, order: 10 })
   }

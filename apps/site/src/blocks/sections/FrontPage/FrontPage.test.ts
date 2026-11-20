@@ -50,7 +50,7 @@ describe('Front page lead', () => {
 })
 
 describe('Front page lead: the top unit', () => {
-  const top = { key: 'home.top.1', kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: 'Acme words', href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: { id: 1, url: '/a.png', alt: 'a', width: 970, height: 250 }, phoneImage: null }
+  const top = { key: 'home.top.1', kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: 'Acme words', href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: { id: 1, url: '/a.png', alt: 'a', width: 1600, height: 200 }, phoneImage: null }
   const home = { setId: 'home', slots: { top, rail: [], fillers: [], band: null } }
   it('lays the page\'s top unit out between the lead and The Briefing, ordered by the screen, once', async () => {
     const out = await draw({}, undefined, home)

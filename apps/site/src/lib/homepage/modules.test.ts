@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_STORIES_HREF, fallbackModule, fillModules, leadSpanClass, MODULE_COUNT, moduleCount, newsBand } from './modules'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, leadFrameClass, leadSpanClass, MODULE_COUNT, moduleCount, newsBand } from './modules'
 
 const story = (id: number) => ({ id })
 const run = (...ids: number[]) => ids.map(story)
@@ -95,5 +95,26 @@ describe('leadSpanClass', () => {
     expect(leadSpanClass(7)).toBe('sm:col-span-2 lg:col-span-3')
     expect(leadSpanClass(6)).toBe('')
     expect(leadSpanClass(3)).toBe('sm:col-span-2 lg:col-span-1')
+  })
+})
+
+describe('leadFrameClass', () => {
+  it('widens the lead\'s picture frame as the card spans columns, so it is not as tall as the row', () => {
+    expect(leadFrameClass(5)).toBe('sm:aspect-[2/1] lg:aspect-[3/1]')
+    expect(leadFrameClass(8)).toBe('lg:aspect-[3/1]')
+    expect(leadFrameClass(4)).toBe('lg:aspect-[7/2]')
+    expect(leadFrameClass(7)).toBe('sm:aspect-[2/1] lg:aspect-[7/2]')
+    expect(leadFrameClass(6)).toBe('')
+  })
+  it('puts a lead that spans a tablet\'s row but not a wide screen\'s back to 3:2 there', () => {
+    expect(leadFrameClass(3)).toBe('sm:aspect-[2/1] lg:aspect-[3/2]')
+  })
+  it('has a wider frame exactly when the lead spans, at both widths', () => {
+    for (let n = 3; n <= 8; n++) {
+      const span = leadSpanClass(n)
+      const frame = leadFrameClass(n)
+      expect(frame.includes('sm:aspect'), `${n} tablet`).toBe(span.includes('sm:col-span-2'))
+      expect(/lg:aspect-\[(3\/1|7\/2)\]/.test(frame), `${n} wide`).toBe(/lg:col-span-[23]/.test(span))
+    }
   })
 })

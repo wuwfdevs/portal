@@ -88,6 +88,17 @@ describe('the staging demonstration for the top units and story zones', () => {
     expect(again.kept.length).toBeGreaterThan(8)
   }, 90_000)
 
+  it('puts the current top-unit picture on a demonstration top unit made with an older one, and then makes nothing', async () => {
+    const tile = await payload.find({ collection: 'media', where: { 'legacy.sourceUrl': { equals: 'demonstration:demo-sponsor-tile.png' } }, limit: 1, depth: 0, overrideAccess: true })
+    const placement = await payload.find({ collection: 'placement-items', where: { name: { equals: `${DEMO}: example sponsor, home page top unit` } }, limit: 1, depth: 0, overrideAccess: true })
+    await payload.update({ collection: 'placement-items', id: placement.docs[0]!.id, data: { image: tile.docs[0]!.id } as never, overrideAccess: true, context: ctx })
+    const fixed = await seedSponsorZonesDemo(payload, { apply: true, assetDir })
+    expect(fixed.made.filter((l) => l.includes('picture replaced'))).toHaveLength(1)
+    const after = await payload.findByID({ collection: 'placement-items', id: placement.docs[0]!.id, depth: 1, overrideAccess: true })
+    expect((after.image as { filename?: string }).filename).toMatch(/^demo-sponsor-top-wide(-\d+)?\.png$/)
+    expect((await seedSponsorZonesDemo(payload, { apply: true, assetDir })).made).toEqual([])
+  }, 90_000)
+
   it('never changes a banner an editor has set', async () => {
     await payload.updateGlobal({ slug: 'homepage', data: { banner: { active: true, scope: 'all', style: 'emergency', headline: 'Shelters open at noon' } } as never, overrideAccess: true, context: ctx })
     const report = await seedSponsorZonesDemo(payload, { apply: true, assetDir })
