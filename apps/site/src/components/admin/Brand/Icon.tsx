@@ -6,7 +6,7 @@ import React from 'react'
  */
 export const AdminIcon: React.FC = () => (
   // eslint-disable-next-line @next/next/no-img-element
-  <img alt="WUWF 88.1" height={24} src="/wuwf-logo.png" style={{ display: 'block', height: 24, width: 'auto' }} width={57} />
+  <img alt="WUWF 88.1" height={24} src="/wuwf-logo.png" width={57} />
 )
 
 export default AdminIcon
