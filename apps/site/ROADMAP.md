@@ -861,8 +861,12 @@ passes; migrations `20261107_043501_board27_header_search_public_file` and `2026
 - *Header: everything after the logo is configured in the admin (Header global), nothing is fixed in code.* **Header
   items** (up to 10, any order, drag to reorder) are each a **link** or a **menu**. A menu has a label, a panel heading, one
   sentence and up to 20 links, and opens a panel under the header. It is a real button with `aria-expanded`; Escape closes it and
-  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row
-  scrolls sideways under the logo, as on board 27b (this replaces the old phone menu, `SiteNav/MobileMenu.tsx`, removed). The
+  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). **Changed 2026-11-20 (owner, after
+  reviewing it on a phone):** below `lg` the row no longer scrolls sideways (items past the edge were invisible and a menu opening
+  inside a scroller was awkward); a **Menu** button opens a full-height sheet instead (`components/SiteNav/MobileMenu.tsx`: a link is a row, a
+  menu is an accordion row, a menu's heading and blurb are desktop-only), and `MenuBar` is desktop only. This overrides board 27b's phone
+  row. `SectionNav` keeps its sideways strip but fades the edge with more beyond it. (Before that, on a phone the row
+  scrolled sideways under the logo, as on board 27b, replacing an older phone menu, also called `MobileMenu.tsx`, removed.) The
   items are the old `navItems` list, extended, so links already entered stay as items of kind "link". **Buttons on the right:**
   Search, Sign in and Donate can each be hidden or relabelled, and Donate's address set (a site path or an https address; anything
   else falls back to `/support`). Sign in shows only while audience sign-in is configured. The optional second row

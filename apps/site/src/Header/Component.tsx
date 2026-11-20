@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo/Logo'
 import { HeaderListen } from '@/components/ListenLive/HeaderListen'
 import { HeaderSearch } from '@/components/SiteNav/HeaderSearch'
 import { MenuBar } from '@/components/SiteNav/MenuBar'
+import { MobileMenu } from '@/components/SiteNav/MobileMenu'
 import { supabaseAuthConfig } from '@/lib/audience/supabase'
 import { liveChannels } from '@/lib/live/channels'
 import { drawableItems, headerButtons } from '@/lib/nav/header'
@@ -48,6 +49,7 @@ export async function Header() {
               {buttons.donate.label}
             </Link>
           )}
+          {items.length > 0 && <MobileMenu items={items} />}
         </div>
       </div>
 
