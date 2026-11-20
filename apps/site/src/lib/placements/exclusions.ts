@@ -13,3 +13,21 @@ export function topUnitHeldBack(banner: Pick<BannerData, 'scope' | 'style'> | nu
   if (!banner || banner.style !== 'emergency') return false
   return banner.scope === 'all' || place === 'home'
 }
+
+/** The parts of a story that decide whether it carries sponsor tiles. */
+export interface StoryExclusionFields {
+  format?: string | null
+  membersOnly?: boolean | null
+  /** An editor's "No sponsor messages on this story". */
+  noPlacements?: boolean | null
+}
+
+/**
+ * Whether a story page may draw its zones (`story.rail`, `story.inline`). Never in a live blog (readers are following something unfolding), never in a members-only
+ * story (what a member gave for is not a place for a sponsor), and never where an editor has said a sponsor message would be wrong beside it. Underwriting lines are a
+ * different system and are not affected by this: they are editorial acknowledgment, kept apart from placements (`PLACEMENTS.md`).
+ */
+export function storyZonesAllowed(story: StoryExclusionFields | null | undefined): boolean {
+  if (!story) return false
+  return story.format !== 'live' && story.membersOnly !== true && story.noPlacements !== true
+}

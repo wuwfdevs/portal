@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { topUnitHeldBack } from './exclusions'
+import { storyZonesAllowed, topUnitHeldBack } from './exclusions'
 
 describe('topUnitHeldBack', () => {
   it('holds the top unit back while an emergency banner is on for that page', () => {
@@ -15,5 +15,20 @@ describe('topUnitHeldBack', () => {
     expect(topUnitHeldBack({ scope: 'all', style: 'notice' }, 'home')).toBe(false)
     expect(topUnitHeldBack(null, 'home')).toBe(false)
     expect(topUnitHeldBack(undefined, 'other')).toBe(false)
+  })
+})
+
+describe('storyZonesAllowed', () => {
+  it('allows an ordinary story', () => {
+    expect(storyZonesAllowed({ format: 'web' })).toBe(true)
+    expect(storyZonesAllowed({ format: 'audio', membersOnly: false, noPlacements: false })).toBe(true)
+  })
+  it('never in a live blog, a members-only story, or one an editor ticked', () => {
+    expect(storyZonesAllowed({ format: 'live' })).toBe(false)
+    expect(storyZonesAllowed({ membersOnly: true })).toBe(false)
+    expect(storyZonesAllowed({ noPlacements: true })).toBe(false)
+  })
+  it('allows nothing for no story', () => {
+    expect(storyZonesAllowed(null)).toBe(false)
   })
 })

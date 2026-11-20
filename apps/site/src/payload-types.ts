@@ -747,6 +747,10 @@ export interface Post {
    */
   membersOnly?: boolean | null;
   /**
+   * Tick for a story where a sponsor message would be wrong beside it (a death, a disaster, a sensitive investigation). The story page then draws no sponsor tiles. Live blogs and members-only stories never carry them whether or not this is ticked.
+   */
+  noPlacements?: boolean | null;
+  /**
    * Unearthing Florida: the place this episode is about. Shown on the hub's map.
    */
   site?: (number | null) | Site;
@@ -4913,6 +4917,7 @@ export interface PostsSelect<T extends boolean = true> {
   episodeType?: T;
   fieldNoteKind?: T;
   membersOnly?: T;
+  noPlacements?: T;
   site?: T;
   period?: T;
   generateSlug?: T;
