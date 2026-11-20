@@ -32,14 +32,17 @@ export async function FrontPageSection({ block, context }: SectionProps<FrontPag
     : await arrangeFront(block)
   if (!lead) return null
   // Loaded when it draws: the view reads story fields and the block registry is read by the Payload config.
-  const { Briefing, LeadArticle } = await import('@/components/Homepage/FrontPage')
+  const { Briefing, FirstScreen, LeadArticle } = await import('@/components/Homepage/FrontPage')
   return (
     <SectionBand block={block}>
-      <LeadArticle className="order-1 md:order-2" lead={lead} leadKicker={block.leadKicker?.trim() || null} />
-      {/* The page's top unit (`home.top`), when its set has one: directly under the header on a wide screen, so above the lead; on a phone after the lead's headline and
-          picture and before The Briefing, so a story is always what the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
-      <TopUnit className="order-2 md:order-1" tile={topUnitOf(context)} />
-      <Briefing className="order-3" top={top} />
+      {/* The first screen (`FirstScreen`): the lead and the page's top unit (`home.top`, when its set has one), together as tall as the window leaves below the header, so The
+          Briefing starts just under the fold. The unit is directly under the header on a wide screen, so above the lead; on a phone it is after the lead's headline and picture
+          and before The Briefing. One element, ordered by the screen, so it is drawn (and counted) once. */}
+      <FirstScreen offset="band">
+        <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={block.leadKicker?.trim() || null} />
+        <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={topUnitOf(context)} />
+      </FirstScreen>
+      <Briefing top={top} />
     </SectionBand>
   )
 }

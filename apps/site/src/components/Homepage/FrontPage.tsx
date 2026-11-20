@@ -10,16 +10,37 @@ import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
 /**
+ * The lead band's first screen: the top unit (when the page has one) and the lead together, as tall as the window leaves below the header, so The Briefing starts just under the
+ * fold instead of peeking out above it. On a wide screen only; below it the band stacks and takes the height it needs. The height is the window's (`100svh`) less the header (`--header-h`,
+ * set in the page's styles, taller when the header has its second row) and the band's own top padding, never more than 62rem (a very tall window shows the whole Briefing instead). Both
+ * `offset`s are whole class names so Tailwind generates them. The children are the lead (`lg:flex-1`, so its picture takes the height that is left) and the top unit, ordered by the
+ * screen (above the lead on a wide screen, after it on a phone).
+ */
+const FIT = {
+  /** The coded home page: its top padding is 3rem. */
+  page: 'lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3rem),62rem)]',
+  /** A Front page lead block in its band: the band's top padding is 3.5rem. */
+  band: 'lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]',
+} as const
+export function FirstScreen({ offset = 'page', children, className }: { offset?: keyof typeof FIT; children: React.ReactNode; className?: string }) {
+  return <div className={cn('flex flex-col', FIT[offset], className)}>{children}</div>
+}
+
+/**
  * The lead band: the lead story's words on the left (28.75rem) and its picture on the right, a normal 16:9 that never changes shape with the window, the byline pinned to
  * the bottom level with the picture's bottom edge. On a phone the picture comes first and everything stacks. Nothing in it is stretched to match anything else, and the
  * headline is at the top, so it is in view in a short window too. The coded home page and the Front page block draw it the same way.
  */
+/** The lead's summary: its dek, else its description, else nothing. */
+export const summaryOf = (lead: Pick<HomeStory, 'dek' | 'meta'>): string | null => lead.dek?.trim() || lead.meta?.description?.trim() || null
+
 export function LeadArticle({ lead, leadKicker, className }: { lead: HomeStory; leadKicker?: string | null; className?: string }) {
   const leadImage = leadPicture<MediaDoc>(lead)
   return (
     <article className={cn('relative grid gap-5 lg:grid-cols-[28.75rem_minmax(0,1fr)] lg:gap-10', className)}>
       {leadImage && (
-        <div className="relative aspect-video overflow-hidden rounded-sm bg-surface-3 lg:col-start-2 lg:row-start-1 lg:self-start">
+        // 16:9 below a wide screen; on a wide screen it fills the height `FirstScreen` leaves (never less than 24rem), so the band fills the first screen.
+        <div className="relative aspect-video overflow-hidden rounded-sm bg-surface-3 lg:col-start-2 lg:row-start-1 lg:aspect-auto lg:min-h-[24rem]">
           <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 58vw, 100vw" />
         </div>
       )}
@@ -34,7 +55,8 @@ export function LeadArticle({ lead, leadKicker, className }: { lead: HomeStory; 
             lead.title
           )}
         </h1>
-        {lead.meta?.description && <p className="line-clamp-4 max-w-[44rem] font-serif text-lg text-ink-2 md:text-xl">{lead.meta.description}</p>}
+        {/* The story's summary under the headline: its dek (the standfirst the story page opens with), else the description it is shared with. */}
+        {summaryOf(lead) && <p className="line-clamp-5 max-w-[44rem] font-serif text-lg text-ink-2 md:text-xl">{summaryOf(lead)}</p>}
         <p className="mt-auto pt-2 text-sm text-ink-3">{[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}</p>
       </div>
     </article>

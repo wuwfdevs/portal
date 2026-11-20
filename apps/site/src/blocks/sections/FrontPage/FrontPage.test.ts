@@ -25,6 +25,20 @@ beforeEach(() => {
 })
 
 describe('Front page lead', () => {
+  it('draws the lead\'s dek under the headline, else its description', async () => {
+    arranged = { lead: { ...story(1, 'The lead'), dek: 'A standfirst that says more.' } as never, top: [] }
+    const withDek = await draw({})
+    expect(withDek).toContain('A standfirst that says more.')
+    expect(withDek).not.toContain('About The lead.')
+    expect(withDek.indexOf('The lead')).toBeLessThan(withDek.indexOf('A standfirst'))
+    arranged = { lead: { ...story(1, 'The lead'), dek: '  ' } as never, top: [] }
+    expect(await draw({})).toContain('About The lead.')
+  })
+  it('draws the lead band as the first screen: the lead fills the height the window leaves under the header', async () => {
+    const out = await draw({})
+    expect(out).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]')
+    expect(out).toContain('lg:flex-1')
+  })
   it('draws the lead story and The Briefing, in the band', async () => {
     const out = await draw({ tone: 'plain', leadKicker: 'After Isaias' })
     expect(out).toContain('The lead')
@@ -57,7 +71,8 @@ describe('Front page lead: the top unit', () => {
     expect(out.match(/data-placement="home\.top\.1"/g)).toHaveLength(1)
     expect(out.indexOf('The lead')).toBeLessThan(out.indexOf('home.top.1'))
     expect(out.indexOf('home.top.1')).toBeLessThan(out.indexOf('The Briefing'))
-    expect(out).toContain('order-2 md:order-1')
+    expect(out).toContain('md:order-1')
+    expect(out).toContain('order-1 md:order-2')
   })
   it('draws no unit on a page in a set without slots, or when the route loaded none', async () => {
     expect(await draw({}, undefined, { ...home, setId: 'giving' })).not.toContain('data-placement')

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ALL_STORIES_HREF, fallbackModule, fillModules, leadFrameClass, leadSpanClass, MODULE_COUNT, moduleCount, newsBand } from './modules'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, leadCardClasses, leadSpanClass, MODULE_COUNT, moduleCount, newsBand } from './modules'
 
 const story = (id: number) => ({ id })
 const run = (...ids: number[]) => ids.map(story)
@@ -98,23 +98,33 @@ describe('leadSpanClass', () => {
   })
 })
 
-describe('leadFrameClass', () => {
-  it('widens the lead\'s picture frame as the card spans columns, so it is not as tall as the row', () => {
-    expect(leadFrameClass(5)).toBe('sm:aspect-[2/1] lg:aspect-[3/1]')
-    expect(leadFrameClass(8)).toBe('lg:aspect-[3/1]')
-    expect(leadFrameClass(4)).toBe('lg:aspect-[7/2]')
-    expect(leadFrameClass(7)).toBe('sm:aspect-[2/1] lg:aspect-[7/2]')
-    expect(leadFrameClass(6)).toBe('')
+describe('leadCardClasses', () => {
+  it('lays a lead that spans columns out as a row, at the widths where it spans', () => {
+    expect(leadCardClasses(5).card).toBe('sm:flex-row lg:flex-row')
+    expect(leadCardClasses(7).card).toBe('sm:flex-row lg:flex-row')
+    expect(leadCardClasses(4).card).toBe('lg:flex-row')
+    expect(leadCardClasses(8).card).toBe('lg:flex-row')
   })
-  it('puts a lead that spans a tablet\'s row but not a wide screen\'s back to 3:2 there', () => {
-    expect(leadFrameClass(3)).toBe('sm:aspect-[2/1] lg:aspect-[3/2]')
+  it('leaves a lead that does not span as the ordinary column', () => {
+    expect(leadCardClasses(6)).toEqual({ card: '', frame: '', body: '', title: '' })
   })
-  it('has a wider frame exactly when the lead spans, at both widths', () => {
+  it('puts a lead that spans a tablet\'s row but not a wide screen\'s back to a column there', () => {
+    const c = leadCardClasses(3)
+    expect(c.card).toBe('sm:flex-row lg:flex-col')
+    expect(c.frame).toContain('lg:aspect-[3/2]')
+  })
+  it('is a row exactly when the lead spans, at both widths, for every count a section can hold', () => {
     for (let n = 3; n <= 8; n++) {
       const span = leadSpanClass(n)
-      const frame = leadFrameClass(n)
-      expect(frame.includes('sm:aspect'), `${n} tablet`).toBe(span.includes('sm:col-span-2'))
-      expect(/lg:aspect-\[(3\/1|7\/2)\]/.test(frame), `${n} wide`).toBe(/lg:col-span-[23]/.test(span))
+      const card = leadCardClasses(n).card
+      expect(card.includes('sm:flex-row'), `${n} tablet`).toBe(span.includes('sm:col-span-2'))
+      expect(card.includes('lg:flex-row'), `${n} wide`).toBe(/lg:col-span-[23]/.test(span))
     }
+  })
+  it('gives the picture the left half, at least a 3:2 of its own width, and the words a larger headline', () => {
+    const c = leadCardClasses(5)
+    expect(c.frame).toContain('lg:w-1/2')
+    expect(c.frame).toContain('lg:before:pt-[66.7%]')
+    expect(c.title).toContain('lg:text-2xl')
   })
 })

@@ -5,9 +5,9 @@ import type { Contributor, Post } from '@/payload-types'
 const named = <T extends object>(value: T | string | number | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
 
 /** The fields a homepage card needs; the story body is never loaded. */
-export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format' | 'featuredAudio'>
+export type HomeStory = Pick<Post, 'id' | 'title' | 'dek' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format' | 'featuredAudio'>
 
-export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true, featuredAudio: true } as const
+export const CARD_FIELDS = { title: true, dek: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true, featuredAudio: true } as const
 
 /** "By Leigh Ostrander, Dave Dunwoody", or null when the story names no one. */
 export function bylineOf(story: Pick<HomeStory, 'contributors'>): string | null {

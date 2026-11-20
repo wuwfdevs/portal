@@ -4,7 +4,7 @@ import React from 'react'
 
 import { Banner } from '@/components/Banner'
 import { FellowshipFeatureBody } from '@/components/Homepage/FellowshipFeature'
-import { Briefing, LeadArticle } from '@/components/Homepage/FrontPage'
+import { Briefing, FirstScreen, LeadArticle } from '@/components/Homepage/FrontPage'
 import { MembershipAppeal } from '@/components/Article/Parts'
 import { StoryGrid } from '@/components/StoryGrid'
 import { TitledSection } from '@/components/TitledSection'
@@ -77,13 +77,16 @@ export function HomepageView({
         </section>
         </>
       ) : (
-        <section aria-label="Top stories" className="container flex flex-col pt-8 md:pt-12">
-          {/* The top unit (`home.top`): directly under the header on a wide screen, so above the lead. On a phone it follows the lead story's headline and picture, so a
-              story is always what the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
-          {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
-          <LeadArticle className="order-1 md:order-2" lead={lead} leadKicker={leadKicker} />
+        <section aria-label="Top stories" className="container pt-8 md:pt-12">
+          {/* The first screen: the top unit (`home.top`) and the lead, together as tall as the window leaves below the header, so The Briefing starts just under the fold.
+              The unit is directly under the header on a wide screen, so above the lead; on a phone it follows the lead story's headline and picture, so a story is always what
+              the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
+          <FirstScreen>
+            {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
+            <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={leadKicker} />
+          </FirstScreen>
 
-          <Briefing className="order-3 mt-8" top={top} />
+          <Briefing className="mt-8" top={top} />
         </section>
       )}
 

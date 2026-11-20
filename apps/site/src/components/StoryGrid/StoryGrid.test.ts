@@ -17,13 +17,13 @@ describe('StoryGrid', () => {
     expect(out).toContain('lg:grid-cols-3')
     for (const t of ['Story 1', 'Story 2', 'Story 3']) expect(out).toContain(t)
   })
-  it('gives a spanning lead a wider picture frame so the card beside it is not stretched, and every other card the usual one', () => {
+  it('lays a spanning lead out as a row, picture left and words right, and every other card as the usual column', () => {
     const five = draw({ stories: [1, 2, 3, 4, 5].map(story), spanFirst: true })
-    expect(five).toContain('lg:aspect-[3/1]')
+    expect(five.match(/lg:flex-row/g)).toHaveLength(1)
+    expect(five).toContain('lg:before:pt-[66.7%]')
     expect(five.match(/aspect-\[3\/2\]/g)).toHaveLength(5)
-    expect(draw({ stories: [1, 2, 3, 4].map(story), spanFirst: true })).toContain('lg:aspect-[7/2]')
-    expect(draw({ stories: [1, 2, 3, 4, 5].map(story) })).not.toContain('lg:aspect-[3/1]')
-    expect(draw({ stories: [1, 2, 3, 4, 5].map(story), spanFirst: true, beside: true })).not.toContain('lg:aspect-[3/1]')
+    expect(draw({ stories: [1, 2, 3, 4, 5].map(story) })).not.toContain('lg:flex-row')
+    expect(draw({ stories: [1, 2, 3, 4, 5].map(story), spanFirst: true, beside: true })).not.toContain('lg:flex-row')
   })
   it('spans the first card only when asked, so the last row is not short, and not beside a rail', () => {
     const five = [1, 2, 3, 4, 5].map(story)
