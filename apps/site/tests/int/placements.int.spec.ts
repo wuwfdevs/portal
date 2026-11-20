@@ -148,6 +148,29 @@ describe('placements', () => {
       await expect(make({ zone: 'home.rail', name: `Eleventh ${run}` })).rejects.toThrow(/holds 10.*already running/s)
       await clearZone('home.rail')
     })
+    it('keeps WUWF promotions that fill gaps apart from the rail\'s ten: they take no place from a sponsor and are not counted', async () => {
+      await clearZone('home.rail')
+      for (let i = 0; i < 10; i++) await createdItem({ zone: 'home.rail', name: `Rail ${i} ${run}`, order: i })
+      // The rail is full, yet a promotion marked as able to fill a gap is still accepted, because it is held apart from the ten.
+      const filler = await createdItem({ zone: 'home.rail', name: `Filler ${run}`, fillsGaps: true })
+      expect(filler.fillsGaps).toBe(true)
+      // Editing it, or one of the ten, is not blocked by it, and an eleventh ordinary placement is still refused.
+      await payload.update({ collection: 'placement-items', id: filler.id, data: { alt: 'Still words' } as never, overrideAccess: true, context: ctx })
+      await expect(make({ zone: 'home.rail', name: `Eleventh ${run}` })).rejects.toThrow(/holds 10.*already running/s)
+      await clearZone('home.rail')
+    })
+    it('keeps "can fill a gap" for a WUWF promotion in the home page rail only: on anything else it is cleared, so a leftover tick never counts', async () => {
+      const sponsorTile = await createdItem({ zone: 'home.rail', kind: 'sponsor', sponsor: sponsor.id, fillsGaps: true })
+      expect(sponsorTile.fillsGaps).toBe(false)
+      const otherZone = await createdItem({ zone: 'list.rail', fillsGaps: true })
+      expect(otherZone.fillsGaps).toBe(false)
+      // A promotion marked as a filler that is then made a sponsor placement loses the mark, so it cannot be held back from a full rail.
+      const promo = await createdItem({ zone: 'home.rail', fillsGaps: true })
+      expect(promo.fillsGaps).toBe(true)
+      const changed = await payload.update({ collection: 'placement-items', id: promo.id, data: { kind: 'sponsor', sponsor: sponsor.id } as never, overrideAccess: true, context: ctx })
+      expect(changed.fillsGaps).toBe(false)
+      await clearZone('home.rail')
+    })
     it('does not count what is switched off or has ended, so a full rail can be rotated', async () => {
       await clearZone('home.rail')
       for (let i = 0; i < 8; i++) await createdItem({ zone: 'home.rail', name: `Run ${i} ${run}` })

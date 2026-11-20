@@ -5,15 +5,17 @@ import { getPayload } from 'payload'
 import type { Media, PlacementItem } from '@/payload-types'
 import { cacheGeneration } from '@/utilities/getGlobals'
 
-import { resolveZone, type PageContext, type PlacementRecord } from './resolve'
+import { resolveFillers, resolveZone, type PageContext, type PlacementRecord } from './resolve'
 import type { PlacementTile } from './tiles'
 
 export interface HomePlacements {
   rail: PlacementTile<Media>[]
   band: PlacementTile<Media> | null
+  /** WUWF promotions that may complete the foot row (`flow.ts`). Optional: usually empty. */
+  fillers: PlacementTile<Media>[]
 }
 
-const NONE: HomePlacements = { rail: [], band: null }
+const NONE: HomePlacements = { rail: [], band: null, fillers: [] }
 const MAX_RECORDS = 200
 
 /** The record the resolver reads, from a stored placement whose sponsor's name has been looked up. */
@@ -38,6 +40,7 @@ export function toRecord(doc: PlacementItem, sponsorNames: ReadonlyMap<string, s
     topics: doc.topics,
     people: doc.people,
     includeLatest: doc.includeLatest,
+    fillsGaps: doc.fillsGaps,
   }
 }
 
@@ -68,7 +71,7 @@ export async function loadHomePlacements(now: Date = new Date()): Promise<HomePl
   try {
     const records = await readRecords()
     const ctx: PageContext = { page: 'home' }
-    return { rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null }
+    return { rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
   } catch (err) {
     await logFailure(err)
     return NONE

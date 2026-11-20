@@ -66,6 +66,7 @@ import * as migration_20261119_223000_giving_pages_as_sections from './20261119_
 import * as migration_20261119_233120_shared_text from './20261119_233120_shared_text';
 import * as migration_20261119_235000_station_pages_as_sections from './20261119_235000_station_pages_as_sections';
 import * as migration_20261119_235500_listens_pages_as_sections from './20261119_235500_listens_pages_as_sections';
+import * as migration_20261120_162233_placement_fills_gaps from './20261120_162233_placement_fills_gaps';
 
 export const migrations = [
   {
@@ -396,16 +397,21 @@ export const migrations = [
   {
     up: migration_20261119_233120_shared_text.up,
     down: migration_20261119_233120_shared_text.down,
-    name: '20261119_233120_shared_text'
+    name: '20261119_233120_shared_text',
   },
   {
     up: migration_20261119_235000_station_pages_as_sections.up,
     down: migration_20261119_235000_station_pages_as_sections.down,
-    name: '20261119_235000_station_pages_as_sections'
+    name: '20261119_235000_station_pages_as_sections',
   },
   {
     up: migration_20261119_235500_listens_pages_as_sections.up,
     down: migration_20261119_235500_listens_pages_as_sections.down,
-    name: '20261119_235500_listens_pages_as_sections'
+    name: '20261119_235500_listens_pages_as_sections',
+  },
+  {
+    up: migration_20261120_162233_placement_fills_gaps.up,
+    down: migration_20261120_162233_placement_fills_gaps.down,
+    name: '20261120_162233_placement_fills_gaps'
   },
 ];

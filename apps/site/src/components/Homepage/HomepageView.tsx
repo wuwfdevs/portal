@@ -16,7 +16,8 @@ import { newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
-import { HomeBand, HomeRail } from '@/components/Placements'
+import { HomeBand, HomeFoot, HomePair } from '@/components/Placements'
+import { flowHomeRail, holdsPair } from '@/lib/placements/flow'
 import type { HomePlacements } from '@/lib/placements/load'
 import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
@@ -34,8 +35,8 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
   )
 
 /**
- * The home page's lower block has two columns: a main column and a side column of one fixed width (videos and news; the sponsor rail). The rail's
- * tiles are sized for 22rem (`Rail`).
+ * A news section that holds a pair of sponsor tiles has two columns: the section and a side column of one fixed width. The tiles are sized for 22rem
+ * (`Rail`). A section too short for two tiles, and the video row, run the full width.
  */
 const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
 
@@ -46,10 +47,10 @@ const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
  * normal 16:9 that never changes shape with the window, the byline level with the picture's bottom edge; under it The Briefing as a row of up to
  * five. Nothing in it is stretched to match anything else, and the headline is at the top, so it is in view in a short window too.
  * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
- * linking to its section, ending with a link to every story) with the sponsor and promo rail beside the whole column from the video row down
- * (board 1b), the sponsor banner, podcasts, then RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is
- * switched off or has nothing to show; a placement with nothing running draws nothing, so no empty box is ever left. With no videos the rail
- * simply starts beside the news.
+ * linking to its section, ending with a link to every story). The sponsor tiles flow through the page as one list (`lib/placements/flow.ts`): a pair
+ * beside each news section tall enough to hold one, then the banner, then every tile that is left in a "More from our sponsors" row, completed by
+ * WUWF promotions where its last row is short. Then podcasts, then RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is
+ * switched off or has nothing to show; a placement with nothing running draws nothing, so no empty box is ever left.
  *
  * Not here, on purpose: a "Listen now" module (the header's Listen live button and the site's player already do that; owner decision 2026-11-18).
  * Not here yet, because what they need is not built: the WUWF Listens question, newsletters and "From NPR". They are left out rather than
@@ -69,7 +70,7 @@ export function HomepageView({
   independenceHref?: string | null
 }) {
   const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
-  const hasRail = placements.rail.length > 0
+  const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, slots: modules.map((m) => holdsPair(m.stories.length)) })
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
   const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
@@ -203,52 +204,57 @@ export function HomepageView({
         </section>
       )}
 
-      {/* The short videos and the news share one column, and the rail runs beside both from the top of the videos (board 1b). On a phone the rail follows. */}
+      {/* The short videos run the full width; each news section follows, with a pair of sponsor tiles beside it when it is tall enough (flow.ts). */}
       {(slots.video || band.show) && (
-        <div className={cn('container mt-16 grid gap-12', hasRail && SIDE_COLUMN)}>
-          <div className="flex min-w-0 flex-col gap-14">
-            {slots.video && <VideoRow className="" slot={slots.video} />}
-            {modules.map((module) => (
-              <section aria-labelledby={`news-${module.key}`} key={module.key}>
-                <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
-                  {module.href ? (
-                    <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
-                      {module.heading}
-                    </Link>
-                  ) : (
-                    module.heading
+        <div className="container mt-16 flex flex-col gap-14">
+          {slots.video && <VideoRow className="" slot={slots.video} />}
+          {modules.map((module, i) => {
+            const pair = flow.beside[i] ?? null
+            return (
+              <div className={cn('grid gap-8', pair && SIDE_COLUMN)} key={module.key}>
+                <section aria-labelledby={`news-${module.key}`} className="min-w-0">
+                  <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
+                    {module.href ? (
+                      <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
+                        {module.heading}
+                      </Link>
+                    ) : (
+                      module.heading
+                    )}
+                  </h2>
+                  <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2', !pair && 'lg:grid-cols-3')}>
+                    {module.stories.map((story, j) => (
+                      // With two columns (a pair of tiles is beside the news), an odd count would leave a gap beside the last card, so the first story spans both.
+                      <li className={cn(pair && j === 0 && module.stories.length % 2 === 1 && 'sm:col-span-2')} key={story.id}>
+                        <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
+                      </li>
+                    ))}
+                  </ul>
+                  {module.href && (
+                    <p className="mt-6 text-base">
+                      <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
+                        More from {module.heading}
+                      </Link>
+                    </p>
                   )}
-                </h2>
-                <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2', !hasRail && 'lg:grid-cols-3')}>
-                  {module.stories.map((story, i) => (
-                    // With two columns (the rail is beside the news), an odd count would leave a gap beside the last card, so the first story spans both.
-                    <li className={cn(hasRail && i === 0 && module.stories.length % 2 === 1 && 'sm:col-span-2')} key={story.id}>
-                      <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                    </li>
-                  ))}
-                </ul>
-                {module.href && (
-                  <p className="mt-6 text-base">
-                    <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
-                      More from {module.heading}
-                    </Link>
-                  </p>
-                )}
-              </section>
-            ))}
-            {band.allStoriesLink && (
-              <p>
-                <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
-                  All stories
-                </Link>
-              </p>
-            )}
-          </div>
-          <HomeRail tiles={placements.rail} />
+                </section>
+                {pair && <HomePair tiles={pair} />}
+              </div>
+            )
+          })}
+          {band.allStoriesLink && (
+            <p>
+              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
+                All stories
+              </Link>
+            </p>
+          )}
         </div>
       )}
 
       <HomeBand tile={placements.band} />
+
+      <HomeFoot items={flow.foot} />
 
       {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
 

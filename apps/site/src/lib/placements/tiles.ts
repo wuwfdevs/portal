@@ -17,8 +17,8 @@ export interface PlacementTile<M> {
   /** `home.rail.3`: the placement and the tile's place among those that run. */
   key: string
   kind: 'sponsor' | 'house'
-  /** "Sponsor message" for a sponsor; null for a house promotion. */
-  label: string | null
+  /** "Sponsor message" for a sponsor; "From WUWF" for a house promotion. */
+  label: string
   /** The sponsor's name, for a sponsor. */
   sponsor: string | null
   /** What the link is called for a screen reader. */

@@ -80,10 +80,10 @@ describe('liveTiles', () => {
 })
 
 describe('labels and links', () => {
-  it('labels a sponsor tile and never a house promotion, and labels a tile with no kind as a sponsor (the safe way to be wrong)', () => {
+  it('labels a sponsor tile "Sponsor message", a house promotion "From WUWF" (never as a sponsor), and a tile with no kind as a sponsor (the safe way to be wrong)', () => {
     expect(tileLabel({ kind: 'sponsor' })).toBe('Sponsor message')
     expect(tileLabel({ kind: null })).toBe('Sponsor message')
-    expect(tileLabel({ kind: 'house' })).toBeNull()
+    expect(tileLabel({ kind: 'house' })).toBe('From WUWF')
   })
   it('names the link by what the artwork says, then by the sponsor', () => {
     expect(tileAccessibleName({ alt: ' Acme: 20% off ', sponsor: 'Acme' })).toBe('Acme: 20% off')

@@ -39,8 +39,9 @@ for layout, copy and tokens. Where the brief and the boards differ, the boards w
 - Sponsorship is sold by the sponsor's objective. Digital is a small set of fixed, labeled, direct-sold
   placements, not an ad network: **no leaderboards, no autoplay, no pop-ups, no third-party tracking.** Every fixed place on the site is a
   **zone** in `src/lib/placements/registry.ts` (code); what runs in it is a **placement**, a record editors make (Sponsorship → Placements), designed in
-  `PLACEMENTS.md`. A sponsor tile says "Sponsor message", an empty zone draws nothing, **the site holds no package, price or sold-as reference**, and booking,
-  billing and proof of delivery stay out of Payload (the Portal's job).
+  `PLACEMENTS.md`. A sponsor tile says "Sponsor message" (WUWF's own promotion says "From WUWF"), an empty zone draws nothing, **the site holds no package, price or sold-as reference**, and booking,
+  billing and proof of delivery stay out of Payload (the Portal's job). **A paid tile that runs is always drawn: the home page's tiles flow through its sections and a foot row
+  (`PLACEMENTS.md`, "How the home page lays the tiles out"), and a short last row is completed by optional WUWF promotions, never by dropping a sponsor.**
 - The home page's news band is an editor-ordered list of sections (Home page → News sections), each linking to its section page and ending in
   `/latest`, the list of every story. **Florida News (a partner's reporting) is featured on purpose** (owner, 2026-11-18): a section's run is every
   published story filed under it, whatever its source; the lead and the Briefing stay WUWF's own.
