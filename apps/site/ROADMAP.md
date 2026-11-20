@@ -531,6 +531,8 @@ scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below),
 - Listens: the hub's section order and words are unchanged; the Ask WUWF box, a kitchen table and the host form sit in a white card (they carry their own light styling), so on a plain ground the host form now has a padded card around it; when the Portal is not set up or cannot be read, the opening still draws (it used to be replaced by a title and the message). The host page's "← WUWF Listens" is a button (a Feature action) where it was a text link. `/listens/host` is no longer a static page (it renders the record through the shell).
 - Shared text: none; the words are copied exactly.
 
+**Found after merge (2026-11-20): the hub's campaigns were missing on staging.** The catch-all's `generateStaticParams` built a static `/listens` from the page record, and production serves a prerendered page before the coded shell, so the sections got no Portal data (dev does not prerender, so my local check and the tests missed it). Fixed by `CODED_SHELL_PATHS` (`lib/page-sets/shells.ts`, with a test that every `SectionsRoute` page is listed); checked in a production build against a fake Portal (campaign band, reporter cards, sessions and the "Answer a question" link all draw) and in the route table (`/listens` is dynamic). `/support/ways` and `/support/thanks` were never prerendered, so were not affected.
+
 **Left out, on purpose.** Dropping the Listen live global's hidden cards field is phase 7. The Unearthing, Voyager and RadioLive hubs are phase 6. The season report list waits for suite phase F.
 
 **Checks (local).** `pnpm typecheck` clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 253 files, 2,800 tests, all passing (phase 4 ended at 242 files and 2,694). `pnpm build`: passes. `pnpm verify:migrations` passes.
@@ -1031,7 +1033,7 @@ sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, membe
 
 **Sponsorship direction (a recommendation, not decided; the owner says an existing design may cover it and it was not found in the repository: ask for the project brief or the design doc before building).** The Portal holds the deal (contract, sponsor, typed lines, approved wording, proof of performance); broadcast and digital sponsorship are two line families on one contract, each line anchored either to **a span of time** or to **a specific thing** (a performance sponsor stays on that night's record for good); the site is the delivery surface and defines **placements** as a typed registry in code, with an immutable reference key on each sellable thing; entitlements reach the site as a signed, versioned **snapshot pulled after a signed notice, cached with a last-known-good copy** (never a per-request call; the site must stay usable if sponsorship serving is down); the site's own agreements collection is the interim manual source behind the same resolver. **Stopgap in force:** a RadioLive show page carries no funder line, only `/radiolive` does. The resolver's header still cites a canvas board; point it at a repo document once one exists.
 
-**Working in the cloud sandbox, new this session:** the local Postgres stops when the sandbox idles (restart with the command under *Running things in a fresh sandbox*, after `rm -f /var/tmp/wuwf-site-pg/postmaster.pid`); scripts that use Payload need `.env.local` sourced (`set -a; . ./.env.local; set +a`) and run from inside `apps/site`; integration tests that upload files need `// @vitest-environment node`; run route handlers in tests with `next/cache`'s `unstable_cache` mocked; `.env.local` and demo data are local only (gitignored).
+**Working in the cloud sandbox, new this session:** the local Postgres stops when the sandbox idles (run `bash scripts/dev/pg-up.sh`; see *Running things in a fresh sandbox*); scripts that use Payload need `.env.local` sourced (`set -a; . ./.env.local; set +a`) and run from inside `apps/site`; integration tests that upload files need `// @vitest-environment node`; run route handlers in tests with `next/cache`'s `unstable_cache` mocked; `.env.local` and demo data are local only (gitignored).
 
 ### Earlier hand-off (end of the 2026-11-04 session: the migration gaps assessment)
 
@@ -1126,9 +1128,7 @@ the two public Supabase variables. The Portal's Production env is deliberately u
 - Outbound is **HTTPS through a proxy only**: no direct Postgres, so the importer and `payload migrate` against Supabase cannot run here;
   they run on the owner's computer (Cowork) or in Vercel's build. Supabase's SQL tool (HTTPS) works for small administrative SQL.
 - Hosts must be allowed in the environment's network settings; the NPR file hosts, `wuwf.org` and the Supabase hosts were allowed by the owner.
-- Local Postgres dies when the sandbox idles: `rm -f /var/tmp/wuwf-site-pg/postmaster.pid; su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl
-  -D /var/tmp/wuwf-site-pg -o '-p 5433 -c listen_addresses=127.0.0.1 -c unix_socket_directories=/tmp' -l /var/tmp/wuwf-pg.log start"`
-  (a fresh sandbox: see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
+- Local Postgres dies when the sandbox idles: run `bash scripts/dev/pg-up.sh` (a fresh sandbox too; see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
   development mode does not push schema changes.
 - Never create a Vercel deployment with the tool for a project that has no production deployment yet: it came back as a *production* one
   (cancelled in seconds, nothing went live). Push a branch instead.
@@ -2363,8 +2363,7 @@ rewritten** (see *Lessons*): the launch run replays the same files staging alrea
 - **Stop a server by its process id, and check it is gone.** `lsof` is not installed here, so `lsof -ti:3000 | xargs kill` did
   nothing; the old server kept port 3000 while a rebuild deleted its stylesheets, and the new one never started. The page
   looked unstyled. List with `ps -eo pid,args | grep -E "[n]ext-server"` and kill those pids.
-- **The local Postgres stops when the sandbox idles.** `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/wuwf-site-pg
-  -l /var/tmp/wuwf-site-pg/log.txt -w start"` brings it back (the roadmap's setup block creates it).
+- **The local Postgres stops when the sandbox idles.** `bash scripts/dev/pg-up.sh` brings it back (and makes it, in a fresh sandbox).
 - **Real data finds what synthetic data cannot.** Grove galleries mix portrait and landscape pictures, so the carousel needed a
   uniform frame (`relative aspect-[3/2]`, image `absolute inset-0 object-contain`); a pasted video link arrived wrapped in a
   corrupted `<brightspot-cms-external-content>` element; an empty lead figure is "no picture", not an error. The census zips
@@ -2383,7 +2382,7 @@ rewritten** (see *Lessons*): the launch run replays the same files staging alrea
   mutation-checked.
 - **A background fetch runs only while a tool call is active, and a container restart kills it.** Make every long job resumable (a status file per item), start it with `nohup`, keep a
   watcher alive for it (a watcher is capped at 2 hours), and check `pgrep` after any restart; the disk survives, the process does not. The local Postgres also stops when the sandbox
-  idles (restart command under *Previous hand-off*, "Working in the cloud sandbox"; a missing database shows up as every integration test skipped by a setup error, not as a failure of the test you changed).
+  idles (`bash scripts/dev/pg-up.sh`; a missing database shows up as `ECONNREFUSED` from `pnpm build` and as every integration test failing in setup, not as a failure of the test you changed).
 - **Another session's uploads are not visible.** Files shared with a different session are on that session's machine; ask the owner to upload them into the one that needs them
   (`/root/.claude/uploads/...`), and verify them against the owner's checksum file.
 - **Grove's `nprShow` flag is false on every show page,** Morning Edition included; whether a program is syndicated is the owner's knowledge (`src/lib/grove/syndicated.ts`).
@@ -2444,19 +2443,23 @@ The sandbox is ephemeral; nothing below survives.
 22.23.4 from the `node-linux-x64` npm package (`npm pack node-linux-x64@22.23.4`, unpack, put its `bin` first on
 `PATH`), then check `node -v`. Do not loosen the pin.
 
-**Postgres.** Postgres 16 is installed but not running, and it will not run as root:
+**Postgres.** Postgres 16 is installed but not running, it will not run as root, and **it stops whenever the sandbox idles or its worker restarts** (the data directory survives, the process does not). There is no Docker daemon, so `pnpm db:up` (the repository's `docker-compose.yml`, the normal way) does not work here. One command does it all, from any state, and is safe to repeat:
 
 ```bash
-D=/var/tmp/wuwf-site-pg; PGBIN=/usr/lib/postgresql/16/bin
-mkdir -p $D && chown postgres:postgres $D
-su postgres -c "$PGBIN/initdb -D $D -U wuwf --auth=trust -E UTF8"
-printf "port = 5433\nlisten_addresses = '127.0.0.1'\nunix_socket_directories = '/var/tmp'\n" > $D/postgresql.auto.conf
-chown postgres:postgres $D/postgresql.auto.conf
-su postgres -c "$PGBIN/pg_ctl -D $D -l $D/log.txt -w start"
-psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c "create database wuwf_site_test;"
+bash scripts/dev/pg-up.sh
 ```
 
-(If the sandbox is the same one and Postgres has only stopped, use the restart command under *Resume here*.) Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
+It installs pgvector if missing (the migrations run `CREATE EXTENSION vector`), makes the data directory `/var/tmp/wuwf-site-pg` once (the `postgres` user cannot read the session's scratchpad folder, so it must live elsewhere), clears the pid file, socket and lock file a killed server leaves behind (the next start refuses on any of them), starts Postgres on `127.0.0.1:5433` (trust auth, role `wuwf`), and makes three databases with the vector extension. Run it first in a session and again after any restart or `ECONNREFUSED`.
+
+**Three databases, and which command goes against which** (Payload's docs: push mode is the default in development, "treat your local dev database as a sandbox", and "do not mix 'push' and migrations with your local development database"; Payload stops with a warning and a prompt that hangs a script if you do):
+
+| Database | Used by | Schema comes from |
+|---|---|---|
+| `wuwf_site` | `pnpm dev`, `pnpm build`, scripts, seeding | Payload pushes the config to it in dev |
+| `wuwf_site_test` | `pnpm test:int` (`vitest.setup.ts`) | built from the config, **not** the migrations: data a migration writes is not there |
+| `wuwf_migrate` | `DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_migrate pnpm payload migrate` | the committed migrations, from empty |
+
+Never run `payload migrate` against `wuwf_site` once the dev server has used it, and do not delete the `dev` row from `payload_migrations` to get past the prompt (that was a workaround, not the documented way). To test a data migration on rows, use `wuwf_migrate` (`DATABASE_URL=…/wuwf_migrate pnpm payload migrate:fresh --force-accept-warning < /dev/null` drops it and re-runs everything; without the flag it asks "Are you sure?" and aborts when there is no terminal). `pnpm verify:migrations` makes its own scratch database and needs none of this. Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`). Do not start `pnpm dev` while a migration runs.
 
 ## Needs the owner (cannot be done from the repository)
 
