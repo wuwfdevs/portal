@@ -3,6 +3,7 @@ import { getPayload } from 'payload'
 
 import type { Contributor, Fellowship, Homepage, Post } from '@/payload-types'
 
+import { type BannerData, bannerOf } from '@/lib/banner'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
@@ -19,7 +20,8 @@ export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'me
 export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true, publishingIdentity: true, featuredAudio: true } as const
 
 export interface HomepageData {
-  emergency: { label: string; headline: string; body: string | null; linkLabel: string | null; linkHref: string | null } | null
+  /** The site banner, whatever its scope; the home page draws it only when it is meant for the home page (`bannerFor`). */
+  banner: BannerData | null
   lead: HomeStory | null
   leadKicker: string | null
   top: HomeStory[]
@@ -107,9 +109,8 @@ export async function loadHomepage(): Promise<HomepageData> {
   // With no section set up (a new site) or none holding anything, one run of the newest stories stands in, so the page is never blank.
   const modules = filled.length > 0 ? filled : [fallbackModule(recent, shown)].filter((m): m is FilledModule<HomeStory> => m !== null)
 
-  const e = settings.emergency
   return {
-    emergency: e?.active && e.headline?.trim() ? { label: e.label?.trim() || 'Emergency coverage', headline: e.headline.trim(), body: e.body?.trim() || null, linkLabel: e.linkLabel?.trim() || null, linkHref: e.linkHref?.trim() || null } : null,
+    banner: bannerOf(settings.banner),
     lead,
     leadKicker: settings.leadKicker?.trim() || null,
     top,

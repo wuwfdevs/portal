@@ -4,10 +4,12 @@ import { draftMode } from 'next/headers'
 import React from 'react'
 
 import { AdminBar } from '@/components/AdminBar'
+import { Banner } from '@/components/Banner'
 import { PlayerBar } from '@/components/ListenLive/PlayerBar'
 import { PlayerProvider } from '@/components/ListenLive/PlayerProvider'
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
+import { bannerFor, bannerOf } from '@/lib/banner'
 import { liveChannels } from '@/lib/live/channels'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { cn } from '@/utilities/ui'
@@ -50,6 +52,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       return []
     })
 
+  // A banner set for every page (the Home page global's banner). Read through the cached global, so a save refreshes it everywhere; if it cannot be
+  // read the page renders without it rather than failing.
+  const banner = await getCachedGlobal('homepage', 0)()
+    .then((settings) => bannerFor(bannerOf(settings?.banner), 'layout'))
+    .catch((error: unknown) => {
+      console.error('The banner could not be read; the page renders without it.', error)
+      return null
+    })
+
   return (
     <html className={cn(sourceSans.variable, sourceSerif.variable)} lang="en">
       <head>
@@ -66,6 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AdminBar adminBarProps={{ preview: isEnabled }} />
         <PlayerProvider channels={channels}>
           <Header />
+          <Banner banner={banner} />
           <main id="main" tabIndex={-1}>
             {children}
           </main>

@@ -6227,10 +6227,12 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface Homepage {
   id: number;
-  emergency?: {
+  banner?: {
     active?: boolean | null;
+    scope?: ('home' | 'all') | null;
+    style?: ('emergency' | 'notice') | null;
     /**
-     * The small label above the headline.
+     * The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.
      */
     label?: string | null;
     headline?: string | null;
@@ -8753,10 +8755,12 @@ export interface Sponsorship {
  * via the `definition` "homepage_select".
  */
 export interface HomepageSelect<T extends boolean = true> {
-  emergency?:
+  banner?:
     | T
     | {
         active?: T;
+        scope?: T;
+        style?: T;
         label?: T;
         headline?: T;
         body?: T;

@@ -5,11 +5,13 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
+import { Banner } from '@/components/Banner'
 import { Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
 import { SectionHeader } from '@/components/SectionHeader'
+import { bannerFor } from '@/lib/banner'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
@@ -24,21 +26,11 @@ import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-tex
 
 import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
-const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
-  href.startsWith('/') ? (
-    <Link className={className} href={href}>
-      {children}
-    </Link>
-  ) : (
-    <a className={className} href={href} rel="noopener noreferrer">
-      {children}
-    </a>
-  )
-
 /**
  * The home page (boards 1 and 2, first screen board 1g), filled from the Home page global and the newest published work.
  *
- * The top is a band built to fit the first screen at any window height: the lead story's words on the left and its picture on the right, a
+ * The site banner (`lib/banner`), when one is switched on for the home page, comes first, above everything. (One set for every page is drawn by the
+ * layout instead.) The top is a band built to fit the first screen at any window height: the lead story's words on the left and its picture on the right, a
  * normal 16:9 that never changes shape with the window, the byline level with the picture's bottom edge; under it The Briefing as a row of up to
  * five. Nothing in it is stretched to match anything else, and the headline is at the top, so it is in view in a short window too.
  * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
@@ -64,7 +56,7 @@ export function HomepageView({
   appeal?: MembershipAppealWords | null
   independenceHref?: string | null
 }) {
-  const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
+  const { banner, lead, leadKicker, top, feature, modules, allStoriesHref } = data
   const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, sections: modules.length })
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
@@ -73,25 +65,7 @@ export function HomepageView({
   return (
     <div className="pb-20">
       <LivePreviewInIframe />
-      {emergency && (
-        <section aria-label={emergency.label} className="border-b-4 border-wuwf-blue-700 bg-wuwf-blue-100">
-          <div className="container flex flex-col gap-2 py-5 md:flex-row md:items-center md:justify-between md:gap-8">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{emergency.label}</p>
-              <h2 className="font-serif text-2xl font-bold leading-snug text-ink">{emergency.headline}</h2>
-              {emergency.body && <p className="max-w-[44rem] text-base text-ink-2">{emergency.body}</p>}
-            </div>
-            {emergency.linkHref && (
-              <Safe
-                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
-                href={emergency.linkHref}
-              >
-                {emergency.linkLabel ?? 'Read more'}
-              </Safe>
-            )}
-          </div>
-        </section>
-      )}
+      <Banner banner={bannerFor(banner, 'home-page')} />
 
       {empty ? (
         <section className="container py-24 text-center">
