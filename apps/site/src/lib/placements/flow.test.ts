@@ -1,81 +1,72 @@
 import { describe, expect, it } from 'vitest'
 
-import { FILLER_MAX, flowHomeRail, holdsPair } from './flow'
+import { FILLER_MAX, flowHomeRail, ROW_SIZE } from './flow'
 
 const paid = (n: number) => Array.from({ length: n }, (_, i) => `P${i + 1}`)
 const fill = (n: number) => Array.from({ length: n }, (_, i) => `F${i + 1}`)
-const foot = (f: ReturnType<typeof flowHomeRail<string>>) => f.foot.map((x) => (x.filler ? `${x.tile}@${x.from}` : x.tile))
+const show = (row: { tile: string; filler: boolean }[] | null) => (row ? row.map((x) => (x.filler ? `${x.tile}*` : x.tile)) : null)
+const rows = (f: ReturnType<typeof flowHomeRail<string>>) => [...f.before.map(show), ...f.after.map(show)].filter((r) => r !== null)
 
-describe('holdsPair', () => {
-  it('is true for a section tall enough for two tiles', () => {
-    expect(holdsPair(2)).toBe(false)
-    expect(holdsPair(3)).toBe(true)
-    expect(holdsPair(6)).toBe(true)
+describe('flowHomeRail: rows of three between sections', () => {
+  it('puts a row of three above each section in order, starting above the first', () => {
+    const f = flowHomeRail({ tiles: paid(9), fillers: [], sections: 5 })
+    expect(f.before.map(show)).toEqual([['P1', 'P2', 'P3'], ['P4', 'P5', 'P6'], ['P7', 'P8', 'P9'], null, null])
+    expect(f.after).toEqual([])
   })
-})
-
-describe('flowHomeRail: pairs beside sections', () => {
-  it('gives each tall section a pair, in order, and keeps the rest for the foot row', () => {
-    const f = flowHomeRail({ tiles: paid(7), fillers: [], slots: [true, true, true] })
-    expect(f.beside).toEqual([['P1', 'P2'], ['P3', 'P4'], ['P5', 'P6']])
-    expect(foot(f)).toEqual(['P7'])
+  it('keeps the tiles of a short last row together, centered by the screen, when there is nothing to complete it', () => {
+    const f = flowHomeRail({ tiles: paid(10), fillers: [], sections: 5 })
+    expect(f.before.map(show)).toEqual([['P1', 'P2', 'P3'], ['P4', 'P5', 'P6'], ['P7', 'P8', 'P9'], ['P10'], null])
   })
-  it('skips a section that is too short, without losing a tile', () => {
-    const f = flowHomeRail({ tiles: paid(4), fillers: [], slots: [false, true, true] })
-    expect(f.beside).toEqual([null, ['P1', 'P2'], ['P3', 'P4']])
-    expect(f.foot).toEqual([])
+  it('puts the rows that do not fit above a section after the last one, so no tile is lost', () => {
+    const f = flowHomeRail({ tiles: paid(10), fillers: [], sections: 2 })
+    expect(f.before.map(show)).toEqual([['P1', 'P2', 'P3'], ['P4', 'P5', 'P6']])
+    expect(f.after.map(show)).toEqual([['P7', 'P8', 'P9'], ['P10']])
   })
-  it('never gives a section a single tile: an odd one out goes to the foot row', () => {
-    const f = flowHomeRail({ tiles: paid(3), fillers: [], slots: [true, true] })
-    expect(f.beside).toEqual([['P1', 'P2'], null])
-    expect(foot(f)).toEqual(['P3'])
+  it('puts every row after the videos when there are no sections', () => {
+    const f = flowHomeRail({ tiles: paid(4), fillers: [], sections: 0 })
+    expect(f.before).toEqual([])
+    expect(f.after.map(show)).toEqual([['P1', 'P2', 'P3'], ['P4']])
   })
-  it('puts every tile in the foot row when no section can hold a pair', () => {
-    const f = flowHomeRail({ tiles: paid(5), fillers: [], slots: [] })
-    expect(f.beside).toEqual([])
-    expect(foot(f)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5'])
+  it('is empty with no tiles, and leaves every section without a row', () => {
+    const f = flowHomeRail({ tiles: [], fillers: fill(2), sections: 3 })
+    expect(f.before).toEqual([null, null, null])
+    expect(f.after).toEqual([])
   })
-  it('never loses or repeats a tile', () => {
-    for (let n = 0; n <= 10; n++) {
+  it('never loses, repeats or reorders a paid tile, whatever the counts', () => {
+    for (let n = 0; n <= 12; n++) {
       for (let s = 0; s <= 6; s++) {
-        const f = flowHomeRail({ tiles: paid(n), fillers: fill(3), slots: Array(s).fill(true) })
-        const shown = [...f.beside.flatMap((p) => (p ? [...p] : [])), ...f.foot.filter((x) => !x.filler).map((x) => x.tile)]
-        expect(shown).toEqual(paid(n))
+        const f = flowHomeRail({ tiles: paid(n), fillers: fill(2), sections: s })
+        const drawn = [...f.before.flatMap((r) => r ?? []), ...f.after.flat()].filter((x) => !x.filler).map((x) => x.tile)
+        expect(drawn).toEqual(paid(n))
+        expect(f.before).toHaveLength(s)
       }
     }
   })
+  it('never makes a row longer than three', () => {
+    for (let n = 0; n <= 12; n++) {
+      for (const r of rows(flowHomeRail({ tiles: paid(n), fillers: fill(2), sections: 3 }))) expect(r!.length).toBeLessThanOrEqual(ROW_SIZE)
+    }
+  })
 })
 
-describe('flowHomeRail: completing the foot row with promotions', () => {
-  it('adds nothing when the foot row is empty or already whole', () => {
-    expect(flowHomeRail({ tiles: paid(2), fillers: fill(3), slots: [true] }).foot).toEqual([])
-    expect(foot(flowHomeRail({ tiles: paid(4), fillers: fill(3), slots: [] }))).toEqual(['P1', 'P2', 'P3', 'P4'])
-    expect(foot(flowHomeRail({ tiles: paid(8), fillers: fill(3), slots: [] }))).toHaveLength(8)
+describe('flowHomeRail: completing the last row with promotions', () => {
+  it('adds nothing when every row is whole', () => {
+    expect(rows(flowHomeRail({ tiles: paid(6), fillers: fill(2), sections: 4 }))).toEqual([['P1', 'P2', 'P3'], ['P4', 'P5', 'P6']])
   })
-  it('one tile left needs three: the first also completes a tablet row of two, the others only a wide row of four', () => {
-    expect(foot(flowHomeRail({ tiles: paid(1), fillers: fill(3), slots: [] }))).toEqual(['P1', 'F1@sm', 'F2@lg', 'F3@lg'])
+  it('one tile left takes two promotions, and two tiles left take one', () => {
+    expect(rows(flowHomeRail({ tiles: paid(4), fillers: fill(2), sections: 4 }))).toEqual([['P1', 'P2', 'P3'], ['P4', 'F1*', 'F2*']])
+    expect(rows(flowHomeRail({ tiles: paid(5), fillers: fill(2), sections: 4 }))).toEqual([['P1', 'P2', 'P3'], ['P4', 'P5', 'F1*']])
   })
-  it('two left needs two for a wide row and none on a tablet, where two already fill a row', () => {
-    expect(foot(flowHomeRail({ tiles: paid(2), fillers: fill(3), slots: [] }))).toEqual(['P1', 'P2', 'F1@lg', 'F2@lg'])
+  it('uses only the promotions there are, never inventing one, and never more than a row can need', () => {
+    expect(rows(flowHomeRail({ tiles: paid(4), fillers: fill(1), sections: 4 }))).toEqual([['P1', 'P2', 'P3'], ['P4', 'F1*']])
+    expect(rows(flowHomeRail({ tiles: paid(4), fillers: [], sections: 4 }))).toEqual([['P1', 'P2', 'P3'], ['P4']])
+    expect(flowHomeRail({ tiles: paid(4), fillers: fill(9), sections: 4 }).before[1]).toHaveLength(ROW_SIZE)
+    expect(FILLER_MAX).toBe(2)
   })
-  it('three left needs one, which completes both the tablet row and the wide row', () => {
-    expect(foot(flowHomeRail({ tiles: paid(3), fillers: fill(3), slots: [] }))).toEqual(['P1', 'P2', 'P3', 'F1@sm'])
+  it('completes the last row wherever it lands, above a section or after the last', () => {
+    expect(flowHomeRail({ tiles: paid(4), fillers: fill(2), sections: 1 }).after.map(show)).toEqual([['P4', 'F1*', 'F2*']])
   })
-  it('five left needs three for a wide row and one for a tablet row', () => {
-    expect(foot(flowHomeRail({ tiles: paid(5), fillers: fill(3), slots: [] }))).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'F1@sm', 'F2@lg', 'F3@lg'])
-  })
-  it('uses only as many promotions as there are, never inventing one, and never more than a row can need', () => {
-    expect(foot(flowHomeRail({ tiles: paid(1), fillers: fill(1), slots: [] }))).toEqual(['P1', 'F1@sm'])
-    expect(foot(flowHomeRail({ tiles: paid(1), fillers: [], slots: [] }))).toEqual(['P1'])
-    expect(flowHomeRail({ tiles: paid(1), fillers: fill(9), slots: [] }).foot.filter((x) => x.filler)).toHaveLength(FILLER_MAX)
-  })
-  it('fills out every row at every width whenever there are enough promotions', () => {
-    for (let n = 1; n <= 10; n++) {
-      const f = flowHomeRail({ tiles: paid(n), fillers: fill(3), slots: [] })
-      const wide = f.foot.length
-      const tablet = f.foot.filter((x) => !x.filler || x.from === 'sm').length
-      expect(wide % 4).toBe(0)
-      expect(tablet % 2).toBe(0)
-    }
+  it('never makes a row of promotions alone: with no tiles there are no rows', () => {
+    expect(rows(flowHomeRail({ tiles: [], fillers: fill(2), sections: 3 }))).toEqual([])
   })
 })

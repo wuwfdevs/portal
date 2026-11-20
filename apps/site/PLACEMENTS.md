@@ -56,9 +56,9 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 - **Designed, not built:** `story.rail` and `story.inline` have a spec in the registry (`built: false`) and cannot be chosen in the admin. Build one with
   the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that, and must respect the exclusions above).
 
-## How the home page lays the tiles out (built 2026-11-20)
+## How the home page lays the tiles out (built 2026-11-20, reworked the same day)
 
-Designed on the canvas "Sponsor Rail Redesign". The pieces are `lib/placements/flow.ts` (pure, tested), `components/Placements`, and `Homepage/HomepageView.tsx`.
+Designed on the canvas "Sponsor Rail Redesign" (option B). The pieces are `lib/placements/flow.ts` (pure, tested), `components/Placements`, and `Homepage/HomepageView.tsx`.
 
 - **One frame.** Every tile is the same card (8 px, a hairline) with a label strip above the artwork and the artwork in the zone's recommended **5:4** frame, whatever
   shape the picture is. The picture is always shown **whole**, never cropped, stretched or recolored (sponsors' artwork carries their words).
@@ -66,15 +66,19 @@ Designed on the canvas "Sponsor Rail Redesign". The pieces are `lib/placements/f
   the rest of the frame is a heavily blurred copy of the same picture, so the artwork sits on a wash of its own colors. The copy is decorative (`aria-hidden`), is the same file
   (small size requested), and needs no script and no request to anyone else's server. The banner does the same in its own frame. The goal is still to receive artwork of the right
   shape; this covers the edge cases.
-- **The tiles are one list that flows through the page**, in the order editors set. Each news section with at least three stories takes a **pair** beside it (two stacked beside it
-  on a wide screen, two across under it on a tablet, stacked on a phone), so a pair fills its place at every width and a lone tile never sits beside blank space. The video row
-  takes none. Whatever is left goes into **"More from our sponsors"**, after the banner: four across on a wide screen, two on a tablet, one on a phone.
-- **A paid tile is never held back to keep a grid tidy.** Every tile that runs is drawn, wherever it lands. Capacity (ten for the home rail) is the only limit, as before.
+- **Rows, not a side column.** The first version put a pair of tiles in a side column beside each news section. A real section is about 1,800 px tall (a lead story and two rows of
+  cards) and a pair about 660 px, so two thirds of every section had blank space beside it, and the video row had none. The tiles are now **full-width rows of three between the sections**:
+  the first row just after the short videos, the next above the second section, and so on. Nothing sits in a side column, so no section has a gutter at any height, story count or tile count.
+  Tiles are a fixed 22rem and wrap, centered: three fill a wide screen's row, a tablet shows two and one, a phone a stack. The page is cached and shared by every reader, so the server
+  never needs a screen's width.
+- **A paid tile is never held back.** Every tile that runs is drawn. Rows that do not fit above a section (more rows than sections) follow the last section. Capacity (ten for the
+  home rail) is the only limit, as before.
 - **A short last row is completed by WUWF's own promotions, which are optional.** On a house promotion in the home rail the admin shows **Can fill a gap**. Those promotions are held
-  apart from the rail's tiles: they take no place from a sponsor, do not count toward the ten, are used only to complete the foot row (at most three, since a row of four needs at
-  most three), and are keyed `home.rail.fill.N`. Because the page is cached for every reader and the server cannot know a screen's width, each filler is given the narrowest screen it
-  is needed on from the count alone, and a breakpoint class shows or hides it. With none marked, the last row's tiles are **centered at the same size**. A filler flag on anything but a
-  house promotion in the home rail is cleared on save (and ignored by the resolver).
+  apart from the rail's tiles: they take no place from a sponsor, do not count toward the ten, are used only to complete the last row (at most two, since a row of three needs at most
+  two), and are keyed `home.rail.fill.N`. With none marked, the short row's tiles are **centered at the same size**. The flag on anything but a house promotion in the home rail is
+  cleared on save (and ignored by the resolver).
+- **The news cards fill their rows too.** With no side column the sections run three cards across (two on a tablet); the first story spans columns so the last row is never short
+  (`leadSpanClass`, `lib/homepage/modules.ts`: five and eight stories span two columns on a wide screen, four and seven span three, three and six need none).
 
 ## Making a placement (Sponsorship → Placements)
 

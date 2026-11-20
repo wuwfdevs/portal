@@ -4,7 +4,7 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Media } from '@/components/Media'
-import type { FootItem } from '@/lib/placements/flow'
+import type { RowItem } from '@/lib/placements/flow'
 import { fillsFrame } from '@/lib/placements/media'
 import { ZONES, type ZoneId } from '@/lib/placements/registry'
 import type { PlacementTile } from '@/lib/placements/tiles'
@@ -76,7 +76,7 @@ function TileCard({ tile, size }: { tile: Tile; size: string }) {
 const RAIL_SIZE = '(min-width: 1024px) 22rem, (min-width: 640px) 50vw, 100vw'
 
 /**
- * A run of tiles in a zone: one under another on a phone, two across on a tablet, one column beside the page on a wide screen. Each tile is a card of
+ * A run of tiles in a zone (the list pages' rail): one under another on a phone, two across on a tablet, one column beside the page on a wide screen. Each tile is a card of
  * the same shape (`TileCard`). With no tiles it draws nothing, so no empty box is left.
  */
 export function Rail({ zone, tiles, className }: { zone: ZoneId; tiles: readonly Tile[]; className?: string }) {
@@ -94,33 +94,22 @@ export function Rail({ zone, tiles, className }: { zone: ZoneId; tiles: readonly
   )
 }
 
-/** The pair of tiles beside one of the home page's news sections (`lib/placements/flow.ts`). A pair always fills its place at every width. */
-export const HomePair = ({ tiles }: { tiles: readonly Tile[] }) => <Rail tiles={tiles} zone="home.rail" />
-
 /** The rail beside the stories on a section, topic, reporter or all-stories page (`list.rail`): the placements aimed at that page. */
 export const ListRail = ({ tiles }: { tiles: readonly Tile[] }) => <Rail tiles={tiles} zone="list.rail" />
 
 /**
- * "More from our sponsors": every home page tile the news sections did not take, so a paid tile is never held back. Four across on a wide screen, two on a
- * tablet, one on a phone. Rows stay whole: a WUWF promotion that editors marked as able to fill a gap completes the last row where it is short, and with none
- * the last row's tiles are centered at the same size. A filler carries the narrowest screen it is needed on (`FootItem.from`); the page is cached for every
- * reader, so a breakpoint class shows or hides it.
+ * A row of the home page's tiles, full width between news sections (`lib/placements/flow.ts`). Tiles are a fixed 22rem wide and wrap, centered, so three
+ * fill a wide screen's row, two and one sit on a tablet, and a phone gets a stack, with no blank gutter and no row left half empty at any width. A short
+ * last row (or one completed by WUWF's own promotions) is centered, so it looks deliberate. Draws nothing with no tiles.
  */
-export function HomeFoot({ items }: { items: readonly FootItem<Tile>[] }) {
+export function SponsorRow({ items }: { items: readonly RowItem<Tile>[] }) {
   if (items.length === 0) return null
   return (
-    <aside aria-labelledby="more-sponsors-heading" className="container mt-16" data-placement="home.rail.more">
-      <h2 className="border-b-2 border-ink pb-2 font-serif text-2xl font-bold text-ink" id="more-sponsors-heading">
-        More from our sponsors
-      </h2>
-      <ul className="mt-5 flex flex-wrap justify-center gap-5">
-        {items.map(({ tile, from }) => (
-          <li
-            className={cn('w-full sm:w-[calc((100%-1.25rem)/2)] lg:w-[calc((100%-3.75rem)/4)]', from === 'sm' && 'hidden sm:block', from === 'lg' && 'hidden lg:block')}
-            data-placement={tile.key}
-            key={tile.key}
-          >
-            <TileCard size="(min-width: 1024px) 18rem, (min-width: 640px) 50vw, 100vw" tile={tile} />
+    <aside aria-label="Sponsors and promotions" data-placement="home.rail">
+      <ul className="flex flex-wrap justify-center gap-6">
+        {items.map(({ tile }) => (
+          <li className="w-[22rem] max-w-full" data-placement={tile.key} key={tile.key}>
+            <TileCard size="22rem" tile={tile} />
           </li>
         ))}
       </ul>

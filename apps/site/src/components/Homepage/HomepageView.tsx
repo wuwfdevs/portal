@@ -12,12 +12,12 @@ import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
-import { newsBand } from '@/lib/homepage/modules'
+import { leadSpanClass, newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
-import { HomeBand, HomeFoot, HomePair } from '@/components/Placements'
-import { flowHomeRail, holdsPair } from '@/lib/placements/flow'
+import { HomeBand, SponsorRow } from '@/components/Placements'
+import { flowHomeRail } from '@/lib/placements/flow'
 import type { HomePlacements } from '@/lib/placements/load'
 import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
@@ -33,12 +33,6 @@ const Safe: React.FC<{ href: string; className?: string; children: React.ReactNo
       {children}
     </a>
   )
-
-/**
- * A news section that holds a pair of sponsor tiles has two columns: the section and a side column of one fixed width. The tiles are sized for 22rem
- * (`Rail`). A section too short for two tiles, and the video row, run the full width.
- */
-const SIDE_COLUMN = 'lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10'
 
 /**
  * The home page (boards 1 and 2, first screen board 1g), filled from the Home page global and the newest published work.
@@ -70,7 +64,7 @@ export function HomepageView({
   independenceHref?: string | null
 }) {
   const { emergency, lead, leadKicker, top, feature, modules, allStoriesHref } = data
-  const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, slots: modules.map((m) => holdsPair(m.stories.length)) })
+  const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, sections: modules.length })
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
   const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
@@ -204,44 +198,44 @@ export function HomepageView({
         </section>
       )}
 
-      {/* The short videos run the full width; each news section follows, with a pair of sponsor tiles beside it when it is tall enough (flow.ts). */}
+      {/* The short videos and the news run the full width, with a row of sponsor tiles above each section (flow.ts): the first just below the videos. */}
       {(slots.video || band.show) && (
         <div className="container mt-16 flex flex-col gap-14">
           {slots.video && <VideoRow className="" slot={slots.video} />}
-          {modules.map((module, i) => {
-            const pair = flow.beside[i] ?? null
-            return (
-              <div className={cn('grid gap-8', pair && SIDE_COLUMN)} key={module.key}>
-                <section aria-labelledby={`news-${module.key}`} className="min-w-0">
-                  <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
-                    {module.href ? (
-                      <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
-                        {module.heading}
-                      </Link>
-                    ) : (
-                      module.heading
-                    )}
-                  </h2>
-                  <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2', !pair && 'lg:grid-cols-3')}>
-                    {module.stories.map((story, j) => (
-                      // With two columns (a pair of tiles is beside the news), an odd count would leave a gap beside the last card, so the first story spans both.
-                      <li className={cn(pair && j === 0 && module.stories.length % 2 === 1 && 'sm:col-span-2')} key={story.id}>
-                        <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                      </li>
-                    ))}
-                  </ul>
-                  {module.href && (
-                    <p className="mt-6 text-base">
-                      <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
-                        More from {module.heading}
-                      </Link>
-                    </p>
+          {modules.map((module, i) => (
+            <React.Fragment key={module.key}>
+              {flow.before[i] && <SponsorRow items={flow.before[i]} />}
+              <section aria-labelledby={`news-${module.key}`}>
+                <h2 className="border-b-2 border-ink pb-2 font-serif text-3xl font-bold text-ink" id={`news-${module.key}`}>
+                  {module.href ? (
+                    <Link className="text-ink hover:text-wuwf-blue-700 hover:no-underline" href={module.href}>
+                      {module.heading}
+                    </Link>
+                  ) : (
+                    module.heading
                   )}
-                </section>
-                {pair && <HomePair tiles={pair} />}
-              </div>
-            )
-          })}
+                </h2>
+                <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {module.stories.map((story, j) => (
+                    // The first story spans columns so the grid has no short last row (leadSpanClass).
+                    <li className={cn(j === 0 && leadSpanClass(module.stories.length))} key={story.id}>
+                      <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
+                    </li>
+                  ))}
+                </ul>
+                {module.href && (
+                  <p className="mt-6 text-base">
+                    <Link className="inline-flex min-h-11 items-center font-semibold text-wuwf-blue-700 underline" href={module.href}>
+                      More from {module.heading}
+                    </Link>
+                  </p>
+                )}
+              </section>
+            </React.Fragment>
+          ))}
+          {flow.after.map((row, i) => (
+            <SponsorRow items={row} key={`after-${i}`} />
+          ))}
           {band.allStoriesLink && (
             <p>
               <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
@@ -253,8 +247,6 @@ export function HomepageView({
       )}
 
       <HomeBand tile={placements.band} />
-
-      <HomeFoot items={flow.foot} />
 
       {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
 
