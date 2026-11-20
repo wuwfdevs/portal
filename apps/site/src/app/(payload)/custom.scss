@@ -99,3 +99,54 @@
     font-size: 14px;
   }
 }
+
+// Phones. iOS Safari zooms the page when a field under 16px takes focus, and Payload's admin sets fields at 13px (12px at 768px and below).
+// Fields are 16px on narrow or touch screens. Pinch-zoom stays available: the viewport is not locked. Check boxes, radios and the like are
+// left alone because they have no text to zoom for.
+@media (max-width: 768px), (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden'], [type='color']),
+  select,
+  textarea,
+  [contenteditable='true'],
+  .rs__control,
+  .rs__input-container,
+  .rs__single-value,
+  .rs__placeholder {
+    font-size: 16px;
+  }
+}
+
+// The sidebar on a phone. Payload sets `--nav-width: 100vw` here and keeps the page at `min-width: 100%`, so an open sidebar plus the page
+// made the document twice the screen's width and the browser zoomed out to fit it. The sidebar is a drawer over the page instead (the
+// page never moves), and the page may shrink to the screen.
+@media (max-width: 768px) {
+  .template-default,
+  .template-default--nav-hydrated,
+  .template-default--nav-hydrated.template-default--nav-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .template-default .nav {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: var(--z-modal);
+    width: min(85vw, 320px);
+    height: 100dvh;
+    background: var(--theme-bg);
+  }
+
+  // Closed, the drawer is out of sight, out of the tab order and out of reach of a tap.
+  .template-default .nav:not(.nav--nav-open) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .template-default .template-default__wrap {
+    min-width: 0;
+  }
+
+  .template-default .nav .nav__header {
+    width: 100%;
+  }
+}

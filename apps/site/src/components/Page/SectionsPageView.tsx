@@ -47,7 +47,7 @@ export async function SectionsPageView({
       {/* Allows redirects for valid pages too */}
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
-      {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav label={set.name} items={items} />}
+      {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav hideTitle label={set.name} items={items} />}
       <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
     </article>
