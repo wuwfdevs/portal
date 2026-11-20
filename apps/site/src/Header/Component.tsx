@@ -27,7 +27,7 @@ export async function Header() {
   return (
     <header className="relative border-b border-rule bg-surface">
       <div className="container flex min-h-16 items-center gap-x-2 py-1 sm:gap-x-4 lg:gap-x-6">
-        {/* On a phone the whole header is one row: Menu, logo, then Live and Donate. Search and Sign in live in the Menu's sheet. */}
+        {/* On a phone the whole header is one row: Menu, logo, Donate. Listen live is the player bar at the foot of the screen; Search and Sign in are in the Menu's sheet. */}
         {items.length > 0 && <MobileMenu items={items} search={buttons.search} signIn={buttons.signIn} />}
         <Link aria-label="WUWF Public Media home" className="shrink-0" href="/">
           <Logo priority />
@@ -36,7 +36,12 @@ export async function Header() {
         {items.length > 0 && <MenuBar items={items} />}
 
         <div className="ml-auto flex items-center gap-1">
-          {buttons.listen && <HeaderListen label={buttons.listen.label} />}
+          {/* On a phone Listen live is the player bar at the foot of the screen, with its stream switcher. */}
+          {buttons.listen && (
+            <div className="hidden lg:block">
+              <HeaderListen label={buttons.listen.label} />
+            </div>
+          )}
           {buttons.search && (
             <div className={items.length > 0 ? 'hidden lg:block' : undefined}>
               <HeaderSearch label={buttons.search.label} />

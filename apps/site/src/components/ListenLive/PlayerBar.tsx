@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import React from 'react'
+import React, { useRef, useState } from 'react'
 
 import { progressWords } from '@/lib/player/track'
 import { formatDuration } from '@/lib/format'
 
+import { ListenSheet } from './ListenSheet'
 import { PlayIcon, StatusLine } from './parts'
 import { SKIP_SECONDS, usePlayer, usePlayerProgress } from './PlayerProvider'
 import { useNowNext } from './useNowNext'
@@ -13,18 +14,24 @@ import { useNowNext } from './useNowNext'
 const iconButton = 'flex size-11 shrink-0 items-center justify-center rounded-sm text-surface-dark-text hover:text-surface'
 
 /**
- * The site's player bar, at the bottom of every page once the reader has started anything (board 26). Not shown before then. It is
- * the one place audio is controlled, whether it is the live stream or a story, a show episode or a card's audio started from
+ * The site's player bar, at the bottom of every page once the reader has started anything (board 26). On a phone (below `lg`) it is
+ * there from the start whenever the station has a stream, so Listen live is always one thumb-reach away, and its switcher button opens
+ * `ListenSheet`; the header carries no Live button there. Before anything has played it asks for nothing (no now-playing request, no
+ * audio). It is the one place audio is controlled, whether it is the live stream or a story, a show episode or a card's audio started from
  * elsewhere on the site. A spacer of the same height keeps it from covering the end of the page, so it never hides the footer's links
  * or a form.
  */
 export const PlayerBar: React.FC = () => {
   const player = usePlayer()
   const { position, duration } = usePlayerProgress()
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const switcher = useRef<HTMLButtonElement>(null)
   const live = player?.mode === 'live'
   const { onNow } = useNowNext(player?.started && live ? (player.current?.cadenceChannelId ?? null) : null)
-  if (!player?.started) return null
+  // Started: every width. Not yet: only a phone, and only if there is a stream to offer.
+  if (!player || (!player.started && !player.current)) return null
   const { current, track, status } = player
+  const idleOnDesktop = !player.started ? 'lg:hidden' : ''
   const playing = status === 'playing' || status === 'loading'
   const onDemand = player.mode === 'track' && track
   const name = onDemand ? track.title : (current?.name ?? '')
@@ -32,8 +39,11 @@ export const PlayerBar: React.FC = () => {
 
   return (
     <>
-      <div aria-hidden="true" className="h-20" />
-      <section aria-label={onDemand ? 'Audio player' : 'Live player'} className="fixed inset-x-0 bottom-0 z-40 border-t border-surface-dark-line bg-surface-dark text-surface shadow-3">
+      <div aria-hidden="true" className={`h-20 ${idleOnDesktop}`} />
+      <section
+        aria-label={onDemand ? 'Audio player' : 'Live player'}
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-surface-dark-line bg-surface-dark text-surface shadow-3 ${idleOnDesktop}`}
+      >
         <div className="container flex min-h-16 items-center gap-3 py-2 md:gap-5">
           <button
             aria-label={playing ? `Pause ${name}` : `Play ${name}`}
@@ -101,6 +111,19 @@ export const PlayerBar: React.FC = () => {
                   <StatusLine status={status} />
                 </span>
               </div>
+              <button
+                aria-expanded={sheetOpen}
+                aria-haspopup="dialog"
+                aria-label="Streams and what is on now"
+                className={`${iconButton} lg:hidden`}
+                onClick={() => setSheetOpen(true)}
+                ref={switcher}
+                type="button"
+              >
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" width="20">
+                  <path d="M6 15l6-6 6 6" />
+                </svg>
+              </button>
             </>
           )}
 
@@ -121,13 +144,22 @@ export const PlayerBar: React.FC = () => {
               Schedule
             </Link>
           )}
-          <button aria-label="Close the player" className={iconButton} onClick={() => player.close()} type="button">
+          {/* On a phone the live bar stays whether or not it is playing, so Close would only duplicate Pause: it is for the desktop and for a story's audio. */}
+          <button aria-label="Close the player" className={`${iconButton} ${onDemand ? '' : 'max-lg:hidden'}`} onClick={() => player.close()} type="button">
             <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24" width="18">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>
         </div>
       </section>
+      {sheetOpen && (
+        <ListenSheet
+          onClose={() => {
+            setSheetOpen(false)
+            switcher.current?.focus()
+          }}
+        />
+      )}
     </>
   )
 }

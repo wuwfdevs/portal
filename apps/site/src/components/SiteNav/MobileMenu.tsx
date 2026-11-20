@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React, { useEffect, useId, useRef, useState } from 'react'
+import React, { useId, useRef, useState } from 'react'
 
 import { CMSLink } from '@/components/Link'
 import type { Header } from '@/payload-types'
+import { useModalDialog } from '@/utilities/useModalDialog'
 
 type Item = NonNullable<Header['navItems']>[number]
 
@@ -13,7 +14,6 @@ const row =
   'flex min-h-14 w-full items-center justify-between gap-3 border-b border-rule px-4 text-left text-lg font-bold text-ink hover:bg-surface-2 hover:no-underline'
 const subLink =
   'flex min-h-12 items-center border-b border-rule py-2 pl-8 pr-4 text-base font-semibold text-ink-2 hover:text-wuwf-blue-700'
-const FOCUSABLE = 'a[href], button:not([disabled])'
 
 /**
  * The header's items on a phone (below `lg`): one Menu button that opens a full-height sheet. A link is a row; a menu is an
@@ -49,48 +49,7 @@ const Menu: React.FC<MobileMenuProps> = ({ items, search, signIn }) => {
     if (returnFocus) trigger.current?.focus()
   }
 
-  // The sheet is hidden from `lg` up (the desktop bar takes over), but hiding it does not close it: widening the window
-  // (a rotated tablet) would leave the page's scroll locked behind a sheet nobody can see. Close it at the breakpoint.
-  useEffect(() => {
-    const desktop = window.matchMedia('(min-width: 1024px)')
-    const onChange = (event: MediaQueryListEvent) => {
-      if (event.matches) setOpen(false)
-    }
-    desktop.addEventListener('change', onChange)
-    return () => desktop.removeEventListener('change', onChange)
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    closeButton.current?.focus()
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false)
-        trigger.current?.focus()
-        return
-      }
-      if (event.key !== 'Tab' || !sheet.current) return
-      const focusable = Array.from(sheet.current.querySelectorAll<HTMLElement>(FOCUSABLE))
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (!first || !last) return
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previous
-    }
-  }, [open])
+  useModalDialog({ open, onClose: () => close(true), container: sheet, initialFocus: closeButton })
 
   return (
     <div className="lg:hidden">
