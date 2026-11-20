@@ -6,6 +6,7 @@
 // and, in a zone that can be aimed (the list pages), the page is one it chose. Placements in a zone run in their `order` (lower first), then
 // the one made first, up to the zone's capacity; anything past it is simply not shown.
 
+import { FILLER_MAX } from './flow'
 import { stationDay, withinDates } from './pick'
 import { ZONES, type ZoneId } from './registry'
 import { placementTiles, type PlacementTile, type StoredTile } from './tiles'
@@ -30,7 +31,12 @@ export interface PlacementRecord<M> extends StoredTile<M> {
   people?: readonly Ref[] | null
   /** The all-stories page, `/latest`, is not a section, topic or reporter, so it is chosen by itself. */
   includeLatest?: boolean | null
+  /** A WUWF promotion that may complete the home page's foot row (`flow.ts`). Only a house promotion in the home rail counts as one. */
+  fillsGaps?: boolean | null
 }
+
+/** Whether a record is a gap filler: a house promotion in the home page rail that an editor has marked as able to fill a row. */
+export const isFiller = (rec: Pick<PlacementRecord<unknown>, 'zone' | 'kind' | 'fillsGaps'>): boolean => rec.fillsGaps === true && rec.kind === 'house' && rec.zone === 'home.rail'
 
 const idOf = (r: Ref): string | null => (r == null ? null : String(typeof r === 'object' ? r.id : r))
 const idSet = (list: readonly Ref[] | null | undefined): Set<string> => new Set((list ?? []).map(idOf).filter((v): v is string => v !== null))
@@ -63,8 +69,17 @@ const pageMatchesZone = (zone: ZoneId, ctx: PageContext): boolean => (ZONES[zone
 export function resolveZone<M extends { url?: string | null }>(zone: ZoneId, ctx: PageContext, records: readonly PlacementRecord<M>[] | null | undefined, now: Date): PlacementTile<M>[] {
   const spec = ZONES[zone]
   if (!spec.built || !pageMatchesZone(zone, ctx)) return []
-  const mine = (records ?? []).filter((r) => r.zone === zone && (!spec.targetable || matchesPage(r, ctx))).sort(byRunOrder)
+  // A gap filler is not one of the zone's tiles: it is held apart (`resolveFillers`), so it never takes a place from a sponsor or counts toward capacity.
+  const mine = (records ?? []).filter((r) => r.zone === zone && !isFiller(r) && (!spec.targetable || matchesPage(r, ctx))).sort(byRunOrder)
   return placementTiles(zone, mine, now)
+}
+
+/** The promotions that may complete the home page's foot row, in order, as many as a row can ever need. Keyed `home.rail.fill.1`, so they are named apart from the rail's own tiles. */
+export function resolveFillers<M extends { url?: string | null }>(records: readonly PlacementRecord<M>[] | null | undefined, now: Date): PlacementTile<M>[] {
+  const mine = (records ?? []).filter(isFiller).sort(byRunOrder)
+  return placementTiles('home.rail', mine, now)
+    .slice(0, FILLER_MAX)
+    .map((t, i) => ({ ...t, key: `home.rail.fill.${i + 1}` }))
 }
 
 /** Whether a placement can still run: not switched off and not ended, as of today at the station. For counting what a zone holds. */

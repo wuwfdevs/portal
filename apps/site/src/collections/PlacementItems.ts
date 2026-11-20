@@ -42,14 +42,23 @@ const checkKind: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
 const checkCapacity: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   // A field the save leaves out keeps its stored value; one it sets to null (a last day cleared) is null. `??` would treat both as missing and bring
   // back the old value, so a placement whose last day had passed and was cleared would skip this check and run past the zone's capacity.
-  const given = <K extends 'zone' | 'enabled' | 'runUntil'>(key: K) => (data && key in data && data[key] !== undefined ? data[key] : originalDoc?.[key])
+  const given = <K extends 'zone' | 'enabled' | 'runUntil' | 'fillsGaps'>(key: K) => (data && key in data && data[key] !== undefined ? data[key] : originalDoc?.[key])
   const zoneId = given('zone')
   const enabled = given('enabled')
+  // A promotion that only completes the foot row is held apart from the zone's tiles and takes no place from a sponsor.
+  if (given('fillsGaps') === true) return data
   if (!isZoneId(zoneId) || ZONES[zoneId].targetable || enabled === false) return data
   if (!stillRunning({ enabled, runUntil: given('runUntil') }, new Date())) return data
   const others = await req.payload.find({
     collection: 'placement-items',
-    where: { and: [{ zone: { equals: zoneId } }, { enabled: { equals: true } }, ...(originalDoc?.id ? [{ id: { not_equals: originalDoc.id } }] : [])] },
+    where: {
+      and: [
+        { zone: { equals: zoneId } },
+        { enabled: { equals: true } },
+        { or: [{ fillsGaps: { equals: false } }, { fillsGaps: { exists: false } }] },
+        ...(originalDoc?.id ? [{ id: { not_equals: originalDoc.id } }] : []),
+      ],
+    },
     depth: 0,
     limit: 100,
     pagination: false,
@@ -62,6 +71,18 @@ const checkCapacity: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   if (running >= capacity) {
     throw new APIError(`${name} holds ${capacity}, and ${running === 1 ? 'one is' : `${running} are`} already running. Switch one off, set its last day, or delete it first.`, 400, undefined, true)
   }
+  return data
+}
+
+/**
+ * "Can fill a gap" means something only for a WUWF promotion in the home page rail, and the box is hidden for anything else, so a value left over from
+ * before (a promotion the editor then made a sponsor placement, or moved to another zone) is cleared here rather than refused for a field the editor
+ * cannot see. The resolver ignores it for anything else as well (`isFiller`); this keeps the record honest.
+ */
+const clearFillerFlag: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const given = (key: 'kind' | 'zone') => (data && key in data && data[key] !== undefined ? data[key] : originalDoc?.[key])
+  if (data?.fillsGaps === true && !(given('kind') === 'house' && given('zone') === 'home.rail')) return { ...data, fillsGaps: false }
+  if (data && !('fillsGaps' in data) && originalDoc?.fillsGaps === true && !(given('kind') === 'house' && given('zone') === 'home.rail')) return { ...data, fillsGaps: false }
   return data
 }
 
@@ -117,7 +138,7 @@ export const PlacementItems: CollectionConfig = {
     listSearchableFields: ['name'],
     description: 'Sponsor messages and WUWF promotions, each in a fixed place on the site. Make, change, aim and retire them here: no deploy needed.',
   },
-  hooks: { beforeChange: [checkKind, checkCapacity], afterChange: [afterChange], afterDelete: [afterDelete] },
+  hooks: { beforeChange: [checkKind, clearFillerFlag, checkCapacity], afterChange: [afterChange], afterDelete: [afterDelete] },
   defaultSort: 'order',
   fields: [
     { name: 'name', type: 'text', required: true, maxLength: 120, admin: { description: 'For staff only, to find it again, e.g. "Alphastar: home rail, December".' } },
@@ -216,6 +237,17 @@ export const PlacementItems: CollectionConfig = {
         { name: 'runUntil', type: 'date', label: 'Last day', admin: { width: '25%', date: { pickerAppearance: 'dayOnly' }, description: 'Empty: runs until switched off. The whole of this day counts.' } },
         { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show', admin: { width: '25%', description: 'Switch off to hold it without deleting it.' } },
       ],
+    },
+    {
+      name: 'fillsGaps',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Can fill a gap',
+      admin: {
+        condition: (_, s) => s?.kind === 'house' && s?.zone === 'home.rail',
+        description:
+          'Optional. On the home page every sponsor tile that is running always shows. When the last row of tiles is short, WUWF promotions marked here complete it (up to three), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s ten. With none marked, the last row is centered instead.',
+      },
     },
     {
       name: 'where',

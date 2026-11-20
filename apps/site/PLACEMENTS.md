@@ -19,8 +19,9 @@ Packaging and price are the Sponsorship pages' and, later, the Portal's.
 
 They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Decisions that are made"):
 
-- **Fixed and labeled.** The same place every time. A sponsor tile says **"Sponsor message"** above it. A house promotion (WUWF's own app,
-  weather, Book Club, advocacy) is not labeled as a sponsor, and a placement with no kind is labeled, because labeling a promotion is the safe mistake.
+- **Fixed and labeled.** The same place every time. A sponsor tile says **"Sponsor message"** above it, on a strip in the site's own type, with the sponsor's
+  name. A house promotion (WUWF's own app, weather, Book Club, advocacy) says **"From WUWF"** in the same place and is never labeled as a sponsor
+  (changed 2026-11-20: it used to carry no label, so a reader could not tell it from an ad). A placement with no kind is labeled as a sponsor, because labeling a promotion as a sponsor is the safe mistake.
 - **No leaderboard** across the top of a page, **no autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
   tracking**. A tile is a picture and a link: no script, no frame, no request to anyone else's server.
 - **Never above the news.** The first thing on a page is the story, the emergency notice or the player.
@@ -54,6 +55,26 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
   a screenshot and a support request can name the same tile. It is a reference, not a tracker.
 - **Designed, not built:** `story.rail` and `story.inline` have a spec in the registry (`built: false`) and cannot be chosen in the admin. Build one with
   the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that, and must respect the exclusions above).
+
+## How the home page lays the tiles out (built 2026-11-20)
+
+Designed on the canvas "Sponsor Rail Redesign". The pieces are `lib/placements/flow.ts` (pure, tested), `components/Placements`, and `Homepage/HomepageView.tsx`.
+
+- **One frame.** Every tile is the same card (8 px, a hairline) with a label strip above the artwork and the artwork in the zone's recommended **5:4** frame, whatever
+  shape the picture is. The picture is always shown **whole**, never cropped, stretched or recolored (sponsors' artwork carries their words).
+- **No white box around small art.** Where the picture does not fill the frame (`fillsFrame`, within 3%, and a picture with no recorded size counts as not filling it),
+  the rest of the frame is a heavily blurred copy of the same picture, so the artwork sits on a wash of its own colors. The copy is decorative (`aria-hidden`), is the same file
+  (small size requested), and needs no script and no request to anyone else's server. The banner does the same in its own frame. The goal is still to receive artwork of the right
+  shape; this covers the edge cases.
+- **The tiles are one list that flows through the page**, in the order editors set. Each news section with at least three stories takes a **pair** beside it (two stacked beside it
+  on a wide screen, two across under it on a tablet, stacked on a phone), so a pair fills its place at every width and a lone tile never sits beside blank space. The video row
+  takes none. Whatever is left goes into **"More from our sponsors"**, after the banner: four across on a wide screen, two on a tablet, one on a phone.
+- **A paid tile is never held back to keep a grid tidy.** Every tile that runs is drawn, wherever it lands. Capacity (ten for the home rail) is the only limit, as before.
+- **A short last row is completed by WUWF's own promotions, which are optional.** On a house promotion in the home rail the admin shows **Can fill a gap**. Those promotions are held
+  apart from the rail's tiles: they take no place from a sponsor, do not count toward the ten, are used only to complete the foot row (at most three, since a row of four needs at
+  most three), and are keyed `home.rail.fill.N`. Because the page is cached for every reader and the server cannot know a screen's width, each filler is given the narrowest screen it
+  is needed on from the count alone, and a breakpoint class shows or hides it. With none marked, the last row's tiles are **centered at the same size**. A filler flag on anything but a
+  house promotion in the home rail is cleared on save (and ignored by the resolver).
 
 ## Making a placement (Sponsorship → Placements)
 
@@ -96,10 +117,11 @@ These are **not website zones** and are not in the registry; the website must no
 2. **Proof of performance.** No third-party tracking means no impression or click counts from an ad server. Whether WUWF reports views and clicks to
    sponsors is undecided. A first-party, consent-aware count of tile views and clicks is possible behind `ANALYTICS.md` and is not built; do not add it
    without a decision.
-3. **Ten tiles on a phone** is about 3,000 pixels of tiles after the news. Consider showing the first four, or a "Sponsors" disclosure, once there is
-   data on how far people scroll.
-4. **House promotions versus sponsors** in a rail: they share the column in the order editors set, as on the live site. A rule that house promotions only
-   fill unsold places is a policy for corporate support to set.
+3. **Ten tiles on a phone** is still about 3,000 pixels of tiles, now spread between the news sections (two after each tall one) and a "More from our sponsors" row, instead of
+   all after the last story. A paid tile is never hidden to shorten it; if it needs shortening, sell fewer places. Revisit once there is data on how far people scroll.
+4. **House promotions versus sponsors** in a rail: they share the column in the order editors set, as on the live site. Promotions marked **Can fill a gap** are the
+   one case where a house promotion only fills what a sponsor did not (the foot row's short last row). Whether other house promotions should yield to sponsors is a policy for
+   corporate support to set.
 5. **Exclusions** ("every section except Commentary") and **targeting by story format or show** are not built; add them when a sale needs them.
 6. **A "where this placement shows" preview and a conflicts view** (two placements competing for a place) are not built. The resolver is deterministic
    (order, then age), the home zones refuse overflow, and a list zone shows the first four; an admin overview is the next step if editors need to see it.

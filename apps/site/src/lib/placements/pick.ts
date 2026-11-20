@@ -50,9 +50,9 @@ export function liveTiles<T extends TileLike>(tiles: readonly T[] | null | undef
     .slice(0, Math.max(0, max))
 }
 
-/** The words above a tile. A sponsor tile always says so; a house promotion carries no label. */
-export function tileLabel(tile: Pick<TileLike, 'kind'>): string | null {
-  return tile.kind === 'house' ? null : 'Sponsor message'
+/** The words above a tile. A sponsor tile always says so; WUWF's own promotion says it is WUWF's, so the two are told apart at a glance. */
+export function tileLabel(tile: Pick<TileLike, 'kind'>): string {
+  return tile.kind === 'house' ? 'From WUWF' : 'Sponsor message'
 }
 
 /** What a screen reader hears for the tile's link: what the artwork says, else the sponsor's name. */

@@ -93,7 +93,7 @@ describe('the staging demonstration for news sections and placements', () => {
 
   it('aims each placement where it says: one section, several, a reporter and a topic, the all-stories page and every page', async () => {
     const records = await readPlacementRecords()
-    const names = (ctxPage: PageContext) => resolveZone('list.rail', ctxPage, records, NOW).map((t) => [t.key, t.label ? 'sponsor' : 'house'])
+    const names = (ctxPage: PageContext) => resolveZone('list.rail', ctxPage, records, NOW).map((t) => [t.key, t.kind])
     // Local News: the example sponsor (10), then the app promo for every page (50).
     expect(names(list('section', sections['local-news']!.id))).toEqual([['list.rail.1', 'sponsor'], ['list.rail.2', 'house']])
     // Local Arts and Commentary: the Book Club (30), then the app (50).

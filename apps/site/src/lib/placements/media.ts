@@ -8,17 +8,15 @@ export const STILL_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'imag
 export const STILL_IMAGE_MESSAGE = 'Choose a still picture (PNG, JPEG, WebP or AVIF). Video and animated pictures are not allowed in a placement.'
 
 /**
- * The shape a picture's box should take so the box is exactly as tall as the picture: the picture's own width and height. Artwork that is not the zone's
- * recommended size would otherwise be fitted inside a box of the zone's shape and leave blank bands above and below it, so the space between tiles would
- * differ from one tile to the next. A record with no usable size (not recorded, zero, not a number) takes the fallback, the zone's recommended shape.
+ * Whether a picture already fills a frame of the given shape, so no backdrop is needed behind it. True only for a picture whose size is recorded and whose
+ * shape is within a few percent of the frame's; a picture with no usable size (not recorded, zero, not a number) is treated as not filling it, because the
+ * safe mistake is to draw a backdrop behind a picture that did not need one, not to leave a white box around one that did.
  */
-export function pictureShape(
-  media: { width?: number | null; height?: number | null } | null | undefined,
-  fallback: { width: number; height: number },
-): { width: number; height: number } {
+export function fillsFrame(media: { width?: number | null; height?: number | null } | null | undefined, frame: { width: number; height: number }, tolerance = 0.03): boolean {
   const w = media?.width
   const h = media?.height
-  return typeof w === 'number' && typeof h === 'number' && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0 ? { width: w, height: h } : fallback
+  if (typeof w !== 'number' || typeof h !== 'number' || !Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return false
+  return Math.abs(w / h / (frame.width / frame.height) - 1) <= tolerance
 }
 
 /** Whether a media record may be drawn in a placement. A record with no type recorded is left to the admin's check; one with a type must be a still picture. */

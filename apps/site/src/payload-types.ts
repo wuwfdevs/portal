@@ -4351,6 +4351,10 @@ export interface PlacementItem {
    */
   enabled?: boolean | null;
   /**
+   * Optional. On the home page every sponsor tile that is running always shows. When the last row of tiles is short, WUWF promotions marked here complete it (up to three), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail's ten. With none marked, the last row is centered instead.
+   */
+  fillsGaps?: boolean | null;
+  /**
    * Where this runs, in short.
    */
   where?: string | null;
@@ -5782,6 +5786,7 @@ export interface PlacementItemsSelect<T extends boolean = true> {
   runFrom?: T;
   runUntil?: T;
   enabled?: T;
+  fillsGaps?: T;
   where?: T;
   updatedAt?: T;
   createdAt?: T;

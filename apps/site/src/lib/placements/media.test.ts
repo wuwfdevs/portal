@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isStillPicture, pictureShape, STILL_IMAGE_TYPES } from './media'
+import { fillsFrame, isStillPicture, STILL_IMAGE_TYPES } from './media'
 import { placementTiles } from './tiles'
 
 const tile = (image: unknown, phoneImage?: unknown) => ({ kind: 'sponsor' as const, sponsor: 'Acme', enabled: true, href: 'https://acme.example/', alt: 'Acme', image: image as never, phoneImage: phoneImage as never })
@@ -23,14 +23,21 @@ describe('isStillPicture', () => {
   })
 })
 
-describe('pictureShape', () => {
-  const zone = { width: 880, height: 704 }
-  it('is the picture\'s own size, so a box of that shape is as tall as the picture', () => {
-    expect(pictureShape({ width: 1000, height: 400 }, zone)).toEqual({ width: 1000, height: 400 })
+describe('fillsFrame', () => {
+  const frame = { width: 880, height: 704 }
+  it('is true for a picture of the frame\'s own shape, at any size, and for one within a few percent of it', () => {
+    expect(fillsFrame({ width: 880, height: 704 }, frame)).toBe(true)
+    expect(fillsFrame({ width: 1760, height: 1408 }, frame)).toBe(true)
+    expect(fillsFrame({ width: 1760, height: 1390 }, frame)).toBe(true)
   })
-  it('takes the zone\'s shape when the size is missing, zero or not a number', () => {
+  it('is false for a picture of another shape, which gets a backdrop behind it', () => {
+    expect(fillsFrame({ width: 1000, height: 400 }, frame)).toBe(false)
+    expect(fillsFrame({ width: 600, height: 900 }, frame)).toBe(false)
+    expect(fillsFrame({ width: 880, height: 600 }, frame)).toBe(false)
+  })
+  it('is false when the size is missing, zero or not a number, so a picture of unknown shape still gets a backdrop', () => {
     for (const m of [null, undefined, {}, { width: 1000 }, { width: 0, height: 400 }, { width: 1000, height: -1 }, { width: Number.NaN, height: 400 }, { width: null, height: null }]) {
-      expect(pictureShape(m, zone)).toEqual(zone)
+      expect(fillsFrame(m, frame)).toBe(false)
     }
   })
 })

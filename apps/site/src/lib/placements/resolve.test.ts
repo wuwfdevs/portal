@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { byRunOrder, describeTarget, matchesPage, resolveZone, stillRunning, type PageContext, type PlacementRecord } from './resolve'
+import { byRunOrder, describeTarget, isFiller, matchesPage, resolveFillers, resolveZone, stillRunning, type PageContext, type PlacementRecord } from './resolve'
 
 const image = { id: 1, url: '/media/a.png' }
 const NOW = new Date('2026-11-18T18:00:00Z')
@@ -127,5 +127,41 @@ describe('byRunOrder and describeTarget', () => {
     expect(describeTarget(rec({ sections: [1, 2], topics: [3], includeLatest: true }))).toMatch(/2 sections, 1 topic, all stories$/)
     expect(describeTarget(rec({ scope: 'chosen' }))).toMatch(/nothing chosen yet$/)
     expect(describeTarget(rec({ zone: null }))).toBe('No zone chosen')
+  })
+})
+
+describe('gap fillers', () => {
+  const filler = (over: Partial<PlacementRecord<{ url: string }>> = {}) => rec({ zone: 'home.rail', kind: 'house', sponsor: null, fillsGaps: true, ...over })
+  const home: PageContext = { page: 'home' }
+
+  it('are held apart from the rail: a filler is never one of the rail\'s own tiles, and never takes a sponsor\'s place or the rail\'s capacity', () => {
+    const sponsors = Array.from({ length: 10 }, (_, i) => rec({ zone: 'home.rail', sponsor: `S${i}`, order: i + 10 }))
+    const records = [filler({ order: 1 }), ...sponsors]
+    expect(names(resolveZone('home.rail', home, records, NOW))).toEqual(sponsors.map((_, i) => `S${i}`))
+  })
+  it('are the house promotions in the home rail marked as able to fill a gap, in order, with their own keys', () => {
+    const records = [filler({ order: 5, alt: 'B' }), filler({ order: 1, alt: 'A' }), rec({ zone: 'home.rail', alt: 'sponsor' })]
+    const tiles = resolveFillers(records, NOW)
+    expect(tiles.map((t) => t.name)).toEqual(['A', 'B'])
+    expect(tiles.map((t) => t.key)).toEqual(['home.rail.fill.1', 'home.rail.fill.2'])
+  })
+  it('need to be a house promotion in the home rail: a sponsor, or one elsewhere, marked by mistake is not a filler', () => {
+    expect(isFiller(filler())).toBe(true)
+    expect(isFiller(filler({ kind: 'sponsor' }))).toBe(false)
+    expect(isFiller(filler({ zone: 'list.rail' }))).toBe(false)
+    expect(isFiller(filler({ fillsGaps: false }))).toBe(false)
+    expect(isFiller(filler({ fillsGaps: null }))).toBe(false)
+    expect(resolveFillers([filler({ kind: 'sponsor' }), filler({ zone: 'home.band' })], NOW)).toEqual([])
+    // Marked by mistake, a sponsor is a sponsor: it runs in the rail like any other and is never held back as a filler.
+    expect(names(resolveZone('home.rail', home, [filler({ kind: 'sponsor', sponsor: 'Paid' })], NOW))).toEqual(['Paid'])
+  })
+  it('follow the same rules as any tile: switched off, ended, without a picture or with an unsafe link, they are left out', () => {
+    const records = [filler({ enabled: false }), filler({ runUntil: '2026-11-01' }), filler({ image: null }), filler({ href: 'javascript:alert(1)' }), filler({ alt: 'ok' })]
+    expect(resolveFillers(records, NOW).map((t) => t.name)).toEqual(['ok'])
+  })
+  it('are never more than a row can need, and are empty when there are none', () => {
+    expect(resolveFillers(Array.from({ length: 6 }, (_, i) => filler({ order: i })), NOW)).toHaveLength(3)
+    expect(resolveFillers([], NOW)).toEqual([])
+    expect(resolveFillers(null, NOW)).toEqual([])
   })
 })
