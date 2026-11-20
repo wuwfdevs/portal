@@ -179,7 +179,7 @@ export const PlacementItems: CollectionConfig = {
       required: true,
       filterOptions: onlyStill,
       validate: stillPicture as never,
-      admin: { description: `The artwork. A rail tile is ${artworkSize(ZONES['home.rail'].artwork)}; a banner is ${artworkSize(ZONES['home.band'].artwork)}. The words in the picture are read by people who cannot see it, so say what it says below.` },
+      admin: { description: `The artwork. A rail tile is ${artworkSize(ZONES['home.rail'].artwork)}; a banner is ${artworkSize(ZONES['home.band'].artwork)}; a top unit is ${artworkSize(ZONES['home.top'].artwork)}. The words in the picture are read by people who cannot see it, so say what it says below.` },
     },
     {
       name: 'phoneImage',
@@ -188,7 +188,7 @@ export const PlacementItems: CollectionConfig = {
       label: 'Picture for phones',
       filterOptions: onlyStill,
       validate: stillPicture as never,
-      admin: { condition: inZone((z) => z.shape === 'band'), description: `Optional, ${artworkSize(ZONES['home.band'].phoneArtwork ?? ZONES['home.band'].artwork)}. Without it, phones get the wide picture, scaled down.` },
+      admin: { condition: inZone((z) => z.shape === 'band'), description: `Optional, ${artworkSize(ZONES['home.band'].phoneArtwork ?? ZONES['home.band'].artwork)} (a top unit: ${artworkSize(ZONES['home.top'].phoneArtwork ?? ZONES['home.top'].artwork)}). Without it, phones get the wide picture, scaled down.` },
     },
     { name: 'alt', type: 'text', required: true, maxLength: TILE_ALT_MAX, label: 'What the picture says', admin: { description: 'Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".' } },
     {
@@ -246,7 +246,7 @@ export const PlacementItems: CollectionConfig = {
       admin: {
         condition: (_, s) => s?.kind === 'house' && s?.zone === 'home.rail',
         description:
-          'Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s ten. With none marked, the short row\'s tiles are centered instead.',
+          'Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s capacity. With none marked, the short row\'s tiles are centered instead.',
       },
     },
     {

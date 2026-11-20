@@ -19,7 +19,8 @@ import { leadSpanClass, newsBand } from '@/lib/homepage/modules'
 import { leadPicture } from '@/lib/homepage/select'
 import { cn } from '@/utilities/ui'
 
-import { HomeBand, SponsorRow } from '@/components/Placements'
+import { HomeBand, SponsorRow, TopUnit } from '@/components/Placements'
+import { topUnitHeldBack } from '@/lib/placements/exclusions'
 import { flowHomeRail } from '@/lib/placements/flow'
 import type { HomePlacements } from '@/lib/placements/load'
 import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
@@ -60,6 +61,8 @@ export function HomepageView({
   const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, sections: modules.length })
   const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
   const empty = !lead
+  // The top unit yields to an emergency banner (`lib/placements/exclusions.ts`).
+  const homeTop = topUnitHeldBack(banner, 'home') ? null : placements.top
   const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
 
   return (
@@ -68,15 +71,25 @@ export function HomepageView({
       <Banner banner={bannerFor(banner, 'home-page')} />
 
       {empty ? (
+        <>
+          {homeTop && (
+            <div className="container pt-8">
+              <TopUnit tile={homeTop} />
+            </div>
+          )}
         <section className="container py-24 text-center">
           <h1 className="font-serif text-4xl font-bold text-ink">WUWF Public Media</h1>
           <p className="mt-4 text-lg text-ink-2">No stories have been published yet. They will appear here as soon as they are.</p>
         </section>
+        </>
       ) : (
-        <section aria-label="Top stories" className="container pt-8 md:pt-12">
+        <section aria-label="Top stories" className="container flex flex-col pt-8 md:pt-12">
+          {/* The top unit (`home.top`): directly under the header on a wide screen, so above the lead. On a phone it follows the lead story's headline and picture, so a
+              story is always what the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
+          {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-8 md:mt-0" tile={homeTop} />}
           {/* The lead band: words left (28.75rem), picture right. On a phone the picture comes first and everything stacks. The words are top-aligned with the
               byline pinned to the bottom, level with the bottom of the picture; the picture keeps its 16:9 and never stretches. */}
-          <article className="relative grid gap-5 lg:grid-cols-[28.75rem_minmax(0,1fr)] lg:gap-10">
+          <article className="relative order-1 grid gap-5 md:order-2 lg:grid-cols-[28.75rem_minmax(0,1fr)] lg:gap-10">
             {leadImage && (
               <div className="relative aspect-video overflow-hidden rounded-sm bg-surface-3 lg:col-start-2 lg:row-start-1 lg:self-start">
                 <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 58vw, 100vw" />
@@ -102,7 +115,7 @@ export function HomepageView({
 
           {/* The Briefing: a row of up to five, as many columns as there are stories. One column on a phone, two on a tablet. */}
           {top.length > 0 && (
-            <aside aria-labelledby="briefing-heading" className="mt-8">
+            <aside aria-labelledby="briefing-heading" className="order-3 mt-8">
               <h2 className="border-b-2 border-ink pb-2 text-xs font-bold uppercase tracking-widest text-ink-3" id="briefing-heading">
                 The Briefing
               </h2>

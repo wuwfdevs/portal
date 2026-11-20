@@ -9,7 +9,8 @@ import { PlayerBar } from '@/components/ListenLive/PlayerBar'
 import { PlayerProvider } from '@/components/ListenLive/PlayerProvider'
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
-import { bannerFor, bannerOf } from '@/lib/banner'
+import { bannerFor } from '@/lib/banner'
+import { loadBanner } from '@/lib/banner/load'
 import { liveChannels } from '@/lib/live/channels'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { cn } from '@/utilities/ui'
@@ -52,14 +53,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       return []
     })
 
-  // A banner set for every page (the Home page global's banner). Read through the cached global, so a save refreshes it everywhere; if it cannot be
-  // read the page renders without it rather than failing.
-  const banner = await getCachedGlobal('homepage', 0)()
-    .then((settings) => bannerFor(bannerOf(settings?.banner), 'layout'))
-    .catch((error: unknown) => {
-      console.error('The banner could not be read; the page renders without it.', error)
-      return null
-    })
+  // A banner set for every page (the Home page global's banner), through the cached global; if it cannot be read the page renders without it.
+  const banner = bannerFor(await loadBanner(), 'layout')
 
   return (
     <html className={cn(sourceSans.variable, sourceSerif.variable)} lang="en">

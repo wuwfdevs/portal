@@ -68,6 +68,7 @@ import * as migration_20261119_235000_station_pages_as_sections from './20261119
 import * as migration_20261119_235500_listens_pages_as_sections from './20261119_235500_listens_pages_as_sections';
 import * as migration_20261120_162233_placement_fills_gaps from './20261120_162233_placement_fills_gaps';
 import * as migration_20261120_173640_site_banner from './20261120_173640_site_banner';
+import * as migration_20261120_202320_placement_top_zones from './20261120_202320_placement_top_zones';
 
 export const migrations = [
   {
@@ -418,6 +419,11 @@ export const migrations = [
   {
     up: migration_20261120_173640_site_banner.up,
     down: migration_20261120_173640_site_banner.down,
-    name: '20261120_173640_site_banner'
+    name: '20261120_173640_site_banner',
+  },
+  {
+    up: migration_20261120_202320_placement_top_zones.up,
+    down: migration_20261120_202320_placement_top_zones.down,
+    name: '20261120_202320_placement_top_zones'
   },
 ];

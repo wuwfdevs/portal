@@ -22,9 +22,9 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 - **Fixed and labeled.** The same place every time. A sponsor tile says **"Sponsor message"** above it, on a strip in the site's own type, with the sponsor's
   name. A house promotion (WUWF's own app, weather, Book Club, advocacy) says **"From WUWF"** in the same place and is never labeled as a sponsor
   (changed 2026-11-20: it used to carry no label, so a reader could not tell it from an ad). A placement with no kind is labeled as a sponsor, because labeling a promotion as a sponsor is the safe mistake.
-- **No leaderboard** across the top of a page, **no autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
+- **A top unit, not a leaderboard strip** (changed 2026-11-20): the one exclusive unit of `home.top` and `list.top`, in the standard 970 by 250 billboard shape, directly under the header and the banner, is allowed. **No autoplay**, no sound or motion, **no pop-up or overlay**, no ad-network tag, **no third-party
   tracking**. A tile is a picture and a link: no script, no frame, no request to anyone else's server.
-- **Never above the news.** The first thing on a page is the story, the emergency notice or the player.
+- **The emergency notice always comes first.** Changed 2026-11-20 (it was "never above the news"). Under the header a page may carry its one top unit, and on a phone the unit follows the lead story's headline and picture (or the list's title), so a story is always what the first screen shows. **While an emergency banner is on (for that page) the top unit is not drawn** (`exclusions.ts`); a quiet notice banner does not hold it back. Nothing else is above the news: the band, the rail and the tiles still sit after or between it.
 - **Nothing empty.** A zone with nothing running draws nothing, not a box. The page closes up.
 - **Never everywhere by accident.** A placement in a zone that can be aimed runs only on the pages it names, unless the editor chooses "every page".
 - **Sponsor links** are `rel="sponsored"` and send no referrer; a link must be a page on this site or a secure https address.
@@ -38,13 +38,21 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 
 | Zone | Where | Holds (per page) | Can be aimed | Artwork | Built |
 | --- | --- | --- | --- | --- | --- |
-| `home.rail` | Beside the news on the home page; after the news on a phone | 10 | no | 880 × 704 | **Yes** |
+| `home.top` | Directly under the header on the home page (on a phone, after the lead story's headline and picture); held back while an emergency banner is on | 1, exclusive | no | 970 × 250 (phone 800 × 400) | **Yes** |
+| `home.rail` | Between the news sections (rows of three); after the news on a phone | 9 (target 6) | no | 880 × 704 | **Yes** |
 | `home.band` | A slim band after the news sections, before the podcasts | 1 | no | 1200 × 200 (phone 800 × 400) | **Yes** |
+| `list.top` | Under the title of a section, topic, reporter or all-stories page: **a section's presenting sponsor**; held back while an emergency banner is on | 1 per page, exclusive | **yes** | 970 × 250 (phone 800 × 400) | **Yes** |
 | `list.rail` | Beside the stories on a section, topic, reporter or all-stories page | 4 | **yes** | 880 × 704 | **Yes** |
 | `story.rail` | Beside the story text (wide screens); after the story on a phone | 2 | yes | 880 × 704 | Designed |
 | `story.inline` | One band after a story's opening paragraphs | 1 | yes | 1200 × 200 (phone 800 × 400) | Designed |
 
-- **The banner is not a leaderboard.** It sits in the page's flow after the news, at most a sixth as tall as it is wide (a test holds that), never at
+- **Top units and the rail's glide (owner, 2026-11-20).** Everything is sold **at a flat rate for a period**; a top unit is the highest tier, then a section's presenting
+  sponsor, then a rail tile, then the band. The rail's capacity is **nine** (three full rows, so no gap-filling promotion is needed) and is meant to **glide to six** as bookings
+  end: lower the number in `registry.ts` only when fewer placements than that are running, because the admin refuses a placement past capacity and a lower number must never
+  displace a sponsor who is running. A **presenting sponsor** is a placement in `list.top` aimed at the section, drawn as the same labeled "Sponsor message" tile as any other,
+  **never in the acknowledgment panel's voice** and never "presented by" copy of ours: a section is navigation and is never underwritten (`CLAUDE.md`). The sponsor's
+  contract must say it conveys no editorial approval; counsel confirms whether such a placement is advertising or qualified sponsorship before the first sale.
+- **The banner (`home.band`) is not a leaderboard.** It sits in the page's flow after the news, at most a sixth as tall as it is wide (a test holds that), never at
   the top. **The artwork sizes are proposals** (880 wide is what the live rail serves today): corporate support confirms them before a sponsor is
   sent a spec.
 - **A zone holds a fixed number, and a band is not a rotation.** The home page zones are one page each, so the admin **refuses a placement past the
@@ -71,10 +79,10 @@ Designed on the canvas "Sponsor Rail Redesign" (option B). The pieces are `lib/p
   the first row just after the short videos, the next above the second section, and so on. Nothing sits in a side column, so no section has a gutter at any height, story count or tile count.
   Tiles are a fixed 22rem and wrap, centered: three fill a wide screen's row, a tablet shows two and one, a phone a stack. The page is cached and shared by every reader, so the server
   never needs a screen's width.
-- **A paid tile is never held back.** Every tile that runs is drawn. Rows that do not fit above a section (more rows than sections) follow the last section. Capacity (ten for the
+- **A paid tile is never held back.** Every tile that runs is drawn. Rows that do not fit above a section (more rows than sections) follow the last section. Capacity (nine for the
   home rail) is the only limit, as before.
 - **A short last row is completed by WUWF's own promotions, which are optional.** On a house promotion in the home rail the admin shows **Can fill a gap**. Those promotions are held
-  apart from the rail's tiles: they take no place from a sponsor, do not count toward the ten, are used only to complete the last row (at most two, since a row of three needs at most
+  apart from the rail's tiles: they take no place from a sponsor, do not count toward the rail's capacity, are used only to complete the last row (at most two, since a row of three needs at most
   two), and are keyed `home.rail.fill.N`. With none marked, the short row's tiles are **centered at the same size**. The flag on anything but a house promotion in the home rail is
   cleared on save (and ignored by the resolver).
 - **The news cards fill their rows too.** With no side column the sections run three cards across (two on a tablet); the first story spans columns so the last row is never short

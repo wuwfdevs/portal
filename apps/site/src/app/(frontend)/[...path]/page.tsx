@@ -19,7 +19,9 @@ import { StoryListView } from '@/components/StoryList/StoryListView'
 import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
-import { loadListRail } from '@/lib/placements/load'
+import { loadBanner } from '@/lib/banner/load'
+import { topUnitHeldBack } from '@/lib/placements/exclusions'
+import { loadListPlacements } from '@/lib/placements/load'
 import { pathFromSegments } from '@/lib/paths'
 import { CODED_SHELL_PATHS } from '@/lib/page-sets/shells'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
@@ -124,7 +126,10 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
     const { kind, targetId } = result.data
     // Short videos on a section's first page: the clips whose story is filed in it. A failed read leaves the strip out, never the page.
     const clips = kind === 'section' && result.data.page === 1 ? clipsForSection(await loadClips().catch(() => []), targetId) : []
-    return <StoryListView clips={clips} data={result.data} rail={await loadListRail({ page: 'list', kind, id: targetId })} />
+    const [placements, banner] = await Promise.all([loadListPlacements({ page: 'list', kind, id: targetId }), loadBanner()])
+    // A top unit yields to an emergency banner; the rail beside the stories does not.
+    const top = topUnitHeldBack(banner, 'other') ? null : placements.top
+    return <StoryListView clips={clips} data={result.data} rail={placements.rail} top={top} />
   }
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />

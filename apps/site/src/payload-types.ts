@@ -4297,13 +4297,13 @@ export interface PlacementItem {
   /**
    * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
    */
-  zone: 'home.rail' | 'home.band' | 'list.rail';
+  zone: 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail';
   /**
-   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 970 × 250 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
    */
   image: number | Media;
   /**
-   * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
+   * Optional, 800 × 400 pixels (a top unit: 800 × 400 pixels). Without it, phones get the wide picture, scaled down.
    */
   phoneImage?: (number | null) | Media;
   /**
@@ -4351,7 +4351,7 @@ export interface PlacementItem {
    */
   enabled?: boolean | null;
   /**
-   * Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail's ten. With none marked, the short row's tiles are centered instead.
+   * Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail's capacity. With none marked, the short row's tiles are centered instead.
    */
   fillsGaps?: boolean | null;
   /**

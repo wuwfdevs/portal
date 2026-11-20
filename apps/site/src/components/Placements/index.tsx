@@ -6,7 +6,7 @@ import type { Media as MediaDoc } from '@/payload-types'
 import { Media } from '@/components/Media'
 import type { RowItem } from '@/lib/placements/flow'
 import { fillsFrame } from '@/lib/placements/media'
-import { ZONES, type ZoneId } from '@/lib/placements/registry'
+import { TOP_UNIT_ARTWORK, TOP_UNIT_PHONE_ARTWORK, ZONES, type ZoneId } from '@/lib/placements/registry'
 import type { PlacementTile } from '@/lib/placements/tiles'
 import { cn } from '@/utilities/ui'
 
@@ -131,6 +131,27 @@ export function HomeBand({ tile }: { tile: Tile | null }) {
         <TileLink tile={tile}>
           <Art className={cn(phone && 'hidden md:block')} image={tile.image} shape={BAND_SHAPE} size="(min-width: 1280px) 1200px, 100vw" />
           {phone && <Art className="md:hidden" image={phone} shape={PHONE_SHAPE} size="100vw" />}
+        </TileLink>
+      </div>
+    </aside>
+  )
+}
+
+/**
+ * A top unit (`home.top`, `list.top`): one labeled message in the standard billboard shape, directly under the header and the banner. It is one
+ * picture and one link, never a script and never motion, and the caller holds it back while an emergency banner is on (`lib/placements/exclusions.ts`).
+ * A phone gets its own picture when the sponsor supplied one, else the wide picture scaled down. Draws nothing with no tile, so no empty box is left.
+ */
+export function TopUnit({ tile, className }: { tile: Tile | null; className?: string }) {
+  if (!tile) return null
+  const phone = tile.phoneImage
+  return (
+    <aside aria-label={tile.label} className={cn('mx-auto w-full max-w-[970px]', className)} data-placement={tile.key}>
+      <div className="overflow-hidden rounded-lg border border-rule bg-surface">
+        <Strip tile={tile} />
+        <TileLink tile={tile}>
+          <Art className={cn(phone && 'hidden md:block')} image={tile.image} shape={TOP_UNIT_ARTWORK} size="(min-width: 1024px) 970px, 100vw" />
+          {phone && <Art className="md:hidden" image={phone} shape={TOP_UNIT_PHONE_ARTWORK} size="100vw" />}
         </TileLink>
       </div>
     </aside>

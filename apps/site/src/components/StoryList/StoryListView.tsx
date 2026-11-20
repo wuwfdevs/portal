@@ -8,7 +8,7 @@ import { Media } from '@/components/Media'
 import RichText from '@/components/RichText'
 import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
-import { ListRail } from '@/components/Placements'
+import { ListRail, TopUnit } from '@/components/Placements'
 import { TitledSection } from '@/components/TitledSection'
 import { ClipRail } from '@/components/Video/ClipRail'
 import type { StoryListData } from '@/lib/lists/load'
@@ -24,7 +24,7 @@ const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter', latest
  * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly. A section's page carries a short-video
  * strip (`clips`, from `lib/video/section`) between the lead and the grid on its first page, with "All videos" in its header; with none it draws nothing.
  */
-export function StoryListView({ data, rail = [], clips = [] }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[]; clips?: readonly ClipView[] }) {
+export function StoryListView({ data, rail = [], clips = [], top = null }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[]; clips?: readonly ClipView[]; top?: PlacementTile<MediaDoc> | null }) {
   const { kind, slug, title, blurb, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
   const lead = page === 1 ? stories[0] : undefined
   const grid = page === 1 ? stories.slice(1) : stories
@@ -82,6 +82,13 @@ export function StoryListView({ data, rail = [], clips = [] }: { data: StoryList
           {totalDocs === 0 ? 'No stories yet.' : `${totalDocs} ${totalDocs === 1 ? 'story' : 'stories'}${totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}`}
         </p>
       </header>
+
+      {/* The top unit (`list.top`): a section's presenting sponsor, under the page's title and before the stories. On every page of the list, not only the first. */}
+      {top && (
+        <div className="container mt-8">
+          <TopUnit tile={top} />
+        </div>
+      )}
 
       {page === 1 && listeningQuestion && (
         <div className="container mt-8 max-w-[60rem]">

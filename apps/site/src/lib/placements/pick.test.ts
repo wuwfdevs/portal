@@ -103,12 +103,12 @@ describe('the zone registry', () => {
     expect(tileKey('home.rail', 3)).toBe('home.rail.3')
     expect(tileKey('home.band', 0)).toBe('home.band.1')
   })
-  it('builds the home page\'s rail and banner and the list pages\' rail, and says so for the rest', () => {
-    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'list.rail'])
+  it('builds the home and list pages\' top units, the home page\'s rail and banner and the list pages\' rail, and says so for the rest', () => {
+    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'home.top', 'list.rail', 'list.top'])
     expect(ZONES['story.rail'].built).toBe(false)
   })
-  it('holds ten tiles in the home rail, four on a list page, and one in a band (a band is not a rotation)', () => {
-    expect(ZONES['home.rail'].capacity).toBe(10)
+  it('holds nine tiles in the home rail (three full rows; owner glide to six, 2026-11-20), four on a list page, and one in a band or top unit (not a rotation)', () => {
+    expect(ZONES['home.rail'].capacity).toBe(9)
     expect(ZONES['list.rail'].capacity).toBe(4)
     for (const z of Object.values(ZONES)) if (z.shape === 'band') expect(z.capacity).toBe(1)
   })
@@ -116,7 +116,19 @@ describe('the zone registry', () => {
     expect(Object.values(ZONES).filter((z) => z.targetable).map((z) => z.page).every((p) => p !== 'home')).toBe(true)
     expect(ZONES['home.rail'].targetable).toBe(false)
   })
-  it('has no leaderboard: no zone is wider than six times its height', () => {
+  it('has no leaderboard strip: no zone is wider than six times its height', () => {
     for (const z of Object.values(ZONES)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
+  })
+  it('allows a top unit only as the standard billboard shape: one exclusive unit, never wider than 970 by 250', () => {
+    const tops = Object.values(ZONES).filter((z) => z.top)
+    expect(tops.map((z) => z.id).sort()).toEqual(['home.top', 'list.top'])
+    for (const z of tops) {
+      expect(z.capacity, z.id).toBe(1)
+      expect(z.exclusive, z.id).toBe(true)
+      expect(z.shape, z.id).toBe('band')
+      expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(970 / 250)
+    }
+    expect(ZONES['home.top'].targetable).toBe(false)
+    expect(ZONES['list.top'].targetable).toBe(true)
   })
 })

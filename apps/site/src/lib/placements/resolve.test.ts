@@ -135,7 +135,7 @@ describe('gap fillers', () => {
   const home: PageContext = { page: 'home' }
 
   it('are held apart from the rail: a filler is never one of the rail\'s own tiles, and never takes a sponsor\'s place or the rail\'s capacity', () => {
-    const sponsors = Array.from({ length: 10 }, (_, i) => rec({ zone: 'home.rail', sponsor: `S${i}`, order: i + 10 }))
+    const sponsors = Array.from({ length: 9 }, (_, i) => rec({ zone: 'home.rail', sponsor: `S${i}`, order: i + 10 }))
     const records = [filler({ order: 1 }), ...sponsors]
     expect(names(resolveZone('home.rail', home, records, NOW))).toEqual(sponsors.map((_, i) => `S${i}`))
   })
@@ -163,5 +163,19 @@ describe('gap fillers', () => {
     expect(resolveFillers(Array.from({ length: 6 }, (_, i) => filler({ order: i })), NOW)).toHaveLength(2)
     expect(resolveFillers([], NOW)).toEqual([])
     expect(resolveFillers(null, NOW)).toEqual([])
+  })
+})
+
+describe('top units', () => {
+  it('runs one top unit on the home page, and only there', () => {
+    const records = [rec({ zone: 'home.top', sponsor: 'First', order: 1 }), rec({ zone: 'home.top', sponsor: 'Second', order: 2 })]
+    expect(names(resolveZone('home.top', { page: 'home' }, records, NOW))).toEqual(['First'])
+    expect(resolveZone('home.top', { page: 'list', kind: 'section', id: 3 }, records, NOW)).toEqual([])
+  })
+  it('aims a list top unit at the sections chosen: a section\'s presenting sponsor', () => {
+    const records = [rec({ zone: 'list.top', scope: 'chosen', sections: [3], sponsor: 'Presenter' })]
+    expect(names(resolveZone('list.top', { page: 'list', kind: 'section', id: 3 }, records, NOW))).toEqual(['Presenter'])
+    expect(resolveZone('list.top', { page: 'list', kind: 'section', id: 4 }, records, NOW)).toEqual([])
+    expect(resolveZone('list.top', { page: 'home' }, records, NOW)).toEqual([])
   })
 })

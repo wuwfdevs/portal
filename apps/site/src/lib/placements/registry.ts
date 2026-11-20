@@ -4,13 +4,13 @@
 // sections, topics or reporters it appears. A new placement, a different mix, a rethink of the packaging: none of it needs a deploy.
 //
 // What a zone guarantees whatever an editor configures (CLAUDE.md, "Decisions that are made"; the design is `PLACEMENTS.md`):
-// a fixed, labeled place sold directly. No leaderboard across the top of a page, no autoplay or sound, no pop-up, no ad-network tag, no
-// third-party tracking. A sponsor tile says "Sponsor message"; a house promotion is not drawn as one. The site knows nothing about
-// packages, prices or how a placement was sold.
+// a fixed, labeled place sold directly at a flat rate. No autoplay or sound, no pop-up, no ad-network tag, no third-party tracking. A top unit
+// is allowed (owner, 2026-11-20), but only as the one unit of `home.top` / `list.top`: never above an emergency banner, never a script. A sponsor
+// tile says "Sponsor message"; a house promotion is not drawn as one. The site knows nothing about packages, prices or how a placement was sold.
 //
 // The key of one tile on a page is `<zone>.<position>`, position counting from 1 (`home.rail.3`), and is the reference a booking will name.
 
-export type ZoneId = 'home.rail' | 'home.band' | 'list.rail' | 'story.rail' | 'story.inline'
+export type ZoneId = 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.rail' | 'story.inline'
 
 /** The kind of page a zone is on. A zone on the home page has no targets; a zone on a list page can be aimed at sections, topics or reporters. */
 export type ZonePage = 'home' | 'list' | 'story'
@@ -31,18 +31,43 @@ export interface ZoneSpec {
   artwork: { width: number; height: number }
   /** A phone's artwork for a band, when it differs. */
   phoneArtwork?: { width: number; height: number }
+  /**
+   * One sponsor owns the place for a stretch of dates (a top unit). The admin refuses a second placement whose dates overlap one already running
+   * in the same place and aimed at the same page (`conflicts.ts`), so an exclusive that was sold is never shared.
+   */
+  exclusive?: boolean
+  /** A top unit: drawn once, directly under the header and the banner, and held back while an emergency banner is on (`exclusions.ts`). */
+  top?: boolean
   /** Whether a screen draws it today. A zone that is not built is designed (`PLACEMENTS.md`) and cannot be chosen in the admin. */
   built: boolean
 }
 
+/** The standard billboard, in pixels: the one shape a top unit may take, and the tallest. A top unit is never taller than this ratio (a test holds it). */
+export const TOP_UNIT_ARTWORK = { width: 970, height: 250 } as const
+export const TOP_UNIT_PHONE_ARTWORK = { width: 800, height: 400 } as const
+
 export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
+  'home.top': {
+    id: 'home.top',
+    name: 'Home page top unit',
+    where: 'Directly under the header on the home page (on a phone, just under the lead story\'s headline and picture). Held back while an emergency banner is on.',
+    page: 'home',
+    shape: 'band',
+    capacity: 1,
+    targetable: false,
+    artwork: TOP_UNIT_ARTWORK,
+    phoneArtwork: TOP_UNIT_PHONE_ARTWORK,
+    exclusive: true,
+    top: true,
+    built: true,
+  },
   'home.rail': {
     id: 'home.rail',
     name: 'Home page rail',
     where: 'Beside the news on the home page; after the news on a phone.',
     page: 'home',
     shape: 'tiles',
-    capacity: 10,
+    capacity: 9,
     targetable: false,
     artwork: { width: 880, height: 704 },
     built: true,
@@ -57,6 +82,20 @@ export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
     targetable: false,
     artwork: { width: 1200, height: 200 },
     phoneArtwork: { width: 800, height: 400 },
+    built: true,
+  },
+  'list.top': {
+    id: 'list.top',
+    name: 'Section, topic, reporter and all-stories pages: top unit',
+    where: 'Under the title of a section, topic, reporter or all-stories page, before the stories. A section\'s presenting sponsor. Held back while an emergency banner is on.',
+    page: 'list',
+    shape: 'band',
+    capacity: 1,
+    targetable: true,
+    artwork: TOP_UNIT_ARTWORK,
+    phoneArtwork: TOP_UNIT_PHONE_ARTWORK,
+    exclusive: true,
+    top: true,
     built: true,
   },
   'list.rail': {

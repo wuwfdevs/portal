@@ -9,13 +9,15 @@ import { resolveFillers, resolveZone, type PageContext, type PlacementRecord } f
 import type { PlacementTile } from './tiles'
 
 export interface HomePlacements {
+  /** The home page's top unit (`home.top`), one sponsor for a stretch of dates. The page holds it back while an emergency banner is on. */
+  top: PlacementTile<Media> | null
   rail: PlacementTile<Media>[]
   band: PlacementTile<Media> | null
   /** WUWF promotions that may complete the foot row (`flow.ts`). Optional: usually empty. */
   fillers: PlacementTile<Media>[]
 }
 
-const NONE: HomePlacements = { rail: [], band: null, fillers: [] }
+const NONE: HomePlacements = { top: null, rail: [], band: null, fillers: [] }
 const MAX_RECORDS = 200
 
 /** The record the resolver reads, from a stored placement whose sponsor's name has been looked up. */
@@ -71,20 +73,28 @@ export async function loadHomePlacements(now: Date = new Date()): Promise<HomePl
   try {
     const records = await readRecords()
     const ctx: PageContext = { page: 'home' }
-    return { rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
+    return { top: resolveZone('home.top', ctx, records, now)[0] ?? null, rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
   } catch (err) {
     await logFailure(err)
     return NONE
   }
 }
 
-/** The rail beside a section, topic, reporter or all-stories page: the placements aimed at this page. Empty on any failure. */
-export async function loadListRail(ctx: Extract<PageContext, { page: 'list' }>, now: Date = new Date()): Promise<PlacementTile<Media>[]> {
+export interface ListPlacements {
+  /** The top unit under the page's title (`list.top`): a section's presenting sponsor. One, aimed at this page. */
+  top: PlacementTile<Media> | null
+  /** The rail beside the stories (`list.rail`). */
+  rail: PlacementTile<Media>[]
+}
+
+/** What fills a section, topic, reporter or all-stories page: the placements aimed at this page. Empty on any failure, so the page draws without them. */
+export async function loadListPlacements(ctx: Extract<PageContext, { page: 'list' }>, now: Date = new Date()): Promise<ListPlacements> {
   try {
-    return resolveZone('list.rail', ctx, await readRecords(), now)
+    const records = await readRecords()
+    return { top: resolveZone('list.top', ctx, records, now)[0] ?? null, rail: resolveZone('list.rail', ctx, records, now) }
   } catch (err) {
     await logFailure(err)
-    return []
+    return { top: null, rail: [] }
   }
 }
 
