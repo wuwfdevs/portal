@@ -84,6 +84,58 @@
   }
 }
 
+// Phones and tablets. iOS zooms the page in when a field under 16px gets focus, and Payload's admin runs at 13px (12px on a phone), so every
+// input, the sign-in screen's included, zoomed and stayed zoomed. A field is 16px wherever a finger is the pointer or the screen is narrow.
+// The page is never made unzoomable: pinch-zoom stays available.
+@media (max-width: 768px), (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden'], [type='color']),
+  select,
+  textarea,
+  [contenteditable='true'],
+  .rs__control,
+  .rs__input-container,
+  .rs__single-value,
+  .rs__placeholder {
+    font-size: 16px;
+  }
+}
+
+// The sidebar on a phone. Payload makes the open sidebar a whole screen wide (--nav-width: 100vw) and keeps the page at min-width 100% beside
+// it, so the page is two screens wide and the browser zooms out to fit it: the sidebar opened tiny. Here the sidebar is a drawer laid over the
+// page, at most 320px and never more than 85% of the screen, and the page keeps one column at the screen's width, open or shut. A shut
+// sidebar is hidden, not only transparent, so it cannot catch a tap.
+@media (max-width: 768px) {
+  .template-default,
+  .template-default--nav-hydrated,
+  .template-default--nav-hydrated.template-default--nav-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .template-default .nav {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: var(--z-modal);
+    width: min(85vw, 320px);
+    height: 100dvh;
+    background: var(--theme-bg);
+  }
+
+  .template-default .nav:not(.nav--nav-open) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .template-default .template-default__wrap {
+    min-width: 0;
+  }
+
+  // The close button sits in the header strip, which Payload sizes to the whole screen; keep it inside the drawer.
+  .template-default .nav .nav__header {
+    width: 100%;
+  }
+}
+
 // The sign-in screen: the note under the wordmark.
 .wuwf-login-note {
   margin-bottom: 24px;
