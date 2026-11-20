@@ -10,7 +10,7 @@ import { Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { withLeadPicture } from '@/components/Card/withLeadPicture'
 import { Media } from '@/components/Media'
-import { SectionHeader } from '@/components/SectionHeader'
+import { TitledSection } from '@/components/TitledSection'
 import { bannerFor } from '@/lib/banner'
 import { formatLongDate } from '@/lib/format'
 import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
@@ -180,14 +180,8 @@ export function HomepageView({
           {modules.map((module, i) => (
             <React.Fragment key={module.key}>
               {flow.before[i] && <SponsorRow items={flow.before[i]} />}
-              <section aria-labelledby={`news-${module.key}`}>
-                <SectionHeader
-                  href={module.href}
-                  id={`news-${module.key}`}
-                  more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null}
-                  title={module.heading}
-                />
-                <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <TitledSection href={module.href} id={`news-${module.key}`} more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null} title={module.heading}>
+                <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {module.stories.map((story, j) => (
                     // The first story spans columns so the grid has no short last row (leadSpanClass).
                     <li className={cn(j === 0 && leadSpanClass(module.stories.length))} key={story.id}>
@@ -195,7 +189,7 @@ export function HomepageView({
                     </li>
                   ))}
                 </ul>
-              </section>
+              </TitledSection>
             </React.Fragment>
           ))}
           {flow.after.map((row, i) => (

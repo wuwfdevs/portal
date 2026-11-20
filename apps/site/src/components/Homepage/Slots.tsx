@@ -7,6 +7,8 @@ import { Acknowledgment } from '@/components/Acknowledgment'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
 import { SectionHeader } from '@/components/SectionHeader'
+import { TitledSection } from '@/components/TitledSection'
+import { ClipRail } from '@/components/Video/ClipRail'
 import { ShowFrame } from '@/components/RadioLive/parts'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import type { HomepageSlots, PodcastCard } from '@/lib/homepage/load-slots'
@@ -22,41 +24,15 @@ import { audioOf, type Episode } from '@/lib/shows/load'
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
 
 /**
- * Short videos: the newest clips, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions.
- * On the home page it sits in the news column and has the same ruled header as the news sections beside it, with "All videos" in the header.
- * It takes the column's width (`className=""`); alone it is a page-wide section.
+ * Short videos: the newest clips, a row that scrolls sideways (`ClipRail`, shared with the section pages). On the home page it sits in the news
+ * column with the same titled section as the news runs beside it, "All videos" in the header. It takes the column's width (`className=""`);
+ * alone it is a page-wide section.
  */
 export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
-    <section aria-labelledby="video-heading" className={className}>
-      <SectionHeader href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} title="Short videos from the region" />
-      <ul className="mt-6 flex snap-x gap-4 overflow-x-auto pb-2">
-        {slot.clips.map((clip) => {
-          const time = formatDuration(clip.durationSeconds)
-          return (
-            <li className="relative flex w-36 shrink-0 snap-start flex-col gap-2 sm:w-52" key={clip.id}>
-              <span className="relative block aspect-[9/16] overflow-hidden rounded-sm bg-surface-dark">
-                {clip.posterUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- a decorative poster; the link below carries the title
-                  <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" src={clip.posterUrl} />
-                )}
-                {clip.series && <span className="absolute left-2 top-2 max-w-[85%] truncate rounded-full bg-surface-dark/80 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-surface">{clip.series.title}</span>}
-                <span aria-hidden="true" className="absolute bottom-2 left-2 flex size-10 items-center justify-center rounded-full bg-surface/90">
-                  <svg fill="currentColor" height="14" viewBox="0 0 24 24" width="14" className="text-surface-dark">
-                    <path d="M7 4l14 8-14 8z" />
-                  </svg>
-                </span>
-                {time && <span className="absolute bottom-2 right-2 rounded-sm bg-surface-dark/80 px-1.5 py-0.5 font-mono text-[11px] text-surface">{time}</span>}
-              </span>
-              <Link className="text-base font-bold leading-snug text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={`/video/${clip.slug}`}>
-                {clip.title}
-              </Link>
-              {clip.by && <span className="text-sm text-ink-3">{clip.by}</span>}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+    <TitledSection className={className} href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} title="Short videos from the region">
+      <ClipRail clips={slot.clips} label="Short videos" />
+    </TitledSection>
   )
 }
 

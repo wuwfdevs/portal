@@ -31,6 +31,8 @@ import { generateMeta, generateStoryMeta } from '@/utilities/generateMeta'
 import { getServerSideURL } from '@/utilities/getURL'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
 import { imageUrlOf } from '@/lib/seo/meta'
+import { loadClips } from '@/lib/video/load'
+import { clipsForSection } from '@/lib/video/section'
 import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
 
 // One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
@@ -120,7 +122,9 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
   if (result.kind === 'list') {
     const { kind, targetId } = result.data
-    return <StoryListView data={result.data} rail={await loadListRail({ page: 'list', kind, id: targetId })} />
+    // Short videos on a section's first page: the clips whose story is filed in it. A failed read leaves the strip out, never the page.
+    const clips = kind === 'section' && result.data.page === 1 ? clipsForSection(await loadClips().catch(() => []), targetId) : []
+    return <StoryListView clips={clips} data={result.data} rail={await loadListRail({ page: 'list', kind, id: targetId })} />
   }
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />

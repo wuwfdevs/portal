@@ -27,6 +27,8 @@ export interface ClipView {
   series: { id: string | number; slug: string; title: string } | null
   /** The story or episode it came from, when that is published. */
   story: { href: string; label: string } | null
+  /** The section of that story: where the clip belongs on a section page. A clip has none of its own, so one with no story has no section. */
+  sectionId: string | number | null
   captionsHref: string
 }
 
@@ -35,7 +37,8 @@ function toView(clip: Clip): ClipView | null {
   if (!file?.url || !clip.slug) return null
   const poster = named<Media>(file.poster)
   const series = named<Series>(clip.series)
-  const story = named<{ path?: string | null }>(clip.story as never)
+  const story = named<{ path?: string | null; section?: { id: string | number } | string | number | null }>(clip.story as never)
+  const section = story?.section
   const people = (clip.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter((n): n is string => Boolean(n))
   return {
     id: clip.id,
@@ -50,6 +53,7 @@ function toView(clip: Clip): ClipView | null {
     publishedAt: clip.publishedAt ?? null,
     series: series?.slug ? { id: series.id, slug: series.slug, title: series.title } : null,
     story: story?.path ? { href: story.path, label: ctaLabelOf(clip.ctaLabel) } : null,
+    sectionId: section == null ? null : typeof section === 'object' ? section.id : section,
     captionsHref: `/video/${clip.slug}/captions.vtt`,
   }
 }
@@ -57,7 +61,10 @@ function toView(clip: Clip): ClipView | null {
 /** Every published clip, newest first. The public reads published clips only. */
 export const loadClips = cache(async (): Promise<ClipView[]> => {
   const payload = await getPayload({ config: configPromise })
-  const found = await payload.find({ collection: 'clips', depth: 2, draft: false, limit: 300, overrideAccess: false, pagination: false, sort: '-publishedAt', where: { _status: { equals: 'published' } } })
+  const found = await payload.find({ collection: 'clips', depth: 2, draft: false, limit: 300, overrideAccess: false, pagination: false, sort: '-publishedAt', where: { _status: { equals: 'published' } },
+    // A story is populated with a few fields only (its `defaultPopulate`); a clip needs its story's address and its section.
+    populate: { posts: { path: true, section: true } },
+  })
   return found.docs.flatMap((c) => {
     const v = toView(c)
     return v ? [v] : []
