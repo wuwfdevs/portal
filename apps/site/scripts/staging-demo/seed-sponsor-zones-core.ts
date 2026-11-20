@@ -5,7 +5,7 @@
 //  - It never changes what an editor has set: the banner is set only when there is none, and the home page of blocks only when it does not exist.
 //  - It sends nothing: no email, no embedding (`disableEmbedding`), no cache refresh (a new deployment reads fresh).
 //
-// What it makes: a top unit on the home page; a presenting sponsor on the Campus and Local News section pages; a story rail and an inline band on stories
+// What it makes: a top unit on the home page; a presenting sponsor on the Campus and Local News section pages; two inline bands (the second only in a long story) on stories
 // in those two sections; a quiet "Demonstration" notice banner for the home page; and the home page of blocks at /home-blocks, written from the Home page global.
 
 import fs from 'node:fs'
@@ -100,8 +100,11 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
     }
     const where = { scope: 'chosen', sections: [section.id] }
     if (top && sponsor) await place(`${DEMO}: example sponsor, ${slug} presenting sponsor`, { ...common, zone: 'list.top', image: top.id, phoneImage: topPhone?.id, alt: `${DEMO} presenting sponsor: example sponsor, your message here`, ...where, order: 10 }, { refreshPictures: true })
-    if (tile && sponsor) await place(`${DEMO}: example sponsor, ${slug} story rail`, { ...common, zone: 'story.rail', image: tile.id, alt: `${DEMO} tile: example sponsor, your message here`, ...where, order: 10 })
-    if (band && sponsor) await place(`${DEMO}: example sponsor, ${slug} story band`, { ...common, zone: 'story.inline', image: band.id, phoneImage: bandPhone?.id, alt: `${DEMO} band: example sponsor, your message here`, ...where, order: 10 })
+    if (band && sponsor) {
+      await place(`${DEMO}: example sponsor, ${slug} story band`, { ...common, zone: 'story.inline', image: band.id, phoneImage: bandPhone?.id, alt: `${DEMO} band: example sponsor, your message here`, ...where, order: 10 })
+      // The second band, for a long story (sixteen paragraphs or more).
+      await place(`${DEMO}: example sponsor, ${slug} story band, second place`, { ...common, zone: 'story.inline', image: band.id, phoneImage: bandPhone?.id, alt: `${DEMO} band: example sponsor, your message here`, ...where, order: 20 })
+    }
   }
 
   // ---- the site banner: a quiet notice, only when there is none ----------------------------------------------------------------------------

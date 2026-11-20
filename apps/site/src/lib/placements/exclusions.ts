@@ -23,7 +23,7 @@ export interface StoryExclusionFields {
 }
 
 /**
- * Whether a story page may draw its zones (`story.rail`, `story.inline`). Never in a live blog (readers are following something unfolding), never in a members-only
+ * Whether a story page may draw its bands (`story.inline`). Never in a live blog (readers are following something unfolding), never in a members-only
  * story (what a member gave for is not a place for a sponsor), and never where an editor has said a sponsor message would be wrong beside it. Underwriting lines are a
  * different system and are not affected by this: they are editorial acknowledgment, kept apart from placements (`PLACEMENTS.md`).
  */

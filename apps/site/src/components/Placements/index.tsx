@@ -159,12 +159,6 @@ export function TopUnit({ tile, className }: { tile: Tile | null; className?: st
 }
 
 /**
- * The story page's rail (`story.rail`): the tiles beside the story text on a wide screen, after the story on a phone. The same labeled card as every other tile.
- * `Rail` already stacks them one under another in a column (two across on a tablet), so this is that with the zone named.
- */
-export const StoryRail = ({ tiles, className }: { tiles: readonly Tile[]; className?: string }) => <Rail className={className} tiles={tiles} zone="story.rail" />
-
-/**
  * The band inside a story (`story.inline`), after its opening paragraphs: one labeled message in the band shape, in the story's own column, set apart from the text
  * with space above and below. One picture and one link; never a script, never motion. Draws nothing without a tile.
  */

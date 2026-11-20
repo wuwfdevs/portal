@@ -29,7 +29,7 @@ export function FirstScreen({ offset = 'page', children, className }: { offset?:
 /**
  * The lead band: the lead story's words on the left (28.75rem) and its picture on the right, a normal 16:9 that never changes shape with the window, the byline pinned to
  * the bottom level with the picture's bottom edge. On a phone the picture comes first and everything stacks. Nothing in it is stretched to match anything else, and the
- * headline is at the top, so it is in view in a short window too. The coded home page and the Front page block draw it the same way.
+ * words (kicker, headline, summary and byline) are one group, centred against the picture on a wide screen. The coded home page and the Front page block draw it the same way.
  */
 /** The lead's summary: its dek, else its description, else nothing. */
 export const summaryOf = (lead: Pick<HomeStory, 'dek' | 'meta'>): string | null => lead.dek?.trim() || lead.meta?.description?.trim() || null
@@ -44,7 +44,7 @@ export function LeadArticle({ lead, leadKicker, className }: { lead: HomeStory; 
           <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={leadImage} size="(min-width: 1024px) 58vw, 100vw" />
         </div>
       )}
-      <div className={cn('flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-1', !leadImage && 'lg:col-span-2')}>
+      <div className={cn('flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-start-1 lg:justify-center', !leadImage && 'lg:col-span-2')}>
         {(leadKicker ?? kickerOf(lead)) && <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{leadKicker ?? kickerOf(lead)}</p>}
         <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight text-ink xl:text-4xl">
           {lead.path ? (
@@ -57,7 +57,7 @@ export function LeadArticle({ lead, leadKicker, className }: { lead: HomeStory; 
         </h1>
         {/* The story's summary under the headline: its dek (the standfirst the story page opens with), else the description it is shared with. */}
         {summaryOf(lead) && <p className="line-clamp-5 max-w-[44rem] font-serif text-lg text-ink-2 md:text-xl">{summaryOf(lead)}</p>}
-        <p className="mt-auto pt-2 text-sm text-ink-3">{[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}</p>
+        <p className="pt-2 text-sm text-ink-3">{[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}</p>
       </div>
     </article>
   )

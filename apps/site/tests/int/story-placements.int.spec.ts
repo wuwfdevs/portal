@@ -38,8 +38,8 @@ describe('story placements', () => {
     sectionA = await keep('sections', { title: `Story A ${run}`, slug: `story-a-${run}` })
     sectionB = await keep('sections', { title: `Story B ${run}`, slug: `story-b-${run}` })
     const put = (zone: string, over: Record<string, unknown>) => keep('placement-items', { name: `${zone} ${run}`, kind: 'house', zone, image: img.id, alt: 'Words', href: '/weather', enabled: true, scope: 'chosen', ...over })
-    await put('story.rail', { sections: [sectionA.id] })
-    await put('story.inline', { sections: [sectionA.id] })
+    await put('story.inline', { sections: [sectionA.id], order: 1 })
+    await put('story.inline', { sections: [sectionA.id], order: 2, name: `second band ${run}` })
   }, 60_000)
 
   afterAll(async () => {
@@ -48,21 +48,21 @@ describe('story placements', () => {
 
   const load = async (doc: { id: number }) => loadStoryPlacements((await payload.findByID({ collection: 'posts', id: doc.id, depth: 1, overrideAccess: true })) as never)
 
-  it('carries the rail and the inline band aimed at the section it is filed under', async () => {
+  it('carries the inline bands aimed at the section it is filed under, in run order', async () => {
     const out = await load(await story())
-    expect(out.rail.map((t) => t.key)).toEqual(['story.rail.1'])
-    expect(out.inline?.key).toBe('story.inline.1')
+    expect(out.inline.map((t) => t.key)).toEqual(['story.inline.1', 'story.inline.2'])
+  })
+  it('refuses a placement in the retired story rail', async () => {
+    await expect(payload.create({ collection: 'placement-items', data: { name: `rail ${run}`, kind: 'house', zone: 'story.rail', image: 1, alt: 'Words', href: '/weather', enabled: true, scope: 'all' } as never, overrideAccess: true, context: ctx })).rejects.toThrow()
   })
   it('carries nothing for a story in a section nothing was aimed at', async () => {
     const out = await load(await story({ section: sectionB.id }))
-    expect(out.rail).toEqual([])
-    expect(out.inline).toBeNull()
+    expect(out.inline).toEqual([])
   })
   it('carries nothing in a live blog or a story an editor ticked "no sponsor messages" on', async () => {
     for (const over of [{ format: 'live' }, { noPlacements: true }]) {
       const out = await load(await story(over))
-      expect(out.rail).toEqual([])
-      expect(out.inline).toBeNull()
+      expect(out.inline).toEqual([])
     }
   })
 })

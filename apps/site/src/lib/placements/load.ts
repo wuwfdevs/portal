@@ -101,24 +101,20 @@ export async function loadListPlacements(ctx: Extract<PageContext, { page: 'list
 }
 
 export interface StoryPlacements {
-  /** Beside the story text on a wide screen, after it on a phone (`story.rail`). */
-  rail: PlacementTile<Media>[]
-  /** One band after the story's opening paragraphs (`story.inline`). */
-  inline: PlacementTile<Media> | null
+  /** The bands inside the story (`story.inline`): the first after its opening paragraphs and, in a long story, a second. At most two, in run order. */
+  inline: PlacementTile<Media>[]
 }
 
-const NO_STORY_PLACEMENTS: StoryPlacements = { rail: [], inline: null }
+const NO_STORY_PLACEMENTS: StoryPlacements = { inline: [] }
 
 /**
- * What a story page carries: the placements aimed at the sections, topics or reporters it is filed under. A live blog, a members-only story and one an editor ticked
- * carry none (`storyZonesAllowed`), and a failed read leaves them out so the story still draws.
+ * What a story page carries: the bands aimed at the sections, topics or reporters it is filed under. A live blog, a members-only story and one an editor ticked carry none
+ * (`storyZonesAllowed`), and a failed read leaves them out so the story still draws.
  */
 export async function loadStoryPlacements(story: Parameters<typeof storyPage>[0] & StoryExclusionFields, now: Date = new Date()): Promise<StoryPlacements> {
   if (!storyZonesAllowed(story)) return NO_STORY_PLACEMENTS
   try {
-    const records = await readRecords()
-    const ctx = storyPage(story)
-    return { rail: resolveZone('story.rail', ctx, records, now), inline: resolveZone('story.inline', ctx, records, now)[0] ?? null }
+    return { inline: resolveZone('story.inline', storyPage(story), await readRecords(), now) }
   } catch (err) {
     await logFailure(err)
     return NO_STORY_PLACEMENTS

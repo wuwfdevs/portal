@@ -70,12 +70,11 @@ describe('the staging demonstration for the top units and story zones', () => {
     for (const s of [campus, localNews]) {
       expect(resolveZone('list.top', { page: 'list', kind: 'section', id: s.id }, records, NOW), 'list.top').toHaveLength(1)
       const story = storyPage({ section: s.id })
-      expect(resolveZone('story.rail', story, records, NOW), 'story.rail').toHaveLength(1)
-      expect(resolveZone('story.inline', story, records, NOW), 'story.inline').toHaveLength(1)
+      expect(resolveZone('story.inline', story, records, NOW).map((t) => t.key), 'story.inline').toEqual(['story.inline.1', 'story.inline.2'])
     }
     const other = await section('somewhere-else')
     expect(resolveZone('list.top', { page: 'list', kind: 'section', id: other.id }, records, NOW)).toEqual([])
-    expect(resolveZone('story.rail', storyPage({ section: other.id }), records, NOW)).toEqual([])
+    expect(resolveZone('story.inline', storyPage({ section: other.id }), records, NOW)).toEqual([])
     const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as { banner: { active: boolean; style: string; scope: string } }
     expect(home.banner).toMatchObject({ active: true, style: 'notice', scope: 'home' })
     const page = await payload.find({ collection: 'pages', where: { slug: { equals: 'home-blocks' } }, limit: 1, depth: 0, overrideAccess: true })

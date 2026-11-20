@@ -97,7 +97,7 @@ describe('resolveZone', () => {
     expect(resolveZone('list.rail', { page: 'home' }, records, NOW)).toEqual([])
   })
   it('never runs a zone that is designed but not built, whatever is stored', () => {
-    expect(resolveZone('story.rail', section(3), [rec({ zone: 'story.rail', scope: 'all' })], NOW)).toEqual([])
+    expect(resolveZone('story.inline', section(3), [rec({ zone: 'story.inline', scope: 'all' })], NOW)).toEqual([])
   })
   it('runs a placement stored under an unknown zone nowhere', () => {
     expect(resolveZone('list.rail', section(3), [rec({ zone: 'nonsense', scope: 'all' })], NOW)).toEqual([])

@@ -10,7 +10,7 @@
 //
 // The key of one tile on a page is `<zone>.<position>`, position counting from 1 (`home.rail.3`), and is the reference a booking will name.
 
-export type ZoneId = 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.rail' | 'story.inline'
+export type ZoneId = 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.inline'
 
 /** The kind of page a zone is on. A zone on the home page has no targets; a zone on a list page can be aimed at sections, topics or reporters. */
 export type ZonePage = 'home' | 'list' | 'story'
@@ -113,24 +113,13 @@ export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
     artwork: { width: 880, height: 704 },
     built: true,
   },
-  'story.rail': {
-    id: 'story.rail',
-    name: 'Story page rail',
-    where: 'Beside the story text on a wide screen; after the story on a phone. Never inside a members-only story.',
-    page: 'story',
-    shape: 'tiles',
-    capacity: 2,
-    targetable: true,
-    artwork: { width: 880, height: 704 },
-    built: true,
-  },
   'story.inline': {
     id: 'story.inline',
     name: 'Story page, between paragraphs',
-    where: "One band after the story's opening paragraphs; never in a live blog, never beside a sensitive story.",
+    where: "A band after the story's fourth paragraph and, in a story of sixteen or more, a second after its twelfth; never in a live blog, a members-only story or one marked for none.",
     page: 'story',
     shape: 'band',
-    capacity: 1,
+    capacity: 2,
     targetable: true,
     artwork: { width: 1200, height: 200 },
     phoneArtwork: { width: 800, height: 400 },

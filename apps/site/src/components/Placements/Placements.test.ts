@@ -6,7 +6,7 @@ import type { Media } from '@/payload-types'
 import type { RowItem } from '@/lib/placements/flow'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { HomeBand, InlineUnit, ListRail, SponsorRow, StoryRail, TopUnit } from './index'
+import { HomeBand, InlineUnit, ListRail, SponsorRow, TopUnit } from './index'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
@@ -176,14 +176,7 @@ describe('a top unit', () => {
   })
 })
 
-describe('the story page\'s zones', () => {
-  it('draws the rail with the zone named and each tile labeled and keyed, and nothing without tiles', () => {
-    expect(renderToStaticMarkup(React.createElement(StoryRail, { tiles: [] }))).toBe('')
-    const html = renderToStaticMarkup(React.createElement(StoryRail, { tiles: [tile({ key: 'story.rail.1' }), tile({ key: 'story.rail.2', image: media(2) })] }))
-    expect(html).toContain('data-placement="story.rail"')
-    expect(html).toContain('data-placement="story.rail.2"')
-    expect(html).toContain('Sponsor message')
-  })
+describe('the story page\'s band', () => {
   it('draws the inline band as one labeled, sponsored link kept out of the story\'s prose styling, and nothing without a tile', () => {
     expect(renderToStaticMarkup(React.createElement(InlineUnit, { tile: null }))).toBe('')
     const html = renderToStaticMarkup(React.createElement(InlineUnit, { tile: tile({ key: 'story.inline.1' }) }))

@@ -34,6 +34,11 @@ describe('Front page lead', () => {
     arranged = { lead: { ...story(1, 'The lead'), dek: '  ' } as never, top: [] }
     expect(await draw({})).toContain('About The lead.')
   })
+  it('centres the lead\'s words (kicker, headline, summary and byline) against the picture on a wide screen, as one group', async () => {
+    const out = await draw({})
+    expect(out).toContain('lg:justify-center')
+    expect(out).not.toContain('mt-auto')
+  })
   it('draws the lead band as the first screen: the lead fills the height the window leaves under the header', async () => {
     const out = await draw({})
     expect(out).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]')
