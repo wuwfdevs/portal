@@ -70,6 +70,7 @@ import * as migration_20261120_162233_placement_fills_gaps from './20261120_1622
 import * as migration_20261120_173640_site_banner from './20261120_173640_site_banner';
 import * as migration_20261120_202320_placement_top_zones from './20261120_202320_placement_top_zones';
 import * as migration_20261120_202458_story_no_placements from './20261120_202458_story_no_placements';
+import * as migration_20261120_203039_placement_story_zones from './20261120_203039_placement_story_zones';
 
 export const migrations = [
   {
@@ -430,6 +431,11 @@ export const migrations = [
   {
     up: migration_20261120_202458_story_no_placements.up,
     down: migration_20261120_202458_story_no_placements.down,
-    name: '20261120_202458_story_no_placements'
+    name: '20261120_202458_story_no_placements',
+  },
+  {
+    up: migration_20261120_203039_placement_story_zones.up,
+    down: migration_20261120_203039_placement_story_zones.down,
+    name: '20261120_203039_placement_story_zones'
   },
 ];

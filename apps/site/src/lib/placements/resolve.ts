@@ -18,6 +18,8 @@ type Ref = Id | { id: Id } | null | undefined
 export type PageContext =
   | { page: 'home' }
   | { page: 'list'; kind: 'section' | 'topic' | 'person' | 'latest'; id: Id | null }
+  /** A story, by what it is filed under: a placement aimed at a section, a topic or a reporter runs on the stories in it. */
+  | { page: 'story'; sectionId: Id | null; topicIds: readonly Id[]; personIds: readonly Id[] }
 
 export interface PlacementRecord<M> extends StoredTile<M> {
   zone?: string | null
@@ -43,8 +45,13 @@ const idSet = (list: readonly Ref[] | null | undefined): Set<string> => new Set(
 
 /** Whether a placement is aimed at this page. Only meaningful in a zone that can be aimed; the home page has no targets. */
 export function matchesPage<M>(rec: PlacementRecord<M>, ctx: PageContext): boolean {
-  if (ctx.page !== 'list') return true
+  if (ctx.page === 'home') return true
   if (rec.scope === 'all') return true
+  if (ctx.page === 'story') {
+    // "Chosen" aims only at what was chosen, as on a list page. The all-stories page is not a story's page, so that choice never matches here.
+    const mine = (chosen: readonly Ref[] | null | undefined, ids: readonly Id[]) => ids.some((id) => idSet(chosen).has(String(id)))
+    return (ctx.sectionId !== null && idSet(rec.sections).has(String(ctx.sectionId))) || mine(rec.topics, ctx.topicIds) || mine(rec.people, ctx.personIds)
+  }
   // "Chosen" (and anything not stored) aims only at what was chosen: a placement never shows everywhere by accident.
   if (ctx.kind === 'latest') return rec.includeLatest === true
   const id = ctx.id === null ? null : String(ctx.id)
@@ -63,7 +70,7 @@ export function byRunOrder<M>(a: PlacementRecord<M>, b: PlacementRecord<M>): num
   return (a.order ?? 100) - (b.order ?? 100) || time(a.createdAt) - time(b.createdAt) || String(a.id ?? '').localeCompare(String(b.id ?? ''))
 }
 
-const pageMatchesZone = (zone: ZoneId, ctx: PageContext): boolean => (ZONES[zone].page === 'home' ? ctx.page === 'home' : ZONES[zone].page === 'list' ? ctx.page === 'list' : false)
+const pageMatchesZone = (zone: ZoneId, ctx: PageContext): boolean => ZONES[zone].page === ctx.page
 
 /** The tiles that run in `zone` on this page `now`, in order, at most the zone's capacity. */
 export function resolveZone<M extends { url?: string | null }>(zone: ZoneId, ctx: PageContext, records: readonly PlacementRecord<M>[] | null | undefined, now: Date): PlacementTile<M>[] {

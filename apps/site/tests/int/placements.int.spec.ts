@@ -130,8 +130,7 @@ describe('placements', () => {
       await expect(make({ alt: '' })).rejects.toThrow()
       await expect(make({ alt: 'x'.repeat(161) })).rejects.toThrow()
     })
-    it('refuses a zone that is only designed, not built, and one that does not exist', async () => {
-      await expect(make({ zone: 'story.rail' })).rejects.toThrow()
+    it('refuses a zone that does not exist', async () => {
       await expect(make({ zone: 'nonsense' })).rejects.toThrow()
     })
     it('needs a page chosen when a list-page placement is aimed, and never shows everywhere by accident', async () => {

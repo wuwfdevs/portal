@@ -118,7 +118,7 @@ export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
     capacity: 2,
     targetable: true,
     artwork: { width: 880, height: 704 },
-    built: false,
+    built: true,
   },
   'story.inline': {
     id: 'story.inline',
@@ -130,7 +130,7 @@ export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
     targetable: true,
     artwork: { width: 1200, height: 200 },
     phoneArtwork: { width: 800, height: 400 },
-    built: false,
+    built: true,
   },
 }
 

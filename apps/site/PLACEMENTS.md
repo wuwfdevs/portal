@@ -43,8 +43,8 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 | `home.band` | A slim band after the news sections, before the podcasts | 1 | no | 1200 × 200 (phone 800 × 400) | **Yes** |
 | `list.top` | Under the title of a section, topic, reporter or all-stories page: **a section's presenting sponsor**; held back while an emergency banner is on | 1 per page, exclusive | **yes** | 970 × 250 (phone 800 × 400) | **Yes** |
 | `list.rail` | Beside the stories on a section, topic, reporter or all-stories page | 4 | **yes** | 880 × 704 | **Yes** |
-| `story.rail` | Beside the story text (wide screens); after the story on a phone | 2 | yes | 880 × 704 | Designed |
-| `story.inline` | One band after a story's opening paragraphs | 1 | yes | 1200 × 200 (phone 800 × 400) | Designed |
+| `story.rail` | Beside the story text (wide screens); after the story on a phone | 2 | yes | 880 × 704 | **Yes** |
+| `story.inline` | One band after a story's fourth paragraph (a story of at least six) | 1 | yes | 1200 × 200 (phone 800 × 400) | **Yes** |
 
 - **Top units and the rail's glide (owner, 2026-11-20).** Everything is sold **at a flat rate for a period**; a top unit is the highest tier, then a section's presenting
   sponsor, then a rail tile, then the band. The rail's capacity is **nine** (three full rows, so no gap-filling promotion is needed) and is meant to **glide to six** as bookings
@@ -61,8 +61,11 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
   them in order and shows the first four.
 - **A tile's reference** is `<zone>.<position>` (`list.rail.2`), counted among the tiles that run, and is in the page as `data-placement` so a booking,
   a screenshot and a support request can name the same tile. It is a reference, not a tracker.
-- **Designed, not built:** `story.rail` and `story.inline` have a spec in the registry (`built: false`) and cannot be chosen in the admin. Build one with
-  the screen that draws it (a story page is cached and shared by every reader; a placement there must not break that, and must respect the exclusions above).
+- **The story zones (built 2026-11-20)** are drawn by the story template, **never placed by an editor in a story**: `StoryView` asks `loadStoryPlacements` and draws the rail
+  beside the text (`lg` and wider; after it on a phone) and one band after the fourth paragraph with words, only in a story of at least six (`lib/placements/story.ts`, pure and
+  tested). A placement is aimed at the sections, topics and reporters a story is filed under (the all-stories page choice does not apply to a story). **A live blog, a members-only
+  story and a story whose editor ticked "No sponsor messages on this story" carry none** (`storyZonesAllowed`), a themed show's episode page carries none, and a preview carries none.
+  The story page is cached and shared by every reader, as the lists are, and a failed read leaves the tiles out so the story still draws.
 
 ## How the home page lays the tiles out (built 2026-11-20, reworked the same day)
 

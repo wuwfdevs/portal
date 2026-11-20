@@ -5,7 +5,9 @@ import { getPayload } from 'payload'
 import type { Media, PlacementItem } from '@/payload-types'
 import { cacheGeneration } from '@/utilities/getGlobals'
 
+import { storyZonesAllowed, type StoryExclusionFields } from './exclusions'
 import { resolveFillers, resolveZone, type PageContext, type PlacementRecord } from './resolve'
+import { storyPage } from './story'
 import type { PlacementTile } from './tiles'
 
 export interface HomePlacements {
@@ -95,6 +97,31 @@ export async function loadListPlacements(ctx: Extract<PageContext, { page: 'list
   } catch (err) {
     await logFailure(err)
     return { top: null, rail: [] }
+  }
+}
+
+export interface StoryPlacements {
+  /** Beside the story text on a wide screen, after it on a phone (`story.rail`). */
+  rail: PlacementTile<Media>[]
+  /** One band after the story's opening paragraphs (`story.inline`). */
+  inline: PlacementTile<Media> | null
+}
+
+const NO_STORY_PLACEMENTS: StoryPlacements = { rail: [], inline: null }
+
+/**
+ * What a story page carries: the placements aimed at the sections, topics or reporters it is filed under. A live blog, a members-only story and one an editor ticked
+ * carry none (`storyZonesAllowed`), and a failed read leaves them out so the story still draws.
+ */
+export async function loadStoryPlacements(story: Parameters<typeof storyPage>[0] & StoryExclusionFields, now: Date = new Date()): Promise<StoryPlacements> {
+  if (!storyZonesAllowed(story)) return NO_STORY_PLACEMENTS
+  try {
+    const records = await readRecords()
+    const ctx = storyPage(story)
+    return { rail: resolveZone('story.rail', ctx, records, now), inline: resolveZone('story.inline', ctx, records, now)[0] ?? null }
+  } catch (err) {
+    await logFailure(err)
+    return NO_STORY_PLACEMENTS
   }
 }
 

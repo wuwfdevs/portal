@@ -103,9 +103,9 @@ describe('the zone registry', () => {
     expect(tileKey('home.rail', 3)).toBe('home.rail.3')
     expect(tileKey('home.band', 0)).toBe('home.band.1')
   })
-  it('builds the home and list pages\' top units, the home page\'s rail and banner and the list pages\' rail, and says so for the rest', () => {
-    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'home.top', 'list.rail', 'list.top'])
-    expect(ZONES['story.rail'].built).toBe(false)
+  it('builds every zone: the top units, the home page\'s rail and banner, the list pages\' rail and the story page\'s rail and inline band', () => {
+    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'home.top', 'list.rail', 'list.top', 'story.inline', 'story.rail'])
+    expect(Object.values(ZONES).every((z) => z.built)).toBe(true)
   })
   it('holds nine tiles in the home rail (three full rows; owner glide to six, 2026-11-20), four on a list page, and one in a band or top unit (not a rotation)', () => {
     expect(ZONES['home.rail'].capacity).toBe(9)

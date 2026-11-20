@@ -260,14 +260,15 @@ export const PlacementItems: CollectionConfig = {
           ) => {
             const z = isZoneId(siblingData?.zone) ? ZONES[siblingData.zone] : null
             if (!z?.targetable || value === 'all') return true
-            const chosen = (siblingData?.sections?.length ?? 0) + (siblingData?.topics?.length ?? 0) + (siblingData?.people?.length ?? 0) + (siblingData?.includeLatest ? 1 : 0)
+            const forStories = String(siblingData?.zone ?? '').startsWith('story.')
+            const chosen = (siblingData?.sections?.length ?? 0) + (siblingData?.topics?.length ?? 0) + (siblingData?.people?.length ?? 0) + (siblingData?.includeLatest && !forStories ? 1 : 0)
             return chosen > 0 ? true : 'Choose at least one section, topic, reporter or the all-stories page, or choose every page.'
           },
         },
         { name: 'sections', type: 'relationship', relationTo: 'sections', hasMany: true, admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these sections\' pages (Local News, Music & Arts...).' } },
         { name: 'topics', type: 'relationship', relationTo: 'categories', hasMany: true, admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these topics\' pages.' } },
         { name: 'people', type: 'relationship', relationTo: 'contributors', hasMany: true, label: 'Reporters', admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these reporters\' pages.' } },
-        { name: 'includeLatest', type: 'checkbox', defaultValue: false, label: 'The all-stories page', admin: { condition: (_, s) => s?.scope !== 'all', description: 'Also appears on /latest, the list of every story.' } },
+        { name: 'includeLatest', type: 'checkbox', defaultValue: false, label: 'The all-stories page', admin: { condition: (_, s) => s?.scope !== 'all' && !String(s?.zone ?? '').startsWith('story.'), description: 'Also appears on /latest, the list of every story. (Not for a story page: it is aimed at the sections, topics and reporters a story is filed under.)' } },
       ],
     },
     {
