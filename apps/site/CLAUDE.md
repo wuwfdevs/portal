@@ -234,7 +234,7 @@ migration keeps its name and its SQL**: never rename, regenerate or edit one tha
 **Blocks fields are one `jsonb` column each** (`blocksAsJSON`), so there are no `*_blocks_*` tables; read a block field through Payload, never by SQL.
 
 PostgreSQL, **this app's own** Supabase project in hosted environments — never the Portal's two projects.
-Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. In development
+Locally: `pnpm db:up` (docker compose, port 5433) or any Postgres 16 at `DATABASE_URL`. **In the cloud sandbox there is no Docker: `bash scripts/dev/pg-up.sh` makes and restarts the Postgres (it stops whenever the sandbox idles), with three databases:** `wuwf_site` for the dev server (Payload pushes schema to it), `wuwf_site_test` for the integration tests (built from the config) and `wuwf_migrate` for `payload migrate`. **Never run `payload migrate` against the database the dev server uses** (Payload's docs: push and migrations are not meant to be mixed, and it stops with a prompt); see `ROADMAP.md` → *Running things in a fresh sandbox*. In development
 Payload pushes schema changes; **production runs only committed migrations** (`src/migrations`, created
 with `pnpm payload migrate:create`). Never run a destructive database operation without being asked. **After any schema change, run `pnpm verify:migrations`**
 (dev and test databases push schema on their own, so tests pass even when a migration was never written). The database needs the **pgvector** extension (story embeddings): `docker-compose.yml` uses the `pgvector/pgvector` image, and the migration runs `CREATE EXTENSION IF NOT EXISTS vector` (on Supabase it is installed in the `public` schema on both site projects).
