@@ -46,6 +46,13 @@
 // The wordmark beside the breadcrumbs: Payload sizes this slot for a square icon (18px), which squeezes a wordmark to a smudge.
 .step-nav__home {
   width: auto;
+  height: auto;
+}
+
+.step-nav__home img {
+  display: block;
+  width: auto;
+  height: 24px;
 }
 
 // The sidebar: headings in the design system's label style and the current place marked in the station blue. A sub-group's heading sits level
@@ -116,6 +123,26 @@
   }
 }
 
+// Size on a phone. Payload sets the admin's base type at 12px here, which is small to read and to tap; its icons, spacing and controls are
+// all in rem or in `--base` (a multiple of it), so raising the base scales them together. The header keeps a fixed, slimmer height.
+@media (max-width: 768px) {
+  :root {
+    --app-header-height: 56px;
+  }
+
+  html {
+    font-size: 16px;
+  }
+
+  .step-nav__home img {
+    height: 32px;
+  }
+
+  .nav-group__toggle {
+    font-size: 14px;
+  }
+}
+
 // The sidebar on a phone. Payload sets `--nav-width: 100vw` here and keeps the page at `min-width: 100%`, so an open sidebar plus the page
 // made the document twice the screen's width and the browser zoomed out to fit it. The sidebar is a drawer over the page instead (the
 // page never moves), and the page may shrink to the screen.
@@ -130,7 +157,8 @@
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
-    z-index: var(--z-modal);
+    // One step above the page header (also `--z-modal`), so the header's own menu button does not show through beside the drawer's close button.
+    z-index: calc(var(--z-modal) + 1);
     width: min(85vw, 320px);
     height: 100dvh;
     background: var(--theme-bg);
