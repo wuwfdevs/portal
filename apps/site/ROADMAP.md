@@ -27,6 +27,11 @@ A look change, not a structure change: type weight, corners, chips, buttons, a s
 5. Story, list and sections pages. Add `--tone-mark` per tone in `lib/page-themes/themes.ts` (plain and grey `wuwf-blue-100`; accent `wuwf-lime-100`; dark and teal `wuwf-lime`; lime `wuwf-lime-600`; softlime `wuwf-blue-100`) and regenerate `page-themes.css`; `SectionHeading mark="tone"` reads it and draws no mark until it exists. Block media `rounded-4`, block cards stay `rounded-lg`.
 6. The hubs (RadioLive, Unearthing Florida: replace `#E9D5A8` and the svg hex with `warning-*`), and the Voyager chip only.
 
+**Decisions on the open items (owner, 2026-11-21):**
+- Lime's pill text stays `ink-2`; no darker green token for now (one token plus one line in `lib/swatches.ts` if it is wanted later).
+- Buttons: ink (`primary`) by default; blue (`action`) only for the donate ask (the header's Donate, the membership appeal) and the Listening screens. The ~25 inline blue buttons move to ink as their pages migrate in slices 5 and 6, not as a separate sweep.
+- Section colours are the owner's to assign in the admin. Suggested start: blue default for general news, lime for Coastal Futures, amber for Arts & Music, teal for Education, slate for partner or utility sections. Neighbouring sections on the home page should differ. Nothing is scripted.
+
 **Things the next session will trip on:**
 - `components/SectionHeader` is the coded sections' heading and `CLAUDE.md` says not to hand-build one. Make it **draw through `SectionHeading`** (and `TitledSection` follows) rather than putting `SectionHeading` beside it; the `border-b-2 border-ink` rule it draws is what C2 replaces.
 - Two colours miss 4.5:1 as the board draws them: Lime's pill text is `ink-2` instead of `success-fg` (4.39:1 on the lime tint); a darker green token would restore the board. `action` (blue) exists so the Listening screens keep their blue and ink hierarchy; whether the ~25 inline blue buttons become ink is decided as pages migrate.
