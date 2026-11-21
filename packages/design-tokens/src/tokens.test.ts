@@ -14,6 +14,11 @@ describe("colors", () => {
     expect(colors["surface-dark"]).toBe("#0F2235");
     expect(colors["on-air-red"]).toBe("#D63E2D");
   });
+
+  it("holds the Campus desk's tint, light enough for the teal text on it to pass AA", () => {
+    expect(colors["wuwf-teal-100"]).toBe("#DCE9ED");
+    expect(contrastRatio(colors["wuwf-teal"], colors["wuwf-teal-100"])).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe("contrast", () => {
@@ -30,6 +35,10 @@ describe("contrast", () => {
     expect(contrastRatio(colors.ink, colors.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(colors["ink-3"], colors.surface)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(colors["wuwf-blue-700"], colors.surface)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("ink on lime, the play button on white, passes AA", () => {
+    expect(contrastRatio(colors["surface-dark"], colors["wuwf-lime"])).toBeGreaterThanOrEqual(4.5);
   });
 
   it("white on the primary button blue passes AA; white on brand blue alone does not", () => {
@@ -93,6 +102,9 @@ describe("typeScale", () => {
     expect(typeScale.lede.fontSize).toBe("21px");
     expect(typeScale["article-body"].fontSize).toBe("20px");
   });
+  it("sets the four headline styles at weight 600 (direction C2)", () => {
+    for (const key of ["headline-xl", "headline-lg", "headline-md", "headline-sm"] as const) expect(typeScale[key].fontWeight, key).toBe(600);
+  });
   it("keeps body text at 16px or more, so a phone never zooms on a focused field", () => {
     expect(parseInt(typeScale.body.fontSize, 10)).toBeGreaterThanOrEqual(16);
   });
@@ -107,6 +119,7 @@ describe("tailwindThemeCss", () => {
   });
   it("carries radii and shadows, and no fonts or layout (the app owns those)", () => {
     expect(css).toContain("--radius-pill: 999px;");
+    expect(css).toContain("--radius-4: 16px;");
     expect(css).toContain("--shadow-2:");
     expect(css).not.toContain("--font-");
     expect(css).not.toContain("--layout-");

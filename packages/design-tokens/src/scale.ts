@@ -18,10 +18,10 @@ export interface TypeStyle {
 }
 
 export const typeScale = {
-  "headline-xl": { fontSize: "52px", lineHeight: "1.08", fontWeight: 700, family: "serif", letterSpacing: "-0.015em" },
-  "headline-lg": { fontSize: "44px", lineHeight: "1.1", fontWeight: 700, family: "serif", letterSpacing: "-0.01em" },
-  "headline-md": { fontSize: "30px", lineHeight: "1.15", fontWeight: 700, family: "serif" },
-  "headline-sm": { fontSize: "22px", lineHeight: "1.25", fontWeight: 700, family: "serif" },
+  "headline-xl": { fontSize: "52px", lineHeight: "1.08", fontWeight: 600, family: "serif", letterSpacing: "-0.015em" },
+  "headline-lg": { fontSize: "44px", lineHeight: "1.1", fontWeight: 600, family: "serif", letterSpacing: "-0.01em" },
+  "headline-md": { fontSize: "30px", lineHeight: "1.15", fontWeight: 600, family: "serif" },
+  "headline-sm": { fontSize: "22px", lineHeight: "1.25", fontWeight: 600, family: "serif" },
   lede: { fontSize: "21px", lineHeight: "1.45", fontWeight: 400, family: "serif" },
   "article-body": { fontSize: "20px", lineHeight: "1.65", fontWeight: 400, family: "serif" },
   body: { fontSize: "16px", lineHeight: "1.6", fontWeight: 400, family: "sans" },
@@ -51,6 +51,7 @@ export const radii = {
   "r-1": "2px",
   "r-2": "4px",
   "r-3": "8px",
+  "r-4": "16px",
   "r-pill": "999px",
 } as const;
 
