@@ -59,13 +59,13 @@ export function ExplorePanel({ sites, periods }: { sites: PanelSite[]; periods: 
       </div>
 
       {sites.length === 0 ? (
-        <p className="rounded-sm border border-dashed border-warning-border p-6 text-ink-2">The map fills in as sites are added.</p>
+        <p className="rounded-lg border border-dashed border-warning-border p-6 text-ink-2">The map fills in as sites are added.</p>
       ) : (
         <div className="flex flex-wrap gap-8">
-          <div className="relative aspect-[4/3] min-w-0 flex-[999_1_34rem] overflow-hidden rounded-sm border border-warning-border bg-warning-bg">
+          <div className="relative aspect-[4/3] min-w-0 flex-[999_1_34rem] overflow-hidden rounded-4 border border-warning-border bg-warning-bg">
             <svg aria-label="Schematic map of Florida with episode locations" className="absolute inset-0 block h-full w-full" role="img" viewBox="0 0 400 300">
-              <path d="M18 40 L230 40 L252 46 L300 46 L318 70 L336 120 L356 200 L366 252 L346 290 L326 282 L312 250 L298 226 L286 186 L280 152 L262 116 L244 96 L214 86 L176 82 L136 80 L96 76 L58 70 L18 62 Z" fill="#F6E3BC" stroke="#8A5A12" strokeWidth="1.5" />
-              <text fill="#8A5A12" fontSize="10" x="24" y="30">Schematic · not to scale</text>
+              <path className="fill-warning-border/25 stroke-warning-fg" d="M18 40 L230 40 L252 46 L300 46 L318 70 L336 120 L356 200 L366 252 L346 290 L326 282 L312 250 L298 226 L286 186 L280 152 L262 116 L244 96 L214 86 L176 82 L136 80 L96 76 L58 70 L18 62 Z" strokeWidth="1.5" />
+              <text className="fill-warning-fg" fontSize="10" x="24" y="30">Schematic · not to scale</text>
             </svg>
             {sites.map((s) => {
               const on = String(chosen) === String(s.id)
@@ -80,17 +80,17 @@ export function ExplorePanel({ sites, periods }: { sites: PanelSite[]; periods: 
                   type="button"
                 >
                   <span aria-hidden="true" className={`h-4 w-4 shrink-0 rounded-full border-2 border-surface ring-1 ring-warning-fg ${on ? 'bg-ink' : 'bg-warning-fg'}`} />
-                  <span aria-hidden="true" className="rounded-sm bg-surface/85 px-1.5 text-xs font-bold text-ink">{s.short}</span>
+                  <span aria-hidden="true" className="rounded-pill bg-surface/85 px-2 text-xs font-bold text-ink">{s.short}</span>
                 </button>
               )
             })}
           </div>
 
-          <aside aria-live="polite" className="flex min-w-0 flex-[1_1_20rem] flex-col gap-3 rounded-sm bg-warning-bg p-6">
+          <aside aria-live="polite" className="flex min-w-0 flex-[1_1_20rem] flex-col gap-3 rounded-lg bg-warning-bg p-6">
             {site ? (
               <>
                 <p className="font-mono text-xs text-warning-fg">{eraLabel(site.era)} · {site.place}</p>
-                <h3 className="font-serif text-2xl font-bold leading-tight text-ink">{site.name}</h3>
+                <h3 className="font-serif text-2xl font-semibold leading-tight text-ink">{site.name}</h3>
                 {site.description && <p className="text-base text-ink-2">{site.description}</p>}
                 <p className="text-sm font-bold text-ink">{episodeCount(site.count)}</p>
                 {site.episodes.length > 0 && (

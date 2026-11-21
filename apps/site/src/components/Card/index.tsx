@@ -81,9 +81,7 @@ export const Card: React.FC<{
           </p>
         )}
         {isVoyagerIdentity(publishingIdentity) && (
-          <p className="text-xs font-bold uppercase tracking-widest text-wuwf-teal">
-            <span className="inline-flex items-center rounded-pill border border-wuwf-teal px-2 py-0.5">{VOYAGER_BADGE_LABEL}</span>
-          </p>
+          <SectionChip className="self-start" label={VOYAGER_BADGE_LABEL} swatch="teal" />
         )}
         {showCategories && topics.length > 0 && !(editorial && section) && (
           <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{topics.join(', ')}</p>

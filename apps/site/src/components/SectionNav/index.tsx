@@ -43,7 +43,7 @@ export const SectionNav: React.FC<{
     dark ? 'text-surface hover:border-surface-dark-text' : 'text-ink hover:border-rule-strong',
   )
   const currentLink = dark ? 'border-wuwf-lime' : 'border-wuwf-blue-700'
-  const title = 'font-serif text-2xl font-bold'
+  const title = 'font-serif text-2xl font-semibold'
 
   return (
     <div className={cn('border-b', dark ? 'border-surface-dark-line bg-surface-dark text-surface' : 'border-rule bg-surface text-ink', className)}>
