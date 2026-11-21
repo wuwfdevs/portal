@@ -36,7 +36,7 @@ export async function resolvePath(path: string, draft: boolean): Promise<Resolve
   return null
 }
 
-/** The home page: the page whose slug is `home` (it has no path; "/" is its address). */
+/** The home page: the page with "Use as the home page" ticked (it has no path; "/" is its address). */
 export async function resolveHome(draft: boolean): Promise<Page | null> {
   const payload = await getPayload({ config: configPromise })
   const result = await payload.find({
@@ -45,7 +45,7 @@ export async function resolveHome(draft: boolean): Promise<Page | null> {
     limit: 1,
     overrideAccess: draft,
     pagination: false,
-    where: { slug: { equals: 'home' } },
+    where: { isHome: { equals: true } },
   })
   return result.docs[0] ?? null
 }

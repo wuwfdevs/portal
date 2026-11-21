@@ -8,7 +8,7 @@ import { getPayload, type Where } from 'payload'
 import { cache } from 'react'
 
 import { arrangeHomepage } from '@/lib/homepage/select'
-import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 import { MODULE_SLACK } from '@/lib/homepage/modules'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { Fellowship } from '@/payload-types'

@@ -91,26 +91,37 @@ export async function seedPlacementsDemo(payload: Payload, opts: SeedOptions): P
     note('made', `story "${title}"`)
   }
 
-  // ---- the home page's news sections ------------------------------------------------------------------------------------------------------
-  const home = await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })
-  type Module = { heading: string; section: string | number; count: number; enabled: boolean }
-  const current: Module[] = (home.newsModules ?? []).map((m) => ({ heading: m.heading, section: typeof m.section === 'object' && m.section ? m.section.id : m.section, count: m.count ?? 5, enabled: m.enabled !== false }))
-  if (current.length >= 3) note('kept', `home page news sections (${current.length}, left as they are)`)
+  // ---- the home page's news runs ------------------------------------------------------------------------------------------------------------
+  // The home page is a page record (a News run block per section). Runs are added after the last one, only while there are fewer than three; a database with no home page is
+  // left without (the sponsor-zones seed writes one).
+  type Run = { id?: string; blockType: string; section?: string | number | { id: string | number } | null; [field: string]: unknown }
+  const homePage = await first<{ id: string | number; sections?: Run[] | null }>('pages', { isHome: { equals: true } })
+  if (!homePage) note('skipped', 'home page news runs: there is no home page here')
   else {
-    const have = new Set(current.map((m) => String(m.section)))
-    const added: Module[] = []
-    for (const m of DEMO_MODULES) {
-      const sec = m.slug === 'florida-news' ? florida : await first<{ id: string | number }>('sections', { slug: { equals: m.slug } })
-      if (!sec) {
-        note('skipped', `news section ${m.heading}: no such section here`)
-        continue
+    const sections: Run[] = homePage.sections ?? []
+    const runs = sections.filter((b) => b.blockType === 'sectionNewsRun')
+    if (runs.length >= 3) note('kept', `home page news runs (${runs.length}, left as they are)`)
+    else {
+      const have = new Set(runs.map((b) => String(typeof b.section === 'object' && b.section ? b.section.id : b.section)))
+      const added: Run[] = []
+      for (const m of DEMO_MODULES) {
+        const sec = m.slug === 'florida-news' ? florida : await first<{ id: string | number }>('sections', { slug: { equals: m.slug } })
+        if (!sec) {
+          note('skipped', `news run ${m.heading}: no such section here`)
+          continue
+        }
+        if (have.has(String(sec.id))) continue
+        added.push({ id: `demo-news-${m.slug}`, blockType: 'sectionNewsRun', tone: 'plain', hidden: false, section: sec.id, count: 5, heading: { title: m.heading } })
       }
-      if (have.has(String(sec.id))) continue
-      added.push({ heading: m.heading, section: sec.id, count: 5, enabled: true })
+      if (opts.apply && added.length > 0) {
+        const lastRun = sections.map((b) => b.blockType).lastIndexOf('sectionNewsRun')
+        const at = lastRun >= 0 ? lastRun + 1 : Math.min(1, sections.length)
+        const next = [...sections.slice(0, at), ...added, ...sections.slice(at)]
+        await payload.update({ collection: 'pages', id: homePage.id, data: { sections: next } as never, draft: false, overrideAccess: true, context: ctx })
+      }
+      for (const m of added) note('made', `home page news run ${(m.heading as { title: string }).title}`)
+      if (added.length === 0) note('kept', 'home page news runs (nothing to add)')
     }
-    if (opts.apply && added.length > 0) await payload.updateGlobal({ slug: 'homepage', data: { newsModules: [...current, ...added] } as never, overrideAccess: true, context: ctx })
-    for (const m of added) note('made', `home page news section ${m.heading}`)
-    if (added.length === 0) note('kept', 'home page news sections (nothing to add)')
   }
 
   // ---- the sample sponsor and its artwork --------------------------------------------------------------------------------------------------

@@ -32,5 +32,8 @@ export const redirects: NextConfig['redirects'] = async () => {
   // The Network queue was a custom admin page of its own; it is now the list of Network stories (`collections/Network/NetworkItems.ts`), one screen.
   const adminRedirects = [{ source: '/admin/network-queue', destination: '/admin/collections/network-items', permanent: false }]
 
-  return [...givingRedirects, ...postsRedirects, ...adminRedirects, internetExplorerRedirect]
+  // The home page built from blocks was previewed at /home-blocks beside the coded one; it is the home page now (2026-11-21).
+  const homeRedirects = [{ source: '/home-blocks', destination: '/', permanent: false }]
+
+  return [...givingRedirects, ...postsRedirects, ...adminRedirects, ...homeRedirects, internetExplorerRedirect]
 }

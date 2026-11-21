@@ -36,7 +36,7 @@ code (phase 5).
 | Record with a fixed template | its own collection (unchanged) | Stories, shows, episodes, artists, RadioLive shows, fellowships, clips, live blogs, section and topic lists |
 | Application | coded route (unchanged) | Listening flows, account, search, community calendar, event submission |
 | Settings and shared data | globals | Header, footer, site settings, listen live, giving settings, sponsorship settings |
-| **Exception, being replaced** | `homepage` global (unchanged until the switch) | Home was left as a global because one sponsor rail spans several sections and stories are de-duplicated across them. Both are now done by the page (the **home set**, below); the page of blocks is built beside the coded one at `/home-blocks`, and `/` is switched when the owner has compared them |
+| **Done (2026-11-21)** | Home | The home page is the page record in the home set with "Use as the home page" ticked, served at `/` by a coded shell; the `homepage` global is retired (hidden, read by nothing, dropped in the next cleanup). The banner is the Site banner global. See *Home*, below |
 
 ## Open decisions for the owner
 
@@ -491,9 +491,22 @@ The home set's blocks (offered only in the set; each reuses the coded page's vie
 lead and The Briefing, curated or the newest of WUWF's own), **Fellowship feature**, **News run** (a section's newest, `More from…` in the header), **Show spotlight** (podcasts),
 **Feature panels** (RadioLive and Unearthing Florida), plus the library's **List** with the new **Short videos** source. The Banner is the site banner (a global in the layout), not a block.
 
-**The page of blocks is `/home-blocks`** (a coded shell, `CODED_SHELL_PATHS`, refreshed every five minutes like `/`; noindex). `pnpm seed:home-blocks` writes it from the Home page global as
-it is today (`lib/homepage/to-sections.ts`, tested to lose no news section or setting); the dry run lists what the blocks do not carry over. **Compared 2026-11-20 on a local database
-with fixture content at 1440 and 390 px: the same headings in the same order, the same sponsor places, the top unit under the header on a wide screen and between the lead and The Briefing on a
-phone.** Not carried over yet: the "All stories" button, the membership appeal at the foot, the "Latest stories" fallback when no news section has stories, and a pinned short-video series.
-**To switch `/`:** have the owner compare the two on staging, close those gaps (or accept them), then make `/` render this page record (the way `/home-blocks` does) and retire the Home page
-global's tabs (phase 7). Until then the global keeps running the home page and the two are separate.
+**Switched 2026-11-21.** The page of blocks is the home page. The record the owner compared at `/home-blocks` was **renamed in place** by the migration `20261121_055549_home_page_record_site_banner`
+("Use as the home page" ticked, address name `home`, no path of its own, title "Home page", indexed; the page and its versions), so every edit made while comparing is kept. `/` is a coded shell (`app/(frontend)/page.tsx`,
+in `CODED_SHELL_PATHS`, refreshed every five minutes) that renders the record through `SectionsRoute` (`path === '/'` loads the page with the box ticked, `resolveHome`) and loads what a block never reads itself:
+the sponsor tiles for the set's slots and the site banner. `/home-blocks` redirects to `/`. The coded page (`HomepageView`, `loadHomepage`, `loadHomepageSlots`) is deleted.
+
+**Where everything the Home page global held went:**
+
+| It held | Now |
+|---|---|
+| Banner tab | The **Site banner** global (`site-banner`, Site settings group; publishers edit it). The eight `banner_*` columns were copied into it and dropped |
+| Lead story, kicker, top stories | The **Front page lead** block's fields |
+| Fellowship feature | The **Fellowship feature** block |
+| News sections (heading, section, count, on/off) | One **News run** block each (a held section is a hidden block) |
+| Short videos (on/off, series, count) | **List**, source "Short videos"; its new **Series first** field carries the series |
+| Podcasts, RadioLive, Unearthing Florida | **Show spotlight** and **Feature panels** |
+| (code) the "All stories" button, the membership appeal | **`HomeFoot`**, the set's fixed foot: the button now ends the page, above the appeal (it ended the news band before) |
+| (code) the "Latest stories" stand-in for an empty news band | Not carried over: add a List of the newest stories if one is wanted |
+
+The retired global's columns stay, unread and hidden, until a later cleanup drops them (`homepageToSections` still maps them to sections for a database that needs the page written; `pnpm seed:home`).

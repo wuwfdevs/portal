@@ -33,9 +33,9 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     items: [c('posts'), c('clips'), c('network-items'), c('network-sources')],
   },
   {
-    // The coded pages leave this list as they move into `pages` (PAGE-BLOCKS.md phases 4 to 7); Home is last to go.
+    // The coded pages leave this list as they move into `pages` (PAGE-BLOCKS.md phases 4 to 7); the home page has gone (2026-11-21), the three hubs are left.
     label: 'Pages',
-    items: [c('pages'), g('homepage'), g('unearthing-hub'), g('voyager-hub'), g('radiolive-hub')],
+    items: [c('pages'), g('unearthing-hub'), g('voyager-hub'), g('radiolive-hub')],
   },
   {
     label: 'Shows & series',
@@ -73,7 +73,7 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     // Last, and the only heading made of globals alone: Payload's dashboard lists every collection's group before any global-only group,
     // so this is where the dashboard puts it too. `admin-nav.test.ts` holds the order.
     label: 'Site settings',
-    items: [g('header'), g('footer'), g('site-settings'), g('shared-text'), g('listen-live')],
+    items: [g('header'), g('footer'), g('site-banner'), g('site-settings'), g('shared-text'), g('listen-live')],
   },
 ]
 
@@ -86,6 +86,7 @@ export const NAV_OMITTED: readonly { kind: NavEntityKind; slug: string; why: str
   { kind: 'collection', slug: 'submission-rate-limits', why: 'Internal bookkeeping for the event form.' },
   { kind: 'collection', slug: 'event-submission-images', why: 'Pictures belong to a submitted event and are reached from it.' },
   { kind: 'collection', slug: 'portal-sign-ins', why: 'Records of one-time Portal tokens; never edited.' },
+  { kind: 'global', slug: 'homepage', why: 'Retired 2026-11-21: the home page is a page in Pages and the banner is the Site banner; kept hidden until the next cleanup drops it.' },
   { kind: 'global', slug: 'sponsorship', why: 'Moved into pages and Sponsorship settings; dropped in PAGE-BLOCKS.md phase 7.' },
   { kind: 'global', slug: 'support-page', why: 'Moved into pages and Giving settings; dropped in PAGE-BLOCKS.md phase 7.' },
 ]

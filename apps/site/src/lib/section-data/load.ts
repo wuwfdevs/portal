@@ -16,6 +16,7 @@ import { loadCalendar } from '@/lib/events/load'
 import { zonedInstant } from '@/lib/events/schedule'
 import { loadDirectory } from '@/lib/shows/load'
 import { loadClips, type ClipView } from '@/lib/video/load'
+import { pickClips } from '@/lib/homepage/slots'
 import { clipsForSection } from '@/lib/video/section'
 import { getFellowshipHubAcknowledgments, getProductionHubAcknowledgments, getSeriesHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
@@ -71,7 +72,8 @@ const cachedList = unstable_cache(readList, ['section-list'], { revalidate: SECT
 
 const readClips = async (spec: Extract<ListSpec, { source: 'clips' }>): Promise<ClipView[]> => {
   const all = await loadClips()
-  return spec.scope === 'section' ? clipsForSection(all, spec.id, spec.count) : all.slice(0, spec.count)
+  if (spec.scope === 'section') return clipsForSection(all, spec.id, spec.count)
+  return pickClips(all, { seriesId: spec.firstSeries ?? null, count: spec.count })
 }
 const cachedClips = unstable_cache(readClips, ['section-clips'], { revalidate: SECTION_REVALIDATE.list, tags: [...TAGS, 'section-data:list', 'clips'] })
 

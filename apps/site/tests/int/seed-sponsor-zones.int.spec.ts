@@ -18,7 +18,10 @@ const ctx = { disableRevalidate: true, disableEmbedding: true }
 const NOW = new Date()
 let payload: Payload
 const madeHere: { collection: 'sections'; id: number | string }[] = []
-let savedBanner: unknown
+let savedBanner: Record<string, unknown>
+// The seed writes a home page only where there is none; a database that already has one keeps it, and the test must not delete it.
+let homeExisted = false
+const homeCount = async () => (await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, overrideAccess: true, draft: true })).totalDocs
 
 const clean = async () => {
   for (const collection of ['placement-items', 'sponsors'] as const) {
@@ -27,8 +30,10 @@ const clean = async () => {
   }
   const media = await payload.find({ collection: 'media', where: { 'legacy.sourceUrl': { like: 'demonstration:' } }, limit: 20, depth: 0, pagination: false, overrideAccess: true })
   for (const m of media.docs) await payload.delete({ collection: 'media', id: m.id, overrideAccess: true, context: ctx }).catch(() => undefined)
-  const pages = await payload.find({ collection: 'pages', where: { slug: { equals: 'home-blocks' } }, limit: 5, depth: 0, overrideAccess: true, draft: true })
-  for (const p of pages.docs) await payload.delete({ collection: 'pages', id: p.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+  if (!homeExisted) {
+    const pages = await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 5, depth: 0, overrideAccess: true, draft: true })
+    for (const p of pages.docs) await payload.delete({ collection: 'pages', id: p.id, overrideAccess: true, context: ctx }).catch(() => undefined)
+  }
 }
 const section = async (slug: string) => {
   const found = await payload.find({ collection: 'sections', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: true })
@@ -45,13 +50,14 @@ describe('the staging demonstration for the top units and story zones', () => {
     payload = await getPayload({ config: await config })
     campus = await section('campus')
     localNews = await section('local-news')
-    savedBanner = ((await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as { banner?: unknown }).banner
-    await payload.updateGlobal({ slug: 'homepage', data: { banner: { active: false, headline: null } } as never, overrideAccess: true, context: ctx })
+    homeExisted = (await homeCount()) > 0
+    savedBanner = (await payload.findGlobal({ slug: 'site-banner', depth: 0, overrideAccess: true })) as unknown as Record<string, unknown>
+    await payload.updateGlobal({ slug: 'site-banner', data: { active: false, headline: null } as never, overrideAccess: true, context: ctx })
     await clean()
   }, 90_000)
   afterAll(async () => {
     await clean()
-    await payload.updateGlobal({ slug: 'homepage', data: { banner: savedBanner ?? { active: false } } as never, overrideAccess: true, context: ctx }).catch(() => undefined)
+    await payload.updateGlobal({ slug: 'site-banner', data: { active: false, scope: 'home', style: 'emergency', label: null, headline: null, body: null, linkLabel: null, linkHref: null, ...(savedBanner.active ? savedBanner : {}) } as never, overrideAccess: true, context: ctx }).catch(() => undefined)
     for (const { collection, id } of madeHere) await payload.delete({ collection, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
@@ -59,10 +65,10 @@ describe('the staging demonstration for the top units and story zones', () => {
     const report = await seedSponsorZonesDemo(payload, { apply: false, assetDir })
     expect(report.made.length).toBeGreaterThan(8)
     expect((await payload.find({ collection: 'placement-items', where: { name: { like: DEMO } } as never, limit: 5, depth: 0, overrideAccess: true })).totalDocs).toBe(0)
-    expect((await payload.find({ collection: 'pages', where: { slug: { equals: 'home-blocks' } }, limit: 1, depth: 0, overrideAccess: true, draft: true })).totalDocs).toBe(0)
+    expect(await homeCount()).toBe(homeExisted ? 1 : 0)
   }, 90_000)
 
-  it('a run makes the placements, aimed where described, the notice banner and the home page of blocks', async () => {
+  it('a run makes the placements, aimed where described, the notice banner and, where there is none, the home page', async () => {
     const report = await seedSponsorZonesDemo(payload, { apply: true, assetDir })
     expect(report.skipped).toEqual([])
     const records = await readPlacementRecords()
@@ -75,10 +81,11 @@ describe('the staging demonstration for the top units and story zones', () => {
     const other = await section('somewhere-else')
     expect(resolveZone('list.top', { page: 'list', kind: 'section', id: other.id }, records, NOW)).toEqual([])
     expect(resolveZone('story.inline', storyPage({ section: other.id }), records, NOW)).toEqual([])
-    const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as { banner: { active: boolean; style: string; scope: string } }
-    expect(home.banner).toMatchObject({ active: true, style: 'notice', scope: 'home' })
-    const page = await payload.find({ collection: 'pages', where: { slug: { equals: 'home-blocks' } }, limit: 1, depth: 0, overrideAccess: true })
-    expect(page.docs[0]).toMatchObject({ pageSet: 'home', template: 'sections', noindex: true, _status: 'published' })
+    const banner = (await payload.findGlobal({ slug: 'site-banner', depth: 0, overrideAccess: true })) as unknown as { active: boolean; style: string; scope: string }
+    expect(banner).toMatchObject({ active: true, style: 'notice', scope: 'home' })
+    const page = await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, overrideAccess: true })
+    expect(page.docs[0]).toMatchObject({ pageSet: 'home', template: 'sections' })
+    if (!homeExisted) expect(page.docs[0]).toMatchObject({ noindex: false, _status: 'published' })
   }, 120_000)
 
   it('run again, it makes nothing twice', async () => {
@@ -99,10 +106,10 @@ describe('the staging demonstration for the top units and story zones', () => {
   }, 90_000)
 
   it('never changes a banner an editor has set', async () => {
-    await payload.updateGlobal({ slug: 'homepage', data: { banner: { active: true, scope: 'all', style: 'emergency', headline: 'Shelters open at noon' } } as never, overrideAccess: true, context: ctx })
+    await payload.updateGlobal({ slug: 'site-banner', data: { active: true, scope: 'all', style: 'emergency', headline: 'Shelters open at noon' } as never, overrideAccess: true, context: ctx })
     const report = await seedSponsorZonesDemo(payload, { apply: true, assetDir })
     expect(report.kept.some((l) => l.startsWith('site banner'))).toBe(true)
-    const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as { banner: { headline: string; style: string } }
-    expect(home.banner).toMatchObject({ headline: 'Shelters open at noon', style: 'emergency' })
+    const banner = (await payload.findGlobal({ slug: 'site-banner', depth: 0, overrideAccess: true })) as unknown as { headline: string; style: string }
+    expect(banner).toMatchObject({ headline: 'Shelters open at noon', style: 'emergency' })
   }, 90_000)
 })

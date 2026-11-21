@@ -21,6 +21,8 @@ import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { hero } from '@/heros/config'
 import { slugField, validations } from 'payload'
+
+import { demoteOtherHomePages, guardHomePage, isHomeField } from '@/hooks/homePage'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
@@ -49,6 +51,7 @@ export const Pages: CollectionConfig<'pages'> = {
     title: true,
     slug: true,
     path: true,
+    isHome: true,
   },
   admin: {
     defaultColumns: ['title', 'path', 'updatedAt'],
@@ -232,11 +235,12 @@ export const Pages: CollectionConfig<'pages'> = {
     },
     pathField,
     slugField(),
+    isHomeField,
   ],
   hooks: {
     beforeValidate: [ensureSlug('title')],
-    afterChange: [redirectOnPathChange, revalidatePage],
-    beforeChange: [enforcePageSet, restrictedBlocksGuard(['body', 'sections']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
+    afterChange: [demoteOtherHomePages, redirectOnPathChange, revalidatePage],
+    beforeChange: [enforcePageSet, guardHomePage, restrictedBlocksGuard(['body', 'sections']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {

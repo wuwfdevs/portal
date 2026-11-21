@@ -3,7 +3,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { HOME_BLOCKS_PAGE, homepageToSections } from '@/lib/homepage/to-sections'
+import { HOME_PAGE, homepageToSections } from '@/lib/homepage/to-sections'
+import { resolveHome } from '@/utilities/resolvePath'
 
 // The home page as a page of blocks (PAGE-BLOCKS.md → Home): a publisher can save and publish it in the home set, every block it is made of is accepted, a block
 // of the home set is refused on any other page, and an editor cannot write in the set.
@@ -37,7 +38,7 @@ describe('the home page of blocks', () => {
       collection: 'pages',
       draft: false,
       ...asUser(publisher),
-      data: { title: `${HOME_BLOCKS_PAGE.title} ${run}`, slug: `${HOME_BLOCKS_PAGE.slug}-${run}`, path: `/it-home-blocks-${run}`, template: 'sections', pageSet: 'home', sections: sections(), noindex: true, _status: 'published' } as never,
+      data: { title: `${HOME_PAGE.title} ${run}`, slug: `${HOME_PAGE.slug}-${run}`, path: `/it-home-blocks-${run}`, template: 'sections', pageSet: 'home', sections: sections(), noindex: true, _status: 'published' } as never,
     })
     created.push({ collection: 'pages', id: page.id })
     const read = await payload.findByID({ collection: 'pages', id: page.id, depth: 0, overrideAccess: true })
@@ -52,5 +53,25 @@ describe('the home page of blocks', () => {
     await expect(
       payload.create({ collection: 'pages', draft: true, ...asUser(editor), data: { title: `Ed ${run}`, template: 'sections', pageSet: 'home', sections: sections(), _status: 'draft' } as never }),
     ).rejects.toThrow(/page set/)
+  })
+
+  it('serves the page marked as the home page at "/", with no path of its own, and never lets a page take "/" as a path', async () => {
+    const existing = (await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
+    if (!existing) {
+      const page = await payload.create({
+        collection: 'pages',
+        draft: false,
+        ...asUser(publisher),
+        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, isHome: true, template: 'sections', pageSet: 'home', sections: sections(), _status: 'published' } as never,
+      })
+      created.push({ collection: 'pages', id: page.id })
+      expect(page.path ?? null).toBeNull()
+    }
+    const home = await resolveHome(false)
+    expect(home?.isHome).toBe(true)
+    expect(home?.path ?? null).toBeNull()
+    await expect(
+      payload.create({ collection: 'pages', draft: false, ...asUser(publisher), data: { title: `Slash ${run}`, slug: `slash-${run}`, path: '/', template: 'sections', sections: [], _status: 'published' } as never }),
+    ).rejects.toThrow()
   })
 })

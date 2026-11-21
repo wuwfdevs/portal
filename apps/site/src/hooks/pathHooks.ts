@@ -73,7 +73,7 @@ export const pathBeforeChange =
     // A live blog is a story whose address is fixed by its slug, under /live-updates, and which needs no section.
     const isLive = kind === 'posts' && (data.format ?? originalDoc?.format) === 'live'
 
-    if (!path && status === 'published' && !(kind === 'pages' && slug === 'home')) {
+    if (!path && status === 'published' && !(kind === 'pages' && (data.isHome ?? originalDoc?.isHome))) {
       if (kind === 'pages') {
         if (!slug) invalid(kind, req, 'slug', 'A page needs an address name before it is published.')
         path = pagePath(slug)

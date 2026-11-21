@@ -53,7 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       return []
     })
 
-  // A banner set for every page (the Home page global's banner), through the cached global; if it cannot be read the page renders without it.
+  // A banner set for every page (the Site banner global), through the cached global; if it cannot be read the page renders without it.
   const banner = bannerFor(await loadBanner(), 'layout')
 
   return (

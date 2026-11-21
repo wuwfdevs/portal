@@ -4,7 +4,7 @@ import { cache } from 'react'
 
 import type { ArchiveItem, GivingSetting, Media, Post, Season } from '@/payload-types'
 
-import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 
 import { EPISODE_FIELDS, episodesOf, loadShowByPath, type Episode, type ShowData } from './load'
 import { currentSeason, groupBySeason, type SeasonGroup } from './seasons'

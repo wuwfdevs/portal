@@ -16,7 +16,7 @@ export type ListSpec =
   | { source: 'episodes'; all: true; count: number }
   | { source: 'shows' }
   | { source: 'videos'; count: number }
-  | { source: 'clips'; scope: 'latest'; count: number }
+  | { source: 'clips'; scope: 'latest'; count: number; firstSeries?: number | string }
   | { source: 'clips'; scope: 'section'; id: number | string; count: number }
   | { source: 'artists'; count: number }
 
@@ -26,7 +26,7 @@ const count = (v: unknown, fallback: number, max: number): number => {
 }
 
 /** What a List reads, or null when its source needs a section, topic or show that is not chosen (or was deleted: a bare id still counts, and reads nothing). */
-export function listSpecOf(block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown }): ListSpec | null {
+export function listSpecOf(block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown; series?: unknown }): ListSpec | null {
   const n = count(block.count, 6, LIST_MAX)
   switch (block.source) {
     case 'stories': {
@@ -49,7 +49,9 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
         const id = relationId(block.section)
         return id === null ? null : { source: 'clips', scope: 'section', id, count: n }
       }
-      return { source: 'clips', scope: 'latest', count: n }
+      // The newest, with one series' videos put first when the editor chose one (a series that was deleted leaves a bare id that matches nothing, so the newest show as they are).
+      const firstSeries = relationId(block.series)
+      return { source: 'clips', scope: 'latest', count: n, ...(firstSeries !== null ? { firstSeries } : {}) }
     }
     case 'artists':
       return { source: 'artists', count: n }

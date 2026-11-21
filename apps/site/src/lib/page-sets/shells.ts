@@ -4,9 +4,9 @@
  * that `/listens/<publicId>` does not take its address. The catch-all route builds a static page for every page record, so it must leave these out: a
  * prerendered copy has no request data and would be served instead of the shell (the hub then drew none of the Portal's questions, sessions or outcomes).
  *
- * `/home-blocks` is the home page built from blocks, beside the coded home page: its shell loads the sponsor tiles for the page set's slots (the home page's, and the banner's
- * hold on the top unit) and refreshes every five minutes, as `/` does.
+ * `/` is the home page, a page record whose address name is `home` (it has no path of its own): its shell loads the sponsor tiles for the page set's slots (and the banner's hold
+ * on the top unit) and refreshes every five minutes. The catch-all never serves `/`, so it is listed for the check's sake.
  *
  * `shells.test.ts` fails when a route that renders a record is missing from this list.
  */
-export const CODED_SHELL_PATHS: ReadonlySet<string> = new Set(['/support/ways', '/support/thanks', '/listens', '/listens/host', '/home-blocks'])
+export const CODED_SHELL_PATHS: ReadonlySet<string> = new Set(['/support/ways', '/support/thanks', '/listens', '/listens/host', '/'])
