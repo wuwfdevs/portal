@@ -5,10 +5,12 @@ import { Card, CardPostData } from '@/components/Card'
 
 export type Props = {
   posts: CardPostData[]
+  /** The cards' look (`Card`). A story the archive block loaded without its section draws no chip and keeps its topics line. */
+  variant?: 'default' | 'editorial'
 }
 
 export const CollectionArchive: React.FC<Props> = (props) => {
-  const { posts } = props
+  const { posts, variant = 'editorial' } = props
 
   return (
     <div className={cn('container')}>
@@ -18,7 +20,7 @@ export const CollectionArchive: React.FC<Props> = (props) => {
             if (typeof result === 'object' && result !== null) {
               return (
                 <div className="col-span-4" key={index}>
-                  <Card className="h-full" doc={result} showCategories />
+                  <Card className="h-full" doc={result} showCategories variant={variant} />
                 </div>
               )
             }

@@ -26,7 +26,7 @@ export const WidgetBlock: React.FC<WidgetBlockProps & { className?: string }> = 
   if (!doc || !script.ok) return <p className="not-prose my-6 font-sans text-base font-semibold text-ink-2">{title}</p>
   return (
     <figure className={cn('not-prose my-8', className)}>
-      <div className="w-full overflow-hidden rounded-sm bg-surface-3">
+      <div className="w-full overflow-hidden rounded-4 bg-surface-3">
         <WidgetFrame autoLoad={load === 'auto'} doc={doc} host={script.host} initialHeight={clampHeight(height ?? DEFAULT_WIDGET_HEIGHT)} title={title} />
       </div>
       {caption && <figcaption className="mt-2 font-sans text-sm text-ink-3">{caption}</figcaption>}

@@ -59,7 +59,7 @@ function Summary({ item }: { item: ListItem }) {
 
 function Picture({ item, className }: { item: ListItem; className: string }) {
   return item.image ? (
-    <div className={`overflow-hidden rounded-sm ${className}`}>
+    <div className={`overflow-hidden rounded-4 ${className}`}>
       <SectionImage className="size-full" image={item.image} imgClassName="size-full object-cover" />
     </div>
   ) : null

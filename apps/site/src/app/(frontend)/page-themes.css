@@ -11,6 +11,7 @@
   --tone-card: var(--color-surface);
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-wuwf-blue-100);
+  --tone-mark: var(--color-wuwf-blue-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -32,6 +33,7 @@
   --tone-card: var(--color-surface);
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-wuwf-blue-100);
+  --tone-mark: var(--color-wuwf-blue-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -53,6 +55,7 @@
   --tone-card: var(--color-surface);
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-surface);
+  --tone-mark: var(--color-wuwf-lime-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -74,6 +77,7 @@
   --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
   --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
   --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -95,6 +99,7 @@
   --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
   --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
   --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -116,6 +121,7 @@
   --tone-card: var(--color-surface);
   --tone-card-rule: var(--color-ink-3);
   --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --tone-mark: var(--color-wuwf-lime-600);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -137,6 +143,7 @@
   --tone-card: var(--color-surface);
   --tone-card-rule: var(--color-wuwf-lime-600);
   --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  --tone-mark: var(--color-wuwf-blue-100);
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }

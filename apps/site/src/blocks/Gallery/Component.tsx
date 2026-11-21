@@ -15,11 +15,11 @@ function Slide({ item, uniform = false }: { item: Item; uniform?: boolean }) {
       {uniform ? (
         // Galleries mix portrait and landscape pictures. A carousel gives each the same frame and shows the whole
         // picture inside it, so no slide towers over its neighbours and nothing is cropped.
-        <div className="relative aspect-[3/2] w-full overflow-hidden rounded-sm bg-surface-3">
+        <div className="relative aspect-[3/2] w-full overflow-hidden rounded-4 bg-surface-3">
           <Media imgClassName="absolute inset-0 size-full object-contain" resource={item.image} />
         </div>
       ) : (
-        <Media imgClassName="rounded-sm" resource={item.image} />
+        <Media imgClassName="rounded-4" resource={item.image} />
       )}
       {(item.title || item.caption || credit) && (
         <p className="font-sans text-sm text-ink-3">

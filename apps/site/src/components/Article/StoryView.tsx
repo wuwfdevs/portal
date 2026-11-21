@@ -9,6 +9,8 @@ import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
+import { Eyebrow, SectionHeading } from '@/components/Kit'
+import { TitledSection } from '@/components/TitledSection'
 import { InlineUnit } from '@/components/Placements'
 import { RelatedStories } from '@/components/Article/RelatedStories'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
@@ -23,6 +25,7 @@ import { storyFactsOf } from '@/lib/embeddings/present'
 import { loadRelatedStories } from '@/lib/embeddings/related'
 import { resolveTuning } from '@/lib/embeddings/tuning'
 import { formatLongDate } from '@/lib/format'
+import { sectionOf } from '@/lib/homepage/story'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { jsonLdText } from '@/lib/live/jsonld'
 import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
@@ -43,6 +46,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const fellowship = named(post.fellowship)
   const series = named(post.series)
   const production = named(post.production)
+  const section = named(post.section)
+  const sectionLabel = sectionOf({ section: post.section })
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
 
@@ -94,6 +99,20 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       {draft && <LivePreviewListener />}
 
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
+        {sectionLabel && (
+          // The story's section, as the boards' eyebrow: its colour's dot and its name, linked to the section's page when it has one.
+          <p>
+            <Eyebrow swatch={sectionLabel.swatch}>
+              {section?.slug ? (
+                <Link className="text-inherit hover:underline" href={`/${section.slug}`}>
+                  {sectionLabel.title}
+                </Link>
+              ) : (
+                sectionLabel.title
+              )}
+            </Eyebrow>
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {isVoyagerIdentity(post.publishingIdentity) && <Chip tone="teal">{VOYAGER_BADGE_LABEL}</Chip>}
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
@@ -104,7 +123,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           ))}
         </div>
 
-        <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">{post.title}</h1>
+        <SectionHeading as="h1" className="text-4xl leading-tight tracking-tight md:text-5xl">{post.title}</SectionHeading>
         {post.dek && <p className="font-serif text-xl text-ink-2 md:text-2xl">{post.dek}</p>}
 
         <div className="flex items-center gap-4 pt-2">
@@ -193,23 +212,18 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       </div>
 
       {fellowship && more.length > 0 && (
-        <section aria-labelledby="more-heading" className="container mt-16 flex flex-col gap-6">
-          <div className="flex items-baseline justify-between gap-4 border-b-2 border-ink pb-2">
-            <h2 className="font-serif text-2xl font-bold" id="more-heading">
-              More from {fellowship.title}
-            </h2>
-            {hubHref && (
-              <Link className="text-sm font-bold text-wuwf-blue-700" href={hubHref}>
-                Explore the project
-              </Link>
-            )}
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <TitledSection
+          className="container mt-16"
+          id="more-heading"
+          more={hubHref ? { href: hubHref, label: 'Explore the project' } : null}
+          title={`More from ${fellowship.title}`}
+        >
+          <div className="grid gap-6 gap-y-8 md:grid-cols-2 lg:grid-cols-4">
             {more.map((doc) => (
-              <Card doc={doc} key={doc.id} showCategories />
+              <Card doc={doc} fixedImage key={doc.id} showCategories variant="editorial" />
             ))}
           </div>
-        </section>
+        </TitledSection>
       )}
 
       <RelatedStories current={storyFactsOf(post)} stories={related} />
@@ -247,7 +261,7 @@ const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: stri
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, slug: true, path: true, categories: true, meta: true, publishingIdentity: true, featuredAudio: true },
+    select: { title: true, slug: true, path: true, section: true, categories: true, meta: true, publishingIdentity: true, featuredAudio: true },
     where: { and: [{ fellowship: { equals: fellowshipId } }, { id: { not_equals: exceptId } }] },
   })
   return result.docs

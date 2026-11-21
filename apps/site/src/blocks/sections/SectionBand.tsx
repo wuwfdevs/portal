@@ -1,5 +1,6 @@
 import React from 'react'
 
+import { SectionHeading as KitHeading } from '@/components/Kit'
 import { paragraphs } from '@/lib/page-content'
 import { isTone } from '@/lib/page-themes/themes'
 
@@ -67,7 +68,12 @@ export function SectionHeading({ heading, more }: { heading: SectionData['headin
   const words = (
     <header className="flex max-w-[44rem] flex-col gap-3">
       {eyebrow && <p className={eyebrowClass}>{eyebrow}</p>}
-      {title && <h2 className="font-serif text-3xl font-bold leading-tight md:text-[2rem]">{title}</h2>}
+      {title && (
+        // The Kit's heading (serif 600) with the band's own highlight (`--tone-mark`); its colour is the band's text, not the station's ink, so a dark band's title is light.
+        <KitHeading className="text-[color:var(--tone-text)] md:text-[2rem]" mark="tone">
+          {title}
+        </KitHeading>
+      )}
       {intro.length > 0 && (
         <div className="flex flex-col gap-3 text-lg [color:var(--tone-muted)]">
           {intro.map((p) => (

@@ -104,7 +104,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
         <div className={cn('grid items-center gap-8 md:grid-cols-2 md:gap-12', !hasImage && 'md:grid-cols-1')}>
           <div className={cn(block.imageSide === 'left' && 'md:order-2')}>{words}</div>
           {hasImage && (
-            <div className={cn('overflow-hidden rounded-sm', ratioClass(block.ratio), block.imageSide === 'left' && 'md:order-1')}>
+            <div className={cn('overflow-hidden rounded-4', ratioClass(block.ratio), block.imageSide === 'left' && 'md:order-1')}>
               <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" />
             </div>
           )}
@@ -123,7 +123,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
         words
       )}
       {hasImage && (
-        <div className="aspect-video overflow-hidden rounded-sm">
+        <div className="aspect-video overflow-hidden rounded-4">
           <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" priority />
         </div>
       )}

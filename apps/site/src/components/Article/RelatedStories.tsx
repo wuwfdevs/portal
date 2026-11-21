@@ -3,6 +3,7 @@ import React from 'react'
 
 import type { RelatedStory } from '@/lib/embeddings/related'
 
+import { SectionHeader } from '@/components/SectionHeader'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
 import { namedRecord, presentRelated, storyFactsOf, type RelatedFacts, type RelatedPresentation, type StoryFacts } from '@/lib/embeddings/present'
@@ -90,22 +91,18 @@ export const RelatedStories: React.FC<{ current: StoryFacts; now?: Date; stories
 
   return (
     <section aria-labelledby="related-heading" className="container mt-16 flex flex-col gap-8">
-      <div className="border-b-2 border-ink pb-3">
-        <h2 className="font-serif text-2xl font-bold md:text-3xl" id="related-heading">
-          More like this
-        </h2>
-      </div>
+      <SectionHeader id="related-heading" title="More like this" />
 
       <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-14">
         <article className={cn('relative flex min-w-0 flex-col gap-4', solo ? 'md:flex-row md:items-center md:gap-10 lg:grow' : 'lg:grow-3 lg:basis-0')}>
           {leadImage && (
-            <div className={cn('relative aspect-video w-full overflow-hidden rounded-sm bg-surface-3', solo && 'md:flex-1')}>
+            <div className={cn('relative aspect-video w-full overflow-hidden rounded-4 bg-surface-3', solo && 'md:flex-1')}>
               <Media imgClassName="absolute inset-0 size-full object-cover" resource={leadImage} size={solo ? '(min-width: 768px) 50vw, 100vw' : '(min-width: 1024px) 55vw, 100vw'} />
             </div>
           )}
-          <div className={cn('flex min-w-0 flex-col gap-3', solo && 'md:flex-1', !leadImage && 'rounded-sm bg-surface-2 p-5 md:p-8')}>
+          <div className={cn('flex min-w-0 flex-col gap-3', solo && 'md:flex-1', !leadImage && 'rounded-4 bg-surface-2 p-5 md:p-8')}>
             <Kicker presentation={leadPresentation} />
-            <Title className="text-2xl font-bold leading-tight tracking-tight md:text-3xl" story={lead} />
+            <Title className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl" story={lead} />
             {lead.meta?.description && <p className="line-clamp-3 text-lg text-ink-2">{lead.meta.description.replace(/\s/g, ' ')}</p>}
             <Meta presentation={leadPresentation} />
             <Listen story={lead} />
@@ -121,7 +118,7 @@ export const RelatedStories: React.FC<{ current: StoryFacts; now?: Date; stories
                 <li className="relative border-t border-rule py-5 first:border-t-0 first:pt-0" key={story.id}>
                   <div className="flex gap-4">
                     {image && (
-                      <div className="relative aspect-[3/2] w-28 shrink-0 self-start overflow-hidden rounded-sm bg-surface-3">
+                      <div className="relative aspect-[3/2] w-28 shrink-0 self-start overflow-hidden rounded-4 bg-surface-3">
                         <Media imgClassName="absolute inset-0 size-full object-cover" resource={image} size="112px" />
                       </div>
                     )}
