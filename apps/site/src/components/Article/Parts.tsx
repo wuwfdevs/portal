@@ -6,6 +6,7 @@ import type { Contributor, Media as MediaDoc } from '@/payload-types'
 import { Button } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
+import { listHref } from '@/lib/lists/route'
 import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
 export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: 'teal' | 'plain' }> = ({ children, href, tone = 'plain' }) => {
@@ -20,6 +21,28 @@ export const Chip: React.FC<{ children: React.ReactNode; href?: string; tone?: '
     </Link>
   ) : (
     <span className={base}>{children}</span>
+  )
+}
+
+/** A story's topics, as quiet links to each topic's page. Draws nothing for none, and no link for a topic with no slug. */
+export const TopicLinks: React.FC<{ topics: readonly { id: string | number; title: string; slug?: string | null }[] }> = ({ topics }) => {
+  const shown = topics.filter((t) => t.title.trim() !== '')
+  if (shown.length === 0) return null
+  return (
+    <nav aria-label="Topics" className="flex flex-wrap items-center gap-x-5 border-t border-rule pt-4">
+      <span className="text-xs font-bold uppercase tracking-widest text-ink-3">Filed under</span>
+      {shown.map((t) =>
+        t.slug ? (
+          <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-ink-2 underline decoration-rule-strong underline-offset-4 hover:text-ink" href={listHref('topic', t.slug)} key={t.id}>
+            {t.title}
+          </Link>
+        ) : (
+          <span className="inline-flex min-h-11 items-center text-sm text-ink-2" key={t.id}>
+            {t.title}
+          </span>
+        ),
+      )}
+    </nav>
   )
 }
 

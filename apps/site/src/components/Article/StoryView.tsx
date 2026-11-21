@@ -8,7 +8,7 @@ import type { Contributor, Media, Post } from '@/payload-types'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { trackFromAudio } from '@/lib/player/track'
 import { Acknowledgment } from '@/components/Acknowledgment'
-import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
+import { Avatar, AuthorBox, Chip, MembershipAppeal, TopicLinks } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { Eyebrow, SectionChip, SectionHeading } from '@/components/Kit'
 import { TitledSection } from '@/components/TitledSection'
@@ -121,9 +121,6 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
           {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}
-          {topics.map((t) => (
-            <Chip key={t.id}>Topic · {t.title}</Chip>
-          ))}
         </div>
 
         <SectionHeading as="h1" className="text-4xl leading-tight tracking-tight md:text-5xl">{post.title}</SectionHeading>
@@ -196,6 +193,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         )}
 
         <div className="mx-auto flex w-full max-w-[47.5rem] flex-col gap-8">
+          {/* Topics are navigation, so they sit where the reader finishes the story, not as a stack of pills above the headline. */}
+          <TopicLinks topics={topics} />
           {fellowship && (
             <section aria-labelledby="about-heading" className="flex flex-col gap-2 border-t border-rule pt-6">
               <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="about-heading">
