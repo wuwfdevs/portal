@@ -70,11 +70,11 @@ export const getPagesEntries = unstable_cache(
       limit: 5000,
       pagination: false,
       where: published,
-      select: { slug: true, path: true, updatedAt: true, publishedAt: true, legacy: { groveId: true, legacyPath: true, modifiedAt: true } },
+      select: { slug: true, path: true, isHome: true, updatedAt: true, publishedAt: true, legacy: { groveId: true, legacyPath: true, modifiedAt: true } },
     })
     const fixed: SitemapUrl[] = [{ loc: `${base}${pagePath('search')}` }, { loc: `${base}/posts` }]
     const pages = results.docs.flatMap((page) => {
-      const entry = sitemapEntry(page.slug === 'home' ? { ...page, path: '/' } : page, base)
+      const entry = sitemapEntry(page.isHome ? { ...page, path: '/' } : page, base)
       return entry ? [entry] : []
     })
     return [...fixed, ...pages]

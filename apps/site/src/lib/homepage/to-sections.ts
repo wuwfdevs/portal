@@ -97,7 +97,7 @@ export function homepageToSections(settings: HomepageFields | null | undefined):
 /** The home page's address: it is served at `/`, and the record has no path of its own (its address name is `home`). */
 export const HOME_PAGE_PATH = '/'
 
-/** The page record's address name, and what it says about itself. */
+/** The home page record: its address name, and what it says about itself. It is the page marked "Use as the home page" (`isHome`), not the one named `home`. */
 export const HOME_PAGE = {
   title: 'Home page',
   slug: 'home',

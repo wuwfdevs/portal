@@ -5,7 +5,7 @@ import { PayloadRequest } from 'payload'
 type Props = {
   collection: 'posts' | 'pages'
   /** What the admin has of the document: its address if it has one, else its id (a draft that was never published). */
-  data: { id?: string | number | null; path?: string | null; slug?: string | null } | null | undefined
+  data: { id?: string | number | null; path?: string | null; isHome?: boolean | null } | null | undefined
   req: PayloadRequest
 }
 
@@ -13,7 +13,7 @@ type Props = {
 export const generatePreviewPath = ({ collection, data }: Props): string | null => {
   let target: string | null = null
   if (data?.path) target = data.path
-  else if (collection === 'pages' && data?.slug === 'home') target = '/'
+  else if (collection === 'pages' && data?.isHome) target = '/'
   else if (data?.id !== undefined && data?.id !== null) target = draftPreviewPath(collection, data.id)
   if (!target) return null
 

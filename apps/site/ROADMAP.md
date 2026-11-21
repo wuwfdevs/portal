@@ -2290,8 +2290,8 @@ rewritten** (see *Lessons*): the launch run replays the same files staging alrea
    a one-off build with `MIGRATE_ON_BUILD=1` set for that build only and removed after. A sandbox session has HTTPS only and cannot do this.
 3. Verify like staging: the tables exist and are owned by `payload_app`, `payload_migrations` has one row per file in `src/migrations`, pgvector answers, and
    `anon` and `authenticated` have no access to the new tables.
-4. **Create the home page.** The migrations rename the owner's page where there is one, and production has none: the home page is the page whose address name is `home` (Pages → New, in the
-   home set; or `pnpm seed:home` from a machine that may write there, which today refuses anything but staging, so copy staging's page by hand or lift the guard for the launch). Without
+4. **Create the home page.** The migrations rename the owner's page where there is one, and production has none: the home page is the page with "Use as the home page" ticked (Pages → New, in the
+   home set, then tick the box in the sidebar and publish; or `pnpm seed:home` from a machine that may write there, which today refuses anything but staging, so copy staging's page by hand or lift the guard for the launch). Without
    it `/` is a 404. Check `/` renders before pointing the domain.
 5. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
 

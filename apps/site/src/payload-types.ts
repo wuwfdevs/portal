@@ -3737,6 +3737,10 @@ export interface Page {
    */
   generateSlug?: boolean | null;
   slug: string;
+  /**
+   * The front page of the site, at wuwf.org. Ticking this and publishing makes this page the home page and unticks the current one (which then gets an address from its own address name). The home page cannot be unticked: tick another page instead.
+   */
+  isHome?: boolean | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -5322,6 +5326,7 @@ export interface PagesSelect<T extends boolean = true> {
   path?: T;
   generateSlug?: T;
   slug?: T;
+  isHome?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

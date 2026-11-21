@@ -36,7 +36,7 @@ code (phase 5).
 | Record with a fixed template | its own collection (unchanged) | Stories, shows, episodes, artists, RadioLive shows, fellowships, clips, live blogs, section and topic lists |
 | Application | coded route (unchanged) | Listening flows, account, search, community calendar, event submission |
 | Settings and shared data | globals | Header, footer, site settings, listen live, giving settings, sponsorship settings |
-| **Done (2026-11-21)** | Home | The home page is a page record in the home set whose address name is `home`, served at `/` by a coded shell; the `homepage` global is retired (hidden, read by nothing, dropped in the next cleanup). The banner is the Site banner global. See *Home*, below |
+| **Done (2026-11-21)** | Home | The home page is the page record in the home set with "Use as the home page" ticked, served at `/` by a coded shell; the `homepage` global is retired (hidden, read by nothing, dropped in the next cleanup). The banner is the Site banner global. See *Home*, below |
 
 ## Open decisions for the owner
 
@@ -492,8 +492,8 @@ lead and The Briefing, curated or the newest of WUWF's own), **Fellowship featur
 **Feature panels** (RadioLive and Unearthing Florida), plus the library's **List** with the new **Short videos** source. The Banner is the site banner (a global in the layout), not a block.
 
 **Switched 2026-11-21.** The page of blocks is the home page. The record the owner compared at `/home-blocks` was **renamed in place** by the migration `20261121_055549_home_page_record_site_banner`
-(address name `home`, no path of its own, title "Home page", indexed; the page and its versions), so every edit made while comparing is kept. `/` is a coded shell (`app/(frontend)/page.tsx`,
-in `CODED_SHELL_PATHS`, refreshed every five minutes) that renders the record through `SectionsRoute` (`path === '/'` loads it with `resolveHome`) and loads what a block never reads itself:
+("Use as the home page" ticked, address name `home`, no path of its own, title "Home page", indexed; the page and its versions), so every edit made while comparing is kept. `/` is a coded shell (`app/(frontend)/page.tsx`,
+in `CODED_SHELL_PATHS`, refreshed every five minutes) that renders the record through `SectionsRoute` (`path === '/'` loads the page with the box ticked, `resolveHome`) and loads what a block never reads itself:
 the sponsor tiles for the set's slots and the site banner. `/home-blocks` redirects to `/`. The coded page (`HomepageView`, `loadHomepage`, `loadHomepageSlots`) is deleted.
 
 **Where everything the Home page global held went:**

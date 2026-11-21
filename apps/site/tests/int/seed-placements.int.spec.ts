@@ -61,12 +61,12 @@ describe('the staging demonstration for news sections and placements', () => {
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
-    const home = (await payload.find({ collection: 'pages', where: { slug: { equals: 'home' } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
+    const home = (await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
     if (home) {
       homeId = home.id
       savedHomeSections = home.sections
     } else {
-      const made = await payload.create({ collection: 'pages', draft: false, overrideAccess: true, context: ctx, data: { title: 'Home page', slug: 'home', generateSlug: false, template: 'sections', pageSet: 'home', sections: [], _status: 'published' } as never })
+      const made = await payload.create({ collection: 'pages', draft: false, overrideAccess: true, context: ctx, data: { title: 'Home page', slug: 'home', generateSlug: false, isHome: true, template: 'sections', pageSet: 'home', sections: [], _status: 'published' } as never })
       homeId = made.id
       madeHome = true
     }

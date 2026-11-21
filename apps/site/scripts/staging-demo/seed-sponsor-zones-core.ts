@@ -123,7 +123,7 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
   }
 
   // ---- the home page, when this database has none: written from the retired Home page global's words ----------------------------------------
-  if (await first('pages', { slug: { equals: HOME_PAGE.slug } })) note('kept', 'the home page')
+  if (await first('pages', { isHome: { equals: true } })) note('kept', 'the home page')
   else {
     const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as HomepageFields
     const { sections } = homepageToSections(home)
@@ -133,7 +133,7 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
         draft: false,
         overrideAccess: true,
         context: ctx,
-        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, template: 'sections', pageSet: HOME_PAGE.pageSet, sections, meta: { title: HOME_PAGE.seoTitle, description: HOME_PAGE.summary }, _status: 'published' } as never,
+        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, isHome: true, template: 'sections', pageSet: HOME_PAGE.pageSet, sections, meta: { title: HOME_PAGE.seoTitle, description: HOME_PAGE.summary }, _status: 'published' } as never,
       })
     }
     note('made', `the home page (${sections.length} sections)`)

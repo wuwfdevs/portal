@@ -55,20 +55,20 @@ describe('the home page of blocks', () => {
     ).rejects.toThrow(/page set/)
   })
 
-  it('serves the page whose address name is "home" at "/", with no path of its own, and never lets a page take "/" as a path', async () => {
-    const existing = (await payload.find({ collection: 'pages', where: { slug: { equals: HOME_PAGE.slug } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
+  it('serves the page marked as the home page at "/", with no path of its own, and never lets a page take "/" as a path', async () => {
+    const existing = (await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
     if (!existing) {
       const page = await payload.create({
         collection: 'pages',
         draft: false,
         ...asUser(publisher),
-        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, template: 'sections', pageSet: 'home', sections: sections(), _status: 'published' } as never,
+        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, isHome: true, template: 'sections', pageSet: 'home', sections: sections(), _status: 'published' } as never,
       })
       created.push({ collection: 'pages', id: page.id })
       expect(page.path ?? null).toBeNull()
     }
     const home = await resolveHome(false)
-    expect(home?.slug).toBe(HOME_PAGE.slug)
+    expect(home?.isHome).toBe(true)
     expect(home?.path ?? null).toBeNull()
     await expect(
       payload.create({ collection: 'pages', draft: false, ...asUser(publisher), data: { title: `Slash ${run}`, slug: `slash-${run}`, path: '/', template: 'sections', sections: [], _status: 'published' } as never }),

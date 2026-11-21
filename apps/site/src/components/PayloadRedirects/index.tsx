@@ -25,7 +25,7 @@ export const PayloadRedirects: React.FC<Props> = async ({ disableNotFound, url }
     // so a target the public can read arrives populated; one they cannot (unpublished) stays an id and does not redirect.
     const ref = redirectItem.to?.reference
     const target = ref && typeof ref.value === 'object' ? (ref.value as Page | Post) : null
-    const redirectUrl = target?.path ?? (ref?.relationTo === 'pages' && target?.slug === 'home' ? '/' : null)
+    const redirectUrl = target?.path ?? (ref?.relationTo === 'pages' && (target as Page | null)?.isHome ? '/' : null)
 
     if (redirectUrl) permanentRedirect(redirectUrl)
   }

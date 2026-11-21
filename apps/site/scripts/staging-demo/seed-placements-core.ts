@@ -95,7 +95,7 @@ export async function seedPlacementsDemo(payload: Payload, opts: SeedOptions): P
   // The home page is a page record (a News run block per section). Runs are added after the last one, only while there are fewer than three; a database with no home page is
   // left without (the sponsor-zones seed writes one).
   type Run = { id?: string; blockType: string; section?: string | number | { id: string | number } | null; [field: string]: unknown }
-  const homePage = await first<{ id: string | number; sections?: Run[] | null }>('pages', { slug: { equals: 'home' } })
+  const homePage = await first<{ id: string | number; sections?: Run[] | null }>('pages', { isHome: { equals: true } })
   if (!homePage) note('skipped', 'home page news runs: there is no home page here')
   else {
     const sections: Run[] = homePage.sections ?? []

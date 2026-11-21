@@ -8,5 +8,5 @@ export const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }
   }
   // A story or page is linked by its address. A record with none yet (never published) has nowhere to link to.
   const path = (value as { path?: string | null }).path
-  return path || (relationTo === 'pages' && value.slug === 'home' ? '/' : '#')
+  return path || (relationTo === 'pages' && (value as { isHome?: boolean | null }).isHome ? '/' : '#')
 }

@@ -21,7 +21,7 @@ const madeHere: { collection: 'sections'; id: number | string }[] = []
 let savedBanner: Record<string, unknown>
 // The seed writes a home page only where there is none; a database that already has one keeps it, and the test must not delete it.
 let homeExisted = false
-const homeCount = async () => (await payload.find({ collection: 'pages', where: { slug: { equals: 'home' } }, limit: 1, depth: 0, overrideAccess: true, draft: true })).totalDocs
+const homeCount = async () => (await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, overrideAccess: true, draft: true })).totalDocs
 
 const clean = async () => {
   for (const collection of ['placement-items', 'sponsors'] as const) {
@@ -31,7 +31,7 @@ const clean = async () => {
   const media = await payload.find({ collection: 'media', where: { 'legacy.sourceUrl': { like: 'demonstration:' } }, limit: 20, depth: 0, pagination: false, overrideAccess: true })
   for (const m of media.docs) await payload.delete({ collection: 'media', id: m.id, overrideAccess: true, context: ctx }).catch(() => undefined)
   if (!homeExisted) {
-    const pages = await payload.find({ collection: 'pages', where: { slug: { equals: 'home' } }, limit: 5, depth: 0, overrideAccess: true, draft: true })
+    const pages = await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 5, depth: 0, overrideAccess: true, draft: true })
     for (const p of pages.docs) await payload.delete({ collection: 'pages', id: p.id, overrideAccess: true, context: ctx }).catch(() => undefined)
   }
 }
@@ -83,7 +83,7 @@ describe('the staging demonstration for the top units and story zones', () => {
     expect(resolveZone('story.inline', storyPage({ section: other.id }), records, NOW)).toEqual([])
     const banner = (await payload.findGlobal({ slug: 'site-banner', depth: 0, overrideAccess: true })) as unknown as { active: boolean; style: string; scope: string }
     expect(banner).toMatchObject({ active: true, style: 'notice', scope: 'home' })
-    const page = await payload.find({ collection: 'pages', where: { slug: { equals: 'home' } }, limit: 1, depth: 0, overrideAccess: true })
+    const page = await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, overrideAccess: true })
     expect(page.docs[0]).toMatchObject({ pageSet: 'home', template: 'sections' })
     if (!homeExisted) expect(page.docs[0]).toMatchObject({ noindex: false, _status: 'published' })
   }, 120_000)

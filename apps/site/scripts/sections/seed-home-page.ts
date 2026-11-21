@@ -49,13 +49,14 @@ const data = {
   title: HOME_PAGE.title,
   slug: HOME_PAGE.slug,
   generateSlug: false,
+  isHome: true,
   template: 'sections',
   pageSet: HOME_PAGE.pageSet,
   sections,
   meta: { title: HOME_PAGE.seoTitle, description: HOME_PAGE.summary },
   _status: publish ? 'published' : 'draft',
 }
-const existing = await payload.find({ collection: 'pages', where: { slug: { equals: HOME_PAGE.slug } }, limit: 1, depth: 0, draft: true, overrideAccess: true })
+const existing = await payload.find({ collection: 'pages', where: { isHome: { equals: true } }, limit: 1, depth: 0, draft: true, overrideAccess: true })
 if (existing.docs[0] && !replace) {
   console.log(`The home page already exists (page ${existing.docs[0].id}); nothing written. Pass --replace to replace its sections.`)
   process.exit(0)
