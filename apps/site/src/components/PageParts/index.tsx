@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { buttonClasses, type ButtonVariant as KitButtonVariant } from '@/components/Kit/button'
+import { eyebrowLabel } from '@/components/Kit/Eyebrow'
 import { linkOf, paragraphs } from '@/lib/page-content'
 import { supportHref } from '@/lib/support-link'
 import { cn } from '@/utilities/ui'
@@ -12,12 +14,12 @@ import { cn } from '@/utilities/ui'
  * one-off value. A page that needs the same arrangement a second time uses these instead of building its own.
  */
 
-export const eyebrow = 'text-xs font-bold uppercase tracking-[0.08em]'
-export const buttonBase = 'inline-flex min-h-12 items-center justify-center rounded-sm px-6 text-base font-bold no-underline hover:no-underline'
-export const buttonPrimary = `${buttonBase} bg-wuwf-blue-700 text-surface hover:bg-wuwf-blue-600`
-export const buttonOnDark = `${buttonBase} bg-wuwf-lime text-surface-dark hover:bg-wuwf-lime-600`
-export const buttonOutline = `${buttonBase} border border-rule-strong bg-surface text-ink hover:bg-surface-2`
-export const buttonOutlineOnDark = `${buttonBase} border border-surface-dark-line text-surface hover:bg-surface-dark-hover`
+export const eyebrow = eyebrowLabel
+const lg = (variant: KitButtonVariant) => buttonClasses({ variant, size: 'lg' })
+export const buttonPrimary = lg('action')
+export const buttonOnDark = lg('onDark')
+export const buttonOutline = lg('outline')
+export const buttonOutlineOnDark = lg('outlineOnDark')
 export const card = 'flex flex-col gap-1.5 rounded-sm border border-rule-strong bg-surface p-5'
 export const textLink = 'font-semibold text-wuwf-blue-700 underline underline-offset-2'
 

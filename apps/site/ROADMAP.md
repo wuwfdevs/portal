@@ -7,6 +7,32 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Direction C2, "bright editorial" (2026-11-21; slices 1 to 3 built on `claude/c2-bright-editorial-qhz7yd`, PR 391; slices 4 to 6 not started)
+
+A look change, not a structure change: type weight, corners, chips, buttons, a small colour system for sections, and how a heading is marked. The design is the canvas's boards 1k to 1s ("WUWF.org Home Redesign", https://claude.ai/artifact/CsNftes58pxVRKSFACUEFb; read a board with the Artifact tool, `path: project/<file>`: `DirectionKit.dc.html` is the kit and the place to start, `DirectionBrightPlus` the home page, `DirectionBrightPhone` its phone, `C2Story`, `C2StoryPhone`, `C2List`, `C2Sections`, `C2Hubs`). A board is a mockup: its inline styles name the intent, the Tailwind classes and tokens are the implementation.
+
+**Decided (do not reopen):** lime is allowed on white for the play button and heading marks. The Voyager keeps its masthead. The phone player bar stays as built, with a lime play disc. Untouched: `components/Placements`, `components/Acknowledgment`, the sections' tone model, the starter's `--radius` (it governs the form controls), the themed-show system, the Payload admin.
+
+**The colour is a swatch, not a "desk".** The board's word "desk" has no meaning in this repo (a section is only the first part of a story's address), so the brief's idea of desks derived from sections, fellowships and the Voyager was dropped. An editor gives each **section** a **Colour** from a fixed palette (`lib/swatches.ts`: blue, lime, amber, teal, slate; field `sections.swatch`, default blue). Never a typed colour: every swatch is token classes whose contrast `swatches.test.ts` checks, so no choice can be unreadable. A new colour is one entry there plus its tokens. Topics (categories) have no colour. Fellowships keep their teal `Chip` and the Voyager badge is untouched; nothing maps them to a swatch. No section-to-colour mapping was applied (every section reads blue until the owner assigns them in the admin).
+
+**Built:**
+- Slice 1, tokens: `r-4` (16px, `rounded-4`), `wuwf-teal-100`, headline styles at weight 600 (no component reads that yet; they still set `font-bold`).
+- Slice 2, `components/Kit/`: `Button` / `buttonClasses` (pill, `md` 44px, `lg` 48px; variants `primary` ink, `action` blue, `play` lime, `outline`, `onDark`, `outlineOnDark`, `tone`, `toneOutline`, `link`), `Eyebrow`, `SectionHeading` (serif 600 with an optional `.mark`), `SectionChip` (`pill` or `dot`), `NumberBadge`. The button constants in `PageParts`, `Listening/styles.ts`, `blocks/sections/parts.tsx` and `listening-parts.tsx` delegate to `buttonClasses`, so a button is defined once; those buttons are now pills (the only visible change so far).
+- Slice 3: `Sections.swatch` (migration `20261121_010545_sections_swatch`, additive, **applied to staging and verified 2026-11-21**; production waits for launch) and `sectionOf(story)` in `lib/homepage/story.ts` (title and swatch of a loaded section; `kickerOf` is unchanged).
+
+**Next, in order** (each its own change; screenshots at 1440 and 390 as review evidence):
+4. The home page: `HomepageView`, `Slots.tsx`, `FrontPage.tsx`, `PlayAudioButton` (idle `bg-wuwf-lime text-surface-dark`), `MembershipAppeal`. `Card` gets `variant="editorial"` and `lead`, and its section chip: **`Card` draws no section label today**, so this is where it takes `{ title, swatch }` from `sectionOf`. A lead band wash `bg-gradient-to-b from-wuwf-blue-100/45 to-surface`.
+5. Story, list and sections pages. Add `--tone-mark` per tone in `lib/page-themes/themes.ts` (plain and grey `wuwf-blue-100`; accent `wuwf-lime-100`; dark and teal `wuwf-lime`; lime `wuwf-lime-600`; softlime `wuwf-blue-100`) and regenerate `page-themes.css`; `SectionHeading mark="tone"` reads it and draws no mark until it exists. Block media `rounded-4`, block cards stay `rounded-lg`.
+6. The hubs (RadioLive, Unearthing Florida: replace `#E9D5A8` and the svg hex with `warning-*`), and the Voyager chip only.
+
+**Things the next session will trip on:**
+- `components/SectionHeader` is the coded sections' heading and `CLAUDE.md` says not to hand-build one. Make it **draw through `SectionHeading`** (and `TitledSection` follows) rather than putting `SectionHeading` beside it; the `border-b-2 border-ink` rule it draws is what C2 replaces.
+- Two colours miss 4.5:1 as the board draws them: Lime's pill text is `ink-2` instead of `success-fg` (4.39:1 on the lime tint); a darker green token would restore the board. `action` (blue) exists so the Listening screens keep their blue and ink hierarchy; whether the ~25 inline blue buttons become ink is decided as pages migrate.
+- The Portal's `src/lib/design-tokens.ts` is not changed: it has no `wuwf-teal` to mirror a tint of.
+- The cloud sandbox's Postgres stops when the worker restarts; run `bash scripts/dev/pg-up.sh` before `tests/int`, or every spec fails with `ECONNREFUSED` (that looks like a failure of the change and is not).
+- Known failures that are not C2's: `pnpm lint` has one error in `ListenLive/PlayerProvider.test.ts`, and vitest reports one unhandled Payload-config error from `src/globals/hooks/revalidateSiteSettings.test.ts`; both reproduce on the base commit.
+- The routes whose buttons changed shape in slice 2 (sponsor inquiry form and rate estimator, the giving donate card, the listening screens) were checked only as markup, never in a browser. Look at them on a preview.
+
 ## Proposed: pages built from sections (2026-11-19; a plan, nothing built)
 
 `PAGE-BLOCKS.md` is a plan to move every editor-composed page (sponsor, giving, the hubs) into the `pages` collection as an ordered list

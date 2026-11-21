@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { buttonClasses } from '@/components/Kit/button'
+import { eyebrowLabel } from '@/components/Kit/Eyebrow'
 import { Media } from '@/components/Media'
 import { isInternalHref, safeHref } from '@/lib/section-links'
 import { cn } from '@/utilities/ui'
@@ -17,9 +19,8 @@ export interface ActionData {
   href?: string | null
 }
 
-const buttonBase = 'inline-flex min-h-11 items-center justify-center rounded-sm px-5 text-[0.9375rem] font-bold no-underline hover:no-underline'
-const primary = `${buttonBase} [background-color:var(--tone-button)] [color:var(--tone-button-text)] hover:opacity-90`
-const secondary = `${buttonBase} [color:var(--tone-ghost)] shadow-[inset_0_0_0_1.5px_currentColor] hover:opacity-80`
+const primary = buttonClasses({ variant: 'tone' })
+const secondary = buttonClasses({ variant: 'toneOutline' })
 
 /** The buttons of a band: the first is filled, the others outlined. A button with no label or no safe address is not drawn. */
 export function SectionActions({ actions, className }: { actions: ReadonlyArray<ActionData | null | undefined> | null | undefined; className?: string }) {
@@ -77,7 +78,7 @@ export function SectionImage({ image, className, imgClassName, priority }: { ima
 }
 
 /** The small label above a heading: an eyebrow, a date line. */
-export const eyebrowClass = 'text-xs font-bold uppercase tracking-[0.08em] [color:var(--tone-accent)]'
+export const eyebrowClass = `${eyebrowLabel} [color:var(--tone-accent)]`
 
 /** The optional link under a block's content (`moreLinkFields`). Nothing is drawn without a label or a safe address. */
 export function SectionMore({ block }: { block: { moreLabel?: string | null; moreHref?: string | null } }) {

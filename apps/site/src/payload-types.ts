@@ -978,6 +978,10 @@ export interface Section {
    * For the section page, when there is one.
    */
   description?: string | null;
+  /**
+   * The colour family of this section's name where the site draws it as a chip, a small label or a heading highlight. Looks only: it changes no address and no story.
+   */
+  swatch?: ('blue' | 'lime' | 'amber' | 'teal' | 'slate') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -5698,6 +5702,7 @@ export interface SectionsSelect<T extends boolean = true> {
   generateSlug?: T;
   slug?: T;
   description?: T;
+  swatch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
