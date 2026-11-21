@@ -17,12 +17,12 @@ export function ArtistPageView({ artist, shows }: { artist: ArtistView; shows: S
         </nav>
         <header className="flex flex-wrap gap-8">
           {artist.photo && (
-            <div className="relative aspect-[4/5] w-full max-w-[16rem] overflow-hidden rounded-sm border border-surface-dark-line bg-surface-dark-hover">
+            <div className="relative aspect-[4/5] w-full max-w-[16rem] overflow-hidden rounded-4 border border-surface-dark-line bg-surface-dark-hover">
               <Media imgClassName="absolute inset-0 size-full object-cover" priority resource={artist.photo} size="256px" />
             </div>
           )}
           <div className="flex min-w-0 flex-[1_1_22rem] flex-col gap-3">
-            <h1 className="font-serif text-4xl font-bold leading-tight md:text-5xl">{artist.name}</h1>
+            <h1 className="font-serif text-4xl font-semibold leading-tight md:text-5xl">{artist.name}</h1>
             {artist.bio && <p className="max-w-[40rem] text-lg text-surface-dark-text">{artist.bio}</p>}
             {artist.link && (
               <a className="inline-flex min-h-11 items-center font-bold text-wuwf-lime" href={artist.link} rel="noopener noreferrer">
@@ -32,7 +32,7 @@ export function ArtistPageView({ artist, shows }: { artist: ArtistView; shows: S
           </div>
         </header>
         <section aria-labelledby="shows-heading" className="flex max-w-[52rem] flex-col gap-3">
-          <h2 className="font-serif text-2xl font-bold" id="shows-heading">
+          <h2 className="font-serif text-2xl font-semibold" id="shows-heading">
             RadioLive shows
           </h2>
           <ul>
@@ -41,7 +41,7 @@ export function ArtistPageView({ artist, shows }: { artist: ArtistView; shows: S
                 <Link className="flex min-h-11 flex-wrap items-baseline gap-x-4 py-3 text-surface hover:no-underline" href={`/radiolive/${s.slug}`}>
                   <span className="text-sm text-surface-dark-text">{dateParts(s.startsAt).long}</span>
                   <span className="font-bold">{performanceTitle(s)}</span>
-                  {s.recording && <span className="rounded-sm bg-ink px-1.5 py-0.5 text-[11px] font-bold">Watch</span>}
+                  {s.recording && <span className="rounded-pill bg-surface/90 px-2 py-0.5 text-[11px] font-bold text-surface-dark">Watch</span>}
                 </Link>
               </li>
             ))}

@@ -9,7 +9,7 @@ import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
-import { Eyebrow, SectionHeading } from '@/components/Kit'
+import { Eyebrow, SectionChip, SectionHeading } from '@/components/Kit'
 import { TitledSection } from '@/components/TitledSection'
 import { InlineUnit } from '@/components/Placements'
 import { RelatedStories } from '@/components/Article/RelatedStories'
@@ -114,7 +114,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          {isVoyagerIdentity(post.publishingIdentity) && <Chip tone="teal">{VOYAGER_BADGE_LABEL}</Chip>}
+          {isVoyagerIdentity(post.publishingIdentity) && <SectionChip label={VOYAGER_BADGE_LABEL} swatch="teal" />}
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
           {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}

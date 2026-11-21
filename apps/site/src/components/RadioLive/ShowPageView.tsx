@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { Button, Eyebrow } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { dateParts, hasHappened, performanceTitle } from '@/lib/radiolive/arrange'
 import type { ArtistView, ShowView } from '@/lib/radiolive/load'
 
 import { RecordingPlayer } from './parts'
-
-const kicker = 'text-xs font-bold uppercase tracking-widest'
 
 /**
  * One RadioLive show: before it, the lineup and how to get tickets; after it, the recorded set. Same dark look as the RadioLive page.
@@ -26,10 +25,10 @@ export function ShowPageView({ show }: { show: ShowView }) {
           </Link>
         </nav>
         <header className="flex max-w-[52rem] flex-col gap-3">
-          <p className={`${kicker} text-wuwf-lime`}>
+          <Eyebrow className="text-wuwf-lime" swatch="lime">
             {d.weekday}, {d.long} · {d.time}
-          </p>
-          <h1 className="font-serif text-4xl font-bold leading-tight md:text-5xl">{performanceTitle(show)}</h1>
+          </Eyebrow>
+          <h1 className="font-serif text-4xl font-semibold leading-tight md:text-5xl">{performanceTitle(show)}</h1>
           {show.venue && <p className="text-lg text-surface-dark-text">{show.venue}</p>}
           {show.description && <p className="text-lg text-surface-dark-text">{show.description}</p>}
         </header>
@@ -39,41 +38,41 @@ export function ShowPageView({ show }: { show: ShowView }) {
             <RecordingPlayer show={show} />
           </div>
         ) : over ? (
-          <p className="max-w-[52rem] rounded-sm border border-surface-dark-line px-4 py-3 text-surface-dark-text">This show took place on {d.long}. Its recording is not posted yet.</p>
+          <p className="max-w-[52rem] rounded-lg border border-surface-dark-line px-4 py-3 text-surface-dark-text">This show took place on {d.long}. Its recording is not posted yet.</p>
         ) : (
           <div className="flex max-w-[52rem] flex-col items-start gap-3">
             {show.tickets.href ? (
-              <a className="inline-flex min-h-[3.25rem] items-center rounded-sm bg-wuwf-lime px-6 text-base font-bold text-surface-dark hover:bg-surface hover:no-underline" href={show.tickets.href} rel="noopener noreferrer">
+              <Button href={show.tickets.href} size="lg" variant="onDark">
                 {show.tickets.label}
-              </a>
+              </Button>
             ) : (
-              <p className="rounded-sm border border-surface-dark-line px-4 py-3 font-bold">{show.tickets.label}</p>
+              <p className="rounded-pill border border-surface-dark-line px-4 py-3 font-bold">{show.tickets.label}</p>
             )}
             {show.virtualTickets && (
-              <a className="inline-flex min-h-11 items-center rounded-sm border border-surface-dark-text px-4 font-bold text-surface hover:no-underline" href={show.virtualTickets.href} rel="noopener noreferrer">
+              <Button href={show.virtualTickets.href} variant="outlineOnDark">
                 {show.virtualTickets.label}
-              </a>
+              </Button>
             )}
             <p className="text-sm text-surface-dark-text">Tickets are sold through the venue&apos;s ticketing site, not by WUWF. Every show is also on the air on 88.1 FM.</p>
           </div>
         )}
 
         {show.photo && !show.recording && (
-          <div className="relative aspect-[16/9] max-w-[56rem] overflow-hidden rounded-sm bg-surface-dark-hover">
+          <div className="relative aspect-[16/9] max-w-[56rem] overflow-hidden rounded-4 bg-surface-dark-hover">
             <Media imgClassName="absolute inset-0 size-full object-cover" resource={show.photo} />
           </div>
         )}
 
         {show.lineup.length > 0 && (
           <section aria-labelledby="lineup-heading" className="flex flex-col gap-4">
-            <h2 className="font-serif text-2xl font-bold" id="lineup-heading">
+            <h2 className="font-serif text-2xl font-semibold" id="lineup-heading">
               The lineup
             </h2>
             <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,9.5rem),1fr))]">
               {show.lineup.map((a: ArtistView) => (
                 <li key={a.slug}>
                   <Link className="flex flex-col gap-2 text-surface hover:no-underline" href={`/radiolive/artists/${a.slug}`}>
-                    <span className="relative block aspect-[4/5] overflow-hidden rounded-sm border border-surface-dark-line bg-surface-dark-hover">
+                    <span className="relative block aspect-[4/5] overflow-hidden rounded-4 border border-surface-dark-line bg-surface-dark-hover">
                       {a.photo && <Media imgClassName="absolute inset-0 size-full object-cover" resource={a.photo} size="20vw" />}
                     </span>
                     <strong className="text-lg leading-snug">{a.name}</strong>
