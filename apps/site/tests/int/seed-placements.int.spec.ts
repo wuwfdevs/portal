@@ -17,7 +17,24 @@ const ctx = { disableRevalidate: true, disableEmbedding: true }
 const NOW = new Date()
 let payload: Payload
 const madeHere: { collection: 'sections' | 'contributors' | 'categories' | 'placement-items' | 'media'; id: number | string }[] = []
-let savedModules: unknown
+// The home page is a page record (a News run block per section): the test borrows the one this database has (and puts its sections back), or makes one.
+let homeId: number | string
+let savedHomeSections: unknown
+let madeHome = false
+const runBlock = (heading: string, section: number | string, i: number) => ({ id: `t-${i}`, blockType: 'sectionNewsRun', tone: 'plain', hidden: false, section, count: 5, heading: { title: heading } })
+const setRuns = (runs: { heading: string; section: number | string }[]) =>
+  payload.update({
+    collection: 'pages',
+    id: homeId,
+    draft: false,
+    overrideAccess: true,
+    context: ctx,
+    data: { sections: [{ id: 'front', blockType: 'sectionFrontPage', tone: 'plain', hidden: false }, ...runs.map((r, i) => runBlock(r.heading, r.section, i))] } as never,
+  })
+const runHeadings = async () =>
+  (((await payload.findByID({ collection: 'pages', id: homeId, depth: 0, draft: false, overrideAccess: true })).sections ?? []) as unknown as Array<{ blockType: string; heading?: { title?: string } }>)
+    .filter((b) => b.blockType === 'sectionNewsRun')
+    .map((b) => b.heading?.title)
 
 const cleanDemo = async () => {
   for (const collection of ['placement-items', 'posts', 'sponsors'] as const) {
@@ -44,7 +61,15 @@ describe('the staging demonstration for news sections and placements', () => {
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
-    savedModules = ((await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })).newsModules ?? []).map((m) => ({ heading: m.heading, section: typeof m.section === 'object' && m.section ? m.section.id : m.section, count: m.count, enabled: m.enabled }))
+    const home = (await payload.find({ collection: 'pages', where: { slug: { equals: 'home' } }, limit: 1, depth: 0, draft: true, overrideAccess: true })).docs[0]
+    if (home) {
+      homeId = home.id
+      savedHomeSections = home.sections
+    } else {
+      const made = await payload.create({ collection: 'pages', draft: false, overrideAccess: true, context: ctx, data: { title: 'Home page', slug: 'home', generateSlug: false, template: 'sections', pageSet: 'home', sections: [], _status: 'published' } as never })
+      homeId = made.id
+      madeHome = true
+    }
     await cleanDemo()
     sections = {}
     for (const [slug, title] of [['local-news', 'Local News'], ['local-politics', 'Local Politics'], ['local-arts', 'Local Arts'], ['commentary', 'Commentary'], ['uwf-news', 'UWF News']] as const) sections[slug] = await slugOf('sections', slug, { title, slug })
@@ -58,12 +83,13 @@ describe('the staging demonstration for news sections and placements', () => {
       const p = await payload.create({ collection: 'placement-items', overrideAccess: true, context: ctx, data: { name: `${name}: home page rail (test)`, kind: 'house', zone: 'home.rail', image: img.id, alt: `${name} words`, href: `https://example.org/${name.replace(/\W+/g, '-')}`, order: 900 } as never })
       madeHere.push({ collection: 'placement-items', id: p.id })
     }
-    await payload.updateGlobal({ slug: 'homepage', data: { newsModules: [] } as never, overrideAccess: true, context: ctx })
+    await setRuns([])
   }, 90_000)
 
   afterAll(async () => {
     await cleanDemo()
-    await payload.updateGlobal({ slug: 'homepage', data: { newsModules: savedModules } as never, overrideAccess: true, context: ctx })
+    if (madeHome) await payload.delete({ collection: 'pages', id: homeId, overrideAccess: true, context: ctx }).catch(() => undefined)
+    else await payload.update({ collection: 'pages', id: homeId, draft: false, overrideAccess: true, context: ctx, data: { sections: savedHomeSections } as never }).catch(() => undefined)
     for (const { collection, id } of [...madeHere].reverse()) await payload.delete({ collection, id, overrideAccess: true, context: ctx }).catch(() => undefined)
     const fl = await payload.find({ collection: 'sections', where: { slug: { equals: 'florida-news' } }, limit: 1, depth: 0, overrideAccess: true })
     if (fl.docs[0] && madeFlorida) await payload.delete({ collection: 'sections', id: fl.docs[0].id, overrideAccess: true, context: ctx }).catch(() => undefined)
@@ -75,8 +101,7 @@ describe('the staging demonstration for news sections and placements', () => {
     const report = await seedPlacementsDemo(payload, { apply: false, assetDir, now: NOW })
     expect(report.made.length).toBeGreaterThan(10)
     expect([await count('placement-items'), await count('posts'), await count('sponsors')]).toEqual([0, 0, 0])
-    const home = await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })
-    expect(home.newsModules ?? []).toHaveLength(0)
+    expect(await runHeadings()).toHaveLength(0)
   })
 
   it('makes the partner section and stories, the news sections, the banner and the aimed placements', async () => {
@@ -86,8 +111,7 @@ describe('the staging demonstration for news sections and placements', () => {
     const stories = await payload.find({ collection: 'posts', where: { title: { like: DEMO } }, limit: 20, depth: 0, overrideAccess: true })
     expect(stories.docs).toHaveLength(FLORIDA_STORIES.length)
     expect(stories.docs.every((s) => s.source === 'wire' && s._status === 'published')).toBe(true)
-    const home = await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })
-    expect((home.newsModules ?? []).map((m) => m.heading)).toEqual(['Local News', 'Local Politics', 'Local Arts', 'Florida News', 'UWF News'])
+    expect(await runHeadings()).toEqual(['Local News', 'Local Politics', 'Local Arts', 'Florida News', 'UWF News'])
     expect(await count('sponsors')).toBe(1)
   })
 
@@ -120,19 +144,19 @@ describe('the staging demonstration for news sections and placements', () => {
   })
 
   it('never changes a home page an editor has built, nor a banner that is already there', async () => {
-    await payload.updateGlobal({ slug: 'homepage', data: { newsModules: [1, 2, 3].map((i) => ({ heading: `Mine ${i}`, section: sections['local-news']!.id, count: 5, enabled: true })) } as never, overrideAccess: true, context: ctx })
+    await setRuns([1, 2, 3].map((i) => ({ heading: `Mine ${i}`, section: sections['local-news']!.id })))
     const report = await seedPlacementsDemo(payload, { apply: true, assetDir, now: NOW })
     expect(report.kept.join('\n')).toMatch(/left as they are/)
-    expect((await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })).newsModules?.map((m) => m.heading)).toEqual(['Mine 1', 'Mine 2', 'Mine 3'])
+    expect(await runHeadings()).toEqual(['Mine 1', 'Mine 2', 'Mine 3'])
     expect(report.kept.join('\n')).toMatch(/a home page banner/)
   })
 
   it('skips, and says so, what this database has no sections or promotions for', async () => {
     await cleanDemo()
     for (const slug of ['uwf-news']) await payload.delete({ collection: 'sections', id: sections[slug]!.id, overrideAccess: true, context: ctx })
-    await payload.updateGlobal({ slug: 'homepage', data: { newsModules: [] } as never, overrideAccess: true, context: ctx })
+    await setRuns([])
     const report = await seedPlacementsDemo(payload, { apply: true, assetDir, now: NOW })
     expect(report.skipped.join('\n')).toMatch(/UWF News: no such section/)
-    expect((await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })).newsModules?.map((m) => m.heading)).toEqual(['Local News', 'Local Politics', 'Local Arts', 'Florida News'])
+    expect(await runHeadings()).toEqual(['Local News', 'Local Politics', 'Local Arts', 'Florida News'])
   })
 })

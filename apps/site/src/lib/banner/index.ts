@@ -2,7 +2,7 @@ import { safeHref } from '@/lib/section-links'
 
 /**
  * The site banner: one message an editor puts above the page, on the home page or on every page. It began as the home page's "emergency
- * coverage" notice and is the same thing with a choice of where and how loud. The settings live on the Home page global (`banner`); this
+ * coverage" notice and is the same thing with a choice of where and how loud. The settings are the Site banner global (`site-banner`); this
  * is the pure part, so the rules are tested without a database or a page.
  */
 
@@ -26,7 +26,7 @@ export interface BannerData {
   linkHref: string | null
 }
 
-/** The stored fields (the Home page global's `banner` group), as the generated type has them. */
+/** The stored fields (the Site banner global), as the generated type has them. */
 export interface BannerFields {
   active?: boolean | null
   scope?: string | null

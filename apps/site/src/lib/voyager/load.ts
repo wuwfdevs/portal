@@ -4,7 +4,7 @@ import { cache } from 'react'
 
 import type { Contributor, Production, Section } from '@/payload-types'
 
-import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 
 import { latestRail, staffRole } from './arrange'
 

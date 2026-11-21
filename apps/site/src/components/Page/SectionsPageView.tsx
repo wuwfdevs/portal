@@ -5,6 +5,7 @@ import type { SectionContext, SectionData } from '@/blocks/sections/types'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { SectionNav } from '@/components/SectionNav'
+import { HomeFoot } from '@/components/Page/HomeFoot'
 import { SetFooter } from '@/components/Page/SetFooter'
 import { loadSetNavPages } from '@/lib/page-sets/load'
 import { setNavItems } from '@/lib/page-sets/nav'
@@ -24,7 +25,7 @@ export interface SectionsPageData {
 /**
  * A page built from sections (`template: sections`). It reads the page record and the page set's navigation, never the request, so the page
  * stays cached (PAGE-BLOCKS.md → Rendering). The theme is the page's own choice, else its set's, else the station's. Its sub-navigation is
- * the set's published pages, through `components/SectionNav`.
+ * the set's published pages, through `components/SectionNav`. The home set also ends with `HomeFoot` (the way to every story, and the membership appeal).
  */
 export async function SectionsPageView({
   page,
@@ -52,6 +53,7 @@ export async function SectionsPageView({
       {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav hideTitle label={set.name} items={items} />}
       <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}), ...(slots ? { slots } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
+      {set?.id === 'home' && <HomeFoot />}
     </article>
   )
 }

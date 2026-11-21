@@ -10,7 +10,13 @@ import type { Page } from '@/payload-types'
 import type { SectionContext } from '@/blocks/sections/types'
 import { SectionsPageView, type SectionsPageData } from '@/components/Page/SectionsPageView'
 import { generateMeta } from '@/utilities/generateMeta'
-import { resolvePath } from '@/utilities/resolvePath'
+import { HOME_PAGE_PATH } from '@/lib/homepage/to-sections'
+import { resolveHome, resolvePath, type Resolved } from '@/utilities/resolvePath'
+
+const resolveHomeHit = async (draft: boolean): Promise<Resolved | null> => {
+  const doc = await resolveHome(draft)
+  return doc ? { kind: 'page', doc } : null
+}
 
 /**
  * A coded route that renders one page record at its own address with the request's query (PAGE-BLOCKS.md → Rendering: "a page whose content must
@@ -22,7 +28,8 @@ import { resolvePath } from '@/utilities/resolvePath'
  */
 export const loadSectionsRecord = cache(async (path: string): Promise<{ page: Page; draft: boolean }> => {
   const { isEnabled: draft } = await draftMode()
-  const hit = await resolvePath(path, draft)
+  // The home page has no path of its own: it is the page whose address name is `home`, served at `/`.
+  const hit = path === HOME_PAGE_PATH ? await resolveHomeHit(draft) : await resolvePath(path, draft)
   if (!hit || hit.kind !== 'page' || hit.doc.template !== 'sections') notFound()
   return { page: hit.doc, draft }
 })

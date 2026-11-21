@@ -50,6 +50,13 @@ export const List = defineSection({
         admin: { description: 'Stories, and short videos (by their story\'s section). A topic is for stories only.', condition: (_, s) => s?.source === 'stories' || s?.source === 'clips' },
       },
       { name: 'section', type: 'relationship', relationTo: 'sections', admin: { condition: (_, s) => (s?.source === 'stories' || s?.source === 'clips') && s?.scope === 'section' } },
+      {
+        name: 'series',
+        type: 'relationship',
+        relationTo: 'series',
+        label: 'Series first',
+        admin: { description: "Optional. Put this series' short videos first, e.g. during a big story. Leave empty for the newest from every series.", condition: (_, s) => s?.source === 'clips' && s?.scope !== 'section' },
+      },
       { name: 'topic', type: 'relationship', relationTo: 'categories', admin: { condition: (_, s) => s?.source === 'stories' && s?.scope === 'topic' } },
       {
         name: 'allShows',

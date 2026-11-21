@@ -8,6 +8,9 @@ describe('listSpecOf: short videos', () => {
     expect(listSpecOf({ source: 'clips', scope: 'section', section: { id: 4 }, count: 3 })).toEqual({ source: 'clips', scope: 'section', id: 4, count: 3 })
     expect(listSpecOf({ source: 'clips', scope: 'section' })).toBeNull()
     expect(listSpecOf({ source: 'clips', scope: 'topic', topic: 9 })).toEqual({ source: 'clips', scope: 'latest', count: 6 })
+    // One series' videos can go first (the home page's short-video row had this choice); with none chosen the key is absent, so a cached spec is unchanged.
+    expect(listSpecOf({ source: 'clips', series: { id: 4 }, count: 3 })).toEqual({ source: 'clips', scope: 'latest', count: 3, firstSeries: 4 })
+    expect(listSpecOf({ source: 'clips', series: null })).toEqual({ source: 'clips', scope: 'latest', count: 6 })
   })
 })
 

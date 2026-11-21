@@ -1,16 +1,15 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { Homepage, Media, Production } from '@/payload-types'
+import type { Media, Production } from '@/payload-types'
 
 import { loadRadioLive, type ShowView } from '@/lib/radiolive/load'
 import { loadDirectory, type Episode } from '@/lib/shows/load'
 import { getProductionHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
-import { loadClips, type ClipView } from '@/lib/video/load'
 
-import { CARD_FIELDS } from './load'
-import { pickClips, pickPodcasts, pickRadioLive, videoCount } from './slots'
+import { CARD_FIELDS } from './story'
+import { pickPodcasts, pickRadioLive } from './slots'
 
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
 const idOf = (v: { id: string | number } | string | number | null | undefined): string | number | null => (v == null ? null : typeof v === 'object' ? v.id : v)
@@ -26,15 +25,9 @@ export interface PodcastCard {
 }
 
 export interface HomepageSlots {
-  video: { clips: ClipView[] } | null
   podcasts: { featured: PodcastCard & { latest: Episode }; acknowledgments: AcknowledgmentLine[]; others: PodcastCard[] } | null
   radioLive: { tagline: string | null; next: ShowView | null; latest: ShowView | null } | null
   unearthing: { production: Production; heroImage: Media | null; episode: Episode } | null
-}
-
-const logFailure = async (name: string, err: unknown): Promise<void> => {
-  const payload = await getPayload({ config: configPromise })
-  payload.logger.error({ err, msg: `Home page: the ${name} slot could not be loaded and is left out` })
 }
 
 /** The podcasts slot: the pinned show (or the one with the newest episode), its funder lines, and the shows beside it. Null when no listed show has an episode. */
@@ -74,37 +67,4 @@ export async function loadUnearthingSlot(pickedEpisodeId: string | number | null
   const hubPick = idOf(hub.featured as never)
   const episode = (pickedEpisodeId !== null ? await one(pickedEpisodeId) : null) ?? (hubPick !== null ? await one(hubPick) : null) ?? (await one(null))
   return episode ? { production, heroImage: named<Media>(production.heroImage), episode } : null
-}
-
-/**
- * The feature slots below the news (boards 1 and 2). Each is read through access control, so only published work appears; each is
- * left out (null) when an editor switched it off or it has nothing to show. A slot that fails to load is left out and logged, so the
- * front page never goes down because a feature did: the news above it does not depend on any of them.
- */
-export async function loadHomepageSlots(): Promise<HomepageSlots> {
-  const payload = await getPayload({ config: configPromise })
-  const settings: Homepage = await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: false })
-  const on = (g: { enabled?: boolean | null } | null | undefined): boolean => g?.enabled !== false
-
-  const settle = async <T>(name: string, load: () => Promise<T>): Promise<T | null> => {
-    try {
-      return await load()
-    } catch (err) {
-      await logFailure(name, err)
-      return null
-    }
-  }
-
-  const video = async (): Promise<HomepageSlots['video']> => {
-    const clips = pickClips(await loadClips(), { seriesId: idOf(settings.videoRow?.series as never), count: videoCount(settings.videoRow?.count) })
-    return clips.length > 0 ? { clips } : null
-  }
-
-  const [v, p, r, u] = await Promise.all([
-    on(settings.videoRow) ? settle('short-video', video) : null,
-    on(settings.podcasts) ? settle('podcasts', () => loadPodcastsSlot(idOf(settings.podcasts?.featuredShow as never))) : null,
-    on(settings.radioLive) ? settle('RadioLive', loadRadioLiveSlot) : null,
-    on(settings.unearthing) ? settle('Unearthing Florida', () => loadUnearthingSlot(idOf(settings.unearthing?.episode as never))) : null,
-  ])
-  return { video: v, podcasts: p, radioLive: r, unearthing: u }
 }

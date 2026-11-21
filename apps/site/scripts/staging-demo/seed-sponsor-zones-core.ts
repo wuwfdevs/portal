@@ -1,19 +1,19 @@
-// Demonstration content on the STAGING site for the top units, the story zones, the site banner and the home page of blocks, so each has something to show
+// Demonstration content on the STAGING site for the top units, the story zones, the site banner and the home page, so each has something to show
 // (PLACEMENTS.md; PAGE-BLOCKS.md → Home). The rules are the same as `seed-placements-core.ts` beside it:
 //  - Everything made is labelled "Demonstration" in its text. None of it is reporting, and the sponsor in it is not real.
 //  - It is safe to run twice: each record is found by its name first, and what exists is never changed.
-//  - It never changes what an editor has set: the banner is set only when there is none, and the home page of blocks only when it does not exist.
+//  - It never changes what an editor has set: the banner is set only when there is none, and the home page only when it does not exist.
 //  - It sends nothing: no email, no embedding (`disableEmbedding`), no cache refresh (a new deployment reads fresh).
 //
 // What it makes: a top unit on the home page; a presenting sponsor on the Campus and Local News section pages; two inline bands (the second only in a long story) on stories
-// in those two sections; a quiet "Demonstration" notice banner for the home page; and the home page of blocks at /home-blocks, written from the Home page global.
+// in those two sections; a quiet "Demonstration" notice banner for the home page; and the home page, when there is none, written from the retired Home page global.
 
 import fs from 'node:fs'
 import path from 'node:path'
 
 import type { Payload } from 'payload'
 
-import { homepageToSections, HOME_BLOCKS_PAGE, type HomepageFields } from '../../src/lib/homepage/to-sections'
+import { homepageToSections, HOME_PAGE, type HomepageFields } from '../../src/lib/homepage/to-sections'
 import { DEMO } from './seed-placements-core'
 
 export interface SeedOptions {
@@ -108,13 +108,13 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
   }
 
   // ---- the site banner: a quiet notice, only when there is none ----------------------------------------------------------------------------
-  const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as HomepageFields & { banner?: { active?: boolean | null; headline?: string | null } }
-  if (home.banner?.active || home.banner?.headline?.trim()) note('kept', 'site banner (left as it is)')
+  const banner = (await payload.findGlobal({ slug: 'site-banner', depth: 0, overrideAccess: true })) as unknown as { active?: boolean | null; headline?: string | null }
+  if (banner.active || banner.headline?.trim()) note('kept', 'site banner (left as it is)')
   else {
     if (opts.apply) {
       await payload.updateGlobal({
-        slug: 'homepage',
-        data: { banner: { active: true, scope: 'home', style: 'notice', label: DEMO, headline: `${DEMO} notice: this banner is sample content for design review`, body: 'Switch it off under Home page, Banner.' } } as never,
+        slug: 'site-banner',
+        data: { active: true, scope: 'home', style: 'notice', label: DEMO, headline: `${DEMO} notice: this banner is sample content for design review`, body: 'Switch it off under Site settings, Site banner.' } as never,
         overrideAccess: true,
         context: ctx,
       })
@@ -122,9 +122,10 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
     note('made', 'site banner (a quiet notice on the home page)')
   }
 
-  // ---- the home page of blocks, from the Home page global as it is --------------------------------------------------------------------------
-  if (await first('pages', { slug: { equals: HOME_BLOCKS_PAGE.slug } })) note('kept', `page /${HOME_BLOCKS_PAGE.slug}`)
+  // ---- the home page, when this database has none: written from the retired Home page global's words ----------------------------------------
+  if (await first('pages', { slug: { equals: HOME_PAGE.slug } })) note('kept', 'the home page')
   else {
+    const home = (await payload.findGlobal({ slug: 'homepage', depth: 0, overrideAccess: true })) as unknown as HomepageFields
     const { sections } = homepageToSections(home)
     if (opts.apply) {
       await payload.create({
@@ -132,10 +133,10 @@ export async function seedSponsorZonesDemo(payload: Payload, opts: SeedOptions):
         draft: false,
         overrideAccess: true,
         context: ctx,
-        data: { title: HOME_BLOCKS_PAGE.title, slug: HOME_BLOCKS_PAGE.slug, template: 'sections', pageSet: HOME_BLOCKS_PAGE.pageSet, sections, noindex: true, noReferrer: true, meta: { title: HOME_BLOCKS_PAGE.title, description: HOME_BLOCKS_PAGE.summary }, _status: 'published' } as never,
+        data: { title: HOME_PAGE.title, slug: HOME_PAGE.slug, generateSlug: false, template: 'sections', pageSet: HOME_PAGE.pageSet, sections, meta: { title: HOME_PAGE.seoTitle, description: HOME_PAGE.summary }, _status: 'published' } as never,
       })
     }
-    note('made', `page /${HOME_BLOCKS_PAGE.slug} (${sections.length} sections)`)
+    note('made', `the home page (${sections.length} sections)`)
   }
   return report
 }
