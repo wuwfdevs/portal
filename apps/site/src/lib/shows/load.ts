@@ -4,7 +4,7 @@ import { cache } from 'react'
 
 import type { Audio, Contributor, Media, Post, Production } from '@/payload-types'
 
-import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 import { getProductionHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 

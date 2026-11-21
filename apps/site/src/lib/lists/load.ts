@@ -4,7 +4,7 @@ import { cache } from 'react'
 
 import type { Contributor, Media } from '@/payload-types'
 
-import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 import { publicIdFromInput } from '@/lib/listening/placement'
 
 import { PAGE_SIZE, type ListKind, type ListRequest } from './route'

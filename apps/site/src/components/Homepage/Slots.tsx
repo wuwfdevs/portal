@@ -7,9 +7,6 @@ import { Acknowledgment } from '@/components/Acknowledgment'
 import { Button, Eyebrow } from '@/components/Kit'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
-import { SectionHeader } from '@/components/SectionHeader'
-import { TitledSection } from '@/components/TitledSection'
-import { ClipRail } from '@/components/Video/ClipRail'
 import { ShowFrame } from '@/components/RadioLive/parts'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import type { HomepageSlots, PodcastCard } from '@/lib/homepage/load-slots'
@@ -23,19 +20,6 @@ import { audioOf, type Episode } from '@/lib/shows/load'
 // plays in the site's one player (the bar at the bottom), and nothing downloads before the reader presses play.
 
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
-
-/**
- * Short videos: the newest clips, a row that scrolls sideways (`ClipRail`, shared with the section pages). On the home page it sits in the news
- * column with the same titled section as the news runs beside it, "All videos" in the header. It takes the column's width (`className=""`);
- * alone it is a page-wide section.
- */
-export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
-  return (
-    <TitledSection className={className} eyebrow="Watch in a minute" href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} swatch="teal" title="Short videos from the region">
-      <ClipRail clips={slot.clips} label="Short videos" />
-    </TitledSection>
-  )
-}
 
 function Cover({ card, className, label }: { card: PodcastCard; className: string; label?: boolean }) {
   return (
@@ -51,7 +35,7 @@ function Cover({ card, className, label }: { card: PodcastCard; className: strin
 
 /**
  * The podcasts' content: one show with its newest episode to play here (with its funder line), and more shows beside it. The band, heading and container around it are the
- * caller's: the coded home page's `PodcastsSlot` and the Show spotlight block draw it the same way.
+ * caller's: the Show spotlight block draws it.
  */
 export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
   const { featured, acknowledgments, others } = slot
@@ -114,18 +98,6 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
             </ul>
           )}
         </div>
-  )
-}
-
-/** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
-export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
-  return (
-    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface py-12">
-      <div className="container flex flex-col gap-6">
-        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} title="Podcasts made in Pensacola" />
-        <PodcastsBody independenceHref={independenceHref} slot={slot} />
-      </div>
-    </section>
   )
 }
 

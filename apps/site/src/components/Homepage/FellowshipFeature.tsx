@@ -3,13 +3,22 @@ import React from 'react'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Chip } from '@/components/Article/Parts'
-import type { HomepageData } from '@/lib/homepage/load'
+import type { Fellowship } from '@/payload-types'
+import type { HomeStory } from '@/lib/homepage/story'
+import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
+
+/** What the feature shows: the fellowship, the story chosen (or its newest), and the approved funder lines. */
+export interface FellowshipFeatureData {
+  fellowship: Fellowship
+  story: HomeStory | null
+  acknowledgments: AcknowledgmentLine[]
+}
 
 /**
  * The fellowship feature's content: the fellowship's chip, the story's headline and line, the links, and the funder line beside it (the acknowledgment panel, kept
- * apart from the story). The coded home page and the Fellowship feature block draw it the same way; the band and the container around it are the caller's.
+ * apart from the story). The Fellowship feature block draws it; the band and the container around it are the caller's.
  */
-export function FellowshipFeatureBody({ feature, independenceHref }: { feature: NonNullable<HomepageData['feature']>; independenceHref: string | null }) {
+export function FellowshipFeatureBody({ feature, independenceHref }: { feature: FellowshipFeatureData; independenceHref: string | null }) {
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-start">
       <div className="flex flex-col gap-3">

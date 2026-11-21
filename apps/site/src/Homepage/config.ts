@@ -2,99 +2,24 @@ import type { GlobalConfig } from 'payload'
 
 import { requirePermission } from '@/access/permissions'
 import { MAX_NEWS_MODULES } from '@/lib/homepage/modules'
-import { validateHref } from '@/lib/section-links'
-
-import { revalidateHomepage } from './hooks/revalidateHomepage'
 
 const publishedOnly = { _status: { equals: 'published' } }
 
 /**
- * The home page (boards 1 and 2). Its structure is fixed by a developer; staff choose what fills it. Anything left empty is
- * filled from the newest published work, so the page is never blank and never needs a story to be picked to stay current.
- * Making something appear on the front page is publishing, so it takes publish permission.
+ * RETIRED (owner, 2026-11-21; `PAGE-BLOCKS.md` → Home). The home page is a page record in the home set (the page whose address name is `home`, served at `/`); this global
+ * no longer draws anything and is hidden from the sidebar. It stays, read-only in effect, until the next cleanup drops it (as `sponsorship` and `support-page` were), so the
+ * words an editor had here are not lost: the migration `20261121_120000_home_page_record` wrote them into the page's sections, and the banner into the Site banner global.
+ * Nothing reads it for a visitor. Do not add a field to it.
  */
 export const Homepage: GlobalConfig = {
   slug: 'homepage',
-  admin: { livePreview: { url: '/' } },
-  label: 'Home page',
+  admin: { hidden: true, description: 'Retired: the home page is now a page in Pages, and the banner is the Site banner.' },
+  label: 'Home page (retired)',
   access: { read: () => true, update: requirePermission('content.publish') },
-  hooks: { afterChange: [revalidateHomepage] },
   fields: [
     {
       type: 'tabs',
       tabs: [
-        {
-          label: 'Banner',
-          description:
-            'One message across the top of the site: an emergency, or a notice that matters but is not urgent. Choose whether it appears on the home page only or on every page. Switch it off to remove it. Saving this page refreshes the pages straight away.',
-          fields: [
-            {
-              name: 'banner',
-              type: 'group',
-              fields: [
-                { name: 'active', type: 'checkbox', defaultValue: false, label: 'Show the banner' },
-                {
-                  type: 'row',
-                  fields: [
-                    {
-                      name: 'scope',
-                      type: 'select',
-                      defaultValue: 'home',
-                      required: true,
-                      label: 'Where it appears',
-                      options: [
-                        { label: 'Home page only', value: 'home' },
-                        { label: 'Every page', value: 'all' },
-                      ],
-                      admin: { width: '50%', condition: (_, s) => Boolean(s?.active) },
-                    },
-                    {
-                      name: 'style',
-                      type: 'select',
-                      defaultValue: 'emergency',
-                      required: true,
-                      label: 'Style',
-                      options: [
-                        { label: 'Emergency (strong blue band)', value: 'emergency' },
-                        { label: 'Notice (quiet grey band)', value: 'notice' },
-                      ],
-                      admin: { width: '50%', condition: (_, s) => Boolean(s?.active) },
-                    },
-                  ],
-                },
-                {
-                  name: 'label',
-                  type: 'text',
-                  admin: { condition: (_, s) => Boolean(s?.active), description: 'The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.' },
-                },
-                {
-                  name: 'headline',
-                  type: 'text',
-                  admin: { condition: (_, s) => Boolean(s?.active) },
-                  validate: (value: string | null | undefined, { siblingData }: { siblingData?: { active?: boolean } }) =>
-                    siblingData?.active && !value?.trim() ? 'Write the headline, or switch the banner off.' : true,
-                },
-                { name: 'body', type: 'textarea', admin: { condition: (_, s) => Boolean(s?.active), description: 'A sentence or two. Plain text.' } },
-                {
-                  type: 'row',
-                  fields: [
-                    { name: 'linkLabel', type: 'text', admin: { width: '40%', condition: (_, s) => Boolean(s?.active), description: 'e.g. "Live updates"' } },
-                    {
-                      name: 'linkHref',
-                      type: 'text',
-                      validate: validateHref,
-                      admin: {
-                        width: '60%',
-                        condition: (_, s) => Boolean(s?.active),
-                        description: 'A page on this site (/live-updates/storm), a secure https:// address, or mailto:. Leave empty for no link.',
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
         {
           label: 'Lead story',
           fields: [

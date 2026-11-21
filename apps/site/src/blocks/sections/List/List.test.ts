@@ -131,6 +131,8 @@ describe('List section: short videos', () => {
     await draw({ source: 'clips', scope: 'section', section: { id: 7 }, count: 4 })
     expect(loadClipList).toHaveBeenLastCalledWith({ source: 'clips', scope: 'section', id: 7, count: 4 })
     expect(await draw({ source: 'clips', scope: 'section' })).toBe('')
+    await draw({ source: 'clips', series: { id: 9 }, count: 3 })
+    expect(loadClipList).toHaveBeenLastCalledWith({ source: 'clips', scope: 'latest', count: 3, firstSeries: 9 })
   })
   it('draws the poster rail in the band, with the more link in the header, and nothing without clips', async () => {
     const out = renderToStaticMarkup(createElement(ClipListView, { block: { blockType: 'sectionList', heading: { title: 'Watch' }, moreLabel: 'All videos', moreHref: '/video' }, clips: [clip()] }))

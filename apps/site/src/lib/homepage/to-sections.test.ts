@@ -14,7 +14,7 @@ const full: HomepageFields = {
     { id: 'b', heading: 'Held', section: 2, count: 5, enabled: false },
     { id: 'c', heading: 'Music & Arts', section: 3, count: 4 },
   ],
-  videoRow: { enabled: true, series: null, count: 8 },
+  videoRow: { enabled: true, series: 4, count: 8 },
   podcasts: { enabled: true, featuredShow: 21 },
   radioLive: { enabled: true },
   unearthing: { enabled: true, episode: 31 },
@@ -35,7 +35,7 @@ describe('homepageToSections', () => {
   })
   it('carries the feature, the videos, the podcasts and the panels\' choices', () => {
     expect(of('sectionFellowshipFeature')[0]).toMatchObject({ fellowship: 5, story: 14 })
-    expect(of('sectionList')[0]).toMatchObject({ source: 'clips', count: 8, moreHref: '/video' })
+    expect(of('sectionList')[0]).toMatchObject({ source: 'clips', count: 8, moreHref: '/video', series: 4 })
     expect(of('sectionShowSpotlight')[0]).toMatchObject({ featuredShow: 21 })
     expect(of('sectionFeaturePanels')[0]).toMatchObject({ radioLive: true, unearthing: true, unearthingEpisode: 31 })
   })
@@ -51,9 +51,9 @@ describe('homepageToSections', () => {
     }
     expect(new Set(sections.map((s) => s.id)).size).toBe(sections.length)
   })
-  it('says what the blocks do not carry over, including a pinned video series', () => {
-    expect(notCarried.length).toBeGreaterThan(0)
-    expect(homepageToSections({ videoRow: { enabled: true, series: 4 } }).notCarried.join(' ')).toContain('series')
+  it('says what the blocks do not carry over (the "Latest stories" stand-in), and carries a pinned video series', () => {
+    expect(notCarried.join(' ')).toContain('Latest stories')
+    expect(notCarried.join(' ')).not.toContain('series')
     expect(homepageToSections(null).sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionList', 'sectionShowSpotlight', 'sectionFeaturePanels'])
   })
 })

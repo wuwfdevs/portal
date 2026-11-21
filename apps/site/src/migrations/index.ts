@@ -74,6 +74,7 @@ import * as migration_20261120_203039_placement_story_zones from './20261120_203
 import * as migration_20261120_204634_page_set_home from './20261120_204634_page_set_home';
 import * as migration_20261120_221651_story_rail_retired from './20261120_221651_story_rail_retired';
 import * as migration_20261121_010545_sections_swatch from './20261121_010545_sections_swatch';
+import * as migration_20261121_055549_home_page_record_site_banner from './20261121_055549_home_page_record_site_banner';
 
 export const migrations = [
   {
@@ -454,6 +455,11 @@ export const migrations = [
   {
     up: migration_20261121_010545_sections_swatch.up,
     down: migration_20261121_010545_sections_swatch.down,
-    name: '20261121_010545_sections_swatch'
+    name: '20261121_010545_sections_swatch',
+  },
+  {
+    up: migration_20261121_055549_home_page_record_site_banner.up,
+    down: migration_20261121_055549_home_page_record_site_banner.down,
+    name: '20261121_055549_home_page_record_site_banner'
   },
 ];

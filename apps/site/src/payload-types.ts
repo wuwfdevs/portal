@@ -211,7 +211,6 @@ export interface Config {
   };
   fallbackLocale: null;
   globals: {
-    homepage: Homepage;
     'unearthing-hub': UnearthingHub;
     'voyager-hub': VoyagerHub;
     'radiolive-hub': RadioliveHub;
@@ -219,14 +218,15 @@ export interface Config {
     'giving-settings': GivingSetting;
     header: Header;
     footer: Footer;
+    'site-banner': SiteBanner;
     'site-settings': SiteSetting;
     'shared-text': SharedText;
     'listen-live': ListenLive;
+    homepage: Homepage;
     'support-page': SupportPage;
     sponsorship: Sponsorship;
   };
   globalsSelect: {
-    homepage: HomepageSelect<false> | HomepageSelect<true>;
     'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
     'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
     'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
@@ -234,9 +234,11 @@ export interface Config {
     'giving-settings': GivingSettingsSelect<false> | GivingSettingsSelect<true>;
     header: HeaderSelect<false> | HeaderSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
+    'site-banner': SiteBannerSelect<false> | SiteBannerSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
     'shared-text': SharedTextSelect<false> | SharedTextSelect<true>;
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
+    homepage: HomepageSelect<false> | HomepageSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
   };
@@ -1621,6 +1623,10 @@ export interface SectionList {
    */
   scope?: ('latest' | 'section' | 'topic') | null;
   section?: (number | null) | Section;
+  /**
+   * Optional. Put this series' short videos first, e.g. during a big story. Leave empty for the newest from every series.
+   */
+  series?: (number | null) | Series;
   topic?: (number | null) | Category;
   /**
    * The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.
@@ -6407,106 +6413,6 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "homepage".
- */
-export interface Homepage {
-  id: number;
-  banner?: {
-    active?: boolean | null;
-    scope?: ('home' | 'all') | null;
-    style?: ('emergency' | 'notice') | null;
-    /**
-     * The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.
-     */
-    label?: string | null;
-    headline?: string | null;
-    /**
-     * A sentence or two. Plain text.
-     */
-    body?: string | null;
-    /**
-     * e.g. "Live updates"
-     */
-    linkLabel?: string | null;
-    /**
-     * A page on this site (/live-updates/storm), a secure https:// address, or mailto:. Leave empty for no link.
-     */
-    linkHref?: string | null;
-  };
-  /**
-   * The large story at the top. Leave empty to lead with the newest published story.
-   */
-  lead?: (number | null) | Post;
-  /**
-   * Optional small label above the headline, e.g. "After Isaias". Leave empty to show the story's section.
-   */
-  leadKicker?: string | null;
-  /**
-   * Up to five, in the order shown beside the lead. Any you leave empty are filled with the newest published stories.
-   */
-  topStories?: (number | Post)[] | null;
-  fellowshipFeature?: {
-    enabled?: boolean | null;
-    fellowship?: (number | null) | Fellowship;
-    /**
-     * The story to feature. Leave empty to feature the fellowship's newest.
-     */
-    story?: (number | null) | Post;
-  };
-  newsModules?:
-    | {
-        /**
-         * The title readers see, e.g. "Local News".
-         */
-        heading: string;
-        /**
-         * Where its stories come from and where "More from..." goes.
-         */
-        section: number | Section;
-        /**
-         * How many stories to show (3 to 8).
-         */
-        count?: number | null;
-        /**
-         * Switch off to hold a section without deleting it.
-         */
-        enabled?: boolean | null;
-        id?: string | null;
-      }[]
-    | null;
-  videoRow?: {
-    enabled?: boolean | null;
-    /**
-     * Optional. Put this series' videos first, e.g. during a big story. Leave empty for the newest from every series.
-     */
-    series?: (number | null) | Series;
-    /**
-     * How many videos the row holds (3 to 10).
-     */
-    count?: number | null;
-  };
-  podcasts?: {
-    enabled?: boolean | null;
-    /**
-     * Optional. The show to feature. Leave empty to feature the show with the newest episode.
-     */
-    featuredShow?: (number | null) | Production;
-  };
-  radioLive?: {
-    enabled?: boolean | null;
-  };
-  unearthing?: {
-    enabled?: boolean | null;
-    /**
-     * Optional. An Unearthing Florida episode to feature. Leave empty for the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.
-     */
-    episode?: (number | null) | Post;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "unearthing-hub".
  */
 export interface UnearthingHub {
@@ -7206,6 +7112,37 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
+ * One message across the top of the site: an emergency, or a notice that matters but is not urgent. Choose whether it appears on the home page only or on every page. Switch it off to remove it. Saving refreshes the pages straight away.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-banner".
+ */
+export interface SiteBanner {
+  id: number;
+  active?: boolean | null;
+  scope?: ('home' | 'all') | null;
+  style?: ('emergency' | 'notice') | null;
+  /**
+   * The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.
+   */
+  label?: string | null;
+  headline?: string | null;
+  /**
+   * A sentence or two. Plain text.
+   */
+  body?: string | null;
+  /**
+   * e.g. "Live updates"
+   */
+  linkLabel?: string | null;
+  /**
+   * A page on this site (/live-updates/storm), a secure https:// address, or mailto:. Leave empty for no link.
+   */
+  linkHref?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings".
  */
@@ -7360,6 +7297,86 @@ export interface ListenLive {
         id?: string | null;
       }[]
     | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Retired: the home page is now a page in Pages, and the banner is the Site banner.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage".
+ */
+export interface Homepage {
+  id: number;
+  /**
+   * The large story at the top. Leave empty to lead with the newest published story.
+   */
+  lead?: (number | null) | Post;
+  /**
+   * Optional small label above the headline, e.g. "After Isaias". Leave empty to show the story's section.
+   */
+  leadKicker?: string | null;
+  /**
+   * Up to five, in the order shown beside the lead. Any you leave empty are filled with the newest published stories.
+   */
+  topStories?: (number | Post)[] | null;
+  fellowshipFeature?: {
+    enabled?: boolean | null;
+    fellowship?: (number | null) | Fellowship;
+    /**
+     * The story to feature. Leave empty to feature the fellowship's newest.
+     */
+    story?: (number | null) | Post;
+  };
+  newsModules?:
+    | {
+        /**
+         * The title readers see, e.g. "Local News".
+         */
+        heading: string;
+        /**
+         * Where its stories come from and where "More from..." goes.
+         */
+        section: number | Section;
+        /**
+         * How many stories to show (3 to 8).
+         */
+        count?: number | null;
+        /**
+         * Switch off to hold a section without deleting it.
+         */
+        enabled?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  videoRow?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. Put this series' videos first, e.g. during a big story. Leave empty for the newest from every series.
+     */
+    series?: (number | null) | Series;
+    /**
+     * How many videos the row holds (3 to 10).
+     */
+    count?: number | null;
+  };
+  podcasts?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. The show to feature. Leave empty to feature the show with the newest episode.
+     */
+    featuredShow?: (number | null) | Production;
+  };
+  radioLive?: {
+    enabled?: boolean | null;
+  };
+  unearthing?: {
+    enabled?: boolean | null;
+    /**
+     * Optional. An Unearthing Florida episode to feature. Leave empty for the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.
+     */
+    episode?: (number | null) | Post;
+  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -8936,70 +8953,6 @@ export interface Sponsorship {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "homepage_select".
- */
-export interface HomepageSelect<T extends boolean = true> {
-  banner?:
-    | T
-    | {
-        active?: T;
-        scope?: T;
-        style?: T;
-        label?: T;
-        headline?: T;
-        body?: T;
-        linkLabel?: T;
-        linkHref?: T;
-      };
-  lead?: T;
-  leadKicker?: T;
-  topStories?: T;
-  fellowshipFeature?:
-    | T
-    | {
-        enabled?: T;
-        fellowship?: T;
-        story?: T;
-      };
-  newsModules?:
-    | T
-    | {
-        heading?: T;
-        section?: T;
-        count?: T;
-        enabled?: T;
-        id?: T;
-      };
-  videoRow?:
-    | T
-    | {
-        enabled?: T;
-        series?: T;
-        count?: T;
-      };
-  podcasts?:
-    | T
-    | {
-        enabled?: T;
-        featuredShow?: T;
-      };
-  radioLive?:
-    | T
-    | {
-        enabled?: T;
-      };
-  unearthing?:
-    | T
-    | {
-        enabled?: T;
-        episode?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "unearthing-hub_select".
  */
 export interface UnearthingHubSelect<T extends boolean = true> {
@@ -9413,6 +9366,23 @@ export interface FooterSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-banner_select".
+ */
+export interface SiteBannerSelect<T extends boolean = true> {
+  active?: T;
+  scope?: T;
+  style?: T;
+  label?: T;
+  headline?: T;
+  body?: T;
+  linkLabel?: T;
+  linkHref?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "site-settings_select".
  */
 export interface SiteSettingsSelect<T extends boolean = true> {
@@ -9496,6 +9466,58 @@ export interface ListenLiveSelect<T extends boolean = true> {
         linkLabel?: T;
         linkUrl?: T;
         id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "homepage_select".
+ */
+export interface HomepageSelect<T extends boolean = true> {
+  lead?: T;
+  leadKicker?: T;
+  topStories?: T;
+  fellowshipFeature?:
+    | T
+    | {
+        enabled?: T;
+        fellowship?: T;
+        story?: T;
+      };
+  newsModules?:
+    | T
+    | {
+        heading?: T;
+        section?: T;
+        count?: T;
+        enabled?: T;
+        id?: T;
+      };
+  videoRow?:
+    | T
+    | {
+        enabled?: T;
+        series?: T;
+        count?: T;
+      };
+  podcasts?:
+    | T
+    | {
+        enabled?: T;
+        featuredShow?: T;
+      };
+  radioLive?:
+    | T
+    | {
+        enabled?: T;
+      };
+  unearthing?:
+    | T
+    | {
+        enabled?: T;
+        episode?: T;
       };
   updatedAt?: T;
   createdAt?: T;

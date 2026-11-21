@@ -5,7 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { ensureTestSection } from '../helpers/section'
 
-import { loadHomepageSlots } from '@/lib/homepage/load-slots'
+import { loadPodcastsSlot, loadRadioLiveSlot, loadUnearthingSlot } from '@/lib/homepage/load-slots'
+import { pickClips } from '@/lib/homepage/slots'
+import { loadClips } from '@/lib/video/load'
 
 // The home page's feature slots (short videos, podcasts, RadioLive, Unearthing Florida), read the way a visitor's request reads them:
 // through access control, from what an editor chose in the Home page global, filled from the newest published work. The test database is
@@ -30,10 +32,8 @@ async function make<T extends { id: string | number }>(collection: string, data:
   created.push({ collection, id: doc.id })
   return doc
 }
-const setHome = (data: Record<string, unknown>) => payload.updateGlobal({ slug: 'homepage', data: data as never, overrideAccess: true, context: ctx })
-const RESET = { videoRow: { enabled: true, series: null, count: 6 }, podcasts: { enabled: true, featuredShow: null }, radioLive: { enabled: true }, unearthing: { enabled: true, episode: null } }
 
-describe('the home page feature slots', () => {
+describe('the home page feature slots (what the Show spotlight, Feature panels and short-video blocks read)', () => {
   const ids: Record<string, string | number> = {}
 
   beforeAll(async () => {
@@ -77,58 +77,48 @@ describe('the home page feature slots', () => {
     const artist = await make<{ id: string | number }>('artists', { name: `Home Artist ${run}` })
     await make('performances', { title: `Home past ${run}`, startsAt: day(-1000), lineup: [artist.id], recordingUrl: 'https://youtu.be/hVgWH8kF_RQ', _status: 'published' })
     await make('performances', { title: `Home next ${run}`, startsAt: day(1), lineup: [artist.id], ticketsStatus: 'onSale', ticketsUrl: 'https://tix.example.com/home', _status: 'published' })
-    await setHome(RESET)
   }, 120_000)
 
   afterAll(async () => {
-    await setHome(RESET).catch(() => undefined)
     await payload.updateGlobal({ slug: 'unearthing-hub', overrideAccess: true, context: ctx, data: { production: null, featured: null } as never }).catch(() => undefined)
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
   it('fills every slot from the newest published work when nothing is chosen, and never shows a draft', async () => {
-    const s = await loadHomepageSlots()
-    expect(s.video?.clips.slice(0, 4).map((c) => c.title)).toEqual([`Clip4 ${run}`, `Clip3 ${run}`, `Clip2 ${run}`, `Clip1 ${run}`])
-    expect(s.video?.clips.map((c) => c.title)).not.toContain(`DraftClip ${run}`)
+    const clips = pickClips(await loadClips(), { seriesId: null, count: 6 })
+    expect(clips.slice(0, 4).map((c) => c.title)).toEqual([`Clip4 ${run}`, `Clip3 ${run}`, `Clip2 ${run}`, `Clip1 ${run}`])
+    expect(clips.map((c) => c.title)).not.toContain(`DraftClip ${run}`)
+    const podcasts = await loadPodcastsSlot(null)
     // The Unearthing episodes are the newest audio of a listed show, so that show leads the podcasts; the hidden one never appears.
-    expect(s.podcasts?.featured.show.title).toBe(`Unearthing ${run}`)
-    expect([s.podcasts?.featured, ...(s.podcasts?.others ?? [])].map((r) => r?.show.title)).not.toContain(`Hidden show ${run}`)
-    expect(s.unearthing?.episode.title).toBe(`UE newest ${run}`)
-    expect(s.radioLive?.next?.title).toBe(`Home next ${run}`)
-    expect(s.radioLive?.next?.tickets.href).toBe('https://tix.example.com/home')
-    expect(s.radioLive?.latest).not.toBeNull()
+    expect(podcasts?.featured.show.title).toBe(`Unearthing ${run}`)
+    expect([podcasts?.featured, ...(podcasts?.others ?? [])].map((r) => r?.show.title)).not.toContain(`Hidden show ${run}`)
+    expect((await loadUnearthingSlot(null))?.episode.title).toBe(`UE newest ${run}`)
+    const radioLive = await loadRadioLiveSlot()
+    expect(radioLive?.next?.title).toBe(`Home next ${run}`)
+    expect(radioLive?.next?.tickets.href).toBe('https://tix.example.com/home')
+    expect(radioLive?.latest).not.toBeNull()
   })
 
   it("puts the chosen series first and keeps the row's size within bounds", async () => {
-    await setHome({ videoRow: { enabled: true, series: ids.storm, count: 3 } })
-    const s = await loadHomepageSlots()
-    expect(s.video?.clips.map((c) => c.title)).toEqual([`Clip1 ${run}`, `Clip4 ${run}`, `Clip3 ${run}`])
+    const clips = pickClips(await loadClips(), { seriesId: ids.storm!, count: 3 })
+    expect(clips.map((c) => c.title)).toEqual([`Clip1 ${run}`, `Clip4 ${run}`, `Clip3 ${run}`])
   })
 
   it("features the editor's show with its newest published episode and its funder line", async () => {
-    await setHome({ podcasts: { enabled: true, featuredShow: ids['Older show'] } })
-    const s = await loadHomepageSlots()
-    expect(s.podcasts?.featured.show.title).toBe(`Older show ${run}`)
-    expect(s.podcasts?.featured.latest.title).toBe(`Older ep ${run}`)
-    expect(s.podcasts?.acknowledgments.map((l) => l.text)).toEqual([`Made possible by Home Pod Sponsor ${run}.`])
-    expect(s.podcasts?.others.map((r) => r.show.title)).not.toContain(`Older show ${run}`)
+    const s = await loadPodcastsSlot(ids['Older show']!)
+    expect(s?.featured.show.title).toBe(`Older show ${run}`)
+    expect(s?.featured.latest.title).toBe(`Older ep ${run}`)
+    expect(s?.acknowledgments.map((l) => l.text)).toEqual([`Made possible by Home Pod Sponsor ${run}.`])
+    expect(s?.others.map((r) => r.show.title)).not.toContain(`Older show ${run}`)
   })
 
   it("uses the editor's Unearthing episode, and ignores one from another series", async () => {
-    await setHome({ unearthing: { enabled: true, episode: ids.ue1 } })
-    expect((await loadHomepageSlots()).unearthing?.episode.title).toBe(`UE first ${run}`)
-    await setHome({ unearthing: { enabled: true, episode: ids.elsewhere } })
-    expect((await loadHomepageSlots()).unearthing?.episode.title).toBe(`UE newest ${run}`)
-  })
-
-  it('leaves out a slot an editor switched off', async () => {
-    await setHome({ videoRow: { enabled: false }, podcasts: { enabled: false }, radioLive: { enabled: false }, unearthing: { enabled: false } })
-    expect(await loadHomepageSlots()).toEqual({ video: null, podcasts: null, radioLive: null, unearthing: null })
+    expect((await loadUnearthingSlot(ids.ue1!))?.episode.title).toBe(`UE first ${run}`)
+    expect((await loadUnearthingSlot(ids.elsewhere!))?.episode.title).toBe(`UE newest ${run}`)
   })
 
   it('leaves out Unearthing Florida while its hub has no production', async () => {
-    await setHome(RESET)
     await payload.updateGlobal({ slug: 'unearthing-hub', overrideAccess: true, context: ctx, data: { production: null } as never })
-    expect((await loadHomepageSlots()).unearthing).toBeNull()
+    expect(await loadUnearthingSlot(null)).toBeNull()
   })
 })

@@ -1,6 +1,6 @@
 import type { Media as MediaDoc } from '@/payload-types'
 
-import type { HomeStory } from '@/lib/homepage/load'
+import type { HomeStory } from '@/lib/homepage/story'
 import { leadPicture } from '@/lib/homepage/select'
 
 /**
