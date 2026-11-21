@@ -128,3 +128,11 @@ describe('leadCardClasses', () => {
     expect(c.title).toContain('lg:text-2xl')
   })
 })
+
+describe('fillModules, colour', () => {
+  it('carries the section\'s swatch to the module, and leaves it out when there is none', () => {
+    const [a, b] = fillModules([{ key: 'a', heading: 'A', href: '/a', swatch: 'amber', count: 3, candidates: run(1) }, { key: 'b', heading: 'B', href: '/b', count: 3, candidates: run(2) }], [])
+    expect(a).toMatchObject({ swatch: 'amber' })
+    expect(b).not.toHaveProperty('swatch')
+  })
+})

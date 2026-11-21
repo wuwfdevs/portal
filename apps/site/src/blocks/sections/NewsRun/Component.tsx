@@ -42,7 +42,7 @@ export async function NewsRunSection({ block, context }: SectionProps<NewsRunDat
   const href = section.slug ? `/${section.slug}` : null
   return (
     <SectionBand block={{ ...block, heading: { ...block.heading, title } }} heading={{ ...block.heading, title }} more={<SectionLink href={href} label={href ? `More from ${title}` : null} />}>
-      <StoryGrid spanFirst stories={shown} />
+      <StoryGrid spanFirst stories={shown} variant="editorial" />
     </SectionBand>
   )
 }

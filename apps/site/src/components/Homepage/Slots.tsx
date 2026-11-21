@@ -4,6 +4,7 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
+import { Button, Eyebrow } from '@/components/Kit'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
 import { SectionHeader } from '@/components/SectionHeader'
@@ -30,7 +31,7 @@ const length = (e: Episode): string | null => formatDuration(audioOf(e)?.duratio
  */
 export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
-    <TitledSection className={className} href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} title="Short videos from the region">
+    <TitledSection className={className} eyebrow="Watch in a minute" href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} swatch="teal" title="Short videos from the region">
       <ClipRail clips={slot.clips} label="Short videos" />
     </TitledSection>
   )
@@ -38,11 +39,11 @@ export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNul
 
 function Cover({ card, className, label }: { card: PodcastCard; className: string; label?: boolean }) {
   return (
-    <span className={`relative flex shrink-0 flex-col justify-end overflow-hidden rounded-sm bg-wuwf-teal p-3 ${className}`}>
+    <span className={`relative flex shrink-0 flex-col justify-end overflow-hidden rounded-3 bg-wuwf-teal p-3 ${className}`}>
       {card.heroImage ? (
         <Media imgClassName="absolute inset-0 size-full object-cover" resource={card.heroImage} size="200px" />
       ) : (
-        label && <span className="font-serif text-2xl font-bold leading-none text-surface">{card.show.title}</span>
+        label && <span className="font-serif text-2xl font-semibold leading-none text-surface">{card.show.title}</span>
       )}
     </span>
   )
@@ -58,7 +59,7 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
   const track = trackFromAudio(audioOf(ep), { title: ep.title, href: ep.path })
   return (
     <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-          <article className="flex flex-col gap-6 rounded-md border border-rule bg-surface p-6 sm:flex-row">
+          <article className="flex flex-col gap-6 rounded-4 bg-surface-2 p-6 sm:flex-row">
             {featured.show.path ? (
               <Link aria-label={featured.show.title} className="block self-start" href={featured.show.path}>
                 <Cover card={featured} className="size-40 sm:size-48" label />
@@ -67,15 +68,15 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
               <Cover card={featured} className="size-40 sm:size-48" label />
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-wuwf-teal">
+              <Eyebrow swatch="teal">
                 New episode{featured.show.path ? ' · ' : ''}
                 {featured.show.path && (
                   <Link className="text-wuwf-teal underline" href={featured.show.path}>
                     {featured.show.title}
                   </Link>
                 )}
-              </p>
-              <h3 className="font-serif text-2xl font-bold leading-snug">
+              </Eyebrow>
+              <h3 className="font-serif text-2xl font-semibold leading-snug">
                 {ep.path ? (
                   <Link className="text-ink hover:text-wuwf-blue-700" href={ep.path}>
                     {ep.title}
@@ -93,7 +94,7 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
           {others.length > 0 && (
             <ul aria-label="More podcasts" className="flex flex-col gap-3">
               {others.map((card) => (
-                <li className="relative flex items-center gap-4 rounded-sm border border-rule bg-surface p-3 hover:shadow-2" key={card.show.id}>
+                <li className="relative flex items-center gap-4 rounded-4 bg-surface-2 p-3 hover:shadow-2" key={card.show.id}>
                   <Cover card={card} className="size-16" />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     {card.show.path ? (
@@ -119,9 +120,9 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
 /** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
 export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
   return (
-    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
+    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface py-12">
       <div className="container flex flex-col gap-6">
-        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} rule={false} title="Podcasts made in Pensacola" />
+        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} title="Podcasts made in Pensacola" />
         <PodcastsBody independenceHref={independenceHref} slot={slot} />
       </div>
     </section>
@@ -134,18 +135,18 @@ export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['une
   const picture = leadPicture<MediaDoc>(episode) ?? slot.heroImage
   const track = trackFromAudio(audioOf(episode), { title: episode.title, href: episode.path })
   return (
-    <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-md bg-warning-bg p-6 md:p-8">
+    <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-4 bg-warning-bg p-6 md:p-8">
       <h2 className="font-serif text-2xl font-bold italic text-warning-fg" id="unearthing-heading">
         <Link className="text-warning-fg hover:underline" href="/unearthing-florida">
           {production.title}
         </Link>
       </h2>
       {picture && (
-        <div className="relative aspect-[16/7] overflow-hidden rounded-sm bg-surface-3">
+        <div className="relative aspect-[16/7] overflow-hidden rounded-3 bg-surface-3">
           <Media imgClassName="absolute inset-0 size-full object-cover" resource={picture} size="(min-width: 1024px) 600px, 100vw" />
         </div>
       )}
-      <h3 className="font-serif text-2xl font-bold leading-snug md:text-3xl">
+      <h3 className="font-serif text-2xl font-semibold leading-snug md:text-3xl">
         {episode.path ? (
           <Link className="text-ink hover:text-warning-fg" href={episode.path}>
             {episode.title}
@@ -172,7 +173,7 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
   const { next, latest, tagline } = slot
   const lead = latest ?? next
   return (
-    <section aria-labelledby="radiolive-heading" className="flex min-w-0 flex-col gap-4 rounded-md bg-surface-dark p-6 text-surface md:p-8">
+    <section aria-labelledby="radiolive-heading" className="flex min-w-0 flex-col gap-4 rounded-4 bg-surface-dark p-6 text-surface md:p-8">
       <h2 className="flex flex-wrap items-baseline gap-3" id="radiolive-heading">
         <Link className="font-serif text-2xl font-bold text-surface hover:underline" href="/radiolive">
           RadioLive
@@ -187,7 +188,7 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
       {latest && (
         <div className="flex flex-col gap-1">
           <p className="text-xs font-bold uppercase tracking-widest text-surface-dark-text">Latest recorded set{latest.venue ? ` · ${latest.venue}` : ''}</p>
-          <h3 className="font-serif text-2xl font-bold leading-snug md:text-3xl">
+          <h3 className="font-serif text-2xl font-semibold leading-snug md:text-3xl">
             <Link className="text-surface hover:underline" href={`/radiolive/${latest.slug}`}>
               {performanceTitle(latest)}
             </Link>
@@ -202,12 +203,12 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
             {next.venue && !latest && ` · ${next.venue}`}
           </p>
           {next.tickets.href ? (
-            <a className="inline-flex min-h-11 items-center rounded-sm bg-wuwf-lime px-4 text-base font-bold text-surface-dark hover:no-underline" href={next.tickets.href} rel="noopener noreferrer">
+            <Button href={next.tickets.href} variant="onDark">
               {next.tickets.label}
-            </a>
+            </Button>
           ) : (
             <>
-              <span className="rounded-sm border border-surface-dark-line px-3 py-2 text-sm font-bold">{next.tickets.label}</span>
+              <span className="rounded-pill border border-surface-dark-line px-3 py-2 text-sm font-bold">{next.tickets.label}</span>
               <Link className="inline-flex min-h-11 items-center text-base font-bold text-surface underline" href={`/radiolive/${next.slug}`}>
                 About the show
               </Link>

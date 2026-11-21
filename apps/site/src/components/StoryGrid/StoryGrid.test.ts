@@ -33,3 +33,11 @@ describe('StoryGrid', () => {
     expect(draw({ stories: five, beside: true })).toContain('lg:grid-cols-2')
   })
 })
+
+describe('StoryGrid variant', () => {
+  it('draws editorial cards for the home page and keeps the bordered cards by default, for the list pages', () => {
+    const stories = [1, 2, 3].map(story)
+    expect(draw({ stories, variant: 'editorial' })).not.toContain('border-rule')
+    expect(draw({ stories })).toContain('border-rule')
+  })
+})

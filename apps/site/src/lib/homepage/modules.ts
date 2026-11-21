@@ -6,6 +6,8 @@
 // takes the newest of its section that nothing above has shown. A module left with nothing is left out rather than drawn empty, and when
 // no module has anything (no sections set up yet, or a fresh site) one "Latest stories" run stands in, so the page is never blank.
 
+import type { SwatchId } from '@/lib/swatches'
+
 type Id = string | number
 
 export const MODULE_COUNT = { min: 3, max: 8, fallback: 5 } as const
@@ -28,6 +30,8 @@ export interface ModuleRequest<T> {
   heading: string
   /** The section's own page, "More from <heading>". */
   href: string | null
+  /** The section's colour (`sections.swatch`), the mark under its heading. Absent: the default swatch. */
+  swatch?: SwatchId | null
   count: number
   /** The section's newest published stories, newest first (more than `count`, to absorb what is shown above). */
   candidates: readonly T[]
@@ -37,6 +41,7 @@ export interface FilledModule<T> {
   key: string
   heading: string
   href: string | null
+  swatch?: SwatchId | null
   stories: T[]
 }
 
@@ -55,7 +60,7 @@ export function fillModules<T extends { id: Id }>(requests: readonly ModuleReque
       taken.add(String(s.id))
       stories.push(s)
     }
-    if (stories.length > 0) filled.push({ key: r.key, heading: r.heading, href: r.href, stories })
+    if (stories.length > 0) filled.push({ key: r.key, heading: r.heading, href: r.href, ...(r.swatch ? { swatch: r.swatch } : {}), stories })
   }
   return filled
 }

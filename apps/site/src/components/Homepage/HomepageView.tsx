@@ -1,8 +1,8 @@
 import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
-import Link from 'next/link'
 import React from 'react'
 
 import { Banner } from '@/components/Banner'
+import { Button } from '@/components/Kit'
 import { FellowshipFeatureBody } from '@/components/Homepage/FellowshipFeature'
 import { Briefing, FirstScreen, LeadArticle } from '@/components/Homepage/FrontPage'
 import { MembershipAppeal } from '@/components/Article/Parts'
@@ -72,21 +72,24 @@ export function HomepageView({
             </div>
           )}
         <section className="container py-24 text-center">
-          <h1 className="font-serif text-4xl font-bold text-ink">WUWF Public Media</h1>
+          <h1 className="font-serif text-4xl font-semibold text-ink">WUWF Public Media</h1>
           <p className="mt-4 text-lg text-ink-2">No stories have been published yet. They will appear here as soon as they are.</p>
         </section>
         </>
       ) : (
-        <section aria-label="Top stories" className="container pt-8 md:pt-12">
-          {/* The first screen: the top unit (`home.top`) and the lead, together as tall as the window leaves below the header, so The Briefing starts just under the fold.
-              The unit is directly under the header on a wide screen, so above the lead; on a phone it follows the lead story's headline and picture, so a story is always what
-              the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
-          <FirstScreen>
-            {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
-            <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={leadKicker} />
-          </FirstScreen>
+        // The lead band's wash (direction C2): the faintest blue, fading to white, behind the top section only; the content keeps the page's container.
+        <section aria-label="Top stories" className="bg-gradient-to-b from-wuwf-blue-100/45 to-surface">
+          <div className="container pb-2 pt-8 md:pt-12">
+            {/* The first screen: the top unit (`home.top`) and the lead, together as tall as the window leaves below the header, so The Briefing starts just under the fold.
+                The unit is directly under the header on a wide screen, so above the lead; on a phone it follows the lead story's headline and picture, so a story is always what
+                the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
+            <FirstScreen>
+              {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
+              <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={leadKicker} />
+            </FirstScreen>
 
-          <Briefing className="mt-8" top={top} />
+            <Briefing className="mt-8" top={top} />
+          </div>
         </section>
       )}
 
@@ -105,8 +108,8 @@ export function HomepageView({
           {modules.map((module, i) => (
             <React.Fragment key={module.key}>
               {flow.before[i] && <SponsorRow items={flow.before[i]} />}
-              <TitledSection href={module.href} id={`news-${module.key}`} more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null} title={module.heading}>
-                <StoryGrid spanFirst stories={module.stories} />
+              <TitledSection href={module.href} id={`news-${module.key}`} more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null} swatch={module.swatch} title={module.heading}>
+                <StoryGrid spanFirst stories={module.stories} variant="editorial" />
               </TitledSection>
             </React.Fragment>
           ))}
@@ -115,9 +118,9 @@ export function HomepageView({
           ))}
           {band.allStoriesLink && (
             <p>
-              <Link className="inline-flex min-h-12 items-center justify-center rounded-sm border-2 border-wuwf-blue-700 px-6 text-base font-bold text-wuwf-blue-700 hover:bg-surface-2 hover:no-underline" href={allStoriesHref}>
+              <Button href={allStoriesHref} size="lg" variant="outline">
                 All stories
-              </Link>
+              </Button>
             </p>
           )}
         </div>

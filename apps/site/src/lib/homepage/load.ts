@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import type { Fellowship, Homepage } from '@/payload-types'
 
 import { type BannerData, bannerOf } from '@/lib/banner'
+import { swatchOf } from '@/lib/swatches'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
@@ -70,7 +71,7 @@ export async function loadHomepage(): Promise<HomepageData> {
   const [recent, picked, sections, ...sectionStories] = await Promise.all([
     findStories({ source: { equals: 'wuwf' } }, RECENT_LIMIT),
     byIds([...(leadId !== null ? [leadId] : []), ...topIds, ...(featStoryId !== null ? [featStoryId] : [])]),
-    sectionIds.length > 0 ? payload.find({ collection: 'sections', where: { id: { in: sectionIds } }, limit: sectionIds.length, depth: 0, overrideAccess: false, pagination: false, select: { slug: true } }).then((r) => r.docs) : Promise.resolve([]),
+    sectionIds.length > 0 ? payload.find({ collection: 'sections', where: { id: { in: sectionIds } }, limit: sectionIds.length, depth: 0, overrideAccess: false, pagination: false, select: { slug: true, swatch: true } }).then((r) => r.docs) : Promise.resolve([]),
     ...moduleRows.map((m) => findStories({ section: { equals: m.sectionId } }, m.count + MODULE_SLACK)),
   ])
   const pickedById = new Map(picked.map((s) => [String(s.id), s]))
@@ -94,10 +95,11 @@ export async function loadHomepage(): Promise<HomepageData> {
 
   const shown = [lead, ...top, feature?.story].filter((s): s is HomeStory => Boolean(s))
   const slugById = new Map(sections.map((sec) => [String(sec.id), sec.slug]))
+  const swatchById = new Map(sections.map((sec) => [String(sec.id), swatchOf(sec.swatch)]))
   const filled = fillModules(
     moduleRows.map((m, i) => {
       const slug = slugById.get(String(m.sectionId))
-      return { key: m.key, heading: m.heading, href: slug ? `/${slug}` : null, count: m.count, candidates: sectionStories[i] ?? [] }
+      return { key: m.key, heading: m.heading, href: slug ? `/${slug}` : null, swatch: swatchById.get(String(m.sectionId)) ?? null, count: m.count, candidates: sectionStories[i] ?? [] }
     }),
     shown,
   )
