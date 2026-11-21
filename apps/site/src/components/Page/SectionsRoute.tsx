@@ -7,6 +7,7 @@ import React, { cache } from 'react'
 import type { HubLoad } from '@/lib/listening/load'
 import type { Page } from '@/payload-types'
 
+import type { SectionContext } from '@/blocks/sections/types'
 import { SectionsPageView, type SectionsPageData } from '@/components/Page/SectionsPageView'
 import { generateMeta } from '@/utilities/generateMeta'
 import { resolvePath } from '@/utilities/resolvePath'
@@ -26,9 +27,9 @@ export const loadSectionsRecord = cache(async (path: string): Promise<{ page: Pa
   return { page: hit.doc, draft }
 })
 
-export async function SectionsRoute({ path, query, listeningHub }: { path: string; query: Record<string, string | string[] | undefined>; listeningHub?: HubLoad }) {
+export async function SectionsRoute({ path, query, listeningHub, slots }: { path: string; query: Record<string, string | string[] | undefined>; listeningHub?: HubLoad; slots?: SectionContext['slots'] }) {
   const { page, draft } = await loadSectionsRecord(path)
-  return <SectionsPageView draft={draft} listeningHub={listeningHub} page={page as unknown as SectionsPageData} query={query} url={path} />
+  return <SectionsPageView draft={draft} listeningHub={listeningHub} page={page as unknown as SectionsPageData} query={query} slots={slots} url={path} />
 }
 
 export async function sectionsRouteMetadata(path: string): Promise<Metadata> {

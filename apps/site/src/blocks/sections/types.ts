@@ -2,7 +2,10 @@ import type { Block } from 'payload'
 import type { ReactNode } from 'react'
 
 import type { HubLoad } from '@/lib/listening/load'
+import type { Media } from '@/payload-types'
 import type { PageSetId } from '@/lib/page-sets/registry'
+import type { ClaimRequest, SlotTiles } from '@/lib/page-slots'
+import type { PlacementTile } from '@/lib/placements/tiles'
 import type { ThemeId } from '@/lib/page-themes/themes'
 
 /** What every section's block data carries (the fields `sectionFields` adds), plus its own. */
@@ -36,6 +39,16 @@ export interface SectionContext {
    * reader's hashed address, which only the route may read). `undefined` on every page the cached catch-all serves: the Listens blocks then draw nothing.
    */
   listeningHub?: HubLoad
+  /**
+   * The sponsor tiles for the page's slots (`PageSetSpec.slots`), loaded by the coded route that renders the page (the home page's shell, which also holds the
+   * top unit back during an emergency). `undefined` on every page the cached catch-all serves, and on a page whose set has no slots: nothing is drawn.
+   */
+  slots?: SlotTiles<PlacementTile<Media>>
+  /**
+   * The stories each section that lists stories was given by the page's ordered pass, by the section's id (`PageSetSpec.dedupe`). Set by `RenderSections`; absent
+   * on a page that does not de-duplicate, where each section draws its own newest.
+   */
+  claims?: ReadonlyMap<string, readonly (string | number)[]>
 }
 
 export type SectionProps<B extends SectionData = SectionData> = { block: B; context: SectionContext }
@@ -55,4 +68,17 @@ export interface SectionBlockEntry {
   sets?: readonly PageSetId[]
   /** Offered only inside Columns, never on a page's own list (a section that means nothing alone). */
   inlineOnly?: boolean
+  /**
+   * A section that lists stories and takes part in the page's ordered pass (a page set with `dedupe`): says which stories it would show, in order, how many it takes, and
+   * which it pins. `RenderSections` asks every such section in the page's order, gives each the newest that nothing above took (`lib/page-slots`), and hands the answer
+   * back as `context.claims`. A section that is not on such a page ignores all of it and draws its own.
+   */
+  claimRequest?: (block: any, context: SectionContext) => Promise<Omit<ClaimRequest, 'key'> | null>
+  /**
+   * The block draws the page's top unit itself, in its own layout (the Front page lead puts it between the lead and The Briefing on a phone, as the coded page does), so
+   * `RenderSections` does not place it again. A page with no such block gets the top unit after its first section.
+   */
+  drawsTop?: boolean
+  /** A news run: the page's sponsor rows sit above these, one row above each, as the home page's rail does. */
+  anchor?: boolean
 }

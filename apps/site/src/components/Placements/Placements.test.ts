@@ -6,7 +6,7 @@ import type { Media } from '@/payload-types'
 import type { RowItem } from '@/lib/placements/flow'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { HomeBand, ListRail, SponsorRow } from './index'
+import { HomeBand, InlineUnit, ListRail, SponsorRow, TopUnit } from './index'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
@@ -144,5 +144,46 @@ describe('the home page banner', () => {
     const exact = { ...media(5), width: 1200, height: 200 } as Media
     expect(band(tile({ key: 'home.band.1', image: exact }))).not.toContain('blur-2xl')
     expect(band(tile({ key: 'home.band.1', image: media(6) }))).toContain('blur-2xl')
+  })
+})
+
+describe('a top unit', () => {
+  const top = (t: PlacementTile<Media> | null) => renderToStaticMarkup(React.createElement(TopUnit, { tile: t }))
+  it('draws nothing without a tile', () => {
+    expect(top(null)).toBe('')
+  })
+  it('is one labeled, sponsored link in the slim strip shape, with no script or frame', () => {
+    const html = top(tile({ key: 'home.top.1', image: media(7) }))
+    expect(html).toContain('Sponsor message')
+    expect(html).toContain('rel="sponsored noopener noreferrer"')
+    expect(html).toContain('data-placement="home.top.1"')
+    expect(html).toMatch(/aspect-ratio:\s*1600 \/ 200/)
+    expect(html).not.toMatch(/<script|<iframe|<video|<audio/i)
+  })
+  it('gives phones their own picture when there is one', () => {
+    expect(top(tile({ key: 'home.top.1' }))).not.toContain('md:hidden')
+    const withPhone = top(tile({ key: 'home.top.1', phoneImage: media(8) }))
+    expect(withPhone).toContain('md:hidden')
+    expect(withPhone).toMatch(/aspect-ratio:\s*640 \/ 200/)
+  })
+  it('is the width of the page\'s content, not a narrower box', () => {
+    expect(top(tile({ key: 'home.top.1' }))).not.toMatch(/max-w-\[/)
+  })
+  it('says "From WUWF" for a house promotion, never "Sponsor message"', () => {
+    const html = top(house({ key: 'home.top.1' }))
+    expect(html).toContain('From WUWF')
+    expect(html).not.toContain('Sponsor message"')
+  })
+})
+
+describe('the story page\'s band', () => {
+  it('draws the inline band as one labeled, sponsored link kept out of the story\'s prose styling, and nothing without a tile', () => {
+    expect(renderToStaticMarkup(React.createElement(InlineUnit, { tile: null }))).toBe('')
+    const html = renderToStaticMarkup(React.createElement(InlineUnit, { tile: tile({ key: 'story.inline.1' }) }))
+    expect(html).toContain('not-prose')
+    expect(html).toContain('data-placement="story.inline.1"')
+    expect(html).toContain('rel="sponsored noopener noreferrer"')
+    expect(html).toMatch(/aspect-ratio:\s*1200 \/ 200/)
+    expect(html).not.toMatch(/<script|<iframe/i)
   })
 })

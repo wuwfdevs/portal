@@ -4,6 +4,8 @@ import { APIError } from 'payload'
 
 import { requireAnyPermission, userCan } from '@/access/permissions'
 import { STILL_IMAGE_MESSAGE, STILL_IMAGE_TYPES, isStillPicture } from '@/lib/placements/media'
+import { describeDates, exclusiveConflicts, type BookedPlacement } from '@/lib/placements/conflicts'
+import { stationDay } from '@/lib/placements/pick'
 import { describeTarget, stillRunning, type PlacementRecord } from '@/lib/placements/resolve'
 import { artworkSize, BUILT_ZONES, isZoneId, TILE_ALT_MAX, ZONES } from '@/lib/placements/registry'
 import { revalidatePath, revalidateTag } from '@/lib/revalidate'
@@ -47,7 +49,8 @@ const checkCapacity: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   const enabled = given('enabled')
   // A promotion that only completes the foot row is held apart from the zone's tiles and takes no place from a sponsor.
   if (given('fillsGaps') === true) return data
-  if (!isZoneId(zoneId) || ZONES[zoneId].targetable || enabled === false) return data
+  // An exclusive place (a top unit) is booked by dates, not by count: next week's sponsor must be bookable while this week's runs (`checkExclusive`).
+  if (!isZoneId(zoneId) || ZONES[zoneId].targetable || ZONES[zoneId].exclusive || enabled === false) return data
   if (!stillRunning({ enabled, runUntil: given('runUntil') }, new Date())) return data
   const others = await req.payload.find({
     collection: 'placement-items',
@@ -70,6 +73,44 @@ const checkCapacity: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   const { capacity, name } = ZONES[zoneId]
   if (running >= capacity) {
     throw new APIError(`${name} holds ${capacity}, and ${running === 1 ? 'one is' : `${running} are`} already running. Switch one off, set its last day, or delete it first.`, 400, undefined, true)
+  }
+  return data
+}
+
+/**
+ * An exclusive place (a top unit) belongs to one sponsor at a time: a second placement whose dates overlap one already booked in the same place, for the same page,
+ * is refused here and the clash is named. (`lib/placements/conflicts.ts` holds the rule.) The home page's rail and the list pages' rail are not exclusive: they have a
+ * capacity, checked above and by the resolver.
+ */
+const checkExclusive: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
+  const given = (key: string) => (data && key in data && data[key] !== undefined ? data[key] : originalDoc?.[key])
+  const zoneId = given('zone')
+  if (!isZoneId(zoneId) || !ZONES[zoneId].exclusive) return data
+  const candidate: BookedPlacement = {
+    id: originalDoc?.id,
+    zone: zoneId,
+    enabled: given('enabled') as boolean | undefined,
+    runFrom: given('runFrom') as string | null | undefined,
+    runUntil: given('runUntil') as string | null | undefined,
+    scope: given('scope') as 'all' | 'chosen' | null | undefined,
+    sections: given('sections') as BookedPlacement['sections'],
+    topics: given('topics') as BookedPlacement['topics'],
+    people: given('people') as BookedPlacement['people'],
+    includeLatest: given('includeLatest') as boolean | undefined,
+  }
+  const found = await req.payload.find({
+    collection: 'placement-items',
+    where: { and: [{ zone: { equals: zoneId } }, { enabled: { equals: true } }] },
+    depth: 0,
+    limit: 200,
+    pagination: false,
+    overrideAccess: true,
+    req,
+  })
+  const clashes = exclusiveConflicts(candidate, found.docs as unknown as BookedPlacement[], stationDay(new Date()))
+  if (clashes.length > 0) {
+    const named = clashes.map((c) => `"${c.name ?? 'another placement'}" (${describeDates(c)})`).join(', ')
+    throw new APIError(`${ZONES[zoneId].name} belongs to one sponsor at a time, and ${named} already holds it for dates that overlap. Change the dates, aim this at a different page, or switch the other one off.`, 400, undefined, true)
   }
   return data
 }
@@ -138,7 +179,7 @@ export const PlacementItems: CollectionConfig = {
     listSearchableFields: ['name'],
     description: 'Sponsor messages and WUWF promotions, each in a fixed place on the site. Make, change, aim and retire them here: no deploy needed.',
   },
-  hooks: { beforeChange: [checkKind, clearFillerFlag, checkCapacity], afterChange: [afterChange], afterDelete: [afterDelete] },
+  hooks: { beforeChange: [checkKind, clearFillerFlag, checkCapacity, checkExclusive], afterChange: [afterChange], afterDelete: [afterDelete] },
   defaultSort: 'order',
   fields: [
     { name: 'name', type: 'text', required: true, maxLength: 120, admin: { description: 'For staff only, to find it again, e.g. "Alphastar: home rail, December".' } },
@@ -179,7 +220,7 @@ export const PlacementItems: CollectionConfig = {
       required: true,
       filterOptions: onlyStill,
       validate: stillPicture as never,
-      admin: { description: `The artwork. A rail tile is ${artworkSize(ZONES['home.rail'].artwork)}; a banner is ${artworkSize(ZONES['home.band'].artwork)}. The words in the picture are read by people who cannot see it, so say what it says below.` },
+      admin: { description: `The artwork. A rail tile is ${artworkSize(ZONES['home.rail'].artwork)}; a banner is ${artworkSize(ZONES['home.band'].artwork)}; a top unit is ${artworkSize(ZONES['home.top'].artwork)}. The words in the picture are read by people who cannot see it, so say what it says below.` },
     },
     {
       name: 'phoneImage',
@@ -188,7 +229,7 @@ export const PlacementItems: CollectionConfig = {
       label: 'Picture for phones',
       filterOptions: onlyStill,
       validate: stillPicture as never,
-      admin: { condition: inZone((z) => z.shape === 'band'), description: `Optional, ${artworkSize(ZONES['home.band'].phoneArtwork ?? ZONES['home.band'].artwork)}. Without it, phones get the wide picture, scaled down.` },
+      admin: { condition: inZone((z) => z.shape === 'band'), description: `Optional, ${artworkSize(ZONES['home.band'].phoneArtwork ?? ZONES['home.band'].artwork)} (a top unit: ${artworkSize(ZONES['home.top'].phoneArtwork ?? ZONES['home.top'].artwork)}). Without it, phones get the wide picture, scaled down.` },
     },
     { name: 'alt', type: 'text', required: true, maxLength: TILE_ALT_MAX, label: 'What the picture says', admin: { description: 'Read aloud for the link, e.g. "Emerald Coast Theatre: tickets for the winter season".' } },
     {
@@ -219,14 +260,15 @@ export const PlacementItems: CollectionConfig = {
           ) => {
             const z = isZoneId(siblingData?.zone) ? ZONES[siblingData.zone] : null
             if (!z?.targetable || value === 'all') return true
-            const chosen = (siblingData?.sections?.length ?? 0) + (siblingData?.topics?.length ?? 0) + (siblingData?.people?.length ?? 0) + (siblingData?.includeLatest ? 1 : 0)
+            const forStories = String(siblingData?.zone ?? '').startsWith('story.')
+            const chosen = (siblingData?.sections?.length ?? 0) + (siblingData?.topics?.length ?? 0) + (siblingData?.people?.length ?? 0) + (siblingData?.includeLatest && !forStories ? 1 : 0)
             return chosen > 0 ? true : 'Choose at least one section, topic, reporter or the all-stories page, or choose every page.'
           },
         },
         { name: 'sections', type: 'relationship', relationTo: 'sections', hasMany: true, admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these sections\' pages (Local News, Music & Arts...).' } },
         { name: 'topics', type: 'relationship', relationTo: 'categories', hasMany: true, admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these topics\' pages.' } },
         { name: 'people', type: 'relationship', relationTo: 'contributors', hasMany: true, label: 'Reporters', admin: { condition: (_, s) => s?.scope !== 'all', description: 'Appears on each of these reporters\' pages.' } },
-        { name: 'includeLatest', type: 'checkbox', defaultValue: false, label: 'The all-stories page', admin: { condition: (_, s) => s?.scope !== 'all', description: 'Also appears on /latest, the list of every story.' } },
+        { name: 'includeLatest', type: 'checkbox', defaultValue: false, label: 'The all-stories page', admin: { condition: (_, s) => s?.scope !== 'all' && !String(s?.zone ?? '').startsWith('story.'), description: 'Also appears on /latest, the list of every story. (Not for a story page: it is aimed at the sections, topics and reporters a story is filed under.)' } },
       ],
     },
     {
@@ -246,7 +288,7 @@ export const PlacementItems: CollectionConfig = {
       admin: {
         condition: (_, s) => s?.kind === 'house' && s?.zone === 'home.rail',
         description:
-          'Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s ten. With none marked, the short row\'s tiles are centered instead.',
+          'Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail\'s capacity. With none marked, the short row\'s tiles are centered instead.',
       },
     },
     {

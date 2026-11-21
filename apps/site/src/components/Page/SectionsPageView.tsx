@@ -32,12 +32,14 @@ export async function SectionsPageView({
   url,
   query,
   listeningHub,
+  slots,
 }: {
   page: SectionsPageData
   draft: boolean
   url: string
   query?: SectionContext['query']
   listeningHub?: SectionContext['listeningHub']
+  slots?: SectionContext['slots']
 }) {
   const set = pageSetOf(page.pageSet)
   const theme = resolveTheme(page.theme, set?.theme)
@@ -48,7 +50,7 @@ export async function SectionsPageView({
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
       {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav hideTitle label={set.name} items={items} />}
-      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}) }} />
+      <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}), ...(slots ? { slots } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
     </article>
   )

@@ -59,11 +59,11 @@ describe('placements', () => {
     sectionA = await keep('sections', { title: `Place A ${run}`, slug: `place-a-${run}` })
     sectionB = await keep('sections', { title: `Place B ${run}`, slug: `place-b-${run}` })
     topic = await keep('categories', { title: `Place topic ${run}`, slug: `place-topic-${run}` })
-    for (const z of ['home.rail', 'home.band', 'list.rail']) await clearZone(z)
+    for (const z of ['home.rail', 'home.band', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
   }, 60_000)
 
   afterAll(async () => {
-    for (const z of ['home.rail', 'home.band', 'list.rail']) await clearZone(z)
+    for (const z of ['home.rail', 'home.band', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
     for (const { collection, id } of [...made].reverse()) await payload.delete({ collection, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
@@ -130,8 +130,7 @@ describe('placements', () => {
       await expect(make({ alt: '' })).rejects.toThrow()
       await expect(make({ alt: 'x'.repeat(161) })).rejects.toThrow()
     })
-    it('refuses a zone that is only designed, not built, and one that does not exist', async () => {
-      await expect(make({ zone: 'story.rail' })).rejects.toThrow()
+    it('refuses a zone that does not exist', async () => {
       await expect(make({ zone: 'nonsense' })).rejects.toThrow()
     })
     it('needs a page chosen when a list-page placement is aimed, and never shows everywhere by accident', async () => {
@@ -141,22 +140,49 @@ describe('placements', () => {
     })
   })
 
+  describe('a place that belongs to one sponsor at a time (a top unit)', () => {
+    const week = (from: string, until: string, extra: Record<string, unknown> = {}) => ({ zone: 'home.top', kind: 'sponsor', sponsor: sponsor.id, runFrom: `${from}T12:00:00.000Z`, runUntil: `${until}T12:00:00.000Z`, ...extra })
+    it('lets next week\'s sponsor be booked while this week\'s runs, and refuses one whose dates overlap, naming what holds it', async () => {
+      await clearZone('home.top')
+      await createdItem(week('2090-01-01', '2090-01-07', { name: `Week one ${run}` }))
+      await expect(createdItem(week('2090-01-08', '2090-01-14', { name: `Week two ${run}` }))).resolves.toBeDefined()
+      await expect(make(week('2090-01-05', '2090-01-10', { name: `Clash ${run}` }))).rejects.toThrow(/belongs to one sponsor at a time.*Week one/s)
+      await clearZone('home.top')
+    })
+    it('lets a placement be edited without clashing with itself, and refuses moving it onto another\'s dates', async () => {
+      await clearZone('home.top')
+      const one = await createdItem(week('2090-02-01', '2090-02-07', { name: `One ${run}` }))
+      const two = await createdItem(week('2090-02-08', '2090-02-14', { name: `Two ${run}` }))
+      await expect(payload.update({ collection: 'placement-items', id: one.id, data: { alt: 'Edited' } as never, overrideAccess: true, context: ctx })).resolves.toBeDefined()
+      await expect(payload.update({ collection: 'placement-items', id: two.id, data: { runFrom: '2090-02-05T12:00:00.000Z' } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/one sponsor at a time/)
+      await clearZone('home.top')
+    })
+    it('holds a section\'s presenting sponsor to that section: another section is free, "every page" meets any', async () => {
+      await clearZone('list.top')
+      await createdItem({ zone: 'list.top', kind: 'sponsor', sponsor: sponsor.id, scope: 'chosen', sections: [sectionA.id], name: `A ${run}` })
+      await expect(createdItem({ zone: 'list.top', kind: 'sponsor', sponsor: sponsor.id, scope: 'chosen', sections: [sectionB.id], name: `B ${run}` })).resolves.toBeDefined()
+      await expect(make({ zone: 'list.top', kind: 'sponsor', sponsor: sponsor.id, scope: 'chosen', sections: [sectionA.id], name: `A again ${run}` })).rejects.toThrow(/one sponsor at a time/)
+      await expect(make({ zone: 'list.top', kind: 'sponsor', sponsor: sponsor.id, scope: 'all', name: `Everywhere ${run}` })).rejects.toThrow(/one sponsor at a time/)
+      await clearZone('list.top')
+    })
+  })
+
   describe('what a zone holds', () => {
-    it('holds ten in the home page rail and refuses an eleventh, with what to do about it', async () => {
+    it('holds nine in the home page rail and refuses a tenth, with what to do about it', async () => {
       await clearZone('home.rail')
-      for (let i = 0; i < 10; i++) await createdItem({ zone: 'home.rail', name: `Rail ${i} ${run}` })
-      await expect(make({ zone: 'home.rail', name: `Eleventh ${run}` })).rejects.toThrow(/holds 10.*already running/s)
+      for (let i = 0; i < 9; i++) await createdItem({ zone: 'home.rail', name: `Rail ${i} ${run}` })
+      await expect(make({ zone: 'home.rail', name: `Tenth ${run}` })).rejects.toThrow(/holds 9.*already running/s)
       await clearZone('home.rail')
     })
-    it('keeps WUWF promotions that fill gaps apart from the rail\'s ten: they take no place from a sponsor and are not counted', async () => {
+    it('keeps WUWF promotions that fill gaps apart from the rail\'s nine: they take no place from a sponsor and are not counted', async () => {
       await clearZone('home.rail')
-      for (let i = 0; i < 10; i++) await createdItem({ zone: 'home.rail', name: `Rail ${i} ${run}`, order: i })
-      // The rail is full, yet a promotion marked as able to fill a gap is still accepted, because it is held apart from the ten.
+      for (let i = 0; i < 9; i++) await createdItem({ zone: 'home.rail', name: `Rail ${i} ${run}`, order: i })
+      // The rail is full, yet a promotion marked as able to fill a gap is still accepted, because it is held apart from the nine.
       const filler = await createdItem({ zone: 'home.rail', name: `Filler ${run}`, fillsGaps: true })
       expect(filler.fillsGaps).toBe(true)
-      // Editing it, or one of the ten, is not blocked by it, and an eleventh ordinary placement is still refused.
+      // Editing it, or one of the nine, is not blocked by it, and a tenth ordinary placement is still refused.
       await payload.update({ collection: 'placement-items', id: filler.id, data: { alt: 'Still words' } as never, overrideAccess: true, context: ctx })
-      await expect(make({ zone: 'home.rail', name: `Eleventh ${run}` })).rejects.toThrow(/holds 10.*already running/s)
+      await expect(make({ zone: 'home.rail', name: `Tenth ${run}` })).rejects.toThrow(/holds 9.*already running/s)
       await clearZone('home.rail')
     })
     it('keeps "can fill a gap" for a WUWF promotion in the home page rail only: on anything else it is cleared, so a leftover tick never counts', async () => {
@@ -173,30 +199,30 @@ describe('placements', () => {
     })
     it('does not count what is switched off or has ended, so a full rail can be rotated', async () => {
       await clearZone('home.rail')
-      for (let i = 0; i < 8; i++) await createdItem({ zone: 'home.rail', name: `Run ${i} ${run}` })
+      for (let i = 0; i < 7; i++) await createdItem({ zone: 'home.rail', name: `Run ${i} ${run}` })
       await createdItem({ zone: 'home.rail', name: `Off ${run}`, enabled: false })
       await createdItem({ zone: 'home.rail', name: `Ended ${run}`, runUntil: '2020-01-01T12:00:00.000Z' })
+      await expect(createdItem({ zone: 'home.rail', name: `Eight ${run}` })).resolves.toBeDefined()
       await expect(createdItem({ zone: 'home.rail', name: `Nine ${run}` })).resolves.toBeDefined()
-      await expect(createdItem({ zone: 'home.rail', name: `Ten ${run}` })).resolves.toBeDefined()
       await expect(make({ zone: 'home.rail', name: `Too many ${run}` })).rejects.toThrow()
       await clearZone('home.rail')
     })
     it('lets a full rail\'s own placements be edited, and refuses switching a held one back on over capacity', async () => {
       await clearZone('home.rail')
       const docs = []
-      for (let i = 0; i < 10; i++) docs.push(await createdItem({ zone: 'home.rail', name: `Full ${i} ${run}` }))
+      for (let i = 0; i < 9; i++) docs.push(await createdItem({ zone: 'home.rail', name: `Full ${i} ${run}` }))
       await expect(payload.update({ collection: 'placement-items', id: docs[0]!.id, data: { alt: 'Edited' } as never, overrideAccess: true, context: ctx })).resolves.toBeDefined()
       await payload.update({ collection: 'placement-items', id: docs[1]!.id, data: { enabled: false } as never, overrideAccess: true, context: ctx })
       const extra = await createdItem({ zone: 'home.rail', name: `Extra ${run}` })
-      await expect(payload.update({ collection: 'placement-items', id: docs[1]!.id, data: { enabled: true } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 10/)
+      await expect(payload.update({ collection: 'placement-items', id: docs[1]!.id, data: { enabled: true } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 9/)
       expect(extra.id).toBeTruthy()
       await clearZone('home.rail')
     })
     it('counts a placement whose last day has passed and is then cleared, because it would run again', async () => {
       await clearZone('home.rail')
-      for (let i = 0; i < 10; i++) await createdItem({ zone: 'home.rail', name: `Live ${i} ${run}` })
+      for (let i = 0; i < 9; i++) await createdItem({ zone: 'home.rail', name: `Live ${i} ${run}` })
       const ended = await createdItem({ zone: 'home.rail', name: `Ended then cleared ${run}`, runUntil: '2020-01-01T12:00:00.000Z' })
-      await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { runUntil: null } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 10/)
+      await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { runUntil: null } as never, overrideAccess: true, context: ctx })).rejects.toThrow(/holds 9/)
       // Leaving the field out keeps what is stored: it stays ended, so it is not counted.
       await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { alt: 'Edited' } as never, overrideAccess: true, context: ctx })).resolves.toBeDefined()
       await clearZone('home.rail')

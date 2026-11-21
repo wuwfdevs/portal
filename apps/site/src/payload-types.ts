@@ -87,6 +87,11 @@ export interface Config {
     sectionClosingBand: SectionClosingBand;
     sectionColumns: SectionColumns;
     sectionIllustration: SectionIllustration;
+    sectionFrontPage: SectionFrontPage;
+    sectionFellowshipFeature: SectionFellowshipFeature;
+    sectionNewsRun: SectionNewsRun;
+    sectionShowSpotlight: SectionShowSpotlight;
+    sectionFeaturePanels: SectionFeaturePanels;
     sectionRateEstimator: SectionRateEstimator;
     sectionPackages: SectionPackages;
     sectionCarpool: SectionCarpool;
@@ -746,6 +751,10 @@ export interface Post {
    * For WUWF members only (a members' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.
    */
   membersOnly?: boolean | null;
+  /**
+   * Tick for a story where a sponsor message would be wrong beside it (a death, a disaster, a sensitive investigation). The story page then draws no sponsor tiles. Live blogs and members-only stories never carry them whether or not this is ticked.
+   */
+  noPlacements?: boolean | null;
   /**
    * Unearthing Florida: the place this episode is about. Shown on the hub's map.
    */
@@ -1564,7 +1573,7 @@ export interface SectionCards {
    */
   note?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1602,9 +1611,9 @@ export interface SectionList {
    * Where the heading sits. A phone always shows it above.
    */
   placement?: ('stacked' | 'side') | null;
-  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'artists';
+  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'clips' | 'artists';
   /**
-   * Stories only.
+   * Stories, and short videos (by their story's section). A topic is for stories only.
    */
   scope?: ('latest' | 'section' | 'topic') | null;
   section?: (number | null) | Section;
@@ -1619,7 +1628,7 @@ export interface SectionList {
    */
   count?: number | null;
   /**
-   * Optional link under the list: "All stories".
+   * Optional link at the top right of the list: "All stories".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1825,7 +1834,7 @@ export interface SectionStats {
    */
   compareLabel?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1875,7 +1884,7 @@ export interface SectionSteps {
       }[]
     | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -1956,7 +1965,7 @@ export interface SectionCallout {
    */
   cite?: string | null;
   /**
-   * Optional: the words of one link under the section, e.g. "See the credit guidelines →".
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
    */
   moreLabel?: string | null;
   moreHref?: string | null;
@@ -2428,6 +2437,170 @@ export interface SectionIllustration {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionIllustration';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFrontPage".
+ */
+export interface SectionFrontPage {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  /**
+   * The large story. Leave empty to lead with the newest story of WUWF's own.
+   */
+  lead?: (number | null) | Post;
+  /**
+   * Optional small label above the headline, e.g. "After Isaias". Empty: the story's section.
+   */
+  leadKicker?: string | null;
+  /**
+   * Up to five, in the order shown under the lead. Any left empty are filled with the newest stories.
+   */
+  topStories?: (number | Post)[] | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFrontPage';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFellowshipFeature".
+ */
+export interface SectionFellowshipFeature {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  fellowship: number | Fellowship;
+  /**
+   * The story to feature. Leave empty to feature the fellowship's newest.
+   */
+  story?: (number | null) | Post;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFellowshipFeature';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionNewsRun".
+ */
+export interface SectionNewsRun {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Where its stories come from and where "More from…" goes.
+   */
+  section: number | Section;
+  /**
+   * How many stories to show (3 to 8).
+   */
+  count?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionNewsRun';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionShowSpotlight".
+ */
+export interface SectionShowSpotlight {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Optional. The show to feature. Leave empty to feature the show with the newest episode.
+   */
+  featuredShow?: (number | null) | Production;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionShowSpotlight';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionFeaturePanels".
+ */
+export interface SectionFeaturePanels {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  radioLive?: boolean | null;
+  unearthing?: boolean | null;
+  /**
+   * Optional. An Unearthing Florida episode to feature. Empty: the episode featured on the Unearthing Florida page, else the newest. A story from another series is ignored.
+   */
+  unearthingEpisode?: (number | null) | Post;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionFeaturePanels';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3383,7 +3556,7 @@ export interface Page {
   /**
    * The group this page belongs to: it sets who may edit the page, its look, its sub-navigation and which section types can be added. Leave empty for a stand-alone page.
    */
-  pageSet?: ('sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
+  pageSet?: ('home' | 'sponsor' | 'giving' | 'listens' | 'voyager' | 'unearthing' | 'radiolive') | null;
   /**
    * Empty: the page set's theme.
    */
@@ -3427,6 +3600,11 @@ export interface Page {
         | SectionClosingBand
         | SectionColumns
         | SectionIllustration
+        | SectionFrontPage
+        | SectionFellowshipFeature
+        | SectionNewsRun
+        | SectionShowSpotlight
+        | SectionFeaturePanels
         | SectionRateEstimator
         | SectionPackages
         | SectionCarpool
@@ -4297,13 +4475,13 @@ export interface PlacementItem {
   /**
    * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
    */
-  zone: 'home.rail' | 'home.band' | 'list.rail';
+  zone: 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.inline';
   /**
-   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
    */
   image: number | Media;
   /**
-   * Optional, 800 × 400 pixels. Without it, phones get the wide picture, scaled down.
+   * Optional, 800 × 400 pixels (a top unit: 640 × 200 pixels). Without it, phones get the wide picture, scaled down.
    */
   phoneImage?: (number | null) | Media;
   /**
@@ -4331,7 +4509,7 @@ export interface PlacementItem {
    */
   people?: (number | Contributor)[] | null;
   /**
-   * Also appears on /latest, the list of every story.
+   * Also appears on /latest, the list of every story. (Not for a story page: it is aimed at the sections, topics and reporters a story is filed under.)
    */
   includeLatest?: boolean | null;
   /**
@@ -4351,7 +4529,7 @@ export interface PlacementItem {
    */
   enabled?: boolean | null;
   /**
-   * Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail's ten. With none marked, the short row's tiles are centered instead.
+   * Optional. On the home page every sponsor tile that is running always shows. The tiles sit in rows of three between the news sections. When the last row is short, WUWF promotions marked here complete it (up to two), so no row is left half empty. They never take a place from a sponsor and do not count toward the rail's capacity. With none marked, the short row's tiles are centered instead.
    */
   fillsGaps?: boolean | null;
   /**
@@ -4913,6 +5091,7 @@ export interface PostsSelect<T extends boolean = true> {
   episodeType?: T;
   fieldNoteKind?: T;
   membersOnly?: T;
+  noPlacements?: T;
   site?: T;
   period?: T;
   generateSlug?: T;
@@ -6227,10 +6406,12 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface Homepage {
   id: number;
-  emergency?: {
+  banner?: {
     active?: boolean | null;
+    scope?: ('home' | 'all') | null;
+    style?: ('emergency' | 'notice') | null;
     /**
-     * The small label above the headline.
+     * The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.
      */
     label?: string | null;
     headline?: string | null;
@@ -8753,10 +8934,12 @@ export interface Sponsorship {
  * via the `definition` "homepage_select".
  */
 export interface HomepageSelect<T extends boolean = true> {
-  emergency?:
+  banner?:
     | T
     | {
         active?: T;
+        scope?: T;
+        style?: T;
         label?: T;
         headline?: T;
         body?: T;

@@ -24,8 +24,10 @@ export async function Header() {
   const listen = await getCachedGlobal('listen-live', 0)().catch(() => null)
   const buttons = headerButtons(header?.actions, supabaseAuthConfig() !== null, liveChannels(listen?.channels).length > 0)
 
+  // Sticky: the header stays at the top while the page scrolls. Its dropdown panels hang from it (`z-30` inside it), the menu sheet on a phone is above it (`z-50`), and
+  // `--header-h` (globals.css) is how tall it is, for what must fit the window under it.
   return (
-    <header className="relative border-b border-rule bg-surface">
+    <header className="sticky top-0 z-40 border-b border-rule bg-surface">
       <div className="container flex min-h-16 items-center gap-x-2 py-1 sm:gap-x-4 lg:gap-x-6">
         {/* On a phone the whole header is one row: Menu, logo, Donate. Listen live is the player bar at the foot of the screen; Search and Sign in are in the Menu's sheet. */}
         {items.length > 0 && <MobileMenu items={items} search={buttons.search} signIn={buttons.signIn} />}

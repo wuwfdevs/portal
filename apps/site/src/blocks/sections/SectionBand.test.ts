@@ -11,11 +11,21 @@ const html = (block: Record<string, unknown>, heading?: Record<string, string>) 
 
 describe('SectionBand: where the heading sits', () => {
   const heading = { eyebrow: 'Why', title: 'A title', intro: 'One.\n\nTwo.' }
-  it('puts the heading above the content by default, and the link after it', () => {
+  it('puts the heading above the content by default, with the link in the heading row and not after the content', () => {
     const out = html({}, heading)
-    expect(out.indexOf('A title')).toBeLessThan(out.indexOf('Content'))
-    expect(out.indexOf('Content')).toBeLessThan(out.indexOf('/more'))
+    expect(out.indexOf('A title')).toBeLessThan(out.indexOf('/more'))
+    expect(out.indexOf('/more')).toBeLessThan(out.indexOf('Content'))
     expect(out).not.toContain('lg:grid-cols')
+  })
+  it('has no header to hold the link when there is no heading, so the link follows the content', () => {
+    const out = html({})
+    expect(out.indexOf('Content')).toBeLessThan(out.indexOf('/more'))
+  })
+  it('does the same inside Columns', () => {
+    const withHeading = html({ inline: true }, heading)
+    expect(withHeading.indexOf('/more')).toBeLessThan(withHeading.indexOf('Content'))
+    const bare = html({ inline: true })
+    expect(bare.indexOf('Content')).toBeLessThan(bare.indexOf('/more'))
   })
   it('puts the heading and the link in a column beside the content when asked', () => {
     const out = html({ placement: 'side' }, heading)

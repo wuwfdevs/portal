@@ -67,6 +67,12 @@ import * as migration_20261119_233120_shared_text from './20261119_233120_shared
 import * as migration_20261119_235000_station_pages_as_sections from './20261119_235000_station_pages_as_sections';
 import * as migration_20261119_235500_listens_pages_as_sections from './20261119_235500_listens_pages_as_sections';
 import * as migration_20261120_162233_placement_fills_gaps from './20261120_162233_placement_fills_gaps';
+import * as migration_20261120_173640_site_banner from './20261120_173640_site_banner';
+import * as migration_20261120_202320_placement_top_zones from './20261120_202320_placement_top_zones';
+import * as migration_20261120_202458_story_no_placements from './20261120_202458_story_no_placements';
+import * as migration_20261120_203039_placement_story_zones from './20261120_203039_placement_story_zones';
+import * as migration_20261120_204634_page_set_home from './20261120_204634_page_set_home';
+import * as migration_20261120_221651_story_rail_retired from './20261120_221651_story_rail_retired';
 
 export const migrations = [
   {
@@ -412,6 +418,36 @@ export const migrations = [
   {
     up: migration_20261120_162233_placement_fills_gaps.up,
     down: migration_20261120_162233_placement_fills_gaps.down,
-    name: '20261120_162233_placement_fills_gaps'
+    name: '20261120_162233_placement_fills_gaps',
+  },
+  {
+    up: migration_20261120_173640_site_banner.up,
+    down: migration_20261120_173640_site_banner.down,
+    name: '20261120_173640_site_banner',
+  },
+  {
+    up: migration_20261120_202320_placement_top_zones.up,
+    down: migration_20261120_202320_placement_top_zones.down,
+    name: '20261120_202320_placement_top_zones',
+  },
+  {
+    up: migration_20261120_202458_story_no_placements.up,
+    down: migration_20261120_202458_story_no_placements.down,
+    name: '20261120_202458_story_no_placements',
+  },
+  {
+    up: migration_20261120_203039_placement_story_zones.up,
+    down: migration_20261120_203039_placement_story_zones.down,
+    name: '20261120_203039_placement_story_zones',
+  },
+  {
+    up: migration_20261120_204634_page_set_home.up,
+    down: migration_20261120_204634_page_set_home.down,
+    name: '20261120_204634_page_set_home',
+  },
+  {
+    up: migration_20261120_221651_story_rail_retired.up,
+    down: migration_20261120_221651_story_rail_retired.down,
+    name: '20261120_221651_story_rail_retired'
   },
 ];

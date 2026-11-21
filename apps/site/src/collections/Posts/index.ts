@@ -408,6 +408,17 @@ export const Posts: CollectionConfig<'posts'> = {
     },
     membersOnlyField('For WUWF members only (a members\' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.'),
     {
+      name: 'noPlacements',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'No sponsor messages on this story',
+      admin: {
+        position: 'sidebar',
+        description:
+          'Tick for a story where a sponsor message would be wrong beside it (a death, a disaster, a sensitive investigation). The story page then draws no sponsor tiles. Live blogs and members-only stories never carry them whether or not this is ticked.',
+      },
+    },
+    {
       name: 'site',
       type: 'relationship',
       relationTo: 'sites',

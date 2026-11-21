@@ -47,7 +47,7 @@ describe('the home page', () => {
   }, 60_000)
 
   afterAll(async () => {
-    await setHome({ emergency: { active: false, headline: null, body: null, linkLabel: null, linkHref: null }, lead: null, topStories: [], fellowshipFeature: { enabled: false, fellowship: null, story: null }, newsModules: [], leadKicker: null })
+    await setHome({ banner: { active: false, headline: null, body: null, linkLabel: null, linkHref: null }, lead: null, topStories: [], fellowshipFeature: { enabled: false, fellowship: null, story: null }, newsModules: [], leadKicker: null })
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
@@ -77,16 +77,18 @@ describe('the home page', () => {
     expect([d.lead, ...d.top].map((x) => x?.title)).not.toContain(`Draft ${run}`)
   })
 
-  it('shows emergency coverage only while it is switched on and has a headline', async () => {
-    await setHome({ emergency: { active: true, label: 'Hurricane warning', headline: 'Shelters open at noon', body: 'Details below.', linkLabel: 'Live updates', linkHref: '/live-updates/storm' } })
-    expect((await loadHomepage()).emergency).toEqual({ label: 'Hurricane warning', headline: 'Shelters open at noon', body: 'Details below.', linkLabel: 'Live updates', linkHref: '/live-updates/storm' })
-    await setHome({ emergency: { active: false } })
-    expect((await loadHomepage()).emergency).toBeNull()
-    await expect(setHome({ emergency: { active: true, headline: '  ' } })).rejects.toThrow()
+  it('shows the banner only while it is switched on and has a headline, and keeps where and how', async () => {
+    await setHome({ banner: { active: true, scope: 'all', style: 'notice', label: 'Road closure', headline: 'Shelters open at noon', body: 'Details below.', linkLabel: 'Live updates', linkHref: '/live-updates/storm' } })
+    expect((await loadHomepage()).banner).toEqual({ scope: 'all', style: 'notice', label: 'Road closure', headline: 'Shelters open at noon', body: 'Details below.', linkLabel: 'Live updates', linkHref: '/live-updates/storm' })
+    await setHome({ banner: { active: true, scope: 'home', style: 'emergency', label: null, headline: 'Shelters open at noon' } })
+    expect((await loadHomepage()).banner).toMatchObject({ scope: 'home', style: 'emergency', label: 'Emergency coverage' })
+    await setHome({ banner: { active: false } })
+    expect((await loadHomepage()).banner).toBeNull()
+    await expect(setHome({ banner: { active: true, headline: '  ' } })).rejects.toThrow()
   })
 
-  it('refuses an emergency link that is not a page here, an https address or mailto', async () => {
-    await expect(setHome({ emergency: { active: true, headline: 'x', linkHref: 'javascript:alert(1)' } })).rejects.toThrow()
+  it('refuses a banner link that is not a page here, an https address or mailto', async () => {
+    await expect(setHome({ banner: { active: true, headline: 'x', linkHref: 'javascript:alert(1)' } })).rejects.toThrow()
   })
 
   describe('the news sections', () => {
@@ -104,7 +106,7 @@ describe('the home page', () => {
 
     const row = (heading: string, section: { id: string | number }, extra: Record<string, unknown> = {}) => ({ heading, section: section.id, count: 3, enabled: true, ...extra })
     // The lead and the Briefing take the newest stories first, so these tests pin them to stories outside the sections under test.
-    const reset = () => setHome({ lead: s.A!.id, topStories: [s.B!.id, s.C!.id, s.D!.id, s.E!.id, s.F!.id], leadKicker: null, emergency: { active: false }, newsModules: [] })
+    const reset = () => setHome({ lead: s.A!.id, topStories: [s.B!.id, s.C!.id, s.D!.id, s.E!.id, s.F!.id], leadKicker: null, banner: { active: false }, newsModules: [] })
 
     it('fills each section, in the order the editor chose, linking each to its section page and the band to every story', async () => {
       await reset()

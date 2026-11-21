@@ -11,7 +11,8 @@ vi.mock('next/cache', async (importOriginal) => ({
 
 import { GET as captions } from '@/app/(frontend)/video/[slug]/captions.vtt/route'
 import { GET as sitemapChild } from '@/app/(frontend)/(sitemaps)/sitemaps/[name]/route'
-import { loadClipPage } from '@/lib/video/load'
+import { loadClipPage, loadClips } from '@/lib/video/load'
+import { clipsForSection } from '@/lib/video/section'
 
 // Short video: a clip needs captions to publish; the public sees published clips only; a clip carries its series' running funder line and
 // points to its story.
@@ -74,6 +75,10 @@ describe('short video', () => {
     expect(page?.clip.by).toBe('WUWF News')
     expect(page?.clip.story).toEqual({ href: story.path, label: 'Read the full story' })
     expect(page?.clip.series?.title).toBe(`After Storm ${run}`)
+    // Its section is its story's: that is how a section page finds it.
+    const storySection = (await payload.findByID({ collection: 'posts', id: story.id, depth: 0, overrideAccess: true })).section as number
+    expect(page?.clip.sectionId).toBe(storySection)
+    expect(clipsForSection((await loadClips()).filter((c) => c.slug === clip.slug), storySection).map((c) => c.slug)).toEqual([clip.slug])
     expect(page?.acknowledgments.map((l) => l.text)).toEqual([`Made possible by Clip Sponsor ${run}.`])
     expect(await loadClipPage(`not-yet-${run}`)).toBeNull()
     expect(page?.rows.some((r) => r.items.some((c) => c.slug === clip.slug))).toBe(true)

@@ -5,11 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ListItem } from '@/lib/section-data/shape'
 
 import { testContext } from '../testing'
-import { ListSection, ListView } from './Component'
+import type { ClipView } from '@/lib/video/load'
+
+import { ClipListView, ListSection, ListView } from './Component'
 
 let items: ListItem[] = []
 const loadList = vi.fn(async () => items)
-vi.mock('@/lib/section-data/load', () => ({ loadList: (...a: unknown[]) => (loadList as unknown as (...x: unknown[]) => unknown)(...a) }))
+let clips: ClipView[] = []
+const loadClipList = vi.fn(async () => clips)
+vi.mock('@/lib/section-data/load', () => ({
+  loadList: (...a: unknown[]) => (loadList as unknown as (...x: unknown[]) => unknown)(...a),
+  loadClipList: (...a: unknown[]) => (loadClipList as unknown as (...x: unknown[]) => unknown)(...a),
+}))
 
 const picture = { id: 5, url: '/media/a.jpg', alt: 'A guitar', width: 800, height: 600, mimeType: 'image/jpeg', updatedAt: null, focalX: null, focalY: null }
 const entries: ListItem[] = [
@@ -108,5 +115,28 @@ describe('List section: tiles and rows (the podcast directory)', () => {
     expect(loadList).toHaveBeenLastCalledWith({ source: 'shows' })
     await draw({ source: 'episodes', allShows: true, show: 2, count: 4 })
     expect(loadList).toHaveBeenLastCalledWith({ source: 'episodes', all: true, count: 4 })
+  })
+})
+
+const clip = (over: Partial<ClipView> = {}): ClipView => ({
+  id: 1, slug: 'a-clip', title: 'A clip', description: null, videoUrl: '/v.mp4', mimeType: 'video/mp4', posterUrl: '/p.jpg', durationSeconds: 75, by: 'Leigh Ostrander', publishedAt: null,
+  series: null, story: null, sectionId: 7, captionsHref: '/video/a-clip/captions.vtt', ...over,
+})
+
+describe('List section: short videos', () => {
+  it('reads the clips (all, or a section\'s) and not the stories', async () => {
+    clips = [clip()]
+    await draw({ source: 'clips' })
+    expect(loadClipList).toHaveBeenLastCalledWith({ source: 'clips', scope: 'latest', count: 6 })
+    await draw({ source: 'clips', scope: 'section', section: { id: 7 }, count: 4 })
+    expect(loadClipList).toHaveBeenLastCalledWith({ source: 'clips', scope: 'section', id: 7, count: 4 })
+    expect(await draw({ source: 'clips', scope: 'section' })).toBe('')
+  })
+  it('draws the poster rail in the band, with the more link in the header, and nothing without clips', async () => {
+    const out = renderToStaticMarkup(createElement(ClipListView, { block: { blockType: 'sectionList', heading: { title: 'Watch' }, moreLabel: 'All videos', moreHref: '/video' }, clips: [clip()] }))
+    expect(out).toContain('href="/video/a-clip"')
+    expect(out).toContain('--tone-muted')
+    expect(out.indexOf('/video"')).toBeLessThan(out.indexOf('/video/a-clip'))
+    expect(renderToStaticMarkup(createElement(ClipListView, { block: { blockType: 'sectionList' }, clips: [] }))).toBe('')
   })
 })

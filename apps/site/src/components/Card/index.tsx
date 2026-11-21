@@ -7,6 +7,7 @@ import { Media } from '@/components/Media'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { trackFromAudio } from '@/lib/player/track'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
+import type { LeadClasses } from '@/lib/homepage/modules'
 import { cn } from '@/utilities/ui'
 
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
@@ -23,9 +24,11 @@ export const Card: React.FC<{
   doc?: CardPostData
   /** Show the picture in a fixed 3:2 frame, cropped to fill it, so a grid of cards lines up whatever shape the pictures are. */
   fixedImage?: boolean
+  /** How a news run's lead card is laid out where it spans columns (`leadCardClasses`): a row, picture left and words right. */
+  lead?: LeadClasses
   showCategories?: boolean
   title?: string
-}> = ({ className, doc, fixedImage, showCategories, title: titleFromProps }) => {
+}> = ({ className, doc, fixedImage, lead, showCategories, title: titleFromProps }) => {
   const { path, categories, meta, title, format, publishingIdentity, featuredAudio } = doc || {}
   const { description, image: metaImage } = meta || {}
 
@@ -41,12 +44,13 @@ export const Card: React.FC<{
     <article
       className={cn(
         'relative flex flex-col overflow-hidden rounded-sm border border-rule bg-surface shadow-1 transition-shadow hover:shadow-2',
+        lead?.card,
         className,
       )}
     >
       {metaImage && typeof metaImage !== 'string' && (
         fixedImage ? (
-          <div className="relative aspect-[3/2] w-full overflow-hidden bg-surface-3">
+          <div className={cn('relative aspect-[3/2] w-full overflow-hidden bg-surface-3', lead?.frame)}>
             <Media imgClassName="absolute inset-0 size-full object-cover" resource={metaImage} size="33vw" />
           </div>
         ) : (
@@ -55,7 +59,7 @@ export const Card: React.FC<{
           </div>
         )
       )}
-      <div className="flex flex-col gap-2 p-4">
+      <div className={cn('flex flex-col gap-2 p-4', lead?.body)}>
         {format === 'live' && (
           <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">
             <span className="inline-flex items-center gap-1.5 rounded-pill bg-wuwf-blue-100 px-2 py-0.5">
@@ -73,7 +77,7 @@ export const Card: React.FC<{
           <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{topics.join(', ')}</p>
         )}
         {titleToUse && (
-          <h3 className="font-serif text-xl font-bold leading-snug">
+          <h3 className={cn('font-serif text-xl font-bold leading-snug', lead?.title)}>
             {href ? (
               <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700" href={href}>
                 {titleToUse}

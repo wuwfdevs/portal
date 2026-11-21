@@ -60,6 +60,45 @@ export function fillModules<T extends { id: Id }>(requests: readonly ModuleReque
   return filled
 }
 
+/** Whole Tailwind class names for the parts of a news run's lead card (`leadCardClasses`). */
+export interface LeadClasses {
+  /** The card's own direction: a row (picture beside the words) or a column. */
+  card: string
+  /** The picture's frame. */
+  frame: string
+  /** The words' box. */
+  body: string
+  /** The headline's size. */
+  title: string
+}
+
+// A row: the picture takes the left half and fills the card's height, with at least a 3:2 of its own width so a card with little to say is not squat (the `before` spacer sets that
+// minimum, and the picture stretches past it when the card is taller); the words take the right half, centred, with room and a larger headline.
+const ROW = {
+  sm: { card: 'sm:flex-row', frame: 'sm:w-1/2 sm:shrink-0 sm:aspect-auto sm:before:block sm:before:pt-[66.7%]', body: 'sm:flex-1 sm:justify-center sm:p-6', title: 'sm:text-2xl' },
+  lg: { card: 'lg:flex-row', frame: 'lg:w-1/2 lg:shrink-0 lg:aspect-auto lg:before:block lg:before:pt-[66.7%]', body: 'lg:flex-1 lg:justify-center lg:p-6', title: 'lg:text-2xl' },
+} as const
+// Back to the ordinary card at a wide screen, for a lead that spans a tablet's row but sits in one column of three.
+const COLUMN_LG = { card: 'lg:flex-col', frame: 'lg:w-full lg:aspect-[3/2] lg:before:hidden', body: 'lg:flex-none lg:justify-start lg:p-4', title: 'lg:text-xl' } as const
+
+/**
+ * How a news run's lead card is laid out where it spans columns (`leadSpanClass`). A 3:2 picture at two or three columns wide is as tall as the whole row, so the card
+ * beside it stretches to match and leaves a blank panel, and any wider fixed frame makes the picture a thin strip. So a spanning lead is a ROW instead: the picture on the left
+ * (near square beside a neighbour, 3:2 when the lead has the row to itself) and the headline and summary on the right, larger. A card that does not span, and every card on a phone,
+ * is the ordinary column. Pure; whole class names, so Tailwind generates them.
+ */
+export function leadCardClasses(count: number): LeadClasses {
+  const n = Math.max(0, Math.floor(count))
+  const tabletRow = n % 2 === 1
+  const wideRow = (n + 1) % 3 === 0 || n % 3 === 1
+  const parts: Array<Pick<LeadClasses, keyof LeadClasses>> = []
+  if (tabletRow) parts.push(ROW.sm)
+  if (wideRow) parts.push(ROW.lg)
+  else if (tabletRow) parts.push(COLUMN_LG)
+  const join = (k: keyof LeadClasses) => parts.map((x) => x[k]).join(' ')
+  return { card: join('card'), frame: join('frame'), body: join('body'), title: join('title') }
+}
+
 /** The stand-in when no module has anything: the newest stories nothing above shows, headed "Latest stories", linking to all of them. */
 export function fallbackModule<T extends { id: Id }>(recent: readonly T[], shown: readonly { id: Id }[], count: number = MODULE_COUNT.fallback + 1): FilledModule<T> | null {
   const taken = new Set(shown.map((s) => String(s.id)))

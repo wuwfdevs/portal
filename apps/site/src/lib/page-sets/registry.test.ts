@@ -60,3 +60,11 @@ describe('who may edit which pages', () => {
     expect(canPublishSet(as('membership'), null)).toBe(false)
   })
 })
+
+describe('placements policy', () => {
+  it('carries no sponsor placement on the pages where a gift is made, a listener speaks, or sponsorship is sold', () => {
+    expect(PAGE_SETS.giving.placements).toBe(false)
+    expect(PAGE_SETS.listens.placements).toBe(false)
+    expect(PAGE_SETS.sponsor.placements).toBe(false)
+  })
+})

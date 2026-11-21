@@ -103,20 +103,33 @@ describe('the zone registry', () => {
     expect(tileKey('home.rail', 3)).toBe('home.rail.3')
     expect(tileKey('home.band', 0)).toBe('home.band.1')
   })
-  it('builds the home page\'s rail and banner and the list pages\' rail, and says so for the rest', () => {
-    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'list.rail'])
-    expect(ZONES['story.rail'].built).toBe(false)
+  it('builds every zone (the story rail was retired and is not a zone): the top units, the home page\'s rail and banner, the list pages\' rail and the story page\'s inline bands', () => {
+    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'home.top', 'list.rail', 'list.top', 'story.inline'])
+    expect(Object.keys(ZONES)).not.toContain('story.rail')
   })
-  it('holds ten tiles in the home rail, four on a list page, and one in a band (a band is not a rotation)', () => {
-    expect(ZONES['home.rail'].capacity).toBe(10)
+  it('holds nine tiles in the home rail (three full rows; owner glide to six, 2026-11-20), four on a list page, one in a band or top unit, and two in a story (the second only in a long one); none is a rotation', () => {
+    expect(ZONES['home.rail'].capacity).toBe(9)
     expect(ZONES['list.rail'].capacity).toBe(4)
-    for (const z of Object.values(ZONES)) if (z.shape === 'band') expect(z.capacity).toBe(1)
+    for (const z of Object.values(ZONES)) if (z.shape === 'band') expect(z.capacity, z.id).toBe(z.id === 'story.inline' ? 2 : 1)
   })
   it('lets only the zones on pages that have sections, topics or reporters be aimed', () => {
     expect(Object.values(ZONES).filter((z) => z.targetable).map((z) => z.page).every((p) => p !== 'home')).toBe(true)
     expect(ZONES['home.rail'].targetable).toBe(false)
   })
-  it('has no leaderboard: no zone is wider than six times its height', () => {
-    for (const z of Object.values(ZONES)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
+  it('keeps every zone but a top unit to six wide for one tall', () => {
+    for (const z of Object.values(ZONES).filter((x) => !x.top)) expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(6)
+  })
+  it('allows a top unit only as a slim strip: one exclusive unit, eight wide for one tall at most, so it does not push the story down', () => {
+    const tops = Object.values(ZONES).filter((z) => z.top)
+    expect(tops.map((z) => z.id).sort()).toEqual(['home.top', 'list.top'])
+    for (const z of tops) {
+      expect(z.capacity, z.id).toBe(1)
+      expect(z.exclusive, z.id).toBe(true)
+      expect(z.shape, z.id).toBe('band')
+      expect(z.artwork.width / z.artwork.height, z.id).toBeLessThanOrEqual(8)
+      expect(z.artwork.width / z.artwork.height, z.id).toBeGreaterThanOrEqual(6)
+    }
+    expect(ZONES['home.top'].targetable).toBe(false)
+    expect(ZONES['list.top'].targetable).toBe(true)
   })
 })

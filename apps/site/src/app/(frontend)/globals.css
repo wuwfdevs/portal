@@ -78,6 +78,9 @@
    browser's own form controls and scrollbars light in a reader's dark mode too. */
 :root {
   color-scheme: light;
+  /* How tall the sticky header is: one row of 4rem, or 6.75rem when it has its second row (the section links). For what must fit the window under it (the home page's first
+     screen) and for anchors, so a link to a place on a page does not land under the header. */
+  --header-h: 4rem;
   --background: var(--color-surface);
   --foreground: var(--color-ink);
   --card: var(--color-surface-2);
@@ -162,4 +165,11 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+body:has(header nav[aria-label='Sections']) {
+  --header-h: 6.75rem;
+}
+html {
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }

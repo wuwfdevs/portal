@@ -8,9 +8,13 @@ import { Media } from '@/components/Media'
 import RichText from '@/components/RichText'
 import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
-import { ListRail } from '@/components/Placements'
+import { ListRail, TopUnit } from '@/components/Placements'
+import { StoryGrid } from '@/components/StoryGrid'
+import { TitledSection } from '@/components/TitledSection'
+import { ClipRail } from '@/components/Video/ClipRail'
 import type { StoryListData } from '@/lib/lists/load'
 import type { PlacementTile } from '@/lib/placements/tiles'
+import type { ClipView } from '@/lib/video/load'
 import type { Media as MediaDoc } from '@/payload-types'
 import { cn } from '@/utilities/ui'
 
@@ -18,9 +22,10 @@ const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter', latest
 
 /**
  * A page of stories in a section, under a topic, or by a person (the three share one layout). The first page opens with the
- * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly.
+ * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly. A section's page carries a short-video
+ * strip (`clips`, from `lib/video/section`) between the lead and the grid on its first page, with "All videos" in its header; with none it draws nothing.
  */
-export function StoryListView({ data, rail = [] }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[] }) {
+export function StoryListView({ data, rail = [], clips = [], top = null }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[]; clips?: readonly ClipView[]; top?: PlacementTile<MediaDoc> | null }) {
   const { kind, slug, title, blurb, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
   const lead = page === 1 ? stories[0] : undefined
   const grid = page === 1 ? stories.slice(1) : stories
@@ -79,6 +84,13 @@ export function StoryListView({ data, rail = [] }: { data: StoryListData; rail?:
         </p>
       </header>
 
+      {/* The top unit (`list.top`): a section's presenting sponsor, under the page's title and before the stories. On every page of the list, not only the first. */}
+      {top && (
+        <div className="container mt-8">
+          <TopUnit tile={top} />
+        </div>
+      )}
+
       {page === 1 && listeningQuestion && (
         <div className="container mt-8 max-w-[60rem]">
           <ListeningInline publicId={listeningQuestion} variant="topic" />
@@ -96,15 +108,12 @@ export function StoryListView({ data, rail = [] }: { data: StoryListData; rail?:
             {/* The lead lines up with the grid under it: the whole column beside a rail (the grid is two across), two of the grid's three columns
                 without one (`gap-6` is the grid's gap). A fixed width left its right edge short of the cards below. */}
             {lead && <Card className={cn(!hasRail && 'lg:w-[calc((200%-1.5rem)/3)]')} doc={withLeadPicture(lead)} fixedImage showCategories />}
-            {grid.length > 0 && (
-              <ul className={cn('grid gap-6 sm:grid-cols-2', hasRail ? 'lg:grid-cols-2' : 'lg:grid-cols-3')}>
-                {grid.map((story) => (
-                  <li key={story.id}>
-                    <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                  </li>
-                ))}
-              </ul>
+            {page === 1 && clips.length > 0 && (
+              <TitledSection href="/video" id="section-videos" more={{ href: '/video', label: 'All videos' }} title={`Short videos from ${title}`}>
+                <ClipRail clips={clips} label={`Short videos from ${title}`} />
+              </TitledSection>
             )}
+            <StoryGrid beside={hasRail} stories={grid} />
           </div>
         )}
         <ListPagination kind={kind} page={page} slug={slug} totalPages={totalPages} />

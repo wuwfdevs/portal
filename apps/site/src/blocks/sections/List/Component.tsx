@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { ClipRail } from '@/components/Video/ClipRail'
 import { listSpecOf } from '@/lib/section-data/specs'
 import type { ListItem } from '@/lib/section-data/shape'
+import type { ClipView } from '@/lib/video/load'
 
 import { SectionBand } from '../SectionBand'
 import { safeHref } from '@/lib/section-links'
@@ -159,9 +161,21 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
     )
   }
   return (
-    <SectionBand block={block} heading={block.heading}>
+    <SectionBand block={block} heading={block.heading} more={more}>
       {body}
-      {more}
+    </SectionBand>
+  )
+}
+
+/**
+ * A List of short videos: the poster rail (`ClipRail`, the same one the home page and the section pages draw), in the band's tone. It has one layout, so the
+ * variant is not used. Draws nothing without clips.
+ */
+export function ClipListView({ block, clips }: { block: ListData; clips: readonly ClipView[] }) {
+  if (clips.length === 0) return null
+  return (
+    <SectionBand block={block} heading={block.heading} more={<SectionLink href={block.moreHref} label={block.moreLabel} />}>
+      <ClipRail clips={clips} label={block.heading?.title?.trim() || 'Short videos'} toned />
     </SectionBand>
   )
 }
@@ -170,6 +184,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
 export async function ListSection({ block }: SectionProps<ListData>) {
   const spec = listSpecOf(block)
   if (!spec) return null
-  const { loadList } = await import('@/lib/section-data/load')
-  return <ListView block={block} items={await loadList(spec)} />
+  const loaded = await import('@/lib/section-data/load')
+  if (spec.source === 'clips') return <ClipListView block={block} clips={await loaded.loadClipList(spec)} />
+  return <ListView block={block} items={await loaded.loadList(spec)} />
 }

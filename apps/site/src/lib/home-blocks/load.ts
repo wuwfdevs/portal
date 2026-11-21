@@ -1,0 +1,84 @@
+// The reads behind the home page's blocks (Front page, News run, Fellowship feature). Each goes through the Local API with access control on (`overrideAccess: false`,
+// published only), is cached for the rest of the render with React's `cache` (a section asks once for the ordered pass and once to draw), and reads the same fields the coded
+// home page reads (`CARD_FIELDS`), so a card looks the same in both. Blocks import this file only dynamically, when they draw: the block registry is loaded by the Payload
+// config, and this file loads the config.
+
+import configPromise from '@payload-config'
+import { getPayload, type Where } from 'payload'
+import { cache } from 'react'
+
+import { arrangeHomepage } from '@/lib/homepage/select'
+import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/load'
+import { MODULE_SLACK } from '@/lib/homepage/modules'
+import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
+import type { Fellowship } from '@/payload-types'
+
+import { relationId } from '@/lib/section-data/shape'
+import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
+
+const RECENT_LIMIT = 40
+export const TOP_COUNT = 5
+
+const readStories = cache(async (whereKey: string, limit: number): Promise<HomeStory[]> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({ collection: 'posts', depth: 1, draft: false, limit, overrideAccess: false, pagination: false, sort: '-publishedAt', select: CARD_FIELDS, where: JSON.parse(whereKey) as Where })
+  return found.docs as HomeStory[]
+})
+
+const stories = (where: Where, limit: number) => readStories(JSON.stringify(where), limit)
+
+/** The newest published stories filed under a section, whatever their source (Florida News is featured on purpose), `count` plus the slack the ordered pass needs. */
+export const newestInSection = (sectionId: string | number, count: number): Promise<HomeStory[]> => stories({ section: { equals: sectionId } }, count + MODULE_SLACK)
+
+/** The newest of WUWF's own stories: what the lead and the Briefing fall back to. */
+export const newestOwn = (limit: number = RECENT_LIMIT): Promise<HomeStory[]> => stories({ source: { equals: 'wuwf' } }, limit)
+
+/** Published stories by id, in the order given. An id that is no longer published is left out. */
+export async function storiesByIds(ids: readonly (string | number)[]): Promise<HomeStory[]> {
+  if (ids.length === 0) return []
+  const found = await stories({ id: { in: [...ids] } }, ids.length)
+  const byId = new Map(found.map((s) => [String(s.id), s]))
+  return ids.map((id) => byId.get(String(id))).filter((s): s is HomeStory => Boolean(s))
+}
+
+/** A section's title and address. Null when it was deleted. */
+export const sectionById = cache(async (id: string | number): Promise<{ id: string | number; title: string; slug: string } | null> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({ collection: 'sections', where: { id: { equals: id } }, limit: 1, depth: 0, overrideAccess: false, pagination: false, select: { title: true, slug: true } })
+  const s = found.docs[0]
+  return s ? { id: s.id, title: s.title, slug: s.slug ?? '' } : null
+})
+
+/**
+ * The lead and the Briefing as the editors set them: the chosen lead, else the newest of WUWF's own; the chosen top stories, filled up to five with the newest. The same
+ * arrangement the coded home page makes (`arrangeHomepage`), returned as ids in order (the lead first) so the page's ordered pass can claim them before any news run does.
+ */
+export async function arrangeFront(block: { lead?: unknown; topStories?: unknown }): Promise<{ lead: HomeStory | null; top: HomeStory[] }> {
+  const leadId = relationId(block.lead)
+  const topIds = (Array.isArray(block.topStories) ? block.topStories : []).map(relationId).filter((v): v is string | number => v !== null)
+  const [recent, picked] = await Promise.all([newestOwn(), storiesByIds([...(leadId !== null ? [leadId] : []), ...topIds])])
+  const byId = new Map(picked.map((s) => [String(s.id), s]))
+  return arrangeHomepage({
+    curatedLead: leadId !== null ? (byId.get(String(leadId)) ?? null) : null,
+    curatedTop: topIds.map((id) => byId.get(String(id))).filter((s): s is HomeStory => Boolean(s)),
+    recent,
+    topCount: TOP_COUNT,
+  })
+}
+
+export interface FeatureView {
+  fellowship: Fellowship
+  story: HomeStory | null
+  acknowledgments: AcknowledgmentLine[]
+}
+
+/** The fellowship feature: the chosen story, else the fellowship's newest. Null when the fellowship is gone. The funder lines are read on the server and only the approved wording returns. */
+export const loadFeature = cache(async (fellowshipId: string | number, storyId: string | number | null): Promise<FeatureView | null> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({ collection: 'fellowships', where: { id: { equals: fellowshipId } }, depth: 1, limit: 1, overrideAccess: false })
+  const fellowship = found.docs[0]
+  if (!fellowship) return null
+  const chosen = storyId !== null ? ((await storiesByIds([storyId]))[0] ?? null) : null
+  const story = chosen ?? (await stories({ fellowship: { equals: fellowship.id } }, 1))[0] ?? null
+  return { fellowship, story, acknowledgments: await getFellowshipHubAcknowledgments(payload, fellowship.id, new Date().toISOString()) }
+})

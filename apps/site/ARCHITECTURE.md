@@ -243,4 +243,4 @@ it), the administrators-only rule is a document-level hook comparing the incomin
 Vercel (own project, root `apps/site`), Supabase (own project) for Postgres, Auth and Storage; Payload's storage
 adapter against Supabase's S3-compatible endpoint, private buckets for audience audio. Analytics and error
 reporting behind interfaces. The site must stay usable if analytics, sponsorship serving or personalization is
-down; emergency coverage is a first-class homepage state.
+down; the site banner (an emergency or a notice, on the home page or every page) is a first-class state.

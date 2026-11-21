@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { creditSpecOf, datesSpecOf, featuredSpecOf, listSpecOf } from './specs'
 
+describe('listSpecOf: short videos', () => {
+  it('reads the newest clips, or a section\'s, and nothing for a section that is not chosen', () => {
+    expect(listSpecOf({ source: 'clips' })).toEqual({ source: 'clips', scope: 'latest', count: 6 })
+    expect(listSpecOf({ source: 'clips', scope: 'section', section: { id: 4 }, count: 3 })).toEqual({ source: 'clips', scope: 'section', id: 4, count: 3 })
+    expect(listSpecOf({ source: 'clips', scope: 'section' })).toBeNull()
+    expect(listSpecOf({ source: 'clips', scope: 'topic', topic: 9 })).toEqual({ source: 'clips', scope: 'latest', count: 6 })
+  })
+})
+
 describe('listSpecOf', () => {
   it('reads only the fields of the chosen source and scope', () => {
     expect(listSpecOf({ source: 'stories', scope: 'section', section: { id: 4 }, topic: 9, show: 8 })).toEqual({ source: 'stories', scope: 'section', id: 4, count: 6 })

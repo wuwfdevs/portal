@@ -5,17 +5,21 @@ import { getPayload } from 'payload'
 import type { Media, PlacementItem } from '@/payload-types'
 import { cacheGeneration } from '@/utilities/getGlobals'
 
+import { storyZonesAllowed, type StoryExclusionFields } from './exclusions'
 import { resolveFillers, resolveZone, type PageContext, type PlacementRecord } from './resolve'
+import { storyPage } from './story'
 import type { PlacementTile } from './tiles'
 
 export interface HomePlacements {
+  /** The home page's top unit (`home.top`), one sponsor for a stretch of dates. The page holds it back while an emergency banner is on. */
+  top: PlacementTile<Media> | null
   rail: PlacementTile<Media>[]
   band: PlacementTile<Media> | null
   /** WUWF promotions that may complete the foot row (`flow.ts`). Optional: usually empty. */
   fillers: PlacementTile<Media>[]
 }
 
-const NONE: HomePlacements = { rail: [], band: null, fillers: [] }
+const NONE: HomePlacements = { top: null, rail: [], band: null, fillers: [] }
 const MAX_RECORDS = 200
 
 /** The record the resolver reads, from a stored placement whose sponsor's name has been looked up. */
@@ -71,20 +75,49 @@ export async function loadHomePlacements(now: Date = new Date()): Promise<HomePl
   try {
     const records = await readRecords()
     const ctx: PageContext = { page: 'home' }
-    return { rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
+    return { top: resolveZone('home.top', ctx, records, now)[0] ?? null, rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
   } catch (err) {
     await logFailure(err)
     return NONE
   }
 }
 
-/** The rail beside a section, topic, reporter or all-stories page: the placements aimed at this page. Empty on any failure. */
-export async function loadListRail(ctx: Extract<PageContext, { page: 'list' }>, now: Date = new Date()): Promise<PlacementTile<Media>[]> {
+export interface ListPlacements {
+  /** The top unit under the page's title (`list.top`): a section's presenting sponsor. One, aimed at this page. */
+  top: PlacementTile<Media> | null
+  /** The rail beside the stories (`list.rail`). */
+  rail: PlacementTile<Media>[]
+}
+
+/** What fills a section, topic, reporter or all-stories page: the placements aimed at this page. Empty on any failure, so the page draws without them. */
+export async function loadListPlacements(ctx: Extract<PageContext, { page: 'list' }>, now: Date = new Date()): Promise<ListPlacements> {
   try {
-    return resolveZone('list.rail', ctx, await readRecords(), now)
+    const records = await readRecords()
+    return { top: resolveZone('list.top', ctx, records, now)[0] ?? null, rail: resolveZone('list.rail', ctx, records, now) }
   } catch (err) {
     await logFailure(err)
-    return []
+    return { top: null, rail: [] }
+  }
+}
+
+export interface StoryPlacements {
+  /** The bands inside the story (`story.inline`): the first after its opening paragraphs and, in a long story, a second. At most two, in run order. */
+  inline: PlacementTile<Media>[]
+}
+
+const NO_STORY_PLACEMENTS: StoryPlacements = { inline: [] }
+
+/**
+ * What a story page carries: the bands aimed at the sections, topics or reporters it is filed under. A live blog, a members-only story and one an editor ticked carry none
+ * (`storyZonesAllowed`), and a failed read leaves them out so the story still draws.
+ */
+export async function loadStoryPlacements(story: Parameters<typeof storyPage>[0] & StoryExclusionFields, now: Date = new Date()): Promise<StoryPlacements> {
+  if (!storyZonesAllowed(story)) return NO_STORY_PLACEMENTS
+  try {
+    return { inline: resolveZone('story.inline', storyPage(story), await readRecords(), now) }
+  } catch (err) {
+    await logFailure(err)
+    return NO_STORY_PLACEMENTS
   }
 }
 
