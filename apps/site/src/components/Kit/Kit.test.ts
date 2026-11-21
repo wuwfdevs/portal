@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
-import { BUTTON_VARIANTS, Button, DeskChip, Eyebrow, NumberBadge, SectionHeading, buttonClasses, headingClasses } from './index'
+import { BUTTON_VARIANTS, Button, SectionChip, Eyebrow, NumberBadge, SectionHeading, buttonClasses, headingClasses } from './index'
 
 const html = (el: React.ReactElement) => renderToStaticMarkup(el)
 
@@ -54,31 +54,31 @@ describe('Button', () => {
   })
 })
 
-describe('Eyebrow and DeskChip', () => {
-  it('draws a dot and the words, in the desk colour', () => {
-    const out = html(createElement(Eyebrow, { desk: 'coastal' }, 'Fellowship'))
+describe('Eyebrow and SectionChip', () => {
+  it('draws a dot and the words, in the swatch colour', () => {
+    const out = html(createElement(Eyebrow, { swatch: 'lime' }, 'Fellowship'))
     expect(out).toContain('bg-wuwf-lime')
     expect(out).toContain('text-success-fg')
     expect(out).toContain('Fellowship')
     expect(out).toContain('aria-hidden="true"')
   })
-  it('reads the band when told to, and is News when it has no desk or an unknown one', () => {
+  it('reads the band when told to, and is the default blue with no swatch or an unknown one', () => {
     expect(html(createElement(Eyebrow, { tone: true }, 'x'))).toContain('var(--tone-accent)')
     expect(html(createElement(Eyebrow, null, 'x'))).toContain('text-wuwf-blue-700')
-    expect(html(createElement(Eyebrow, { desk: 'sports' }, 'x'))).toContain('text-wuwf-blue-700')
+    expect(html(createElement(Eyebrow, { swatch: 'sports' }, 'x'))).toContain('text-wuwf-blue-700')
   })
-  it('is a tinted pill by default and a dot with the name as a dot chip; a label replaces the desk name', () => {
-    const pill = html(createElement(DeskChip, { desk: 'arts' }))
+  it('is a tinted pill by default and a dot with the name as a dot chip; with no words it draws nothing', () => {
+    const pill = html(createElement(SectionChip, { swatch: 'amber', label: 'Arts & Music' }))
     expect(pill).toContain('rounded-pill')
     expect(pill).toContain('bg-warning-bg')
     expect(pill).toContain('Arts &amp; Music')
-    const dot = html(createElement(DeskChip, { desk: 'campus', variant: 'dot', label: 'The Voyager' }))
+    const dot = html(createElement(SectionChip, { swatch: 'teal', variant: 'dot', label: 'The Voyager' }))
     expect(dot).toContain('bg-wuwf-teal')
     expect(dot).toContain('The Voyager')
-    expect(html(createElement(DeskChip, { desk: 'news', label: '  ' }))).toContain('>News<')
+    for (const label of ['  ', '', null, undefined]) expect(html(createElement(SectionChip, { swatch: 'blue', label }))).toBe('')
   })
   it('draws a number in a round tinted badge, hidden from a screen reader (the list says the order)', () => {
-    const out = html(createElement(NumberBadge, { n: 3, desk: 'news' }))
+    const out = html(createElement(NumberBadge, { n: 3, swatch: 'blue' }))
     expect(out).toContain('>3<')
     expect(out).toContain('aria-hidden="true"')
     expect(out).toContain('bg-wuwf-blue-100')
@@ -92,8 +92,8 @@ describe('SectionHeading', () => {
     expect(cls).toContain('font-semibold')
     expect(cls).not.toContain('font-bold')
   })
-  it('wraps the words in a mark from the desk, or from the band, and in nothing without one', () => {
-    const desk = html(createElement(SectionHeading, { mark: 'coastal' }, 'Local News'))
+  it('wraps the words in a mark from the swatch, or from the band, and in nothing without one', () => {
+    const desk = html(createElement(SectionHeading, { mark: 'lime' }, 'Local News'))
     expect(desk).toContain('class="mark ')
     expect(desk).toContain('--mk:var(--color-wuwf-lime)')
     expect(html(createElement(SectionHeading, { mark: 'tone' }, 'x'))).toContain('--mk:var(--tone-mark)')

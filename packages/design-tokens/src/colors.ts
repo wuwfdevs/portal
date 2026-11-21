@@ -4,7 +4,7 @@
 // the values must stay equal, and a colour with no token here is added here first.
 //
 // Color roles on the public site (canvas board 15): navy = player and RadioLive, blue = actions,
-// teal = fellowships and the Campus desk, lime = on dark, and on white for the play button and
+// teal = fellowships (and one of the colours an editor can give a section), lime = on dark, and on white for the play button and
 // heading marks (direction C2, owner decision 2026-11-21), paper = history, ink = The Voyager,
 // red = LIVE only, panel = disclosures.
 

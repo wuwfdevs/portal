@@ -1,5 +1,5 @@
 export { Button } from './Button'
 export { buttonClasses, BUTTON_VARIANTS, type ButtonSize, type ButtonVariant } from './button'
-export { DeskChip, NumberBadge } from './DeskChip'
+export { NumberBadge, SectionChip } from './SectionChip'
 export { Eyebrow, eyebrowLabel, eyebrowText } from './Eyebrow'
 export { headingClasses, SectionHeading, type HeadingMark, type HeadingSize } from './SectionHeading'

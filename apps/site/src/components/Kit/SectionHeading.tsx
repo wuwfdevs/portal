@@ -1,10 +1,10 @@
 import React from 'react'
 
-import { DESKS, deskOf, type DeskId } from '@/lib/desks'
+import { SWATCHES, swatchOf, type SwatchId } from '@/lib/swatches'
 import { cn } from '@/utilities/ui'
 
-/** Where the highlight under a heading gets its colour: a desk's, the band's own mark (`tone`, set by the page theme), or none. */
-export type HeadingMark = DeskId | 'tone' | 'none'
+/** Where the highlight under a heading gets its colour: a swatch's, the band's own mark (`tone`, set by the page theme), or none. */
+export type HeadingMark = SwatchId | 'tone' | 'none'
 
 const sizes = { xl: 'text-[2.5rem] leading-[1.1]', lg: 'text-3xl leading-tight', md: 'text-[1.375rem] leading-tight' } as const
 export type HeadingSize = keyof typeof sizes
@@ -14,7 +14,7 @@ export const headingClasses = (size: HeadingSize = 'lg') => cn('font-serif font-
 
 /**
  * A section's heading (direction C2): serif at 600, with an optional highlight under the words, a `<span class="mark">` whose colour
- * is the `--mk` property (a desk's, or the band's `--tone-mark`). Without a mark it is the plain heading. It draws the heading
+ * is the `--mk` property (a swatch's, or the band's `--tone-mark`). Without a mark it is the plain heading. It draws the heading
  * element only; the row it sits in (a "more" link at the right, a rule) is the caller's, as `components/SectionHeader` and
  * `SectionBand` do.
  */
@@ -33,7 +33,7 @@ export function SectionHeading({
   size?: HeadingSize
   className?: string
 }) {
-  const markClass = mark === 'tone' ? '[--mk:var(--tone-mark)]' : mark && mark !== 'none' ? DESKS[deskOf(mark)].mark : null
+  const markClass = mark === 'tone' ? '[--mk:var(--tone-mark)]' : mark && mark !== 'none' ? SWATCHES[swatchOf(mark)].mark : null
   return (
     <Tag className={cn(headingClasses(size), className)} id={id}>
       {markClass ? <span className={cn('mark', markClass)}>{children}</span> : children}

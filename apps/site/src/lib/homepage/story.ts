@@ -1,5 +1,6 @@
 // What a home-page card and the lead band read from a story. Pure: no Payload runtime, so a block's view can import it (the block registry is loaded by the Payload config).
 
+import { swatchOf, type SwatchId } from '@/lib/swatches'
 import type { Contributor, Post } from '@/payload-types'
 
 const named = <T extends object>(value: T | string | number | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
@@ -15,8 +16,13 @@ export function bylineOf(story: Pick<HomeStory, 'contributors'>): string | null 
   return names.length > 0 ? `By ${names.join(', ')}` : null
 }
 
+/** The section's name and colour when it was loaded, for the chip or the small label above a headline; null when it was not (a deleted section leaves a bare id). */
+export function sectionOf(story: Pick<HomeStory, 'section'>): { title: string; swatch: SwatchId } | null {
+  const section = named<{ title?: string | null; swatch?: string | null }>(story.section as never)
+  return section?.title ? { title: section.title, swatch: swatchOf(section.swatch) } : null
+}
+
 /** The section's name when it was loaded, for the small label above a headline. */
 export function kickerOf(story: Pick<HomeStory, 'section' | 'categories'>): string | null {
-  const section = named<{ title?: string }>(story.section as never)
-  return section?.title ?? null
+  return sectionOf(story)?.title ?? null
 }
