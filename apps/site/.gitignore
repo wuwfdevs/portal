@@ -23,3 +23,6 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Payload's blocks-to-JSON converter writes its batches here while it runs (a failed run can leave them)
+src/migrations/.payload-blocks-migration/

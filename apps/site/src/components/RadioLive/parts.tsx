@@ -11,15 +11,15 @@ import type { ShowView } from '@/lib/radiolive/load'
 /** The picture on a show's card, or a plain dark frame when it has none. */
 export function ShowFrame({ show, className }: { show: ShowView; className: string }) {
   return (
-    <span className={`relative flex items-center justify-center overflow-hidden rounded-sm border border-surface-dark-line bg-surface-dark-hover ${className}`}>
+    <span className={`relative flex items-center justify-center overflow-hidden rounded-4 border border-surface-dark-line bg-surface-dark-hover ${className}`}>
       {show.photo && <Media imgClassName="absolute inset-0 size-full object-cover" resource={show.photo} size="33vw" />}
       <span className="absolute bottom-2.5 left-2.5 flex gap-1.5">
-        <span className="rounded-sm bg-ink px-2 py-0.5 text-xs font-bold text-surface">{dateParts(show.startsAt).long}</span>
-        {show.recording?.kind === 'file' && <span className="rounded-sm bg-ink px-1.5 py-0.5 text-[11px] font-bold text-surface">CC</span>}
+        <span className="rounded-pill bg-surface/90 px-2.5 py-0.5 text-xs font-bold text-surface-dark">{dateParts(show.startsAt).long}</span>
+        {show.recording?.kind === 'file' && <span className="rounded-pill bg-surface/90 px-2 py-0.5 text-[11px] font-bold text-surface-dark">CC</span>}
       </span>
       {show.recording && (
-        <span aria-hidden="true" className="relative flex size-14 items-center justify-center rounded-full bg-wuwf-blue-600">
-          <svg fill="#FFFFFF" height="18" viewBox="0 0 24 24" width="18">
+        <span aria-hidden="true" className="relative flex size-14 items-center justify-center rounded-full bg-wuwf-lime text-surface-dark">
+          <svg fill="currentColor" height="18" viewBox="0 0 24 24" width="18">
             <path d="M7 4l14 8-14 8z" />
           </svg>
         </span>
@@ -58,7 +58,7 @@ export function RecordingPlayer({ show }: { show: ShowView }) {
     )
     return (
       <figure className="flex flex-col gap-2">
-        <div className="aspect-video w-full overflow-hidden rounded-sm bg-ink">
+        <div className="aspect-video w-full overflow-hidden rounded-4 bg-ink">
           {rec.load === 'click' ? (
             <ClickToLoad host={new URL(rec.src).hostname} title={title}>
               {frame}
@@ -74,7 +74,7 @@ export function RecordingPlayer({ show }: { show: ShowView }) {
   const length = formatDuration(rec.seconds)
   return (
     <figure className="flex flex-col gap-2">
-      <video aria-label={title} className="aspect-video w-full rounded-sm bg-ink" controls playsInline poster={rec.posterUrl ?? undefined} preload="metadata">
+      <video aria-label={title} className="aspect-video w-full rounded-4 bg-ink" controls playsInline poster={rec.posterUrl ?? undefined} preload="metadata">
         <source src={rec.url} type={rec.mimeType ?? undefined} />
         <track default kind="captions" label="English" src={rec.captionsHref} srcLang="en" />
         <a href={rec.url}>{title}</a>

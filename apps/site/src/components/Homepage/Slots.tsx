@@ -4,95 +4,62 @@ import React from 'react'
 import type { Media as MediaDoc } from '@/payload-types'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
+import { Button, Eyebrow } from '@/components/Kit'
+import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
+import { SectionHeader } from '@/components/SectionHeader'
+import { TitledSection } from '@/components/TitledSection'
+import { ClipRail } from '@/components/Video/ClipRail'
 import { ShowFrame } from '@/components/RadioLive/parts'
 import { formatDuration, formatLongDate } from '@/lib/format'
 import type { HomepageSlots, PodcastCard } from '@/lib/homepage/load-slots'
 import { leadPicture } from '@/lib/homepage/select'
+import { trackFromAudio } from '@/lib/player/track'
 import { dateParts, joinNames, performanceTitle } from '@/lib/radiolive/arrange'
 import { audioOf, type Episode } from '@/lib/shows/load'
 
 // The home page's feature slots (boards 1 and 2), below the news. Each takes a slot that the loader has already decided is worth showing.
-// Left out on purpose, because nothing stands behind them yet: "Follow the show", "Get tickets alert" and the persistent player. Audio
-// plays in the browser's own controls, and nothing downloads before the reader presses play.
+// Left out on purpose, because nothing stands behind them yet: "Follow the show" and "Get tickets alert". Audio
+// plays in the site's one player (the bar at the bottom), and nothing downloads before the reader presses play.
 
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
 
-/** The section heading the boards use: a small blue label, a serif heading, and a link to everything on the right. */
-function SlotHeading({ id, kicker, title, href, linkLabel }: { id: string; kicker: string; title: string; href: string; linkLabel: string }) {
+/**
+ * Short videos: the newest clips, a row that scrolls sideways (`ClipRail`, shared with the section pages). On the home page it sits in the news
+ * column with the same titled section as the news runs beside it, "All videos" in the header. It takes the column's width (`className=""`);
+ * alone it is a page-wide section.
+ */
+export function VideoRow({ slot, className = 'container mt-16' }: { slot: NonNullable<HomepageSlots['video']>; className?: string }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-4">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{kicker}</p>
-        <h2 className="mt-1 font-serif text-3xl font-bold leading-tight text-ink" id={id}>
-          {title}
-        </h2>
-      </div>
-      <Link className="inline-flex min-h-11 items-center text-base font-bold text-wuwf-blue-700 underline" href={href}>
-        {linkLabel}
-      </Link>
-    </div>
-  )
-}
-
-/** "Watch in a minute": the newest short videos, a row that scrolls sideways. Each opens the clip's own page, where it plays with captions. */
-export function VideoRow({ slot }: { slot: NonNullable<HomepageSlots['video']> }) {
-  return (
-    <section aria-labelledby="video-heading" className="container mt-16">
-      <SlotHeading href="/video" id="video-heading" kicker="Watch in a minute" linkLabel="All videos" title="Short videos from the region" />
-      <ul className="mt-5 flex snap-x gap-4 overflow-x-auto pb-2">
-        {slot.clips.map((clip) => {
-          const time = formatDuration(clip.durationSeconds)
-          return (
-            <li className="relative flex w-36 shrink-0 snap-start flex-col gap-2 sm:w-52" key={clip.id}>
-              <span className="relative block aspect-[9/16] overflow-hidden rounded-sm bg-surface-dark">
-                {clip.posterUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element -- a decorative poster; the link below carries the title
-                  <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" src={clip.posterUrl} />
-                )}
-                {clip.series && <span className="absolute left-2 top-2 max-w-[85%] truncate rounded-full bg-surface-dark/80 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-surface">{clip.series.title}</span>}
-                <span aria-hidden="true" className="absolute bottom-2 left-2 flex size-10 items-center justify-center rounded-full bg-surface/90">
-                  <svg fill="currentColor" height="14" viewBox="0 0 24 24" width="14" className="text-surface-dark">
-                    <path d="M7 4l14 8-14 8z" />
-                  </svg>
-                </span>
-                {time && <span className="absolute bottom-2 right-2 rounded-sm bg-surface-dark/80 px-1.5 py-0.5 font-mono text-[11px] text-surface">{time}</span>}
-              </span>
-              <Link className="text-base font-bold leading-snug text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={`/video/${clip.slug}`}>
-                {clip.title}
-              </Link>
-              {clip.by && <span className="text-sm text-ink-3">{clip.by}</span>}
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+    <TitledSection className={className} eyebrow="Watch in a minute" href="/video" id="video-heading" more={{ href: '/video', label: 'All videos' }} swatch="teal" title="Short videos from the region">
+      <ClipRail clips={slot.clips} label="Short videos" />
+    </TitledSection>
   )
 }
 
 function Cover({ card, className, label }: { card: PodcastCard; className: string; label?: boolean }) {
   return (
-    <span className={`relative flex shrink-0 flex-col justify-end overflow-hidden rounded-sm bg-wuwf-teal p-3 ${className}`}>
+    <span className={`relative flex shrink-0 flex-col justify-end overflow-hidden rounded-3 bg-wuwf-teal p-3 ${className}`}>
       {card.heroImage ? (
         <Media imgClassName="absolute inset-0 size-full object-cover" resource={card.heroImage} size="200px" />
       ) : (
-        label && <span className="font-serif text-2xl font-bold leading-none text-surface">{card.show.title}</span>
+        label && <span className="font-serif text-2xl font-semibold leading-none text-surface">{card.show.title}</span>
       )}
     </span>
   )
 }
 
-/** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
-export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
+/**
+ * The podcasts' content: one show with its newest episode to play here (with its funder line), and more shows beside it. The band, heading and container around it are the
+ * caller's: the coded home page's `PodcastsSlot` and the Show spotlight block draw it the same way.
+ */
+export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
   const { featured, acknowledgments, others } = slot
   const ep = featured.latest
-  const audio = audioOf(ep)
+  const track = trackFromAudio(audioOf(ep), { title: ep.title, href: ep.path })
   return (
-    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface-2 py-12">
-      <div className="container flex flex-col gap-6">
-        <SlotHeading href="/podcasts" id="podcasts-heading" kicker="WUWF originals" linkLabel="All podcasts" title="Podcasts made in Pensacola" />
-        <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-          <article className="flex flex-col gap-6 rounded-md border border-rule bg-surface p-6 sm:flex-row">
+    <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+          <article className="flex flex-col gap-6 rounded-4 bg-surface-2 p-6 sm:flex-row">
             {featured.show.path ? (
               <Link aria-label={featured.show.title} className="block self-start" href={featured.show.path}>
                 <Cover card={featured} className="size-40 sm:size-48" label />
@@ -101,15 +68,15 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
               <Cover card={featured} className="size-40 sm:size-48" label />
             )}
             <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-wuwf-teal">
+              <Eyebrow swatch="teal">
                 New episode{featured.show.path ? ' · ' : ''}
                 {featured.show.path && (
                   <Link className="text-wuwf-teal underline" href={featured.show.path}>
                     {featured.show.title}
                   </Link>
                 )}
-              </p>
-              <h3 className="font-serif text-2xl font-bold leading-snug">
+              </Eyebrow>
+              <h3 className="font-serif text-2xl font-semibold leading-snug">
                 {ep.path ? (
                   <Link className="text-ink hover:text-wuwf-blue-700" href={ep.path}>
                     {ep.title}
@@ -120,14 +87,14 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
               </h3>
               {ep.meta?.description && <p className="text-base text-ink-2">{ep.meta.description}</p>}
               <p className="text-sm text-ink-3">{[ep.publishedAt ? formatLongDate(ep.publishedAt) : null, length(ep)].filter(Boolean).join(' · ')}</p>
-              {audio?.url && <audio aria-label={`Play: ${ep.title}`} className="w-full" controls preload="none" src={audio.url} />}
+              {track && <PlayAudioButton className="self-start" track={track} />}
               <Acknowledgment headingId="podcast-support-heading" independenceHref={independenceHref} lines={acknowledgments} subject="program" />
             </div>
           </article>
           {others.length > 0 && (
             <ul aria-label="More podcasts" className="flex flex-col gap-3">
               {others.map((card) => (
-                <li className="relative flex items-center gap-4 rounded-sm border border-rule bg-surface p-3 hover:shadow-2" key={card.show.id}>
+                <li className="relative flex items-center gap-4 rounded-4 bg-surface-2 p-3 hover:shadow-2" key={card.show.id}>
                   <Cover card={card} className="size-16" />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     {card.show.path ? (
@@ -147,6 +114,16 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
             </ul>
           )}
         </div>
+  )
+}
+
+/** "Podcasts made in Pensacola": one show with its newest episode to play here, and more shows beside it. */
+export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<HomepageSlots['podcasts']>; independenceHref: string | null }) {
+  return (
+    <section aria-labelledby="podcasts-heading" className="mt-16 border-y border-rule bg-surface py-12">
+      <div className="container flex flex-col gap-6">
+        <SectionHeader eyebrow="WUWF originals" id="podcasts-heading" more={{ href: '/podcasts', label: 'All podcasts' }} title="Podcasts made in Pensacola" />
+        <PodcastsBody independenceHref={independenceHref} slot={slot} />
       </div>
     </section>
   )
@@ -156,20 +133,20 @@ export function PodcastsSlot({ slot, independenceHref }: { slot: NonNullable<Hom
 export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['unearthing']> }) {
   const { production, episode } = slot
   const picture = leadPicture<MediaDoc>(episode) ?? slot.heroImage
-  const audio = audioOf(episode)
+  const track = trackFromAudio(audioOf(episode), { title: episode.title, href: episode.path })
   return (
-    <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-md bg-warning-bg p-6 md:p-8">
+    <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-4 bg-warning-bg p-6 md:p-8">
       <h2 className="font-serif text-2xl font-bold italic text-warning-fg" id="unearthing-heading">
         <Link className="text-warning-fg hover:underline" href="/unearthing-florida">
           {production.title}
         </Link>
       </h2>
       {picture && (
-        <div className="relative aspect-[16/7] overflow-hidden rounded-sm bg-surface-3">
+        <div className="relative aspect-[16/7] overflow-hidden rounded-3 bg-surface-3">
           <Media imgClassName="absolute inset-0 size-full object-cover" resource={picture} size="(min-width: 1024px) 600px, 100vw" />
         </div>
       )}
-      <h3 className="font-serif text-2xl font-bold leading-snug md:text-3xl">
+      <h3 className="font-serif text-2xl font-semibold leading-snug md:text-3xl">
         {episode.path ? (
           <Link className="text-ink hover:text-warning-fg" href={episode.path}>
             {episode.title}
@@ -179,12 +156,7 @@ export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['une
         )}
       </h3>
       {episode.meta?.description && <p className="text-base text-ink-2">{episode.meta.description}</p>}
-      {audio?.url && (
-        <div className="flex flex-col gap-1">
-          <audio aria-label={`Play: ${episode.title}`} className="w-full" controls preload="none" src={audio.url} />
-          {length(episode) && <span className="text-sm text-ink-3">{length(episode)}</span>}
-        </div>
-      )}
+      {track && <PlayAudioButton className="self-start" track={track} />}
       <Link className="inline-flex min-h-11 items-center self-start text-base font-bold text-warning-fg underline" href="/unearthing-florida">
         Explore the map of sites
       </Link>
@@ -201,7 +173,7 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
   const { next, latest, tagline } = slot
   const lead = latest ?? next
   return (
-    <section aria-labelledby="radiolive-heading" className="flex min-w-0 flex-col gap-4 rounded-md bg-surface-dark p-6 text-surface md:p-8">
+    <section aria-labelledby="radiolive-heading" className="flex min-w-0 flex-col gap-4 rounded-4 bg-surface-dark p-6 text-surface md:p-8">
       <h2 className="flex flex-wrap items-baseline gap-3" id="radiolive-heading">
         <Link className="font-serif text-2xl font-bold text-surface hover:underline" href="/radiolive">
           RadioLive
@@ -216,7 +188,7 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
       {latest && (
         <div className="flex flex-col gap-1">
           <p className="text-xs font-bold uppercase tracking-widest text-surface-dark-text">Latest recorded set{latest.venue ? ` · ${latest.venue}` : ''}</p>
-          <h3 className="font-serif text-2xl font-bold leading-snug md:text-3xl">
+          <h3 className="font-serif text-2xl font-semibold leading-snug md:text-3xl">
             <Link className="text-surface hover:underline" href={`/radiolive/${latest.slug}`}>
               {performanceTitle(latest)}
             </Link>
@@ -231,12 +203,12 @@ export function RadioLivePanel({ slot }: { slot: NonNullable<HomepageSlots['radi
             {next.venue && !latest && ` · ${next.venue}`}
           </p>
           {next.tickets.href ? (
-            <a className="inline-flex min-h-11 items-center rounded-sm bg-wuwf-lime px-4 text-base font-bold text-surface-dark hover:no-underline" href={next.tickets.href} rel="noopener noreferrer">
+            <Button href={next.tickets.href} variant="onDark">
               {next.tickets.label}
-            </a>
+            </Button>
           ) : (
             <>
-              <span className="rounded-sm border border-surface-dark-line px-3 py-2 text-sm font-bold">{next.tickets.label}</span>
+              <span className="rounded-pill border border-surface-dark-line px-3 py-2 text-sm font-bold">{next.tickets.label}</span>
               <Link className="inline-flex min-h-11 items-center text-base font-bold text-surface underline" href={`/radiolive/${next.slug}`}>
                 About the show
               </Link>

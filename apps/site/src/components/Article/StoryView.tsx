@@ -9,6 +9,10 @@ import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
+import { Eyebrow, SectionChip, SectionHeading } from '@/components/Kit'
+import { TitledSection } from '@/components/TitledSection'
+import { InlineUnit } from '@/components/Placements'
+import { RelatedStories } from '@/components/Article/RelatedStories'
 import { FeaturedMedia } from '@/components/Article/FeaturedMedia'
 import { ThemedEpisodeView } from '@/components/Show/themed/ThemedEpisodeView'
 import { showThemeOf } from '@/lib/shows/themes'
@@ -17,14 +21,22 @@ import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
+import { storyFactsOf } from '@/lib/embeddings/present'
 import { loadRelatedStories } from '@/lib/embeddings/related'
+import { resolveTuning } from '@/lib/embeddings/tuning'
 import { formatLongDate } from '@/lib/format'
+import { sectionOf } from '@/lib/homepage/story'
+import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import { jsonLdText } from '@/lib/live/jsonld'
 import { storySchema, storySeoInputOf } from '@/lib/seo/meta'
 import { readingMinutes } from '@/lib/reading'
+import { loadStoryPlacements } from '@/lib/placements/load'
+import { splitForBands } from '@/lib/placements/story'
 import { getAcknowledgments } from '@/lib/underwriting/load'
+import { membershipAppealOf } from '@/lib/shared-text'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { getServerSideURL } from '@/utilities/getURL'
+import { cn } from '@/utilities/ui'
 
 const named = <T extends object>(value: T | string | number | null | undefined): T | null =>
   value && typeof value === 'object' ? value : null
@@ -34,6 +46,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const fellowship = named(post.fellowship)
   const series = named(post.series)
   const production = named(post.production)
+  const section = named(post.section)
+  const sectionLabel = sectionOf({ section: post.section })
   const topics = (post.categories ?? []).map((c) => named(c)).filter((c): c is NonNullable<typeof c> => c !== null)
   const byline = (post.contributors ?? []).map((c) => named<Contributor>(c)).filter((c): c is Contributor => c !== null)
 
@@ -49,17 +63,22 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   const settings = await getCachedGlobal('site-settings', 1)()
   const policy = named(settings?.independencePolicy)
   const independenceHref = policy?.slug ? `/${policy.slug}` : null
+  const sharedText = await getCachedGlobal('shared-text', 0)()
   const hubHref = fellowship?.slug ? `/fellowships/${fellowship.slug}` : null
 
   const minutes = readingMinutes(post.content)
   const more = fellowship ? await queryMoreFrom(fellowship.id, post.id) : []
   // Stories close in meaning (story embeddings). A preview shows none: a draft has no vector to compare, and it must not change anything.
-  const related = draft ? [] : await loadRelatedStories(post)
+  const related = draft ? [] : await loadRelatedStories(post, new Date(), resolveTuning(settings))
   const featuredAudio = named(post.featuredAudio)
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
   // A members-only story read by the public comes back without its body and audio (field access, fail closed).
   const locked = post.membersOnly !== false && post.content == null
   const level = locked ? await loadMembersListeningLevel() : null
+  // The story template's band (`story.inline`): none in a live blog, a members-only story or one an editor ticked, and none in a preview. One after the opening paragraphs, and in a
+  // long story a second further down, each drawn only when a placement runs for it.
+  const placements = draft || locked ? { inline: [] } : await loadStoryPlacements({ ...post, format: post.format, membersOnly: post.membersOnly, noPlacements: post.noPlacements })
+  const parts = placements.inline.length > 0 ? splitForBands(post.content, placements.inline.length) : null
 
   // An episode or Field Note of a themed show is shown in the show's own look (board 23).
   const showTheme = production?.kind === 'original' && production.path ? showThemeOf(production.theme) : null
@@ -80,7 +99,22 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       {draft && <LivePreviewListener />}
 
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
+        {sectionLabel && (
+          // The story's section, as the boards' eyebrow: its colour's dot and its name, linked to the section's page when it has one.
+          <p>
+            <Eyebrow swatch={sectionLabel.swatch}>
+              {section?.slug ? (
+                <Link className="text-inherit hover:underline" href={`/${section.slug}`}>
+                  {sectionLabel.title}
+                </Link>
+              ) : (
+                sectionLabel.title
+              )}
+            </Eyebrow>
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
+          {isVoyagerIdentity(post.publishingIdentity) && <SectionChip label={VOYAGER_BADGE_LABEL} swatch="teal" />}
           {fellowship && <Chip href={hubHref ?? undefined} tone="teal">{fellowship.title} Fellowship</Chip>}
           {production && <Chip href={production.path ?? undefined} tone={production.path ? 'teal' : 'plain'}>{post.format === 'audio' ? 'Episode · ' : 'Show · '}{production.title}</Chip>}
           {series && <Chip>Series · {series.title}</Chip>}
@@ -89,7 +123,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           ))}
         </div>
 
-        <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">{post.title}</h1>
+        <SectionHeading as="h1" className="text-4xl leading-tight tracking-tight md:text-5xl">{post.title}</SectionHeading>
         {post.dek && <p className="font-serif text-xl text-ink-2 md:text-2xl">{post.dek}</p>}
 
         <div className="flex items-center gap-4 pt-2">
@@ -124,15 +158,16 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
         <Acknowledgment hubHref={hubHref} independenceHref={independenceHref} lines={acknowledgments.lines} />
       </header>
 
-      {hasFeaturedMedia && (
-        <div className="container mt-8">
-          <FeaturedMedia blocks={post.featuredMedia} />
+      {/* The audio version comes first, straight under the headline block, so a listener does not scroll past the picture to find it. */}
+      {featuredAudio && (
+        <div className="container mt-8 max-w-[52rem]">
+          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" href={post.path} />
         </div>
       )}
 
-      {featuredAudio && (
-        <div className="container mt-6 max-w-[52rem]">
-          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" />
+      {hasFeaturedMedia && (
+        <div className="container mt-8">
+          <FeaturedMedia blocks={post.featuredMedia} />
         </div>
       )}
 
@@ -142,11 +177,19 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
             <MembersOnlyPanel isEpisode={post.format === 'audio'} level={level} memberHref={`/account/listen/${post.id}`} showHref={production?.path} showTitle={production?.title} supportHref="/support" />
           </div>
         ) : (
-          <RichText
-            className="mx-auto w-full max-w-[47.5rem] font-serif prose-p:text-xl prose-p:leading-relaxed"
-            data={post.content}
-            enableGutter={false}
-          />
+          // The body in the story's one centred column, with the bands the template draws between its paragraphs (`story.inline`). A story with none is the same column.
+          <div className="mx-auto w-full max-w-[47.5rem]">
+            {parts ? (
+              parts.map((part, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <InlineUnit tile={placements.inline[i - 1] ?? null} />}
+                  <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={part} enableGutter={false} />
+                </React.Fragment>
+              ))
+            ) : (
+              <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={post.content} enableGutter={false} />
+            )}
+          </div>
         )}
 
         <div className="mx-auto flex w-full max-w-[47.5rem] flex-col gap-8">
@@ -164,44 +207,26 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           {byline.map((c) => (
             <AuthorBox contributor={c} key={c.id} photo={bylinePhotos.get(c.id)} />
           ))}
-          <MembershipAppeal />
+          <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} />
         </div>
       </div>
 
       {fellowship && more.length > 0 && (
-        <section aria-labelledby="more-heading" className="container mt-16 flex flex-col gap-6">
-          <div className="flex items-baseline justify-between gap-4 border-b-2 border-ink pb-2">
-            <h2 className="font-serif text-2xl font-bold" id="more-heading">
-              More from {fellowship.title}
-            </h2>
-            {hubHref && (
-              <Link className="text-sm font-bold text-wuwf-blue-700" href={hubHref}>
-                Explore the project
-              </Link>
-            )}
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <TitledSection
+          className="container mt-16"
+          id="more-heading"
+          more={hubHref ? { href: hubHref, label: 'Explore the project' } : null}
+          title={`More from ${fellowship.title}`}
+        >
+          <div className="grid gap-6 gap-y-8 md:grid-cols-2 lg:grid-cols-4">
             {more.map((doc) => (
-              <Card doc={doc} key={doc.id} showCategories />
+              <Card doc={doc} fixedImage key={doc.id} showCategories variant="editorial" />
             ))}
           </div>
-        </section>
+        </TitledSection>
       )}
 
-      {related.length > 0 && (
-        <section aria-labelledby="related-heading" className="container mt-16 flex flex-col gap-6">
-          <div className="border-b-2 border-ink pb-2">
-            <h2 className="font-serif text-2xl font-bold" id="related-heading">
-              Related stories
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {related.map((doc) => (
-              <Card doc={doc} key={doc.id} showCategories />
-            ))}
-          </div>
-        </section>
-      )}
+      <RelatedStories current={storyFactsOf(post)} stories={related} />
     </article>
   )
 }
@@ -236,7 +261,7 @@ const queryMoreFrom = cache(async (fellowshipId: string | number, exceptId: stri
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
-    select: { title: true, slug: true, path: true, categories: true, meta: true },
+    select: { title: true, slug: true, path: true, section: true, categories: true, meta: true, publishingIdentity: true, featuredAudio: true },
     where: { and: [{ fellowship: { equals: fellowshipId } }, { id: { not_equals: exceptId } }] },
   })
   return result.docs

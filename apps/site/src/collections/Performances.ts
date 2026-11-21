@@ -35,7 +35,7 @@ export const Performances: CollectionConfig = {
   slug: 'performances',
   labels: { singular: 'RadioLive show', plural: 'RadioLive shows' },
   access: { read: publishedOrContentStaff, create: requirePermission('content.write'), update: requirePermission('content.write'), delete: requirePermission('content.publish') },
-  admin: { group: 'RadioLive', useAsTitle: 'title', defaultColumns: ['title', 'startsAt', '_status'], description: 'A RadioLive night. Add the lineup before it, the recording after.' },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'startsAt', '_status'], description: 'A RadioLive night. Add the lineup before it, the recording after.' },
   defaultSort: '-startsAt',
   hooks: {
     beforeValidate: [ensureSlug('title'), notArtists],

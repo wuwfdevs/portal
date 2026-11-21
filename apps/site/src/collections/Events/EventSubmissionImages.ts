@@ -16,7 +16,7 @@ export const EventSubmissionImages: CollectionConfig = {
   slug: 'event-submission-images',
   labels: { singular: 'Submitted picture', plural: 'Submitted pictures' },
   access: { read: requirePermission('content.write'), create: requirePermission('content.write'), update: requirePermission('content.write'), delete: requirePermission('content.write') },
-  admin: { group: 'Community calendar', hidden: true },
+  admin: { hidden: true },
   upload: {
     staticDir: path.resolve(dirname, '../../../public/event-submission-images'),
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],

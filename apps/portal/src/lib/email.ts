@@ -34,6 +34,11 @@ export interface SendEmailParams {
   subject: string;
   text: string;
   replyTo?: string;
+  /**
+   * Makes a retry of the same send safe: Resend returns the first result instead of sending again when it sees a key twice (for
+   * 24 hours). Pass one whenever the same message may be attempted more than once (the notification queue does).
+   */
+  idempotencyKey?: string;
 }
 
 export type SendEmailResult = { ok: true } | { ok: false; error: string };
@@ -45,13 +50,16 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     return { ok: false, error: "Email sending is not configured." };
   }
 
-  const { error } = await resend.emails.send({
-    from,
-    to: params.to,
-    subject: params.subject,
-    text: params.text,
-    replyTo: params.replyTo,
-  });
+  const { error } = await resend.emails.send(
+    {
+      from,
+      to: params.to,
+      subject: params.subject,
+      text: params.text,
+      replyTo: params.replyTo,
+    },
+    params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined,
+  );
 
   if (error) {
     console.error("Resend send failed", error);

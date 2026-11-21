@@ -38,7 +38,6 @@ export const Seasons: CollectionConfig = {
     delete: requirePermission('content.publish'),
   },
   admin: {
-    group: 'Content',
     useAsTitle: 'label',
     defaultColumns: ['label', 'production', 'number', 'updatedAt'],
     description: "A show's season. Its episodes pick it (Episode details on the story). A season has no address of its own; it appears on the show's page.",

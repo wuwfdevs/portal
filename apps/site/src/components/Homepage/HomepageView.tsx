@@ -1,191 +1,132 @@
 import { LivePreviewInIframe } from '@/components/LivePreviewListener/InIframe'
-import Link from 'next/link'
 import React from 'react'
 
-import type { Media as MediaDoc } from '@/payload-types'
-
-import { Acknowledgment } from '@/components/Acknowledgment'
-import { Chip, MembershipAppeal } from '@/components/Article/Parts'
-import { Card } from '@/components/Card'
-import { withLeadPicture } from '@/components/Card/withLeadPicture'
-import { Media } from '@/components/Media'
-import { formatLongDate } from '@/lib/format'
-import { bylineOf, kickerOf, type HomepageData } from '@/lib/homepage/load'
+import { Banner } from '@/components/Banner'
+import { Button } from '@/components/Kit'
+import { FellowshipFeatureBody } from '@/components/Homepage/FellowshipFeature'
+import { Briefing, FirstScreen, LeadArticle } from '@/components/Homepage/FrontPage'
+import { MembershipAppeal } from '@/components/Article/Parts'
+import { StoryGrid } from '@/components/StoryGrid'
+import { TitledSection } from '@/components/TitledSection'
+import { bannerFor } from '@/lib/banner'
+import { type HomepageData } from '@/lib/homepage/load'
 import type { HomepageSlots } from '@/lib/homepage/load-slots'
-import { leadPicture } from '@/lib/homepage/select'
+import { newsBand } from '@/lib/homepage/modules'
 import { cn } from '@/utilities/ui'
+
+import { HomeBand, SponsorRow, TopUnit } from '@/components/Placements'
+import { topUnitHeldBack } from '@/lib/placements/exclusions'
+import { flowHomeRail } from '@/lib/placements/flow'
+import type { HomePlacements } from '@/lib/placements/load'
+import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
 
 import { PodcastsSlot, RadioLivePanel, UnearthingPanel, VideoRow } from './Slots'
 
-const Safe: React.FC<{ href: string; className?: string; children: React.ReactNode }> = ({ href, className, children }) =>
-  href.startsWith('/') ? (
-    <Link className={className} href={href}>
-      {children}
-    </Link>
-  ) : (
-    <a className={className} href={href} rel="noopener noreferrer">
-      {children}
-    </a>
-  )
-
 /**
- * The home page (boards 1 and 2), filled from the Home page global and the newest published work.
+ * The home page (boards 1 and 2, first screen board 1g), filled from the Home page global and the newest published work.
  *
- * Below the news, in the board's order: short videos, the local list, podcasts, then RadioLive and Unearthing Florida side by side
- * (`./Slots`). Each slot is left out when it is switched off or has nothing to show.
+ * The site banner (`lib/banner`), when one is switched on for the home page, comes first, above everything. (One set for every page is drawn by the
+ * layout instead.) The top is a band built to fit the first screen at any window height: the lead story's words on the left and its picture on the right, a
+ * normal 16:9 that never changes shape with the window, the byline level with the picture's bottom edge; under it The Briefing as a row of up to
+ * five. Nothing in it is stretched to match anything else, and the headline is at the top, so it is in view in a short window too.
+ * Below, in the board's order: the fellowship feature, then one column of short videos and the news (a titled run of stories per section, each
+ * linking to its section, ending with a link to every story). The sponsor tiles flow through the page as one list (`lib/placements/flow.ts`): a pair
+ * beside each news section tall enough to hold one, then the banner, then every tile that is left in a "More from our sponsors" row, completed by
+ * WUWF promotions where its last row is short. Then podcasts, then RadioLive and Unearthing Florida side by side (`./Slots`). Each slot is left out when it is
+ * switched off or has nothing to show; a placement with nothing running draws nothing, so no empty box is ever left.
  *
- * Not here yet, because what they need is not built: the live player and "on now", the WUWF Listens question, newsletters,
- * "From NPR", and sponsor placements. They are left out rather than drawn as controls that do nothing; each arrives with its feature.
+ * Not here, on purpose: a "Listen now" module (the header's Listen live button and the site's player already do that; owner decision 2026-11-18).
+ * Not here yet, because what they need is not built: the WUWF Listens question, newsletters and "From NPR". They are left out rather than
+ * drawn as controls that do nothing; each arrives with its feature.
  */
-export function HomepageView({ data, slots, independenceHref = null }: { data: HomepageData; slots: HomepageSlots; independenceHref?: string | null }) {
-  const { emergency, lead, leadKicker, top, feature, local } = data
-  const leadImage = lead ? leadPicture<MediaDoc>(lead) : null
+export function HomepageView({
+  data,
+  slots,
+  placements,
+  appeal = null,
+  independenceHref = null,
+}: {
+  data: HomepageData
+  slots: HomepageSlots
+  placements: HomePlacements
+  appeal?: MembershipAppealWords | null
+  independenceHref?: string | null
+}) {
+  const { banner, lead, leadKicker, top, feature, modules, allStoriesHref } = data
+  const flow = flowHomeRail({ tiles: placements.rail, fillers: placements.fillers, sections: modules.length })
   const empty = !lead
+  // The top unit yields to an emergency banner (`lib/placements/exclusions.ts`).
+  const homeTop = topUnitHeldBack(banner, 'home') ? null : placements.top
+  const band = newsBand({ sectionRuns: modules.length, railTiles: placements.rail.length, hasNews: !empty })
 
   return (
     <div className="pb-20">
       <LivePreviewInIframe />
-      {emergency && (
-        <section aria-label={emergency.label} className="border-b-4 border-wuwf-blue-700 bg-wuwf-blue-100">
-          <div className="container flex flex-col gap-2 py-5 md:flex-row md:items-center md:justify-between md:gap-8">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{emergency.label}</p>
-              <h2 className="font-serif text-2xl font-bold leading-snug text-ink">{emergency.headline}</h2>
-              {emergency.body && <p className="max-w-[44rem] text-base text-ink-2">{emergency.body}</p>}
-            </div>
-            {emergency.linkHref && (
-              <Safe
-                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
-                href={emergency.linkHref}
-              >
-                {emergency.linkLabel ?? 'Read more'}
-              </Safe>
-            )}
-          </div>
-        </section>
-      )}
+      <Banner banner={bannerFor(banner, 'home-page')} />
 
       {empty ? (
+        <>
+          {homeTop && (
+            <div className="container pt-8">
+              <TopUnit tile={homeTop} />
+            </div>
+          )}
         <section className="container py-24 text-center">
-          <h1 className="font-serif text-4xl font-bold text-ink">WUWF Public Media</h1>
+          <h1 className="font-serif text-4xl font-semibold text-ink">WUWF Public Media</h1>
           <p className="mt-4 text-lg text-ink-2">No stories have been published yet. They will appear here as soon as they are.</p>
         </section>
+        </>
       ) : (
-        <section aria-label="Top stories" className="container grid gap-10 pt-8 md:pt-12 lg:grid-cols-[1.7fr_1fr]">
-          <article className="relative flex flex-col gap-4">
-            {leadImage && (
-              <div className="overflow-hidden rounded-sm bg-surface-3">
-                <Media imgClassName="w-full object-cover" priority resource={leadImage} />
-              </div>
-            )}
-            {(leadKicker ?? kickerOf(lead)) && <p className="text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">{leadKicker ?? kickerOf(lead)}</p>}
-            <h1 className="font-serif text-3xl font-bold leading-tight tracking-tight text-ink md:text-5xl">
-              {lead.path ? (
-                <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={lead.path}>
-                  {lead.title}
-                </Link>
-              ) : (
-                lead.title
-              )}
-            </h1>
-            {lead.meta?.description && <p className="max-w-[44rem] font-serif text-xl text-ink-2">{lead.meta.description}</p>}
-            <p className="text-sm text-ink-3">
-              {[bylineOf(lead), lead.publishedAt ? formatLongDate(lead.publishedAt) : null].filter(Boolean).join(' · ')}
-            </p>
-          </article>
+        // The lead band's wash (direction C2): the faintest blue, fading to white, behind the top section only; the content keeps the page's container.
+        <section aria-label="Top stories" className="bg-gradient-to-b from-wuwf-blue-100/45 to-surface">
+          <div className="container pb-2 pt-8 md:pt-12">
+            {/* The first screen: the top unit (`home.top`) and the lead, together as tall as the window leaves below the header, so The Briefing starts just under the fold.
+                The unit is directly under the header on a wide screen, so above the lead; on a phone it follows the lead story's headline and picture, so a story is always what
+                the first screen shows. One element, ordered by the screen, so it is drawn (and counted) once. */}
+            <FirstScreen>
+              {homeTop && <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={homeTop} />}
+              <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={leadKicker} />
+            </FirstScreen>
 
-          {top.length > 0 && (
-            <aside aria-labelledby="briefing-heading" className="flex flex-col gap-4 lg:border-l lg:border-rule lg:pl-8">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="briefing-heading">
-                The Briefing
-              </h2>
-              <ol className="flex flex-col divide-y divide-rule">
-                {top.map((story, i) => (
-                  <li className="relative flex gap-4 py-4 first:pt-0" key={story.id}>
-                    <span aria-hidden="true" className="font-serif text-2xl font-bold text-wuwf-blue-700">
-                      {i + 1}
-                    </span>
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-serif text-lg font-bold leading-snug">
-                        {story.path ? (
-                          <Link className="text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={story.path}>
-                            {story.title}
-                          </Link>
-                        ) : (
-                          story.title
-                        )}
-                      </h3>
-                      <p className="text-xs text-ink-3">{[kickerOf(story), story.publishedAt ? formatLongDate(story.publishedAt) : null].filter(Boolean).join(' · ')}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </aside>
-          )}
+            <Briefing className="mt-8" top={top} />
+          </div>
         </section>
       )}
 
       {feature && (
         <section aria-labelledby="feature-heading" className="mt-16 bg-surface-2 py-12">
-          <div className="container grid gap-8 md:grid-cols-[1fr_1.2fr] md:items-start">
-            <div className="flex flex-col gap-3">
-              <div>
-                <Chip href={feature.fellowship.slug ? `/fellowships/${feature.fellowship.slug}` : undefined} tone="teal">
-                  {feature.fellowship.title} Fellowship
-                </Chip>
-              </div>
-              <h2 className="font-serif text-3xl font-bold leading-tight text-ink" id="feature-heading">
-                {feature.story ? feature.story.title : feature.fellowship.title}
-              </h2>
-              {(feature.story?.meta?.description ?? feature.fellowship.summary) && (
-                <p className="text-lg text-ink-2">{feature.story?.meta?.description ?? feature.fellowship.summary}</p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-4 text-base font-semibold">
-                {feature.story?.path && (
-                  <Link className="text-wuwf-blue-700 underline" href={feature.story.path}>
-                    Read the story
-                  </Link>
-                )}
-                {feature.fellowship.slug && (
-                  <Link className="text-wuwf-blue-700 underline" href={`/fellowships/${feature.fellowship.slug}`}>
-                    All {feature.fellowship.title} reporting
-                  </Link>
-                )}
-              </div>
-            </div>
-            <Acknowledgment
-              headingId="feature-support-heading"
-              hubHref={feature.fellowship.slug ? `/fellowships/${feature.fellowship.slug}` : null}
-              independenceHref={independenceHref}
-              lines={feature.acknowledgments}
-            />
+          <div className="container">
+            <FellowshipFeatureBody feature={feature} independenceHref={independenceHref} />
           </div>
         </section>
       )}
 
-      {slots.video && <VideoRow slot={slots.video} />}
-
-      {local.stories.length > 0 && (
-        <section aria-labelledby="local-heading" className="container mt-16">
-          <h2 className="font-serif text-3xl font-bold text-ink" id="local-heading">
-            {local.heading}
-          </h2>
-          <ul className={cn('mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3')}>
-            {local.stories.map((story) => (
-              <li key={story.id}>
-                <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-              </li>
-            ))}
-          </ul>
-          {local.href && (
-            <p className="mt-6 text-base">
-              <Link className="font-semibold text-wuwf-blue-700 underline" href={local.href}>
-                More {local.heading} stories
-              </Link>
+      {/* The short videos and the news run the full width, with a row of sponsor tiles above each section (flow.ts): the first just below the videos. */}
+      {(slots.video || band.show) && (
+        <div className="container mt-16 flex flex-col gap-14">
+          {slots.video && <VideoRow className="" slot={slots.video} />}
+          {modules.map((module, i) => (
+            <React.Fragment key={module.key}>
+              {flow.before[i] && <SponsorRow items={flow.before[i]} />}
+              <TitledSection href={module.href} id={`news-${module.key}`} more={module.href ? { href: module.href, label: `More from ${module.heading}` } : null} swatch={module.swatch} title={module.heading}>
+                <StoryGrid spanFirst stories={module.stories} variant="editorial" />
+              </TitledSection>
+            </React.Fragment>
+          ))}
+          {flow.after.map((row, i) => (
+            <SponsorRow items={row} key={`after-${i}`} />
+          ))}
+          {band.allStoriesLink && (
+            <p>
+              <Button href={allStoriesHref} size="lg" variant="outline">
+                All stories
+              </Button>
             </p>
           )}
-        </section>
+        </div>
       )}
+
+      <HomeBand tile={placements.band} />
 
       {slots.podcasts && <PodcastsSlot independenceHref={independenceHref} slot={slots.podcasts} />}
 
@@ -197,7 +138,7 @@ export function HomepageView({ data, slots, independenceHref = null }: { data: H
       )}
 
       <section className="container mt-16 max-w-[60rem]">
-        <MembershipAppeal />
+        <MembershipAppeal appeal={appeal} />
       </section>
     </div>
   )

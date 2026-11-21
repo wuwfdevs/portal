@@ -1,7 +1,8 @@
 import type { GlobalConfig } from 'payload'
 
 import { requirePermission } from '@/access/permissions'
-import { validateSupportHref } from '@/lib/support-link'
+import { MAX_NEWS_MODULES } from '@/lib/homepage/modules'
+import { validateHref } from '@/lib/section-links'
 
 import { revalidateHomepage } from './hooks/revalidateHomepage'
 
@@ -14,7 +15,7 @@ const publishedOnly = { _status: { equals: 'published' } }
  */
 export const Homepage: GlobalConfig = {
   slug: 'homepage',
-  admin: { group: 'Pages & hubs', livePreview: { url: '/' } },
+  admin: { livePreview: { url: '/' } },
   label: 'Home page',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateHomepage] },
@@ -23,26 +24,55 @@ export const Homepage: GlobalConfig = {
       type: 'tabs',
       tabs: [
         {
-          label: 'Emergency coverage',
-          description: 'When switched on, this appears at the very top of the home page, above everything else. Switch it off to remove it.',
+          label: 'Banner',
+          description:
+            'One message across the top of the site: an emergency, or a notice that matters but is not urgent. Choose whether it appears on the home page only or on every page. Switch it off to remove it. Saving this page refreshes the pages straight away.',
           fields: [
             {
-              name: 'emergency',
+              name: 'banner',
               type: 'group',
               fields: [
-                { name: 'active', type: 'checkbox', defaultValue: false, label: 'Show emergency coverage' },
+                { name: 'active', type: 'checkbox', defaultValue: false, label: 'Show the banner' },
+                {
+                  type: 'row',
+                  fields: [
+                    {
+                      name: 'scope',
+                      type: 'select',
+                      defaultValue: 'home',
+                      required: true,
+                      label: 'Where it appears',
+                      options: [
+                        { label: 'Home page only', value: 'home' },
+                        { label: 'Every page', value: 'all' },
+                      ],
+                      admin: { width: '50%', condition: (_, s) => Boolean(s?.active) },
+                    },
+                    {
+                      name: 'style',
+                      type: 'select',
+                      defaultValue: 'emergency',
+                      required: true,
+                      label: 'Style',
+                      options: [
+                        { label: 'Emergency (strong blue band)', value: 'emergency' },
+                        { label: 'Notice (quiet grey band)', value: 'notice' },
+                      ],
+                      admin: { width: '50%', condition: (_, s) => Boolean(s?.active) },
+                    },
+                  ],
+                },
                 {
                   name: 'label',
                   type: 'text',
-                  defaultValue: 'Emergency coverage',
-                  admin: { condition: (_, s) => Boolean(s?.active), description: 'The small label above the headline.' },
+                  admin: { condition: (_, s) => Boolean(s?.active), description: 'The small label above the headline. Leave empty for "Emergency coverage" or "Notice", by the style.' },
                 },
                 {
                   name: 'headline',
                   type: 'text',
                   admin: { condition: (_, s) => Boolean(s?.active) },
                   validate: (value: string | null | undefined, { siblingData }: { siblingData?: { active?: boolean } }) =>
-                    siblingData?.active && !value?.trim() ? 'Write the headline, or switch emergency coverage off.' : true,
+                    siblingData?.active && !value?.trim() ? 'Write the headline, or switch the banner off.' : true,
                 },
                 { name: 'body', type: 'textarea', admin: { condition: (_, s) => Boolean(s?.active), description: 'A sentence or two. Plain text.' } },
                 {
@@ -52,7 +82,7 @@ export const Homepage: GlobalConfig = {
                     {
                       name: 'linkHref',
                       type: 'text',
-                      validate: validateSupportHref,
+                      validate: validateHref,
                       admin: {
                         width: '60%',
                         condition: (_, s) => Boolean(s?.active),
@@ -113,15 +143,32 @@ export const Homepage: GlobalConfig = {
           ],
         },
         {
-          label: 'Local news',
+          label: 'News sections',
+          description:
+            'The titled runs of stories below the lead and the Briefing, one per section (Local News, Music & Arts, Florida News...), in this order (drag to reorder). Each links to its section page, and a story is shown once on the page, so a story already above is skipped. The band ends with a link to every story. If no section here has stories, one "Latest stories" run stands in.',
           fields: [
             {
-              name: 'localNews',
-              type: 'group',
+              name: 'newsModules',
+              type: 'array',
+              label: 'Sections',
+              maxRows: MAX_NEWS_MODULES,
+              labels: { singular: 'Section', plural: 'Sections' },
+              admin: { components: { RowLabel: '@/Homepage/NewsModuleRowLabel#NewsModuleRowLabel' } },
               fields: [
-                { name: 'heading', type: 'text', defaultValue: 'Northwest Florida' },
-                { name: 'section', type: 'relationship', relationTo: 'sections', admin: { description: 'Which section fills this list. Leave empty for the newest stories from any section.' } },
-                { name: 'count', type: 'number', defaultValue: 6, min: 3, max: 12, admin: { description: 'How many stories to list (3 to 12).' } },
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'heading', type: 'text', required: true, maxLength: 60, admin: { width: '55%', description: 'The title readers see, e.g. "Local News".' } },
+                    { name: 'section', type: 'relationship', relationTo: 'sections', required: true, admin: { width: '45%', description: 'Where its stories come from and where "More from..." goes.' } },
+                  ],
+                },
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'count', type: 'number', defaultValue: 5, min: 3, max: 8, admin: { width: '50%', description: 'How many stories to show (3 to 8).' } },
+                    { name: 'enabled', type: 'checkbox', defaultValue: true, label: 'Show this section', admin: { width: '50%', description: 'Switch off to hold a section without deleting it.' } },
+                  ],
+                },
               ],
             },
           ],

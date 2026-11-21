@@ -32,6 +32,50 @@ export interface HomepageSlots {
   unearthing: { production: Production; heroImage: Media | null; episode: Episode } | null
 }
 
+const logFailure = async (name: string, err: unknown): Promise<void> => {
+  const payload = await getPayload({ config: configPromise })
+  payload.logger.error({ err, msg: `Home page: the ${name} slot could not be loaded and is left out` })
+}
+
+/** The podcasts slot: the pinned show (or the one with the newest episode), its funder lines, and the shows beside it. Null when no listed show has an episode. */
+export async function loadPodcastsSlot(featuredShowId: string | number | null): Promise<HomepageSlots['podcasts']> {
+  const payload = await getPayload({ config: configPromise })
+  const { shows } = await loadDirectory()
+  const picked = pickPodcasts(shows, { featuredId: featuredShowId, othersCount: OTHER_SHOWS })
+  if (!picked) return null
+  const acknowledgments = await getProductionHubAcknowledgments(payload, picked.featured.show.id, new Date().toISOString())
+  return { featured: picked.featured, acknowledgments, others: picked.others }
+}
+
+/** The RadioLive panel: the next show and the newest recorded set. Null when there is neither. */
+export async function loadRadioLiveSlot(): Promise<HomepageSlots['radioLive']> {
+  const data = await loadRadioLive()
+  const picked = pickRadioLive({ upcoming: data.upcoming, latest: data.latest })
+  return picked ? { tagline: data.tagline, ...picked } : null
+}
+
+/**
+ * The Unearthing Florida panel. Only the one episode is read, not the whole hub: the editor's pick when it belongs to the series, else the hub's featured episode, else
+ * the newest. Null when the hub has no series or the series has no published episode.
+ */
+export async function loadUnearthingSlot(pickedEpisodeId: string | number | null): Promise<HomepageSlots['unearthing']> {
+  const payload = await getPayload({ config: configPromise })
+  const hub = await payload.findGlobal({ slug: 'unearthing-hub', depth: 0, overrideAccess: false })
+  const productionId = idOf(hub.production as never)
+  if (productionId === null) return null
+  const production = (await payload.find({ collection: 'productions', where: { id: { equals: productionId } }, depth: 1, limit: 1, overrideAccess: false })).docs[0]
+  if (!production) return null
+  const mine = { production: { equals: production.id } }
+  const one = async (id: string | number | null): Promise<Episode | null> => {
+    const where = id === null ? mine : { and: [mine, { id: { equals: id } }] }
+    const found = await payload.find({ collection: 'posts', depth: 1, draft: false, limit: 1, overrideAccess: false, pagination: false, select: EPISODE_FIELDS, sort: '-publishedAt', where: where as never })
+    return (found.docs[0] as Episode | undefined) ?? null
+  }
+  const hubPick = idOf(hub.featured as never)
+  const episode = (pickedEpisodeId !== null ? await one(pickedEpisodeId) : null) ?? (hubPick !== null ? await one(hubPick) : null) ?? (await one(null))
+  return episode ? { production, heroImage: named<Media>(production.heroImage), episode } : null
+}
+
 /**
  * The feature slots below the news (boards 1 and 2). Each is read through access control, so only published work appears; each is
  * left out (null) when an editor switched it off or it has nothing to show. A slot that fails to load is left out and logged, so the
@@ -46,7 +90,7 @@ export async function loadHomepageSlots(): Promise<HomepageSlots> {
     try {
       return await load()
     } catch (err) {
-      payload.logger.error({ err, msg: `Home page: the ${name} slot could not be loaded and is left out` })
+      await logFailure(name, err)
       return null
     }
   }
@@ -56,44 +100,11 @@ export async function loadHomepageSlots(): Promise<HomepageSlots> {
     return clips.length > 0 ? { clips } : null
   }
 
-  const podcasts = async (): Promise<HomepageSlots['podcasts']> => {
-    const { shows } = await loadDirectory()
-    const picked = pickPodcasts(shows, { featuredId: idOf(settings.podcasts?.featuredShow as never), othersCount: OTHER_SHOWS })
-    if (!picked) return null
-    const acknowledgments = await getProductionHubAcknowledgments(payload, picked.featured.show.id, new Date().toISOString())
-    return { featured: picked.featured, acknowledgments, others: picked.others }
-  }
-
-  const radioLive = async (): Promise<HomepageSlots['radioLive']> => {
-    const data = await loadRadioLive()
-    const picked = pickRadioLive({ upcoming: data.upcoming, latest: data.latest })
-    return picked ? { tagline: data.tagline, ...picked } : null
-  }
-
-  // Only the one episode is read, not the whole hub: the editor's pick when it belongs to the series, else the hub's featured episode, else the newest.
-  const unearthing = async (): Promise<HomepageSlots['unearthing']> => {
-    const hub = await payload.findGlobal({ slug: 'unearthing-hub', depth: 0, overrideAccess: false })
-    const productionId = idOf(hub.production as never)
-    if (productionId === null) return null
-    const production = (await payload.find({ collection: 'productions', where: { id: { equals: productionId } }, depth: 1, limit: 1, overrideAccess: false })).docs[0]
-    if (!production) return null
-    const mine = { production: { equals: production.id } }
-    const one = async (id: string | number | null): Promise<Episode | null> => {
-      const where = id === null ? mine : { and: [mine, { id: { equals: id } }] }
-      const found = await payload.find({ collection: 'posts', depth: 1, draft: false, limit: 1, overrideAccess: false, pagination: false, select: EPISODE_FIELDS, sort: '-publishedAt', where: where as never })
-      return (found.docs[0] as Episode | undefined) ?? null
-    }
-    const homePick = idOf(settings.unearthing?.episode as never)
-    const hubPick = idOf(hub.featured as never)
-    const episode = (homePick !== null ? await one(homePick) : null) ?? (hubPick !== null ? await one(hubPick) : null) ?? (await one(null))
-    return episode ? { production, heroImage: named<Media>(production.heroImage), episode } : null
-  }
-
   const [v, p, r, u] = await Promise.all([
     on(settings.videoRow) ? settle('short-video', video) : null,
-    on(settings.podcasts) ? settle('podcasts', podcasts) : null,
-    on(settings.radioLive) ? settle('RadioLive', radioLive) : null,
-    on(settings.unearthing) ? settle('Unearthing Florida', unearthing) : null,
+    on(settings.podcasts) ? settle('podcasts', () => loadPodcastsSlot(idOf(settings.podcasts?.featuredShow as never))) : null,
+    on(settings.radioLive) ? settle('RadioLive', loadRadioLiveSlot) : null,
+    on(settings.unearthing) ? settle('Unearthing Florida', () => loadUnearthingSlot(idOf(settings.unearthing?.episode as never))) : null,
   ])
   return { video: v, podcasts: p, radioLive: r, unearthing: u }
 }

@@ -20,7 +20,6 @@ export const AudienceProfiles: CollectionConfig = {
     delete: requirePermission('membership.manage'),
   },
   admin: {
-    group: 'Membership',
     useAsTitle: 'supabaseUserId',
     defaultColumns: ['supabaseUserId', 'firstSignInAt', 'lastSignInAt'],
     description: 'Readers who have signed in to wuwf.org. Email addresses stay in the sign-in service, not here.',

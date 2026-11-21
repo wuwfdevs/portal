@@ -1,0 +1,180 @@
+// The admin's look. The colours, radii and body font are generated from the design tokens (`_admin-theme.scss`, `pnpm generate:admin-theme`);
+// what is here is the few places Payload's own styles need a nudge to use them. Payload's styles live in a lower cascade layer, so a rule
+// here wins without `!important`. No colour is typed in this file: it reads Payload's variables, which the generated file sets.
+
+@use 'admin-theme';
+
+// The station's type (Source Sans 3, self-hosted like the public site's; the admin does not run through next/font).
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/source-sans-3-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/source-sans-3-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/source-sans-3-700.woff2') format('woff2');
+}
+
+// A primary button is the station blue with white text, in light and dark mode (Payload swaps its colours in dark mode, which would put
+// dark text on the blue). A disabled one keeps Payload's grey.
+.btn--style-primary {
+  --bg-color: var(--wuwf-action);
+  --color: var(--wuwf-action-text);
+  --hover-bg: var(--wuwf-action-hover);
+  --hover-color: var(--wuwf-action-text);
+
+  &.btn--disabled {
+    --bg-color: var(--theme-elevation-200);
+    --color: var(--theme-elevation-800);
+    --hover-bg: var(--bg-color);
+    --hover-color: var(--color);
+  }
+}
+
+// The wordmark beside the breadcrumbs: Payload sizes this slot for a square icon (18px), which squeezes a wordmark to a smudge.
+.step-nav__home {
+  width: auto;
+  height: auto;
+}
+
+.step-nav__home img {
+  display: block;
+  width: auto;
+  height: 24px;
+}
+
+// The sidebar: headings in the design system's label style and the current place marked in the station blue. A sub-group's heading sits level
+// with the links around it and only its children step in, so two levels read as two levels.
+.nav-group__toggle {
+  color: var(--theme-elevation-600);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav__link-indicator {
+  background: var(--theme-brand);
+}
+
+.wuwf-nav__sub {
+  // A sub-heading is a peer of the links beside it, so it sits at their indent. Only what is inside it steps in, under a thin rule, so
+  // the parent reads as the parent and its children as its children.
+  margin: 0;
+
+  .nav-group__toggle {
+    margin-bottom: 0;
+    padding-block: 2.5px;
+    color: var(--theme-text);
+    font-size: inherit;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .nav-group__content {
+    margin: 0 0 4px 3px;
+    padding-left: 12px;
+    border-left: 1px solid var(--theme-elevation-150);
+  }
+}
+
+// The sign-in screen: the note under the wordmark.
+.wuwf-login-note {
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: 22px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--theme-elevation-600);
+    font-size: 14px;
+  }
+}
+
+// Phones. iOS Safari zooms the page when a field under 16px takes focus, and Payload's admin sets fields at 13px (12px at 768px and below).
+// Fields are 16px on narrow or touch screens. Pinch-zoom stays available: the viewport is not locked. Check boxes, radios and the like are
+// left alone because they have no text to zoom for.
+@media (max-width: 768px), (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden'], [type='color']),
+  select,
+  textarea,
+  [contenteditable='true'],
+  .rs__control,
+  .rs__input-container,
+  .rs__single-value,
+  .rs__placeholder {
+    font-size: 16px;
+  }
+}
+
+// Size on a phone. Payload sets the admin's base type at 12px here, which is small to read and to tap; its icons, spacing and controls are
+// all in rem or in `--base` (a multiple of it), so raising the base scales them together. The header keeps a fixed, slimmer height.
+@media (max-width: 768px) {
+  :root {
+    --app-header-height: 56px;
+  }
+
+  html {
+    font-size: 16px;
+  }
+
+  .step-nav__home img {
+    height: 32px;
+  }
+
+  .nav-group__toggle {
+    font-size: 14px;
+  }
+}
+
+// The sidebar on a phone. Payload sets `--nav-width: 100vw` here and keeps the page at `min-width: 100%`, so an open sidebar plus the page
+// made the document twice the screen's width and the browser zoomed out to fit it. The sidebar is a drawer over the page instead (the
+// page never moves), and the page may shrink to the screen.
+@media (max-width: 768px) {
+  .template-default,
+  .template-default--nav-hydrated,
+  .template-default--nav-hydrated.template-default--nav-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .template-default .nav {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    // One step above the page header (also `--z-modal`), so the header's own menu button does not show through beside the drawer's close button.
+    z-index: calc(var(--z-modal) + 1);
+    width: min(85vw, 320px);
+    height: 100dvh;
+    background: var(--theme-bg);
+  }
+
+  // Closed, the drawer is out of sight, out of the tab order and out of reach of a tap.
+  .template-default .nav:not(.nav--nav-open) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .template-default .template-default__wrap {
+    min-width: 0;
+  }
+
+  .template-default .nav .nav__header {
+    width: 100%;
+  }
+}

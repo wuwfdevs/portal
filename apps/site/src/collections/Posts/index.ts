@@ -1,7 +1,9 @@
-import type { CollectionConfig, RichTextFieldValidation } from 'payload'
+import type { CollectionConfig, RichTextFieldValidation, TextFieldSingleValidation } from 'payload'
 
 import { publishedOrContentStaff, requirePermission } from '../../access/permissions'
+import { isHttpsAddress } from '../../lib/network/original'
 import { featuredMediaBlocks } from '../../blocks/body'
+import { keepOnlyBlockTypes } from '../../hooks/dropUnknownBlocks'
 import { bodyEditor } from '../../fields/bodyEditor'
 import { embedStoryAfterChange } from '../../hooks/embedStory'
 import { enforcePublishPermission } from '../../hooks/enforcePublishPermission'
@@ -29,6 +31,8 @@ import { PERIOD_OPTIONS } from '../../lib/unearthing/periods'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
+  // Editors and the roadmap call them stories; the slug (and so the generated `Post` type) stays.
+  labels: { singular: 'Story', plural: 'Stories' },
   access: {
     create: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
@@ -52,7 +56,6 @@ export const Posts: CollectionConfig<'posts'> = {
     },
   },
   admin: {
-    group: 'Content',
     defaultColumns: ['title', 'path', 'updatedAt'],
     livePreview: {
       url: ({ data, req }) => generatePreviewPath({ collection: 'posts', data, req }),
@@ -77,6 +80,8 @@ export const Posts: CollectionConfig<'posts'> = {
               label: 'Featured media',
               maxRows: 1,
               blocks: featuredMediaBlocks,
+              // Stored as JSON, a blocks field keeps any block type it is given; relational storage dropped one it did not offer.
+              hooks: { beforeChange: [keepOnlyBlockTypes(featuredMediaBlocks.map((b) => b.slug))] },
               admin: { description: 'The picture, gallery or video that opens the story. Add one.' },
             },
             {
@@ -208,6 +213,43 @@ export const Posts: CollectionConfig<'posts'> = {
         description:
           'NPR and wire stories are not WUWF\'s to archive separately or alter beyond headline, teaser and description. They are re-pulled from NPR, not migrated as our own.',
       },
+    },
+    {
+      name: 'original',
+      type: 'group',
+      label: 'Original story',
+      admin: {
+        position: 'sidebar',
+        // Only a story from another station or from NPR has an original elsewhere.
+        condition: (data) => data?.source !== 'wuwf',
+        description: 'Where the original lives and who gets the credit. The story\'s canonical link points here, so search engines know it is a copy.',
+      },
+      fields: [
+        {
+          name: 'url',
+          type: 'text',
+          label: 'Original address',
+          validate: ((value: unknown) => {
+            if (value === undefined || value === null || value === '') return true
+            return isHttpsAddress(value) ? true : 'Use the full address, starting with https://'
+          }) as TextFieldSingleValidation,
+          admin: { description: 'The publisher\'s own address for this story (https).' },
+        },
+        {
+          name: 'credit',
+          type: 'text',
+          label: 'Credit line',
+          admin: { description: 'The station or outlet that wrote it, as it should read: "WLRN", "Florida News Exchange".' },
+        },
+        {
+          name: 'cdsId',
+          type: 'text',
+          label: 'NPR CDS document id',
+          unique: true,
+          index: true,
+          admin: { readOnly: true, description: 'Set when the story is published from the Network queue. A re-pull matches on it, so the story cannot be duplicated.' },
+        },
+      ],
     },
     {
       name: 'legacy',
@@ -365,6 +407,17 @@ export const Posts: CollectionConfig<'posts'> = {
       },
     },
     membersOnlyField('For WUWF members only (a members\' episode or Field Note). The title, teaser and picture stay public and the story is listed with a "Members" label; its body and audio are not shown to the public. Its featured audio must be a members-only file.'),
+    {
+      name: 'noPlacements',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'No sponsor messages on this story',
+      admin: {
+        position: 'sidebar',
+        description:
+          'Tick for a story where a sponsor message would be wrong beside it (a death, a disaster, a sensitive investigation). The story page then draws no sponsor tiles. Live blogs and members-only stories never carry them whether or not this is ticked.',
+      },
+    },
     {
       name: 'site',
       type: 'relationship',

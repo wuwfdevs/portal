@@ -13,6 +13,8 @@ import { portalSessionStrategy } from '../../lib/portal/strategy'
  */
 export const Users: CollectionConfig = {
   slug: 'users',
+  // Staff only (readers are `audience-profiles`, "Reader accounts"); the name says so wherever the two sit side by side.
+  labels: { singular: 'Staff account', plural: 'Staff accounts' },
   access: {
     // Holding an account is not enough: a Portal grant with no roles opens nothing.
     admin: ({ req }) => Boolean(req.user?.roles?.length),
@@ -23,7 +25,6 @@ export const Users: CollectionConfig = {
     update: ({ req, id }) => userCan(req.user, 'users.manage') || req.user?.id === id,
   },
   admin: {
-    group: 'System',
     defaultColumns: ['name', 'email', 'roles'],
     useAsTitle: 'name',
   },

@@ -18,7 +18,7 @@ export const VideoPlayerBlock: React.FC<VideoPlayerBlockProps & { className?: st
   const length = formatDuration(file.durationSeconds)
   return (
     <figure className={cn('not-prose my-8', className)}>
-      <video aria-label={label} className="aspect-video w-full rounded-sm bg-ink" controls playsInline poster={posterUrl} preload="metadata">
+      <video aria-label={label} className="aspect-video w-full rounded-4 bg-ink" controls playsInline poster={posterUrl} preload="metadata">
         <source src={file.url} type={file.mimeType ?? undefined} />
         <a href={file.url}>{label}</a>
       </video>

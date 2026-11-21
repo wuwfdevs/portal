@@ -57,7 +57,7 @@ export function ShowView({ data, independenceHref }: { data: ShowData; independe
           </p>
           <h2 className="mt-2 font-serif text-3xl font-bold leading-snug text-ink">{latest.title}</h2>
           {latest.meta?.description && <p className="mt-2 text-lg text-ink-2">{latest.meta.description}</p>}
-          {latestAudio && <AudioPlayerBlock audio={latestAudio} id="" title={latest.title} blockType="audioPlayer" className="mt-4" />}
+          {latestAudio && <AudioPlayerBlock audio={latestAudio} id="" title={latest.title} blockType="audioPlayer" className="mt-4" href={latest.path} />}
           {latest.path && (
             <p className="mt-2 text-base">
               <Link className="font-semibold text-wuwf-blue-700 underline" href={latest.path}>

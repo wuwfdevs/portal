@@ -45,6 +45,35 @@ import * as migration_20261113_222100_story_embeddings from './20261113_222100_s
 import * as migration_20261113_225238_site_settings_semantic_search from './20261113_225238_site_settings_semantic_search';
 import * as migration_20261114_023103_site_settings_portal_origin from './20261114_023103_site_settings_portal_origin';
 import * as migration_20261114_040000_voyager_hub_start from './20261114_040000_voyager_hub_start';
+import * as migration_20261117_181047_sponsorship_pages from './20261117_181047_sponsorship_pages';
+import * as migration_20261117_194934_sponsorship_copy from './20261117_194934_sponsorship_copy';
+import * as migration_20261117_224728_giving_pages from './20261117_224728_giving_pages';
+import * as migration_20261118_034853_giving_form_addresses from './20261118_034853_giving_form_addresses';
+import * as migration_20261118_154406_site_settings_embedding_tuning from './20261118_154406_site_settings_embedding_tuning';
+import * as migration_20261118_161412_news_sections_and_placements from './20261118_161412_news_sections_and_placements';
+import * as migration_20261118_191825_placement_items from './20261118_191825_placement_items';
+import * as migration_20261118_221136_network_content from './20261118_221136_network_content';
+import * as migration_20261119_031412_sections_pages from './20261119_031412_sections_pages';
+import * as migration_20261119_031427_blocks_to_json from './20261119_031427_blocks_to_json';
+import * as migration_20261119_050302_sponsorship_settings from './20261119_050302_sponsorship_settings';
+import * as migration_20261119_050400_sponsor_pages from './20261119_050400_sponsor_pages';
+import * as migration_20261119_150000_sponsor_pages_polish from './20261119_150000_sponsor_pages_polish';
+import * as migration_20261119_160000_sponsor_pages_polish2 from './20261119_160000_sponsor_pages_polish2';
+import * as migration_20261119_190000_sponsor_pages_clean from './20261119_190000_sponsor_pages_clean';
+import * as migration_20261119_200000_sponsor_pages_clean2 from './20261119_200000_sponsor_pages_clean2';
+import * as migration_20261119_222418_giving_settings from './20261119_222418_giving_settings';
+import * as migration_20261119_223000_giving_pages_as_sections from './20261119_223000_giving_pages_as_sections';
+import * as migration_20261119_233120_shared_text from './20261119_233120_shared_text';
+import * as migration_20261119_235000_station_pages_as_sections from './20261119_235000_station_pages_as_sections';
+import * as migration_20261119_235500_listens_pages_as_sections from './20261119_235500_listens_pages_as_sections';
+import * as migration_20261120_162233_placement_fills_gaps from './20261120_162233_placement_fills_gaps';
+import * as migration_20261120_173640_site_banner from './20261120_173640_site_banner';
+import * as migration_20261120_202320_placement_top_zones from './20261120_202320_placement_top_zones';
+import * as migration_20261120_202458_story_no_placements from './20261120_202458_story_no_placements';
+import * as migration_20261120_203039_placement_story_zones from './20261120_203039_placement_story_zones';
+import * as migration_20261120_204634_page_set_home from './20261120_204634_page_set_home';
+import * as migration_20261120_221651_story_rail_retired from './20261120_221651_story_rail_retired';
+import * as migration_20261121_010545_sections_swatch from './20261121_010545_sections_swatch';
 
 export const migrations = [
   {
@@ -281,5 +310,150 @@ export const migrations = [
     up: migration_20261114_040000_voyager_hub_start.up,
     down: migration_20261114_040000_voyager_hub_start.down,
     name: '20261114_040000_voyager_hub_start',
+  },
+  {
+    up: migration_20261117_181047_sponsorship_pages.up,
+    down: migration_20261117_181047_sponsorship_pages.down,
+    name: '20261117_181047_sponsorship_pages',
+  },
+  {
+    up: migration_20261117_194934_sponsorship_copy.up,
+    down: migration_20261117_194934_sponsorship_copy.down,
+    name: '20261117_194934_sponsorship_copy',
+  },
+  {
+    up: migration_20261117_224728_giving_pages.up,
+    down: migration_20261117_224728_giving_pages.down,
+    name: '20261117_224728_giving_pages',
+  },
+  {
+    up: migration_20261118_034853_giving_form_addresses.up,
+    down: migration_20261118_034853_giving_form_addresses.down,
+    name: '20261118_034853_giving_form_addresses',
+  },
+  {
+    up: migration_20261118_154406_site_settings_embedding_tuning.up,
+    down: migration_20261118_154406_site_settings_embedding_tuning.down,
+    name: '20261118_154406_site_settings_embedding_tuning',
+  },
+  {
+    up: migration_20261118_161412_news_sections_and_placements.up,
+    down: migration_20261118_161412_news_sections_and_placements.down,
+    name: '20261118_161412_news_sections_and_placements',
+  },
+  {
+    up: migration_20261118_191825_placement_items.up,
+    down: migration_20261118_191825_placement_items.down,
+    name: '20261118_191825_placement_items',
+  },
+  {
+    up: migration_20261118_221136_network_content.up,
+    down: migration_20261118_221136_network_content.down,
+    name: '20261118_221136_network_content',
+  },
+  {
+    up: migration_20261119_031412_sections_pages.up,
+    down: migration_20261119_031412_sections_pages.down,
+    name: '20261119_031412_sections_pages',
+  },
+  {
+    up: migration_20261119_031427_blocks_to_json.up,
+    down: migration_20261119_031427_blocks_to_json.down,
+    name: '20261119_031427_blocks_to_json',
+  },
+  {
+    up: migration_20261119_050302_sponsorship_settings.up,
+    down: migration_20261119_050302_sponsorship_settings.down,
+    name: '20261119_050302_sponsorship_settings',
+  },
+  {
+    up: migration_20261119_050400_sponsor_pages.up,
+    down: migration_20261119_050400_sponsor_pages.down,
+    name: '20261119_050400_sponsor_pages',
+  },
+  {
+    up: migration_20261119_150000_sponsor_pages_polish.up,
+    down: migration_20261119_150000_sponsor_pages_polish.down,
+    name: '20261119_150000_sponsor_pages_polish',
+  },
+  {
+    up: migration_20261119_160000_sponsor_pages_polish2.up,
+    down: migration_20261119_160000_sponsor_pages_polish2.down,
+    name: '20261119_160000_sponsor_pages_polish2',
+  },
+  {
+    up: migration_20261119_190000_sponsor_pages_clean.up,
+    down: migration_20261119_190000_sponsor_pages_clean.down,
+    name: '20261119_190000_sponsor_pages_clean',
+  },
+  {
+    up: migration_20261119_200000_sponsor_pages_clean2.up,
+    down: migration_20261119_200000_sponsor_pages_clean2.down,
+    name: '20261119_200000_sponsor_pages_clean2',
+  },
+  {
+    up: migration_20261119_222418_giving_settings.up,
+    down: migration_20261119_222418_giving_settings.down,
+    name: '20261119_222418_giving_settings',
+  },
+  {
+    up: migration_20261119_223000_giving_pages_as_sections.up,
+    down: migration_20261119_223000_giving_pages_as_sections.down,
+    name: '20261119_223000_giving_pages_as_sections',
+  },
+  {
+    up: migration_20261119_233120_shared_text.up,
+    down: migration_20261119_233120_shared_text.down,
+    name: '20261119_233120_shared_text',
+  },
+  {
+    up: migration_20261119_235000_station_pages_as_sections.up,
+    down: migration_20261119_235000_station_pages_as_sections.down,
+    name: '20261119_235000_station_pages_as_sections',
+  },
+  {
+    up: migration_20261119_235500_listens_pages_as_sections.up,
+    down: migration_20261119_235500_listens_pages_as_sections.down,
+    name: '20261119_235500_listens_pages_as_sections',
+  },
+  {
+    up: migration_20261120_162233_placement_fills_gaps.up,
+    down: migration_20261120_162233_placement_fills_gaps.down,
+    name: '20261120_162233_placement_fills_gaps',
+  },
+  {
+    up: migration_20261120_173640_site_banner.up,
+    down: migration_20261120_173640_site_banner.down,
+    name: '20261120_173640_site_banner',
+  },
+  {
+    up: migration_20261120_202320_placement_top_zones.up,
+    down: migration_20261120_202320_placement_top_zones.down,
+    name: '20261120_202320_placement_top_zones',
+  },
+  {
+    up: migration_20261120_202458_story_no_placements.up,
+    down: migration_20261120_202458_story_no_placements.down,
+    name: '20261120_202458_story_no_placements',
+  },
+  {
+    up: migration_20261120_203039_placement_story_zones.up,
+    down: migration_20261120_203039_placement_story_zones.down,
+    name: '20261120_203039_placement_story_zones',
+  },
+  {
+    up: migration_20261120_204634_page_set_home.up,
+    down: migration_20261120_204634_page_set_home.down,
+    name: '20261120_204634_page_set_home',
+  },
+  {
+    up: migration_20261120_221651_story_rail_retired.up,
+    down: migration_20261120_221651_story_rail_retired.down,
+    name: '20261120_221651_story_rail_retired',
+  },
+  {
+    up: migration_20261121_010545_sections_swatch.up,
+    down: migration_20261121_010545_sections_swatch.down,
+    name: '20261121_010545_sections_swatch'
   },
 ];

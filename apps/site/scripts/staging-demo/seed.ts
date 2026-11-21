@@ -253,6 +253,13 @@ await ensure('performances', byTitle('Demonstration show: a recorded night'), {
   video: videoFile.id, captionsVtt: captions,
 }, 'RadioLive recorded show')
 
+// ---------------------------------------------------------------- placeholder pictures
+// Anything demonstrational still without a picture gets an arbitrary one from the media library (rules: `placeholder-pictures.ts`).
+{
+  const { addPlaceholderPictures } = await import('./placeholder-pictures')
+  for (const line of await addPlaceholderPictures(payload, { apply: go })) made.push(`picture: ${line}`)
+}
+
 // ---------------------------------------------------------------- report
 console.log(`\n${go ? 'Created' : 'Would create'} ${made.length} item(s):`)
 for (const m of made) console.log(`  + ${m}`)

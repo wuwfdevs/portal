@@ -4,21 +4,34 @@
 // administrator can write preserved HTML" cannot be left to the field. This compares the body being saved with the
 // one already stored and names every preserved-HTML block that is new or different; a collection hook refuses the
 // save for anyone who is not allowed. A person who merely re-saves a story keeps the blocks that are already there.
+//
+// The walk visits every object and array in the value it is given, not only a rich-text field's own `root`, so the same check covers a
+// rich-text state nested in a block field (a page's `sections`: the Text block's body) and one nested in a block inside rich text. A
+// section moved, or its siblings reordered, changes no block's id, so it is not a change.
 
 type Node = { type?: unknown; fields?: { id?: unknown; blockType?: unknown; html?: unknown }; children?: unknown }
 
-/** block id → its html, for every preserved-HTML block anywhere in a Lexical state. */
+/** Calls `visit` on every object found anywhere in a JSON value (depth-limited, so a malformed value cannot run away). */
+function walkJson(value: unknown, visit: (node: Record<string, unknown>) => void, depth = 0): void {
+  if (typeof value !== 'object' || value === null || depth > 64) return
+  if (Array.isArray(value)) {
+    for (const v of value) walkJson(v, visit, depth + 1)
+    return
+  }
+  const node = value as Record<string, unknown>
+  visit(node)
+  for (const v of Object.values(node)) walkJson(v, visit, depth + 1)
+}
+
+/** block id → its html, for every preserved-HTML block anywhere in a Lexical state, or in a value that holds one. */
 export function collectLegacyHtml(state: unknown): Map<string, string> {
   const found = new Map<string, string>()
-  const walk = (node: unknown): void => {
-    if (typeof node !== 'object' || node === null) return
+  walkJson(state, (node) => {
     const n = node as Node
     if (n.type === 'block' && n.fields?.blockType === 'legacyHtml') {
       found.set(typeof n.fields.id === 'string' ? n.fields.id : `anon-${found.size}`, typeof n.fields.html === 'string' ? n.fields.html : '')
     }
-    if (Array.isArray(n.children)) n.children.forEach(walk)
-  }
-  walk((state as { root?: unknown } | null | undefined)?.root)
+  })
   return found
 }
 
@@ -38,18 +51,15 @@ const fingerprint = (f: WidgetFields): string => {
   return JSON.stringify([f.scriptUrl ?? '', Boolean(f.module), f.elementId ?? '', f.initEvent ?? '', attrs])
 }
 
-/** block id → what the widget runs, for every script widget anywhere in a Lexical state. */
+/** block id → what the widget runs, for every script widget anywhere in a Lexical state, or in a value that holds one. */
 export function collectWidgets(state: unknown): Map<string, string> {
   const found = new Map<string, string>()
-  const walk = (node: unknown): void => {
-    if (typeof node !== 'object' || node === null) return
-    const n = node as { type?: unknown; fields?: WidgetFields; children?: unknown }
+  walkJson(state, (node) => {
+    const n = node as { type?: unknown; fields?: WidgetFields }
     if (n.type === 'block' && n.fields?.blockType === 'widget') {
       found.set(typeof n.fields.id === 'string' ? n.fields.id : `anon-${found.size}`, fingerprint(n.fields))
     }
-    if (Array.isArray(n.children)) n.children.forEach(walk)
-  }
-  walk((state as { root?: unknown } | null | undefined)?.root)
+  })
   return found
 }
 

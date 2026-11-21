@@ -69,7 +69,7 @@ export const EmbedBlock: React.FC<EmbedBlockProps & { className?: string }> = as
   return (
     <figure className={cn('not-prose my-8', className)}>
       <div
-        className={cn('w-full overflow-hidden rounded-sm bg-surface-3', !keepsProportions && SHAPE_CLASS[embed.shape])}
+        className={cn('w-full overflow-hidden rounded-4 bg-surface-3', !keepsProportions && SHAPE_CLASS[embed.shape])}
         style={keepsProportions ? { aspectRatio: `${width} / ${height}` } : undefined}
       >
         {/* A site nobody approved loads only after the reader clicks: until then the frame is not on the page at all. */}

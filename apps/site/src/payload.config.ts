@@ -4,6 +4,7 @@ import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
+import { sectionBlockDefinitions } from './blocks/sections/registry'
 import { storyEmbeddingsSchema } from './db/storyEmbeddings'
 import { ArchiveItems } from './collections/ArchiveItems'
 import { AudienceProfiles } from './collections/AudienceProfiles'
@@ -16,6 +17,8 @@ import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Sections } from './collections/Sections'
+import { NetworkItems } from './collections/Network/NetworkItems'
+import { NetworkSources } from './collections/Network/NetworkSources'
 import { Users } from './collections/Users'
 import { Video } from './collections/Video'
 import { Contributors } from './collections/Contributors'
@@ -31,6 +34,7 @@ import { EventSubmissionImages } from './collections/Events/EventSubmissionImage
 import { SubmissionRateLimits } from './collections/Events/SubmissionRateLimits'
 import { Events } from './collections/Events/Events'
 import { LiveUpdates } from './collections/Live/LiveUpdates'
+import { PlacementItems } from './collections/PlacementItems'
 import { PortalSignIns } from './collections/PortalSignIns'
 import { PublishingIdentities } from './collections/PublishingIdentities'
 import {
@@ -45,8 +49,13 @@ import { Header } from './Header/config'
 import { Homepage } from './Homepage/config'
 import { SiteSettings } from './globals/SiteSettings'
 import { ListenLive } from './globals/ListenLive'
+import { Sponsorship } from './globals/Sponsorship'
+import { SponsorshipSettings } from './globals/SponsorshipSettings'
 import { SupportPage } from './SupportPage/config'
+import { GivingSettings } from './globals/GivingSettings'
+import { SharedText } from './globals/SharedText'
 import { plugins } from './plugins'
+import { adminNavGroups } from './plugins/adminNav'
 import { storagePlugin } from './plugins/storage'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
@@ -60,9 +69,18 @@ export default buildConfig({
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeLogin: ['@/components/BeforeLogin'],
+      // The station's wordmark on the sign-in screen and its mark in the navigation (`components/admin/Brand`).
+      graphics: { Logo: '@/components/admin/Brand/Logo#AdminLogo', Icon: '@/components/admin/Brand/Icon#AdminIcon' },
+      // The sidebar is the tree in `lib/admin-nav.ts`, two levels deep (Payload's own is one level and cannot nest).
+      Nav: '@/components/admin/Nav#AdminNav',
     },
     importMap: {
       baseDir: path.resolve(dirname),
+    },
+    // The browser tab: "<page> - WUWF.org admin", with the station's mark.
+    meta: {
+      titleSuffix: ' - WUWF.org admin',
+      icons: [{ rel: 'icon', type: 'image/svg+xml', url: '/favicon.svg' }],
     },
     user: Users.slug,
     livePreview: {
@@ -98,7 +116,12 @@ export default buildConfig({
     // is missing; on Supabase it must be enabled on the project first (ROADMAP: Needs the owner).
     extensions: ['vector'],
     afterSchemaInit: [storyEmbeddingsSchema],
+    // Blocks fields (stories' featured media, form fields, page sections) are one jsonb column each, not a table per block type.
+    // Database-wide. Switching it needs a migration that moves the data (migration blocks_to_json; PAGE-BLOCKS.md).
+    blocksAsJSON: true,
   }),
+  // Section blocks, defined once and listed by `blockReferences` on the pages field (src/blocks/sections/registry.ts).
+  blocks: sectionBlockDefinitions,
   collections: [
     Pages,
     Posts,
@@ -116,6 +139,8 @@ export default buildConfig({
     Artists,
     Performances,
     Sections,
+    NetworkSources,
+    NetworkItems,
     Categories,
     Contributors,
     Sites,
@@ -124,6 +149,7 @@ export default buildConfig({
     Series,
     Productions,
     Sponsors,
+    PlacementItems,
     UnderwritingAgreements,
     Users,
     PortalSignIns,
@@ -132,8 +158,9 @@ export default buildConfig({
     MemberFeeds,
   ],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive],
-  plugins: [...plugins, storagePlugin],
+  globals: [Header, Footer, Homepage, SiteSettings, SupportPage, UnearthingHub, VoyagerHub, RadioLiveHub, ListenLive, Sponsorship, SponsorshipSettings, GivingSettings, SharedText],
+  // `adminNavGroups` runs last so it also reaches the collections the other plugins add.
+  plugins: [...plugins, storagePlugin, adminNavGroups],
   secret: process.env.PAYLOAD_SECRET,
   sharp,
   // Payload's default is 20 MiB per file and 50 MiB per request, which rejects (HTTP 413) a long station recording.

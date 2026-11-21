@@ -9,7 +9,7 @@ import type {
 } from '@wuwf/portal-contracts'
 
 import { hubSessions } from './event'
-import { maxMinutes, plural } from './flow'
+import { plural } from './flow'
 
 /** The words of the listening hub's cards (board 5). Pure, so the sentences are tested. */
 
@@ -59,16 +59,6 @@ export function outcomeDate(publishedAt: string): string | null {
   if (!match) return null
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12))
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-}
-
-/** Component A's line (board 6): "3 questions · by voice · up to 4 minutes · open until Nov. 30". */
-export function inviteMeta(item: { questions: { maxDurationSeconds: number }[]; allowTextAnswers: boolean; closesAt: string | null }): string {
-  return [
-    plural(item.questions.length, 'question'),
-    item.allowTextAnswers ? 'by voice or in writing' : 'by voice',
-    `up to ${plural(maxMinutes(item.questions), 'minute')}`,
-    closesLabel(item.closesAt),
-  ].join(' · ')
 }
 
 /** One campaign as the hub shows it: its question, then every way to take part in it. */

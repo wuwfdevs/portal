@@ -148,6 +148,26 @@ generator, scoped per-show theme overrides (values validated so a theme cannot b
 contrast helper whose tests pin the design system's own accessibility notes. The values must stay equal to the
 Portal's `src/lib/design-tokens.ts`. The site's Tailwind/CSS is not yet wired to it.
 
+## Pages built from sections (Partly built: the foundation, the library and the six sponsor pages; the other pages move in later phases)
+
+An editor-composed page is a `pages` record with `template: sections` and an ordered `sections` blocks field, stored as one `jsonb` column (`blocksAsJSON`). The plan, its phases and the findings behind it are `PAGE-BLOCKS.md` and `ROADMAP.md` → *Phase 0 findings*; the rules are `CLAUDE.md` → *Pages and sections*.
+
+| Piece | Where | State |
+|---|---|---|
+| Section blocks: definition, component, test, picker thumbnail, one registry entry each | `src/blocks/sections/` (`registry.ts`, `RenderSections.tsx`, `fields.ts`) | Built: the registry, the shared fields, shared parts, the 18-block library (phase 2), the five sponsor-only blocks (phase 3), the five giving-only blocks (phase 4), and in phase 5 the Broadcast schedule block, the shows source of List, and the five listens-only blocks |
+| Page sets: theme, edit permission, sub-navigation, which set-only blocks are offered | `src/lib/page-sets/`, `access/pages.ts`, `hooks/enforcePageSet.ts` | Built; both sets' footer lines are wired (`components/Page/SetFooter.tsx`); a `noindex` page is left out of its set's strip |
+| Page themes and tones: tokens in code, stylesheet generated, contrast tested | `src/lib/page-themes/`, `page-themes.css` | Built: the station theme; the three hub themes are named, not built |
+| The page, read by the catch-all route | `components/Page/SectionsPageView.tsx` | Built; reads the page record and the set's navigation, never the request |
+| The data behind the Featured record, List, Dates and Credit blocks: pure shaping, specs and cached loaders | `src/lib/section-data/` | Built (phase 2) |
+| The internal sample page: every block in every tone | `src/lib/sections-sample/`, `scripts/sections/seed-sample-page.ts` | Built; not yet on staging |
+| The sponsorship settings (prices, rates, contact, form choices, programs) and what reads them | `globals/SponsorshipSettings`, `lib/sponsorship/load.ts`, the five blocks under `blocks/sections/{RateEstimator,Packages,Carpool,OpenPrograms,InquiryForm}` | Built (phase 3) |
+| The six sponsor pages, written from the old global once, by migration | `lib/sponsorship/to-sections.ts`, `migrations/20261119_050400_sponsor_pages.ts` | Built (phase 3); on staging when its preview build has applied it |
+| The schedule, podcast directory and WUWF Listens pages, written once by migration; the Shared text global | `lib/station-pages`, `lib/listening/hub-pages.ts`, `globals/SharedText.ts`, `lib/shared-text`, `migrations/20261119_{233120,235000,235500}_*` | Built (phase 5); on staging when its preview build has applied them |
+| The giving settings (levels, amounts, the donation form, contact, broker details) and what reads them | `globals/GivingSettings`, `lib/giving/load.ts`, the five blocks under `blocks/sections/{GiftCard,GivingLevels,WaysToGive,ThankYou,GivingContact}`; also read by the account page and the shows' support pages | Built (phase 4) |
+| The four giving pages, written from the old global once, by migration; two are coded shells that hand their record the query | `lib/giving/to-sections.ts`, `migrations/20261119_223000_giving_pages_as_sections.ts`, `components/Page/SectionsRoute.tsx`, `app/(frontend)/support/{ways,thanks}` | Built (phase 4); on staging when its preview build has applied it |
+
+A page's cache window is the route's 3600 seconds unless a block loads time-dependent data through `unstable_cache` with a shorter `revalidate`; saving a settings global or a page in a set refreshes, through cache tags, the pages that read it.
+
 ## Migrating from Grove, and body-block flexibility (Partly built; mostly Specified)
 
 Source: the owner's memo *Grove to Payload: Archive Portability and Migration Feasibility* (2026-10-16). It
@@ -171,7 +191,7 @@ quotes, inline images dropped in HTML conversion), likelihood High. Its mitigati
 | Body blocks Gallery, Pull quote, Embed, Promo, Preserved HTML, from Brightspot's documentation (see the table below) | **Built and tested, but provisional**: a guess until the inventory exists |
 | Converter: Grove renderer JSON → Payload (media upload, per-block converters, fidelity report), then migrate | **Not built**; designed from the inventory |
 | Timestamps preserved from the source, never import time; podcast feed URLs, GUIDs and enclosures preserved | Specified |
-| CDS sync for NPR content (poll inbound, PUT outbound; NPR items read-only, re-pulled, never archived separately) | Specified (Milestone 3) |
+| CDS sync for NPR content (poll inbound, PUT outbound; NPR items read-only, re-pulled, never archived separately) | **Inbound poll, the `network-sources` / `network-items` collections and the admin queue built (2026-11-18)**; the story-body converter, publishing a network story and PUT outbound are not built (needs the site's CDS key). `ROADMAP.md` -> *Network content* |
 | **Story embeddings** (2026-11-13): one pgvector row per published WUWF story in `story_embeddings` (a plain table beside Payload's, declared through the adapter's schema hook, `on delete cascade`, HNSW cosine index), made by `lib/embeddings` from the title, dek, description and body (a members-only story from its title, dek and description only; NPR and wire stories never). Powers "Related stories" on the story page (nearest neighbours, a similarity floor, a small recency preference, at most two from one show) and a "similar topics" list on `/search`. The migration's vectorization step is `scripts/embeddings/backfill.ts` (`scripts/grove/IMPORT.md`, step 5) | **Built and tested; not run on real data** (needs the owner's go-ahead, a key, and the migrated stories) |
 | Semantic search: the visitor's search words are embedded by the provider (the Site settings switch "Find stories by meaning in search" plus a key), then matched to stored vectors; it supplements keyword search, never replaces it, and the site works with the provider down or unset | Built; **off until the owner turns the switch on (it defaults to off)** |
 
@@ -223,4 +243,4 @@ it), the administrators-only rule is a document-level hook comparing the incomin
 Vercel (own project, root `apps/site`), Supabase (own project) for Postgres, Auth and Storage; Payload's storage
 adapter against Supabase's S3-compatible endpoint, private buckets for audience audio. Analytics and error
 reporting behind interfaces. The site must stay usable if analytics, sponsorship serving or personalization is
-down; emergency coverage is a first-class homepage state.
+down; the site banner (an emergency or a notice, on the home page or every page) is a first-class state.

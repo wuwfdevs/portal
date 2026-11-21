@@ -15,7 +15,8 @@ import {
   richTextToPlainText,
   type RichTextDoc,
 } from "@/lib/rich-text";
-import { validatePostInput, validateStatusChange } from "@/lib/roadmap/posts";
+import { POST_STATUS_BADGE, validatePostInput, validateStatusChange } from "@/lib/roadmap/posts";
+import { notify } from "@/lib/notifications/notify";
 import type { RdPostKind, RdPostStatus } from "@/lib/database.types";
 
 const LIST_PATH = "/roadmap";
@@ -59,6 +60,26 @@ function bodyField(formData: FormData, name: string, path: string): RichTextDoc 
  */
 function refusedByRls(rows: unknown[] | null, path: string, message: string): void {
   if (!rows || rows.length === 0) failWith(path, message);
+}
+
+/**
+ * The request a notification is about: its author and title. Best effort, like the notification itself: a failed read is logged and the
+ * action that asked carries on without telling anyone, rather than failing a save that already worked.
+ */
+async function postForNotice(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  postId: string,
+): Promise<{ author_id: string; title: string } | null> {
+  const { data, error } = await supabase
+    .from("rd_posts")
+    .select("author_id, title")
+    .eq("id", postId)
+    .maybeSingle();
+  if (error) {
+    console.error("Roadmap: could not read a request to notify its author", error.code ?? "");
+    return null;
+  }
+  return data;
 }
 
 // Posts -------------------------------------------------------------------------
@@ -203,13 +224,33 @@ export async function addComment(formData: FormData): Promise<void> {
   if (isEmptyRichText(body)) failWith(path, "Write something before posting a comment.");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("rd_comments").insert({
-    post_id: postId,
-    author_id: profile.id,
-    body,
-    body_text: richTextToPlainText(body),
-  });
+  const { data: comment, error } = await supabase
+    .from("rd_comments")
+    .insert({
+      post_id: postId,
+      author_id: profile.id,
+      body,
+      body_text: richTextToPlainText(body),
+    })
+    .select("id")
+    .single();
   failIfError(error, path, "Could not post the comment");
+
+  // Tell the request's author (not the commenter, which notify() also guards). Best effort: it never fails the comment.
+  if (comment) {
+    const post = await postForNotice(supabase, postId);
+    if (post) {
+      await notify({
+        type: "roadmap.comment_added",
+        recipients: [post.author_id],
+        actorId: profile.id,
+        title: `${profile.display_name} commented on your request`,
+        body: post.title,
+        href: path,
+        dedupeKey: `comment:${comment.id}`,
+      });
+    }
+  }
 
   redirect(path);
 }
@@ -277,6 +318,7 @@ export async function movePostStatus(
   if (problem) return { error: problem };
 
   const supabase = await createClient();
+  const changedAt = new Date().toISOString();
   const { error } = await supabase
     .from("rd_posts")
     .update({
@@ -285,7 +327,7 @@ export async function movePostStatus(
       // the post moves off `declined` rather than left to describe a state the
       // post is no longer in.
       status_note: status === "declined" ? note : null,
-      status_changed_at: new Date().toISOString(),
+      status_changed_at: changedAt,
       status_changed_by: profile.id,
     })
     .eq("id", postId);
@@ -301,6 +343,21 @@ export async function movePostStatus(
     targetId: postId,
     metadata: { status },
   });
+
+  // Tell the request's author, with the reason when it is declined (they are owed it). Best effort: it never fails the move.
+  const post = await postForNotice(supabase, postId);
+  if (post) {
+    const label = POST_STATUS_BADGE[status].label.toLowerCase();
+    await notify({
+      type: "roadmap.status_changed",
+      recipients: [post.author_id],
+      actorId: profile.id,
+      title: `Your request is now ${label}`,
+      body: status === "declined" && note ? `${post.title}\n\nReason: ${note}` : post.title,
+      href: postPath(postId),
+      dedupeKey: `status:${postId}:${changedAt}`,
+    });
+  }
 
   revalidatePath(LIST_PATH);
   revalidatePath(postPath(postId));

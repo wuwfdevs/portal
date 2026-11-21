@@ -12,6 +12,7 @@ import { listHref } from '@/lib/lists/route'
 import { pagePath } from '@/lib/paths'
 import { sitemapEntry } from '@/lib/seo/meta'
 import { CHUNK_SIZE, indexRequests, type SitemapRequest } from '@/lib/seo/sitemap-plan'
+import { published, sitemapStories } from '@/lib/seo/sitemap-where'
 
 export type SitemapUrl = { loc: string; lastmod?: string }
 
@@ -21,12 +22,11 @@ const SLOW_REVALIDATE = 600
 export const siteUrl = (): string =>
   (process.env.NEXT_PUBLIC_SERVER_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || 'https://example.com').replace(/\/$/, '')
 
-const published = { _status: { equals: 'published' } } as const
 
 const countPosts = unstable_cache(
   async (): Promise<number> => {
     const payload = await getPayload({ config })
-    return (await payload.count({ collection: 'posts', overrideAccess: false, where: published })).totalDocs
+    return (await payload.count({ collection: 'posts', overrideAccess: false, where: sitemapStories })).totalDocs
   },
   ['sitemap-posts-count'],
   { tags: ['posts-sitemap'] },
@@ -45,7 +45,7 @@ export const getPostsChunk = unstable_cache(
       limit: CHUNK_SIZE,
       page,
       sort: 'id',
-      where: published,
+      where: sitemapStories,
       select: { path: true, updatedAt: true, publishedAt: true, legacy: { groveId: true, legacyPath: true, modifiedAt: true } },
     })
     return results.docs.flatMap((post) => {

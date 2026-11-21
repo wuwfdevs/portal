@@ -7,6 +7,7 @@ import { Card } from '@/components/Card'
 import { Media } from '@/components/Media'
 import { formatLongDate } from '@/lib/format'
 import type { FellowshipHubData } from '@/lib/fellowship/load'
+import type { FellowshipPolicy } from '@/lib/shared-text'
 
 /**
  * A fellowship's hub page (board 4): what the fellowship is, who funds it, who reports it and everything made through it.
@@ -16,7 +17,16 @@ import type { FellowshipHubData } from '@/lib/fellowship/load'
  * the open questions list (listening), the newsletter signup, "explore by place", and related coverage. They are left out
  * rather than drawn as buttons that do nothing.
  */
-export function FellowshipHub({ data, independenceHref }: { data: FellowshipHubData; independenceHref: string | null }) {
+/** `explanation` is the Shared text global's "how the fellowship works" (`fellowshipPolicyOf`); with none the section is not drawn. */
+export function FellowshipHub({
+  data,
+  explanation,
+  independenceHref,
+}: {
+  data: FellowshipHubData
+  explanation: FellowshipPolicy | null
+  independenceHref: string | null
+}) {
   const { fellowship, fellow, heroImage, stats, stories, counts, acknowledgments } = data
   const [latest, ...rest] = stories
   const total = counts.stories + counts.episodes + counts.videos
@@ -87,13 +97,13 @@ export function FellowshipHub({ data, independenceHref }: { data: FellowshipHubD
               <p className="mb-2 text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">
                 Latest{latest.publishedAt ? ` · ${formatLongDate(latest.publishedAt)}` : ''}
               </p>
-              <Card className="md:flex-row" doc={latest} showCategories />
+              <Card className="md:flex-row" doc={latest} showCategories variant="editorial" />
             </div>
             {rest.length > 0 && (
               <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {rest.map((story) => (
                   <li key={story.id}>
-                    <Card className="h-full" doc={story} showCategories />
+                    <Card className="h-full" doc={story} showCategories variant="editorial" />
                   </li>
                 ))}
               </ul>
@@ -109,32 +119,28 @@ export function FellowshipHub({ data, independenceHref }: { data: FellowshipHubD
         )}
       </section>
 
-      <section aria-labelledby="integrity-heading" className="container mt-16 max-w-[52rem] border-t border-rule pt-8">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="integrity-heading">
-          How the fellowship works
-        </h2>
-        <dl className="mt-4 grid gap-6 sm:grid-cols-3">
-          <div>
-            <dt className="text-base font-bold text-ink">Who decides</dt>
-            <dd className="mt-1 text-sm text-ink-2">WUWF News chooses topics, assigns and edits every piece. Listener questions inform what we pursue.</dd>
-          </div>
-          <div>
-            <dt className="text-base font-bold text-ink">What funders get</dt>
-            <dd className="mt-1 text-sm text-ink-2">Acknowledgment on fellowship work and this page. No review, approval or advance notice of coverage.</dd>
-          </div>
-          <div>
-            <dt className="text-base font-bold text-ink">If we cover a funder</dt>
-            <dd className="mt-1 text-sm text-ink-2">We disclose the relationship in the story, every time.</dd>
-          </div>
-        </dl>
-        {independenceHref && (
-          <p className="mt-6 text-sm">
-            <Link className="font-semibold text-wuwf-blue-700 underline" href={independenceHref}>
-              Read our editorial independence policy
-            </Link>
-          </p>
-        )}
-      </section>
+      {explanation && (
+        <section aria-labelledby="integrity-heading" className="container mt-16 max-w-[52rem] border-t border-rule pt-8">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-ink-3" id="integrity-heading">
+            {explanation.title}
+          </h2>
+          <dl className="mt-4 grid gap-6 sm:grid-cols-3">
+            {explanation.items.map((item) => (
+              <div key={item.term}>
+                <dt className="text-base font-bold text-ink">{item.term}</dt>
+                <dd className="mt-1 text-sm text-ink-2">{item.text}</dd>
+              </div>
+            ))}
+          </dl>
+          {independenceHref && (
+            <p className="mt-6 text-sm">
+              <Link className="font-semibold text-wuwf-blue-700 underline" href={independenceHref}>
+                {explanation.linkLabel}
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
     </article>
   )
 }

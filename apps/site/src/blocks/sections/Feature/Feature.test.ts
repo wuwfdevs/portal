@@ -1,0 +1,85 @@
+import { describe, expect, it } from 'vitest'
+
+import { renderBlock } from '../testing'
+import { FeatureSection } from './Component'
+
+const html = (block: Record<string, unknown>) => renderBlock(FeatureSection, 'sectionFeature', block)
+const picture = { id: 4, url: '/media/lead.jpg', alt: 'A guitarist on stage', width: 1200, height: 800, mimeType: 'image/jpeg' }
+
+describe('Feature section', () => {
+  it('draws nothing without a headline', () => {
+    expect(html({})).toBe('')
+    expect(html({ headline: '   ', line: 'Only a line' })).toBe('')
+  })
+  it('hero: one h1, the label, the line and the buttons, in a band with its anchor and tone', () => {
+    const out = html({
+      variant: 'hero', anchor: 'top', tone: 'dark', label: 'Next show · Thursday', headline: 'Save your seat', line: 'Three artists.',
+      actions: [{ label: 'Reserve', href: '/radiolive#tickets' }, { label: 'Watch', href: 'https://example.org/w' }],
+    })
+    expect(out).toContain('<h1')
+    expect(out).not.toContain('<h2')
+    expect(out).toContain('id="top"')
+    expect(out).toContain('data-tone="dark"')
+    for (const s of ['Next show · Thursday', 'Save your seat', 'Three artists.', 'Reserve', 'Watch']) expect(out).toContain(s)
+    expect(out).toContain('href="/radiolive#tickets"')
+    expect(out).toContain('rel="noopener noreferrer"')
+  })
+  it('split: an h2, and the picture and its side and ratio only here', () => {
+    const left = html({ variant: 'split', headline: 'Tunnel Vision', image: picture, ratio: 'portrait', imageSide: 'left' })
+    expect(left).toContain('<h2')
+    expect(left).not.toContain('<h1')
+    expect(left).toContain('aspect-[4/5]')
+    expect(left).toContain('md:order-2')
+    const right = html({ variant: 'split', headline: 'Tunnel Vision', image: picture, ratio: 'wide' })
+    expect(right).toContain('aspect-video')
+    expect(right).not.toContain('md:order-2')
+  })
+  it('hero ignores the split-only fields it still holds', () => {
+    const out = html({ variant: 'hero', headline: 'H', image: picture, ratio: 'portrait', imageSide: 'left' })
+    expect(out).not.toContain('aspect-[4/5]')
+    expect(out).not.toContain('md:order-')
+  })
+  it('keeps the words when the picture or audio was deleted (a bare id)', () => {
+    for (const variant of ['hero', 'split']) {
+      const out = html({ variant, headline: 'Still here', image: 7, audio: 9 })
+      expect(out).toContain('Still here')
+      expect(out).not.toContain('<img')
+      expect(out).not.toContain('<button')
+    }
+  })
+  it('falls back to the standard ratio for a ratio it does not know', () => {
+    expect(html({ variant: 'split', headline: 'H', image: picture, ratio: 'enormous' })).toContain('aspect-[4/3]')
+  })
+  it('draws no button for an unsafe address or a missing label', () => {
+    const out = html({ headline: 'H', actions: [{ label: 'Bad', href: 'javascript:alert(1)' }, { label: '', href: '/ok' }, { label: 'Fine', href: '/fine' }] })
+    expect(out).not.toContain('javascript')
+    expect(out).not.toContain('Bad')
+    expect(out).toContain('href="/fine"')
+    expect(out).not.toContain('href="/ok"')
+  })
+})
+
+describe('Feature section: a line of several paragraphs', () => {
+  it('draws each paragraph on its own', () => {
+    const out = html({ headline: 'H', line: 'First paragraph.\n\nSecond paragraph.' })
+    expect(out).toContain('<p>First paragraph.</p>')
+    expect(out).toContain('<p>Second paragraph.</p>')
+  })
+})
+
+describe('Feature section: a panel beside the hero', () => {
+  it('draws up to four figures and their note beside the words', () => {
+    const out = html({ variant: 'hero', headline: 'H', aside: 'figures', figures: [{ value: '22,500', text: 'listen weekly' }, { value: '79%', text: 'think highly' }, { value: '', text: 'no number' }], asideNote: 'Source: Nielsen.' })
+    expect(out).toContain('22,500')
+    expect(out).toContain('79%')
+    expect(out).not.toContain('no number')
+    expect(out).toContain('Source: Nielsen.')
+  })
+  it('draws a sample sentence in a card, and nothing when the aside is none or empty', () => {
+    const out = html({ variant: 'hero', headline: 'H', aside: 'quote', asideLabel: 'What it sounds like', asideText: '“Support comes from Example.”', asideNote: 'Not a real sponsor.' })
+    expect(out).toContain('What it sounds like')
+    expect(out).toContain('Support comes from Example.')
+    expect(html({ variant: 'hero', headline: 'H', aside: 'none', figures: [{ value: '1', text: 'a' }] })).not.toContain('<li')
+    expect(html({ variant: 'hero', headline: 'H', aside: 'quote' })).not.toContain('<figure')
+  })
+})

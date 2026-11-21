@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import './tokens.css';
+@import './page-themes.css';
 
 @config '../../../tailwind.config.mjs';
 
@@ -55,6 +56,16 @@
   --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
+/* The highlight under a section heading (direction C2): `<span class="mark">` inside the heading, coloured by `--mk` (a desk's mark or the
+   band's `--tone-mark`). With no `--mk` it draws nothing. `clone` keeps the highlight whole on every line of a heading that wraps. */
+.mark {
+  background: linear-gradient(transparent 60%, var(--mk) 60%);
+  color: inherit;
+  padding: 0 0.25rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 @layer utilities {
   /* The content column: 1240px with a 24px gutter (16px on a phone). */
   .container {
@@ -77,6 +88,9 @@
    browser's own form controls and scrollbars light in a reader's dark mode too. */
 :root {
   color-scheme: light;
+  /* How tall the sticky header is: one row of 4rem, or 6.75rem when it has its second row (the section links). For what must fit the window under it (the home page's first
+     screen) and for anchors, so a link to a place on a page does not land under the header. */
+  --header-h: 4rem;
   --background: var(--color-surface);
   --foreground: var(--color-ink);
   --card: var(--color-surface-2);
@@ -161,4 +175,11 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+body:has(header nav[aria-label='Sections']) {
+  --header-h: 6.75rem;
+}
+html {
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }

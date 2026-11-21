@@ -1,31 +1,46 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { Chip } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
 import { withLeadPicture } from '@/components/Card/withLeadPicture'
+import { Eyebrow, SectionHeading } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import RichText from '@/components/RichText'
 import { ListeningInline } from '@/components/Listening/ListeningInline'
 import { ListPagination } from '@/components/StoryList/ListPagination'
+import { ListRail, TopUnit } from '@/components/Placements'
+import { StoryGrid } from '@/components/StoryGrid'
+import { TitledSection } from '@/components/TitledSection'
+import { ClipRail } from '@/components/Video/ClipRail'
+import type { LeadClasses } from '@/lib/homepage/modules'
 import type { StoryListData } from '@/lib/lists/load'
+import type { PlacementTile } from '@/lib/placements/tiles'
+import type { ClipView } from '@/lib/video/load'
+import type { Media as MediaDoc } from '@/payload-types'
+import { cn } from '@/utilities/ui'
 
-const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter' } as const
+/** The first story's headline, larger than the grid's, in the same stacked card (the board's list lead). Whole class names, so Tailwind generates them. */
+const LIST_LEAD: LeadClasses = { card: '', frame: '', body: '', title: 'text-2xl sm:text-3xl sm:leading-tight' }
+
+const EYEBROW = { section: 'Section', topic: 'Topic', person: 'Reporter', latest: 'Latest' } as const
 
 /**
  * A page of stories in a section, under a topic, or by a person (the three share one layout). The first page opens with the
- * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly.
+ * newest story large and the rest in a grid; later pages are the grid alone. Empty states say so plainly. A section's page carries a short-video
+ * strip (`clips`, from `lib/video/section`) between the lead and the grid on its first page, with "All videos" in its header; with none it draws nothing.
  */
-export function StoryListView({ data }: { data: StoryListData }) {
-  const { kind, slug, title, blurb, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
+export function StoryListView({ data, rail = [], clips = [], top = null }: { data: StoryListData; rail?: readonly PlacementTile<MediaDoc>[]; clips?: readonly ClipView[]; top?: PlacementTile<MediaDoc> | null }) {
+  const { kind, slug, title, blurb, swatch, bio, profile, listeningQuestion, stories, page, totalPages, totalDocs } = data
   const lead = page === 1 ? stories[0] : undefined
   const grid = page === 1 ? stories.slice(1) : stories
+  // A rail beside the stories only when a placement is aimed at this page; otherwise the page is exactly as it was.
+  const hasRail = rail.length > 0
 
   return (
     <div className="pb-20">
       <header className="container flex max-w-[60rem] flex-col gap-3 pt-8 md:pt-12">
         <div>
-          <Chip tone="teal">{EYEBROW[kind]}</Chip>
+          <Eyebrow swatch={swatch}>{EYEBROW[kind]}</Eyebrow>
         </div>
         {profile ? (
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-8">
@@ -39,7 +54,7 @@ export function StoryListView({ data }: { data: StoryListData }) {
               </span>
             )}
             <div className="flex min-w-0 flex-col gap-3">
-              <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">{title}</h1>
+              <SectionHeading as="h1" className="tracking-tight md:text-5xl" mark={profile ? 'none' : (swatch ?? 'blue')}>{title}</SectionHeading>
               {blurb && <p className="font-serif text-xl text-ink-2">{blurb}</p>}
               {bio && <p className="max-w-[44rem] text-lg text-ink-2">{bio}</p>}
               {profile.links.length > 0 && (
@@ -57,7 +72,7 @@ export function StoryListView({ data }: { data: StoryListData }) {
           </div>
         ) : (
           <>
-            <h1 className="font-serif text-4xl font-bold leading-tight tracking-tight text-ink md:text-5xl">{title}</h1>
+            <SectionHeading as="h1" className="tracking-tight md:text-5xl" mark={swatch ?? 'blue'}>{title}</SectionHeading>
             {blurb && <p className="font-serif text-xl text-ink-2">{blurb}</p>}
             {bio && <p className="max-w-[44rem] text-lg text-ink-2">{bio}</p>}
           </>
@@ -73,33 +88,42 @@ export function StoryListView({ data }: { data: StoryListData }) {
         </p>
       </header>
 
+      {/* The top unit (`list.top`): a section's presenting sponsor, under the page's title and before the stories. On every page of the list, not only the first. */}
+      {top && (
+        <div className="container mt-8">
+          <TopUnit tile={top} />
+        </div>
+      )}
+
       {page === 1 && listeningQuestion && (
         <div className="container mt-8 max-w-[60rem]">
           <ListeningInline publicId={listeningQuestion} variant="topic" />
         </div>
       )}
 
-      <section aria-label="Stories" className="container mt-10">
+      <div className={cn('container mt-10', hasRail && 'grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]')}>
+      <section aria-label="Stories" className="min-w-0">
         {stories.length === 0 ? (
           <p className="text-base text-ink-3">
             There are no published stories here yet. <Link className="font-semibold text-wuwf-blue-700 underline" href="/">Go to the front page</Link>.
           </p>
         ) : (
           <div className="flex flex-col gap-10">
-            {lead && <Card className="md:max-w-[44rem]" doc={withLeadPicture(lead)} fixedImage showCategories />}
-            {grid.length > 0 && (
-              <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {grid.map((story) => (
-                  <li key={story.id}>
-                    <Card className="h-full" doc={withLeadPicture(story)} fixedImage showCategories />
-                  </li>
-                ))}
-              </ul>
+            {/* The lead lines up with the grid under it: the whole column beside a rail (the grid is two across), two of the grid's three columns
+                without one (`gap-6` is the grid's gap). A fixed width left its right edge short of the cards below. */}
+            {lead && <Card className={cn(!hasRail && 'lg:w-[calc((200%-1.5rem)/3)]')} doc={withLeadPicture(lead)} fixedImage lead={LIST_LEAD} showCategories variant="editorial" />}
+            {page === 1 && clips.length > 0 && (
+              <TitledSection href="/video" id="section-videos" swatch={swatch} more={{ href: '/video', label: 'All videos' }} title={`Short videos from ${title}`}>
+                <ClipRail clips={clips} label={`Short videos from ${title}`} />
+              </TitledSection>
             )}
+            <StoryGrid beside={hasRail} stories={grid} variant="editorial" />
           </div>
         )}
         <ListPagination kind={kind} page={page} slug={slug} totalPages={totalPages} />
       </section>
+      <ListRail tiles={rail} />
+      </div>
     </div>
   )
 }

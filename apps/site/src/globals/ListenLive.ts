@@ -11,7 +11,7 @@ import { revalidateTag, revalidatePath } from '@/lib/revalidate'
 export const ListenLive: GlobalConfig = {
   slug: 'listen-live',
   label: 'Listen live',
-  admin: { group: 'Site settings', livePreview: { url: '/schedule' } },
+  admin: { livePreview: { url: '/schedule' } },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: {
     afterChange: [
@@ -70,7 +70,8 @@ export const ListenLive: GlobalConfig = {
       label: 'Other ways to listen',
       maxRows: 6,
       labels: { singular: 'Way', plural: 'Ways' },
-      admin: { description: 'Cards under the player: on the radio, the app, smart speakers. Empty hides the section.' },
+      // Moved to the Broadcast schedule page's own sections (PAGE-BLOCKS.md phase 5); the rows stay until phase 7 drops the field. Nothing reads them.
+      admin: { hidden: true, description: 'Moved to the schedule page’s sections. Kept until phase 7.' },
       fields: [
         { name: 'title', type: 'text', required: true, maxLength: 60 },
         { name: 'text', type: 'textarea', required: true, maxLength: 300 },

@@ -48,6 +48,17 @@ const places = [
     field: 'body',
   },
   {
+    name: 'a page section (the Text block)',
+    create: async (user: unknown, content: unknown) =>
+      payload.create({ collection: 'pages', draft: true, data: { title: `Ps ${run}`, template: 'sections', sections: [{ id: `s-${run}`, blockType: 'sectionText', tone: 'plain', body: content }], _status: 'draft' } as never, ...asUser(user) }),
+    update: (id: string | number, user: unknown, content: unknown) =>
+      payload.update({ collection: 'pages', id, draft: true, data: { title: `Ps ${run}`, template: 'sections', sections: [{ id: `s-${run}`, blockType: 'sectionText', tone: 'plain', body: content }], _status: 'draft' } as never, ...asUser(user) }),
+    plain: () => ({ title: `Seed section page ${run}`, template: 'sections', _status: 'draft' }),
+    collection: 'pages',
+    field: 'sections',
+    seed: (content: unknown) => [{ id: `s-${run}`, blockType: 'sectionText', tone: 'plain', body: content }],
+  },
+  {
     name: 'a show description',
     create: async (user: unknown, content: unknown) => payload.create({ collection: 'productions', data: { title: `S ${run}`, description: content } as never, ...asUser(user) }),
     update: (id: string | number, user: unknown, content: unknown) => payload.update({ collection: 'productions', id, data: { description: content } as never, ...asUser(user) }),
@@ -95,7 +106,7 @@ describe('restricted blocks are refused on every collection that takes story-sty
       })
 
       it('an editor cannot add one to a record that already exists, but can keep what is already there', async () => {
-        const seed = await make<{ id: string | number }>(place.collection, { ...place.plain(blog.id), [place.field]: doc(para('start'), widget('keep'), legacy('keep2')) })
+        const seed = await make<{ id: string | number }>(place.collection, { ...place.plain(blog.id), [place.field]: 'seed' in place ? place.seed(doc(para('start'), widget('keep'), legacy('keep2'))) : doc(para('start'), widget('keep'), legacy('keep2')) })
         // re-saving the same content, with new text elsewhere, is fine
         await expect(place.update(seed.id, editor, doc(para('edited'), widget('keep'), legacy('keep2')))).resolves.toBeTruthy()
         // changing the script, or adding a second widget, is not

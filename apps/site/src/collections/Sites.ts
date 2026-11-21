@@ -23,7 +23,7 @@ export const Sites: CollectionConfig = {
     update: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
   },
-  admin: { group: 'Editorial', useAsTitle: 'name', defaultColumns: ['name', 'place', 'era', 'updatedAt'], description: 'Places Unearthing Florida episodes are about. Each appears as a pin on the hub\'s map.' },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'place', 'era', 'updatedAt'], description: 'Places Unearthing Florida episodes are about. Each appears as a pin on the hub\'s map.' },
   hooks: {
     beforeValidate: [ensureSlug('name')],
     afterChange: [({ doc, req: { context } }) => {

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/network/poll",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/placements/day-boundary",
+      "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/placements/day-boundary",
+      "schedule": "5 6 * * *"
+    }
+  ]
+}

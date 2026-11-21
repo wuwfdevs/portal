@@ -6,7 +6,7 @@ import { revalidateFooter } from './hooks/revalidateFooter'
 
 export const Footer: GlobalConfig = {
   slug: 'footer',
-  admin: { group: 'Site settings', livePreview: { url: '/' } },
+  admin: { livePreview: { url: '/' } },
   access: {
     read: () => true,
     update: requirePermission('content.publish'),

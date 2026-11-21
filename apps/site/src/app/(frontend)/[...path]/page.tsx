@@ -19,7 +19,11 @@ import { StoryListView } from '@/components/StoryList/StoryListView'
 import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
 import { listHref, parseListRequest } from '@/lib/lists/route'
+import { loadBanner } from '@/lib/banner/load'
+import { topUnitHeldBack } from '@/lib/placements/exclusions'
+import { loadListPlacements } from '@/lib/placements/load'
 import { pathFromSegments } from '@/lib/paths'
+import { CODED_SHELL_PATHS } from '@/lib/page-sets/shells'
 import { loadShowByPath, type ShowData } from '@/lib/shows/load'
 import { parseShowSubpage, type ShowSubpage } from '@/lib/shows/subpaths'
 import { loadMembersListeningLevel, loadStationLevels, loadThemedShow, type ThemedShowData } from '@/lib/shows/themed-load'
@@ -29,12 +33,15 @@ import { generateMeta, generateStoryMeta } from '@/utilities/generateMeta'
 import { getServerSideURL } from '@/utilities/getURL'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
 import { imageUrlOf } from '@/lib/seo/meta'
+import { loadClips } from '@/lib/video/load'
+import { clipsForSection } from '@/lib/video/section'
 import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
 
 // One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
 // reached, so these pages also refresh on a schedule.
 export const revalidate = 3600
 
+// A page whose address a coded route also owns (`CODED_SHELL_PATHS`) is not built here: a prerendered copy has no request data and would be served in the shell's place.
 export async function generateStaticParams() {
   const payload = await getPayload({ config: configPromise })
   const [posts, pages] = await Promise.all(
@@ -43,7 +50,7 @@ export async function generateStaticParams() {
     ),
   )
   return [...(posts?.docs ?? []), ...(pages?.docs ?? [])]
-    .filter((doc): doc is typeof doc & { path: string } => typeof doc.path === 'string' && doc.path.length > 1)
+    .filter((doc): doc is typeof doc & { path: string } => typeof doc.path === 'string' && doc.path.length > 1 && !CODED_SHELL_PATHS.has(doc.path))
     .map(({ path }) => ({ path: path.split('/').filter(Boolean) }))
 }
 
@@ -115,7 +122,15 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   // Nothing owns this path: a redirect an editor made for it, or a real 404.
   if (result.kind === 'miss') return <PayloadRedirects url={result.url} />
   if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
-  if (result.kind === 'list') return <StoryListView data={result.data} />
+  if (result.kind === 'list') {
+    const { kind, targetId } = result.data
+    // Short videos on a section's first page: the clips whose story is filed in it. A failed read leaves the strip out, never the page.
+    const clips = kind === 'section' && result.data.page === 1 ? clipsForSection(await loadClips().catch(() => []), targetId) : []
+    const [placements, banner] = await Promise.all([loadListPlacements({ page: 'list', kind, id: targetId }), loadBanner()])
+    // A top unit yields to an emergency banner; the rail beside the stories does not.
+    const top = topUnitHeldBack(banner, 'other') ? null : placements.top
+    return <StoryListView clips={clips} data={result.data} rail={placements.rail} top={top} />
+  }
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
   if (result.kind === 'themed-subpage') {

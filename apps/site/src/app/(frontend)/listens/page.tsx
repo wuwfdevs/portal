@@ -1,32 +1,18 @@
 import type { Metadata } from 'next'
 import React from 'react'
 
-import { HubView } from '@/components/Listening/Hub'
-import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
+import { SectionsRoute, sectionsRouteMetadata } from '@/components/Page/SectionsRoute'
 import { loadHub } from '@/lib/listening/load'
+import { LISTENS_PATH } from '@/lib/listening/hub-pages'
 
 // The hub reads the Portal on every request, with the reader's address hashed for the Portal's rate limit.
 export const dynamic = 'force-dynamic'
 
+export const generateMetadata = (): Promise<Metadata> => sectionsRouteMetadata(LISTENS_PATH)
+
+// WUWF Listens is a page in the listens set (Pages → WUWF Listens). This route only loads what the Portal answers, per request (the hashed address is request
+// data, which a block never reads), and hands it to the page's sections through the page context. The words around it, the order of the sections and
+// which are shown are the record's. The Ask WUWF box collects an email, so the IT-04 notice is in the form itself (and the host form's).
 export default async function ListensPage() {
-  const loaded = await loadHub()
-
-  if (loaded.kind !== 'ok') {
-    return (
-      <section className="container py-16">
-        <h1 className="font-serif text-4xl font-bold">WUWF Listens</h1>
-        <p className="mt-4 max-w-2xl text-lg text-ink-2">
-          {loaded.kind === 'not_set_up' ? LISTENING_NOT_SET_UP : "We couldn't load the questions just now. Try again in a moment."}
-        </p>
-      </section>
-    )
-  }
-
-  // The Ask WUWF box on the hub collects an email, so it carries the IT-04 notice itself (and the host form does).
-  return <HubView hub={loaded.hub} />
-}
-
-export const metadata: Metadata = {
-  title: 'WUWF Listens',
-  description: 'Answer a reporter’s question by voice or in writing, and see what came of the answers.',
+  return <SectionsRoute listeningHub={await loadHub()} path={LISTENS_PATH} query={{}} />
 }

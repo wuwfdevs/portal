@@ -62,3 +62,36 @@ describe('changedWidgets', () => {
     expect(changedWidgets(doc(widget('w')), undefined)).toEqual(['w'])
   })
 })
+
+// Rich text inside a block field (a page's `sections`: the Text block's body). The state is not at the top of the field, it is nested in
+// each block's data, so the walk must find it wherever it is (PAGE-BLOCKS.md → Anatomy; CLAUDE.md → Pages and sections).
+describe('rich text nested in block data', () => {
+  const section = (id: string, body: unknown) => ({ id, blockType: 'sectionText', tone: 'plain', body })
+  it('finds preserved HTML and widgets inside a section, and inside a list inside it', () => {
+    const sections = [
+      section('s1', doc(legacy('a', '<p>1</p>'))),
+      { id: 's2', blockType: 'sectionOther', rows: [{ id: 'r', body: doc(widget('w')) }] },
+    ]
+    expect([...collectLegacyHtml(sections).keys()]).toEqual(['a'])
+    expect([...collectWidgets(sections).keys()]).toEqual(['w'])
+  })
+  it('names a new or changed block in a section, and ignores a re-save', () => {
+    const before = [section('s1', doc(legacy('a', '<p>1</p>'), widget('w')))]
+    expect(changedLegacyHtml(before, before)).toEqual([])
+    expect(changedWidgets(before, before)).toEqual([])
+    expect(changedLegacyHtml([section('s1', doc(legacy('a', '<p>1</p>'), legacy('b', '<p>2</p>')))], before)).toEqual(['b'])
+    expect(changedLegacyHtml([section('s1', doc(legacy('a', '<p>CHANGED</p>')))], before)).toEqual(['a'])
+    expect(changedWidgets([section('s1', doc(widget('w', { scriptUrl: 'https://evil.example/x.js' })))], before)).toEqual(['w'])
+  })
+  it('treats a section moved to another place in the list as unchanged, and a new section as new', () => {
+    const a = section('s1', doc(legacy('a', '<p>1</p>')))
+    const b = section('s2', doc(para()))
+    expect(changedLegacyHtml([b, a], [a, b])).toEqual([])
+    expect(changedLegacyHtml([a, section('s3', doc(legacy('c', '<p>3</p>')))], [a])).toEqual(['c'])
+  })
+  it('does not mistake a block of the same name that is not a rich-text node', () => {
+    expect(collectLegacyHtml([{ id: 'x', blockType: 'legacyHtml', html: '<p>plain data</p>' }]).size).toBe(0)
+    expect(collectWidgets([{ id: 'x', blockType: 'widget', scriptUrl: 'https://e.example/s.js' }]).size).toBe(0)
+  })
+})
+const para = () => ({ type: 'paragraph', children: [] })

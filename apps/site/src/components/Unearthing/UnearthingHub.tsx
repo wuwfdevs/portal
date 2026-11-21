@@ -2,6 +2,7 @@ import Link from 'next/link'
 import React from 'react'
 
 import { Acknowledgment } from '@/components/Acknowledgment'
+import { Button, Eyebrow, SectionHeading } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { leadPicture } from '@/lib/homepage/select'
 import type { Media as MediaDoc } from '@/payload-types'
@@ -21,6 +22,9 @@ import { ExplorePanel } from './ExplorePanel'
  * Not here yet, on purpose: the place-tip form and the weekly email (neither has a service behind it, and nothing is faked),
  * the episode transcripts (not migrated), and a funder line other than the one the underwriting agreement provides.
  */
+/** A heading on the hub's warm ground: its highlight is white, the colour of the cards, read the way a section band reads `--tone-mark`. */
+const onPaper = '[--tone-mark:var(--color-surface)]'
+
 export function UnearthingHub({ data, independenceHref }: { data: UnearthingData; independenceHref: string | null }) {
   const { production, dateline, about, acknowledgments, featured, totalEpisodes, sites, periods, collections, thenNow } = data
   const featuredAudio = featured ? audioOf(featured) : null
@@ -37,10 +41,10 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
               {totalEpisodes > 0 ? episodeCount(totalEpisodes) : 'Episodes coming'}
               {dateline ? ` · ${dateline}` : ''}
             </p>
-            <h1 className="font-serif text-6xl font-bold italic leading-[0.92] tracking-tight text-warning-fg md:text-8xl">{production.title}</h1>
+            <h1 className="font-serif text-6xl font-semibold italic leading-[0.92] tracking-tight text-warning-fg md:text-8xl">{production.title}</h1>
             {production.summary && <p className="max-w-[40rem] font-serif text-xl leading-relaxed text-ink-2 md:text-2xl">{production.summary}</p>}
           </div>
-          <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-2.5 rounded-sm border border-warning-border bg-surface/45 p-5">
+          <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-2.5 rounded-4 border border-warning-border bg-surface/45 p-5">
             {about && (
               <>
                 <h2 className="text-xs font-bold uppercase tracking-widest text-warning-fg">About the project</h2>
@@ -51,7 +55,7 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
               <label className="mt-1.5 text-sm font-bold" htmlFor="uf-search">Search every episode</label>
               <div className="flex gap-2">
                 <input className="min-h-12 min-w-0 flex-1 rounded-sm border border-warning-border bg-surface px-3 text-base" id="uf-search" name="q" placeholder="A place or a people" type="search" />
-                <button className="min-h-12 rounded-sm bg-warning-fg px-4 font-bold text-surface" type="submit">Search</button>
+                <Button className="min-h-12 bg-warning-fg hover:bg-warning-fg/90" type="submit">Search</Button>
               </div>
             </form>
           </div>
@@ -68,8 +72,8 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
         <section aria-label="Featured episode" className="container flex flex-wrap gap-10 py-12">
           {featuredPicture && (
             <figure className="m-0 min-w-0 flex-[999_1_32rem]">
-              <div className="border border-warning-border bg-[#E9D5A8] p-2.5">
-                <Media imgClassName="w-full object-cover" priority resource={featuredPicture} />
+              <div className="rounded-4 border border-warning-border bg-warning-border/35 p-2.5">
+                <Media imgClassName="w-full rounded-lg object-cover" priority resource={featuredPicture} />
               </div>
             </figure>
           )}
@@ -77,9 +81,9 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
             <p className="font-mono text-xs text-warning-fg">
               {[featuredPeriod, featured.publishedAt ? formatLongDate(featured.publishedAt) : ''].filter(Boolean).join(' · ') || 'Featured episode'}
             </p>
-            <h2 className="font-serif text-4xl font-bold leading-tight">{featured.title}</h2>
+            <h2 className="font-serif text-4xl font-semibold leading-tight">{featured.title}</h2>
             {featured.meta?.description && <p className="font-serif text-lg leading-relaxed text-ink-2">{featured.meta.description}</p>}
-            {featuredAudio && <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="mt-0 bg-surface" id="" title={featured.title} />}
+            {featuredAudio && <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="mt-0 bg-surface" id="" title={featured.title} href={featured.path} />}
             {featured.path && (
               <p className="text-sm font-bold">
                 <Link className="text-warning-fg underline underline-offset-4" href={featured.path}>Read and listen</Link>
@@ -89,15 +93,17 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
         </section>
       ) : (
         <section aria-label="Featured episode" className="container py-12">
-          <p className="rounded-sm border border-dashed border-warning-border bg-surface/60 p-6 text-ink-2">The first episodes are on their way.</p>
+          <p className="rounded-lg border border-dashed border-warning-border bg-surface/60 p-6 text-ink-2">The first episodes are on their way.</p>
         </section>
       )}
 
       <section aria-labelledby="explore-heading" className="border-y border-warning-border bg-surface">
         <div className="container flex flex-col gap-7 py-12">
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-warning-fg">Explore</p>
-            <h2 className="mt-1 font-serif text-3xl font-bold md:text-4xl" id="explore-heading">Every site, by place and by time</h2>
+            <Eyebrow swatch="amber">Explore</Eyebrow>
+            <SectionHeading className="mt-1" id="explore-heading" mark="amber">
+              Every site, by place and by time
+            </SectionHeading>
           </div>
           <ExplorePanel
             periods={periods}
@@ -108,15 +114,17 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
 
       {collections.length > 0 && (
         <section aria-labelledby="collections-heading" className="container flex flex-col gap-6 py-12" id="series">
-          <h2 className="font-serif text-3xl font-bold md:text-4xl" id="collections-heading">Collections</h2>
+          <SectionHeading className={onPaper} id="collections-heading" mark="tone">
+            Collections
+          </SectionHeading>
           <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
             {collections.map((c) => (
-              <section aria-label={c.title} className="flex flex-col gap-3 rounded-sm border border-warning-border bg-surface p-6" key={c.id}>
+              <section aria-label={c.title} className="flex flex-col gap-3 rounded-lg border border-warning-border bg-surface p-6" key={c.id}>
                 <p className="font-mono text-xs text-warning-fg">Collection · {episodeCount(c.episodes.length)}</p>
-                <h3 className="font-serif text-2xl font-bold italic leading-tight">{c.title}</h3>
+                <h3 className="font-serif text-2xl font-semibold italic leading-tight">{c.title}</h3>
                 <ol className="m-0 list-none p-0">
                   {c.episodes.slice(0, 8).map((e) => (
-                    <li className="flex items-baseline justify-between gap-3 border-t border-[#E9D5A8] py-2.5" key={e.id}>
+                    <li className="flex items-baseline justify-between gap-3 border-t border-warning-border/35 py-2.5" key={e.id}>
                       {e.path ? <Link className="font-semibold text-ink" href={e.path}>{e.title}</Link> : <span className="font-semibold">{e.title}</span>}
                       {e.publishedAt && <span className="shrink-0 font-mono text-xs text-ink-3">{formatLongDate(e.publishedAt)}</span>}
                     </li>
@@ -132,8 +140,10 @@ export function UnearthingHub({ data, independenceHref }: { data: UnearthingData
         <section aria-label="Then and now" className="bg-surface-dark text-surface">
           <div className="container flex flex-wrap items-center gap-8 py-12">
             <div className="flex min-w-0 flex-[1_1_22rem] flex-col gap-2.5">
-              <p className="text-xs font-bold uppercase tracking-widest text-wuwf-lime">Then &amp; now</p>
-              {thenNow.heading && <h2 className="font-serif text-3xl font-bold leading-tight">{thenNow.heading}</h2>}
+              <Eyebrow className="text-wuwf-lime" swatch="lime">
+                Then &amp; now
+              </Eyebrow>
+              {thenNow.heading && <h2 className="font-serif text-3xl font-semibold leading-tight">{thenNow.heading}</h2>}
               {thenNow.blurb && <p className="text-surface-dark-text">{thenNow.blurb}</p>}
             </div>
             <div className="flex min-w-0 flex-[999_1_32rem] flex-col gap-4">
@@ -161,7 +171,7 @@ function PairCard({ label, story, tone }: { label: string; story: { title: strin
       <strong className="font-serif text-xl leading-snug">{story.title}</strong>
     </>
   )
-  const cls = `flex min-h-11 flex-col gap-1.5 rounded-sm p-5 text-ink no-underline ${tone === 'then' ? 'bg-warning-bg' : 'bg-surface'}`
+  const cls = `flex min-h-11 flex-col gap-1.5 rounded-lg p-5 text-ink no-underline ${tone === 'then' ? 'bg-warning-bg' : 'bg-surface'}`
   return story.path ? (
     <Link className={cls} href={story.path}>{body}</Link>
   ) : (

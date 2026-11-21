@@ -139,7 +139,7 @@ describe('paths', () => {
     })
 
     it.each([
-      ['a reserved first segment', '/support/anything'],
+      ['a reserved first segment', '/search/anything'],
       ['a trailing slash', '/a/b/'],
       ['a space', '/a b'],
       ['dot segments', '/a/../b'],

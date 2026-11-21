@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import React from 'react'
 
 import { ChipLink } from '@/components/Events/ChipLink'
 import { SubmissionForm } from '@/components/Events/SubmissionForm'
 import { loadCategories } from '@/lib/events/load'
 import { formTokenFor } from '@/lib/events/secrets'
 import { stationToday } from '@/lib/events/schedule'
+import { calendarGuidelinesOf, linkEmails } from '@/lib/shared-text'
+import { getCachedGlobal } from '@/utilities/getGlobals'
 
 // Each visit gets its own timing token (see lib/events/abuse), so this page is never cached.
 export const dynamic = 'force-dynamic'
@@ -17,7 +20,8 @@ export const metadata: Metadata = {
 }
 
 export default async function SubmitEventPage() {
-  const categories = await loadCategories()
+  const [categories, sharedText] = await Promise.all([loadCategories(), getCachedGlobal('shared-text', 0)()])
+  const guidelines = calendarGuidelinesOf(sharedText?.calendarGuidelines)
   const now = new Date()
   return (
     <div className="pb-20">
@@ -34,30 +38,27 @@ export default async function SubmitEventPage() {
       </header>
 
       <div className="container mt-8 flex max-w-[48rem] flex-col gap-8">
-        <details className="rounded-sm border border-rule p-4">
-          <summary className="min-h-11 cursor-pointer py-2 font-serif text-xl font-bold text-ink">Community calendar guidelines</summary>
-          <div className="mt-3 flex flex-col gap-4 text-base text-ink-2">
-            <p>
-              WUWF&rsquo;s Community Calendar is designed for individuals, non-profit organizations, and government entities to announce meetings, fundraisers, and events of interest to the community.
-            </p>
-            <p>
-              Community Calendar may not be used to promote for-profit businesses. If you are a business owner or manager wishing to air your business message on WUWF, please contact WUWF Director of Corporate Support Margaret Marchuk at{' '}
-              <a className="font-semibold text-wuwf-blue-700 underline" href="mailto:margaret@wuwf.org">
-                margaret@wuwf.org
-              </a>{' '}
-              or (850) 473-7453 to discuss sponsorship and underwriting opportunities available to businesses.
-            </p>
-            <p>
-              <strong className="text-ink">Submitting community announcements.</strong> The preferred method of receiving announcements is this form. If hand-delivered or mailed to the station, announcements should be typed or neatly written, short and to the point. Phone-in announcements are discouraged. Each announcement should include complete information on the event, who sponsors it, what it is, dates, times and location, and a local phone number and contact person for further information.
-            </p>
-            <p>
-              <strong className="text-ink">Deadlines.</strong> Announcements should be submitted at least five days prior to the event to ensure inclusion in our calendar. Announcements received less than 24 hours prior may not always be included. Weekend events taking place on Mondays should be submitted no later than Thursday afternoon. If an event requires a registration, the deadline date for registration should be conspicuous so that the deadline will be seen, as well as the event.
-            </p>
-            <p>
-              <strong className="text-ink">What&rsquo;s permissible.</strong> Community Calendar is not to be used for profit making ventures. Non-profit organizations may use the calendar for events that charge fees or sell tickets, but may not directly solicit funds. If fees are to be charged, that information should be included in the announcement. If workshops, classes or other events are free to the public and sponsored by a for-profit organization, these events may be included on Community Calendar so long as there is no attempt to influence monetary exchange. (A visit by an author appearing in a bookstore would be acceptable; a book signing party would not.) If workshops, classes or events sponsored by individuals or for-profits are charging a fee or selling tickets, announcements promoting such events will not be permitted on Community Calendar. Fundraising events for non-profit organizations will be permitted with no direct solicitation for funds to be included. These announcements shall be neutral in nature.
-            </p>
-          </div>
-        </details>
+        {guidelines && (
+          <details className="rounded-sm border border-rule p-4">
+            <summary className="min-h-11 cursor-pointer py-2 font-serif text-xl font-bold text-ink">{guidelines.title}</summary>
+            <div className="mt-3 flex flex-col gap-4 text-base text-ink-2">
+              {guidelines.paragraphs.map((p, i) => (
+                <p key={i}>
+                  {p.lead && <strong className="text-ink">{p.lead} </strong>}
+                  {linkEmails(p.text).map((part, j) =>
+                    part.kind === 'email' ? (
+                      <a className="font-semibold text-wuwf-blue-700 underline" href={`mailto:${part.email}`} key={j}>
+                        {part.email}
+                      </a>
+                    ) : (
+                      <React.Fragment key={j}>{part.text}</React.Fragment>
+                    ),
+                  )}
+                </p>
+              ))}
+            </div>
+          </details>
+        )}
 
         <aside aria-label="How your information is used" className="rounded-sm bg-surface-2 p-4 text-sm text-ink-2">
           <p>

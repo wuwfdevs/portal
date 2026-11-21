@@ -12,7 +12,6 @@ export const MemberFeeds: CollectionConfig = {
   labels: { singular: 'Member feed reset', plural: 'Member feed resets' },
   access: { read: requirePermission('membership.manage'), create: () => false, update: () => false, delete: requirePermission('membership.manage') },
   admin: {
-    group: 'Membership',
     defaultColumns: ['account', 'production', 'version', 'updatedAt'],
     description: 'Members who have reset a private feed. Each reset stops every earlier address for that show.',
   },

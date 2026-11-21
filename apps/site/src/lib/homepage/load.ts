@@ -1,30 +1,31 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
-import type { Contributor, Fellowship, Homepage, Post } from '@/payload-types'
+import type { Fellowship, Homepage } from '@/payload-types'
 
+import { type BannerData, bannerOf } from '@/lib/banner'
+import { swatchOf } from '@/lib/swatches'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
-import { arrangeHomepage, remainingStories } from './select'
+import { CARD_FIELDS, type HomeStory } from './story'
+import { ALL_STORIES_HREF, fallbackModule, fillModules, MAX_NEWS_MODULES, MODULE_SLACK, moduleCount, type FilledModule } from './modules'
+import { arrangeHomepage } from './select'
 
-const named = <T extends object>(value: T | string | number | null | undefined): T | null => (value && typeof value === 'object' ? value : null)
 const idOf = (value: { id: string | number } | string | number | null | undefined): string | number | null =>
   value == null ? null : typeof value === 'object' ? value.id : value
 
-/** The fields a homepage card needs; the story body is never loaded. */
-export type HomeStory = Pick<Post, 'id' | 'title' | 'path' | 'publishedAt' | 'meta' | 'featuredMedia' | 'categories' | 'contributors' | 'section' | 'format'>
-
-export const CARD_FIELDS = { title: true, path: true, publishedAt: true, meta: true, featuredMedia: true, categories: true, contributors: true, section: true, format: true } as const
-
 export interface HomepageData {
-  emergency: { label: string; headline: string; body: string | null; linkLabel: string | null; linkHref: string | null } | null
+  /** The site banner, whatever its scope; the home page draws it only when it is meant for the home page (`bannerFor`). */
+  banner: BannerData | null
   lead: HomeStory | null
   leadKicker: string | null
   top: HomeStory[]
   feature: { fellowship: Fellowship; story: HomeStory | null; acknowledgments: AcknowledgmentLine[] } | null
-  /** `href` is the section's own page when the list is filled from one section. */
-  local: { heading: string; stories: HomeStory[]; href: string | null }
+  /** The news band's titled runs, in the editors' order; each links to its section page. Never empty while any story is published. */
+  modules: FilledModule<HomeStory>[]
+  /** Where the band ends: every story, newest first. */
+  allStoriesHref: string
 }
 
 export const TOP_COUNT = 5
@@ -57,13 +58,21 @@ export async function loadHomepage(): Promise<HomepageData> {
   const topIds = (settings.topStories ?? []).map((t) => idOf(t as never)).filter((v): v is string | number => v !== null)
   const feat = settings.fellowshipFeature
   const featStoryId = feat?.enabled ? idOf(feat.story as never) : null
-  const sectionId = idOf(settings.localNews?.section as never)
-  const localCount = Math.min(12, Math.max(3, settings.localNews?.count ?? 6))
+  // The news band: each enabled row of "News sections" with a section and a heading (a row without either cannot be drawn).
+  const moduleRows = (settings.newsModules ?? [])
+    .filter((m) => m.enabled !== false)
+    .slice(0, MAX_NEWS_MODULES)
+    .map((m, i) => ({ key: m.id ?? `module-${i}`, heading: m.heading?.trim() ?? '', sectionId: idOf(m.section as never), count: moduleCount(m.count) }))
+    .filter((m): m is typeof m & { sectionId: string | number } => m.sectionId !== null && m.heading !== '')
 
-  const [recent, picked, localCandidates] = await Promise.all([
+  // A section's run is every published story filed under it, whatever its origin: Florida News is a partner's reporting and is featured on
+  // purpose (owner, 2026-11-18). The lead and the Briefing, which fall back to the newest work, stay WUWF's own.
+  const sectionIds = moduleRows.map((m) => m.sectionId)
+  const [recent, picked, sections, ...sectionStories] = await Promise.all([
     findStories({ source: { equals: 'wuwf' } }, RECENT_LIMIT),
     byIds([...(leadId !== null ? [leadId] : []), ...topIds, ...(featStoryId !== null ? [featStoryId] : [])]),
-    sectionId !== null ? findStories({ and: [{ source: { equals: 'wuwf' } }, { section: { equals: sectionId } }] }, RECENT_LIMIT) : Promise.resolve(null),
+    sectionIds.length > 0 ? payload.find({ collection: 'sections', where: { id: { in: sectionIds } }, limit: sectionIds.length, depth: 0, overrideAccess: false, pagination: false, select: { slug: true, swatch: true } }).then((r) => r.docs) : Promise.resolve([]),
+    ...moduleRows.map((m) => findStories({ section: { equals: m.sectionId } }, m.count + MODULE_SLACK)),
   ])
   const pickedById = new Map(picked.map((s) => [String(s.id), s]))
   const curatedLead = leadId !== null ? (pickedById.get(String(leadId)) ?? null) : null
@@ -85,28 +94,27 @@ export async function loadHomepage(): Promise<HomepageData> {
   }
 
   const shown = [lead, ...top, feature?.story].filter((s): s is HomeStory => Boolean(s))
-  const local = remainingStories(localCandidates ?? recent, shown, localCount)
-  const sectionSlug = sectionId !== null ? ((await payload.find({ collection: 'sections', where: { id: { equals: sectionId } }, limit: 1, depth: 0, overrideAccess: false, select: { slug: true } })).docs[0]?.slug ?? null) : null
+  const slugById = new Map(sections.map((sec) => [String(sec.id), sec.slug]))
+  const swatchById = new Map(sections.map((sec) => [String(sec.id), swatchOf(sec.swatch)]))
+  const filled = fillModules(
+    moduleRows.map((m, i) => {
+      const slug = slugById.get(String(m.sectionId))
+      return { key: m.key, heading: m.heading, href: slug ? `/${slug}` : null, swatch: swatchById.get(String(m.sectionId)) ?? null, count: m.count, candidates: sectionStories[i] ?? [] }
+    }),
+    shown,
+  )
+  // With no section set up (a new site) or none holding anything, one run of the newest stories stands in, so the page is never blank.
+  const modules = filled.length > 0 ? filled : [fallbackModule(recent, shown)].filter((m): m is FilledModule<HomeStory> => m !== null)
 
-  const e = settings.emergency
   return {
-    emergency: e?.active && e.headline?.trim() ? { label: e.label?.trim() || 'Emergency coverage', headline: e.headline.trim(), body: e.body?.trim() || null, linkLabel: e.linkLabel?.trim() || null, linkHref: e.linkHref?.trim() || null } : null,
+    banner: bannerOf(settings.banner),
     lead,
     leadKicker: settings.leadKicker?.trim() || null,
     top,
     feature,
-    local: { heading: settings.localNews?.heading?.trim() || 'Northwest Florida', stories: local, href: sectionSlug ? `/${sectionSlug}` : null },
+    modules,
+    allStoriesHref: ALL_STORIES_HREF,
   }
 }
 
-/** "By Leigh Ostrander, Dave Dunwoody", or null when the story names no one. */
-export function bylineOf(story: Pick<HomeStory, 'contributors'>): string | null {
-  const names = (story.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter((n): n is string => Boolean(n))
-  return names.length > 0 ? `By ${names.join(', ')}` : null
-}
-
-/** The section's name when it was loaded, for the small label above a headline. */
-export function kickerOf(story: Pick<HomeStory, 'section' | 'categories'>): string | null {
-  const section = named<{ title?: string }>(story.section as never)
-  return section?.title ?? null
-}
+export { bylineOf, CARD_FIELDS, kickerOf, type HomeStory } from './story'

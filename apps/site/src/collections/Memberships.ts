@@ -56,7 +56,6 @@ export const Memberships: CollectionConfig = {
   labels: { singular: "Members' listening", plural: "Members' listening" },
   access: { read: staff, create: staff, update: staff, delete: staff },
   admin: {
-    group: 'Membership',
     useAsTitle: 'name',
     defaultColumns: ['name', 'email', 'endsOn', 'account', 'updatedAt'],
     listSearchableFields: ['name', 'email'],

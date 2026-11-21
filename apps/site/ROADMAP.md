@@ -7,6 +7,832 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Direction C2, "bright editorial" (2026-11-21; slices 1 to 3 merged, PR 391; slice 4 merged, PR 392; slice 5 merged, PR 393; slice 6 built on `claude/c2-slice-6-hubs-voyager-v7opde`)
+
+A look change, not a structure change: type weight, corners, chips, buttons, a small colour system for sections, and how a heading is marked. The design is the canvas's boards 1k to 1s ("WUWF.org Home Redesign", https://claude.ai/artifact/CsNftes58pxVRKSFACUEFb; read a board with the Artifact tool, `path: project/<file>`: `DirectionKit.dc.html` is the kit and the place to start, `DirectionBrightPlus` the home page, `DirectionBrightPhone` its phone, `C2Story`, `C2StoryPhone`, `C2List`, `C2Sections`, `C2Hubs`). A board is a mockup: its inline styles name the intent, the Tailwind classes and tokens are the implementation.
+
+**Decided (do not reopen):** lime is allowed on white for the play button and heading marks. The Voyager keeps its masthead. The phone player bar stays as built, with a lime play disc. Untouched: `components/Placements`, `components/Acknowledgment`, the sections' tone model, the starter's `--radius` (it governs the form controls), the themed-show system, the Payload admin.
+
+**The colour is a swatch, not a "desk".** The board's word "desk" has no meaning in this repo (a section is only the first part of a story's address), so the brief's idea of desks derived from sections, fellowships and the Voyager was dropped. An editor gives each **section** a **Colour** from a fixed palette (`lib/swatches.ts`: blue, lime, amber, teal, slate; field `sections.swatch`, default blue). Never a typed colour: every swatch is token classes whose contrast `swatches.test.ts` checks, so no choice can be unreadable. A new colour is one entry there plus its tokens. Topics (categories) have no colour. Fellowships keep their teal `Chip` and the Voyager badge is untouched; nothing maps them to a swatch. No section-to-colour mapping was applied (every section reads blue until the owner assigns them in the admin).
+
+**Built:**
+- Slice 1, tokens: `r-4` (16px, `rounded-4`), `wuwf-teal-100`, headline styles at weight 600 (no component reads that yet; they still set `font-bold`).
+- Slice 2, `components/Kit/`: `Button` / `buttonClasses` (pill, `md` 44px, `lg` 48px; variants `primary` ink, `action` blue, `play` lime, `outline`, `onDark`, `outlineOnDark`, `tone`, `toneOutline`, `link`), `Eyebrow`, `SectionHeading` (serif 600 with an optional `.mark`), `SectionChip` (`pill` or `dot`), `NumberBadge`. The button constants in `PageParts`, `Listening/styles.ts`, `blocks/sections/parts.tsx` and `listening-parts.tsx` delegate to `buttonClasses`, so a button is defined once; those buttons are now pills (the only visible change so far).
+- Slice 3: `Sections.swatch` (migration `20261121_010545_sections_swatch`, additive, **applied to staging and verified 2026-11-21**; production waits for launch) and `sectionOf(story)` in `lib/homepage/story.ts` (title and swatch of a loaded section; `kickerOf` is unchanged).
+
+- Slice 4, the home page (done, checked in a browser at 1440 and 390): lead band wash, semibold headline, Listen and Read the story pills, picture credit as a `SectionChip`; the Briefing with the lime-marked heading and `NumberBadge`s; `Card` `variant="editorial"` (used by `StoryGrid` on the home page and the News run block; list pages keep `default`); `SectionHeader` (and so `TitledSection`) draws through `SectionHeading`, takes a `swatch` and has no rule (its `rule` prop is gone); news modules carry their section's swatch (`FilledModule.swatch`); video posters, podcasts band, Unearthing and RadioLive panels, `MembershipAppeal` and `PlayAudioButton` restyled. `ClipRail` and `MembershipAppeal` are shared, so section pages and story pages changed too.
+
+- Slice 5, story, list and section pages (done, checked in a browser at 1440 and 390): `--tone-mark` per tone (`lib/page-themes/themes.ts`, `page-themes.css` regenerated) and `SectionBand`'s title is the Kit's `SectionHeading mark="tone"`; section, topic, person and `/latest` lists use `Card variant="editorial"` (the lead has a larger headline, `LIST_LEAD`) with the section's swatch on the title's mark and the eyebrow (`StoryListData.swatch`); the fellowship hub, archive block and "More from" use it too, and "More from" and "More like this" draw their headings through `TitledSection`/`SectionHeader`; the story page opens with the section `Eyebrow` and a semibold headline; pagination is pills with an ink current page; block media (picture, gallery, video, embed, widget, feature and profile images, list pictures) is `rounded-4`, block cards stay `rounded-lg`; `MembersOnlyPanel` uses the Kit's `action` and `outline` buttons. The acknowledgment panel, sponsor places, the members-only rules and the one-player rule are untouched. **A story loaded as a relation has no section** (`Posts` `defaultPopulate` omits it), so its card has no chip; every query that feeds a list selects it. **On the dark and teal tones the board's lime mark sits under white text, so the lower part of the letters is on lime** (white on lime is about 1.6:1); it is built as drawn and `themes.test.ts` does not gate it, because the mark is a decoration; the owner should look at it on a dark band.
+
+**Next, in order** (each its own change; screenshots at 1440 and 390 as review evidence):
+4. (built, see above) The home page: `HomepageView`, `Slots.tsx`, `FrontPage.tsx`, `PlayAudioButton` (idle `bg-wuwf-lime text-surface-dark`), `MembershipAppeal`. `Card` gets `variant="editorial"` and `lead`, and its section chip: **`Card` draws no section label today**, so this is where it takes `{ title, swatch }` from `sectionOf`. A lead band wash `bg-gradient-to-b from-wuwf-blue-100/45 to-surface`.
+5. (built, see above) Story, list and sections pages. Add `--tone-mark` per tone in `lib/page-themes/themes.ts` (plain and grey `wuwf-blue-100`; accent `wuwf-lime-100`; dark and teal `wuwf-lime`; lime `wuwf-lime-600`; softlime `wuwf-blue-100`) and regenerate `page-themes.css`; `SectionHeading mark="tone"` reads it and draws no mark until it exists. Block media `rounded-4`, block cards stay `rounded-lg`.
+6. (built, see below) The hubs (RadioLive, Unearthing Florida: replace `#E9D5A8` and the svg hex with `warning-*`), and the Voyager chip only.
+
+- Slice 6, the hubs and the Voyager chip (done, checked in a browser at 1440 and 390 on the staging demonstration seed run locally): RadioLive (page, show page, artist page) and Unearthing Florida (hub and `ExplorePanel`) draw headings through the Kit (`SectionHeading`, weight 600; the highlight is the hub's own: lime on RadioLive's dark ground, white on Unearthing's warm ground, set by redefining `--tone-mark` on the heading), eyebrows through `Eyebrow`, buttons through `Button` (ticket buttons `onDark` lime on the dark masthead, `primary` ink in the list, the RadioLive "Give" ask `action` blue, the secondary ones `outlineOnDark`), media (recording player, show frames, artist and host photos, the map, the featured picture) `rounded-4`, cards `rounded-lg`, show-frame chips pills, the play disc lime. No hex remains in either hub: `#E9D5A8` is `warning-border` at 35% (the picture's mat and the collection rules) and the map's land, outline and caption are `fill-warning-border/25`, `stroke-warning-fg` and `fill-warning-fg`. Each hub keeps its masthead, its sponsor/acknowledgment placement and the one-player rule. The Voyager's **chip** (`The Voyager · Student journalism`, on `Card` and the story page) is the Kit's teal `SectionChip`; its masthead and hub are untouched. `SectionNav`'s title is weight 600.
+- **Not built as the board draws it (slice 6):** the board's RadioLive and Unearthing mastheads have buttons the built masthead does not ("Watch the set", "Next show", "Play the latest", "Explore the map of sites") and a two-column layout with a framed video or card; the built mastheads (a photo band with the next show; a title with an about-and-search card) were kept because a hub's masthead is not to change without the owner's word. The Unearthing search button is `warning-fg` (the hub's amber) rather than ink, as the board draws it. The Voyager chip has no board; teal is the colour of the board's "Campus" chip.
+- **What remains of Direction C2 after slice 6:** the dark-band heading mark (below) is the owner's call; the two phone-board comparisons (390 captures of slices 4 and 5) were never made line by line; the Portal's design tokens are not mirrored; section colours are still the owner's to assign in the admin; the donate/Listening buttons stay blue and every other inline blue button on pages no slice touched (sponsor, giving and event pages and similar) is still blue until its page is next changed. Nothing else is planned.
+- **Open, for the owner: the lime mark under white text.** On RadioLive's dark ground (and the dark and teal band tones) the board's lime highlight sits under white heading text; about the lower third of the letters is on lime (white on lime is about 1.6:1). It is built as drawn and not gated by tests. If it should change, the cheapest fix is a dark `--tone-mark` or `mark="none"` on dark grounds.
+
+**Decisions on the open items (owner, 2026-11-21):**
+- Lime's pill text stays `ink-2`; no darker green token for now (one token plus one line in `lib/swatches.ts` if it is wanted later).
+- Buttons: ink (`primary`) by default; blue (`action`) only for the donate ask (the header's Donate, the membership appeal) and the Listening screens. The ~25 inline blue buttons move to ink as their pages migrate in slices 5 and 6, not as a separate sweep.
+- Section colours are the owner's to assign in the admin. Suggested start: blue default for general news, lime for Coastal Futures, amber for Arts & Music, teal for Education, slate for partner or utility sections. Neighbouring sections on the home page should differ. Nothing is scripted.
+
+**Things the next session will trip on:**
+- `components/SectionHeader` is the coded sections' heading and `CLAUDE.md` says not to hand-build one. Make it **draw through `SectionHeading`** (and `TitledSection` follows) rather than putting `SectionHeading` beside it; the `border-b-2 border-ink` rule it draws is what C2 replaces.
+- Two colours miss 4.5:1 as the board draws them: Lime's pill text is `ink-2` instead of `success-fg` (4.39:1 on the lime tint); a darker green token would restore the board. `action` (blue) exists so the Listening screens keep their blue and ink hierarchy; whether the ~25 inline blue buttons become ink is decided as pages migrate.
+- The Portal's `src/lib/design-tokens.ts` is not changed: it has no `wuwf-teal` to mirror a tint of.
+- The cloud sandbox's Postgres stops when the worker restarts; run `bash scripts/dev/pg-up.sh` before `tests/int`, or every spec fails with `ECONNREFUSED` (that looks like a failure of the change and is not).
+- Known failures that are not C2's: `pnpm lint` has one error in `ListenLive/PlayerProvider.test.ts`, and vitest reports one unhandled Payload-config error from `src/globals/hooks/revalidateSiteSettings.test.ts`; both reproduce on the base commit.
+- The routes whose buttons changed shape in slice 2 (sponsor inquiry form and rate estimator, the giving donate card, the listening screens) were checked only as markup, never in a browser. Look at them on a preview.
+
+## Proposed: pages built from sections (2026-11-19; a plan, nothing built)
+
+`PAGE-BLOCKS.md` is a plan to move every editor-composed page (sponsor, giving, the hubs) into the `pages` collection as an ordered list
+of section blocks, with blocks stored as JSON, page sets and page-level themes. **It reverses *Pages and templates* below ("structure a
+developer has set... not a blocks field") and the two "every word is the global" decisions in `CLAUDE.md`; those stay in force until
+the owner approves the plan and its phase 1 rewrites them.** It has four open decisions for the owner and starts with a phase that
+proves the risky parts on a scratch database. Do not start building from it without the owner's go-ahead. **Phase 0 has been run: see
+the next two sections.** The plan's block catalogue was then revised to board 28.
+
+## Phase 0 findings: blocks as JSON on Payload 3.92.1 (2026-11-19; investigation only, nothing committed but documents)
+
+What was run, what happened, and what `PAGE-BLOCKS.md` now says differently. Everything ran against a local scratch Postgres
+(`wuwf_scratch`, port 5433); no hosted database and no preview build was touched. Result per item: **pass**, **fail**, or **works with
+this caveat**. The throwaway field, blocks, renderer, test scripts and the generated migration were reverted and are not in the
+repository (the working tree held only documents afterwards).
+
+**Verdict:** drafts, autosave, restore, scheduled publish, live preview and the converter did **not** fail, so the plan was not stopped.
+Two findings change the design and the owner should see them before phase 1: the converter has **no `down`** (one can be written; one
+worked), and **a block must not read request data on the server** (it gives a cached page a 500). Recommendation: go ahead with JSON
+storage, with the changes listed at the end.
+
+### Setup, and what the "fresh sandbox" notes missed
+
+- Node: the sandbox already had 22.23.5, which satisfies the pin (`^22.23.4`), so no download was needed (check `node -v` first).
+- Postgres 16 from the roadmap's block, port 5433. **pgvector was not installed** and the migrations run `CREATE EXTENSION vector`:
+  `apt-get update && apt-get install -y postgresql-16-pgvector` worked through the sandbox proxy.
+- A scratch `.env.local` (ignored by git) pointed at `wuwf_scratch`. The baseline was every committed migration (`pnpm payload migrate`),
+  dumped once with `pg_dump` so each experiment could restart from it.
+- **Scripts that open Payload in development push schema to the database** ("Pulling schema"). Run them with `NODE_ENV=production`, and
+  `< /dev/null` on every Payload command, as the Lessons say. `next dev` pushes too, which is how the throwaway `sections` columns got made.
+- Next dev, `pnpm build` and `pnpm start` were run on the scratch database for items 1, 5 and 7 (about 1.5 minutes per build).
+  `pnpm build` passed with the scratch code in. Stop servers by pid, not `pkill -f`.
+- Test users: the first user created gets every role, so an administrator was made first, then an `editor` and a `publisher`.
+
+### Item 1: drafts, autosave, restore, scheduled publish, live preview: **works with this caveat**
+
+Ran, with a `sections` field (blocks defined once in the root `blocks`, listed with `blockReferences`) on `pages`:
+
+- **Draft, then publish.** A draft whose hero block lacks its required `title` saves. Publishing it fails with the error on the block
+  (`sections.0.title`). A draft skips validation, a publish does not, as everywhere.
+- **Autosave** through REST the way the admin sends it (the whole document, `?draft=true&autosave=true`, `_status: draft`): three
+  autosaves made one draft version row (versions 1 to 2). The public read and the public page stayed on the published blocks; the
+  preview route plus its cookie rendered the autosaved blocks.
+- **Restore.** `restoreVersion` and the admin's "Restore this version" button (with its confirmation) both made a new published version
+  holding the old blocks, block ids included (a deep comparison with the stored version was equal). An editor's restore of a version is
+  refused by the existing publish guard. The admin's Versions view rendered a per-block diff ("Sections > Block 01 > Title").
+- **Scheduled publish and unpublish.** A `schedulePublish` job queued with `user: { relationTo: 'users', value: id }` and a `waitUntil` a
+  second ahead did nothing when run early and published the draft blocks when run after (`success`); a scheduled unpublish returned the
+  page to draft. A job queued for an editor fails by the same guard. (A bare user id in the job's input is rejected as a "legacy job".)
+- **Live preview.** In the admin, the `#live-preview-toggler` button opened the preview iframe (`/next/preview?path=...`), which showed the
+  draft; typing in the hero's title field changed the iframe about 1.1 seconds later (autosave, then `RefreshRouteOnSave`). No page errors.
+- **Caveat (not caused by JSON):** a Local API write of a *draft* that sends only some fields (`{ sections }`, or `{ summary }` on a page
+  without blocks) can leave `title`, `slug` and `template` empty in that version row, and later writes and a scheduled publish inherit the
+  gap ("The following fields are invalid: Title, Slug"). Reproduced on a second scratch database with `blocksAsJSON` off, on a plain
+  `standard` page, so it is Payload's handling of partial draft data. The admin always sends the whole form, so editors are not exposed;
+  **any script that writes drafts (the phase 3 page migrations, fixtures, importers) must send whole documents**, or write published.
+- Not run: the existing `pnpm test:int` suite, and the version diff for more than one block type.
+
+### Item 2: a picture in a block is populated; a deleted picture: **works with this caveat**
+
+- At depth 1 the upload in a block, the upload and the relationship (to a page) in a list inside a block are all populated; `populate:
+  { media: { url: true } }` narrowed them; a public read of a published page populated the picture. For stories, `select: { title,
+  featuredMedia }` at depth 1 populated a media block and the images of a gallery (the shape `CARD_FIELDS` uses).
+- Deleting the media record raised no error and left the page document alone. Reads return the **bare id as a number** (at depth 1 and 0),
+  not `null`. Saving the page again with the dead id was accepted, as a draft and as a publish (the picture was not `required`; a required
+  upload was not tested). The page rendered with HTTP 200 and showed "no picture" because the component checked `typeof picture ===
+  'object'`; a component that reads `picture.url` on a number would render nothing for it, so every block component needs that check.
+- A bonus: `where: { 'sections.picture': { equals: id } }` finds the pages that still point at a picture, which is a cheap clean-up query.
+
+### Item 3: `where` on a field inside a block: **works with this caveat**
+
+Ran about 25 queries through the Local API. Worked: `equals`, `in`, `like`, `not_like`, `exists` (true and false), `and`, `or`, on
+`sections.blockType`, a text field, a select, a checkbox, an upload, a relationship inside a list inside a block, `layout.*` and
+`featuredMedia.blockType` (the old fields, now JSON), `fields.blockType` on forms, `version.sections.blockType` through `findVersions`,
+and with `draft: true`.
+
+- **`contains` fails** on a JSON field: the adapter builds an invalid JSON-path operator (`@ ~ "x"`), a database error. `like` is the
+  substitute: it is a case-insensitive regular-expression match, so it finds substrings.
+- **Values** must match `[\w @.\-+:]*` or the request is a 400 ("... is not allowed as a JSON query value"): no apostrophe, slash, comma
+  or `&`. Fine for block slugs, ids and short labels; not for searching free text.
+- **`not_equals` and `not_in` mean "some block is not X"**, so "pages with no hero" cannot be asked directly; find the pages with one and
+  exclude their ids.
+- There is no index on the `jsonb` column; a block query reads every page. Not measured; the pages table is small.
+- The REST query string uses the same code path and was not run separately.
+
+### Item 4: field-level access inside a blocks field: **pass**
+
+A hero block had `internalNote` (readable by `content.write`, settable by `content.publish`), `secret` (both publish only), and a field
+with a `beforeChange` hook that refuses a non-publisher. Run as a public reader, an editor and a publisher, Local API, `overrideAccess:
+false`:
+
+- Public read: neither field is returned. Editor read: `internalNote` yes, `secret` no. Publisher read: both.
+- Editor update that changes `internalNote`: the value is silently kept (the old one stays). Editor create with both set: neither stored.
+- **The editor cannot read `secret`, so the form never sends it back; the save kept it.** This held when the editor **reordered** the
+  blocks and when the editor **deleted** another block: the denied value stays with its block (it is merged back by block id, not by
+  position). A block sent with a **new id** (a paste or a duplicate) comes back without it, which is the safe direction.
+- The hook-based guard also worked inside a block (the editor was refused, the publisher allowed).
+- The access function received `id`, `doc`, `data`, `siblingData`, `blockData` and `req` on update, even for a block listed by
+  `blockReferences` (the docs say collection data is not available there; it was on this path; the read path was not probed).
+- So **`restrictedBlocksGuard` is not needed for a blocks field**, only for rich text. A test in the style of
+  `restricted-blocks.int.spec.ts` should still pin it for each restricted field in a section block.
+- Not run: the same by REST, and an editor editing in the admin.
+
+### Item 5: `filterOptions`, copy and paste: **works with this caveat**
+
+- The block picker lists the four generic blocks for a page whose set is `giving` and five once the set is changed to `sponsor` (the
+  sponsor-only block appears), **live, without a save**, because `filterOptions` is re-evaluated as the sibling field changes. It works
+  with `blockReferences` and reads the sibling field (`siblingData.pageSet`) from the same level.
+- **It also validates.** Publishing a `giving` page that holds the sponsor-only block fails ("The block "sectionSponsorRates" is not
+  allowed", on `sections.0.id`); the same as a draft saves. A sponsor page holding it publishes; switching that page to `giving` and
+  publishing fails until the block is removed. A page with no set rejects set-only blocks. **An unknown block slug is rejected** in this
+  field (the Lessons say Payload drops an unknown block in rich text; with `filterOptions` it is an error).
+- **Copy and paste in the admin:** the row menu has Move Down, Add Below, Duplicate, **Copy Row**, **Paste Row**, Remove. Copy Row on page
+  C, then Paste Row on page D put the block in D, with a **new block id**, and autosave stored it. **Paste Row replaces the row it is used
+  on** (the docs say to add an empty block and paste over it). Pasted over a block of another type, the old block's field names
+  (`heading`) stayed in the new block's JSON: stale keys, harmless to render.
+- Not run: pasting a set-only block into a page of another set (it would be refused at publish by the rule above), "Paste Fields" (the
+  field-level paste; the docs say it replaces every row), and copy and paste as an editor.
+
+### Item 6: the converter: **works with these caveats (read first)**
+
+- **Command.** `pnpm payload migrate:create blocks_to_json --file @payloadcms/db-postgres/blocks-as-json` (with `NODE_ENV=production` and
+  `< /dev/null`). The name `blocks-as-json` is a file in `@payloadcms/db-postgres/dist/predefinedMigrations`, loaded by
+  `getPredefinedMigration`; the work is in `@payloadcms/drizzle/dist/utilities/blocksToJsonMigrator.js`. Then `pnpm payload migrate`.
+- **What it wrote.** A migration (`src/migrations/<stamp>_blocks_to_json.ts`, about 130 lines of SQL and a migrator call), its `.json`
+  snapshot, an entry in `src/migrations/index.ts`, and **a rewrite of `payload.config.ts`** that added `blocksAsJSON: true` and also
+  reformatted the whole file with Prettier (blank lines removed, lines wrapped). The SQL drops the 34 block tables (`pages_blocks_*`,
+  `_pages_v_blocks_*`, `posts_blocks_*`, `_posts_v_blocks_*`, `forms_blocks_*`), their enum types, **the `categories_id` column, foreign key
+  and index on `pages_rels` and `_pages_v_rels`** (the archive block's relationship), and adds `jsonb` columns `pages.layout`,
+  `_pages_v.version_layout`, `posts.featured_media`, `_posts_v.version_featured_media` and `forms.fields`. `up` first writes every
+  document and version to `src/migrations/.payload-blocks-migration/entities-batch-N.json` (100 per batch), runs the SQL, then writes the
+  rows back through the adapter and deletes the batch files. The whole run is one transaction.
+- **Data.** Seeded with the flag off: 3 stories (a media block, a gallery whose images are a list, an embed; one story edited so it has two
+  versions), 3 pages (`layout` of media, form, archive with a **category** and with **selected documents**, a call to action with
+  **links, one a reference to a page**, a content block with **two columns of rich text**; one page edited so it has versions; one page
+  that is a draft only) and a form with text, email, select (options) and textarea fields: 15 documents and versions. Read through the
+  Local API (depth 0, drafts, versions) before and after: **zero differences**, including block ids and relationship ids. Timestamps were
+  left out of that comparison and were not checked. The Local API reads of old and new are the same
+  shape, so no code that reads `featuredMedia` or `layout` through Payload changes; nothing in `src` or `scripts` reads the block tables
+  or queries into those fields by SQL (searched).
+- **Down: not supported.** The generated `down()` is empty. `pnpm payload migrate:down` rolled back the record and left the JSON schema
+  and no block tables (a config with the flag off would then fail). Mirroring the converter backwards in a scratch script worked: read
+  every document and version while the JSON columns exist, make the schema diff with drizzle-kit from the JSON schema to the relational one
+  (`requireDrizzleKit()`, `generateDrizzleJson`, `generateMigration`), run it, then write the rows back with the flag off. Read through the
+  Local API afterwards: **zero differences** from the original. So a real `down` is about 40 lines; Payload does not ship it.
+- **Failure mode.** With the flag still `false` in the config when `payload migrate` ran, the write-back failed
+  (`column pages__rels.categories_id does not exist`). The transaction rolled back (block tables intact, no migration record), but the
+  batch file stayed in `src/migrations/.payload-blocks-migration/` (the next run clears it). Put that folder in `.gitignore`.
+- **`pnpm verify:migrations`** passed with the generated migration and the flag set (7 seconds), and **failed** when the flag was taken
+  out again (it listed the `CREATE TYPE`/`CREATE TABLE` statements for the block tables), so it covers the change.
+- **Order on a preview build.** `scripts/vercel-build.sh` runs `payload migrate` and then `pnpm build`, so the flag and the migration go in
+  one commit. Because every preview deployment shares the staging database, once staging is converted any preview of a branch without
+  the flag reads tables that are gone (reasoned, not run: staging was not touched).
+- Not run: against staging data (its volume is unknown here; batches of 100 are held in memory and written to disk), on Vercel, the existing
+  integration tests, a form submission through the form block.
+
+### Item 7: a block that needs request data: **fails as designed; works another way**
+
+Read first: `node_modules/next/dist/docs/01-app` (`caching-without-cache-components.md`, `use-search-params.md`, `connection.md`, the
+glossary on request-time APIs). This app does not enable `cacheComponents`. Tested on `pnpm build` then `pnpm start`, with scratch pages
+holding one `sectionQuery` block in different modes. Cache state read from `x-nextjs-cache` and `Cache-Control`, and from timestamps in
+the HTML.
+
+| Mode | Page at the build | Behaviour |
+|---|---|---|
+| none (control) | prerendered | `HIT`, `s-maxage=3600`; timestamp never changes |
+| `useSearchParams` in a client component inside `Suspense` | prerendered | `HIT`; the browser reads `?way=` (`mail`, `phone`, none); the HTML has the fallback |
+| `await connection()` or `await headers()` in a server block (inside `Suspense`) | skipped by the build, dynamic | 200, `Cache-Control: private, no-store`; a new timestamp and the request's `User-Agent` on every request; every other page stays `HIT` |
+| the route awaits `searchParams` because the page holds a `server` block | skipped by the build, dynamic | 200, `no-store`; `?way=one` and `?way=two` give different content |
+| **`connection()` or the route's `searchParams`, added to a page that was prerendered, by an editor's save** (`headers()` is the same kind of call and was not run for this case) | prerendered, then edited | after the revalidation, **500 on every request**, digest `DYNAMIC_SERVER_USAGE` (the message is hidden in production, only the digest is logged) |
+| the same page, `connection()` block removed again | | recovers: one `MISS`, then `HIT` |
+| `useSearchParams` block added to a prerendered page | prerendered, then edited | stays `HIT` after the edit; no error |
+
+So the plan's sentence "a block declares the need and the page is rendered per request" holds only for a page that was already dynamic at
+the build. The `connection()` lesson above (500 in a route with `revalidate`) is this same failure. An editor cannot tell which state a page
+is in, so a server block must not read request data. What works: the client component for a query parameter (run), a client-side fetch or
+a server action for a token (reasoned, not run), and a coded route for a page that must be rendered on the server per request. A
+separate observation, **not about sections**: on this build a page created after the build (not in `generateStaticParams` then) was
+served per request with `no-store`, including a plain `standard` page, and `revalidatePath` after saving did not change that. Pages
+present at the build were cached for an hour. The cause was not found, and Vercel was not checked; it deserves a look on staging, since it
+means a new editor-made page is not cached until the next deploy (and so does not hit the 500 above until a build prerenders it).
+
+### What `PAGE-BLOCKS.md` was changed to say
+
+Storage section: the converter's command and what it does, no `down` (write one), the flag-before-migrate order, shared staging and other
+branches' previews, the dead id as a number, stale keys after paste, the query operator limits, field-level access and `filterOptions`
+behaviour. Rendering section: the request-data rule replaces "a block declares the need". Risks table: three rows added. Phase 0 checklist
+ticked and annotated. Open decision 2 annotated (converting works; recommend it over rebuilding staging).
+
+### What phase 1 should carry over (not started)
+
+- A hand-written `down` for the storage migration, tested up, down, up on rows seeded with the flag off, with the comparison script's
+  idea: read every document and version through the Local API before and after, and diff. Revert the Prettier rewrite of the config. Add
+  `.payload-blocks-migration` to `.gitignore`.
+- A test over `src/blocks/sections` that fails on `headers`, `cookies`, `connection` or `searchParams` in a block's server code.
+- Block components check `typeof value === 'object'` before using a populated relation; a registry test can render each block with
+  the relation as a bare number.
+- Page-writing scripts send whole documents (the draft caveat). Use `like` and `equals`, never `contains`, in a query on a block field.
+- Keep a test for the restricted fields of a section block (read, create, update, reorder), as `restricted-blocks.int.spec.ts` does for
+  rich text.
+- Look at a new page's cache behaviour on a staging deployment before the sponsor pilot depends on it.
+
+## Phase 0 findings, round 2: freshness, variants, settings, the address (2026-11-19; investigation only)
+
+Four more checks for `PAGE-BLOCKS.md`, run after the plan was revised to follow board 28 of the design canvas. Same method and the same rules as
+the first round (scratch Postgres on port 5433, `blocksAsJSON` on, a throwaway `sections` field; `NODE_ENV=production` for scripts; nothing
+hosted; everything reverted, the working tree held only documents). The first round's results were read and not repeated. Read before item 8:
+`node_modules/next/dist/docs/01-app` (`caching-without-cache-components.md`, `unstable_cache.md`, `revalidateTag.md`, `use-search-params.md`).
+Production behaviour was read from `pnpm build` then `pnpm start`. Drafts, live preview, the converter and item 8 did **not** fail.
+
+### Item 8: per-page freshness: **pass**
+
+The route has one setting (`revalidate = 3600`) and the hubs use 600, 1800 and 3600 today. Four prerendered pages each held a Dates-style
+block listing two shows, one ending 5.5 minutes after the server started, filtered by `endsAt > now` on the server:
+
+| Block's data | Page cache | The finished show |
+|---|---|---|
+| in the page record, nothing special | `s-maxage=3600`, render timestamp unchanged for 5.7 minutes | still listed at the last poll, 51 s after it ended (its window is 3600, so it would stay up to an hour) |
+| loaded with `unstable_cache(fn, key, { revalidate: 20 })` | **`s-maxage=20`** (this page only) | gone on the first request after the next regeneration (the poll 31 s after it ended) |
+| `unstable_cache` with `revalidate: false` and a tag | `s-maxage=3600` | listed until a call to `revalidateTag(tag, 'max')` (a scratch route handler); the first request after was stale, the next current |
+| in a client component that hides expired items | `s-maxage=3600` | with script: hidden; **without script: still listed** (the server cannot know the visitor's clock) |
+
+- The block's `revalidate` lowers the window of **the pages that hold it**, as the docs say ("the lowest `revalidate`... determines the
+  frequency"); the other pages stayed `HIT` at 3600, and the tag call refreshed only the page that read the tag.
+- So the plan's answer: a shared helper loads time-dependent data through `unstable_cache` with a `revalidate` the block (or variant) sets,
+  which gives each hub its own interval without a route each. A page so lowered is re-rendered at most once per window per cache, under traffic.
+- For a drop-off at a stated moment, a cron route calling `revalidateTag` works (run by hand here; the cron itself was not built, and
+  `vercel.json` has one cron today). A hide-in-the-browser step is a complement, not a fix.
+- Not run: on Vercel (its CDN's handling of `s-maxage=20`), a block that queries Payload by a computed "now" inside the cache function, and
+  `use cache` (this app does not enable `cacheComponents`; `unstable_cache` is the previous model and a later move is a cost).
+
+### Item 9: variant fields: **works with this caveat**
+
+A Feature block with a `variant` select (`hero`, `split`), a required `heroAudio` shown for `hero`, a required `ratio` and a custom-validated
+`splitNote` shown for `split`, through the Local API as a publisher and in the admin as a publisher:
+
+- A required field under a **false condition does not block a publish**: hero with no `ratio` and split with no `heroAudio` both published. A
+  required field under a **true** condition does ("This field is required"), and so does the custom `validate` for the visible variant.
+- A hidden field holding an **invalid** value (`ratio: 'bogus'` under `hero`) was accepted and stored: hidden fields are not validated.
+- **Data is kept, never cleared.** Updating a block from `hero` to `split` and back through the API left the old variant's fields in the
+  JSON, and a partial update (the new variant's fields only) kept them too. In the admin, switching the variant hid the fields and
+  published without error; the stored block kept `heroAudio`; switching back showed the old value; emptying the now-visible required field
+  blocked the publish with the error on that field.
+- A draft with `draft: true` saved a split block with nothing else filled in (without `draft: true` the same create is validated).
+- So: the component reads only its variant's fields, validation must not depend on a hidden field, and leftovers accumulate (clean up
+  with the same data script as for renamed fields). Not run: a conditional field that is a relationship or an upload.
+
+### Item 10: settings to pages: **works with this caveat**
+
+Four prerendered pages: two with a price block reading the `sponsorship` global's phone through `getCachedGlobal`, one reading it with
+`payload.findGlobal`, one with no price block. The global was saved over REST as a publisher (its existing hook calls
+`revalidateTag('global_sponsorship', 'max')` and `revalidatePath('/sponsor', 'layout')`):
+
+- The two `getCachedGlobal` pages went `STALE` and served the **old** value to the first visitor, then the new value from the second request on;
+  the page with no block was untouched. No page holding the block was left stale.
+- The page that read the global **directly** never changed (still the old value after three rounds): nothing ties it to the tag. It would
+  stay stale until its own window ends.
+- `revalidatePath('/sponsor', 'layout')` is irrelevant to a page at another path; the tag does the work.
+- `revalidateTag(tag, { expire: 0 })` (a blocking refresh for the first visitor) is documented and was not run.
+- Not run: a new settings global's hook, a page read in draft preview after a settings change, Vercel.
+
+### Item 11: a client block that starts from the address: **works with this caveat**
+
+A way-switcher block as a client component using `useSearchParams` inside `Suspense`, with the fallback holding the default panel, on a
+prerendered page; the same page with a server-side `searchParams` read for the comparison:
+
+- Cached page: `x-nextjs-cache: HIT`, `s-maxage=3600`. With script, `?way=mail` shows "give by mail" and no query shows the default.
+  **Without script** (JavaScript off), `?way=mail` shows the **default** panel, as the server HTML does. With script on a slow connection
+  (scripts held 1.5 s), first paint is the default and the chosen panel appears after hydration.
+- Cost, 100 sequential requests each, localhost, one client (ratios only; not a load test): cached **6.2 ms** and **3 database transactions**
+  in all; per request **14.6 ms** and **138 transactions** (about 1.4 and 40 rows per request). A per-request
+  page also cannot be served from the CDN, so the difference on Vercel is larger than here.
+- A requirement of `/support/ways` is that it works without script, so a client island is not enough for it: it stays server-chosen
+  (a coded route shell over the page record, `PAGE-BLOCKS.md` → Rendering). A query parameter that only refines a page (a highlight, a
+  prefilled amount) suits the client block.
+
+### What `PAGE-BLOCKS.md` was changed to say (this round)
+
+The catalogue was replaced (about 18 library blocks with variants, about 9 set-only, the reasons recorded, the open Picker price question);
+the block-or-variant rule and the variant findings were added to the Design section; the freshness, settings and address findings to
+Rendering and Shared data; page-level `noindex` and `noReferrer` fields; the page sets table shrunk; the theme notes (placeholder values for
+Voyager and Unearthing, the 3:1 button check, the teal and lime bands); board 28 superseding boards 11 to 13 on layout; phases 2 and 6
+rewritten; Barefoot Mary and show pages out of scope; open decisions 5 to 8; two risks; a *Sources* section.
+
+## Phase 1: the sections foundation (built 2026-11-19; applied to staging by the preview build of `946e5fef` and verified there)
+
+`PAGE-BLOCKS.md` phase 1, on the owner's instruction to proceed on the recommendations (tone list: add `teal` and `lime`; per-set edit
+permission as proposed; staging converted rather than rebuilt; Home stays a global). Rules for the result are in `CLAUDE.md` → *Pages and
+sections*; the map is `ARCHITECTURE.md` → *Pages built from sections*.
+
+**Applied to staging (2026-11-19, after the owner's go-ahead to push).** The preview build of `946e5fef` (READY in about 70 s) ran both migrations on
+`wuwf-site-staging`; verified afterwards with read-only queries through the Supabase connector: both recorded (57 in all); `jsonb` columns
+`posts.featured_media`, `_posts_v.version_featured_media`, `pages.layout`, `pages.sections`, `_pages_v.version_layout`, `_pages_v.version_sections`, `forms.fields`; the six
+page columns; **no `*_blocks_*` table, old block enum, foreign key to one, or `categories_id` column left**; the new enums and the `sections` template value
+present; tables owned by `payload_app`, no grants to `anon` or `authenticated`; **the data matches the pre-migration counts exactly**: 249 stories, 256 versions,
+247 stories with featured media, 232 media blocks, 15 galleries, 88 gallery images, 25 standard pages; no story has an unknown or a second featured-media block.
+Not verified: that a converted story and the sections page render on the preview (the sandbox cannot reach the deployment, and the tool that can creates a
+share link on it, which was not asked for), and the new-page caching question from phase 0 item 7.
+
+**State of the branch.** Pushed: the pure code and tests (themes, page sets, block registry, Cards, helpers; no schema, config or route change),
+and a commit that restores a migration snapshot an earlier commit had deleted by mistake. The schema and wiring commit `d7cd3dee` was held until the owner
+said to push, because a pushed branch's preview build runs the new migrations on the shared staging database (`MIGRATE_ON_BUILD`), which breaks other
+branches' previews until they are rebased. **Open branches must be rebased onto this one** (their previews read block tables that no longer exist).
+
+**What was built.** Migrations `20261119_031412_sections_pages` (the `sections` template, page set, theme, navigation, `noindex`, `noReferrer`
+and `sections`) and `20261119_031427_blocks_to_json` (Payload's converter with a hand-written `down` and a skip when the tables are empty);
+`blocksAsJSON: true`; `pages.sections` as a blocks field from the root `blocks` registry, with `filterOptions` by page set and an anchor check;
+the Cards block; `RenderSections`, `SectionBand`; page themes and tones (`teal`, `lime` added) with a generated `page-themes.css`; the page sets
+registry with `access/pages.ts` and `hooks/enforcePageSet.ts`; the set sub-navigation (cached under a tag that saving a page in the set revalidates);
+`noindex` and `noReferrer` in the page metadata; `keepOnlyBlockTypes` on stories' featured media.
+
+**Checks (scratch database, local).** `pnpm typecheck`: clean. `pnpm build`: passes (47 s). `pnpm verify:migrations`: passes, and fails when the flag is
+removed. The whole integration suite: **198 files, 2,239 tests pass**. New tests: themes (contrast of every tone, text 4.5:1 and button 3:1; a
+lime button on white measures 1.50), page sets (by role), set navigation, anchors, safe links, the block registry (mutation-checked: a removed
+thumbnail, a removed block test and an unregistered directory each fail it), the Cards block, and `tests/int/sections-pages.int.spec.ts` (10 tests: the
+field, refusals at publish, and who may create, edit, move, publish and read by page set; mutation-checked by breaking the read rule and the set guard).
+Lint: no errors in the new code; one existing error in `src/components/ListenLive/PlayerProvider.test.ts` (`react/no-children-prop`), not touched.
+
+**Findings (they changed the work).**
+- **The converter reads through the config as it is when it runs.** `verify:migrations` failed on a fresh database because the converter selected
+  page columns that a later migration adds. Fixed by ordering the pair (columns first, then the conversion) and by skipping the data pass on empty
+  tables. Tested with content: both migrations in one run, then both rolled back, then both again, read back through the Local API with zero
+  differences each time (the simple seed of phase 0: 2 stories, 3 versions, 1 page, 2 page versions, 1 form), and on an empty database. Consequence
+  for staging: apply it before any later migration that changes pages, stories or forms. It also means the earlier advice "merge the storage
+  migration on its own" no longer holds: the page columns must go with it.
+- **JSON storage keeps an unknown block type** in a field with no `filterOptions` (relational storage dropped it). One existing test caught it (a
+  story's featured media dropping a pull quote); a field hook restores the old behaviour for that field.
+- **A staged deletion rode into a pushed commit** and removed the newest migration snapshot; restored in the next commit. The repository keeps every
+  migration's snapshot, whatever the Lessons say about keeping only the newest.
+- `blockReferences` is typed by the generated block slugs, so `pnpm generate:types` is needed after a block is added.
+
+**Staging, read 2026-11-19 (read-only, Supabase connector, project `wuwf-site-staging`).** At migration `20261118_221136_network_content` (55 recorded),
+so both new migrations are simply pending. 25 pages, all `standard`; none has a layout block (0 call to action, content, media, archive or form
+blocks) and no page-category relation; 0 forms. 249 stories and 256 story versions, 247 stories with featured media: 232 media blocks and 15
+galleries (88 images, 21 at most in one), and 231 and 16 (91 images) in versions; no video or embed blocks. 44 MB in all. So the converter moves
+about 500 documents and versions, in batches of 100, and the whole `blocks` template can go without converting a page.
+
+**Not done, and why.** Removing the `blocks` template, `RenderBlocks`, `heros/` and the starter's page-only blocks: now safe (the data above), but done
+as its own small change after the pair is on staging, so the verified migration pair is not regenerated for it. Applying and verifying on staging. The set footer line (it needs the settings
+globals of phases 3 and 4). An end-to-end admin save of a sections page in a browser (the picker, the fields and rendering were checked; the save was
+covered by the integration tests). Not run: on Vercel.
+
+**Next.** Rebase open branches; look at the preview (a converted story, a sections page) and at a new page's cache behaviour on that deployment (phase 0
+item 7's open question); remove the `blocks` template; then phase 2, the library.
+
+## Phase 2: the section library (built 2026-11-19; not yet on staging; the exit is the owner looking at the sample page)
+
+`PAGE-BLOCKS.md` phase 2, on the owner's confirmed order (a first slice, then the guard and Text, then the typed blocks, then the data blocks), the
+Picker built with typed prices and a marked seam, and the guard extended before Text shipped. Rules for the result are in `CLAUDE.md` → *Pages and
+sections*; the map is `ARCHITECTURE.md`. No migration: a block is JSON. Nothing was pushed to or written on staging or production.
+
+**What was built.** 18 blocks, each with a config, a component, a test, a picker group and a 3:2 thumbnail, and one entry in `registry.ts`: Feature
+(hero, split), Featured record (hero, split), Profile band (about, roster), Cards, List (grid, rail, numbered, lead), Dates (rows, cards), Quotes,
+Stats (tiles, compare), Steps (grid, list), Questions, Callout (tint, quote), Check list, Table, Picker, Text, Credit, Support, Closing band. Shared
+parts in `blocks/sections/parts.tsx` (tone-aware buttons and links, the picture and the `typeof` check). The data blocks read through
+`lib/section-data` (pure `shape.ts` and `specs.ts`, tested; `load.ts` with the cached reads). `rules.test.ts` scans every block's source for request
+data, direct global reads, raw HTML, an unsafe link, free colour or HTML fields in a config, and static imports that would put Payload inside the
+registry (below).
+
+**The guard.** `restrictedBlocksGuard` read only a field's own rich text. `legacy-html-guard.ts` now walks every object in the value it is given, so a
+rich-text state nested in a block (the Text block's body, and any later block with rich text) is checked for preserved HTML and script widgets, keyed
+by block id (a moved section is not a change). The pages collection guards `['body', 'sections']`. Tests first, then the code: 4 unit tests failed
+before the change; an integration case (a page section as an editor, a publisher and an administrator) joins the existing walk over every place with
+story content; `restrictedBlocksGuard.test.ts` fails when a section block uses `bodyEditor` and pages does not guard `sections`. Mutation-checked: Pages
+guarding only `body`, and the walker back to root-only, each fail the unit and integration tests.
+
+**Findings (they changed the work).**
+- **The registry is loaded by the Payload CLI, which cannot load most of what a component imports.** `registry.ts` imports every component and the
+  config imports the registry, so a component that statically imports the story renderer (`server-only` modules through the listening block), the
+  global helper or a loader (they load the config: a cycle) made `pnpm generate:types` and the integration tests fail ("Cannot find package
+  'server-only'", a `.scss` error). Those are imported **inside** the async component, when it draws (`await import(...)`); `rules.test.ts` fails on a
+  static import. This is the one thing a new data block must know.
+- **A page holding a data block gets its own short cache window.** Run on a production build: the sample page answered `s-maxage=300` and an ordinary
+  page `s-maxage=3600`, from the loaders' `unstable_cache` windows (list 300, featured 600, dates 300, credit 300, one shared clock of 300). A stale
+  read cache survives a rebuild (`.next/cache`): after changing data, delete it before judging a build.
+- **The sample page's publish test found a required field**: Credit's `target` was required, so the sample could not publish on a database with no
+  fellowship or show. It is optional now, like every other data block's record (no record, nothing drawn).
+- **Audit, 988 text elements and 30 buttons across all six tones on the built page (headless Chromium, desktop width)**: no text under 4.5:1 (3:1 for
+  large text), no button fill under 3:1 against its ground; the same audit with the bar raised to 12 flags 382, so it can fail. The Text block needed
+  the typography plugin's colours pointed at the band's tone (`--tw-prose-*`); without it body text was dark on dark. The Picker's first markup could
+  not style the chosen option (a peer rule does not reach a label inside another element): inputs, choices and panels are siblings now.
+- **No horizontal scroll** at 375, 768 and 1280 px, and no console error, on the sample page.
+- **The Picker works with script off** (a mouse click on a choice and an arrow key both change the panel), because the options are radio buttons.
+
+**Checks (scratch database, local).** `pnpm typecheck`: clean. `pnpm lint`: no new error (the one existing error, `PlayerProvider.test.ts`, is untouched; the one warning in the new code's neighbourhood is phase 1's `any` in `blocks/sections/types.ts`). `pnpm test:int`: **221 files, 2,473 tests pass** (phase 1 ended at 198 files and 2,239). `pnpm build`: passes. `pnpm verify:migrations`: passes (no migration was added). `generate:types` and `generate:importmap` committed. Mutation checks, each by breaking the code and watching a test fail (all caught): a populated-relation
+check removed; a date that never expires; the Picker with no default; the Support link with no `supportHref`; a percentage bar without its clamp; a
+table row not padded; a List reading a hidden variant's field; Questions not a `<details>`; a hero without an `<h1>`; a Callout drawing without text;
+typed dates that never drop off; request data in a block; a static import of the story renderer. One survivor, the `typeof` check in `populatedMedia`
+(a second check on `url` also catches a bare id), got a direct unit test and was then caught.
+
+**The sample page.** `src/lib/sections-sample/build.ts` (pure; one maker per block, a test fails until a new block has one) builds 108 sections (every
+block in every tone; each variant at least once, dealt out across the tones) and `scripts/sections/seed-sample-page.ts` writes them as the page
+`internal-sections-sample`: a **draft** by default (open it in the admin and use Live preview, which has Mobile, Tablet and Desktop), `--publish` to
+make it live at `/internal-sections-sample` (noindex, no referrer, not linked). It refuses any database but staging or one on this machine, writes one
+page, reads the rest (pictures, a story, a section, a topic, a show, a fellowship), and `--fixtures` (a database on this machine only) first makes
+generated pictures, stories, episodes, artists and RadioLive nights. An integration test publishes the page with no records at all. On the scratch
+database it drew 106 of 108 sections (the two community-calendar Dates sections have no events there). **Not run on staging: the owner has not said to.**
+`pnpm seed:sections-sample` is the dry run; `pnpm seed:sections-sample --go` writes the draft.
+
+**What a reviewer will see that is not a bug.**
+- The sample is a mirror of the catalogue, not a design: the words are board 28's, the pictures on a scratch database are generated gradients.
+- A data block draws what its database holds; a section whose record or source is missing draws nothing (the community Dates, Credit without a
+  running agreement, Support without the donation form address in the Giving pages global).
+- Typed dates in the sample are set relative to the day the page was made, and one is already past on purpose (it must not draw).
+
+**Left out, on purpose (each is a decision or a later phase).**
+- **Picker prices are typed text.** The seam (`priceOf` in `Picker/Component.tsx`, the comment on `Picker/config.ts`, the `price` field's help text) is where
+  a reference to `sponsorship-settings` goes when phase 3 answers the open question.
+- **Featured record picks a story, an episode or a show, or the newest story of a section.** Leads computed from a rule (RadioLive's next show, the Voyager
+  and Unearthing leads) are phase 6.
+- **Rail has no arrow buttons** (board 28 draws one each, 44 px): it is a labelled region that scrolls and takes the keyboard (`role="region"`, `tabindex`).
+  Arrows need a client component; add them if the owner wants them.
+- **Table's cells are a typed list** (`hasMany` text per row), so an empty cell is a dash. **Check list is one list**; two lists on a page are two blocks.
+- **Closing band has no form.** The Unearthing tip, Voyager pitch and Barefoot Mary story forms (open decision 8) are not built.
+- **A-Z of artists** is not built (no page needs it yet). **Dates from the community calendar** reads `loadCalendar` for the next occurrences; it was
+  not run against real events on this database.
+- **Credit's panel stays a neutral light panel on every tone** (a credit is never in a sponsor's or a hub's colours); on the dark tone it is a light box.
+- **Support's address** is the Giving settings' monthly form (moved from the Giving pages global in phase 4).
+- **Open from phase 1, untouched:** the unused `blocks` template (its removal is its own small change) and the set footer line (phases 3 and 4).
+
+**Next.** The owner looks at the sample page (on staging, with the owner's go-ahead for the draft write, or from the screenshots and the script on a
+scratch database); then phase 3, the sponsor pages (built: see *Phase 3* below), which is the decision point in `PAGE-BLOCKS.md`.
+
+## Phase 3: the sponsor pages (built 2026-11-19; the exit is the owner's, in staging)
+
+`PAGE-BLOCKS.md` phase 3, the pilot, on the owner's instruction to go as far as possible. It is built and tested locally; the preview build of the pushed branch (`ef54363`) applied both migrations to staging, **verified with read-only queries through the Supabase connector**: `payload_migrations` lists `sponsorship_settings` and `sponsor_pages`; the settings tables hold 1 row, 7 dayparts, 2 programs, 4 packages and 7 interests, equal to the old global's; `pages` holds the six sponsor pages (published, set `sponsor`, 11, 12, 6, 7, 5 and 11 sections) among 31. The production database was not touched (it stays empty until launch). **Phase 4 (giving) was not started: the plan makes this phase a decision point, and the owner has not yet reordered a section, hidden one or built a page in staging.**
+
+**What was built.**
+- **`sponsorship-settings`** (Site settings; publishers edit): contact details, the proposal form's choices and server messages, the rate card, the Carpool prices, the new-sponsor packages and the events and programs. Data only. Saving it revalidates `global_sponsorship-settings`. Migration `20261119_050302_sponsorship_settings` creates its tables and **copies the values from the old global in SQL** (so the migration does not depend on the config as it will be at replay).
+- **Five sponsor-only blocks** (`sets: ['sponsor']`): Rate estimator, Packages, Carpool plan, Open programs, Inquiry form. The plan named three; the Carpool and package prices are settings, so they are blocks that read them. Each has a config, component, test, thumbnail, registry entry and sample maker.
+- **Six pages** (`/sponsor`, `/sponsor/on-air`, `/sponsor/digital`, `/sponsor/events`, `/sponsor/audience`, `/sponsor/credit-guidelines`) written at their own addresses by migration `20261119_050400_sponsor_pages` (the Local API, from the old global's current words, through `lib/sponsorship/to-sections.ts`). 52 sections in all (none hidden). `down` removes the six pages; tested down and up on rows. The six routes and `components/Sponsorship/*` are deleted.
+- **The set's footer line** (`components/Page/SetFooter.tsx`, `lib/page-sets/footer.ts`): service line, corporate support's phone and address, and the credit guidelines link, under the last section.
+- Library changes the pages needed (each optional, each tested): Cards and Stats and Callout take one link under the section (`moreLabel`, `moreHref`); Cards takes a small-print `note`; Stats tiles show a `compare` line under a figure and use four columns for four or eight; Cards uses four columns for four; Feature's line may be several paragraphs; the Picker's panel now always sits on its own row (with seven choices it had sat beside the last one).
+- `/sponsor` is no longer a reserved first segment (`lib/paths.ts`); `RESERVED_PATHS` keeps the one address a route owns there, `/sponsor/inquiry-token`.
+
+**Decisions I made (the owner can reverse any).**
+- **A Picker's price is typed text** (the phase 2 open question): a block shows a price from the settings only when it exists to show it (the estimator, Packages, Carpool plan, Open programs). Nobody types a rate card number in a section.
+- **The goal picker's last goal** ("Back something WUWF puts on") was built from the programs open at the time. It is typed text now, made from the programs open when the migration ran; it no longer follows them. The Open programs section on `/sponsor/events` still does.
+- **The sector picker's two figure grids** became lines in each sector's panel ("Local: 65 median age...").
+- **The digital page's illustrations** (a sample sponsor in a dashed box) and their note were dropped; a section has nowhere to draw them. This is the one word a test lists as lost on purpose.
+- **The old `Sponsorship` global is hidden** in the admin (nothing reads it for a visitor) and kept, with its data, until phase 7.
+
+**The design pass (same day, after the owner's review of the first screenshots).** The first arrangement lost a great deal of the polish the coded pages had, and I had not opened the design canvas: I built the blocks from the plan's descriptions and judged the pages by whether the words survived. I then read board 28 and the sponsor boards (rendered with Playwright from the canvas artifact) and rebuilt the blocks to them. What changed, all in blocks and the theme, none in the architecture:
+- **Tone tokens**: `--tone-accent` (eyebrows, prices, links, marks: blue on light grounds, lime on dark), `--tone-ghost` (the outlined button), `--tone-card` and `--tone-card-rule` (the box of a card or tile; translucent on dark) and `--tone-tint` (a note, a chosen option). Contrast-tested for every tone. Two bands of the same tone in a row now read as one (the second gives up its top padding).
+- **Heading beside the content** (`placement: side`, a field on every block with a heading): the eyebrow, title, intro and link in a left column, the content on the right, as the hub boards compose "Your name arrives as support" and "Why it works" and the FAQ. A phone always stacks it.
+- **Feature** takes an aside: up to four figure tiles with a source line (the hub's dark opening band), or a sample sentence in a card (the on-air page); the split variant takes it too when it has no picture (the digital package band).
+- **Boxed figures and cards** at the boards' 8 px radius; Cards with a price and no link words use the price as the link ("From $23 a credit →"); Quotes, Questions, Callout (a tint box with the link on the right), Table (the boards' header style), Closing band, the sponsor blocks and the buttons (a filled primary, lime on dark; an outlined ghost) were restyled.
+- **Picker**: pill choices with the chosen one tinted; a panel with a total box and rows (a small label, a name, a detail, a figure on the right) for the goals, and rows for the sector figures.
+- **Check list** takes a second list beside the first and a detail line under a row (the credit guidelines' two columns).
+- The six pages were re-mapped onto these (`to-sections.ts`) and migration `20261119_150000_sponsor_pages_polish` rewrites the ones already on staging, **only if nobody has edited them since the first migration** (one version); an edited page is left as it is.
+
+**Second pass, with Columns (same day).** The owner said the old coded pages, not only the boards, were the final product, and proposed optional multi-column layouts as blocks that hold other blocks (as Grove does). Built: **Columns** and the inline-only **Illustration** (see `PAGE-BLOCKS.md` → *Columns*), a **soft lime** tone (the old pages' pale lime band), a **Callout `lime` variant** (the pale lime note box), a **Table `pairs` variant** (each row as a plain card beside a marked one), and compact compare bars. The pages were re-mapped to look like the old ones: the hub opens on the tinted band with its figures in a row below, "Why it works" is the dark band again, the notes are lime, the digital page draws its three sample sponsor messages beside the tables (Columns: Illustration | Table), the credit guidelines have their two lists in two columns and their pairs as cards, the package band is pale lime with the price set large. Migration `20261119_160000_sponsor_pages_polish2` rewrites the pages already on staging (only if they have at most two versions; see its comment for the one case it cannot tell). The check list's second list was removed (Columns replaces it); the heading-beside option and the hero aside stay (the hub boards use the first, the on-air page the second).
+
+**Still different from the old pages.** Spacing is a little looser and some tile text a little larger (a band is `py-14`, the old pages' sections were similar but their cards were tighter); the hero's single link is a filled button where the old pages had a text link; the picker's choices are rounder (`rounded-full`) with the chosen one solid dark as before. Otherwise the six pages hold the old pages' structure, words and look.
+
+**Follow-up after the merge (the owner saw the hub's figures twice).** On staging the hub's opening band still held the four figure tiles of the first design pass beside its words, drawn again in the figures row below, and three hub sections still had their heading beside their content. Cause: `sponsor_pages_polish` and `_polish2` rewrote the pages through the Local API, which **merges a block that keeps its `id` with what is stored, so a field the new arrangement omits is kept**. Reviewed all 52 sections on staging by their stored keys and values against what the mapper writes: only the hub had leftovers (the hero's `aside`, `figures` and `asideNote`, and `placement: side` on "not an ad", "why it works" and the FAQ); the other five pages match. Migration `20261119_190000_sponsor_pages_clean` writes the mapped sections straight into the `sections` column and the latest version row (no merge, no new version; skipped for a page with more than three versions), tested locally against a database with those leftovers put back. New tests: no figure or section title is drawn twice on a page (the one repeat the old page itself had, the hub's 66% figure in the row and in "Why it works", is listed), and the hub's headings are above their content. The audience page's repeated source line is still open.
+
+**The first clean migration skipped the hub on staging.** It counted versions (more than three means edited), and the hub had a fourth: an *autosave draft* made at 19:53 UTC by opening the page in the admin, holding exactly the published sections. So the duplicate stayed. `20261119_200000_sponsor_pages_clean2` replaces the count with `pageIsUntouched` (`lib/sponsorship/untouched.ts`, tested): at most three versions that are not autosaves, and every autosave draft equal to the published sections, compared without row ids (the Local API makes up a new id for a row with none stored, on every read). A page someone has changed (a fourth real version, or a draft that differs) is still left alone. Tested locally both ways: an identical draft is fixed, a draft with a changed headline is left alone. **Whoever has the hub open in the admin should reload it after this is applied:** an open editor holds the old sections and its next autosave would write them back.
+
+**Findings.**
+- **The registry is loaded by the Payload CLI, and so is anything a block's component imports**, including a client component's server action. The inquiry form's action imported the loader at the top of its file, which would have pulled the Payload config into the registry; it is imported inside the action now.
+- **The path rule reserved `/sponsor`.** A record could not take an address under a first segment a route owns. The migration failed on it first; see the change above.
+- **The inquiry form on a cached page.** The old page was `force-dynamic` to give the form its timing token. The page is cached now, so the form fetches its token when shown. A visitor without script can read the form but not send it (the old page had the same limit for a form that was open a long time).
+- **A fidelity test found five things the first mapping lost** (a label above the goal's price, the events goal in the test fixture, two ids, the sample credit's quotation marks) before the owner could. `lib/sponsorship/to-sections.test.ts` keeps the list.
+
+**Checks (local).** `pnpm typecheck`: clean. `pnpm lint`: no new error (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 232 files, 2,573 tests, all passing (phase 2 ended at 221 files; one unhandled rejection from `plugin-seo` in `revalidateSiteSettings.test.ts` exists before phase 3 and is not from this work); `pnpm build`: passes; `pnpm verify:migrations`: passes (it replays every migration on an empty database, including the one that writes the six pages from the starting wording). The migrations applied to a fresh local database in order, down and up again on rows.
+
+**What the owner does next (the exit).** In staging: open Pages → Sponsorship set; reorder a section; hide one; add a section from the picker (it offers the library plus the five sponsor blocks); make a new sponsor page (it joins the sub-navigation by its `navOrder`). Change a rate in Sponsorship settings and watch the rate card change. If that is not comfortable, stop and revise before phase 4.
+
+**Left out, on purpose.** The Open programs section's heading counts what is open (one, two, more) with the three headings as fields; the estimator's "Your estimate" label and the table's column names are still in code, as before. Dropping the old global's page fields and tables is phase 7. The giving set's footer joins the sponsor set's in phase 4. The unused `blocks` template is still its own small change.
+
+## Phase 4: the giving pages (built 2026-11-19; the exit is the owner's, in staging)
+
+`PAGE-BLOCKS.md` phase 4, on the owner's instruction to proceed. **The plan made phase 3 a decision point (the owner reorders, hides and builds in staging before phase 4); that check had not been recorded when this was started**, so if it finds the model wrong, this phase is revised with it. Built and tested locally; the preview build of the pushed branch (`469682d`) applied both migrations to staging (`wuwf-site-staging`, batch 49), **verified with read-only queries through the Supabase connector**: `payload_migrations` lists `giving_settings` and `giving_pages_as_sections`; the settings tables hold 1 row, 4 levels (8 benefit lines, 11 gift-benefit lines), 4 message tiers, 7 monthly and 6 one-time amounts and 5 broker detail rows, each equal to the old global's, with the same phone and monthly form address; the eight `giving_settings*` tables are owned by `payload_app`, have a foreign key to their parent and three indexes each (one on the root), no RLS and no `anon` or `authenticated` grants, and the `emphasis` enum holds standard, featured, leadership; `pages` holds the four giving pages (published, set `giving`, 9, 6, 2 and 3 sections, the thank-you page `noindex` and `noReferrer`) beside the six sponsor pages among 35. The deployment is READY. The production database was not touched (it stays empty until launch).
+
+**What was built.**
+- **`giving-settings`** (Members & accounts; membership staff, publishers and administrators edit): Member Services' phone, email and mailing address, the service line, the donation form's addresses and switch (and the "not set up" sentence), the members' listening level, the levels and Day Sponsor message tiers, the gift card's amounts and defaults, and the details a broker or fund needs. Data only. Saving it revalidates `global_giving-settings`. Migration `20261119_222418_giving_settings` creates its tables and **copies the values from the old global in SQL**. The account page, every show's support page and the Support block read it now.
+- **Five giving-only blocks** (`sets: ['giving']`): Gift card (the Give page's opening and the card), Giving levels, Ways to give, Thank-you and Giving contact (variants hero, band and line). The plan named four; the phone and email are settings too, so the contact is a block that reads them. Each has a config, component, test, thumbnail, registry entry and sample maker.
+- **Four pages** (`/support`, `/support/ways`, `/support/legacy`, `/support/thanks`) written at their own addresses by migration `20261119_223000_giving_pages_as_sections` (the Local API, from the old global's current words, through `lib/giving/to-sections.ts`). 20 sections in all. `down` removes the four pages; both migrations tested down and up on rows. The four coded views (`GiveView`, `WaysView`, `LegacyView`, `ThanksView`, their shell) are deleted; `DonateCard` stays, as the Gift card's client part.
+- **Two coded shells.** `/support/ways` (`?way=` opens one way to give, a plain link, no script needed) and `/support/thanks` (the donor's name, amount and frequency) render their page record through `components/Page/SectionsRoute.tsx` with the request's query as `SectionContext.query`. No block reads the request; on the cached catch-all the query is empty and the blocks show their plain state. `/support` and `/support/legacy` are cached pages (SSG, one hour).
+- **The set's footer** (the settings' service line) joins the sponsor set's in `SetFooter`. A page with `noindex` is left out of its set's strip and shows no strip (the thank-you page, as before). The set is named "Ways to give", the strip's old label.
+- Library changes the pages needed: Steps takes the optional link under the section; Cards with the heading beside them put four cards two by two; `lib/page-sets/sections-kit.ts` holds what both mappers share (the sponsor mapper now uses it; its tests are unchanged).
+- `support` is no longer a reserved first segment (a page may take a path under it, as under `/sponsor`); a **section** may not be named `support` or `sponsor` (`PAGE_SET_FIRST_SEGMENTS`: its list would sit at the page's address), and the two old Grove stories under `/support/` that redirect to the sponsorship pages stay unimportable.
+
+**Decisions I made (the owner can reverse any).**
+- **The gift card's amounts and defaults are in the settings**, with the levels they land in (they are numbers that must agree with the levels); the card's words are on the Gift card block.
+- **The broker details** (legal name, tax ID, address) are settings rows; the Ways to give block draws them on the panels that ask, with Copy.
+- **A panel's steps and notes are text areas, one to a line**, not nested lists (a block holds one level of list).
+- **The Ways to give block works at `/support/ways` only**: held on another address it shows the first choice, because the open way is chosen by the query a cached page cannot read.
+- **Membership staff keep what they had**: they edit and publish the giving pages and the settings; setting a page's address stays a publisher's (an existing rule), so a new giving page's address is a publisher's to set.
+
+**Compared with the old pages** (a production-mode dev render of the old code and the new, at 375, 768 and 1280 px: no horizontal scroll, no console error, the same titles, one h1 on each). The word-for-word test (`to-sections.test.ts`) fails if a word of the old pages is lost; the one repeat of a word that moved is the strip's label, now the set's name. **Still different from the old pages:** the "more ways to give" cards and the thank-you "while you're here" cards each end in a "Read more" link where the old cards were a link as a whole; the "Where your gift goes" and "Why monthly" items are boxed cards; the leadership level has a blue border where it had a lime tint; the sample sentence on the legacy page no longer sets its `[blanks]` in italics and has a rule where it had a blue bar; the businesses band is a tinted note with a text link where it was a bordered box with a button; the "after you give" steps are a rule over each step where they were boxed columns.
+
+**Left out, on purpose.** Dropping the old global's page fields and tables is phase 7 (`support-page` is hidden and kept). The Unearthing, Voyager and RadioLive pages are phase 6.
+
+**What the owner does next (the exit).** In staging: open Pages, the giving pages; reorder a section; hide one; open the gift card and change the words; change an amount or a level in Giving settings and watch the card and the levels change; open `/support/ways?way=stock`; open `/support/thanks?name=Maria&amount=20&frequency=monthly`. Membership staff should be able to do the same, and nothing else.
+
+**Checks (local).** `pnpm typecheck`: clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 242 files, 2,694 tests, all passing (phase 3 ended at 232 files and 2,573); the one unhandled rejection from `plugin-seo` in `revalidateSiteSettings.test.ts` exists before this work. `pnpm build`: passes. `pnpm verify:migrations`: passes.
+
+## Phase 5: words still in code (built 2026-11-19; the exit is the owner's, in staging)
+
+`PAGE-BLOCKS.md` phase 5, on the owner's instruction to proceed (phases 3 and 4 still wait for the owner's look in staging). Built and tested locally on a scratch Postgres 16 with pgvector, then **applied to staging by the preview build of `365d41e` and verified there** (below). The production database was not touched (it stays empty until launch).
+
+**What was built.**
+- **Shared text** (`shared-text`, Site settings group; publishers and administrators edit). The community calendar's guidelines (paragraphs, each with an optional bold lead-in; an email typed in one becomes a mailto link, through `linkEmails`), the membership appeal (text, button label, button address, checked by the support-link rule) and the fellowship explanation (title, items, the policy link's label). Read through `getCachedGlobal` (tag `global_shared-text`); every screen draws nothing for a part that is empty. Migration `20261119_233120_shared_text` creates the tables and copies the old words from `lib/shared-text/starter.ts`; tested down, up, down, up. The story page, home page, fellowship page and event submission page read it.
+- **Broadcast schedule block** and a restyled week view (tone tokens, no fixed colours). The loader (`lib/live/week.ts`) reads the clock through a one-minute cache, so a page holding the block is regenerated at least that often and "today" is never a day behind.
+- **List** gained the **shows** source, **episodes from every listed show** (`allShows`), and the layouts **tiles** and **rows**. Both new reads reuse `loadDirectory`, so a show's page and the directory agree. A show save now also revalidates tag `section-data:list`.
+- **Five Listens blocks** (set-only): Ask WUWF, Open questions, Sessions and tables, Outcomes, Host form. Each Portal-data block is a pure view over `SectionContext.listeningHub` (tested with a hub fixture) and an async wrapper that loads its client form with `await import()` (the registry is read by the Payload CLI, which cannot load the `server-only` modules the forms reach).
+- **Four pages written by migrations** at their own addresses: `20261119_235000_station_pages_as_sections` (`/schedule`, `/podcasts`; the schedule's cards come from the Listen live global's current rows) and `20261119_235500_listens_pages_as_sections` (`/listens`, `/listens/host`, in the listens set, from `lib/listening/hub-pages.ts`; a test fails if a word of the old pages is lost). Both leave a page that already exists at the address (or holding the slug) alone. `down` removes only the pages they wrote.
+- **Deleted:** the `/schedule` and `/podcasts` routes, `components/Show/DirectoryView.tsx`, `components/Listening/Hub.tsx`. `/listens` and `/listens/host` are coded shells that render their record.
+- New in the platform: `SectionContext.listeningHub` (the one place a request's Portal answer reaches a block), `PageSetSpec.subNav`, `lib/page-sets/sections-kit` unchanged.
+
+**Decisions I made (the owner can reverse any).**
+- **A new Shared text global, not Site settings**: Site settings is administrator-only, and an editor should be able to change a guideline.
+- **The listens set has no strip.** The old pages had none.
+- **The Listens words are on the sections; what the Portal sends is drawn by the blocks.** The tile labels inside a campaign band ("Answer on your own", "Join a session", "Answer", "Save a seat") are component text, like a button's label; the long lines (the empty state, the table tile's explanation, the voice-only intro) are fields on the section.
+- **The jump links under the hub's headline** point at the anchors the mapper gives the other sections (`now`, `help-us-report`, `join-a-session`, `kitchen-table`, `came-of-it`, the Ask form). An editor who renames one breaks that link; the field says so.
+
+**Compared with the old pages** (dev renders of the new pages at 375, 768 and 1280 px, the hub with a fake Portal answering on localhost; no horizontal scroll, no console error, one h1 each). **Still different from the old pages:**
+- Schedule: "Press **Listen live**" is no longer bold (a Feature line is plain text); with no stream set up the page shows only its opening (it used to answer not found); the week sits in a grey band.
+- Podcasts: with no show or episode listed, the page draws its heading only (it used to say "No shows are listed yet."); the latest episodes are a ruled list in a grey band and the show cards are tiles in the card colours; a show with a cover shows it square, as before.
+- Listens: the hub's section order and words are unchanged; the Ask WUWF box, a kitchen table and the host form sit in a white card (they carry their own light styling), so on a plain ground the host form now has a padded card around it; when the Portal is not set up or cannot be read, the opening still draws (it used to be replaced by a title and the message). The host page's "← WUWF Listens" is a button (a Feature action) where it was a text link. `/listens/host` is no longer a static page (it renders the record through the shell).
+- Shared text: none; the words are copied exactly.
+
+**Found after merge (2026-11-20): the hub's campaigns were missing on staging.** The catch-all's `generateStaticParams` built a static `/listens` from the page record, and production serves a prerendered page before the coded shell, so the sections got no Portal data (dev does not prerender, so my local check and the tests missed it). Fixed by `CODED_SHELL_PATHS` (`lib/page-sets/shells.ts`, with a test that every `SectionsRoute` page is listed); checked in a production build against a fake Portal (campaign band, reporter cards, sessions and the "Answer a question" link all draw) and in the route table (`/listens` is dynamic). `/support/ways` and `/support/thanks` were never prerendered, so were not affected.
+
+**Left out, on purpose.** Dropping the Listen live global's hidden cards field is phase 7. The Unearthing, Voyager and RadioLive hubs are phase 6. The season report list waits for suite phase F.
+
+**Checks (local).** `pnpm typecheck` clean. `pnpm lint`: no new problem (the one existing error is `PlayerProvider.test.ts`). `pnpm test:int`: 253 files, 2,800 tests, all passing (phase 4 ended at 242 files and 2,694). `pnpm build`: passes. `pnpm verify:migrations` passes.
+
+**Staging (`wuwf-site-staging`), verified with read-only queries through the Supabase connector.** `payload_migrations` lists `shared_text`, `station_pages_as_sections` and `listens_pages_as_sections` (batch 50). `pages` holds `/schedule` (3 sections: Feature, Broadcast schedule, Cards), `/podcasts` (3: Feature, List, List), `/listens` (7, set `listens`) and `/listens/host` (2, set `listens`), all published. `shared_text` holds 1 row, 5 guideline paragraphs and 3 fellowship items, with the old membership appeal's words; the three tables are owned by `payload_app`, have no row-level security and no `anon` or `authenticated` access, and each child table has its foreign key and three indexes. The deployment is READY.
+
+**What the owner does next (the exit).** In staging: open `/schedule`, `/podcasts`, `/listens` and `/listens/host` and compare them with the live site; open Pages and reorder a section on the schedule page; open Site settings → Shared text and change the membership appeal, then open a story and the home page. Note that staging's Portal address is the preview Portal, so `/listens` shows whatever that Portal has open (or the "not set up" sentence).
+
+## Staging demonstration content for news sections and placements (2026-11-18)
+
+The owner asked that staging hold enough demonstration data to show every feature built. `scripts/staging-demo/seed-placements.ts` (rules and contents in `seed-placements-core.ts`; beside the older
+`seed.ts`, same conventions: staging only, everything labelled **Demonstration**, safe to run twice, never changes what an editor set; dry run by default, `--go` to write) adds, only where missing:
+- **A Florida News section with six demonstration stories from a "partner"** (`source: wire`), so the owner's decision to feature partner content has something to show. Staging has no real Florida News or Music & Arts stories (it holds 242 real stories, all WUWF's own).
+- **The home page's news sections** (only while it has fewer than three; appended, never removed): Local News, Local Politics, Local Arts, Florida News, UWF News: real sections with real stories.
+- **A sample sponsor** ("Example Sponsor (demonstration)") and three plainly-labelled sample pictures (`scripts/staging-demo/assets/demo-sponsor-*.png`), used for a **home banner** with a phone picture and a sponsor tile.
+- **Five list-page placements, each aimed differently:** the sample sponsor on the Local News pages (10); the sample sponsor on the all-stories page (20); WUWF's own Book Club on Local Arts and Commentary (30); WUWF's own Protect My Public Media on one reporter (Dave Dunwoody) and one topic (City of Pensacola) (40); WUWF's own app on every list page (50). WUWF's own pictures and links are taken from the home rail already imported.
+- Real sponsors' artwork is **not** reused for aiming demonstrations: a real sponsor's ad on a page it did not buy would mislead anyone shown the staging site.
+- **Staging was seeded 2026-11-18** by the preview build (no staging credentials in a cloud session) through a temporary marker file and build hook, both now **removed** (git history has them); `seed-placements.ts` stays as a tool. Read back from the database (five news sections, six partner stories, the sample sponsor, 10 rail + 1 banner + 5 list placements) and from the rendered preview: home (5 sections, banner, 9 tiles, 5 sponsor labels), `/local-news`, `/latest`, a reporter page and `/local-arts` each showed the placements aimed at them. Staging has no Music & Arts section, so the home page starts with its own sections. Rehearsed on a scratch database shaped like staging (dry run, run, run again: 21 made, then 0), checked in a browser on every page it touches, tested (`tests/int/seed-placements.int.spec.ts`, 6 tests).
+- **Not demonstrable from seed data:** the who-may rules (they need signed-in users of each role), a placement past its last day (the Sinfonia tile is held instead), and the admin screens (not opened in a browser).
+
+## Sponsor rail redesign (built 2026-11-20, reworked the same day)
+
+From the canvas "Sponsor Rail Redesign" (owner-reviewed). **Done:** one card for every tile (label strip with "Sponsor message" or "From WUWF" and the sponsor's name, artwork in a 5:4 frame with a blurred copy of
+the picture behind small art); migration `20261120_162233_placement_fills_gaps` (one nullable-default column, "Can fill a gap" on a house promotion); `lib/placements/flow.ts`, `resolveFillers`, `fillsFrame`.
+**The first layout (PR 388) put a pair of tiles in a side column beside each news section; on staging a section is about 1,800 px tall and a pair about 660 px, so two thirds of every section was blank and the
+video row had no tile. Reworked as option B:** the tiles are full-width rows of three between the sections (the first just below the videos), the news cards run three across with the lead story spanning so no row is
+short (`leadSpanClass`), and a short last row is completed by optional promotions or centered. **Lesson:** the pair was sized against placeholder sections; check a layout against the real page's heights before building it.
+**Not done:** the list pages (section, topic, reporter) keep their side rail (now the new card); a "where each tile shows" admin preview (`PLACEMENTS.md`, open item 6); an artwork template for sponsors (corporate support
+confirms the 880 x 704 size first). **Not yet checked in a browser at three widths.**
+
+## Editor-made placements (built 2026-11-18; supersedes the fixed rail and banner lists below)
+
+Prompted by the owner: editors should be able to create placements and decide the pages and sections they appear on, with no deploy to rethink the
+taxonomy. **`PLACEMENTS.md` is the design; read it first.** Zones stay code (`lib/placements/registry.ts`); placements are records (**Commercial → Placements**, collection
+`placement-items`).
+
+- **Built zones:** `home.rail` (10), `home.band` (1) and the new **`list.rail`** (4 per page, beside the stories on a section, topic, reporter and the all-stories page, aimable at chosen
+  sections, topics, reporters and `/latest`, or at every list page; "chosen" with nothing chosen is refused, so nothing shows everywhere by accident). `story.rail` and `story.inline`
+  are designed, not built, and cannot be chosen.
+- **A placement:** name, kind (Sponsor, labeled; House promotion, unlabeled), sponsor (a record in **Commercial → Sponsors**, so one identity across underwriting and placements), zone, picture
+  (phone picture for a band), what it says (160 characters), link, order, first and last day, Show. **No package, price or product reference anywhere** (owner).
+- **Pure resolver** (`lib/placements/resolve.ts`, 18 tests): given a page and the records, which tiles run: zone and page kind, targeting, on/off, dates (Central-time days), picture, safe link,
+  then order (lower first, then oldest), up to the zone's capacity. Pages call it and nothing else, so the Portal's bookings can become a second source later without touching a page.
+- **Rules in the collection:** corporate support and administrators make and change anything; **publishers make and change house promotions only** (they cannot make a sponsor placement, change one, or turn one into
+  one); the public reads only what is on. The home zones **refuse a placement past their capacity** with what to do (switched-off and ended ones do not count, so a full rail can be rotated); a list zone is
+  counted per page by the resolver. Trusted server code (the import, tests) acts with no user and is not blocked by the who-may rule (found by a test: the first version blocked it).
+- **Caching:** placements are read once under the `placements` cache tag; saving, deleting or switching one refreshes every page that reads them. A first or last day takes effect when the page next refreshes
+  (home within 5 minutes, list pages within the hour).
+- **Migration `20261118_191825_placement_items`** (plain SQL; generated in two steps, add then drop, because Drizzle asks interactively whether new tables are renames; tested up, down and up on real rows and
+  on a fresh database): creates the collection, copies the old rail and banner into it in order (`order` spaced by ten), **finds or makes each sponsor in Sponsors from the old tile's plain-text name**
+  (an existing one is reused), drops the old `placements` global; `down` restores the rail (at most ten) and the banner. Its `down` had a latent flaw in the generated SQL (dropping a table with CASCADE and then
+  its constraint), found by running it; fixed with `IF EXISTS`. **Staging's ten tiles migrate when the preview builds**, and make five Sponsors there.
+- **`import-rail.ts`** now writes placements (and Sponsors); it makes none twice, never overwrites a rail made by hand (`--replace` clears the zone), and "rail written" means it made at least one.
+- **Checked** in a browser at 1440 and 390 px on a fresh database (53 migrations replayed): home 9 tiles; `/local-news` the Alphastar sponsor tile (labeled) then the house promo; `/music-arts` the house promo
+  only; `/latest` the house promo then Boyles & Boyles; no overflow, no console errors, no outside scripts. **Not checked:** the admin screens themselves.
+- **Not built (and said so in `PLACEMENTS.md`):** the "where this shows" preview and a conflicts view (the resolver is deterministic and the home zones refuse overflow, but an editor cannot see a list-page overlap),
+  exclusions ("every section except..."), targeting by story format or show, the story zones, proof of performance, the Portal source.
+- **Lessons.** (1) `payload migrate` after the dev server has run asks a data-loss question and hangs without a terminal; use a fresh scratch database. (2) **Never chain `migrate:down` after a failed up**: it rolls
+  back the previous batch, which on a freshly built database is every migration (it wrecked a scratch database, nothing else). (3) `payload migrate` reads the migrations directory, not `index.ts`: hide a
+  migration by moving the file. (4) A rule about who a person is belongs on signed-in staff only: trusted scripts have no user.
+
+## Home page first screen (built 2026-11-18; the band, board 1g without the Listen bar)
+
+The owner found the first screen poor at 1440 x 900: the picture took 665 px of the 835 under the header, the headline began below the fold, and The Briefing and the lead did not end on the same line. Five layouts were drawn on the canvas (boards 1d to 1h). The first build (board 1h: a two-column lead, picture capped at 40% of the window height) was merged, then the owner saw that the capped picture was too wide and short (800 x 360, 2.2:1) and would crop real photos badly (a 3:2 photo loses a third of its height, a portrait about three quarters). A half-window cap (a true 16:9 at 900, 2.46:1 at 650) was a stopgap; the owner then chose the band.
+
+- **The lead is a band** (`HomepageView`): the story's words on the left (28.75rem), its picture on the right, a normal 16:9 (692 x 389 at 1440) that **never changes shape with the window** (no height cap), the byline level with the picture's bottom edge. The headline is at the top, so it is in view even in a short window (measured at 1440 x 900 and 1366 x 650). A long headline makes the band taller; the picture stays 16:9 and keeps the top. On a phone the picture comes first and everything stacks; with no picture the words take the full width.
+- **The Briefing is a row under it**, as many columns as there are stories (up to five); two columns on a tablet, one on a phone. It ends about y=740 at 1440 x 900, leaving the next module's top in view.
+- **"Listen now" is gone** (`ListenNow.tsx` was deleted earlier): it duplicated the header's Listen live button and the site's player, made a schedule request on every home view, and was why the right column had been taller than the lead. The player bar still appears once anything plays.
+- The side column (`SIDE_COLUMN`, 22rem) now exists only in the lower block: the videos and the news, with the sponsor rail beside them. Section, topic and reporter pages keep a 20rem rail.
+- Not built from the board: the "Updated 7:42 a.m." time on The Briefing (nothing stores it), the "Listen to the story" button under the lead, and the Listen bar (dropped on purpose).
+- **Crops follow the focal point.** A picture cropped to fit (`object-cover`) is cropped around the focal point an editor sets in the media library (`focalX`/`focalY`; `lib/media/focal.ts`, applied by `ImageMedia`), and around its centre when none is set. A picture shown whole (`object-contain`, a sponsor's artwork) is left alone. Phone check (320 to 1024 px): picture first, then words, then the Briefing; no sideways scroll, and each Briefing item is one tap target.
+
+
+## Home page: Listen now, and the rail beside the videos and the news (built 2026-11-18)
+
+Two changes the owner asked for after reviewing board 1 and the three layouts drawn as boards 1a to 1c (the owner chose 1b).
+
+- **The sponsor rail now starts level with the short-video row and runs down beside the videos and the news** (it used to start under the videos, beside the news only). The videos and the news share one column (`HomepageView`; `VideoRow` takes a `className` so it can sit in a column). With no videos the rail simply starts beside the news; with no rail the column is full width, as before. On a phone the tiles follow the column, as before. With many tiles the rail can run taller than the column and leave blank space at the left before the banner; the home rail holds up to ten, so editors should keep it to about four or five.
+- **"Listen now" under The Briefing** was built here and **removed later the same day** (owner decision: the header's Listen live button and the site's player already do it; see the next section).
+- **One two-column template (`SIDE_COLUMN`, a 22rem side column) for the lead section and for the videos-and-news block**, so The Briefing, Listen now and the rail start at the same edge and are the same width (the first version used a 1.7fr/1fr split above and a 20rem column below, so the rail sat about 70 px off). The rule beside The Briefing is drawn in the gutter, not inside the column. The lead picture is 16:9 at least and takes up spare height, and Listen now takes up spare height too, so the bottom of Listen now is always level with the lead's last line (measured with a normal lead, a portrait photo, and a lead taller than the right column).
+- Checked with the real components rendered to HTML with the site's CSS at 1440, 1024 and 390 px (rail top level with the video row, Listen now under The Briefing and level with the lead, no sideways overflow; no videos, no rail and no channels each leave no empty box). Not checked: the stream itself, and the schedule answering, on a deployed preview.
+
+## News sections, All stories and sponsor placements (built 2026-11-18)
+
+Prompted by the owner's review of the home page (one news list, no link to more stories, no ad places) and a read of the live wuwf.org home page
+(owner-approved 2026-11-18: robots.txt allows all; neutral client; one page plus ten pictures, 3 s apart; raw files kept outside the repository).
+The live page is a 70/30 layout: an untitled lead block, then titled runs for Music & Arts, Local News, Florida News and NPR News (each linking to its
+section or tag page; only NPR News has "Load More"), and a right-hand column of ten image tiles (five outside businesses and nonprofits, five of
+WUWF's own) with **no "Sponsor message" label** and uneven sizes; Google Publisher Tag is set up in the page head but draws no slot on the home page.
+There is no "all stories" link on wuwf.org either.
+
+- **News sections** (Home page → *News sections*; replaces the single "Local news" tab). An ordered list of up to six: heading, section, story count
+  (3 to 8, default 5), a Show switch. Each links to its section page ("More from ...") and the band ends with **All stories** (`/latest`). A story is
+  shown once on the page (lead, Briefing and feature take theirs first, then each section in order). A section with nothing left is left out; with
+  none configured, or none holding anything, one "Latest stories" run stands in, so the page is never blank. **Florida News is featured on purpose**
+  (owner): a section's run is every published story filed under it, whatever its `source`; the lead and the Briefing still fall back to WUWF's own
+  work only. With the rail beside the news (two columns), an odd count makes the first story span both columns. Pure rules `lib/homepage/modules.ts`.
+- **`/latest`: every published story, newest first, 12 a page** (a fourth list kind beside section, topic and person; same layout, paging, 404 past the
+  end; `latest` is a reserved first segment). Publishing a story refreshes it. The starter's `/posts` list (titles only) is **gone**, redirected
+  permanently to `/latest` (`/posts/page/1` to the plain address; other pages keep their number).
+- **Placements** (first version, **superseded by *Editor-made placements* above**: the registry became zones and the global became a collection; `PLACEMENTS.md` is current). A typed registry (`lib/placements/registry.ts`) named every fixed
+  place: **built** `home.rail` (up to ten tiles beside the news; after it on a phone) and `home.band` (one banner after the news sections, before the
+  podcasts: never above the news, not a leaderboard); **designed, not built** `section.rail`, `story.rail`, `story.inline`. The new global **Sponsor and promo
+  placements** (Pages & hubs; `sponsorship.manage` or `content.publish` may edit) holds the tiles: kind (Sponsor, drawn with "Sponsor message", or House
+  promotion, unlabeled), sponsor name, picture, what it says (alt, 160 characters), link (this site or https), first and last day (a whole day, on the
+  station's Central-time date), Show. A tile that is off, expired, not begun, without a picture or with an unsafe link is left out and the rest close up;
+  a placement with nothing draws nothing. Sponsor links are `rel="sponsored noopener noreferrer"`; every tile has the same shape (the picture is fitted, never
+  cropped, because sponsors' words are in the artwork); no script, frame or outside request. A failed read leaves the placements out and the news up.
+  **Interim source only:** which sponsor fills a place stays the Portal's design (see *Sponsorship direction*); no booking, billing or proof of delivery here.
+- **Imported the live rail** (`scripts/placements/import-rail.ts`, rehearsed on a local database with the real ten pictures; **run on staging by the owner**,
+  then production with `--production`: dry run by default, `--apply`, never overwrites a filled rail without `--replace`, reuses pictures it has).
+  **Corporate support must confirm each tile's kind** (sponsor or house) which I read from the destination and the picture; the **Sinfonia Gulf Coast** tile
+  is imported *held* because its picture advertises Saturday Nov. 14, already past (the live site still shows it); **Emerald Coast Theatre** (Dec. 3 to 20) and the
+  **Santa Rosa County tourism** tile ("Sept. to Nov.") need a last day set; four house tiles point at `wuwf.org/...` pages that do not exist here yet (apps, weather,
+  Florida Storms); "Protect My Public Media" is a 300 by 170 picture enlarged by the live site (soft; ask for a bigger one).
+- **Staging was seeded 2026-11-18** (the owner asked that nothing be run from their machine, and this session has no staging credentials): a one-off step in `scripts/vercel-build.sh`,
+  run by the preview build with the site's own database and storage settings, added the Local News section (the only starter section staging has: it has 13 sections, no Music & Arts or
+  Florida News) and imported the ten tiles; read back afterwards from the database (one section, ten tiles, nine showing) and from the rendered preview (nine tiles, four "Sponsor
+  message" labels, no outside scripts). The step, its marker file and the script are **removed** (git history has them). **Production is not seeded**: after the production import, add
+  sections in Home page → News sections and run `import-rail.ts --apply --production` (or enter tiles in the admin). Reason it was needed: the migration seeds sections only where the Home page
+  row already exists, and staging's never had been saved.
+- **No packages on the site** (owner, 2026-11-18): placements carry no package, price or product reference, in the registry, the admin or the pages. Packaging and price are the Sponsorship pages'
+  and, later, the Portal's. The planned editor-created placements (below) follow the same rule.
+- **Migration `20261118_161412_news_sections_and_placements`** (plain SQL; tested up, down and up on rows; `verify:migrations` passes). It creates the new tables, **carries the old Local
+  news list over as the first section**, adds Local News, Music & Arts and Florida News (5 each) only where the home page has none yet and those sections exist, then drops
+  the old columns; `down` puts the first section back. **A database with no sections yet (production before the import) gets none: after the import, add them in Home
+  page → News sections** (until then the page shows one "Latest stories" run).
+- **Not done:** an "All stories" link from the header or footer (admin-edited globals); NPR News as a module (needs wire stories imported and labeled "From NPR"); the three designed
+  placements; first-party view and click counts for sponsors (undecided: `PLACEMENTS.md`, "Decisions that are open"); the sponsor and Digital pages still say the website Banner is
+  priced on request, and the placement artwork sizes in the registry are **proposals** corporate support must confirm; the live page orders Music & Arts above Local News and this
+  site does not copy that (editors order the sections). Checked in a browser at 1440 and 390 px with seeded stories and the ten real tiles: no horizontal overflow, no console errors,
+  one `h1`, no duplicate ids, no third-party scripts, every tile labeled as it should be. **Not checked:** the admin screens themselves (no browser session in the admin).
+- **State.** Full suite **164 files, 1,954 tests pass** (new: modules, placements, the import, `/latest`, the rail and banner markup); typecheck and the production build pass; `verify:migrations` passes; lint has 0 new errors (the one old error is below).
+- **Lessons.** (1) My first draft of tile 3's link was a guess from an output cut at 70 characters, and wrong; the manifest is now checked against the saved page address by
+  address. (2) The field's 160-character alt limit caught four over-long alt texts in the manifest; the dry run now checks the same limit. (3) `pnpm lint` has **one old error**,
+  not from this work: `src/components/ListenLive/PlayerProvider.test.ts` line 35, `react/no-children-prop` (from the single-player commit); the site is not in CI, so it was not caught.
+  (4) A story-card test that pins nothing at the top of the page will see the lead and Briefing take the newest stories: pin them (`tests/int/homepage.int.spec.ts`).
+
+## Giving pages, boards 14 to 14d (built 2026-11-17)
+
+The giving section of the reviewed canvas (rethought Nov. 17) is built as public pages: `/support` (14, the Give page), `/support/ways` (14b, other ways to give),
+`/support/legacy` (14c) and `/support/thanks` (14d, where a gift ends). The boards win on copy, order and layout, except where noted below. **These pages describe giving
+and hand the donor to WUWF's donation form; the site never takes a gift.**
+
+- **Board 14a (the gift form) is deliberately not built as drawn.** It collects card number, CVC, bank routing and account numbers and a UWF employee ID. The site is not the
+  ledger (`CLAUDE.md`), has no payment processor, and collecting those details here would put the site in card-data scope for a department of the University. Instead the Give
+  card (the board's own: monthly or one time, the levels' amounts, what each comes to) sends the chosen amount and frequency to **WUWF's donation form**. Where it goes is the
+  `Giving pages` global's **Donation form address** (Contact and the form tab). With none set, no Give button is drawn and the card says to call (never a dead button).
+  **Whether the form reads the amount from the link is unconfirmed (a first test with `?amount=20` did not preselect):** the global has a switch, "The form takes the amount
+  and frequency from the link", off until someone tests it, and the parameter names to use; the note under the button changes with it, so the page never says an amount is
+  "already chosen" when it is not (`lib/giving/donate.ts`, `donationHref`, tested). Everything 14a draws that is not payment (where it goes, gift or memorial, about you, Day
+  Sponsor days and messages) is the donation form's job; **three panels and one FAQ answer assume the form has those fields** (below).
+- **Everything editable is in the admin (the standing rule).** The existing Support page global (slug `support-page`, now labelled **Giving pages**, same edit permission: membership
+  staff, publishers, administrators) holds every heading, sentence, amount, level, address and switch, with a tab per page. Code holds behaviour: which level a gift lands in and how many
+  Day Sponsor messages it earns (`lib/giving/levels.ts`, from each level's monthly minimum and the message tiers), the donation link, the strict reading of the thank-you address,
+  which way to give is open, and the markup. A level is `minimumMonthly` ($5, $10, $15, $100); a one-time gift counts by the year against the same line (12 times it).
+  The show support page (board 24) and the account page read the same levels and the "members' listening comes with" level, so there is one list of levels (the "$8" level and
+  the Combined Federal Campaign line are gone, as the boards say).
+- **Migration `20261117_224728_giving_pages`**: tested up, down and up on a database holding first-pass rows; `verify:migrations` passes. It **drops** the first-pass
+  fields (hero figures, "other ways" line, businesses and fellowships bands, footer note, level button addresses) and **clears the first-pass levels** (each now needs a monthly minimum),
+  then writes the boards' wording once from `lib/giving/starter.ts` (nothing reads that file at runtime). Anything an editor typed into the old page on staging is replaced; production
+  has never been migrated. It also overwrites "members' listening comes with" with "a sustaining membership of $10 a month or more".
+- **Not built because nothing supports it:** a gift-management account (the Give page's "change by phone or from your receipt email" replaces the board's "or through your account";
+  the board's own FAQ already says phone or the receipt link), saving anything about a donor, any record of a gift.
+- **The thank-you page reads its address strictly.** The donation form may send the donor back with `?name=&amount=&frequency=`; each is read only if it looks like a first name, a
+  whole-dollar amount and `monthly` or `once` (`lib/giving/thanks.ts`), and dropped otherwise, so the address cannot print a sentence of someone's choosing under WUWF's name. Nothing is
+  stored. The page is `noindex` and sends no referrer. With none of it, it says thank you without claiming to know the amount.
+- **Other ways to give is plain links, not script tabs:** `?way=stock` opens a way (a panel's own name, then a group's, then the first), so one can be linked to and the page works
+  without script. The only script is the Copy button and the gift card's selection.
+- **New shared pieces** (use these before building the same arrangement again): `components/PageParts` (hero in four tones, titled section, `ButtonLink` that draws nothing without a safe
+  address, `Faq`, `StepGrid`, `StepList`, `CheckList`, `LinkCards`, `ContactBand`, `CopyButton`, the pill and button styles), extracted from the sponsorship parts (which re-export them, so
+  the sponsor pages are unchanged; its FAQ now uses `Faq`); `lib/page-content.ts` (the text helpers) and `globals/fieldBuilders.ts` (the Payload field builders), likewise re-exported.
+- **Tests:** 64 unit tests (levels, donation link, thank-you address, ways, nav, content shaping), 4 render tests for the gift card, the rewritten integration test for the global (who may
+  edit, unsafe addresses refused, a stored configuration comes back as the donor's card). Checked in a browser at 1440 and 390 px: no horizontal overflow, no console errors, one `h1` and no
+  duplicate ids on each page; the card, the copy button and keyboard selection work.
+- **Also fixed:** the admin-navigation test did not list the `sponsorship` global (it failed since the sponsorship commit).
+- **Not done here:** links to `/support/...` from the header's About menu and the footer (both admin-edited globals; the header's Donate button already goes to `/support`); sitemap entries.
+- **Redirects from Grove's giving pages (built 2026-11-18, active when this site serves wuwf.org).** `src/lib/giving/legacy-addresses.ts` lists each address and why it goes where it does, and
+  `redirects.ts` (next.config, so no database and not subject to the doubled-`Location` problem under *Known gaps*) serves them ahead of any page: `/donate` and `/thanks-for-your-support` to
+  `/support` (**307**: owner, 2026-11-06, so they can be pointed at the donation form later); `/sustaining-membership` to `/support`; `/membership-levels-and-benefits` and `/day-sponsor-messages` to
+  `/support#levels`; `/leave-a-legacy` to `/support/legacy`; `/real-estate-donation` to `/support/ways?way=vehicles`; and the two stories under Grove's `/support/` section
+  (`/support/2014-10-31/wuwf-corporate-sponsors`, `/support/2017-02-08/wuwf-corporate-support`) to `/sponsor` (**308**; `support` is a path this site owns, so they could not be imported at their own
+  addresses). **Found by reading Grove's own pages (owner-approved 2026-11-18; robots.txt allows all; neutral client; 3 s apart; raw pages kept outside the repository):** `/donate` is not in any sitemap
+  (Grove answers it with a 301 to `/thanks-for-your-support`, and every Grove page links to it); 16 other likely addresses (`/give`, `/membership`, `/vehicle-donation`, `/planned-giving`...) are 404; Grove's
+  `/support` is a 200 section page, replaced by the Give page at the same address. The six inventory rows in `standalone-dispositions.csv` moved from `proposed:keep` to `proposed:replace`, so **the
+  importer should skip them** (a redirect wins over an imported page). Tests check each rule, that none loops or chains, and that a `?way=` destination opens that panel. Grove also serves redirects no
+  sitemap lists, so an old giving address printed in a newsletter or read on air is a one-line addition; Search Console's links report is how to find them.
+- **What Grove's giving pages showed about the donation form (2026-11-18).** WUWF's form is NPR's donation platform: `https://donate.nprstations.org/wuwf/` with **separate forms** for a one-time gift
+  (`/wuwf/wuwf-secure-pledge-form-one-time`) and a sustaining gift (`/wuwf/wuwf-secure-pledge-form-sustaining`), and a **sustainer update form** (`/wuwf/sustainer-update-form`) where a monthly gift is
+  changed. The giving global has **one** form address; per-frequency addresses (and a link to the update form for "change or stop a monthly gift") are the likely change: owner to confirm. Also:
+  the vehicle partner has a real-estate page (`https://wuwf.careasy.org/real-estate-donation`), which is what the vehicles panel needs for `/real-estate-donation` to land on something that describes it;
+  Grove's sustaining page names a different Member Services address (`trish@wuwf.org`) from the boards' (`lolly@wuwf.org`), so the address to publish is a decision.
+- **What Grove's giving pages showed about the donation form (2026-11-18), and what was built from it.** WUWF's form is NPR's donation platform, `donate.nprstations.org/wuwf/`, with **separate forms** for a
+  sustaining gift (`/wuwf-secure-pledge-form-sustaining`) and a one-time gift (`/wuwf-secure-pledge-form-one-time`), and a **sustainer update form** (`/sustainer-update-form`). The global now has a form
+  address for each frequency (a monthly gift goes to its form, a one-time gift to its own, the general address for anything else; a typed-but-unusable address is never replaced by the other frequency's
+  form), the Give FAQ items take an optional link (the monthly-gift question links the update form) and a way-to-give panel takes an optional second button (the vehicles panel links the partner's
+  real-estate page, `wuwf.careasy.org/real-estate-donation`). Migration `20261118_034853_giving_form_addresses` adds the columns and fills the three addresses, the FAQ link and the button from those
+  Grove links. **Pre-filling is still off**: nothing has confirmed these forms read an amount from the address. Still for the owner: the fund and attribution code in each address, whether the forms send a
+  donor back to `/support/thanks` (the thank-you page works without it), and whether they have the fields three panels assume (see the pre-launch list). Grove's sustaining page names a different Member
+  Services address (`trish@wuwf.org`) from the boards' (`lolly@wuwf.org`), so the address to publish is a decision.
+- **Migrations and the Local API (lesson, 2026-11-18).** A migration that writes through the Local API reads the *current* schema, so it breaks on a fresh database once a later migration adds a column to
+  the same global; `pnpm verify:migrations` caught it. The giving starter content is therefore written by the **last** migration that touches the global (`giving_form_addresses`), only when the global is
+  empty, and `giving_pages` is schema-only. Do not add a Local API write for this global to an earlier migration.
+- **Read on Grove and deliberately not redirected:** `/how-can-i-promote-my-cause` routes an event to the Community Calendar, a business to sponsorship, a nonprofit to the quarterly on-air spotlight and a
+  story idea to the newsroom (so one destination would drop three of four), and `/our-corporate-sponsors` is a list of sponsor names with no page here to replace it. Both stay `proposed:keep` for the importer.
+
+## Sponsorship pages, boards 16 to 20b (built 2026-11-17; moved into `pages` as sections 2026-11-19, phase 3)
+
+**Moved.** The six pages are records in `pages` (the sponsor set) built from sections, and their prices, rates, contact details, form choices and programs are the `Sponsorship settings` global (see *Phase 3* above). The paragraphs below describe the content and behaviour as built on 2026-11-17 and are history where they say "the `Sponsorship` global" or name a route or view: `CLAUDE.md` → *Pages and sections* is the rule now. The old global is hidden and is dropped in phase 7.
+
+The "Sponsor WUWF" section of the reviewed canvas is built as public pages: `/sponsor` (16, the hub and the inquiry form), `/sponsor/on-air` (17),
+`/sponsor/digital` (18), `/sponsor/events` (19), `/sponsor/audience` (20) and `/sponsor/credit-guidelines` (20b). The boards (rethought Nov. 17, strategy
+"sell trust, not response") win on copy, order and layout. **This is the business-facing description and price list only.** Placements on the site,
+entitlements and proof of performance are still the open Portal-side design above; nothing here books, serves or records a sponsor.
+
+- **Everything editable is in the admin (owner's standing rule: copy and UI configuration live in Payload, not in code or environment variables).** The
+  `Sponsorship` global (Pages & hubs; publisher edits) has a tab per page: every heading, paragraph, button label, rate-card row, package, Carpool price,
+  discount percent, goal and its lines, placement, figure with its source line, testimonial, FAQ entry, sector view, credit-guidelines list and closing band,
+  plus phone, address, the inquiry notice, the form's choices and field labels, and the sample business used in illustrations. Every optional section has a
+  **Show this section** switch. Code keeps behaviour only: the estimator's arithmetic (`lib/sponsorship/rates.ts`), the form's validation and anti-abuse,
+  the markup. **Still in code:** the six page routes, the placement table headers and "Illustration" captions, form validation messages, and small fallbacks
+  (nav names). Migrations `20261117_181047_sponsorship_pages` (events and programs) and `20261117_194934_sponsorship_copy` (the rest; it writes the reviewed
+  boards' wording through the Local API once, from `lib/sponsorship/starter.ts`, which nothing reads at runtime), tested up, down and up;
+  `verify:migrations` passes. Saving the global refreshes `/sponsor`.
+- **Inquiries are mailed, not stored, to an address entered in the admin** ("Where proposal requests are sent", Contact and form tab; a **staff-only field**,
+  read only by the server when a form is sent and removed from what pages receive). Sending uses the Resend settings the membership claim already uses (those
+  are credentials, so they stay environment variables). Empty address or no mail service: the form says online requests are not set up (the message is an
+  admin field) and never pretends to send. Honeypot, signed timing token and length caps guard it; no per-address rate limit (nothing is stored to count).
+  **Enter the address and the university's IT-04 notice in the admin before launch.** `Mail` gained an optional `replyTo`.
+- **Brackets on the boards are review notes, so the starting content prints none.** A product with no confirmed price or size is left out or reads "Priced on
+  request" (the website "Banner" row, e-newsletter and website ad sizes, the rates-effective date, the IT-04 wording, the "draft for UWF review" line on the
+  guidelines, the Nielsen / NPR-permission / "do WUWF's counties fall in the C and D group" notes). They are the **pre-launch checklist** below.
+- **Decisions to confirm.** The rate card keeps the board's three weekend rows; the root `CLAUDE.md` lists Traffic's names as "Weekend", so check them against
+  the Portal's (a label edit in the admin). Package 2's Total Program Rotation credits work out to $19 against $30 open (the board's open question); a test
+  records the $19. Typed prices in goals and place cards are text the editor keeps in step with the rate card (the estimator and the package prices read the
+  numbers). The Book Club is seeded as open although the board lists "whether the partnership is open now" as unconfirmed: set it to Held if it is not.
+- **Not done here.** Links to `/sponsor` from the header's About menu and the footer's For-businesses column (both are admin-edited globals), the Support page's
+  "Sponsor WUWF" button address (`/sponsor`, in the Support page global), sitemap entries.
+- **Before launch:** corporate support confirms the rate card's effective date, who counts as a new sponsor, package length and end date, website and
+  e-newsletter ad sizes, the website banner, event levels and recognition, the IT-04 notice, the final credit-guidelines policy (UWF review), whether WUWF's
+  counties fall in NPR's small-markets group, Nielsen's citation and use terms, and NPR's permission to publish Audience Insights data
+  (audienceinsights@npr.org). Whether WUWF reports views and clicks to sponsors is undecided; the pages promise nothing about it.
+
+## Cards with audio, audio order, section nav (2026-11-16)
+
+- **One player for all audio** (2026-11-16, after looking at how wuwf.org does it: its story and card "Listen • 7:37" pills all hand off to one persistent player bar). `PlayerProvider` (root layout, so it survives navigation) now plays the live stream or one on-demand track; `PlayAudioButton` is the play button for a track and `PlayerBar` shows it (title linking back to the story, seek slider, back/forward 15 s, volume, "Listen live"). Cards, the story and episode pages, show pages, Unearthing and the home page's podcast and Unearthing slots use it; none has its own `<audio>`. Without script a plain control stands in (`<noscript>`). Not changed: the listening flow's "listen back" of a visitor's own recording, and the RadioLive and clip videos.
+- **Story cards play their audio** (a `PlayAudioButton` above the card's stretched link). `featuredAudio` joined `CARD_FIELDS` and the other card selects (posts list, fellowship hub, "More from", related stories). A members-only story's audio comes back empty for the public, so its card shows no player.
+- **On a story page the audio player sits straight under the headline block, before the featured media** (`StoryView`, and the themed episode page).
+- **Broadcast schedule hero** gained its missing bottom padding.
+- **`components/SectionNav` is the standard sub-navigation** (rule in `CLAUDE.md`). RadioLive's hub uses it (`lib/radiolive/nav.ts` lists only sections that render; the old bar linked to Artists, Encores and Support even when empty). **Not yet moved to it:** the Voyager's masthead nav (its own design), and the RadioLive show and artist pages, which keep a "back to RadioLive" breadcrumb. Not checked in a browser at 390 and 1440 px; do that before merging.
+
+## Embeddings admin panel and tunable thresholds (built 2026-11-18)
+
+Asked for by the owner so the archive can be embedded, and the thresholds set by eye, without a terminal. **Branch** `claude/awesome-thompson-lrv2xd`, no PR. Migration `20261118_154406_site_settings_embedding_tuning` (three `numeric` columns on `site_settings`, with defaults) tested up, down and up, `verify:migrations` passes.
+
+- **Site settings -> "Related stories and search by meaning"**: three numbers (related floor 0.1 to 0.9, default 0.35; search floor 0.05 to 0.9, default 0.2; most from one show 1 to 4, default 2). `lib/embeddings/tuning.ts` clamps them and falls back to the defaults; the story page and `/search` pass them to the pure ranking functions. Saving revalidates every page.
+- **The "Story embeddings" panel** (same place): "N of M published stories embedded", **Embed the next 20** / **Embed all waiting** (a loop of 20-story requests, with a stop button), and **Show examples**: five random stories with their eight nearest and whether the numbers on the form (saved or not) would show each. Endpoints under `/api/globals/site-settings/embeddings` (`GET` status, `POST .../run?after=<id>`, `GET .../examples?related=&perSeries=`), `lib/embeddings/admin.ts`.
+- **Who may use it: `settings.manage`, which only the administrator role holds** (editor and publisher do not; an integration test says so). The embed endpoints spend the provider key, and Site settings already needs this permission to save. **Open question for the owner: should publishers be able to tune the numbers?** That needs the three numbers in their own global with `content.publish` access (a field cannot be editable by a role that cannot save its global), a migration moving the columns, and the embed buttons staying administrator-only.
+- **Not covered:** the panel embeds stories with *no vector*. A story edited since it was embedded is re-embedded when it is saved; `backfill.ts` finds any that were not. The first-time estimate of size stays the script's dry run. Not checked in a browser (no admin login here): the panel is typechecked, linted and built but its look and its fetches have not been seen.
+
 ## Vector search and similar stories (built 2026-11-13; not yet run on real data)
 
 **Branch:** `claude/eloquent-einstein-acfwc9` (`wuwfdevs/portal`), **no PR opened** (ask before opening one). Migration `20261113_222100_story_embeddings` tested up, down and up;
@@ -25,7 +851,11 @@ needs a key, and needs the migrated stories; with no key the site behaves exactl
   small recency preference (1.0 for new work down to 0.85, never outweighing closeness), at most two from one show or series, four shown. Read when the page renders (the page is cached
   like any story); loaded through the Local API with `overrideAccess: false`, so only published stories the public may read are ever offered. No vector, or any error: no section, never a
   failed page. Not shown in previews.
-- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; a publisher or administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
+  **How it looks (redesigned 2026-11-18, canvas boards 3a to 3e, "More like this"):** `components/Article/RelatedStories` draws the closest story as a lead (picture, description) and the rest as short rows. A
+  story shows "Same topic / series / show" only when it really shares one with the story being read, and "From <date>" when it is over a year old; audio keeps `PlayAudioButton` (outside the stretched link). One story
+  takes the full width; a lead with no picture becomes a quiet panel; none renders no section and no heading. The wording and rules are the pure, tested `lib/embeddings/present.ts`. Not built from the boards: the
+  Option B "Next up" hand-off (3b), and a byline or reading time on an entry (the query does not select them).
+- **Semantic search** (`lib/embeddings/search.ts`, `/search`): **off unless `OPENAI_API_KEY` is set and the Site settings switch "Find stories by meaning in search" is on** (default off; an administrator flips it in the admin, with no deploy; read through the cached global, which the Site settings save already revalidates). It supplements keyword search and never replaces it: when keywords find
   nothing, the stories nearest in meaning fill the page ("No exact matches for ... These stories are about similar topics."); when they find something, up to six more sit under the first page as
   "Stories on similar topics". The type filter applies. A provider failure or a 3-second timeout shows keyword results alone. The query is never logged or stored (held as a vector in the
   server's memory for an hour).
@@ -55,8 +885,8 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
 **Needs the owner:**
 - **Go-ahead to send WUWF story text to OpenAI, and the key.** A paid call: the dry run gives the count and size first; the cost at OpenAI's published rate for this model is small (an estimate from the
   story count: well under a dollar for the archive; **check the current price**). Set `OPENAI_API_KEY` on the site's Vercel project (server only).
-- **The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service): WUWF stories can contain such text. Settle it before the first `--apply`.
-- **Approval to send visitors' search words to OpenAI** (turn on Site settings -> "Find stories by meaning in search"), and wording for the privacy notice (UWF IT-04 / site privacy page) that says so. Until then search is keyword-only.
+- ~~**The licence question already open for the LLM pass** (News Service of Florida and AP text sent to a third-party service)~~ **Settled by the owner, 2026-11-18.**
+- **Approval to send visitors' search words to OpenAI** (turn on Site settings -> "Find stories by meaning in search"). **Privacy wording written (2026-11-18):** `lib/embeddings/notice.ts` holds `PRIVACY_PAGE_PARAGRAPHS` for the privacy page. A one-line notice on `/search` was built and then removed (owner, 2026-11-18: nothing identifying the visitor is sent). **The paragraphs still have to be pasted onto the site's privacy page in the admin** (a Page; not done from code), and the switch stays off until they are there. The AP and News Service of Florida licence question is closed (owner, 2026-11-18). The search cache is now keyed by a hash of the words, not the words.
 - ~~**Enable the `vector` extension**~~ **Done (2026-11-13).** Staging: the migration created it (`CREATE EXTENSION IF NOT EXISTS vector`, schema `public`) when the preview build of this branch ran `payload migrate`
   on the shared staging database (`MIGRATE_ON_BUILD=1`), so the `payload_app` role can create it. Production: enabled by hand in the same schema (`public`, to match staging), version 0.8.2.
   **Production's database is empty (checked 2026-11-13): no tables and no `payload_migrations` ledger, so the site has never been set up there.** The embeddings migrations cannot be applied alone (they need `posts`); they go with the rest when production is first migrated (`pnpm payload migrate` with the production `DATABASE_URL`, deliberately, at the importer's step 3: `IMPORT.md`). Nothing was applied to production except the `vector` extension. Staging has `story_embeddings` and
@@ -65,7 +895,7 @@ backfill run `scripts/embeddings/inspect.ts`, read the neighbours of 15 to 40 st
 - Whether **NPR and wire stories** should ever be embedded (they are not today); it depends on NPR's CDS terms (`ARCHITECTURE.md`, CDS sync).
 
 **Not built:** rate-limiting the search page (each uncached query is one embedding of about ten tokens, a negligible cost, but a bot could still make calls: add a limit if the key's usage ever shows it);
-a scheduled sweep (the backfill is run by hand; a failed save-time embed is logged and caught by the next run); an admin screen for embeddings; the "reviewed LLM pass" for alt text and topics (a separate item below).
+a scheduled sweep (the backfill is run by hand; a failed save-time embed is logged and caught by the next run); ~~an admin screen for embeddings~~ (built 2026-11-18, below); the "reviewed LLM pass" for alt text and topics (a separate item below).
 
 **Where it sits in the migration:** import, repair bodies, move shows (`IMPORT.md` steps 3 and 4), **then embed (step 5)**, then the post-import check. The site can go live without step 5 (keyword search and
 every page work), so it does not block the cutover, but **the migration is not complete until `backfill.ts` reports "vectors stored" equal to "eligible" and a second run embeds nothing**; the cutover
@@ -81,8 +911,12 @@ passes; migrations `20261107_043501_board27_header_search_public_file` and `2026
 - *Header: everything after the logo is configured in the admin (Header global), nothing is fixed in code.* **Header
   items** (up to 10, any order, drag to reorder) are each a **link** or a **menu**. A menu has a label, a panel heading, one
   sentence and up to 20 links, and opens a panel under the header. It is a real button with `aria-expanded`; Escape closes it and
-  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). On a phone the row
-  scrolls sideways under the logo, as on board 27b (this replaces the old phone menu, `SiteNav/MobileMenu.tsx`, removed). The
+  returns focus to its button; a click outside or a navigation closes it (`components/SiteNav/MenuBar.tsx`). **Changed 2026-11-20 (owner, after
+  reviewing it on a phone):** below `lg` the row no longer scrolls sideways (items past the edge were invisible and a menu opening
+  inside a scroller was awkward); a **Menu** button opens a full-height sheet instead (`components/SiteNav/MobileMenu.tsx`: a link is a row, a
+  menu is an accordion row, a menu's heading and blurb are desktop-only; Search is a field at its top and Sign in a row at its foot), the phone header is one row (Menu, logo, Donate) and `MenuBar` is desktop only. **Listen live on a phone is the player bar** (`PlayerBar`, below `lg`): it is there from the first page view whenever the station has a stream (before that it appeared only after a first play), its switcher button opens `ListenSheet` (every stream with its own play button, what is on now and next, the schedule link), and the header's Live button is desktop only. Before play it makes no now-playing request, so it shows the stream's name, not the program's. This overrides board 27b's phone
+  row. `SectionNav` keeps its sideways strip but fades the edge with more beyond it. (Before that, on a phone the row
+  scrolled sideways under the logo, as on board 27b, replacing an older phone menu, also called `MobileMenu.tsx`, removed.) The
   items are the old `navItems` list, extended, so links already entered stay as items of kind "link". **Buttons on the right:**
   Search, Sign in and Donate can each be hidden or relabelled, and Donate's address set (a site path or an https address; anything
   else falls back to `/support`). Sign in shows only while audience sign-in is configured. The optional second row
@@ -247,13 +1081,13 @@ sign-in (built; needs the Supabase settings under *Phase 7*)**, then **7c, membe
 **Next, in order:**
 1. **The staging import**, then the show move above (runs on the owner's computer; the cloud sandbox cannot reach hosted Postgres).
 2. **RadioLive:** the artist and show **backfill** from Grove's old page (a converter, plus an owner-approved photo fetch); calendar merge (list shows in the community calendar from `performances`, never copy them into `events`) and `Event` structured data; check migrated Grove events for RadioLive duplicates first.
-3. **Sponsorship design** is open and **not a site-only job**: see below. Do not extend the site's `underwriting-agreements` schema or build booking or placement logic in Payload.
+3. **Sponsorship**: the business-facing pages (boards 16 to 20b) are built (see *Sponsorship pages*); the delivery design (placements, entitlements, proof of performance) is open and **not a site-only job**: see below. Do not extend the site's `underwriting-agreements` schema or build booking or placement logic in Payload.
 
 **Waiting on the owner:** the wording of the funder panel's independence sentence for programs ("...what WUWF airs"; it now also shows on the home page's podcast feature); whether Encores (`/show/radiolive-encores`) is a separate program; entering the RadioLive page content (RadioLive 25 text and the staff contact, the plan-your-visit facts, the real artist spellings: Pat Byrne, Julie Patchouli); a **Video and RadioLive link in the site header** (a global, edited in the admin); and the sponsorship product list (below).
 
 **Sponsorship direction (a recommendation, not decided; the owner says an existing design may cover it and it was not found in the repository: ask for the project brief or the design doc before building).** The Portal holds the deal (contract, sponsor, typed lines, approved wording, proof of performance); broadcast and digital sponsorship are two line families on one contract, each line anchored either to **a span of time** or to **a specific thing** (a performance sponsor stays on that night's record for good); the site is the delivery surface and defines **placements** as a typed registry in code, with an immutable reference key on each sellable thing; entitlements reach the site as a signed, versioned **snapshot pulled after a signed notice, cached with a last-known-good copy** (never a per-request call; the site must stay usable if sponsorship serving is down); the site's own agreements collection is the interim manual source behind the same resolver. **Stopgap in force:** a RadioLive show page carries no funder line, only `/radiolive` does. The resolver's header still cites a canvas board; point it at a repo document once one exists.
 
-**Working in the cloud sandbox, new this session:** the local Postgres stops when the sandbox idles (restart with the command under *Running things in a fresh sandbox*, after `rm -f /var/tmp/wuwf-site-pg/postmaster.pid`); scripts that use Payload need `.env.local` sourced (`set -a; . ./.env.local; set +a`) and run from inside `apps/site`; integration tests that upload files need `// @vitest-environment node`; run route handlers in tests with `next/cache`'s `unstable_cache` mocked; `.env.local` and demo data are local only (gitignored).
+**Working in the cloud sandbox, new this session:** the local Postgres stops when the sandbox idles (run `bash scripts/dev/pg-up.sh`; see *Running things in a fresh sandbox*); scripts that use Payload need `.env.local` sourced (`set -a; . ./.env.local; set +a`) and run from inside `apps/site`; integration tests that upload files need `// @vitest-environment node`; run route handlers in tests with `next/cache`'s `unstable_cache` mocked; `.env.local` and demo data are local only (gitignored).
 
 ### Earlier hand-off (end of the 2026-11-04 session: the migration gaps assessment)
 
@@ -309,7 +1143,7 @@ not WAV; **running on the owner's computer:** the episode body repair against st
 
 **Branch:** `claude/eloquent-thompson-7gpsj2` (`wuwfdevs/portal`), pushed, and **PR 325** (https://github.com/wuwfdevs/portal/pull/325) is open for it: push more commits to update it, do not open another. The repo's PR-text check needs a Summary, What changed and Test plan section; keep the description current when the scope changes. Everything below is committed.
 
-**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which are deferred. The build
+**Where the work is.** The owner's instruction: build every board **except sponsorship (16-20) and listening (5-6)**, which were deferred (sponsorship was built later, 2026-11-17: see *Sponsorship pages*). The build
 program is under *The build program*. **Phases 1 to 4 are done** (standard pages; shows, episodes, podcast directory; the community
 calendar with public submissions and editorial approval: see *Community calendar*; author profiles and the Unearthing Florida and Voyager hubs: see *Phase 4*). **Next: phase 5** (short video), 6 (RadioLive), 7 (Barefoot Mary and member feeds: **design with the owner first**, it needs
 sign-in, entitlements and private feeds), 8 (redirects, sitemap, search results, gallery page, retire the starter `/posts`), 9 (fill
@@ -348,9 +1182,7 @@ the two public Supabase variables. The Portal's Production env is deliberately u
 - Outbound is **HTTPS through a proxy only**: no direct Postgres, so the importer and `payload migrate` against Supabase cannot run here;
   they run on the owner's computer (Cowork) or in Vercel's build. Supabase's SQL tool (HTTPS) works for small administrative SQL.
 - Hosts must be allowed in the environment's network settings; the NPR file hosts, `wuwf.org` and the Supabase hosts were allowed by the owner.
-- Local Postgres dies when the sandbox idles: `rm -f /var/tmp/wuwf-site-pg/postmaster.pid; su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl
-  -D /var/tmp/wuwf-site-pg -o '-p 5433 -c listen_addresses=127.0.0.1 -c unix_socket_directories=/tmp' -l /var/tmp/wuwf-pg.log start"`
-  (a fresh sandbox: see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
+- Local Postgres dies when the sandbox idles: run `bash scripts/dev/pg-up.sh` (a fresh sandbox too; see *Running things in a fresh sandbox*). Run scripts that use Payload with `NODE_ENV=production` and `< /dev/null`, so
   development mode does not push schema changes.
 - Never create a Vercel deployment with the tool for a project that has no production deployment yet: it came back as a *production* one
   (cancelled in seconds, nothing went live). Push a branch instead.
@@ -364,7 +1196,7 @@ approved hosts load without a click, any other public https host loads behind a 
 without a click** from built-in or approved hosts, publisher-only to add; **no third-party scripts otherwise**; the importer's defaults
 (sections from the path, "WUWF Staff" for no byline, extra byline names kept and flagged); editors post live updates, publishers open and
 end a blog, bylines optional, comments left out, polling our own endpoint; the full import goes to **production, rehearsed on staging first**;
-sponsorship and listening are deferred.
+sponsorship and listening were deferred (sponsorship pages built 2026-11-17).
 
 ## Where things stand (Milestone 1)
 
@@ -403,7 +1235,7 @@ sponsorship and listening are deferred.
 | **Story lists**: section (`/local-news`), topic (`/tags/<slug>`) and person (`/people/<slug>`) pages | **Built** (2026-11-03). One shared list page for all three, at Grove's own addresses, 12 stories a page, newest first, the newest large on page 1; pages after the first at `<address>/page/<n>` (`/page/1` and a page past the last are 404s; a real page at one of these addresses wins over a list). Real links for paging (44 px, no script), a title and canonical per page, an empty list says so. Publishing, changing or removing a story refreshes the first page of its lists at once; deeper pages catch up within 10 minutes. The homepage's local-news grid links to its section page. 4 unit and 6 integration tests; checked in a browser at 1440 and 390 px. **Not done:** a design for these pages (the boards have none, so they reuse the story card and the fellowship layout), a search-results layout, a people index, sections and lists in the sitemap, and the empty `/posts` starter list (still the starter's, titles only). **For the importer:** topics and people must be created with Grove's own slugs so the 905 tag and 1,148 people addresses survive; `scripts/grove/import.ts` now passes them, **but an import already running uses the old code** (slugs from names, usually the same, not always): check a few `/tags/` and `/people/` addresses after it |
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, newsletters, "From NPR", sponsor placements. (Podcasts, RadioLive, Unearthing Florida and short videos were added 2026-11-06: see *Resume here*.) The membership band's wording is the Article page's; the owner should confirm the front-page copy |
 | **Author profiles and the Unearthing Florida and Voyager hubs** (Grove `AuthorPage`; boards 11, 13) | **Built** (2026-11-03). See *Phase 4*. |
-| Audience listening: screens over the Portal's signed listening API (decided 2026-11-04: the Portal owns the data; the site has no listening collections) | **Phase B built (2026-11-09):** the full question set (`/listens/<publicId>`, boards 5b and 6-H), the inline asks B, C and D, the invitation A, and the hub (`/listens`, board 5, as far as the Portal serves it). Verified in a real browser at 1440 and 390 px against a stand-in Portal that checks every signature; **not yet against the real Portal**: it needs `PORTAL_ORIGIN` and `PORTAL_LISTENING_SECRET` set here and the matching secret in the Portal, and the Portal's two 2026-11-09 migrations applied. Unverified until the first real upload: the raw `PUT` to the signed upload address. **Not built:** an editor block to place B, C or D in a story, topic page or episode (needs a Payload migration; `components/Listening/ListeningInline` is what the block will render), Ask WUWF, host requests, sessions, tables, and the campaign and report bands (suite phases C to E). See *Listening: where it stands* below |
+| Audience listening: screens over the Portal's signed listening API (decided 2026-11-04: the Portal owns the data; the site has no listening collections) | **Phase B built (2026-11-09):** the full question set (`/listens/<publicId>`, boards 5b and 6-H), the inline asks B, C and D (since replaced by the full set in every placement), and the hub (`/listens`, board 5, as far as the Portal serves it). Verified in a real browser at 1440 and 390 px against a stand-in Portal that checks every signature; **not yet against the real Portal**: it needs `PORTAL_ORIGIN` and `PORTAL_LISTENING_SECRET` set here and the matching secret in the Portal, and the Portal's two 2026-11-09 migrations applied. Unverified until the first real upload: the raw `PUT` to the signed upload address. **Not built:** an editor block to place B, C or D in a story, topic page or episode (needs a Payload migration; `components/Listening/ListeningInline` is what the block will render), Ask WUWF, host requests, sessions, tables, and the campaign and report bands (suite phases C to E). See *Listening: where it stands* below |
 | Analytics foundations | Spec only (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
 | Starter lint errors (Header, Card, Theme provider) | **Fixed** (components replaced); 3 warnings remain in the starter's e2e tests |
@@ -461,17 +1293,15 @@ the signed upload address the Portal issues.
   a body is never logged), `visitor.ts` (the `wuwf_listening_visitor` cookie, 30 days, and the keyed per-day address hash), `flow.ts` (what
   each screen says and what blocks it), `send-answer.ts` (reserve, upload, complete: "saved" is said only after the Portal confirms),
   `inline.ts` (when a question can be answered inline), `hub.ts` (the hub's sentences), `messages.ts` (one sentence per refusal code).
-- `src/components/Listening`: `QuestionSet` (the full set), `InlineAsk` (B in a story, C at the head of a topic page, D after an
-  episode), `Invite` (A), `HubView`, `ListeningInline` (the server component that places one of them and renders nothing when the question
+- `src/components/Listening`: `QuestionSet` (the full set; its `placement` is `page`, `story`, `topic` or `voice`), `HubView`, `ListeningInline` (the server component that places one of them and renders nothing when the question
   is closed or listening is not set up), `useRecorder` (native `MediaRecorder`; the microphone is asked for once).
 - Routes: `/listens` (the hub) and `/listens/<publicId>` (the full set). Server actions: `listens/actions.ts`.
 - Decisions made while building, to confirm: the hub lives at `/listens`; text buttons use `--wuwf-blue-700`, not the boards' `--wuwf-blue`
   (white on it is 3.4:1, under the site's 4.5:1); the full set offers Record and Write only when the query turns written answers on;
-  an inline ask answers the query's first question and is replaced by the invitation when another question is required or a detail
-  other than name and email is; no hub card shows a count of answers unless the question has an outcome.
+  every placement shows the query's full question set (owner decision, 2026-11-18; the one-question inline asks B, C and D were removed); no hub card shows a count of answers unless the question has an outcome.
 
 **Placing a question (built 2026-11-10).** `listeningAsk` is a story-body block (`blocks/ListeningAsk`: the question's code or its
-`/listens/<code>` address, and "in the story" or "after an episode or video" with an optional recipient and one line about what
+`/listens/<code>` address, and "in the story" (**the full question set, embedded: the same screens and rules as `/listens/<code>`, 2026-11-18, owner decision**) or "after an episode or video" (the same set, leading with recording) with an optional recipient and one line about what
 happens to it); a topic has an optional **Listening question** field and shows it at the head of its first page (`categories.listening_question`,
 migration `20261110_171043`). Both render `ListeningInline` through `loadPlacedQuery`, which sends no rate-limit hash and keeps the
 Portal's answer for five minutes, so a story or topic page that holds a question stays built ahead instead of rendering on every view (the
@@ -971,7 +1801,7 @@ A **built-in list** (`DEFAULT_EMBED_HOSTS` in `src/lib/embeds.ts`: DocumentCloud
 
 ### The build program (owner, 2026-11-03: build everything except sponsorship and listening)
 
-Deferred by the owner: boards 5-6 (listening) and 16-20 (sponsorship). Everything else is to be built, in this order (the order
+Deferred by the owner at the time: boards 5-6 (listening) and 16-20 (sponsorship; since built, see *Sponsorship pages*). Everything else is to be built, in this order (the order
 follows what replacing Grove needs first, then the new products):
 
 1. **Pages**: a template system for the `pages` collection and Grove's standard pages. **Done.**
@@ -1181,6 +2011,16 @@ above still apply to these feeds too.
 **Owner to confirm:** the members' panel wording ("This episode is for WUWF sustaining members…"); the Chenier licence (or keep Lora); the
 header-strip layout split; whether a members-only story should exist on staging before 7b (today nobody outside the staff can read it).
 
+### Admin sidebar and look (2026-11-19)
+
+Owner asked for a clearer admin hierarchy, a two-level sidebar, one Network screen and the brand's tokens and logo. Rules are in `CLAUDE.md` -> *The admin: sidebar and look*.
+
+- **Sidebar:** one tree (`src/lib/admin-nav.ts`) replaces the groups listed under *Admin organization* below: Stories, Pages, Shows & series, Events (Community calendar; RadioLive), Organize, Media library, Sponsorship, Members & accounts, System, Site settings. A custom `Nav` draws two levels; `plugins/adminNav.ts` sets each entity's group and sorts the config so the dashboard matches. "Users" is "Staff accounts", Posts are "Stories", Network stories are the "Network queue". Settings moved to their domain (Sponsorship settings under Sponsorship). Not built: the in-tree split of Pages by page set (sponsor, giving) as filtered links; nothing needs it until phase 4.
+- **Sidebar follow-up (owner feedback, same day):** headings start closed and open only for the page being shown (or a saved choice), and a sub-heading is level with its sibling links with only its children indented (it had been indented itself, with its children level with it). Rule and tests: `startsOpen` in `lib/admin-nav.ts`.
+- **Network queue** is the one Network screen (the list view of `network-items`), rebuilt: counts, source dropdown, thumbnails, paging, bulk actions, a confirm before Dismiss, one "Publishing is not available yet" banner. **Checked in a browser against seeded rows** (keep, bulk dismiss, a mixed bulk keep, paging, the source filter, phone width, dark mode). **Not checked:** a thumbnail that loads (the sandbox cannot reach NPR's image hosts, so only the blank fallback was seen), and whether NPR allows hotlinking (still open, above).
+- **Look:** Payload's variables come from the tokens (`lib/admin-theme`, `pnpm generate:admin-theme`), primary buttons are the station blue, the WUWF wordmark is on the sign-in screen and in the navigation, and the tab title and favicon are the station's. Light and dark mode both follow the tokens.
+- **Pre-existing, not touched:** `PlayerProvider.test.ts` fails lint (`react/no-children-prop`), and `revalidateSiteSettings.test.ts` reports an unhandled rejection from plugin-seo during `buildConfig` (`Cannot destructure property 'slug' of 'global'`); both reproduce on a clean tree.
+
 ### Admin organization and merged collections (2026-11-03)
 
 - **Sidebar groups:** Content (Posts, Pages), Media library (Media, Audio, Video), Editorial, Community calendar, Commercial,
@@ -1315,6 +2155,143 @@ design canvas has **no designs for** authors, events detail, standard pages, the
 or RadioLive artist and performance pages: each needs a design or reuses the closest template. Board 25 (member feeds) is a
 signed-in account page, not CMS content.
 
+## Network content: queue, sources and sections (design agreed 2026-11-18; first slice built, publishing blocked)
+
+**Status.** Designed with the owner, with a mockup (claude.ai artifact "Network Content Queue": queue, sources, section page), and the owner
+approved building it (2026-11-18). **Built:** the collections, the poll, the queue view and the posts' original-address fields (list under *Built*, below).
+**Blocked:** anything that needs a real CDS response (the site's own key, and the CDS host in the sandbox's allowed list): the story-body converter,
+and therefore publishing a network story, which is why the queue's Publish button says "not available yet". Text below marked "from the CDS docs" was
+read from the CDS documentation; the rest is the design. It extends the CDS sync row in `ARCHITECTURE.md` (Milestone 3) and the 2026-11-04 decision
+above ("the CMS will import wire stories and let editors choose which to publish").
+
+**Today in Grove (as the owner described it).** WUSF stories fill the Florida News section, NPR stories the NPR News section and FPREN stories Weather,
+all automatically. Everything else is chosen by hand: Florida News Exchange stories are entered manually, and other NPR stations' stories are found
+through a "network" tab in Grove's admin that filters by an ID. What that ID is has not been checked.
+
+**What CDS provides (from the CDS docs at `npr.github.io/content-distribution-service`, read 2026-11-18).**
+- Any authorized client can read all CDS data, including other stations' documents. A key is tied to one client; stations request one from NPR Member
+  Partnership. The Portal's `NPR_CDS_TOKEN` is the Portal's client: **the site needs its own key**.
+- `GET /v1/documents` filters by `ownerHrefs` (an Organization V4 service, e.g. `https://organization.api.npr.org/v4/services/s583`), `collectionIds`
+  (NPR's own topics, programs and blogs; integers), `profileIds`, `ids`, and date ranges on `publishDateTime` and `editorialLastModifiedDateTime`
+  (`from...to`). Default sort is newest first. `limit` is at most 300, `limit + offset` at most 2000, and there are **no cursors**, so results can shift
+  between requests. Responses carry a `resources` array.
+- **Notifications (webhooks) are for NPR's internal users, not member stations.** A station polls. A deletion is not announced: a document that has gone
+  is found by asking for it by `ids`.
+- **Restricted content:** a document or asset with `isRestrictedToAuthorizedOrgServiceIds: true` must not be republished, indexed, or linked to publicly
+  by non-CDS users. A restricted asset inside an unrestricted story is hidden and the rest of the story is fine.
+- **Attribution:** there is no attribution field. Credit comes from a document's `branding` links to Organization V4 records (`brand.displayName`).
+- A station writes only documents whose ID carries its prefix (`PUT /v1/documents/<id>`), which is the outbound half of the existing CDS sync row.
+- **Not documented there, so unverified:** whether the same story from two stations shares one document, what the terms allow for storing or caching
+  documents (the docs defer to NPR's Terms of Use, which this session could not open), and any rate limits.
+
+**Proposed design.**
+1. **Two layers, not drafts.** A `network_items` collection holds every story the poll finds (headline, teaser, link, image address, credit, dates, CDS id,
+   status `new` / `held` / `dismissed` / `published`, a link to the post it produced). It has no versions or drafts and is disposable.
+   A `posts` record is created **only when a story is published** (automatically for sources set that way, by an editor for the rest), with `source` set to
+   `npr` or `wire` and the existing rules: read-only except headline, teaser and description, re-pulled, never archived separately. Imported but unpicked
+   stories are **not** draft posts: a draft means unfinished WUWF work, and candidates would bury the Stories list, add versions on every re-pull and
+   make purging risky (posts carry redirects and embeddings). The candidate row stays thin, with no body. **The body is fetched from CDS at the moment of
+   publishing** (`GET /v1/documents/<id>` with `transclude=layout`, plus its assets) and converted to the post's blocks, and later polls re-pull a published
+   post from its source. That needs a converter from CDS document layout to Payload blocks, like Grove's (`src/lib/grove`); the CDS `story` profile and
+   layout have not been read yet.
+2. **Sources are records.** A `network_sources` collection: name, how its stories are found (CDS owner service ID or CDS collection ID),
+   suggested section, and mode (publishes on its own, or waits in the queue). Adding a station is a record, not a deploy. WUSF, NPR and FPREN would be
+   "publishes on its own"; other stations wait. **If WUSF and FPREN publish to CDS (unconfirmed) there is no feed adapter at all**; the Florida News Exchange
+   is the one source that is not CDS, and it is not a source record at all (item 6).
+3. **Polling.** A job per source asks CDS for documents changed since its last run (`editorialLastModifiedDateTime`), pages through them, and upserts by CDS
+   id. **Documents flagged restricted are filtered out at ingest**: not stored, not shown in the queue, not linked; the poll log only counts them.
+   A restricted asset inside an unrestricted story is dropped and the story kept. If a story already held (published or not) turns up restricted on a
+   later poll, it is unpublished and an editor is told. A published story whose document has gone is
+   flagged for an editor, not silently removed.
+4. **Credit** comes from the document's branding links, looked up once per organization and cached.
+5. **How a story appears: a full story page on wuwf.org, credited to the station that wrote it.** No link-out cards. Owner (2026-11-18): NPR's terms allow
+   republishing other stations' work, WUWF does it daily, and that is the default; only documents flagged restricted are excluded (the CDS docs agree: with
+   the flag missing or false, "the content may be syndicated or republished"). The page follows the "Wire story address shape" recommendation above
+   (bare `/{YYYY-MM-DD}/{slug}`, `source` set, `rel=canonical` to the original publisher, left out of our sitemap, labelled with its source), of which **`rel=canonical` to the original publisher is
+   decided (owner, 2026-11-18)**; the address shape itself is still awaiting the owner. Section pages list these stories like any other, labelled "From <station>".
+6. **Florida News Exchange.** It runs on PRX's closed system and no public feed was found (Current report, undated). Ask WLRN or PRX for a station
+   credential. Until then there is **no separate entry screen**: an editor makes an ordinary post in Stories with `source` set to "Wire or partner". A story typed
+   in has already been chosen, so it never enters the queue. What posts lack today is somewhere to say where the original lives and who gets the credit:
+   an original address (for `rel=canonical` and a source link) and a credit line, shown when `source` is not WUWF (the same two fields a published CDS
+   story needs). If WLRN
+   or PRX provide access, the exchange becomes an ordinary source record. Do not scrape it.
+7. **Retention (proposed numbers; they would be Site settings, clamped like the embeddings thresholds):** untouched `new` items deleted after about 30 days;
+   `held` items flagged stale, not deleted; `dismissed` items keep only their key so they stay dismissed; published items stay while published, and
+   whether published network stories expire (then 410, as wire URLs do) is the owner's call. Deleting a merged group is all or nothing.
+8. **Admin is Payload.** Both collections and a custom queue view in the same admin, built like `StoryEmbeddingsPanel` and gated by `requirePermission`.
+   No separate admin application. A first version can be the stock list with filters and a "Publish" row action.
+9. **Relevance ranking is deferred.** Surfacing network stories that match local news by meaning needs a vector per candidate and sends their text to a
+   provider. The rule in `CLAUDE.md` stands (never embed NPR or wire stories), and restricted documents may not be indexed at all. Build the queue first,
+   with ranking behind an interface; a first ranker that sends nothing out (recency, section, place names) is possible.
+
+**Open questions (the owner, NPR, or a check in Grove).**
+- Is the ID in Grove's network tab an Organization V4 service ID (likely, from `ownerHrefs`), a collection ID, or something else?
+- Do WUSF and FPREN publish to CDS? If not, what do they offer?
+- Republishing is settled by the owner (item 5). NPR's Terms of Use on storing and caching documents have not been read (`www.npr.org` was outside the
+  sandbox's allowed hosts); the owner's practice suggests no blocker, but it is unchecked.
+- **Decided (owner, 2026-11-18):** a network story's images and audio are **referenced where NPR hosts them, not copied**: it matches "re-pulled, never
+  archived separately" (a pulled story or a newly restricted asset disappears with it), and audio is large. Images use the file's `hrefTemplate` (width,
+  quality, format) through Next's image proxy, with the plain `href` as the fallback; audio plays from the enclosure address, choosing one that is not
+  `tracked`, `sponsored` or `premium`, and only while `isAvailable` and before `streamExpirationDateTime` (all in `lib/network/cds.ts`). Still to check
+  with NPR: whether those hosts allow hotlinking and keep their addresses stable (the CDS docs are silent). If not, copy images and keep audio referenced.
+  `rel=canonical` to the original publisher is decided too.
+- How many documents a day the sources deliver. With full pages, every auto-published story is a real post with a body, so volume affects storage and
+  the Stories list.
+- Whether the same story from two stations can be recognised (shared document id, canonical URL, or only by headline), so "merge duplicates" may be
+  only "possible duplicate".
+- A CDS key for the site from NPR Member Partnership, and which scheduler runs the poll (the Portal has Vercel cron jobs; the site's has not been checked).
+- Florida News Exchange access through WLRN or PRX.
+
+**Built (2026-11-18; migration `20261118_221136_network_content`, tests up/down/up on a scratch database; unit and integration tests mutation-checked):**
+- `src/lib/network` (pure): CDS response parser with restricted filtering of stories and assets and the audio rules (`cds.ts`), RFC 6570 image
+  templates (`uri-template.ts`), the poll's queries, cursor and re-check classification (`poll.ts`), the orchestrator with CDS and the database injected
+  (`sync.ts`), status rules (`status.ts`), tombstones, retention numbers, the CDS client (`cds-client.ts`, needs `NPR_CDS_TOKEN`; unset means "not
+  set up", never an error), and the original-address and credit helpers.
+- Collections `network-sources` (publisher-only to change; a source is found by owner service ID or by collection ID, and is `queue` or `auto`) and
+  `network-items` (thin, disposable, no body, created only by the poll; an editor may keep, release and dismiss, never mark published or gone), group **Network**.
+- Posts: `original.url` (https only), `original.credit` and `original.cdsId` (unique) for a story that is not WUWF's. **`rel=canonical` points at the
+  original publisher** for those stories; **the sitemap lists only WUWF's own** published stories.
+- The poll: `lib/network/run.ts`, called by `GET|POST /api/network/poll` with `Authorization: Bearer $CRON_SECRET` (401 with no secret set). Per
+  source: new stories since the cursor (`publishDateTime`), then a re-check of stories held (`ids`): refreshed, flagged "removed at the source"
+  (published) or deleted (waiting), or, if they turned restricted, blanked to a tombstone and their post sent back to draft. Waiting stories first
+  found over 30 days ago are deleted (constant for now, `lib/network/retention.ts`; Site settings is the plan). A failed source records the error and keeps its cursor.
+- The queue: first a custom admin view `/admin/network-queue`; since 2026-11-19 the **list view of `network-items`** (see *Admin sidebar and look*): tabs with counts, a source dropdown, paging, bulk keep / dismiss, dismiss confirms.
+
+**Not built, and why:**
+- **The CDS story body converter, and so publishing** (by an editor, or on its own for `auto` sources). It needs a real CDS document's `layout` and the
+  profiles around it (`story`, `renderable`, `html-block`, `text`, `image-gallery`...), which the docs describe only in part; the repo's rule is to derive a
+  converter from real data, not from memory. **Needs the site's CDS key (NPR Member Partnership) and `content.api.npr.org` allowed in the environment's network settings** (it answers 403 from this sandbox).
+  Until then an `auto` source only queues, and says so in the poll summary (`awaitingAutoPublish`).
+- Scheduling the poll is **set** (owner, 2026-11-18): `apps/site/vercel.json` calls `/api/network/poll` every 15 minutes. It is **inert until the project has
+  real credentials**: no `CRON_SECRET`, every call is a 401; no `NPR_CDS_TOKEN`, an authorised call answers `{"status":"not_configured"}` before it opens the
+  database or the network (`tests/int/network-poll-route.int.spec.ts`). Vercel sends the `CRON_SECRET` header itself once the variable is set on the project. The
+  Portal already runs a 5-minute cron on the same team, so the frequency is allowed there; if a deploy is refused for the cron, the plan is the cause.
+- Section-page "From <station>" labels and the Track for external audio: they need a published network story to hang on.
+- Read-only enforcement for `source ≠ wuwf` (only headline, teaser and description editable) that `ARCHITECTURE.md` lists as not built: only meaningful once network posts exist.
+- Retention numbers as Site settings; a per-source "stale kept stories" flag; matching a station's `branding` link to a display name (Organization V4 lookup).
+
+## Launch: initializing production (decided 2026-11-18)
+
+**Decision (owner, 2026-11-18).** The site is not deployed to production until the MVP is ready, and its production database is **empty on purpose** until then.
+A site migration is finished when it is applied to staging (`wuwf-site-staging`, `avgeycgvaufwdfzdsogi`; the preview build does it) and verified there with
+queries. It is **not** applied to `wuwf-site-production` one at a time: production gets every migration at once, in order, with one `payload migrate` at launch.
+(This is an exception to the root `CLAUDE.md` rule for the Portal's two live projects.) What makes that safe is that **a pushed migration is never renamed or
+rewritten** (see *Lessons*): the launch run replays the same files staging already ran.
+
+**State on 2026-11-18** (checked with the Supabase and Vercel connectors): `wuwf-site-production` (`gyidqxhkkhajfazbcrug`) has the `payload_app` role, the
+`wuwf-site-files` bucket and pgvector, and **no tables** (no `payload_migrations`). Staging has all 55 migrations recorded. The Vercel Production environment has only
+`OPENAI_API_KEY`, `PORTAL_LISTENING_SECRET` and the two public Supabase values.
+
+**At launch, in order:**
+1. Set the production values on the Vercel Production environment: `DATABASE_URL` (pooled, transaction mode), `DATABASE_MIGRATION_URL` (session mode), `PAYLOAD_SECRET`,
+   `CRON_SECRET`, `PREVIEW_SECRET`, `PORTAL_IDENTITY_SECRET`, the `S3_*` storage values for `wuwf-site-files`, `NPR_CDS_TOKEN`, and the rest the Preview environment has.
+   The `payload_app` password is in the owner's private files, not the repository.
+2. Run `payload migrate` once against `wuwf-site-production`: from a machine with Postgres access (`DATABASE_URL=<session url> pnpm payload migrate < /dev/null`), or
+   a one-off build with `MIGRATE_ON_BUILD=1` set for that build only and removed after. A sandbox session has HTTPS only and cannot do this.
+3. Verify like staging: the tables exist and are owned by `payload_app`, `payload_migrations` has one row per file in `src/migrations`, pgvector answers, and
+   `anon` and `authenticated` have no access to the new tables.
+4. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
+
 ## Known gaps in what exists
 
 - **Story embeddings are built but not run** (see *Vector search and similar stories*): until the backfill runs there is no "Related stories" section and search is keyword-only. The similarity floors are uncalibrated starting values.
@@ -1353,6 +2330,10 @@ signed-in account page, not CMS content.
   still had the first version. `20261107_043501` now replaces `20261107_042509` where it is recorded (drops only its header tables,
   deletes its record, keeps the shared search and footer objects so search rows keep their links). After a push, **never rewrite a
   migration: add a new one**. Test a migration change against staging's state, not only a fresh database.
+  **Merging main is the same trap (2026-11-18, network content):** main's newer migrations made the pushed migration's schema snapshot stale, and it was
+  regenerated under a new timestamp. Staging already had the first one, so the copy failed with "type ... already exists" and every later preview build of
+  the branch went red until the original name was restored. If a merge makes a pushed migration's snapshot stale, **keep its name** (compare its `up()`
+  with the pushed one: it was identical) and regenerate only the `.json`; if the SQL itself must change, add a second migration.
 - **A test or a script that hangs at "Pulling schema from database..." is the same prompt** (2026-11-07): the test database still
   had tables from an earlier version of an unmerged schema change, and dropping them needs a confirmation nobody can give.
   Recreate the throwaway test database (`drop database wuwf_site_test; create database wuwf_site_test;`). A local script run
@@ -1436,8 +2417,7 @@ signed-in account page, not CMS content.
 - **Stop a server by its process id, and check it is gone.** `lsof` is not installed here, so `lsof -ti:3000 | xargs kill` did
   nothing; the old server kept port 3000 while a rebuild deleted its stylesheets, and the new one never started. The page
   looked unstyled. List with `ps -eo pid,args | grep -E "[n]ext-server"` and kill those pids.
-- **The local Postgres stops when the sandbox idles.** `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/wuwf-site-pg
-  -l /var/tmp/wuwf-site-pg/log.txt -w start"` brings it back (the roadmap's setup block creates it).
+- **The local Postgres stops when the sandbox idles.** `bash scripts/dev/pg-up.sh` brings it back (and makes it, in a fresh sandbox).
 - **Real data finds what synthetic data cannot.** Grove galleries mix portrait and landscape pictures, so the carousel needed a
   uniform frame (`relative aspect-[3/2]`, image `absolute inset-0 object-contain`); a pasted video link arrived wrapped in a
   corrupted `<brightspot-cms-external-content>` element; an empty lead figure is "no picture", not an error. The census zips
@@ -1456,7 +2436,7 @@ signed-in account page, not CMS content.
   mutation-checked.
 - **A background fetch runs only while a tool call is active, and a container restart kills it.** Make every long job resumable (a status file per item), start it with `nohup`, keep a
   watcher alive for it (a watcher is capped at 2 hours), and check `pgrep` after any restart; the disk survives, the process does not. The local Postgres also stops when the sandbox
-  idles (restart command under *Previous hand-off*, "Working in the cloud sandbox"; a missing database shows up as every integration test skipped by a setup error, not as a failure of the test you changed).
+  idles (`bash scripts/dev/pg-up.sh`; a missing database shows up as `ECONNREFUSED` from `pnpm build` and as every integration test failing in setup, not as a failure of the test you changed).
 - **Another session's uploads are not visible.** Files shared with a different session are on that session's machine; ask the owner to upload them into the one that needs them
   (`/root/.claude/uploads/...`), and verify them against the owner's checksum file.
 - **Grove's `nprShow` flag is false on every show page,** Morning Edition included; whether a program is syndicated is the owner's knowledge (`src/lib/grove/syndicated.ts`).
@@ -1517,19 +2497,23 @@ The sandbox is ephemeral; nothing below survives.
 22.23.4 from the `node-linux-x64` npm package (`npm pack node-linux-x64@22.23.4`, unpack, put its `bin` first on
 `PATH`), then check `node -v`. Do not loosen the pin.
 
-**Postgres.** Postgres 16 is installed but not running, and it will not run as root:
+**Postgres.** Postgres 16 is installed but not running, it will not run as root, and **it stops whenever the sandbox idles or its worker restarts** (the data directory survives, the process does not). There is no Docker daemon, so `pnpm db:up` (the repository's `docker-compose.yml`, the normal way) does not work here. One command does it all, from any state, and is safe to repeat:
 
 ```bash
-D=/var/tmp/wuwf-site-pg; PGBIN=/usr/lib/postgresql/16/bin
-mkdir -p $D && chown postgres:postgres $D
-su postgres -c "$PGBIN/initdb -D $D -U wuwf --auth=trust -E UTF8"
-printf "port = 5433\nlisten_addresses = '127.0.0.1'\nunix_socket_directories = '/var/tmp'\n" > $D/postgresql.auto.conf
-chown postgres:postgres $D/postgresql.auto.conf
-su postgres -c "$PGBIN/pg_ctl -D $D -l $D/log.txt -w start"
-psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c "create database wuwf_site_test;"
+bash scripts/dev/pg-up.sh
 ```
 
-(If the sandbox is the same one and Postgres has only stopped, use the restart command under *Resume here*.) Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`).
+It installs pgvector if missing (the migrations run `CREATE EXTENSION vector`), makes the data directory `/var/tmp/wuwf-site-pg` once (the `postgres` user cannot read the session's scratchpad folder, so it must live elsewhere), clears the pid file, socket and lock file a killed server leaves behind (the next start refuses on any of them), starts Postgres on `127.0.0.1:5433` (trust auth, role `wuwf`), and makes three databases with the vector extension. Run it first in a session and again after any restart or `ECONNREFUSED`.
+
+**Three databases, and which command goes against which** (Payload's docs: push mode is the default in development, "treat your local dev database as a sandbox", and "do not mix 'push' and migrations with your local development database"; Payload stops with a warning and a prompt that hangs a script if you do):
+
+| Database | Used by | Schema comes from |
+|---|---|---|
+| `wuwf_site` | `pnpm dev`, `pnpm build`, scripts, seeding | Payload pushes the config to it in dev |
+| `wuwf_site_test` | `pnpm test:int` (`vitest.setup.ts`) | built from the config, **not** the migrations: data a migration writes is not there |
+| `wuwf_migrate` | `DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_migrate pnpm payload migrate` | the committed migrations, from empty |
+
+Never run `payload migrate` against `wuwf_site` once the dev server has used it, and do not delete the `dev` row from `payload_migrations` to get past the prompt (that was a workaround, not the documented way). To test a data migration on rows, use `wuwf_migrate` (`DATABASE_URL=…/wuwf_migrate pnpm payload migrate:fresh --force-accept-warning < /dev/null` drops it and re-runs everything; without the flag it asks "Are you sure?" and aborts when there is no terminal). `pnpm verify:migrations` makes its own scratch database and needs none of this. Then `pnpm install` at the root and create `apps/site/.env.local` from `.env.example` (`DATABASE_URL=postgresql://wuwf@127.0.0.1:5433/wuwf_site`). Do not start `pnpm dev` while a migration runs.
 
 ## Needs the owner (cannot be done from the repository)
 
@@ -1569,17 +2553,23 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 - WUWF's own numbers marked `[N]` on the sponsorship boards, and unpriced products marked `[Rate]`. On the giving
   page the three `[N]` hero figures (weekly listeners, digital readers, newsletter subscribers) are left out until
   WUWF can source them; staff add them under Support page → Top of page.
-- **Giving page content, entered in the admin (Support page global):** the real address of WUWF's donation form for
-  each level (with the right fund and the attribution code), the Sponsor WUWF and fellowship button addresses once
-  those pages exist, the legal footer line, and a review of the level descriptions (tax-deductibility wording).
-  Until a level has an address its button is simply not shown. Who can edit: membership staff, publishers and
-  administrators.
+- **Giving pages content, entered in the admin (Giving pages global):** the real address of WUWF's donation form (with the right fund and
+  the attribution code), whether it takes the amount from the link, a Member Services email, and a review of the legal wording; see
+  *Giving pages, boards 14 to 14d* for the full pre-launch list. Until the form address is set no Give button is shown. Who can edit:
+  membership staff, publishers and administrators.
 - Legal and university review (IT-04 notice, privacy, retention) before production. **The community-calendar form needs the university's IT-04 wording** (it has a plain factual statement for now), and the 48-hour address-hash retention reviewed.
 - **Community calendar:** who should approve (it is publishers only today); whether staff want an email or a count when a submission arrives; the other 1,464 events' date text (see *Community calendar*).
 - **Grove migration, for the converter:** the census raw JSON (`census-raw-001..004.zip`) uploaded to the session, so the
   converter is tested on real pages (without it, only hand-built fixtures); approval of the asset fetch from NPR-controlled
   hosts and its rate; confirmation that non-WUWF photo credits should be flagged for review.
 - **Story embeddings (2026-11-13):** the go-ahead and key for sending WUWF story text to OpenAI; the AP and News Service of Florida licence answer; approval (and privacy-notice wording) for sending visitors' search words (`SEMANTIC_SEARCH=on`); whether to build a "do not recommend" flag. Details under *Vector search and similar stories*.
+- **Network content (2026-11-18):** a **CDS key for the site** from NPR Member Partnership (`NPR_CDS_TOKEN`, a separate client from the Portal's) and
+  `content.api.npr.org` in the environment's allowed hosts (it answers 403 from the sandbox), so the story converter can be built from real documents;
+  `CRON_SECRET` and `NPR_CDS_TOKEN` set on the site's Vercel project (the cron in `vercel.json` does nothing until both are there); NPR's answer on hotlinking images and audio, and its Terms of Use on storing documents
+  (`www.npr.org` is also outside the allowed hosts); whether WUSF and FPREN publish to CDS and the service IDs of the stations (from Grove's network
+  tab); Florida News Exchange access through WLRN or PRX. Details under *Network content*.
+- **Launch: the site's production database (decided 2026-11-18, not a blocker).** `wuwf-site-production` is empty on purpose until the MVP launches; see
+  *Launch: initializing production*. Site migrations are applied to staging and verified there; production gets all of them at once at launch.
 - **Grove migration:** Search Console performance by page (last 16 months) and the links report (**pinned**, no access
   right now); agreement with NPR on crawl volume and on copying WUWF's own audio and images from NPR-controlled hosts;
   the template census's volume and timing.
@@ -1588,9 +2578,10 @@ psql -h 127.0.0.1 -p 5433 -U wuwf -d postgres -c "create database wuwf_site;" -c
 
 - The owner's draft *WUWF Grove to Payload Migration Plan* (2026-10-30): scope, disposition policy, pilot gates.
 - The project brief (revised) for this work, supplied by the owner.
-- Design canvas "WUWF.org Home Redesign" (26 boards) and the "WUWF Design System" (claude.ai artifacts named in the
-  brief). Read: boards 1–6, 14, 15, the phone homepage, the tokens. **Not yet read:** the Grove migration memo, the
-  RadioLive site canvas, and boards 7–13 and 16–25 (Milestone 2–3 material).
+- Design canvas "WUWF.org Home Redesign" (now **28 boards**) and the "WUWF Design System" (claude.ai artifacts named in the
+  brief). Read: boards 1–6, 14, 15, 28 (the section system, 2026-11-19), the phone homepage, the tokens. **Not yet read:** the Grove
+  migration memo, the RadioLive site canvas, and boards 7–13 and 16–25 (Milestone 2–3 material). How to read the canvas, and the board
+  files `PAGE-BLOCKS.md` depends on, are in its *Sources* section.
 - The Portal: `apps/portal/CLAUDE.md`, `docs/audience-listening-design.md`, `docs/underwriting-design.md`,
   `docs/ui-patterns.md`, `docs/logic-patterns.md`.
 - `wuwfdevs/barefootmary` (content and identity for the first themed show, Milestone 2) — not read yet.
