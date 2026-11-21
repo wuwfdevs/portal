@@ -3,6 +3,7 @@ import React from 'react'
 
 import type { Contributor, Media as MediaDoc } from '@/payload-types'
 
+import { Button } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
 import type { MembershipAppeal as MembershipAppealWords } from '@/lib/shared-text'
@@ -57,15 +58,12 @@ export const AuthorBox: React.FC<{ contributor: Contributor; photo?: MediaDoc | 
 export const MembershipAppeal: React.FC<{ appeal: MembershipAppealWords | null }> = ({ appeal }) => {
   if (!appeal) return null
   return (
-    <aside aria-label="Support WUWF" className="flex flex-col gap-3 rounded-sm bg-wuwf-blue-100 p-6 md:flex-row md:items-center md:justify-between">
-      <p className="font-serif text-xl font-bold text-ink">{appeal.text}</p>
+    <aside aria-label="Support WUWF" className="flex flex-col gap-3 rounded-4 bg-wuwf-blue-100 p-6 md:flex-row md:items-center md:justify-between md:gap-6 md:px-8 md:py-7">
+      <p className="font-serif text-xl font-semibold text-ink md:text-2xl md:leading-snug">{appeal.text}</p>
       {appeal.button && (
-        <Link
-          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline"
-          href={appeal.button.href}
-        >
+        <Button className="shrink-0 self-start md:self-auto" href={appeal.button.href} size="lg" variant="action">
           {appeal.button.label}
-        </Link>
+        </Button>
       )}
     </aside>
   )

@@ -4,7 +4,7 @@ import React from 'react'
 
 import { formatDuration } from '@/lib/format'
 import type { Track } from '@/lib/player/track'
-import { cn } from '@/utilities/ui'
+import { buttonClasses } from '@/components/Kit/button'
 
 import { PlayIcon } from './parts'
 import { usePlayer } from './PlayerProvider'
@@ -15,10 +15,13 @@ import { usePlayer } from './PlayerProvider'
  * it shows that player's state: "Pause" while this audio is the one playing. Pressing it on audio that is already loaded pauses or
  * resumes it; pressing it on other audio replaces what the player holds.
  *
+ * It is the Kit's button: lime with dark text while idle (the `play` variant, on white or on a tinted panel; a caller on a ground where lime is faint passes its own colours in
+ * `className`), ink while this audio is playing (`toned`, in a section band: the band's button, an outline while playing). Every place that plays station audio draws this one, so its look is defined here and nowhere else.
+ *
  * Without script there is no player to hand it to, so a plain browser audio control is there instead (`<noscript>`), and the same
  * control stands in on a page with no provider (never the case inside the site's layout).
  */
-export const PlayAudioButton: React.FC<{ track: Track; className?: string }> = ({ track, className }) => {
+export const PlayAudioButton: React.FC<{ track: Track; className?: string; /** Inside a section band: take the band's own button colours (`--tone-*`), so the button is right on every tone (lime on a lime band would vanish). */ toned?: boolean }> = ({ track, className, toned = false }) => {
   const player = usePlayer()
   const fallback = <audio aria-label={`Listen: ${track.title}`} className="w-full" controls preload="none" src={track.src} />
   if (!player) return fallback
@@ -31,11 +34,7 @@ export const PlayAudioButton: React.FC<{ track: Track; className?: string }> = (
     <>
       <button
         aria-label={`${playing ? 'Pause' : 'Listen'}: ${track.title}`}
-        className={cn(
-          'inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-sm font-bold text-surface',
-          playing ? 'bg-ink hover:bg-ink-2' : 'bg-wuwf-blue-700 hover:bg-wuwf-blue-600',
-          className,
-        )}
+        className={buttonClasses({ variant: toned ? (playing ? 'toneOutline' : 'tone') : playing ? 'primary' : 'play', className })}
         onClick={() => player.toggleTrack(track)}
         type="button"
       >

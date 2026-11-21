@@ -55,7 +55,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
         </div>
       )}
       <SectionActions actions={block.actions} className="pt-2" />
-      {track && <PlayAudioButton track={track} />}
+      {track && <PlayAudioButton toned track={track} />}
     </div>
   )
 

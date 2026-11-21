@@ -18,7 +18,7 @@ export function FellowshipFeatureBody({ feature, independenceHref }: { feature: 
             {feature.fellowship.title} Fellowship
           </Chip>
         </div>
-        <h2 className="font-serif text-3xl font-bold leading-tight text-ink" id="feature-heading">
+        <h2 className="font-serif text-3xl font-semibold leading-tight text-ink" id="feature-heading">
           {feature.story ? feature.story.title : feature.fellowship.title}
         </h2>
         {(feature.story?.meta?.description ?? feature.fellowship.summary) && (
