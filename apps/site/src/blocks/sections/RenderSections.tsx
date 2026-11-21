@@ -64,8 +64,11 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
   const slots = set?.placements && set.slots ? context.slots : undefined
   const anchors = drawn.filter((d) => d.entry.anchor)
   const plan = slots ? planSlots(slots, anchors.length) : null
-  // A block that lays the top unit out itself (the Front page lead) draws it; the layout places it only when no such block is on the page.
+  // A block that lays the top unit out itself (the Front page lead) draws it; the layout places it only when no such block is on the page. Only the FIRST such block is given the
+  // tile: a second one (an editor duplicating the block) gets none, so an exclusive placement is never drawn twice.
   const topByBlock = drawn.some((d) => d.entry.drawsTop)
+  const topOwner = drawn.find((d) => d.entry.drawsTop)?.key
+  const withoutTop: SectionContext = ctx.slots ? { ...ctx, slots: { ...ctx.slots, top: null } } : ctx
   const lastAnchor = anchors[anchors.length - 1]
   let anchorIndex = 0
 
@@ -80,7 +83,7 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
             <SponsorRow items={rows} />
           </div>
         )}
-        <Section block={block} context={ctx} />
+        <Section block={block} context={entry.drawsTop && key !== topOwner ? withoutTop : ctx} />
         {closesNews && plan.after.map((row, i) => (
           <div className="container py-6" key={`after-${i}`}>
             <SponsorRow items={row} />

@@ -18,7 +18,8 @@ const kind = (label: string, claim?: { candidates: number[]; take: number; pinne
   dir: label,
   block: { slug: `section${label}`, fields: [] },
   // Prints what the page's pass gave it, so the order and the answer are visible in the markup.
-  Component: ({ block, context }: { block: { id?: string }; context: SectionContext }) => createElement('section', { 'data-name': label }, `${label}:${(context.claims?.get(block.id ?? '') ?? []).join(',')}`),
+  Component: ({ block, context }: { block: { id?: string }; context: SectionContext }) =>
+    createElement('section', { 'data-name': label }, `${label}:${(context.claims?.get(block.id ?? '') ?? []).join(',')}`, context.slots?.top ? createElement('i', { 'data-top-given-to': label }) : null),
   claimRequest: claim ? async () => claim : undefined,
   anchor,
 })
@@ -79,6 +80,12 @@ describe('the sponsor slots', () => {
     const out = await render(owner, { slots: slots(0, { top: tile('home.top.1') }) })
     expect(out).not.toContain('home.top.1')
     expect(out).not.toContain('md:order-1')
+  })
+  it('gives the top unit to the first block that lays it out, never to a duplicate of it', async () => {
+    const two: Drawn[] = drawn([['lead', { ...kind('Lead'), drawsTop: true }], ['again', { ...kind('Again'), drawsTop: true }], ['a', kind('A', undefined, true)]])
+    const out = await render(two, { slots: slots(0, { top: tile('home.top.1') }) })
+    expect(out).toContain('data-top-given-to="Lead"')
+    expect(out).not.toContain('data-top-given-to="Again"')
   })
   it('shows every row after the content when the page has no news run', async () => {
     const out = await render(drawn([['lead', kind('Lead')]]), { slots: slots(3, { band: tile('home.band.1') }) })
