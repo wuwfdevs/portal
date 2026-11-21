@@ -1,5 +1,7 @@
+import { buttonClasses } from '@/components/Kit/button'
 import type { HubLoad } from '@/lib/listening/load'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
+import { cn } from '@/utilities/ui'
 
 // What the Listens blocks (Ask WUWF, Open questions, Sessions and tables, Outcomes, Host form) share. They read the Portal's hub through the page context
 // (`SectionContext.listeningHub`, loaded by the route that renders the page per request) and draw nothing without it.
@@ -8,8 +10,7 @@ import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 export const cardClass = 'rounded-lg border [background:var(--tone-card)] [border-color:var(--tone-card-rule)]'
 
 /** The outlined button of a card ("Answer", "Save a seat"): the tone's text colour, so it reads on every tone. */
-export const outlineButton =
-  'inline-flex min-h-11 items-center justify-center self-start rounded-sm border px-4 text-[0.9375rem] font-bold hover:no-underline hover:opacity-80 [border-color:var(--tone-text)] [color:var(--tone-text)]'
+export const outlineButton = cn(buttonClasses({ variant: 'toneOutline', className: 'self-start' }), '[color:var(--tone-text)]')
 
 /**
  * The forms (Ask WUWF, a kitchen table, host a session) carry their own light styling, made for a light ground. Wherever one is placed it sits in this card,

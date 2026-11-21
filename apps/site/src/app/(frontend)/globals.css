@@ -56,6 +56,16 @@
   --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
+/* The highlight under a section heading (direction C2): `<span class="mark">` inside the heading, coloured by `--mk` (a desk's mark or the
+   band's `--tone-mark`). With no `--mk` it draws nothing. `clone` keeps the highlight whole on every line of a heading that wraps. */
+.mark {
+  background: linear-gradient(transparent 60%, var(--mk) 60%);
+  color: inherit;
+  padding: 0 0.25rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 @layer utilities {
   /* The content column: 1240px with a 24px gutter (16px on a phone). */
   .container {
