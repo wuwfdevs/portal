@@ -5,7 +5,8 @@ import React, { cache } from 'react'
 
 import type { Contributor, Media, Post } from '@/payload-types'
 
-import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
+import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
+import { trackFromAudio } from '@/lib/player/track'
 import { Acknowledgment } from '@/components/Acknowledgment'
 import { Avatar, AuthorBox, Chip, MembershipAppeal } from '@/components/Article/Parts'
 import { Card } from '@/components/Card'
@@ -71,6 +72,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
   // Stories close in meaning (story embeddings). A preview shows none: a draft has no vector to compare, and it must not change anything.
   const related = draft ? [] : await loadRelatedStories(post, new Date(), resolveTuning(settings))
   const featuredAudio = named(post.featuredAudio)
+  // The story's own headline is already on the page, so the button carries only the length: no box, no repeated title.
+  const featuredTrack = trackFromAudio(featuredAudio, { title: post.title, href: post.path })
   const hasFeaturedMedia = Boolean(post.featuredMedia?.length)
   // A members-only story read by the public comes back without its body and audio (field access, fail closed).
   const locked = post.membersOnly !== false && post.content == null
@@ -159,9 +162,9 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       </header>
 
       {/* The audio version comes first, straight under the headline block, so a listener does not scroll past the picture to find it. */}
-      {featuredAudio && (
-        <div className="container mt-8 max-w-[52rem]">
-          <AudioPlayerBlock audio={featuredAudio} blockType="audioPlayer" className="my-0" href={post.path} />
+      {featuredTrack && (
+        <div className="container mt-6 max-w-[52rem]">
+          <PlayAudioButton track={featuredTrack} />
         </div>
       )}
 
