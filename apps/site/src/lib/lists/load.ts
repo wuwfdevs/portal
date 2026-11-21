@@ -23,6 +23,8 @@ export interface StoryListData {
   title: string
   /** A section's description, a person's job title, or nothing. */
   blurb: string | null
+  /** A section's colour (`sections.swatch`), for the heading's highlight; null for every other list. */
+  swatch: string | null
   /** For a person: their bio. */
   bio: string | null
   profile: PersonProfile | null
@@ -45,6 +47,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
 
   let title = ''
   let blurb: string | null = null
+  let swatch: string | null = null
   let bio: string | null = null
   let profile: PersonProfile | null = null
   let listeningQuestion: string | null = null
@@ -63,6 +66,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
     if (!s) return null
     ;({ id, title } = s)
     blurb = s.description?.trim() || null
+    swatch = s.swatch ?? null
     where = { section: { equals: id } }
   } else if (kind === 'topic') {
     const t = (await payload.find({ collection: 'categories', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: false })).docs[0]
@@ -99,7 +103,7 @@ export const loadStoryList = cache(async (kind: ListKind, slug: string, page: nu
   })
   // A page past the last is a 404, but an empty first page is a real (empty) list.
   if (page > 1 && result.docs.length === 0) return null
-  return { kind, slug, title, blurb, bio, profile, listeningQuestion, targetId: kind === 'latest' ? null : id, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
+  return { kind, slug, title, blurb, swatch, bio, profile, listeningQuestion, targetId: kind === 'latest' ? null : id, stories: result.docs as HomeStory[], page, totalPages: Math.max(1, result.totalPages), totalDocs: result.totalDocs }
 })
 
 export const loadStoryListFor = (req: ListRequest) => loadStoryList(req.kind, req.slug, req.page)

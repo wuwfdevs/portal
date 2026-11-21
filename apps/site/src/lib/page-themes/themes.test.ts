@@ -50,4 +50,13 @@ describe('page themes: resolution and css', () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,6}/)
     expect(css).toContain('--tone-button: var(--color-wuwf-lime)')
   })
+  it('gives every tone a heading highlight (`--tone-mark`), as the direction C2 table says', () => {
+    const marks = Object.fromEntries(TONES.map((t) => [t, PAGE_THEMES.wuwf.tones[t].mark]))
+    expect(marks).toEqual({ plain: 'wuwf-blue-100', grey: 'wuwf-blue-100', accent: 'wuwf-lime-100', dark: 'wuwf-lime', teal: 'wuwf-lime', lime: 'wuwf-lime-600', softlime: 'wuwf-blue-100' })
+    const css = pageThemeCss(PAGE_THEMES.wuwf)
+    expect(css).toContain('--tone-mark: var(--color-wuwf-lime-600)')
+  })
+  it('keeps the highlight apart from the band: it is never the ground itself', () => {
+    for (const tone of TONES) expect(PAGE_THEMES.wuwf.tones[tone].mark).not.toBe(PAGE_THEMES.wuwf.tones[tone].ground)
+  })
 })

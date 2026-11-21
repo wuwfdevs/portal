@@ -97,13 +97,13 @@ export function FellowshipHub({
               <p className="mb-2 text-xs font-bold uppercase tracking-widest text-wuwf-blue-700">
                 Latest{latest.publishedAt ? ` · ${formatLongDate(latest.publishedAt)}` : ''}
               </p>
-              <Card className="md:flex-row" doc={latest} showCategories />
+              <Card className="md:flex-row" doc={latest} showCategories variant="editorial" />
             </div>
             {rest.length > 0 && (
               <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {rest.map((story) => (
                   <li key={story.id}>
-                    <Card className="h-full" doc={story} showCategories />
+                    <Card className="h-full" doc={story} showCategories variant="editorial" />
                   </li>
                 ))}
               </ul>

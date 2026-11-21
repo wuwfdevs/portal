@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { buttonClasses } from '@/components/Kit'
+
 /**
  * Shown in place of a members-only story's body and audio (board 23's "For WUWF members" panel), in the station's look.
  * A themed show passes its own class names. The page it sits on is cached and the same for everyone; a member follows the link to
@@ -29,7 +31,7 @@ export function MembersOnlyPanel({
   return (
     <section
       aria-labelledby="members-only-heading"
-      className={classNames?.box ?? 'flex flex-col gap-4 rounded-sm border border-rule bg-surface-2 p-6 md:p-8'}
+      className={classNames?.box ?? 'flex flex-col gap-4 rounded-4 border border-rule bg-surface-2 p-6 md:p-8'}
     >
       <p className={classNames?.eyebrow ?? 'text-xs font-bold uppercase tracking-widest text-wuwf-blue-700'}>For WUWF members</p>
       <h2 className={classNames?.heading ?? 'font-serif text-2xl font-bold text-ink'} id="members-only-heading">
@@ -50,8 +52,8 @@ export function MembersOnlyPanel({
       <div className="flex flex-wrap gap-3">
         <Link
           className={
-            classNames?.primary ??
-            'inline-flex min-h-12 items-center justify-center rounded-sm bg-wuwf-blue-700 px-6 text-base font-bold text-surface hover:bg-wuwf-blue-600 hover:no-underline'
+            // The membership ask: the Kit's blue `action` button (owner, 2026-11-21: blue is for the donate ask).
+            classNames?.primary ?? buttonClasses({ variant: 'action', size: 'lg' })
           }
           href={supportHref}
         >
@@ -60,8 +62,7 @@ export function MembersOnlyPanel({
         {showHref && (
           <Link
             className={
-              classNames?.secondary ??
-              'inline-flex min-h-12 items-center justify-center rounded-sm border border-rule-strong px-6 text-base font-bold text-ink hover:no-underline'
+              classNames?.secondary ?? buttonClasses({ variant: 'outline', size: 'lg' })
             }
             href={showHref}
           >

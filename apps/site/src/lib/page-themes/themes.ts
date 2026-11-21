@@ -46,6 +46,8 @@ export interface ToneStyle {
   cardRule: string
   /** A quiet tint on the band: a note, a chosen option. */
   tint: string
+  /** The highlight under a heading's words (`SectionHeading mark="tone"`): a decoration, never text, so no contrast ratio of its own; the heading's text must still read on it. */
+  mark: TokenName
 }
 
 export interface PageTheme {
@@ -58,11 +60,11 @@ export interface PageTheme {
 }
 
 const onLight = {
-  text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
+  mark: 'wuwf-blue-100', text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
   card: 'var(--color-surface)', cardRule: 'var(--color-rule-strong)', tint: 'var(--color-wuwf-blue-100)',
 } as const
 const onDark = {
-  text: 'surface', muted: 'surface-dark-text', buttonFill: 'wuwf-lime', buttonText: 'ink', accent: 'wuwf-lime', ghost: 'surface',
+  mark: 'wuwf-lime', text: 'surface', muted: 'surface-dark-text', buttonFill: 'wuwf-lime', buttonText: 'ink', accent: 'wuwf-lime', ghost: 'surface',
   card: 'color-mix(in srgb, var(--color-surface) 6%, transparent)', cardRule: 'color-mix(in srgb, var(--color-surface) 18%, transparent)', tint: 'color-mix(in srgb, var(--color-surface) 10%, transparent)',
 } as const
 
@@ -74,15 +76,15 @@ const wuwf: PageTheme = {
   tones: {
     plain: { ground: 'surface', rule: 'rule', ...onLight, muted: 'ink-3' },
     grey: { ground: 'surface-2', rule: 'rule-strong', ...onLight, muted: 'ink-3' },
-    accent: { ground: 'wuwf-blue-100', rule: 'rule-strong', ...onLight, tint: 'var(--color-surface)' },
+    accent: { ground: 'wuwf-blue-100', rule: 'rule-strong', ...onLight, mark: 'wuwf-lime-100', tint: 'var(--color-surface)' },
     dark: { ground: 'surface-dark', rule: 'surface-dark-line', ...onDark },
     teal: { ground: 'wuwf-teal', rule: 'surface-dark-line', ...onDark },
     softlime: {
-      ground: 'wuwf-lime-100', rule: 'ink-3', text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
+      ground: 'wuwf-lime-100', rule: 'ink-3', mark: 'wuwf-blue-100', text: 'ink', muted: 'ink-2', buttonFill: 'wuwf-blue-700', buttonText: 'surface', accent: 'wuwf-blue-700', ghost: 'wuwf-blue-700',
       card: 'var(--color-surface)', cardRule: 'var(--color-wuwf-lime-600)', tint: 'color-mix(in srgb, var(--color-ink) 6%, transparent)',
     },
     lime: {
-      ground: 'wuwf-lime', rule: 'ink-3', text: 'ink', muted: 'ink-2', buttonFill: 'ink', buttonText: 'surface', accent: 'ink', ghost: 'ink',
+      ground: 'wuwf-lime', rule: 'ink-3', mark: 'wuwf-lime-600', text: 'ink', muted: 'ink-2', buttonFill: 'ink', buttonText: 'surface', accent: 'ink', ghost: 'ink',
       card: 'var(--color-surface)', cardRule: 'var(--color-ink-3)', tint: 'color-mix(in srgb, var(--color-ink) 8%, transparent)',
     },
   },
@@ -118,7 +120,7 @@ export function themeColor(theme: PageTheme, token: TokenName): string {
 
 /**
  * The CSS for one theme under `[data-page-theme="<id>"]`: its token overrides, then one rule per tone that sets the band's ground and the
- * variables its block reads (`--tone-text`, `--tone-muted`, `--tone-rule`, `--tone-button`, `--tone-button-text`, `--tone-accent`, `--tone-ghost`, `--tone-card`, `--tone-card-rule`, `--tone-tint`). Tones reference the
+ * variables its block reads (`--tone-text`, `--tone-muted`, `--tone-rule`, `--tone-button`, `--tone-button-text`, `--tone-accent`, `--tone-ghost`, `--tone-card`, `--tone-card-rule`, `--tone-tint`, `--tone-mark`). Tones reference the
  * `--color-*` variables, so a theme's overrides reach them. Static, from code, so it is safe to inline.
  */
 export function pageThemeCss(theme: PageTheme): string {
@@ -130,7 +132,7 @@ export function pageThemeCss(theme: PageTheme): string {
       `${scope} [data-tone="${tone}"] {\n` +
         `  --tone-ground: var(--color-${t.ground});\n  --tone-text: var(--color-${t.text});\n  --tone-muted: var(--color-${t.muted});\n` +
         `  --tone-rule: var(--color-${t.rule});\n  --tone-button: var(--color-${t.buttonFill});\n  --tone-button-text: var(--color-${t.buttonText});\n` +
-        `  --tone-accent: var(--color-${t.accent});\n  --tone-ghost: var(--color-${t.ghost});\n  --tone-card: ${t.card};\n  --tone-card-rule: ${t.cardRule};\n  --tone-tint: ${t.tint};\n` +
+        `  --tone-accent: var(--color-${t.accent});\n  --tone-ghost: var(--color-${t.ghost});\n  --tone-card: ${t.card};\n  --tone-card-rule: ${t.cardRule};\n  --tone-tint: ${t.tint};\n  --tone-mark: var(--color-${t.mark});\n` +
         `  background-color: var(--tone-ground);\n  color: var(--tone-text);\n}`,
       // Two bands of the same tone in a row read as one: the gap between them is a section gap, not two bands' padding.
       `${scope} [data-tone="${tone}"] + [data-tone="${tone}"] {\n  padding-top: 2rem;\n}\n${scope} [data-tone="${tone}"]:has(+ [data-tone="${tone}"]) {\n  padding-bottom: 0;\n}`,

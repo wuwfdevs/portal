@@ -25,7 +25,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
           {people.map((p, i) => (
             <li className="flex flex-col gap-3" key={p.id ?? `${p.name}-${i}`}>
               {hasPicture(p.photo) && (
-                <div className="aspect-square overflow-hidden rounded-sm">
+                <div className="aspect-square overflow-hidden rounded-4">
                   <SectionImage className="size-full" image={p.photo} imgClassName="size-full object-cover" />
                 </div>
               )}
@@ -54,7 +54,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
           </div>
         </div>
         {picture && (
-          <div className="aspect-[4/3] overflow-hidden rounded-sm">
+          <div className="aspect-[4/3] overflow-hidden rounded-4">
             <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" />
           </div>
         )}

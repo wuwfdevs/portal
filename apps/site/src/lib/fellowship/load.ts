@@ -51,7 +51,7 @@ export const loadFellowshipHub = cache(async (slug: string): Promise<FellowshipH
       overrideAccess: false,
       pagination: false,
       sort: '-publishedAt',
-      select: { title: true, path: true, categories: true, meta: true, publishedAt: true, format: true, publishingIdentity: true, featuredAudio: true },
+      select: { title: true, path: true, section: true, categories: true, meta: true, publishedAt: true, format: true, publishingIdentity: true, featuredAudio: true },
       where: inFellowship,
     }),
     payload.count({ collection: 'posts', overrideAccess: false, where: inFellowship }).then((r) => r.totalDocs),

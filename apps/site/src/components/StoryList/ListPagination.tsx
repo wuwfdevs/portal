@@ -3,7 +3,7 @@ import React from 'react'
 
 import { listHref, type ListKind } from '@/lib/lists/route'
 
-const base = 'inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm border px-4 text-base font-semibold'
+const base = 'inline-flex min-h-11 min-w-11 items-center justify-center rounded-pill border px-4 text-base font-semibold'
 
 /**
  * Previous, next and numbered page links. Plain links, so they work without a script, and each is at least 44px.
@@ -25,7 +25,7 @@ export function ListPagination({ kind, slug, page, totalPages }: { kind: ListKin
         <React.Fragment key={n}>
           {i > 0 && n - numbers[i - 1]! > 1 && <span aria-hidden="true" className="px-1 text-ink-3">…</span>}
           {n === page ? (
-            <span aria-current="page" className={`${base} border-wuwf-blue-700 bg-wuwf-blue-700 text-surface`}>
+            <span aria-current="page" className={`${base} border-ink bg-ink text-surface`}>
               {n}
             </span>
           ) : (
