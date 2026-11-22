@@ -5,11 +5,11 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "build": "node scripts/copy-maplibre-worker.mjs && cross-env NODE_OPTIONS=--no-deprecation next build",
     "census": "cross-env NODE_OPTIONS=--no-deprecation NODE_USE_ENV_PROXY=1 tsx --tsconfig tsconfig.json scripts/census/cli.ts",
     "db:down": "docker compose down",
     "db:up": "docker compose up -d db",
-    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "dev": "node scripts/copy-maplibre-worker.mjs && cross-env NODE_OPTIONS=--no-deprecation next dev",
     "dev:prod": "cross-env NODE_OPTIONS=--no-deprecation rm -rf .next && pnpm build && pnpm start",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
     "generate:tokens": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/generate-tokens-css.ts",

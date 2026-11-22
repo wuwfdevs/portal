@@ -25,7 +25,7 @@ const MAX_LABELLED = 12
 const MAX_LABELLED_NARROW = 6
 
 export interface MapFeature extends GeoFeature {
-  properties: { label: string; value: number | null; color: string }
+  properties: { label: string; value: number | null; /** The value as a reader reads it ("350", "12%"), or "No data". */ valueText: string; color: string }
 }
 
 /** A join key that survives how agencies write the same place: case, spacing, leading zeros in a code, a trailing "County". */
@@ -99,10 +99,11 @@ export function buildMapFeatures(spec: MapSpec, dataset: DatasetSnapshot, bounda
   const classes = spec.valueColumn
     ? equalSteps(raw.map((r) => r.value).filter((v): v is number => v !== null), spec.classes ?? 5, blueRamp(Math.max(MIN_CLASSES, Math.min(MAX_CLASSES, spec.classes ?? 5))), NO_DATA_COLOR)
     : null
+  const fmt = makeFormatter(spec.valueFormat)
   const features = raw.map<MapFeature>((r) => ({
     type: 'Feature',
     geometry: r.geometry,
-    properties: { label: r.label, value: r.value, color: classes ? classes.colorOf(r.value) : spec.valueColumn ? NO_DATA_COLOR : BASE_SHAPE_COLOR },
+    properties: { label: r.label, value: r.value, valueText: r.value === null ? 'No data' : fmt(r.value), color: classes ? classes.colorOf(r.value) : spec.valueColumn ? NO_DATA_COLOR : BASE_SHAPE_COLOR },
   }))
   return { features, unmatched, matched }
 }
@@ -217,7 +218,7 @@ export const mapEngine: Engine<MapSpec, MapModel> = {
       summary: `Map of ${built.features.length} ${points ? 'places' : 'areas'}${spec.valueColumn ? `, coloured by ${spec.valueColumn}` : ''}.`,
       dataTable: plainTable(ctx.dataset.table, names, spec.valueColumn ? { [spec.valueColumn]: spec.valueFormat } : {}),
       interactive: spec.interactive
-        ? { features: collection, bounds, center: [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2], attribution: ctx.dataset.file ? null : null }
+        ? { features: collection, bounds, center: [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2], attribution: null, valueLabel: spec.valueColumn ? (spec.legendTitle ?? spec.valueColumn) : null }
         : null,
     }
   },

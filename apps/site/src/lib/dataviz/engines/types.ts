@@ -56,6 +56,8 @@ export interface MapModel {
     center: [number, number]
     bounds: [number, number, number, number]
     attribution: string | null
+    /** What the value is called in a popup (the legend title, else the column). */
+    valueLabel: string | null
   }
 }
 

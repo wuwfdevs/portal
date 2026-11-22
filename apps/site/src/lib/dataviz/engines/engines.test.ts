@@ -132,6 +132,8 @@ describe('map engine', () => {
   it('hands the shapes to the interactive map only when it is switched on', () => {
     const m = prep({ ...choropleth, interactive: true }, ctx(COUNTY_VALUES, COUNTY_SHAPES)) as MapModel
     expect(m.interactive?.features.features).toHaveLength(3)
+    expect(m.interactive?.valueLabel).toBe('Rate')
+    expect(m.interactive?.features.features[0]?.properties).toMatchObject({ valueText: '12.5' })
     expect(m.interactive?.bounds).toEqual([-87.5, 30.5, -84.5, 31.5])
   })
   it('draws a GeoJSON dataset as it is, and rows with a latitude and longitude as points', () => {

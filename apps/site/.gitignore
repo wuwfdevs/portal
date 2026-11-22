@@ -11,6 +11,7 @@ next-env.d.ts
 public/media/
 public/audio/
 public/datasets/
+public/maplibre/
 public/archive/
 public/video/
 

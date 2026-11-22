@@ -96,13 +96,23 @@ export async function VisualizationFigure({ view, size = 'column', headingLevel 
     )
   } else if (model.engine === 'map') {
     const styleUrl = process.env.MAP_STYLE_URL?.startsWith('https://') ? process.env.MAP_STYLE_URL : null
-    body = (
+    const picture = (
       <>
         <SvgDrawing className="hidden h-auto w-full font-sans md:block" describedBy={descId} label={view.title} node={model.svg} />
         <SvgDrawing className="block h-auto w-full font-sans md:hidden" describedBy={descId} label={view.title} node={model.narrow} />
+      </>
+    )
+    body = (
+      <>
+        {model.interactive ? (
+          <MapLoader data={model.interactive} label={view.title} styleUrl={styleUrl}>
+            {picture}
+          </MapLoader>
+        ) : (
+          picture
+        )}
         <Legend entries={model.legend} title={model.legendTitle} />
         {model.hasNoData && <p className="m-0 font-sans text-sm text-ink-3">Grey areas have no data.</p>}
-        {model.interactive && <MapLoader data={model.interactive} label={view.title} styleUrl={styleUrl} />}
         <PlainDataTable table={model.dataTable} title={view.title} />
       </>
     )
