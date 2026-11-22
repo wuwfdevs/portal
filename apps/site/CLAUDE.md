@@ -87,6 +87,11 @@ An editor-composed page is a record in `pages` with `template: sections` and an 
 
 Datasets, visualizations and rendering engines are three separate things; keep them so.
 
+- **A record in a drafts-enabled collection needs a version row, or the admin cannot open it.** The admin reads drafts from the `_<collection>_v` table. A published
+  visualization with no version row shows in the relationship picker as "Untitled - ID: n" with its edit pencil switched off (found 2026-11-22 on staging: seeded
+  charts 8 to 12). Write records through the Local API, never raw SQL; if rows must be repaired in SQL, insert the `_v` row (enum columns need a cast to the `_v`
+  enum, child rows go to `_v_texts` and the `_v_…` array tables, `latest = true`). The **+** in a block's picker autosaves an empty draft the moment it opens, so
+  blank "Untitled" drafts accumulate; clear them in the Visualizations list.
 - **A dataset version is immutable.** `dataset-versions` is an upload collection read once when saved (`lib/dataviz/parse`); its file cannot be replaced, a mistake is a new version. The parsed rows are stored on the version (`data`), so drawing never reads a file back from storage.
 - **A visualization holds a configuration, never data.** It names a dataset, follows the latest published version or pins one, and names columns. Columns are chosen in the admin from the file's own (`ColumnSelect`); the engines validate them again (`lib/dataviz/spec`, `engines/*.validate`).
 - **An engine is pure and returns a plain model** (`engines/types.ts`). A new kind of figure is one engine file, one entry in `engines/index.ts`, one view in `components/DataViz`, one option on the collection. Engines never import Payload, React or the cache.
@@ -124,7 +129,7 @@ Portal's tables. Both halves live in this repository.
 - **Traffic**: on-air sponsorship uses Traffic's daypart names (Morning Drive, Afternoon Drive, Midday,
   Weekend, Total Program Rotation, Carpool).
 
-Use a distinct signing secret per channel and direction. Secrets are at least 32 characters.
+Use a distinct signing secret per channel and direction. Secrets are at least 32 characters. **A channel is a class of caller, not a feature**: the staff actions channel (site → Portal, on behalf of a named staff member, one secret for every staff feature) is separate from the listener channel (anonymous visitors).
 
 ## Underwriting rules
 
@@ -143,6 +148,8 @@ updates every page. Nobody pastes a sponsor line into a story.
 The resolution logic is pure and tested independently of presentation.
 
 ## Listening rules
+
+**Staff write and open a listening question from the block editor; they review its answers in the Portal** (owner decision, 2026-11-22: an editor should create, edit, open and close a query end to end without leaving Payload, while the Portal keeps the data and every rule). The "Listening question" field (`components/admin/ListeningQuestion`, used by the story's `listeningAsk` block and a topic's question) lists the Portal's queries, writes a new one (a draft) or edits one, and opens or closes it, through **contract 4, the staff actions channel** (`packages/portal-contracts/src/staff-actions.ts` for what every staff action shares, `listening-authoring.ts` for this feature's messages; one secret for the whole channel, `PORTAL_STAFF_ACTIONS_SECRET`, equal to the Portal's `STAFF_ACTIONS_SECRET`, never the listener channel's or the identity channel's). **The line between channels is who acts, not which feature**: the listener channel speaks for anonymous visitors; the staff actions channel names a person and the Portal checks that person's grant. A later staff feature (transcription requests, ...) adds paths under `/api/site/staff/<feature>/` and messages, never a secret. The site's call code is `lib/portal-staff/`. The browser calls this site's `/api/listening-authoring/<action>` (needs `listening.review` and a Portal identity); the server signs and forwards, naming the signed-in person's Portal user id as the actor; **the Portal looks the actor's Audience Listening grant up itself and refuses without one**, validates with the staff screens' own rules and shows its own sentence on a refusal. The block still stores only the 16-character code. Not here: who is asked for a name or email, the consent wording, transcription, hub listing and events (they keep their defaults on a query made here; edit them in the Portal). Review of submissions stays in the Portal. Still true: the site stores no listening data and has no listening collections.
 
 Staff review listening data **in the Portal**, not in Payload; this site stores none of it and has no
 listening collections. The site's server (server actions and route handlers, never the browser) calls the

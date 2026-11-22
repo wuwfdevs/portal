@@ -960,7 +960,7 @@ export interface Category {
   generateSlug?: boolean | null;
   slug: string;
   /**
-   * Optional. A WUWF Listens question to ask at the head of this topic’s page: its 16-character code, or its address (…/listens/<code>), from the Portal. Shows nothing once the question closes.
+   * Optional. A WUWF Listens question to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the question closes.
    */
   listeningQuestion?: string | null;
   parent?: (number | null) | Category;
@@ -11405,7 +11405,7 @@ export interface LinkLineBlock {
  */
 export interface ListeningAskBlock {
   /**
-   * From the question’s page in the Portal (Audience Listening): its 16-character code, or its address (…/listens/<code>).
+   * Choose a question from the Portal, or press New question to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code.
    */
   question: string;
   variant: 'story' | 'voice';

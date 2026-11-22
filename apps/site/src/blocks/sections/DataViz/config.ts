@@ -16,7 +16,7 @@ export const DataViz = defineSection({
         name: 'visualization',
         type: 'relationship',
         relationTo: 'visualizations',
-        admin: { allowCreate: true, allowEdit: true, description: 'From the data library, or press + to make a new one here. Only a published visualization shows to readers; with none chosen, or one that cannot be drawn, the section draws nothing.' },
+        admin: { allowCreate: true, allowEdit: true, components: { Field: '@/components/admin/VisualizationPicker#VisualizationPicker' }, description: 'From the data library, or press + to make a new one here. Only a published visualization shows to readers; with none chosen, or one that cannot be drawn, the section draws nothing.' },
       },
     ],
   }),

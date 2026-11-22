@@ -278,6 +278,19 @@ tools call one place — there is no second ASR pipeline, webhook, or transcript
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
+**Staff actions: the site's signed channel for what staff do through the website (2026-11-22).** Everything the site does on behalf of a **named staff member**
+arrives at `/api/site/staff/<feature>/<action>` (contract 4, `packages/portal-contracts/src/staff-actions.ts`; the one receiver is `lib/staff-actions/receive.ts`).
+**It is one channel with one secret, `STAFF_ACTIONS_SECRET`, whatever the feature**: the line between this and the listener channel
+(`LISTENING_SIGNING_SECRET`, anonymous visitors) is *who acts*, not which feature, so a new staff feature adds paths and messages, never a secret. The receiver
+checks, in this order and for every feature: (1) the signature, first; (2) **the named actor must be an active account holding an unrevoked grant for the feature's
+tool, looked up in the receiver** (the site's word that someone is staff is never enough; no administrator bypass, as in the `private.has_*_access` functions);
+the feature then does its work. A feature supplies its tool key, how to read its requests and what to do (`StaffActionFeature`), reuses the Portal's own validators so
+a rule changed on the staff screen changes here, and audits each change with `audit_events` naming the actor (`via: "site"`). It writes through the admin client,
+so those checks are the only thing standing in for RLS: do not add a staff action that skips the receiver. `/api/site/staff` is in `PUBLIC_PATHS` and in a module's
+`publicRoutes` (the login redirect must not answer it). First feature: **listening authoring** (`lib/audience-listening/authoring-api.ts`, pure half `authoring.ts`;
+`list`, `get`, `save`, `set-status`): staff write, edit, open and close a query from the block editor. A query made that way is a draft with the usual defaults
+for participant fields, consent and transcription; those settings, the hub listing and events are edited only in the Portal's own screens. No migration.
+
 **Audience Listening: the site's signed API (suite phase A, 2026-11-07 and 2026-11-09).** A pointer; read
 `docs/audience-listening-suite-design.md` first. WUWF.org renders every public screen and calls
 `/api/site/listening/[action]` from its server with requests signed by `LISTENING_SIGNING_SECRET`
@@ -4791,7 +4804,11 @@ by approving. Confirmed: a verification block containing `update … set …` wi
 `where` clauses ran at once. Repo notes report the same for `drop` and `delete` statements. So: **always write `update` and `delete`
 with an explicit `where`** (`where true` if you really mean every row), keep a destructive statement in its own call, and for a
 migration that must contain `drop`/`delete`, do not retry the same text: split the destructive statement out, or say it is the
-blocker. When a call times out like this, do not call the tool again with the same text. Either way the project's own history
+blocker. **A `where` is necessary but not always enough for `delete`** (2026-11-22, the site's staging project: `delete from … where id in (1,2,3) and title is null`
+still stalled, while `insert … where` and `select` ran at once). So: write every `insert`/`update` with its `where` and run it at once, split any `delete` into
+its own call, and if that call stalls do not retry it: leave it, say so in the reply as the one step still open, and offer a way that is not the connector
+(a script run through the app's own API, or the admin screen). Never let a stalled delete hold up the rest of the work. The same rules apply to the site's projects
+(`wuwf-site-staging` `avgeycgvaufwdfzdsogi`, `wuwf-site-production` `gyidqxhkkhajfazbcrug`). When a call times out like this, do not call the tool again with the same text. Either way the project's own history
 records its own timestamp, so the migration **name** is the join key, as `APPLIED.md` says. **Verify with real queries**, not just
 "it applied": the table or function exists, a grant or policy does what the migration's header says (a rolled-back `begin; set local
 role authenticated; …; rollback;` through `execute_sql` can prove that a signed-in role is refused what it should be refused), and
