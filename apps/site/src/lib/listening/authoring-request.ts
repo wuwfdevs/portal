@@ -1,7 +1,7 @@
 import { LISTENING_AUTHORING_PATHS, isListeningAuthoringStatus, type ListeningAuthoringAction, type ListeningAuthoringPath } from '@wuwf/portal-contracts'
 
 /**
- * What the editor's browser may ask of the site's authoring route, turned into the body the Portal receives. Only the named fields are
+ * What the editor's browser may ask of the site's listening authoring route (a staff action), turned into the body the Portal receives. Only the named fields are
  * carried over (nothing the browser adds is forwarded), and the ACTOR is never taken from the browser: the route puts the signed-in
  * person's own Portal user id there. The Portal validates every value again; this only keeps the request the right shape.
  */

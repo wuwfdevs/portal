@@ -1,5 +1,5 @@
 import {
-  AUTHORING_ACTOR_ID,
+  STAFF_ACTOR_ID,
   AUTHORING_MAX_GUIDANCE_LENGTH,
   AUTHORING_MAX_INTRO_LENGTH,
   AUTHORING_MAX_LABEL_LENGTH,
@@ -16,7 +16,7 @@ import {
 import { validateQueryInput, validateQuestionInput } from "@/lib/audience-listening/query-state";
 
 /**
- * The pure half of the site's signed authoring channel (packages/portal-contracts, listening-authoring.ts): reading a request into typed
+ * The pure half of the site's signed listening authoring (a staff action; packages/portal-contracts, listening-authoring.ts): reading a request into typed
  * values, applying the same rules the staff screens apply (validateQueryInput, validateQuestionInput, the five-question ceiling, no removing or
  * reordering once a query has submissions, no opening an empty query), and working out what a save changes. No database and no `server-only`,
  * so every rule here is tested; authoring-api.ts only carries the result to the tables.
@@ -64,7 +64,7 @@ function optionalTimestamp(value: unknown, label: string): Parsed<string | null>
 export function parseActor(value: unknown): Parsed<string> {
   const actor = asRecord(value);
   const id = actor?.["portalUserId"];
-  if (typeof id !== "string" || !AUTHORING_ACTOR_ID.test(id)) return problem("Who is making this change could not be read.");
+  if (typeof id !== "string" || !STAFF_ACTOR_ID.test(id)) return problem("Who is making this change could not be read.");
   return { ok: true, value: id.toLowerCase() };
 }
 

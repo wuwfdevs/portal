@@ -1,134 +1,35 @@
 import "server-only";
 import {
-  CONTRACT_VERSION_HEADER,
-  LISTENING_AUTHORING_SECRET_MIN_LENGTH,
-  SIGNATURE_HEADER,
-  TIMESTAMP_HEADER,
-  verifyRequestSignature,
-  type ListeningAuthoringAction,
-  type ListeningAuthoringErrorCode,
   type ListeningAuthoringQuery,
   type ListeningAuthoringStatus,
   type ListeningAuthoringSummary,
 } from "@wuwf/portal-contracts";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { generatePublicId } from "@/lib/audience-listening/public-id";
 import { parseAuthoringRequest, planQuestionChanges, statusChangeProblem, type AuthoringCall } from "@/lib/audience-listening/authoring";
+import { DatabaseFailure, Refusal, check, receiveStaffAction, type Supabase } from "@/lib/staff-actions/receive";
+import type { ListeningAuthoringAction } from "@wuwf/portal-contracts";
 import type { Database } from "@/lib/database.types";
 
 /**
- * The receiver for the site's signed AUTHORING channel: staff write a listening query and open or close it from the CMS's block editor
- * (packages/portal-contracts, listening-authoring.ts). It is the Portal's own rules reached from another door, not a second set of rules.
- *
- * Two checks stand in for the session and the row-level policies a staff screen has, because there is no session here and the admin client
- * ignores policies:
- *   1. the signature (its own secret, `LISTENING_AUTHORING_SECRET`, never the listener channel's), checked before anything else; and
- *   2. the ACTOR the request names must hold an active account with an unrevoked Audience Listening grant, looked up here, as
- *      private.has_audience_listening_access does. The site's word that the person is staff is not taken as that grant.
- * Every change leaves an audit event naming that person. A body is never logged (a question can name people): only the action, the code
- * of a refusal and the Portal's own database error code.
+ * The listening feature of the site's signed STAFF ACTIONS channel: staff write a listening query and open or close it from the CMS's block
+ * editor (packages/portal-contracts, listening-authoring.ts). It is the Portal's own rules reached from another door, not a second set of rules.
+ * The channel's checks (the secret and signature, the actor's Audience Listening grant, no body logged) are lib/staff-actions/receive.ts; what is
+ * here is what this feature does once they pass, writing `al_queries` and `al_questions` with the admin client, and an audit event naming the
+ * actor for every change.
  */
 
-const MAX_BODY_BYTES = 64 * 1024;
 const TOOL_KEY = "audience-listening";
 
-type Supabase = ReturnType<typeof createAdminClient>;
 type QueryRow = Database["public"]["Tables"]["al_queries"]["Row"];
 type QuestionRow = Database["public"]["Tables"]["al_questions"]["Row"];
 
-function respond(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
-}
-
-const STATUS: Record<ListeningAuthoringErrorCode, number> = { not_allowed: 403, not_found: 404, invalid: 400, conflict: 409, rate_limited: 429, unavailable: 503 };
-
-function refuse(error: ListeningAuthoringErrorCode, message?: string, status = STATUS[error]): Response {
-  return respond(status, { ok: false, error, ...(message ? { message } : {}) });
-}
-
-class Refusal extends Error {
-  constructor(
-    readonly code: ListeningAuthoringErrorCode,
-    message?: string,
-  ) {
-    super(message ?? code);
-  }
-}
-
-class DatabaseFailure extends Error {}
-
-function check<T>(result: { data: T | null; error: { code?: string; message: string } | null }, what: string): T | null {
-  if (result.error) {
-    console.error(`Listening authoring: ${what} failed (${result.error.code ?? "no code"})`);
-    throw new DatabaseFailure(what);
-  }
-  return result.data;
-}
-
-export async function handleAuthoringRequest(request: Request, action: ListeningAuthoringAction): Promise<Response> {
-  const secret = process.env.LISTENING_AUTHORING_SECRET;
-  if (!secret || secret.length < LISTENING_AUTHORING_SECRET_MIN_LENGTH) {
-    console.error("The listening authoring API is not configured: LISTENING_AUTHORING_SECRET is missing or shorter than 32 characters.");
-    return refuse("unavailable");
-  }
-
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return refuse("invalid", "That is too much to send at once.", 413);
-  const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return refuse("invalid", "That is too much to send at once.", 413);
-
-  const url = new URL(request.url);
-  if (url.search) return refuse("invalid");
-
-  const signed = await verifyRequestSignature(
-    {
-      method: request.method,
-      path: url.pathname,
-      body: raw,
-      signature: request.headers.get(SIGNATURE_HEADER),
-      timestamp: request.headers.get(TIMESTAMP_HEADER),
-      version: request.headers.get(CONTRACT_VERSION_HEADER),
-    },
-    secret,
-  );
-  if (!signed.ok) {
-    console.error(`Listening authoring: refused ${action}: ${signed.reason}`);
-    return respond(401, { ok: false, error: "invalid" });
-  }
-
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    return refuse("invalid");
-  }
-  const parsed = parseAuthoringRequest(action, json);
-  if (!parsed.ok) return refuse("invalid", parsed.message);
-  const call = parsed.value;
-
-  try {
-    const supabase = createAdminClient();
-    if (!(await actorHasAccess(supabase, call.actor))) return refuse("not_allowed");
-    return respond(200, { ok: true, ...(await run(supabase, call)) });
-  } catch (error) {
-    if (error instanceof Refusal) return refuse(error.code, error.code === "not_allowed" ? undefined : error.message);
-    if (!(error instanceof DatabaseFailure)) console.error(`Listening authoring: ${action} failed unexpectedly:`, error instanceof Error ? error.name : "unknown");
-    return refuse("unavailable");
-  }
-}
-
-/** An active account holding an unrevoked grant for the Audience Listening tool (no administrator bypass, as in the database function). */
-async function actorHasAccess(supabase: Supabase, actor: string): Promise<boolean> {
-  const toolResult = await supabase.from("tools").select("id").eq("key", TOOL_KEY).maybeSingle();
-  check(toolResult, "reading the tool");
-  const tool = toolResult.data;
-  if (!tool) return false;
-  const profileResult = await supabase.from("profiles").select("account_status").eq("id", actor).maybeSingle();
-  check(profileResult, "reading the profile");
-  if (profileResult.data?.account_status !== "active") return false;
-  const grantResult = await supabase.from("tool_access").select("user_id").eq("user_id", actor).eq("tool_id", tool.id).is("revoked_at", null).maybeSingle();
-  check(grantResult, "reading the grant");
-  return grantResult.data !== null;
+export function handleAuthoringRequest(request: Request, action: ListeningAuthoringAction): Promise<Response> {
+  return receiveStaffAction<AuthoringCall>(request, {
+    label: `listening/${action}`,
+    toolKey: TOOL_KEY,
+    parse: (json) => parseAuthoringRequest(action, json),
+    run,
+  });
 }
 
 async function run(supabase: Supabase, call: AuthoringCall): Promise<Record<string, unknown>> {

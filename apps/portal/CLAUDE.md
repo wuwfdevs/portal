@@ -278,17 +278,18 @@ tools call one place — there is no second ASR pipeline, webhook, or transcript
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
-**Audience Listening: the site's signed AUTHORING API (2026-11-22).** Staff write, edit, open and close a query from the website's block editor,
-through `/api/site/listening-authoring/[action]` (`list`, `get`, `save`, `set-status`; contract 4 in `packages/portal-contracts/src/listening-authoring.ts`; handler
-`lib/audience-listening/authoring-api.ts`, pure half `authoring.ts`, both tested). It is **a separate channel with its own secret `LISTENING_AUTHORING_SECRET`**
-(never `LISTENING_SIGNING_SECRET`), and it is **not** the `al_site_*` path: the admin client writes `al_queries` and `al_questions` directly, so the checks that
-stand in for RLS are in the handler and must stay there: (1) the signature, first; (2) **the named actor must be an active account holding an unrevoked
-Audience Listening grant, looked up in the handler** (the site's word that someone is staff is never enough, and there is no administrator bypass, as in
-`private.has_audience_listening_access`); (3) every rule the staff screens apply (`validateQueryInput`, `validateQuestionInput`, five questions, no removing or
-reordering once there are submissions, no opening an empty query) comes from the same functions, so a rule changed there changes here; (4) every change writes an
-`audit_events` row naming the actor (`via: "site"`). A query made through it is a draft with the usual defaults for participant fields, consent and
-transcription; those settings, the hub listing and events are edited only in the Portal's own screens. `/api/site/listening-authoring` is in `PUBLIC_PATHS`
-and in the module's `publicRoutes` (the login redirect must not answer it). No migration.
+**Staff actions: the site's signed channel for what staff do through the website (2026-11-22).** Everything the site does on behalf of a **named staff member**
+arrives at `/api/site/staff/<feature>/<action>` (contract 4, `packages/portal-contracts/src/staff-actions.ts`; the one receiver is `lib/staff-actions/receive.ts`).
+**It is one channel with one secret, `STAFF_ACTIONS_SECRET`, whatever the feature**: the line between this and the listener channel
+(`LISTENING_SIGNING_SECRET`, anonymous visitors) is *who acts*, not which feature, so a new staff feature adds paths and messages, never a secret. The receiver
+checks, in this order and for every feature: (1) the signature, first; (2) **the named actor must be an active account holding an unrevoked grant for the feature's
+tool, looked up in the receiver** (the site's word that someone is staff is never enough; no administrator bypass, as in the `private.has_*_access` functions);
+the feature then does its work. A feature supplies its tool key, how to read its requests and what to do (`StaffActionFeature`), reuses the Portal's own validators so
+a rule changed on the staff screen changes here, and audits each change with `audit_events` naming the actor (`via: "site"`). It writes through the admin client,
+so those checks are the only thing standing in for RLS: do not add a staff action that skips the receiver. `/api/site/staff` is in `PUBLIC_PATHS` and in a module's
+`publicRoutes` (the login redirect must not answer it). First feature: **listening authoring** (`lib/audience-listening/authoring-api.ts`, pure half `authoring.ts`;
+`list`, `get`, `save`, `set-status`): staff write, edit, open and close a query from the block editor. A query made that way is a draft with the usual defaults
+for participant fields, consent and transcription; those settings, the hub listing and events are edited only in the Portal's own screens. No migration.
 
 **Audience Listening: the site's signed API (suite phase A, 2026-11-07 and 2026-11-09).** A pointer; read
 `docs/audience-listening-suite-design.md` first. WUWF.org renders every public screen and calls

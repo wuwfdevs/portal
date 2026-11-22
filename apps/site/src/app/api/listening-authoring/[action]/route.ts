@@ -3,13 +3,13 @@ import { headers as nextHeaders } from 'next/headers'
 import { getPayload } from 'payload'
 
 import { userCan } from '@/access/permissions'
-import { callAuthoringWith } from '@/lib/listening/authoring-call'
 import { BROWSER_ACTIONS, portalBodyFor } from '@/lib/listening/authoring-request'
-import { getAuthoringConfig } from '@/lib/listening/authoring-server'
+import { callStaffActionWith } from '@/lib/portal-staff/call'
+import { getStaffActionsConfig } from '@/lib/portal-staff/server'
 
 /**
  * What the block editor's "Listening question" field calls to list, read, write, open and close a query. It is the site's server speaking to
- * the Portal's signed authoring API for the signed-in person: the browser never holds the secret, and never says who it is. The actor sent to
+ * the Portal's signed staff actions API for the signed-in person: the browser never holds the secret, and never says who it is. The actor sent to
  * the Portal is the Portal user id this person signed in with; someone without one (the break-glass administrator) is refused here, and the
  * Portal checks the actor's grant again itself. Nothing is stored on this site.
  */
@@ -56,7 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ action
   const body = portalBodyFor(spec.action, browser, portalUserId)
   if (!body) return json(400, { ok: false, error: 'invalid', message: 'The request could not be read.' })
 
-  const result = await callAuthoringWith<Record<string, unknown>>(await getAuthoringConfig(), fetch, spec.path, body)
+  const result = await callStaffActionWith<Record<string, unknown>>(await getStaffActionsConfig(), fetch, spec.path, body)
   if (result.ok) return json(200, result)
   return json(STATUS[result.error] ?? 502, { ok: false, error: result.error, message: result.message ?? SAY[result.error] ?? SAY.unavailable })
 }

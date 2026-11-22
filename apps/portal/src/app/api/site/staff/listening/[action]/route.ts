@@ -1,5 +1,5 @@
 // The site's signed listening AUTHORING API: one route per message in packages/portal-contracts/src/listening-authoring.ts
-// (LISTENING_AUTHORING_PATHS). All POST. A separate channel from the listener one (../listening), with its own secret.
+// (LISTENING_AUTHORING_PATHS). All POST. The first feature of the STAFF ACTIONS channel (lib/staff-actions/receive.ts), not the listener channel (../../listening).
 // See lib/audience-listening/authoring-api.ts.
 
 import { LISTENING_AUTHORING_ACTIONS, type ListeningAuthoringAction } from "@wuwf/portal-contracts";

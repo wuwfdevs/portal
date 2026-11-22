@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  AUTHORING_ACTOR_ID, AUTHORING_STATUSES, LISTENING_AUTHORING_ACTIONS, LISTENING_AUTHORING_ERROR_CODES, LISTENING_AUTHORING_PATHS, LISTENING_PATHS,
-  isListeningAuthoringErrorCode, isListeningAuthoringStatus, signRequest, verifyRequestSignature,
+  AUTHORING_STATUSES, LISTENING_AUTHORING_ACTIONS, LISTENING_AUTHORING_PATHS, LISTENING_PATHS, STAFF_ACTIONS_PATH_PREFIX, STAFF_ACTION_ERROR_CODES, STAFF_ACTOR_ID,
+  isListeningAuthoringStatus, isStaffActionErrorCode, signRequest, verifyRequestSignature,
 } from "./index";
 
 const SECRET = "a".repeat(40);
 const OTHER = "b".repeat(40);
 const NOW = 1_800_000_000;
 
-describe("listening authoring channel", () => {
-  it("has one path per action, all under its own prefix, none shared with the listener channel", () => {
+describe("staff actions: listening authoring", () => {
+  it("has one path per action, all under the staff-actions prefix, none shared with the listener channel", () => {
     const paths = Object.values(LISTENING_AUTHORING_PATHS);
     expect(paths).toHaveLength(LISTENING_AUTHORING_ACTIONS.length);
-    for (const action of LISTENING_AUTHORING_ACTIONS) expect(paths).toContain(`/api/site/listening-authoring/${action}`);
+    for (const action of LISTENING_AUTHORING_ACTIONS) expect(paths).toContain(`${STAFF_ACTIONS_PATH_PREFIX}/listening/${action}`);
+    for (const p of paths) expect(p.startsWith(`${STAFF_ACTIONS_PATH_PREFIX}/`)).toBe(true);
     const listener = new Set<string>(Object.values(LISTENING_PATHS));
     for (const p of paths) expect(listener.has(p)).toBe(false);
   });
@@ -20,14 +21,14 @@ describe("listening authoring channel", () => {
   it("recognises its statuses and error codes and nothing else", () => {
     for (const s of AUTHORING_STATUSES) expect(isListeningAuthoringStatus(s)).toBe(true);
     expect(isListeningAuthoringStatus("published")).toBe(false);
-    for (const c of LISTENING_AUTHORING_ERROR_CODES) expect(isListeningAuthoringErrorCode(c)).toBe(true);
-    expect(isListeningAuthoringErrorCode("teapot")).toBe(false);
+    for (const c of STAFF_ACTION_ERROR_CODES) expect(isStaffActionErrorCode(c)).toBe(true);
+    expect(isStaffActionErrorCode("teapot")).toBe(false);
   });
 
   it("takes a Portal user id as the actor, not an email or a path", () => {
-    expect(AUTHORING_ACTOR_ID.test("11111111-1111-4111-8111-111111111111")).toBe(true);
-    expect(AUTHORING_ACTOR_ID.test("leigh@wuwf.org")).toBe(false);
-    expect(AUTHORING_ACTOR_ID.test("../x")).toBe(false);
+    expect(STAFF_ACTOR_ID.test("11111111-1111-4111-8111-111111111111")).toBe(true);
+    expect(STAFF_ACTOR_ID.test("leigh@wuwf.org")).toBe(false);
+    expect(STAFF_ACTOR_ID.test("../x")).toBe(false);
   });
 
   it("is signed like every channel: another channel's secret does not verify, and neither does another path", async () => {
