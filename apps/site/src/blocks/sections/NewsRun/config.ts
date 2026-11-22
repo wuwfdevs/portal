@@ -1,3 +1,5 @@
+import { NEWS_RUN_COUNT } from '@/lib/homepage/modules'
+
 import { defineSection, sectionFields } from '../fields'
 
 /**
@@ -13,7 +15,7 @@ export const NewsRun = defineSection({
   fields: sectionFields({
     own: [
       { name: 'section', type: 'relationship', relationTo: 'sections', required: true, admin: { description: 'Where its stories come from and where "More from…" goes.' } },
-      { name: 'count', type: 'number', defaultValue: 5, min: 3, max: 8, admin: { description: 'How many stories to show (3 to 8).' } },
+      { name: 'count', type: 'number', defaultValue: NEWS_RUN_COUNT.standard, min: NEWS_RUN_COUNT.min, max: NEWS_RUN_COUNT.max, admin: { description: `How many stories to show (${NEWS_RUN_COUNT.min} to ${NEWS_RUN_COUNT.max}). The first is the lead, on a row of its own; the rest sit below it.` } },
     ],
   }),
 })

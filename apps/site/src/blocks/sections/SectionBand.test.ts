@@ -42,3 +42,16 @@ describe('SectionBand: where the heading sits', () => {
     expect(html({}, {})).not.toContain('<header')
   })
 })
+
+describe('SectionBand: tight', () => {
+  const draw = (tight?: boolean) => renderToStaticMarkup(createElement(SectionBand as never, { block: { blockType: 'x' }, tight }, createElement('p', null, 'Content')))
+  it('has the ordinary padding by default', () => {
+    expect(draw()).toContain('py-12 md:py-14')
+  })
+  it('takes less above from a tablet up when tight, and the same below', () => {
+    const out = draw(true)
+    expect(out).toContain('md:pt-6')
+    expect(out).toContain('md:pb-14')
+    expect(out).not.toContain('md:py-14')
+  })
+})

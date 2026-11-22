@@ -5,6 +5,8 @@
 // panels. The banner is not here (it is the Site banner global), and neither are the sponsor tiles (the page set's slots draw those) or the page's foot (`HomeFoot`: the
 // "All stories" button and the membership appeal).
 
+import { newsRunCount } from './modules'
+
 type Rel = { id: string | number } | string | number | null | undefined
 const idOf = (r: Rel): string | number | null => (r == null ? null : typeof r === 'object' ? r.id : r)
 
@@ -75,7 +77,7 @@ export function homepageToSections(settings: HomepageFields | null | undefined):
     if (m.enabled === false) continue
     const sectionId = idOf(m.section)
     if (sectionId === null || !m.heading?.trim()) continue
-    sections.push(section(`news-${m.id ?? i + 1}`, 'sectionNewsRun', 'plain', { section: sectionId, count: m.count ?? 5, heading: { title: m.heading.trim() } }))
+    sections.push(section(`news-${m.id ?? i + 1}`, 'sectionNewsRun', 'plain', { section: sectionId, count: newsRunCount(m.count), heading: { title: m.heading.trim() } }))
   }
 
   if (on(s.podcasts)) sections.push(section('podcasts', 'sectionShowSpotlight', 'grey', { featuredShow: idOf(s.podcasts?.featuredShow) }))

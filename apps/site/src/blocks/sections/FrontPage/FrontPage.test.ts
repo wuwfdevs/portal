@@ -44,6 +44,18 @@ describe('Front page lead', () => {
     expect(out).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]')
     expect(out).toContain('lg:flex-1')
   })
+  it('keeps the full top padding when the page has no top unit, and the first screen subtracts it', async () => {
+    const out = await draw({})
+    expect(out).toContain('py-12 md:py-14')
+    expect(out).not.toContain('md:pt-6')
+  })
+  it('sets a long headline a step smaller from a wide screen, so it does not run to six lines', async () => {
+    arranged = { lead: story(1, 'LISTEN: Carl Wernicke Reflects on JFK\'S Assassination, "They cheered and applauded."') as never, top: [] }
+    const long = await draw({})
+    expect(long).not.toContain('xl:text-5xl')
+    arranged = { lead: story(1, 'The lead') as never, top: [] }
+    expect(await draw({})).toContain('xl:text-5xl')
+  })
   it('draws the lead story and The Briefing, in the band', async () => {
     const out = await draw({ tone: 'plain', leadKicker: 'After Isaias' })
     expect(out).toContain('The lead')
@@ -82,5 +94,21 @@ describe('Front page lead: the top unit', () => {
   it('draws no unit on a page in a set without slots, or when the route loaded none', async () => {
     expect(await draw({}, undefined, { ...home, setId: 'giving' })).not.toContain('data-placement')
     expect(await draw({}, undefined, {})).not.toContain('data-placement')
+  })
+})
+
+describe('Front page lead: a tight band under a top unit', () => {
+  const top = { key: 'home.top.1', kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: 'Acme words', href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: { id: 1, url: '/a.png', alt: 'a', width: 1600, height: 200 }, phoneImage: null }
+  const home = { setId: 'home', slots: { top, rail: [], fillers: [], band: null } }
+  it('takes 1.5rem above the strip from a tablet up, not 3.5rem, so the strip hugs the header; a phone keeps the full space', async () => {
+    const out = await draw({}, undefined, home)
+    expect(out).toContain('md:pt-6')
+    expect(out).toContain('pt-12')
+    expect(out).not.toContain('py-12 md:py-14')
+  })
+  it('subtracts that smaller padding from the first screen, so The Briefing still starts just under the fold', async () => {
+    const out = await draw({}, undefined, home)
+    expect(out).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_1.5rem),62rem)]')
+    expect(out).not.toContain('_-_3.5rem')
   })
 })

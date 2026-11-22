@@ -1,5 +1,6 @@
 import React from 'react'
 
+import { newsRunCount } from '@/lib/homepage/modules'
 import { relationId } from '@/lib/section-data/shape'
 
 import { SectionBand } from '../SectionBand'
@@ -11,9 +12,7 @@ export interface NewsRunData extends SectionData {
   count?: number | null
 }
 
-const MIN = 3
-const MAX = 8
-const countOf = (stored: number | null | undefined): number => (typeof stored === 'number' && Number.isFinite(stored) ? Math.min(MAX, Math.max(MIN, Math.round(stored))) : 5)
+const countOf = newsRunCount
 
 /** What the page's ordered pass asks of this block: the newest of its section (more than it takes), and how many it takes. */
 export async function newsRunClaim(block: NewsRunData): Promise<{ candidates: (string | number)[]; take: number } | null> {
@@ -42,7 +41,7 @@ export async function NewsRunSection({ block, context }: SectionProps<NewsRunDat
   const href = section.slug ? `/${section.slug}` : null
   return (
     <SectionBand block={{ ...block, heading: { ...block.heading, title } }} heading={{ ...block.heading, title }} more={<SectionLink href={href} label={href ? `More from ${title}` : null} />}>
-      <StoryGrid spanFirst stories={shown} variant="editorial" />
+      <StoryGrid showDate showSection={false} spanFirst stories={shown} variant="editorial" />
     </SectionBand>
   )
 }

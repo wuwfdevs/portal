@@ -15,8 +15,11 @@ import type { SectionData } from './types'
  * right, so the way on is in the header (the same place the home page's sections put theirs). A section with no heading has no header to put it
  * in, so its link follows the content. With the section's `placement` set to `side` the heading (and the `more` link) sit in a column beside the
  * content on a wide screen, as the sponsor boards compose a heading beside its cards; on a phone it is above, as always.
+ *
+ * `tight` is for a band whose first thing is a top unit (a sponsor strip) set directly under the header: from a tablet up it takes 1.5rem above instead of 3.5rem, so the strip
+ * hugs the header and the room comes after it. A phone keeps the full space, because there the unit follows the lead. A page-level choice made in code, never an editor's field.
  */
-export function SectionBand({ block, heading, more, children }: { block: SectionData & { placement?: string | null }; heading?: SectionData['heading']; more?: React.ReactNode; children: React.ReactNode }) {
+export function SectionBand({ block, heading, more, tight = false, children }: { block: SectionData & { placement?: string | null }; heading?: SectionData['heading']; more?: React.ReactNode; tight?: boolean; children: React.ReactNode }) {
   const tone = isTone(block.tone) ? block.tone : 'plain'
   if (block.inline) {
     // Inside Columns: no band, no container, no tone of its own. The band around the columns sets the ground and the colours.
@@ -31,7 +34,7 @@ export function SectionBand({ block, heading, more, children }: { block: Section
   const headed = hasHeading(heading)
   const side = block.placement === 'side' && headed
   return (
-    <section data-section={block.blockType} data-tone={tone} id={block.anchor || undefined} className="py-12 md:py-14">
+    <section data-section={block.blockType} data-tone={tone} id={block.anchor || undefined} className={tight ? 'pb-12 pt-12 md:pb-14 md:pt-6' : 'py-12 md:py-14'}>
       {side ? (
         <div className="container grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,8fr)] lg:gap-12">
           <div className="flex flex-col items-start gap-5">
