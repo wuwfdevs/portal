@@ -26,6 +26,9 @@ const PUBLIC_PATHS = [
   // carries no Supabase session; it is authenticated by an HMAC signature over the exact request, checked before
   // anything else in lib/audience-listening/site-api.ts, so it must never hit the login redirect below.
   "/api/site/listening",
+  // The same, for staff authoring a query from the site's block editor (lib/audience-listening/authoring-api.ts): signed with its own
+  // secret, and the named actor's grant is checked in the handler, so it must not hit the login redirect either.
+  "/api/site/listening-authoring",
   // Vercel's scheduled calls (vercel.json `crons`): a server-to-server GET with no Supabase session, authenticated by
   // `Authorization: Bearer CRON_SECRET` inside the route itself (lib/audience-listening/cron/auth.ts; 401 with none
   // set). Without this entry the login redirect answered the scheduler and no job ever ran.

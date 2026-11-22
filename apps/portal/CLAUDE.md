@@ -278,6 +278,18 @@ tools call one place — there is no second ASR pipeline, webhook, or transcript
 Anonymous sign-ins must be enabled in both Supabase projects (already required by Remote
 Interview, now required by a second tool).
 
+**Audience Listening: the site's signed AUTHORING API (2026-11-22).** Staff write, edit, open and close a query from the website's block editor,
+through `/api/site/listening-authoring/[action]` (`list`, `get`, `save`, `set-status`; contract 4 in `packages/portal-contracts/src/listening-authoring.ts`; handler
+`lib/audience-listening/authoring-api.ts`, pure half `authoring.ts`, both tested). It is **a separate channel with its own secret `LISTENING_AUTHORING_SECRET`**
+(never `LISTENING_SIGNING_SECRET`), and it is **not** the `al_site_*` path: the admin client writes `al_queries` and `al_questions` directly, so the checks that
+stand in for RLS are in the handler and must stay there: (1) the signature, first; (2) **the named actor must be an active account holding an unrevoked
+Audience Listening grant, looked up in the handler** (the site's word that someone is staff is never enough, and there is no administrator bypass, as in
+`private.has_audience_listening_access`); (3) every rule the staff screens apply (`validateQueryInput`, `validateQuestionInput`, five questions, no removing or
+reordering once there are submissions, no opening an empty query) comes from the same functions, so a rule changed there changes here; (4) every change writes an
+`audit_events` row naming the actor (`via: "site"`). A query made through it is a draft with the usual defaults for participant fields, consent and
+transcription; those settings, the hub listing and events are edited only in the Portal's own screens. `/api/site/listening-authoring` is in `PUBLIC_PATHS`
+and in the module's `publicRoutes` (the login redirect must not answer it). No migration.
+
 **Audience Listening: the site's signed API (suite phase A, 2026-11-07 and 2026-11-09).** A pointer; read
 `docs/audience-listening-suite-design.md` first. WUWF.org renders every public screen and calls
 `/api/site/listening/[action]` from its server with requests signed by `LISTENING_SIGNING_SECRET`
