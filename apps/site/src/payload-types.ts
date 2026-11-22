@@ -960,7 +960,7 @@ export interface Category {
   generateSlug?: boolean | null;
   slug: string;
   /**
-   * Optional. A WUWF Listens question to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the question closes.
+   * Optional. A WUWF Listens query to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the query closes.
    */
   listeningQuestion?: string | null;
   parent?: (number | null) | Category;
@@ -2915,7 +2915,7 @@ export interface SectionNewsRun {
    */
   section: number | Section;
   /**
-   * How many stories to show (3 to 8).
+   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it.
    */
   count?: number | null;
   id?: string | null;
@@ -11405,12 +11405,12 @@ export interface LinkLineBlock {
  */
 export interface ListeningAskBlock {
   /**
-   * Choose a question from the Portal, or press New question to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code.
+   * Choose a query from the Portal, or press New query to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code.
    */
   question: string;
   variant: 'story' | 'voice';
   /**
-   * Who receives the message, e.g. "Mary" or "the Unearthing Florida team". Empty uses the person who asked the question, or WUWF.
+   * Who receives the message, e.g. "Mary" or "the Unearthing Florida team". Empty uses the person who asked the query, or WUWF.
    */
   recipient?: string | null;
   /**

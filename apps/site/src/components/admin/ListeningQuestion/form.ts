@@ -8,12 +8,12 @@ import {
 } from '@wuwf/portal-contracts'
 
 /**
- * The pure half of the block editor's "Listening question" field: the form's state, what it sends, and the problems it can name before
+ * The pure half of the block editor's "Listening query" field: the form's state, what it sends, and the problems it can name before
  * sending. The Portal checks everything again and its sentence wins; this only saves the editor a round trip for the plain mistakes.
  * No React, so it is tested.
  */
 export interface QuestionDraft {
-  /** A question the Portal already holds; absent for a new one. */
+  /** A question the Portal already holds in this query; absent for a new one. */
   id?: string
   prompt: string
   guidance: string
@@ -114,14 +114,14 @@ export function saveBody(draft: QueryDraft, publicId: string | null): Record<str
 
 /** The first plain mistake in a draft, as a sentence, or null. */
 export function draftProblem(draft: QueryDraft): string | null {
-  if (!draft.internalTitle.trim()) return 'Give the question an internal title, for staff in the Portal.'
-  if (!draft.publicTitle.trim()) return 'Give the question a public title, the headline people see.'
+  if (!draft.internalTitle.trim()) return 'Give the query an internal title, for staff in the Portal.'
+  if (!draft.publicTitle.trim()) return 'Give the query a public title, the headline people see.'
   const opens = fromLocalInput(draft.opensAt)
   const closes = fromLocalInput(draft.closesAt)
   if (draft.opensAt.trim() && !opens) return 'The opening time is not a date and time.'
   if (draft.closesAt.trim() && !closes) return 'The closing time is not a date and time.'
   if (opens && closes && new Date(closes).getTime() <= new Date(opens).getTime()) return 'The closing time must be after the opening time.'
-  if (draft.questions.length > AUTHORING_MAX_QUESTIONS) return `A question set can have at most ${AUTHORING_MAX_QUESTIONS} questions.`
+  if (draft.questions.length > AUTHORING_MAX_QUESTIONS) return `A query can have at most ${AUTHORING_MAX_QUESTIONS} questions.`
   for (const [i, q] of draft.questions.entries()) {
     if (!q.prompt.trim()) return `Question ${i + 1} needs its words.`
     const seconds = Number(q.seconds)

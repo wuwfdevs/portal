@@ -3,7 +3,7 @@ import { LISTENING_AUTHORING_PATHS, verifyRequestSignature } from '@wuwf/portal-
 
 import { callStaffActionWith } from '../portal-staff/call'
 import { readStaffActionsConfig } from '../portal-staff/config'
-import { BROWSER_ACTIONS, portalBodyFor } from './authoring-request'
+import { BROWSER_ACTIONS, NOT_LINKED_MESSAGE, NOT_PERMITTED_MESSAGE, authoringRefusal, portalBodyFor } from './authoring-request'
 
 const ME = '11111111-1111-4111-8111-111111111111'
 const SECRET = 'a'.repeat(40)
@@ -72,5 +72,35 @@ describe('callStaffActionWith: only this channel\'s paths are signed', () => {
   it('refuses to sign a path outside the staff actions prefix with the staff secret', async () => {
     await expect(callStaffActionWith(CONFIG, vi.fn(), '/api/site/listening/start', {})).rejects.toThrow(/prefix/)
     await expect(callStaffActionWith(CONFIG, vi.fn(), '/api/site/staffer/x', {})).rejects.toThrow(/prefix/)
+  })
+})
+
+describe('authoringRefusal: who may use the authoring route, and what each refusal says', () => {
+  it('tells an account with no Portal profile why, and what to do, even when it holds every role', () => {
+    const answer = authoringRefusal({ roles: ['administrator', 'editor', 'publisher'], portalUserId: null })
+    expect(answer).toEqual({ error: 'not_linked', message: NOT_LINKED_MESSAGE })
+    expect(NOT_LINKED_MESSAGE).toContain('not through the Portal')
+    expect(NOT_LINKED_MESSAGE).toContain('Website tool in the Portal')
+    expect(NOT_LINKED_MESSAGE).toContain('paste')
+  })
+  it('treats an account made by hand the same way: no Portal profile is the whole reason', () => {
+    expect(authoringRefusal({ roles: ['administrator'] })).toMatchObject({ error: 'not_linked' })
+    expect(authoringRefusal({ roles: ['administrator'], portalUserId: '' })).toMatchObject({ error: 'not_linked' })
+  })
+  it('lets a linked account with the listening permission go on, as that Portal person', () => {
+    expect(authoringRefusal({ roles: ['administrator'], portalUserId: 'portal-user-1' })).toEqual({ error: null, portalUserId: 'portal-user-1' })
+  })
+  it('refuses signed out, and someone without the permission, as a matter of permission, whether or not they are linked', () => {
+    expect(authoringRefusal(null)).toEqual({ error: 'not_allowed', message: NOT_PERMITTED_MESSAGE })
+    expect(authoringRefusal({ roles: [], portalUserId: 'portal-user-3' })).toMatchObject({ error: 'not_allowed' })
+    expect(authoringRefusal({ roles: [], portalUserId: null })).toMatchObject({ error: 'not_allowed' })
+  })
+  it('does not call a missing link a missing permission, nor the reverse', () => {
+    expect(NOT_LINKED_MESSAGE).not.toMatch(/permission|no Portal identity/i)
+    expect(NOT_PERMITTED_MESSAGE).not.toMatch(/Portal profile|sign in/i)
+  })
+  it('says "query" for the thing staff write, and keeps "question" for what is inside one', () => {
+    for (const message of [NOT_LINKED_MESSAGE, NOT_PERMITTED_MESSAGE]) expect(message).not.toMatch(/listening questions?\b/i)
+    expect(NOT_PERMITTED_MESSAGE).toContain('listening queries')
   })
 })
