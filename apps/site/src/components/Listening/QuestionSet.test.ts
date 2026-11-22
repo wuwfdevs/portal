@@ -56,6 +56,20 @@ describe('QuestionSet placements', () => {
     expect(document.activeElement).toBe(document.body)
   })
 
+  it('names who receives the answers, and a line about them, in the in-story ask only when the editor gave them', () => {
+    show({ placement: 'story' })
+    expect(screen.queryByText(/Sent to/)).toBeNull()
+    cleanup()
+    show({ placement: 'story', recipient: 'the Unearthing Florida team', description: 'We read every one.' })
+    expect(screen.getByText(/Sent to the Unearthing Florida team\./)).toBeTruthy()
+    expect(screen.getByText('We read every one.')).toBeTruthy()
+  })
+
+  it('always names a recipient after an episode or video, as WUWF when none is given', () => {
+    show({ placement: 'voice' })
+    expect(screen.getByText(/Sent to WUWF\./)).toBeTruthy()
+  })
+
   it('shows the whole set even when every question is required', () => {
     show({ placement: 'story' })
     expect(screen.getByText('2 questions · by voice or in writing')).toBeTruthy()
@@ -77,5 +91,35 @@ describe('QuestionSet placements', () => {
     expect(screen.getByRole('button', { name: 'Begin' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Take part' })).toBeNull()
     expect(document.activeElement).toBe(heading)
+  })
+})
+
+describe('QuestionSet review', () => {
+  const actions = async () => (await import('@/app/(frontend)/listens/actions')) as unknown as { startResponse: ReturnType<typeof vi.fn> }
+
+  // A resumed response: one recording and one written answer are already saved, so the review screen can be reached without a microphone.
+  const toReview = async () => {
+    const { startResponse } = await actions()
+    startResponse.mockResolvedValue({
+      ok: true,
+      submissionId: 's1',
+      answers: [
+        { questionId: 'q1', status: 'uploaded', kind: 'audio', durationMs: 42_000, text: null },
+        { questionId: 'q2', status: 'uploaded', kind: 'text', durationMs: null, text: 'In my own words.' },
+      ],
+    })
+    show({ placement: 'story' })
+    fireEvent.click(screen.getByRole('button', { name: 'Begin' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Allow microphone access' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Write my answers instead' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Next question' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Review answers' }))
+    await screen.findByText('You can replace any recording before you continue.')
+  }
+
+  it('says playback is not available for a recording saved before a reload, and offers none for a written answer', async () => {
+    await toReview()
+    expect(screen.getAllByText('Playback isn’t available once the page has been reloaded.')).toHaveLength(1)
+    expect(screen.queryByRole('group', { name: 'Listen back' })).toBeNull()
   })
 })

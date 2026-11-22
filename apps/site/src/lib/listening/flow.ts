@@ -90,6 +90,8 @@ export interface ReviewRow {
   status: string
   /** The row's button: replace what is saved, or record it now. */
   action: 'Replace' | 'Record'
+  /** A recording is saved for it (not a written answer, not nothing), so the participant may expect to play it back. */
+  hasAudio: boolean
 }
 
 export function reviewRows(questions: ListeningQuestion[], answers: Record<string, LocalAnswer>): ReviewRow[] {
@@ -101,6 +103,7 @@ export function reviewRows(questions: ListeningQuestion[], answers: Record<strin
       prompt: question.prompt,
       status: reviewStatus(question, answer),
       action: answer.state === 'saved' ? 'Replace' : 'Record',
+      hasAudio: answer.state === 'saved' && answer.seconds !== null && answer.text === null,
     }
   })
 }

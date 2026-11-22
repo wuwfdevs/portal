@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { placementVariant, publicIdFromInput } from './placement'
+import { effectiveVariant, framingForFormat, placementVariant, publicIdFromInput } from './placement'
 
 describe('publicIdFromInput', () => {
   it('takes the code itself', () => {
@@ -28,5 +28,26 @@ describe('placementVariant', () => {
     expect(placementVariant('story')).toBe('story')
     expect(placementVariant(undefined)).toBe('story')
     expect(placementVariant('topic')).toBe('story')
+  })
+})
+
+describe('framingForFormat', () => {
+  it('leads with recording after an audio or video story, and is the in-story ask for any other', () => {
+    expect(framingForFormat('audio')).toBe('voice')
+    expect(framingForFormat('video')).toBe('voice')
+    for (const other of ['standard', 'live', '', null, undefined]) expect(framingForFormat(other as never), String(other)).toBe('story')
+  })
+})
+
+describe('effectiveVariant', () => {
+  it('takes the story\'s framing for a block that was never saved as voice', () => {
+    expect(effectiveVariant('story', 'voice')).toBe('voice')
+    expect(effectiveVariant('story', 'story')).toBe('story')
+    expect(effectiveVariant(undefined, 'voice')).toBe('voice')
+    expect(effectiveVariant(null)).toBe('story')
+  })
+  it('keeps a block an editor saved as voice, even in a text story', () => {
+    expect(effectiveVariant('voice', 'story')).toBe('voice')
+    expect(effectiveVariant('voice')).toBe('voice')
   })
 })

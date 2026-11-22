@@ -2299,6 +2299,11 @@ rewritten** (see *Lessons*): the launch run replays the same files staging alrea
    home set, then tick the box in the sidebar and publish; or `pnpm seed:home` from a machine that may write there, which today refuses anything but staging, so copy staging's page by hand or lift the guard for the launch). Without
    it `/` is a 404. Check `/` renders before pointing the domain.
 5. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
+6. **Create the break-glass administrator at `/admin` before anyone opens the Website tool in the Portal.** Payload offers its "create first user" screen only while `users` is empty, and a Portal
+   sign-in creates an account, so the first Portal sign-in closes that door for good. Give it **a station-controlled role address, not anyone's own or Portal email** (a Portal sign-in with an email an
+   unlinked account already holds is refused, by design), and keep its password in the station's password manager. It is not linked to the Portal on purpose: a Portal sign-in replaces an account's roles
+   from the Portal's grant, which would defeat the one account meant to work when the Portal does not. It cannot write listening queries (they need a named Portal person); nobody should use it day to day.
+   Then, in the Portal, grant each editor the Website tool with their roles (admin access screen, Website tool), and have them use Open Tool: their own account is created on that first visit.
 
 ## Known gaps in what exists
 

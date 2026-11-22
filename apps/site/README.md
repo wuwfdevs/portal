@@ -34,7 +34,9 @@ pnpm dev                       # http://localhost:3000, admin at /admin
 
 The first user you create at `/admin` becomes the **local break-glass administrator** and is given every role.
 **Create it before anyone signs in from the Portal**: once any account exists, Payload no longer offers the
-"create first user" screen. Everyone else is provisioned when they open the Website tool in the Portal.
+"create first user" screen. Everyone else is provisioned when they open the Website tool in the Portal (a Portal administrator grants it first).
+Give the break-glass account its own address, never a person's Portal email: it is not linked to the Portal on purpose (a Portal sign-in would
+replace its roles), and a Portal sign-in with an email it already holds is refused.
 
 No production credentials are needed. Without Docker, point `DATABASE_URL` at any local Postgres that has pgvector (on Debian or Ubuntu: `apt install postgresql-<version>-pgvector`). An existing local database made from the old image (`postgres:17-alpine`) has no pgvector: run `pnpm db:down`, remove the `site-db` volume, and `pnpm db:up` again, or install pgvector into it.
 

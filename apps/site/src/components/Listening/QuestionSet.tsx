@@ -59,7 +59,7 @@ export const QuestionSet: React.FC<{
    * who receives it. Every screen and every rule is the same in all four.
    */
   placement?: ListeningPlacement
-  /** `voice` only: who receives the message, and one line about what happens to it. */
+  /** Who receives the message, and one line about what happens to it. A `voice` set always names a recipient (WUWF when none is given); another names one only when it is given. */
   recipient?: string
   description?: string
 }> = ({ query, placement = 'page', recipient, description }) => {
@@ -79,6 +79,15 @@ export const QuestionSet: React.FC<{
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [doneCount, setDoneCount] = useState(0)
+  // The recordings saved this visit, kept in this page's memory so a participant can hear them again on the review screen. They never leave the device (playing one
+  // uploads nothing), are dropped when the answer is replaced or the set is sent, and are gone if the page is reloaded.
+  const [takes, setTakes] = useState<Record<string, { blob: Blob; seconds: number }>>({})
+  const dropTake = (questionId: string) =>
+    setTakes((all) => {
+      if (!(questionId in all)) return all
+      const { [questionId]: _gone, ...rest } = all
+      return rest
+    })
 
   const question = questions[index] as ListeningQuestion
   const recorder = useRecorder(question.maxDurationSeconds)
@@ -159,6 +168,7 @@ export const QuestionSet: React.FC<{
     }
     setBusy(false)
     patch(question.id, { state: 'saved', seconds: take.seconds, text: null, retake: false })
+    setTakes((all) => ({ ...all, [question.id]: { blob: take.blob, seconds: take.seconds } }))
     advance()
   }
 
@@ -172,6 +182,7 @@ export const QuestionSet: React.FC<{
     setBusy(false)
     if (!saved.ok) return setError(saved.message)
     patch(question.id, { state: 'saved', seconds: null, text, retake: false })
+    dropTake(question.id)
     advance()
   }
 
@@ -200,6 +211,7 @@ export const QuestionSet: React.FC<{
       return setError(sent.message)
     }
     setDoneCount(sent.answers)
+    setTakes({})
     setScreen('done')
   }
 
@@ -229,10 +241,10 @@ export const QuestionSet: React.FC<{
         {screen === 'intro' && (
           <div className="flex flex-col gap-4">
             {query.intro && <p className="whitespace-pre-wrap text-[0.9375rem] leading-relaxed text-ink-2">{query.intro}</p>}
-            {placement === 'voice' && description && <p className="text-[0.9375rem] leading-relaxed text-ink-2">{description}</p>}
+            {description && <p className="text-[0.9375rem] leading-relaxed text-ink-2">{description}</p>}
             <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink-4">{introSummary(query)}</p>
             <p className={noticeInfo}>
-              {placement === 'voice' && `${recipientLine(recipient)} `}
+              {(placement === 'voice' || recipient) && `${recipientLine(recipient)} `}
               Your answers go to WUWF for editorial review and will not be published automatically. WUWF may use one answer without using the others, and
               submitting doesn&apos;t guarantee use or a reply.
             </p>
@@ -328,8 +340,16 @@ export const QuestionSet: React.FC<{
               <div className="flex flex-col gap-3 rounded-sm border border-wuwf-lime bg-wuwf-lime-100 p-4">
                 <p className="text-sm font-bold text-success-fg">Saved — WUWF has this answer</p>
                 {current.text && <p className="whitespace-pre-wrap text-sm text-ink-2">{current.text}</p>}
+                {!current.text && takes[question.id] && <ListenBack blob={takes[question.id]!.blob} seconds={takes[question.id]!.seconds} />}
                 <div className="flex gap-2.5">
-                  <button className={cn(buttonSecondary, 'flex-1')} onClick={() => patch(question.id, { retake: true })} type="button">
+                  <button
+                    className={cn(buttonSecondary, 'flex-1')}
+                    onClick={() => {
+                      patch(question.id, { retake: true })
+                      dropTake(question.id)
+                    }}
+                    type="button"
+                  >
                     Replace this answer
                   </button>
                   <button className={cn(buttonPrimary, 'flex-1')} onClick={advance} type="button">
@@ -469,11 +489,21 @@ export const QuestionSet: React.FC<{
                   <div className="flex min-w-60 flex-1 flex-col gap-0.5">
                     <span className="text-sm font-semibold text-ink">{row.prompt}</span>
                     <span className="text-xs text-ink-3">{row.status}</span>
+                    {takes[row.questionId] ? (
+                      <div className="mt-2">
+                        <ListenBack blob={takes[row.questionId]!.blob} seconds={takes[row.questionId]!.seconds} />
+                      </div>
+                    ) : (
+                      row.hasAudio && <span className="mt-1 text-xs text-ink-4">Playback isn’t available once the page has been reloaded.</span>
+                    )}
                   </div>
                   <button
                     className={buttonLink}
                     onClick={() => {
-                      if (row.action === 'Replace') patch(row.questionId, { retake: true })
+                      if (row.action === 'Replace') {
+                        patch(row.questionId, { retake: true })
+                        dropTake(row.questionId)
+                      }
                       open(row.position - 1)
                     }}
                     type="button"

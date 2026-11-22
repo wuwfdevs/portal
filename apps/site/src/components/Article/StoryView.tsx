@@ -34,6 +34,7 @@ import { readingMinutes } from '@/lib/reading'
 import { loadStoryPlacements } from '@/lib/placements/load'
 import { splitForBands } from '@/lib/placements/story'
 import { getAcknowledgments } from '@/lib/underwriting/load'
+import { framingForFormat } from '@/lib/listening/placement'
 import { membershipAppealOf } from '@/lib/shared-text'
 import { getCachedGlobal } from '@/utilities/getGlobals'
 import { getServerSideURL } from '@/utilities/getURL'
@@ -183,11 +184,11 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
               parts.map((part, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <InlineUnit tile={placements.inline[i - 1] ?? null} />}
-                  <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={part} enableGutter={false} />
+                  <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={part} enableGutter={false} framing={framingForFormat(post.format)} />
                 </React.Fragment>
               ))
             ) : (
-              <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={post.content} enableGutter={false} />
+              <RichText className="w-full font-serif prose-p:text-xl prose-p:leading-relaxed" data={post.content} framing={framingForFormat(post.format)} enableGutter={false} />
             )}
           </div>
         )}

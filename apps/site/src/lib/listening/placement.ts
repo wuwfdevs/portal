@@ -24,3 +24,19 @@ export const PUBLIC_ID_MESSAGE = 'Enter the query’s 16-character code, or past
 export function placementVariant(value: string | null | undefined): PlacementVariant {
   return value === 'voice' ? 'voice' : 'story'
 }
+
+/**
+ * How a listening block is framed by the story it sits in: an audio or video story leads with recording (`voice`, "after an episode or video"), any other story is
+ * the in-story ask. The editor is not asked: where the block sits already says it.
+ */
+export function framingForFormat(format: string | null | undefined): PlacementVariant {
+  return format === 'audio' || format === 'video' ? 'voice' : 'story'
+}
+
+/**
+ * The framing a block is drawn with. A block an editor already saved as `voice` stays `voice` (the choice used to be an editor's, and a saved one is kept); every other
+ * block takes the framing of the story it is in.
+ */
+export function effectiveVariant(stored: string | null | undefined, framing: PlacementVariant = 'story'): PlacementVariant {
+  return placementVariant(stored) === 'voice' ? 'voice' : framing
+}

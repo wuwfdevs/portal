@@ -25,7 +25,7 @@ export const Users: CollectionConfig = {
     update: ({ req, id }) => userCan(req.user, 'users.manage') || req.user?.id === id,
   },
   admin: {
-    defaultColumns: ['name', 'email', 'roles'],
+    defaultColumns: ['name', 'email', 'roles', 'portalUserId'],
     useAsTitle: 'name',
   },
   auth: {
@@ -64,7 +64,14 @@ export const Users: CollectionConfig = {
       unique: true,
       index: true,
       access: { update: () => false },
-      admin: { readOnly: true, position: 'sidebar', description: 'The Portal profile this user was provisioned from.' },
+      label: 'Portal profile',
+      admin: {
+        readOnly: true,
+        position: 'sidebar',
+        // The list shows "Linked" or "None (local password)" instead of the id.
+        components: { Cell: '@/components/admin/PortalLinkCell#PortalLinkCell' },
+        description: 'The Portal profile this account was made from. Empty for the break-glass administrator and any account made by hand: it keeps the roles it was given and cannot write listening queries. A Portal account takes its roles from the Portal on every sign-in.',
+      },
     },
   ],
   hooks: {

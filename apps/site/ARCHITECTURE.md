@@ -89,7 +89,9 @@ would silently show no acknowledgment. An integration test pins that boundary.
   break-glass administrator.
 - **Linking rule:** a Portal identity is linked to a CMS account by the Portal's profile id, never by email. An
   existing unlinked account with the same email is not taken over; the sign-in is refused (403) for an
-  administrator to resolve. Roles are replaced wholesale on every sign-in, so a role revoked in the Portal
+  administrator to resolve (change that account's email or remove it, then open the Website tool again; the refusal says so). The break-glass administrator is the one account that is
+  deliberately never linked: it keeps its own roles and works without the Portal, and for the same reason it cannot write listening queries (the Portal needs a named person; the field says so). The staff list's "Portal profile" column
+  shows which accounts are linked. Roles are replaced wholesale on every sign-in, so a role revoked in the Portal
   disappears at the next one.
 - **Revocation:** a session issued before the user's `sessionsValidAfter` is dead. Logout sets it, and an
   administrator can set it to sign someone out everywhere. Access the Portal revokes otherwise lasts at most the

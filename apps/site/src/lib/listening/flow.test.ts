@@ -67,6 +67,13 @@ describe('review', () => {
     expect(reviewRows(QUESTIONS, {})[0]?.status).toBe('Required — still needs an answer')
   })
 
+  it('says which rows hold a saved recording, so playback is offered for those and for nothing else', () => {
+    const written: LocalAnswer = { state: 'saved', seconds: null, text: 'In my words.', retake: false }
+    const rows = reviewRows(QUESTIONS, { a: saved(42), b: written })
+    expect(rows.map((r) => r.hasAudio)).toEqual([true, false, false])
+    expect(reviewRows(QUESTIONS, { a: { ...saved(42), state: 'skipped' } })[0]?.hasAudio).toBe(false)
+  })
+
   it('names what blocks continuing, and nothing when it is clear', () => {
     expect(reviewBlockedText(QUESTIONS, {})).toBe('Record at least one answer before submitting.')
     expect(reviewBlockedText(QUESTIONS, { b: saved() })).toBe('Question 1 is required and still needs an answer.')

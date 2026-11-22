@@ -39,6 +39,7 @@ import { ListeningAskBlock } from '@/blocks/ListeningAsk/Component'
 import { PullQuoteBlock } from '@/blocks/PullQuote/Component'
 import { VideoPlayerBlock } from '@/blocks/VideoPlayer/Component'
 import { WidgetBlock } from '@/blocks/Widget/Component'
+import type { PlacementVariant } from '@/lib/listening/placement'
 import { cn } from '@/utilities/ui'
 
 import { internalDocToHref } from './links'
@@ -62,7 +63,7 @@ type NodeTypes =
       | LegacyHtmlBlockProps
     >
 
-const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) => ({
+const convertersFor = (framing: PlacementVariant): JSXConvertersFunction<NodeTypes> => ({ defaultConverters }) => ({
   ...defaultConverters,
   ...LinkJSXConverter({ internalDocToHref }),
   blocks: {
@@ -82,7 +83,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     gallery: ({ node }) => <GalleryBlock {...node.fields} />,
     pullQuote: ({ node }) => <PullQuoteBlock {...node.fields} />,
     linkLine: ({ node }) => <LinkLineBlock {...node.fields} />,
-    listeningAsk: ({ node }) => <ListeningAskBlock {...node.fields} />,
+    listeningAsk: ({ node }) => <ListeningAskBlock {...node.fields} framing={framing} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
     dataViz: ({ node }) => <DataVizBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
@@ -92,17 +93,22 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
   },
 })
 
+// One converter set per framing, made once, so a render does not build a new one.
+const CONVERTERS: Record<PlacementVariant, JSXConvertersFunction<NodeTypes>> = { story: convertersFor('story'), voice: convertersFor('voice') }
+
 type Props = {
   data: DefaultTypedEditorState
   enableGutter?: boolean
   enableProse?: boolean
+  /** How a listening block in this body is framed: `voice` for an audio or video story (`framingForFormat`), else `story`. */
+  framing?: PlacementVariant
 } & React.HTMLAttributes<HTMLDivElement>
 
 export default function RichText(props: Props) {
-  const { className, enableProse = true, enableGutter = true, ...rest } = props
+  const { className, enableProse = true, enableGutter = true, framing = 'story', ...rest } = props
   return (
     <ConvertRichText
-      converters={jsxConverters}
+      converters={CONVERTERS[framing]}
       className={cn(
         'payload-richtext',
         // A long web address used as link text has nowhere to break, and would push the page wider than a phone.
