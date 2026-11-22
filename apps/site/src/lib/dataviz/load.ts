@@ -17,6 +17,12 @@ import type { LoadedVisualization } from './view'
 /** A day: nothing here changes with time, only with an edit, and every edit refreshes the tag. The limit is only a backstop. */
 export const VIZ_REVALIDATE = 86_400
 
+/**
+ * Part of the cache key. Raise it when an engine changes how a figure is drawn, so every cached drawing is made again on the next deploy rather than
+ * waiting for an edit to refresh it.
+ */
+export const RENDER_VERSION = 5
+
 export async function loadVisualization(id: number | string): Promise<LoadedVisualization> {
   const read = unstable_cache(
     async (): Promise<LoadedVisualization> => {
@@ -26,7 +32,7 @@ export async function loadVisualization(id: number | string): Promise<LoadedVisu
       if (!result.ok && result.reason !== 'not found') console.warn(`[dataviz] visualization ${id} is not drawn: ${result.reason}`)
       return result.ok ? { ok: true, view: result.view } : { ok: false, reason: result.reason }
     },
-    ['dataviz', String(id)],
+    ['dataviz', `v${RENDER_VERSION}`, String(id)],
     { revalidate: VIZ_REVALIDATE, tags: ['dataviz', `viz:${id}`] },
   )
   return read()

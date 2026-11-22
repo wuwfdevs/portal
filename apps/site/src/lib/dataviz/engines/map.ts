@@ -8,6 +8,8 @@
 
 import * as Plot from '@observablehq/plot'
 
+import { colors } from '@wuwf/design-tokens'
+
 import { equalSteps } from '../classes'
 import { makeFormatter } from '../format'
 import { BASE_SHAPE_COLOR, NO_DATA_COLOR, SHAPE_OUTLINE, blueRamp } from '../palette'
@@ -16,6 +18,9 @@ import { toSvgTree } from '../svg-tree'
 import type { DatasetSnapshot, GeoCollection, GeoFeature } from '../types'
 import { newDocument, plainTable } from './common'
 import type { Engine, LegendEntry, MapModel, PrepareContext } from './types'
+
+/** A map with more areas than this is not labelled on the picture (the names would collide); hover titles and the data table still name them. */
+const MAX_LABELLED = 12
 
 export interface MapFeature extends GeoFeature {
   properties: { label: string; value: number | null; color: string }
@@ -100,6 +105,25 @@ export function buildMapFeatures(spec: MapSpec, dataset: DatasetSnapshot, bounda
   return { features, unmatched, matched }
 }
 
+type Ring = number[][]
+/** Signed planar area of a ring (positive: counter-clockwise, in longitude and latitude). */
+const ringArea = (r: Ring): number => r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]!; return a + (p[0]! * q[1]! - q[0]! * p[1]!) }, 0) / 2
+
+/**
+ * The geometry as the drawing library wants it. GeoJSON's own rule (RFC 7946) is counter-clockwise outer rings, but the spherical projections used to
+ * draw read a clockwise outer ring as the area itself and a counter-clockwise one as "everything except it", which fills the whole picture. Files
+ * from different sources follow either rule, so every polygon is rewound here: outer rings clockwise, holes counter-clockwise. Only the drawing uses
+ * this; the stored geometry and the interactive map are untouched.
+ */
+export function rewound(geometry: GeoFeature['geometry']): GeoFeature['geometry'] {
+  if (!geometry) return geometry
+  const fix = (rings: Ring[]): Ring[] => rings.map((ring, i) => ((ringArea(ring) > 0) === (i === 0) ? [...ring].reverse() : ring))
+  if (geometry.type === 'Polygon') return { ...geometry, coordinates: fix(geometry.coordinates as Ring[]) }
+  if (geometry.type === 'MultiPolygon') return { ...geometry, coordinates: (geometry.coordinates as Ring[][]).map(fix) }
+  if (geometry.type === 'GeometryCollection') return { ...geometry, geometries: (geometry.geometries ?? []).map((g) => rewound(g as GeoFeature['geometry'])) }
+  return geometry
+}
+
 /** The legend for the classes: "12 to 40", from the same edges that coloured the shapes. */
 function legendFor(spec: MapSpec, features: MapFeature[]): LegendEntry[] {
   if (!spec.valueColumn) return []
@@ -150,21 +174,29 @@ export const mapEngine: Engine<MapSpec, MapModel> = {
     const built = buildMapFeatures(spec, ctx.dataset, ctx.boundary)
     if (built.features.length === 0) throw new Error('The map has nothing to draw.')
     const collection: GeoCollection = { type: 'FeatureCollection', features: built.features }
+    const drawn: GeoCollection = { type: 'FeatureCollection', features: built.features.map((f) => ({ ...f, geometry: rewound(f.geometry) })) }
     const points = spec.geometry === 'points'
-    const plot = Plot.plot({
-      document: newDocument(),
-      width: 720,
-      margin: 8,
-      style: { fontSize: '12px', fontFamily: 'inherit', overflow: 'visible' },
-      projection: points ? { type: 'mercator', domain: collection, inset: 24 } : { type: 'mercator', domain: collection, inset: 8 },
-      marks: [
-        points
-          ? Plot.dot(built.features, Plot.geoCentroid({ r: 5, fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }))
-          : Plot.geo(built.features, { fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }),
-      ],
-    })
-    const svg = toSvgTree(plot as never, `${ctx.idPrefix}-`)
-    if (!svg) throw new Error('The map could not be drawn.')
+    const draw = (width: number, font: number, idPrefix: string) => {
+      const plot = Plot.plot({
+        document: newDocument(),
+        width,
+        margin: 8,
+        style: { fontSize: `${font}px`, fontFamily: 'inherit', overflow: 'visible' },
+        projection: points ? { type: 'mercator', domain: drawn, inset: 24 } : { type: 'mercator', domain: drawn, inset: 8 },
+        marks: [
+          points
+            ? Plot.dot(drawn.features as MapFeature[], Plot.geoCentroid({ r: 5, fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }))
+            : Plot.geo(drawn.features as MapFeature[], { fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }),
+          // Names on the map itself, for a map with few enough areas that they do not collide. A white halo keeps them readable on any step.
+          ...(drawn.features.length <= MAX_LABELLED ? [Plot.text(drawn.features as MapFeature[], Plot.geoCentroid({ text: (d: MapFeature) => d.properties.label, fill: colors.ink, stroke: colors.surface, strokeWidth: 3, paintOrder: 'stroke', fontSize: font, fontWeight: 600, dy: points ? -10 : 0 }))] : []),
+        ],
+      })
+      const tree = toSvgTree(plot as never, `${ctx.idPrefix}-${idPrefix}-`)
+      if (!tree) throw new Error('The map could not be drawn.')
+      return tree
+    }
+    const svg = draw(720, 13, 'w')
+    const narrow = draw(360, 12, 'n')
     const legend = legendFor(spec, built.features)
     const names = [
       ...(spec.labelColumn ?? firstTextColumn(ctx.dataset) ? [spec.labelColumn ?? firstTextColumn(ctx.dataset)!] : []),
@@ -175,6 +207,7 @@ export const mapEngine: Engine<MapSpec, MapModel> = {
     return {
       engine: 'map',
       svg,
+      narrow,
       legend,
       legendTitle: spec.legendTitle ?? spec.valueColumn ?? null,
       hasNoData: spec.valueColumn != null && built.features.some((f) => f.properties.value === null),

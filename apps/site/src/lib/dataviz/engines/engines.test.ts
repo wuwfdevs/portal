@@ -121,6 +121,8 @@ describe('map engine', () => {
   it('draws the map as a tree, with a legend from the same steps and a text table', () => {
     const m = prep(choropleth, ctx(COUNTY_VALUES, COUNTY_SHAPES)) as MapModel
     expect(tags(m.svg).has('path')).toBe(true)
+    expect(m.svg.attrs.width).toBe('720')
+    expect(m.narrow.attrs.width).toBe('360')
     expect(m.legend).toHaveLength(3)
     expect(m.legend[0]!.label).toMatch(/ to /)
     expect(m.unmatched).toBe(1)
@@ -151,6 +153,27 @@ describe('map engine', () => {
     const b = buildMapFeatures({ kind: 'map', geometry: 'points', latColumn: 'Lat', lonColumn: 'Lon' }, bad, null)
     expect(b.features).toHaveLength(2)
     expect(b.unmatched).toBe(1)
+  })
+})
+
+describe('drawing details found by looking at screenshots', () => {
+  it('rewinds polygons so a counter-clockwise outer ring (RFC 7946) is not drawn as the whole world', async () => {
+    const { rewound } = await import('./map')
+    const ccw = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] }
+    const out = rewound(ccw) as { coordinates: number[][][] }
+    expect(out.coordinates[0]![1]).toEqual([0, 1])
+    const m = prep({ kind: 'map', geometry: 'boundaries', joinColumn: 'County', boundaryKey: 'NAME', valueColumn: 'Rate', classes: 4 }, ctx(COUNTY_VALUES, COUNTY_SHAPES)) as MapModel
+    const widths: number[] = []
+    walk(m.svg, (n) => { if (n.tag === 'path' && n.attrs.d) widths.push(n.attrs.d.length) })
+    expect(Math.max(...widths)).toBeLessThan(400)
+  })
+  it('puts year ticks on the years, not between them', () => {
+    const m = prep(wideLine, ctx()) as ChartModel
+    const labels: string[] = []
+    walk(m.wide, (n) => n.children.forEach((c) => typeof c === 'string' && labels.push(c)))
+    expect(labels).toContain('2019')
+    expect(labels.some((l) => /\.5$/.test(l))).toBe(false)
+    expect(labels).not.toContain('2,019')
   })
 })
 

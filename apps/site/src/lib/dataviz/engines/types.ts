@@ -39,7 +39,9 @@ export interface ChartModel {
 
 export interface MapModel {
   engine: 'map'
+  /** Drawn for a wide screen, and again for a phone, so names stay legible. */
   svg: SvgNode
+  narrow: SvgNode
   legend: LegendEntry[]
   legendTitle: string | null
   /** True when some areas have no value and are drawn grey. */

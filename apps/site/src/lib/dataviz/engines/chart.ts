@@ -98,8 +98,12 @@ function draw(spec: ChartSpec, records: Rec[], seriesNames: string[], xKind: XKi
       break
   }
 
+  // Whole-number x values (years) are ticked at the values themselves, never at 2019.5.
+  const xs = [...new Set(records.map((r) => r.x))].filter((x): x is number => typeof x === 'number')
+  const wholeX = xKind === 'number' && xs.length > 0 && xs.every(Number.isInteger)
+  const xTicks = wholeX && xs.length <= 12 ? { ticks: xs.sort((a, b) => a - b) } : {}
   const xScale: Plot.ScaleOptions =
-    xKind === 'date' ? { type: 'utc', label: spec.xLabel ?? null } : xKind === 'text' && spec.type !== 'scatter' ? { type: horizontal ? undefined : 'band', label: spec.xLabel ?? null } : { label: spec.xLabel ?? null, ...(xTick ? { tickFormat: xTick } : {}) }
+    xKind === 'date' ? { type: 'utc', label: spec.xLabel ?? null } : xKind === 'text' && spec.type !== 'scatter' ? { type: horizontal ? undefined : 'band', label: spec.xLabel ?? null } : { label: spec.xLabel ?? null, ...(xTick ? { tickFormat: xTick } : {}), ...xTicks }
 
   const valueAxis: Plot.ScaleOptions = { grid: true, label: spec.yLabel ?? null, tickFormat: (d: number) => fmt(d), ...(zero ? { zero: true } : {}), nice: true }
   const plot = Plot.plot({

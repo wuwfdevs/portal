@@ -88,8 +88,8 @@ export async function VisualizationFigure({ view, size = 'column', headingLevel 
   if (model.engine === 'chart') {
     body = (
       <>
-        <SvgDrawing className="hidden h-auto w-full md:block" describedBy={descId} label={view.title} node={model.wide} />
-        <SvgDrawing className="block h-auto w-full md:hidden" describedBy={descId} label={view.title} node={model.narrow} />
+        <SvgDrawing className="hidden h-auto w-full font-sans md:block" describedBy={descId} label={view.title} node={model.wide} />
+        <SvgDrawing className="block h-auto w-full font-sans md:hidden" describedBy={descId} label={view.title} node={model.narrow} />
         <Legend entries={model.legend} />
         <PlainDataTable table={model.dataTable} title={view.title} />
       </>
@@ -98,7 +98,8 @@ export async function VisualizationFigure({ view, size = 'column', headingLevel 
     const styleUrl = process.env.MAP_STYLE_URL?.startsWith('https://') ? process.env.MAP_STYLE_URL : null
     body = (
       <>
-        <SvgDrawing className="h-auto w-full" describedBy={descId} label={view.title} node={model.svg} />
+        <SvgDrawing className="hidden h-auto w-full font-sans md:block" describedBy={descId} label={view.title} node={model.svg} />
+        <SvgDrawing className="block h-auto w-full font-sans md:hidden" describedBy={descId} label={view.title} node={model.narrow} />
         <Legend entries={model.legend} title={model.legendTitle} />
         {model.hasNoData && <p className="m-0 font-sans text-sm text-ink-3">Grey areas have no data.</p>}
         {model.interactive && <MapLoader data={model.interactive} label={view.title} styleUrl={styleUrl} />}
@@ -116,7 +117,7 @@ export async function VisualizationFigure({ view, size = 'column', headingLevel 
   return (
     <figure
       aria-labelledby={`viz-${view.id}-title`}
-      className={cn('not-prose my-8 flex flex-col gap-3 rounded-lg border border-rule bg-surface p-4 text-ink md:p-6', size === 'wide' && 'md:-mx-8 lg:-mx-16')}
+      className={cn('not-prose my-8 flex flex-col gap-3 rounded-lg border border-rule bg-surface p-4 font-sans text-ink md:p-6', size === 'wide' && 'md:-mx-8 lg:-mx-16')}
       data-viz={view.kind}
     >
       <Heading className="m-0 font-serif text-xl font-semibold leading-snug" id={`viz-${view.id}-title`}>
