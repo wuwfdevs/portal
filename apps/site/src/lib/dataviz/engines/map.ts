@@ -21,6 +21,8 @@ import type { Engine, LegendEntry, MapModel, PrepareContext } from './types'
 
 /** A map with more areas than this is not labelled on the picture (the names would collide); hover titles and the data table still name them. */
 const MAX_LABELLED = 12
+/** On a phone the picture is half as wide, so fewer names fit before they overlap. */
+const MAX_LABELLED_NARROW = 6
 
 export interface MapFeature extends GeoFeature {
   properties: { label: string; value: number | null; color: string }
@@ -176,7 +178,7 @@ export const mapEngine: Engine<MapSpec, MapModel> = {
     const collection: GeoCollection = { type: 'FeatureCollection', features: built.features }
     const drawn: GeoCollection = { type: 'FeatureCollection', features: built.features.map((f) => ({ ...f, geometry: rewound(f.geometry) })) }
     const points = spec.geometry === 'points'
-    const draw = (width: number, font: number, idPrefix: string) => {
+    const draw = (width: number, font: number, idPrefix: string, labelLimit: number) => {
       const plot = Plot.plot({
         document: newDocument(),
         width,
@@ -188,15 +190,15 @@ export const mapEngine: Engine<MapSpec, MapModel> = {
             ? Plot.dot(drawn.features as MapFeature[], Plot.geoCentroid({ r: 5, fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }))
             : Plot.geo(drawn.features as MapFeature[], { fill: (d: MapFeature) => d.properties.color, stroke: SHAPE_OUTLINE, strokeWidth: 0.75, title: (d: MapFeature) => d.properties.label }),
           // Names on the map itself, for a map with few enough areas that they do not collide. A white halo keeps them readable on any step.
-          ...(drawn.features.length <= MAX_LABELLED ? [Plot.text(drawn.features as MapFeature[], Plot.geoCentroid({ text: (d: MapFeature) => d.properties.label, fill: colors.ink, stroke: colors.surface, strokeWidth: 3, paintOrder: 'stroke', fontSize: font, fontWeight: 600, dy: points ? -10 : 0 }))] : []),
+          ...(drawn.features.length <= labelLimit ? [Plot.text(drawn.features as MapFeature[], Plot.geoCentroid({ text: (d: MapFeature) => d.properties.label, fill: colors.ink, stroke: colors.surface, strokeWidth: 3, paintOrder: 'stroke', fontSize: font, fontWeight: 600, dy: points ? -10 : 0 }))] : []),
         ],
       })
       const tree = toSvgTree(plot as never, `${ctx.idPrefix}-${idPrefix}-`)
       if (!tree) throw new Error('The map could not be drawn.')
       return tree
     }
-    const svg = draw(720, 13, 'w')
-    const narrow = draw(360, 12, 'n')
+    const svg = draw(720, 13, 'w', MAX_LABELLED)
+    const narrow = draw(360, 12, 'n', MAX_LABELLED_NARROW)
     const legend = legendFor(spec, built.features)
     const names = [
       ...(spec.labelColumn ?? firstTextColumn(ctx.dataset) ? [spec.labelColumn ?? firstTextColumn(ctx.dataset)!] : []),

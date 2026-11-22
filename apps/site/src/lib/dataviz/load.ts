@@ -21,7 +21,7 @@ export const VIZ_REVALIDATE = 86_400
  * Part of the cache key. Raise it when an engine changes how a figure is drawn, so every cached drawing is made again on the next deploy rather than
  * waiting for an edit to refresh it.
  */
-export const RENDER_VERSION = 5
+export const RENDER_VERSION = 6
 
 export async function loadVisualization(id: number | string): Promise<LoadedVisualization> {
   const read = unstable_cache(

@@ -1,11 +1,12 @@
 // A demonstration story with one of each kind of visualization, for looking at the data visualization system on a database on this machine or on staging.
-// Everything is labelled "demonstration"; the numbers are invented and the county shapes are rough boxes, not boundaries.
+// Everything is labelled "demonstration"; the numbers are invented and the county outlines are real, the rates are not.
 //
 //   pnpm tsx --tsconfig tsconfig.json scripts/dataviz/seed-sample.ts --local-rehearsal --go
 //
 // It refuses any database that is not staging or local (`checkStagingDatabase`), is safe to run twice (it reuses what it made, by title), and sends nothing.
 
 import dotenv from 'dotenv'
+import { readFileSync } from 'node:fs'
 
 import { checkStagingDatabase } from '../../src/lib/assets/staging-guard'
 
@@ -42,18 +43,21 @@ async function dataset(title: string, fileName: string, text: string, extra: Rec
 }
 
 const years = `Year,Escambia,Santa Rosa,Okaloosa,Walton\n2019,120,80,60,35\n2020,300,150,90,60\n2021,210,170,130,75\n2022,180,160,140,90\n2023,150,175,150,110\n2024,140,190,165,125\n`
-const rates = `FIPS,County,Rate,Population\n12033,Escambia,412.5,321905\n12113,Santa Rosa,288,188000\n12091,Okaloosa,236.25,216000\n12131,Walton,174,80000\n`
+const rates = `FIPS,County,Rate,Population
+12033,Escambia,412.5,321905
+12113,Santa Rosa,288,188000
+12091,Okaloosa,236.25,216000
+12131,Walton,174,80000
+12059,Holmes,96,19500
+12133,Washington,128,25000
+12005,Bay,350,184000
+12063,Jackson,301,47000
+12013,Calhoun,76,13600
+12045,Gulf,152,15900
+`
 const roster = `Station,Show,Day,Listeners\nWUWF,Morning Edition,Weekdays,18200\nWUWF,All Things Considered,Weekdays,15100\nWUWF,Fresh Air,Weekdays,6400\nWUWF,Wait Wait... Don't Tell Me!,Saturday,5200\nWUWF,Car Talk,Saturday,3900\nWUWF,Radiolab,Sunday,2800\nWUWF,Planet Money,Friday,2400\nWUWF,Reveal,Sunday,1500\n`
-const box = (x: number, y: number, w: number, h: number) => ({ type: 'Polygon', coordinates: [[[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]] })
-const shapes = JSON.stringify({
-  type: 'FeatureCollection',
-  features: [
-    { type: 'Feature', properties: { GEOID: '12033', NAME: 'Escambia' }, geometry: box(-87.6, 30.4, 0.55, 0.6) },
-    { type: 'Feature', properties: { GEOID: '12113', NAME: 'Santa Rosa' }, geometry: box(-87.05, 30.4, 0.6, 0.7) },
-    { type: 'Feature', properties: { GEOID: '12091', NAME: 'Okaloosa' }, geometry: box(-86.45, 30.4, 0.65, 0.7) },
-    { type: 'Feature', properties: { GEOID: '12131', NAME: 'Walton' }, geometry: box(-85.8, 30.4, 0.7, 0.75) },
-  ],
-})
+// Real county outlines (US Census cartographic boundaries, simplified to a few hundred points), the ten westernmost Panhandle counties. The numbers drawn on them are invented.
+const shapes = readFileSync(new URL('./assets/panhandle-counties.geojson', import.meta.url), 'utf8')
 
 const cases = await dataset('Cases by county', 'cases.csv', years)
 const rate = await dataset('County rates', 'rates.csv', rates)
@@ -75,9 +79,9 @@ const bars = await viz('Morning Edition draws the biggest audience', {
   altText: 'A bar chart ranking eight shows by weekly listeners. Morning Edition is first with about 18,000; Reveal is last with about 1,500.',
   chart: { type: 'bar', x: 'Show', y: ['Listeners'], sort: 'valueDesc', yFormat: { style: 'number', compact: true } },
 })
-const map = await viz('Escambia County has the highest rate', {
-  kind: 'map', dataset: rate.id, caption: 'Cases per 100,000 people. Shapes are rough boxes for review, not real boundaries.',
-  altText: 'A map of four Panhandle counties shaded by case rate. Escambia, at the west, is darkest at 412 per 100,000; Walton, at the east, is lightest at 174.',
+const map = await viz('Escambia County has the highest rate in the western Panhandle', {
+  kind: 'map', dataset: rate.id, caption: 'Cases per 100,000 people. Invented rates on real county outlines.',
+  altText: 'A map of ten Panhandle counties shaded by case rate. Escambia, at the far west, is darkest at 412 per 100,000; Calhoun and Holmes, inland, are lightest.',
   map: { geometry: 'boundaries', boundaryDataset: counties.id, joinColumn: 'County', boundaryKey: 'NAME', valueColumn: 'Rate', labelColumn: 'County', classes: 4, legendTitle: 'Cases per 100,000', interactive: true },
 })
 const table = await viz('Every show, with its day and audience', {
