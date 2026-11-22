@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { HomeBand, SponsorRow, TopUnit } from '@/components/Placements'
+import { HomeBand, SponsorBand, TopUnit } from '@/components/Placements'
 import { claimInOrder, planSlots } from '@/lib/page-slots'
 import { pageSetOf } from '@/lib/page-sets/registry'
 
@@ -78,17 +78,9 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
     const closesNews = plan && lastAnchor && lastAnchor.key === key
     return (
       <React.Fragment key={key}>
-        {rows && (
-          <div className="container py-6">
-            <SponsorRow items={rows} />
-          </div>
-        )}
+        {rows && <SponsorBand items={rows} />}
         <Section block={block} context={entry.drawsTop && key !== topOwner ? withoutTop : ctx} />
-        {closesNews && plan.after.map((row, i) => (
-          <div className="container py-6" key={`after-${i}`}>
-            <SponsorRow items={row} />
-          </div>
-        ))}
+        {closesNews && plan.after.map((row, i) => <SponsorBand items={row} key={`after-${i}`} />)}
         {closesNews && plan.band && <HomeBand tile={plan.band} />}
       </React.Fragment>
     )
@@ -97,11 +89,7 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
   // No news run on the page: every row still shows, after the content, and the band with them.
   const trailing = plan && !lastAnchor ? (
     <>
-      {plan.after.map((row, i) => (
-        <div className="container py-6" key={`after-${i}`}>
-          <SponsorRow items={row} />
-        </div>
-      ))}
+      {plan.after.map((row, i) => <SponsorBand items={row} key={`after-${i}`} />)}
       {plan.band && <HomeBand tile={plan.band} />}
     </>
   ) : null
