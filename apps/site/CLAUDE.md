@@ -87,6 +87,11 @@ An editor-composed page is a record in `pages` with `template: sections` and an 
 
 Datasets, visualizations and rendering engines are three separate things; keep them so.
 
+- **A record in a drafts-enabled collection needs a version row, or the admin cannot open it.** The admin reads drafts from the `_<collection>_v` table. A published
+  visualization with no version row shows in the relationship picker as "Untitled - ID: n" with its edit pencil switched off (found 2026-11-22 on staging: seeded
+  charts 8 to 12). Write records through the Local API, never raw SQL; if rows must be repaired in SQL, insert the `_v` row (enum columns need a cast to the `_v`
+  enum, child rows go to `_v_texts` and the `_v_…` array tables, `latest = true`). The **+** in a block's picker autosaves an empty draft the moment it opens, so
+  blank "Untitled" drafts accumulate; clear them in the Visualizations list.
 - **A dataset version is immutable.** `dataset-versions` is an upload collection read once when saved (`lib/dataviz/parse`); its file cannot be replaced, a mistake is a new version. The parsed rows are stored on the version (`data`), so drawing never reads a file back from storage.
 - **A visualization holds a configuration, never data.** It names a dataset, follows the latest published version or pins one, and names columns. Columns are chosen in the admin from the file's own (`ColumnSelect`); the engines validate them again (`lib/dataviz/spec`, `engines/*.validate`).
 - **An engine is pure and returns a plain model** (`engines/types.ts`). A new kind of figure is one engine file, one entry in `engines/index.ts`, one view in `components/DataViz`, one option on the collection. Engines never import Payload, React or the cache.

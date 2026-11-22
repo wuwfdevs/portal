@@ -4791,7 +4791,11 @@ by approving. Confirmed: a verification block containing `update … set …` wi
 `where` clauses ran at once. Repo notes report the same for `drop` and `delete` statements. So: **always write `update` and `delete`
 with an explicit `where`** (`where true` if you really mean every row), keep a destructive statement in its own call, and for a
 migration that must contain `drop`/`delete`, do not retry the same text: split the destructive statement out, or say it is the
-blocker. When a call times out like this, do not call the tool again with the same text. Either way the project's own history
+blocker. **A `where` is necessary but not always enough for `delete`** (2026-11-22, the site's staging project: `delete from … where id in (1,2,3) and title is null`
+still stalled, while `insert … where` and `select` ran at once). So: write every `insert`/`update` with its `where` and run it at once, split any `delete` into
+its own call, and if that call stalls do not retry it: leave it, say so in the reply as the one step still open, and offer a way that is not the connector
+(a script run through the app's own API, or the admin screen). Never let a stalled delete hold up the rest of the work. The same rules apply to the site's projects
+(`wuwf-site-staging` `avgeycgvaufwdfzdsogi`, `wuwf-site-production` `gyidqxhkkhajfazbcrug`). When a call times out like this, do not call the tool again with the same text. Either way the project's own history
 records its own timestamp, so the migration **name** is the join key, as `APPLIED.md` says. **Verify with real queries**, not just
 "it applied": the table or function exists, a grant or policy does what the migration's header says (a rolled-back `begin; set local
 role authenticated; …; rollback;` through `execute_sql` can prove that a signed-in role is refused what it should be refused), and
