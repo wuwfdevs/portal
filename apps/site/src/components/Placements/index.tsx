@@ -118,6 +118,22 @@ export function SponsorRow({ items }: { items: readonly RowItem<Tile>[] }) {
 }
 
 /**
+ * A row of tiles as the home page draws it between the news sections: `SponsorRow` in a full-width band of the neutral surface tint with a hairline above and below, so a row
+ * of sponsor messages is plainly apart from the reporting around it and never reads as the section above's last row. The tint is the site's own neutral, never a sponsor's
+ * colour; the tiles stay white cards on it. It carries the same label and `data-placement` as the row it holds, and draws nothing with no tiles.
+ */
+export function SponsorBand({ items }: { items: readonly RowItem<Tile>[] }) {
+  if (items.length === 0) return null
+  return (
+    <div className="border-y border-rule bg-surface-2" data-sponsor-band="">
+      <div className="container py-8">
+        <SponsorRow items={items} />
+      </div>
+    </div>
+  )
+}
+
+/**
  * The home page banner (`home.band`): one message in a slim band between the news and the podcasts. It is never above the news and never
  * more than a sixth as tall as it is wide. A phone gets its own picture when the sponsor supplied one, else the wide picture scaled down.
  */

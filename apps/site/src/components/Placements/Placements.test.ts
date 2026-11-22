@@ -6,7 +6,7 @@ import type { Media } from '@/payload-types'
 import type { RowItem } from '@/lib/placements/flow'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { HomeBand, InlineUnit, ListRail, SponsorRow, TopUnit } from './index'
+import { HomeBand, InlineUnit, ListRail, SponsorBand, SponsorRow, TopUnit } from './index'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
@@ -185,5 +185,26 @@ describe('the story page\'s band', () => {
     expect(html).toContain('rel="sponsored noopener noreferrer"')
     expect(html).toMatch(/aspect-ratio:\s*1200 \/ 200/)
     expect(html).not.toMatch(/<script|<iframe/i)
+  })
+})
+
+describe('a band of sponsor tiles between the news sections', () => {
+  const inBand = (tiles: PlacementTile<Media>[]) => renderToStaticMarkup(React.createElement(SponsorBand, { items: items(tiles) }))
+  it('draws nothing with no tiles, so no empty tinted strip is left', () => {
+    expect(inBand([])).toBe('')
+  })
+  it('sets the row apart from the reporting: full width, the neutral surface tint, a hairline above and below, the tiles still white cards', () => {
+    const html = inBand([tile(), tile({ key: 'home.rail.2', image: media(2) })])
+    expect(html).toContain('border-y border-rule bg-surface-2')
+    expect(html).toContain('data-sponsor-band')
+    expect(html).toContain('bg-surface"')
+    expect(html).toContain('aria-label="Sponsors and promotions"')
+    expect(html.indexOf('border-y')).toBeLessThan(html.indexOf('container'))
+  })
+  it('holds the same tiles as the row, with the same labels and links, and never a sponsor\'s own colour', () => {
+    const html = inBand([tile()])
+    expect(html).toContain('Sponsor message')
+    expect(html).toContain('data-placement="home.rail.1"')
+    expect(html).not.toMatch(/style="[^"]*background(-color)?:/i)
   })
 })

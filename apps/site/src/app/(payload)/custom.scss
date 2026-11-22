@@ -178,3 +178,10 @@
     width: 100%;
   }
 }
+
+// The rich-text toolbar's dropdowns (the block picker, headings, lists). Payload's Lexical dropdown item hands its label to the button twice, as `aria-label` and
+// as `tooltip`, and the button draws the label as a native `title` *and* as its own bubble: two tooltips that only repeat the words already in the list. Hide the
+// bubble and leave the native `title`, which is also how a label cut off at 25 characters is read in full.
+.toolbar-popup__dropdown-item .btn__tooltip {
+  display: none;
+}

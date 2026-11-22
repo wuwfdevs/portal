@@ -79,7 +79,7 @@ export async function signInFromPortal(args: {
     payload.logger.warn(`Portal sign-in refused for ${email}: ${plan.reason}`)
     return {
       ok: false, status: 403, code: plan.reason,
-      message: 'An account with this email already exists on WUWF.org and is not linked to your Portal profile. Ask an administrator to resolve it.',
+      message: 'An account with this email already exists on WUWF.org and is not linked to your Portal profile. Ask an administrator to change that account\u2019s email or remove it, then open the Website tool again.',
     }
   }
 

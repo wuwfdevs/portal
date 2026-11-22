@@ -30,6 +30,10 @@ describe('homepageToSections', () => {
   it('keeps the lead, the kicker and every top story, as ids', () => {
     expect(of('sectionFrontPage')[0]).toMatchObject({ lead: 11, leadKicker: 'After Isaias', topStories: [12, 13] })
   })
+  it('holds a news section\'s count to what a News run takes (3 to 7), so an old count of 8 still saves', () => {
+    const runs = homepageToSections({ ...full, newsModules: [{ id: 'x', heading: 'Big', section: 1, count: 8 }, { id: 'y', heading: 'Small', section: 2, count: 1 }, { id: 'z', heading: 'None', section: 3 }] }).sections.filter((s) => s.blockType === 'sectionNewsRun')
+    expect(runs.map((s) => s.count)).toEqual([7, 3, 5])
+  })
   it('loses no news section that is switched on, keeps its heading and count, and leaves a held one out', () => {
     expect(of('sectionNewsRun').map((s) => [s.heading, s.section, s.count])).toEqual([[{ title: 'Local News' }, 1, 6], [{ title: 'Music & Arts' }, 3, 4]])
   })

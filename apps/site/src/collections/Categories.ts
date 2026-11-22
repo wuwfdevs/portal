@@ -35,11 +35,11 @@ export const Categories: CollectionConfig = {
     {
       name: 'listeningQuestion',
       type: 'text',
-      label: 'Listening question',
+      label: 'Listening query',
       admin: {
         position: 'sidebar',
         components: { Field: '@/components/admin/ListeningQuestion#ListeningQuestion' },
-        description: 'Optional. A WUWF Listens question to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the question closes.',
+        description: 'Optional. A WUWF Listens query to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the query closes.',
       },
       validate: (value: string | null | undefined) => (!value?.trim() || publicIdFromInput(value) ? true : PUBLIC_ID_MESSAGE),
     },

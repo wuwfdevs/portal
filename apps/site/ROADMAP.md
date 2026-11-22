@@ -604,6 +604,7 @@ the picture behind small art); migration `20261120_162233_placement_fills_gaps` 
 **The first layout (PR 388) put a pair of tiles in a side column beside each news section; on staging a section is about 1,800 px tall and a pair about 660 px, so two thirds of every section was blank and the
 video row had no tile. Reworked as option B:** the tiles are full-width rows of three between the sections (the first just below the videos), the news cards run three across with the lead story spanning so no row is
 short (`leadSpanClass`), and a short last row is completed by optional promotions or centered. **Lesson:** the pair was sized against placeholder sections; check a layout against the real page's heights before building it.
+**Superseded 2026-11-22:** the spanning lead (`leadSpanClass`) put a card beside the lead, so the lead read as part of the grid. A news run's lead is now a row of its own with a rule under it, and the rest sit in an even grid (`LEAD_ROW`, `restGridClass`); a run holds 3 to 7 stories.
 **Not done:** the list pages (section, topic, reporter) keep their side rail (now the new card); a "where each tile shows" admin preview (`PLACEMENTS.md`, open item 6); an artwork template for sponsors (corporate support
 confirms the 880 x 704 size first). **Not yet checked in a browser at three widths.**
 
@@ -2298,6 +2299,11 @@ rewritten** (see *Lessons*): the launch run replays the same files staging alrea
    home set, then tick the box in the sidebar and publish; or `pnpm seed:home` from a machine that may write there, which today refuses anything but staging, so copy staging's page by hand or lift the guard for the launch). Without
    it `/` is a 404. Check `/` renders before pointing the domain.
 5. Then deploy production. The first build reads the database, which is why the migrations come first (`scripts/vercel-build.sh`).
+6. **Create the break-glass administrator at `/admin` before anyone opens the Website tool in the Portal.** Payload offers its "create first user" screen only while `users` is empty, and a Portal
+   sign-in creates an account, so the first Portal sign-in closes that door for good. Give it **a station-controlled role address, not anyone's own or Portal email** (a Portal sign-in with an email an
+   unlinked account already holds is refused, by design), and keep its password in the station's password manager. It is not linked to the Portal on purpose: a Portal sign-in replaces an account's roles
+   from the Portal's grant, which would defeat the one account meant to work when the Portal does not. It cannot write listening queries (they need a named Portal person); nobody should use it day to day.
+   Then, in the Portal, grant each editor the Website tool with their roles (admin access screen, Website tool), and have them use Open Tool: their own account is created on that first visit.
 
 ## Known gaps in what exists
 

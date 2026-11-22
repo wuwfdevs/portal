@@ -50,9 +50,27 @@ describe('News run', () => {
   it('draws nothing when the pass left it nothing', async () => {
     expect(await draw({ id: 'run', section: 4 }, new Map([['run', []]]))).toBe('')
   })
-  it('asks for its newest with the slack the pass needs, and takes its count, kept between 3 and 8', async () => {
-    expect(await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, count: 20 })).toMatchObject({ take: 8 })
+  it('asks for its newest with the slack the pass needs, and takes its count, kept between 3 and 7', async () => {
+    expect(await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, count: 20 })).toMatchObject({ take: 7 })
+    expect(await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, count: 8 })).toMatchObject({ take: 7 })
     expect(await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, count: 1 })).toMatchObject({ take: 3 })
     expect(await newsRunClaim({ blockType: 'sectionNewsRun' })).toBeNull()
+  })
+  it('gives the lead a row of its own with a rule under it, and the rest an even grid below', async () => {
+    const out = await draw({ section: 4, count: 5 })
+    expect(out).toContain('sm:flex-row')
+    expect(out).toContain('border-b border-rule')
+    expect(out).toContain('lg:grid-cols-4')
+    // The lead sits in the ruled box, which comes before the grid that holds every other story.
+    expect(out.indexOf('border-b border-rule')).toBeLessThan(out.indexOf('Story 1'))
+    expect(out.indexOf('Story 1')).toBeLessThan(out.indexOf('<ul'))
+    expect(out.indexOf('<ul')).toBeLessThan(out.indexOf('Story 2'))
+  })
+  it('does not repeat the section\'s name on every card, and puts each story\'s date under its headline', async () => {
+    section = { id: 4, title: 'Local News', slug: 'local-news' }
+    const out = await draw({ section: 4, count: 3 })
+    expect(out).not.toContain('rounded-pill')
+    expect(out.match(/Local News/g)).toHaveLength(2)
+    expect(out.match(/Nov 20, 2026/g)).toHaveLength(3)
   })
 })

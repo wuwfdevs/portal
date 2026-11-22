@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { Card } from '@/components/Card'
 import { SectionHeader } from '@/components/SectionHeader'
 import { MembershipAppeal } from '@/components/Article/Parts'
-import { leadCardClasses } from '@/lib/homepage/modules'
+import { LEAD_ROW } from '@/lib/homepage/modules'
 
 import { Briefing, LeadArticle } from './FrontPage'
 
@@ -35,13 +35,37 @@ describe('Card, editorial', () => {
   it('falls back to the default swatch for a colour it does not know', () => {
     expect(draw(createElement(Card, { doc: story({ section: section('mauve') }), fixedImage: true, variant: 'editorial' }))).toContain('bg-wuwf-blue-100')
   })
-  it('lays a spanning lead out as a row with the larger headline, with no padding in the column it falls back to', () => {
-    const out = draw(createElement(Card, { doc: story(), fixedImage: true, lead: leadCardClasses(5), variant: 'editorial' }))
-    expect(out).toContain('lg:flex-row')
-    expect(out).toContain('lg:text-2xl')
-    const column = draw(createElement(Card, { doc: story(), fixedImage: true, lead: leadCardClasses(3), variant: 'editorial' }))
-    expect(column).toContain('lg:p-0')
-    expect(column).not.toContain('lg:p-4')
+  it('lays a lead out as a row with the larger headline, and keeps the picture\'s 3:2 frame', () => {
+    const out = draw(createElement(Card, { doc: story(), fixedImage: true, lead: LEAD_ROW, variant: 'editorial' }))
+    expect(out).toContain('sm:flex-row')
+    expect(out).toContain('sm:w-2/5')
+    expect(out).toContain('lg:text-3xl')
+    expect(out).toContain('aspect-[3/2]')
+  })
+  it('holds the summary to three lines in the editorial look, and not in the bordered card', () => {
+    const doc = story({ meta: { image: picture, description: 'A long summary.' } })
+    expect(draw(createElement(Card, { doc, fixedImage: true, variant: 'editorial' }))).toContain('line-clamp-3')
+    expect(draw(createElement(Card, { doc, fixedImage: true }))).not.toContain('line-clamp-3')
+  })
+  it('leaves the section chip off when asked, and does not let the topics line take its place', () => {
+    const doc = story({ categories: [{ id: 1, title: 'Arts' }] })
+    const on = draw(createElement(Card, { doc, fixedImage: true, showCategories: true, variant: 'editorial' }))
+    const off = draw(createElement(Card, { doc, fixedImage: true, showCategories: true, showSection: false, variant: 'editorial' }))
+    expect(on).toContain('Local News')
+    expect(off).not.toContain('Local News')
+    expect(off).not.toContain('rounded-pill')
+    expect(off).not.toContain('Arts')
+  })
+  it('draws the date under the headline when asked, with the byline on a lead only, and nothing for a story with no date', () => {
+    const plain = draw(createElement(Card, { doc: story(), fixedImage: true, variant: 'editorial' }))
+    expect(plain).not.toContain('Nov 20, 2026')
+    const dated = draw(createElement(Card, { doc: story(), fixedImage: true, showDate: true, variant: 'editorial' }))
+    expect(dated).toContain('Nov 20, 2026')
+    expect(dated).not.toContain('Leigh Ostrander')
+    expect(dated.indexOf('A story')).toBeLessThan(dated.indexOf('Nov 20, 2026'))
+    const lead = draw(createElement(Card, { doc: story(), fixedImage: true, lead: LEAD_ROW, showDate: true, variant: 'editorial' }))
+    expect(lead).toContain('By Leigh Ostrander · Nov 20, 2026')
+    expect(draw(createElement(Card, { doc: story({ publishedAt: null }), fixedImage: true, showDate: true, variant: 'editorial' }))).not.toContain('text-ink-3')
   })
   it('keeps the bordered card for the list pages, with no chip', () => {
     const out = draw(createElement(Card, { doc: story(), fixedImage: true, showCategories: true }))

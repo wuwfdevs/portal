@@ -12,12 +12,12 @@ import { publicIdFromInput } from '@/lib/listening/placement'
 import { addQuestion, blankDraft, draftFromQuery, draftProblem, moveQuestion, removeQuestion, saveBody, STATUS_LABEL, statusActions, type QueryDraft } from './form'
 
 /**
- * The block editor's "Listening question" field. The value stored is still the question's 16-character code (nothing about the block's data
- * changed); what changed is how an editor gets one. Pick a question the Portal already holds, or write a new one right here, change it, and open
- * or close it, without leaving the story. Everything goes through this site's server (`/api/listening-authoring/*`) to the Portal, which owns the
+ * The block editor's "Listening query" field. A query is what staff write, open and close in the Portal; it holds one or more questions. The value stored is still
+ * the query's 16-character code (nothing about the block's data changed); what changed is how an editor gets one. Pick a query the Portal already holds, or write a
+ * new one right here, change it, and open or close it, without leaving the story. Everything goes through this site's server (`/api/listening-authoring/*`) to the Portal, which owns the
  * data and every rule: nothing is stored on the site, and a refusal shows the Portal's own sentence.
  *
- * A code or an address can still be pasted (the old way), for a question this editor's Portal account cannot list.
+ * A code or an address can still be pasted (the old way), for a query this editor's Portal account cannot list.
  */
 const ENDPOINT = '/api/listening-authoring'
 
@@ -83,7 +83,7 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
     }
   }, [code])
 
-  const label = typeof field.label === 'string' ? field.label : 'Listening question'
+  const label = typeof field.label === 'string' ? field.label : 'Listening query'
   const description = typeof field.admin?.description === 'string' ? field.admin.description : undefined
   const startNew = () => {
     setEditingCode(null)
@@ -132,7 +132,7 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <select
-          aria-label="Choose a listening question"
+          aria-label="Choose a listening query"
           disabled={list === null}
           onChange={(e) => {
             setValue(e.target.value)
@@ -142,7 +142,7 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
           style={{ ...input, flex: '1 1 260px', width: 'auto' }}
           value={code ?? ''}
         >
-          <option value="">{list === null ? 'Choose from the Portal’s questions (not available)' : 'Choose a question…'}</option>
+          <option value="">{list === null ? 'Choose a query (not available with this account)' : 'Choose a query…'}</option>
           {code && !list?.some((q) => q.publicId === code) ? <option value={code}>{current ? current.publicTitle : code}</option> : null}
           {(list ?? []).map((q) => (
             <option key={q.publicId} value={q.publicId}>
@@ -151,11 +151,11 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
           ))}
         </select>
         <button disabled={busy} onClick={startNew} style={button()} type="button">
-          New question
+          New query
         </button>
         {current && !draft ? (
           <button disabled={busy} onClick={startEdit} style={button()} type="button">
-            Edit this question
+            Edit this query
           </button>
         ) : null}
       </div>
@@ -174,13 +174,13 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
               </button>
             ))}
           </div>
-          {current.status === 'draft' ? <p style={small}>Nobody sees this question until it is opened. A story that holds it shows nothing until then.</p> : null}
+          {current.status === 'draft' ? <p style={small}>Nobody sees this query until it is opened. A story that holds it shows nothing until then.</p> : null}
         </div>
       ) : null}
 
       {draft ? (
         <div style={box}>
-          <p style={{ margin: 0, fontWeight: 600 }}>{editingCode ? 'Edit this question' : 'A new question'}</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{editingCode ? 'Edit this query' : 'A new query'}</p>
           {locked ? <p style={small}>People have already answered, so the questions can be reworded but not removed or reordered.</p> : null}
           <Labeled hint="For staff in the Portal. People never see it." label="Internal title">
             <input maxLength={200} onChange={(e) => update({ internalTitle: e.target.value })} style={input} value={draft.internalTitle} />
@@ -294,10 +294,10 @@ export const ListeningQuestion: TextFieldClientComponent = ({ path, field }) => 
         </p>
       ) : null}
 
-      <details style={{ marginTop: 8 }}>
-        <summary style={{ cursor: 'pointer', ...small }}>Or paste a code or address</summary>
+      <details open={list === null && listNote !== null ? true : undefined} style={{ marginTop: 8 }}>
+        <summary style={{ cursor: 'pointer', ...small }}>Or paste a query’s code or address</summary>
         <input
-          aria-label="Question code or address"
+          aria-label="Query code or address"
           onChange={(e) => setValue(e.target.value)}
           placeholder="https://…/listens/abcd1234efgh5678"
           style={{ ...input, marginTop: 6 }}

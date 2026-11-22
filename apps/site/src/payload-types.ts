@@ -960,7 +960,7 @@ export interface Category {
   generateSlug?: boolean | null;
   slug: string;
   /**
-   * Optional. A WUWF Listens question to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the question closes.
+   * Optional. A WUWF Listens query to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the query closes.
    */
   listeningQuestion?: string | null;
   parent?: (number | null) | Category;
@@ -2915,7 +2915,7 @@ export interface SectionNewsRun {
    */
   section: number | Section;
   /**
-   * How many stories to show (3 to 8).
+   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it.
    */
   count?: number | null;
   id?: string | null;
@@ -4709,7 +4709,7 @@ export interface User {
    */
   sessionsValidAfter?: string | null;
   /**
-   * The Portal profile this user was provisioned from.
+   * The Portal profile this account was made from. Empty for the break-glass administrator and any account made by hand: it keeps the roles it was given and cannot write listening queries. A Portal account takes its roles from the Portal on every sign-in.
    */
   portalUserId?: string | null;
   updatedAt: string;
@@ -11405,16 +11405,16 @@ export interface LinkLineBlock {
  */
 export interface ListeningAskBlock {
   /**
-   * Choose a question from the Portal, or press New question to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code.
+   * Choose a query from the Portal, or press New query to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code. In an audio or video story the query leads with recording; in any other story it opens on its first question.
    */
   question: string;
   variant: 'story' | 'voice';
   /**
-   * Who receives the message, e.g. "Mary" or "the Unearthing Florida team". Empty uses the person who asked the question, or WUWF.
+   * Optional. Who receives the answers, e.g. "Mary" or "the Unearthing Florida team". After an episode or video it is always said, as WUWF when this is empty; elsewhere it is said only when you fill it in.
    */
   recipient?: string | null;
   /**
-   * One line about what happens to it. Do not promise a reply or a date.
+   * Optional. One line about what happens to the answers. Do not promise a reply or a date.
    */
   description?: string | null;
   id?: string | null;

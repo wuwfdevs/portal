@@ -89,8 +89,10 @@ Designed on the canvas "Sponsor Rail Redesign" (option B). The pieces are `lib/p
   apart from the rail's tiles: they take no place from a sponsor, do not count toward the rail's capacity, are used only to complete the last row (at most two, since a row of three needs at most
   two), and are keyed `home.rail.fill.N`. With none marked, the short row's tiles are **centered at the same size**. The flag on anything but a house promotion in the home rail is
   cleared on save (and ignored by the resolver).
-- **The news cards fill their rows too.** With no side column the sections run three cards across (two on a tablet); the first story spans columns so the last row is never short
-  (`leadSpanClass`, `lib/homepage/modules.ts`: five and eight stories span two columns on a wide screen, four and seven span three, three and six need none).
+- **Each row sits in a neutral band.** A row of tiles between the news sections is drawn by `SponsorBand` (2026-11-22): full width, the neutral surface tint, a hairline above and below, the white tile cards inside, so a row of sponsor messages is plainly apart from the reporting and never reads as the last row of the section above. It is the site's own tint, never a sponsor's colour.
+- **The news cards are a lead row and an even grid.** With no side column a news run's first story has a row of its own (`LEAD_ROW`, `lib/homepage/modules.ts`) and the rest run in
+  a grid under a rule (`restGridClass`: two stories two across, four stories four across, otherwise three; two across on a tablet). A run holds 3 to 7 stories, so only a run of six
+  ends in a short row (two). This replaced the first story spanning columns (`leadSpanClass`, 2026-11-22), which put a card beside the lead and made it read as part of it.
 
 ## Making a placement (Sponsorship → Placements)
 

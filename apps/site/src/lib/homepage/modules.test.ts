@@ -1,56 +1,41 @@
 import { describe, expect, it } from 'vitest'
 
-import { leadCardClasses, leadSpanClass } from './modules'
+import { LEAD_ROW, NEWS_RUN_COUNT, newsRunCount, restGridClass } from './modules'
 
-describe('leadSpanClass', () => {
-  // The grid is two columns on a tablet and three on a wide screen; the first card spans so no row is left short.
-  const fills = (count: number) => {
-    const cls = leadSpanClass(count)
-    const tabletLead = cls.includes('sm:col-span-2') ? 2 : 1
-    const wideLead = cls.includes('lg:col-span-3') ? 3 : cls.includes('lg:col-span-2') ? 2 : 1
-    return { tablet: (count - 1 + tabletLead) % 2 === 0, wide: (count - 1 + wideLead) % 3 === 0 }
-  }
-  it('leaves no short last row at either width for every count a section can hold', () => {
-    for (let n = 3; n <= 8; n++) expect(fills(n), `${n} stories`).toEqual({ tablet: true, wide: true })
+describe('restGridClass', () => {
+  it('runs two stories two across, four stories four across on a wide screen, and the rest three across', () => {
+    expect(restGridClass(2)).toBe('sm:grid-cols-2')
+    expect(restGridClass(4)).toBe('sm:grid-cols-2 lg:grid-cols-4')
+    for (const n of [1, 3, 5, 6, 7]) expect(restGridClass(n), `${n} left`).toBe('sm:grid-cols-2 lg:grid-cols-3')
   })
-  it('spans two columns for five and eight stories on a wide screen, all three for four and seven, and none for three and six', () => {
-    expect(leadSpanClass(5)).toBe('sm:col-span-2 lg:col-span-2')
-    expect(leadSpanClass(8)).toBe('lg:col-span-2')
-    expect(leadSpanClass(4)).toBe('lg:col-span-3')
-    expect(leadSpanClass(7)).toBe('sm:col-span-2 lg:col-span-3')
-    expect(leadSpanClass(6)).toBe('')
-    expect(leadSpanClass(3)).toBe('sm:col-span-2 lg:col-span-1')
+  it('is two across on a tablet in every case', () => {
+    for (let n = 1; n <= 7; n++) expect(restGridClass(n), `${n} left`).toContain('sm:grid-cols-2')
+  })
+  it('leaves a whole last row on a wide screen for the runs of 3, 4, 5 and 7 stories (a lead and 2, 3, 4 or 6), and a short one only for 6', () => {
+    const wide = (n: number) => (/lg:grid-cols-(\d)/.exec(restGridClass(n)) ?? [null, '2'])[1] as string
+    const whole = (count: number) => (count - 1) % Number(wide(count - 1)) === 0
+    expect([3, 4, 5, 7].map(whole)).toEqual([true, true, true, true])
+    expect(whole(6)).toBe(false)
   })
 })
 
-describe('leadCardClasses', () => {
-  it('lays a lead that spans columns out as a row, at the widths where it spans', () => {
-    expect(leadCardClasses(5).card).toBe('sm:flex-row lg:flex-row')
-    expect(leadCardClasses(7).card).toBe('sm:flex-row lg:flex-row')
-    expect(leadCardClasses(4).card).toBe('lg:flex-row')
-    expect(leadCardClasses(8).card).toBe('lg:flex-row')
+describe('LEAD_ROW', () => {
+  it('is a row from a tablet up, picture left at two fifths of the row and the words centred, with a larger headline', () => {
+    expect(LEAD_ROW.card).toContain('sm:flex-row')
+    expect(LEAD_ROW.frame).toContain('sm:w-2/5')
+    expect(LEAD_ROW.body).toContain('sm:justify-center')
+    expect(LEAD_ROW.title).toContain('lg:text-3xl')
   })
-  it('leaves a lead that does not span as the ordinary column', () => {
-    expect(leadCardClasses(6)).toEqual({ card: '', frame: '', body: '', title: '' })
-  })
-  it('puts a lead that spans a tablet\'s row but not a wide screen\'s back to a column there', () => {
-    const c = leadCardClasses(3)
-    expect(c.card).toBe('sm:flex-row lg:flex-col')
-    expect(c.frame).toContain('lg:aspect-[3/2]')
-  })
-  it('is a row exactly when the lead spans, at both widths, for every count a section can hold', () => {
-    for (let n = 3; n <= 8; n++) {
-      const span = leadSpanClass(n)
-      const card = leadCardClasses(n).card
-      expect(card.includes('sm:flex-row'), `${n} tablet`).toBe(span.includes('sm:col-span-2'))
-      expect(card.includes('lg:flex-row'), `${n} wide`).toBe(/lg:col-span-[23]/.test(span))
-    }
-  })
-  it('gives the picture the left half, at least a 3:2 of its own width, and the words a larger headline', () => {
-    const c = leadCardClasses(5)
-    expect(c.frame).toContain('lg:w-1/2')
-    expect(c.frame).toContain('lg:before:pt-[66.7%]')
-    expect(c.title).toContain('lg:text-2xl')
+  it('keeps the picture\'s 3:2 shape: it never turns the frame to auto height', () => {
+    expect(LEAD_ROW.frame).not.toContain('aspect-auto')
+    expect(LEAD_ROW.frame).not.toContain('before:')
   })
 })
 
+describe('newsRunCount', () => {
+  it('holds a count to 3 to 7, rounds it, and takes 5 for anything that is not a number', () => {
+    expect([8, 20, 7, 3, 2, 0, 4.6].map(newsRunCount)).toEqual([7, 7, 7, 3, 3, 3, 5])
+    for (const bad of [null, undefined, Number.NaN, Infinity]) expect(newsRunCount(bad as never), String(bad)).toBe(5)
+    expect(NEWS_RUN_COUNT).toEqual({ min: 3, max: 7, standard: 5 })
+  })
+})
