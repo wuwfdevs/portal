@@ -7,6 +7,10 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Data visualization system (2026-11-22; built, not committed or pushed)
+
+Design, limits and what was left out are in `DATAVIZ.md`; the rules are in `CLAUDE.md` ("Data visualization"). Collections `datasets`, `dataset-versions`, `visualizations` (sidebar: Data & charts); story block `dataViz` and section `sectionDataViz`; staff preview at `/data-preview/<id>`; migration `20261119_031411_dataviz_tables` (**named early on purpose**, it must run before the Local-API migrations; `verify:migrations` passes). **Not yet done:** the migration has not been applied to staging (a pushed branch's preview build does it with `MIGRATE_ON_BUILD=1`; then verify tables, indexes and foreign keys through the Supabase connector); nothing has been looked at in a browser (admin form, ColumnSelect, the figure at 1440 and 390, the interactive map); no sample data on staging. Owner decisions wanted: whether a basemap provider may be used for interactive maps (`MAP_STYLE_URL`), and whether charts need hover tooltips.
+
 ## Direction C2, "bright editorial" (2026-11-21; slices 1 to 3 merged, PR 391; slice 4 merged, PR 392; slice 5 merged, PR 393; slice 6 built on `claude/c2-slice-6-hubs-voyager-v7opde`)
 
 A look change, not a structure change: type weight, corners, chips, buttons, a small colour system for sections, and how a heading is marked. The design is the canvas's boards 1k to 1s ("WUWF.org Home Redesign", https://claude.ai/artifact/CsNftes58pxVRKSFACUEFb; read a board with the Artifact tool, `path: project/<file>`: `DirectionKit.dc.html` is the kit and the place to start, `DirectionBrightPlus` the home page, `DirectionBrightPhone` its phone, `C2Story`, `C2StoryPhone`, `C2List`, `C2Sections`, `C2Hubs`). A board is a mockup: its inline styles name the intent, the Tailwind classes and tokens are the implementation.

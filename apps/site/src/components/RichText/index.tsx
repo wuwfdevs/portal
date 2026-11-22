@@ -16,6 +16,7 @@ import type {
   AudioPlayerBlock as AudioPlayerBlockProps,
   BannerBlock as BannerBlockProps,
   CallToActionBlock as CTABlockProps,
+  DataVizBlock as DataVizBlockProps,
   EmbedBlock as EmbedBlockProps,
   GalleryBlock as GalleryBlockProps,
   LinkLineBlock as LinkLineBlockProps,
@@ -29,6 +30,7 @@ import type {
 import { AudioPlayerBlock } from '@/blocks/AudioPlayer/Component'
 import { BannerBlock } from '@/blocks/Banner/Component'
 import { CallToActionBlock } from '@/blocks/CallToAction/Component'
+import { DataVizBlock } from '@/blocks/DataViz/Component'
 import { EmbedBlock } from '@/blocks/Embed/Component'
 import { GalleryBlock } from '@/blocks/Gallery/Component'
 import { LegacyHtmlBlock } from '@/blocks/LegacyHtml/Component'
@@ -53,6 +55,7 @@ type NodeTypes =
       | LinkLineBlockProps
       | ListeningAskBlockProps
       | EmbedBlockProps
+      | DataVizBlockProps
       | AudioPlayerBlockProps
       | VideoPlayerBlockProps
       | WidgetBlockProps
@@ -81,6 +84,7 @@ const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) 
     linkLine: ({ node }) => <LinkLineBlock {...node.fields} />,
     listeningAsk: ({ node }) => <ListeningAskBlock {...node.fields} />,
     embed: ({ node }) => <EmbedBlock {...node.fields} />,
+    dataViz: ({ node }) => <DataVizBlock {...node.fields} />,
     audioPlayer: ({ node }) => <AudioPlayerBlock {...node.fields} />,
     videoPlayer: ({ node }) => <VideoPlayerBlock {...node.fields} />,
     widget: ({ node }) => <WidgetBlock {...node.fields} />,

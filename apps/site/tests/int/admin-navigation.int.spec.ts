@@ -75,6 +75,7 @@ describe('admin navigation', async () => {
       'Events',
       'Organize',
       'Media library',
+      'Data & charts',
       'Sponsorship',
       'Members & accounts',
       'System',

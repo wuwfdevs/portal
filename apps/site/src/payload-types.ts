@@ -80,6 +80,7 @@ export interface Config {
     sectionCallout: SectionCallout;
     sectionCheckList: SectionCheckList;
     sectionTable: SectionTable;
+    sectionDataViz: SectionDataViz;
     sectionPicker: SectionPicker;
     sectionText: SectionText;
     sectionCredit: SectionCredit;
@@ -131,6 +132,9 @@ export interface Config {
     media: Media;
     audio: Audio;
     video: Video;
+    visualizations: Visualization;
+    datasets: Dataset;
+    'dataset-versions': DatasetVersion;
     sponsors: Sponsor;
     'placement-items': PlacementItem;
     'underwriting-agreements': UnderwritingAgreement;
@@ -156,6 +160,10 @@ export interface Config {
   collectionsJoins: {
     posts: {
       'live.updates': 'live-updates';
+    };
+    datasets: {
+      versions: 'dataset-versions';
+      visualizations: 'visualizations';
     };
     'payload-folders': {
       documentsAndFolders: 'payload-folders' | 'media';
@@ -184,6 +192,9 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     audio: AudioSelect<false> | AudioSelect<true>;
     video: VideoSelect<false> | VideoSelect<true>;
+    visualizations: VisualizationsSelect<false> | VisualizationsSelect<true>;
+    datasets: DatasetsSelect<false> | DatasetsSelect<true>;
+    'dataset-versions': DatasetVersionsSelect<false> | DatasetVersionsSelect<true>;
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
     'placement-items': PlacementItemsSelect<false> | PlacementItemsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
@@ -2084,6 +2095,369 @@ export interface SectionTable {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionDataViz".
+ */
+export interface SectionDataViz {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * From the data library, or press + to make a new one here. Only a published visualization shows to readers; with none chosen, or one that cannot be drawn, the section draws nothing.
+   */
+  visualization?: (number | null) | Visualization;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionDataViz';
+}
+/**
+ * A chart, map or table made from a dataset, kept once and put into any number of stories and pages. Change it here and every place that shows it changes.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "visualizations".
+ */
+export interface Visualization {
+  id: number;
+  /**
+   * The figure's headline, shown above it: say what it shows. "Cases rose in all three counties".
+   */
+  title: string;
+  kind: 'chart' | 'map' | 'table' | 'embed';
+  /**
+   * The data it draws. Choose one, or press + to add a dataset here: name it and its source, save it, then add a version (upload the file) in its Versions list. The column choices below fill in once it has a file.
+   */
+  dataset?: (number | null) | Dataset;
+  /**
+   * A pinned figure stays as it was when the story was written, even after the dataset is updated.
+   */
+  dataMode?: ('latest' | 'pinned') | null;
+  /**
+   * The version to keep showing.
+   */
+  pinnedVersion?: (number | null) | DatasetVersion;
+  chart?: {
+    type: 'line' | 'area' | 'column' | 'bar' | 'scatter';
+    /**
+     * Usually a date, a year or a category. For a scatter plot, a number.
+     */
+    x?: string | null;
+    /**
+     * One column draws one series. Several columns (like Cases and Deaths) draw one series each, side by side, up to six.
+     */
+    y?: string[] | null;
+    /**
+     * Optional. A column whose values become separate series (one line per county). Use this or several value columns, not both.
+     */
+    series?: string | null;
+    xLabel?: string | null;
+    /**
+     * Include the unit: "Cases per 100,000 people".
+     */
+    yLabel?: string | null;
+    yFormat?: {
+      style?: ('number' | 'percent' | 'currency') | null;
+      /**
+       * Digits after the point. Blank: as needed.
+       */
+      decimals?: number | null;
+      /**
+       * Short form: 1.2M. Axes and legends only.
+       */
+      compact?: boolean | null;
+      /**
+       * Before the number, for a plain number: "~"
+       */
+      prefix?: string | null;
+      /**
+       * After the number, for a plain number: " cases"
+       */
+      suffix?: string | null;
+    };
+    /**
+     * Leave unticked to use the usual choice: zero for columns, bars and areas, the data's own range for lines and scatter plots.
+     */
+    zeroBaseline?: boolean | null;
+    /**
+     * Columns and bars only.
+     */
+    sort?: ('data' | 'valueDesc' | 'valueAsc') | null;
+  };
+  map?: {
+    geometry: 'boundaries' | 'dataset' | 'points';
+    /**
+     * The shapes: counties, ZIP codes, districts. Choose a GeoJSON dataset, or press + to add one here.
+     */
+    boundaryDataset?: (number | null) | Dataset;
+    /**
+     * Optional. Blank: the newest published boundaries.
+     */
+    boundaryVersion?: (number | null) | DatasetVersion;
+    /**
+     * The column in the table that names each place: the county name or its FIPS code.
+     */
+    joinColumn?: string | null;
+    /**
+     * The boundary file's own name or code for each place. Names are matched ignoring case and the word "County"; codes ignoring leading zeros.
+     */
+    boundaryKey?: string | null;
+    latColumn?: string | null;
+    lonColumn?: string | null;
+    /**
+     * A number. Areas are coloured in equal steps from light to dark. Leave blank to draw the shapes in one colour.
+     */
+    valueColumn?: string | null;
+    /**
+     * Shown on hover, and in the data table.
+     */
+    labelColumn?: string | null;
+    /**
+     * Colour steps, 3 to 7.
+     */
+    classes?: number | null;
+    /**
+     * What the colours mean, with the unit: "Cases per 100,000".
+     */
+    legendTitle?: string | null;
+    valueFormat?: {
+      style?: ('number' | 'percent' | 'currency') | null;
+      /**
+       * Digits after the point. Blank: as needed.
+       */
+      decimals?: number | null;
+      /**
+       * Short form: 1.2M. Axes and legends only.
+       */
+      compact?: boolean | null;
+      /**
+       * Before the number, for a plain number: "~"
+       */
+      prefix?: string | null;
+      /**
+       * After the number, for a plain number: " cases"
+       */
+      suffix?: string | null;
+    };
+    /**
+     * Adds an "Explore the map" button. The drawing is always on the page; the interactive map loads only when a reader asks for it. Needs simplified shapes.
+     */
+    interactive?: boolean | null;
+  };
+  table?: {
+    /**
+     * Leave empty to show every column in the file's order.
+     */
+    columns?:
+      | {
+          column?: string | null;
+          /**
+           * The heading to show, if not the file's.
+           */
+          label?: string | null;
+          format?: {
+            style?: ('number' | 'percent' | 'currency') | null;
+            /**
+             * Digits after the point. Blank: as needed.
+             */
+            decimals?: number | null;
+            /**
+             * Short form: 1.2M. Axes and legends only.
+             */
+            compact?: boolean | null;
+            /**
+             * Before the number, for a plain number: "~"
+             */
+            prefix?: string | null;
+            /**
+             * After the number, for a plain number: " cases"
+             */
+            suffix?: string | null;
+          };
+          id?: string | null;
+        }[]
+      | null;
+    sortColumn?: string | null;
+    sortDirection?: ('asc' | 'desc') | null;
+    searchable?: boolean | null;
+    /**
+     * Rows per page.
+     */
+    pageSize?: number | null;
+  };
+  embed?: {
+    /**
+     * The embed address from Datawrapper, Flourish, ArcGIS or another approved site. It is shown through the same safe frame as any embed.
+     */
+    url?: string | null;
+    /**
+     * Optional: the original width, to keep proportions.
+     */
+    width?: number | null;
+    /**
+     * Optional: the original height.
+     */
+    height?: number | null;
+  };
+  /**
+   * Shown under the figure: what to notice, or the date range. One or two sentences.
+   */
+  caption?: string | null;
+  /**
+   * For people who cannot see the figure: what kind of figure it is, what it compares, and the main finding, in two or three sentences. Not the caption. Required to publish. The data table below the figure carries the exact numbers.
+   */
+  altText?: string | null;
+  /**
+   * Leave blank to credit the source named on the dataset. Fill in to credit someone else (or, for an embed, whoever made it).
+   */
+  source?: {
+    name?: string | null;
+    url?: string | null;
+  };
+  /**
+   * Anything to add to the dataset's methodology for this figure only: how a rate was worked out, what was left out. A blank line starts a new paragraph.
+   */
+  notes?: string | null;
+  /**
+   * Adds a link to the original file under the figure. Not used for embeds.
+   */
+  showDownload?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * Data that charts, maps and tables draw from. Add a dataset once, then upload a new version whenever the numbers change.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "datasets".
+ */
+export interface Dataset {
+  id: number;
+  /**
+   * What the data is, e.g. "Escambia County school grades, 2015 to 2025".
+   */
+  title: string;
+  /**
+   * For staff: what is in it and anything to know before using it. Not shown to readers.
+   */
+  description?: string | null;
+  /**
+   * Who made the data. Every chart and map made from it credits this, unless the visualization names its own.
+   */
+  source?: {
+    /**
+     * e.g. "Florida Department of Education". Required to publish a visualization that uses the dataset.
+     */
+    name?: string | null;
+    url?: string | null;
+  };
+  /**
+   * How the numbers were collected or calculated, and their limits. Shown under every figure made from this dataset. A blank line starts a new paragraph.
+   */
+  methodology?: string | null;
+  /**
+   * Each upload is a version and is never changed. A visualization follows the newest published version, or stays on one you pin.
+   */
+  versions?: {
+    docs?: (number | DatasetVersion)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * The charts, maps and tables that draw from this dataset.
+   */
+  visualizations?: {
+    docs?: (number | Visualization)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Every upload of every dataset. You normally add one from the dataset itself.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dataset-versions".
+ */
+export interface DatasetVersion {
+  id: number;
+  /**
+   * The dataset this is a version of. Fixed once saved.
+   */
+  dataset: number | Dataset;
+  /**
+   * Counted up automatically.
+   */
+  version?: number | null;
+  /**
+   * What changed, e.g. "Through October 2026" or "Corrected the Santa Rosa row". Shown to readers as the data's version note.
+   */
+  label?: string | null;
+  /**
+   * A staged version can be previewed in a visualization but readers do not see it. Only a publisher can publish it. Every visualization that follows the latest data then updates.
+   */
+  published?: boolean | null;
+  /**
+   * Set when it is published: this is the "data as of" date readers see.
+   */
+  publishedAt?: string | null;
+  format?: ('csv' | 'json' | 'geojson') | null;
+  rowCount?: number | null;
+  /**
+   * The columns found in the file, and what each holds. Visualizations choose from these.
+   */
+  columns?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  data?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionPicker".
  */
 export interface SectionPicker {
@@ -3603,6 +3977,7 @@ export interface Page {
         | SectionCallout
         | SectionCheckList
         | SectionTable
+        | SectionDataViz
         | SectionPicker
         | SectionText
         | SectionCredit
@@ -4936,6 +5311,18 @@ export interface PayloadLockedDocument {
         value: number | Video;
       } | null)
     | ({
+        relationTo: 'visualizations';
+        value: number | Visualization;
+      } | null)
+    | ({
+        relationTo: 'datasets';
+        value: number | Dataset;
+      } | null)
+    | ({
+        relationTo: 'dataset-versions';
+        value: number | DatasetVersion;
+      } | null)
+    | ({
         relationTo: 'sponsors';
         value: number | Sponsor;
       } | null)
@@ -5933,6 +6320,152 @@ export interface VideoSelect<T extends boolean = true> {
       };
   prefix?: T;
   _objectKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "visualizations_select".
+ */
+export interface VisualizationsSelect<T extends boolean = true> {
+  title?: T;
+  kind?: T;
+  dataset?: T;
+  dataMode?: T;
+  pinnedVersion?: T;
+  chart?:
+    | T
+    | {
+        type?: T;
+        x?: T;
+        y?: T;
+        series?: T;
+        xLabel?: T;
+        yLabel?: T;
+        yFormat?:
+          | T
+          | {
+              style?: T;
+              decimals?: T;
+              compact?: T;
+              prefix?: T;
+              suffix?: T;
+            };
+        zeroBaseline?: T;
+        sort?: T;
+      };
+  map?:
+    | T
+    | {
+        geometry?: T;
+        boundaryDataset?: T;
+        boundaryVersion?: T;
+        joinColumn?: T;
+        boundaryKey?: T;
+        latColumn?: T;
+        lonColumn?: T;
+        valueColumn?: T;
+        labelColumn?: T;
+        classes?: T;
+        legendTitle?: T;
+        valueFormat?:
+          | T
+          | {
+              style?: T;
+              decimals?: T;
+              compact?: T;
+              prefix?: T;
+              suffix?: T;
+            };
+        interactive?: T;
+      };
+  table?:
+    | T
+    | {
+        columns?:
+          | T
+          | {
+              column?: T;
+              label?: T;
+              format?:
+                | T
+                | {
+                    style?: T;
+                    decimals?: T;
+                    compact?: T;
+                    prefix?: T;
+                    suffix?: T;
+                  };
+              id?: T;
+            };
+        sortColumn?: T;
+        sortDirection?: T;
+        searchable?: T;
+        pageSize?: T;
+      };
+  embed?:
+    | T
+    | {
+        url?: T;
+        width?: T;
+        height?: T;
+      };
+  caption?: T;
+  altText?: T;
+  source?:
+    | T
+    | {
+        name?: T;
+        url?: T;
+      };
+  notes?: T;
+  showDownload?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "datasets_select".
+ */
+export interface DatasetsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  source?:
+    | T
+    | {
+        name?: T;
+        url?: T;
+      };
+  methodology?: T;
+  versions?: T;
+  visualizations?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dataset-versions_select".
+ */
+export interface DatasetVersionsSelect<T extends boolean = true> {
+  dataset?: T;
+  version?: T;
+  label?: T;
+  published?: T;
+  publishedAt?: T;
+  format?: T;
+  rowCount?: T;
+  columns?: T;
+  data?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -10887,6 +11420,20 @@ export interface ListeningAskBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'listeningAsk';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "DataVizBlock".
+ */
+export interface DataVizBlock {
+  /**
+   * Choose one from the data library, or press + to make a new one here: pick or add its dataset, choose the columns, save as a draft, and it is placed in the story. Only a published visualization shows to readers.
+   */
+  visualization: number | Visualization;
+  size?: ('column' | 'wide') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'dataViz';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

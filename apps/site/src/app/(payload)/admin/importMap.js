@@ -20,16 +20,17 @@ import { SlugField as SlugField_2b8867833a34864a02ddf429b0728a40 } from '@payloa
 import { NetworkQueue as NetworkQueue_e849784a6e4bce31f588a445b63c6f7f } from '@/components/admin/NetworkQueue'
 import { FolderTableCell as FolderTableCell_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { FolderField as FolderField_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { ColumnSelect as ColumnSelect_2fa38830595e4f3d8c363d2f254e175d } from '@/components/admin/ColumnSelect'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { FolderTypeField as FolderTypeField_2b8867833a34864a02ddf429b0728a40 } from '@payloadcms/next/client'
-import { NewsModuleRowLabel as NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea } from '@/Homepage/NewsModuleRowLabel'
 import { GivingLevelRowLabel as GivingLevelRowLabel_a097face6b2b1d53684a3a721144b9b2 } from '@/globals/GivingSettings/RowLabel'
 import { LinkRowLabel as LinkRowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
 import { StoryEmbeddingsPanel as StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e } from '@/components/admin/StoryEmbeddingsPanel'
 import { ChannelRowLabel as ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1 } from '@/globals/ListenLiveRowLabel'
+import { NewsModuleRowLabel as NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea } from '@/Homepage/NewsModuleRowLabel'
 import { LevelRowLabel as LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb } from '@/SupportPage/RowLabel'
 import { AdminNav as AdminNav_a9d4b87e0306b3ddfe97926a52a69591 } from '@/components/admin/Nav'
 import { AdminIcon as AdminIcon_c7e7270bf7f257a2ce4b947f1778cead } from '@/components/admin/Brand/Icon'
@@ -62,16 +63,17 @@ export const importMap = {
   "@/components/admin/NetworkQueue#NetworkQueue": NetworkQueue_e849784a6e4bce31f588a445b63c6f7f,
   "@payloadcms/next/rsc#FolderTableCell": FolderTableCell_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/next/rsc#FolderField": FolderField_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@/components/admin/ColumnSelect#ColumnSelect": ColumnSelect_2fa38830595e4f3d8c363d2f254e175d,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/next/client#FolderTypeField": FolderTypeField_2b8867833a34864a02ddf429b0728a40,
-  "@/Homepage/NewsModuleRowLabel#NewsModuleRowLabel": NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea,
   "@/globals/GivingSettings/RowLabel#GivingLevelRowLabel": GivingLevelRowLabel_a097face6b2b1d53684a3a721144b9b2,
   "@/Header/RowLabel#LinkRowLabel": LinkRowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
   "@/components/admin/StoryEmbeddingsPanel#StoryEmbeddingsPanel": StoryEmbeddingsPanel_1c44c88ea65ad72fb1ab26d6afdced6e,
   "@/globals/ListenLiveRowLabel#ChannelRowLabel": ChannelRowLabel_f77e6d73d00167dfd6cd305e245035c1,
+  "@/Homepage/NewsModuleRowLabel#NewsModuleRowLabel": NewsModuleRowLabel_c280640101d2e5043bc68f40bf5679ea,
   "@/SupportPage/RowLabel#LevelRowLabel": LevelRowLabel_6108d9e942d7c10a85b4cb43b3d226fb,
   "@/components/admin/Nav#AdminNav": AdminNav_a9d4b87e0306b3ddfe97926a52a69591,
   "@/components/admin/Brand/Icon#AdminIcon": AdminIcon_c7e7270bf7f257a2ce4b947f1778cead,
