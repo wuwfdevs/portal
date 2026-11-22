@@ -14,7 +14,11 @@ export const DataViz: Block = {
       type: 'relationship',
       relationTo: 'visualizations',
       required: true,
-      admin: { description: 'Choose one from the data library (Data & charts → Visualizations), or make a new one there first. Only a published visualization shows to readers.' },
+      admin: {
+        allowCreate: true,
+        allowEdit: true,
+        description: 'Choose one from the data library, or press + to make a new one here: pick or add its dataset, choose the columns, save as a draft, and it is placed in the story. Only a published visualization shows to readers.',
+      },
     },
     {
       name: 'size',

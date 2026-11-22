@@ -80,7 +80,7 @@ const mapFields: Field[] = [
     type: 'relationship',
     relationTo: 'datasets',
     label: 'Boundary dataset (GeoJSON)',
-    admin: { condition: (_, s) => s?.geometry === 'boundaries', description: 'The shapes: counties, ZIP codes, districts. Upload a GeoJSON file as a dataset first.' },
+    admin: { allowCreate: true, allowEdit: true, condition: (_, s) => s?.geometry === 'boundaries', description: 'The shapes: counties, ZIP codes, districts. Choose a GeoJSON dataset, or press + to add one here.' },
   },
   {
     name: 'boundaryVersion',
@@ -234,7 +234,12 @@ export const Visualizations: CollectionConfig<'visualizations'> = {
               name: 'dataset',
               type: 'relationship',
               relationTo: 'datasets',
-              admin: { condition: (d) => d?.kind !== 'embed', description: 'The data it draws. Add the dataset and upload a file first (Data → Datasets).' },
+              admin: {
+                allowCreate: true,
+                allowEdit: true,
+                condition: (d) => d?.kind !== 'embed',
+                description: 'The data it draws. Choose one, or press + to add a dataset here: name it and its source, save it, then add a version (upload the file) in its Versions list. The column choices below fill in once it has a file.',
+              },
             },
             {
               name: 'dataMode',

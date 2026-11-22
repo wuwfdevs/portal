@@ -2123,7 +2123,7 @@ export interface SectionDataViz {
    */
   placement?: ('stacked' | 'side') | null;
   /**
-   * From the data library (Data & charts → Visualizations). Only a published visualization shows to readers; with none chosen, or one that cannot be drawn, the section draws nothing.
+   * From the data library, or press + to make a new one here. Only a published visualization shows to readers; with none chosen, or one that cannot be drawn, the section draws nothing.
    */
   visualization?: (number | null) | Visualization;
   id?: string | null;
@@ -2144,7 +2144,7 @@ export interface Visualization {
   title: string;
   kind: 'chart' | 'map' | 'table' | 'embed';
   /**
-   * The data it draws. Add the dataset and upload a file first (Data → Datasets).
+   * The data it draws. Choose one, or press + to add a dataset here: name it and its source, save it, then add a version (upload the file) in its Versions list. The column choices below fill in once it has a file.
    */
   dataset?: (number | null) | Dataset;
   /**
@@ -2205,7 +2205,7 @@ export interface Visualization {
   map?: {
     geometry: 'boundaries' | 'dataset' | 'points';
     /**
-     * The shapes: counties, ZIP codes, districts. Upload a GeoJSON file as a dataset first.
+     * The shapes: counties, ZIP codes, districts. Choose a GeoJSON dataset, or press + to add one here.
      */
     boundaryDataset?: (number | null) | Dataset;
     /**
@@ -11427,7 +11427,7 @@ export interface ListeningAskBlock {
  */
 export interface DataVizBlock {
   /**
-   * Choose one from the data library (Data & charts → Visualizations), or make a new one there first. Only a published visualization shows to readers.
+   * Choose one from the data library, or press + to make a new one here: pick or add its dataset, choose the columns, save as a draft, and it is placed in the story. Only a published visualization shows to readers.
    */
   visualization: number | Visualization;
   size?: ('column' | 'wide') | null;
