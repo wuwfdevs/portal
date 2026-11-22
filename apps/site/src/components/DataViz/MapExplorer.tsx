@@ -16,6 +16,9 @@ type Interactive = NonNullable<MapModel['interactive']>
  * movement but cannot disagree. There is no basemap unless the station has set a style address (`MAP_STYLE_URL`): without one no request goes to a map
  * provider. Names and values appear in a popup written as text. Keyboard: the map takes the arrow keys and +/- once it has focus.
  */
+// The worker is served from public/maplibre (scripts/copy-maplibre-worker.mjs); MapLibre cannot find it beside its bundled module.
+maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs')
+
 export default function MapExplorer({ data, styleUrl, label }: { data: Interactive; styleUrl: string | null; label: string }) {
   const container = useRef<HTMLDivElement>(null)
 
@@ -33,21 +36,21 @@ export default function MapExplorer({ data, styleUrl, label }: { data: Interacti
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     map.on('load', () => {
       map.addSource('shapes', { type: 'geojson', data: data.features as never })
-      map.addLayer({ id: 'fill', type: 'fill', source: 'shapes', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.9 } })
+      map.addLayer({ id: 'fill', type: 'fill', source: 'shapes', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 1 } })
       map.addLayer({ id: 'outline', type: 'line', source: 'shapes', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': colors['rule-strong'], 'line-width': 0.75 } })
       map.addLayer({ id: 'points', type: 'circle', source: 'shapes', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': 6, 'circle-stroke-color': colors['rule-strong'], 'circle-stroke-width': 1 } })
       const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
       for (const layer of ['fill', 'points']) {
         map.on('click', layer, (e) => {
-          const props = e.features?.[0]?.properties as { label?: string; value?: number | null } | undefined
+          const props = e.features?.[0]?.properties as { label?: string; valueText?: string } | undefined
           if (!props) return
           const box = document.createElement('div')
           const name = document.createElement('strong')
           name.textContent = props.label || 'Area'
           box.append(name)
-          if (props.value !== null && props.value !== undefined && props.value !== ('null' as unknown)) {
+          if (data.valueLabel && props.valueText) {
             const v = document.createElement('div')
-            v.textContent = String(props.value)
+            v.textContent = `${data.valueLabel}: ${props.valueText}`
             box.append(v)
           }
           popup.setLngLat(e.lngLat).setDOMContent(box).addTo(map)
