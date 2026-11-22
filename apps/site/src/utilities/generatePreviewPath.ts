@@ -25,3 +25,11 @@ export const generatePreviewPath = ({ collection, data }: Props): string | null 
 
   return `/next/preview?${encodedParams.toString()}`
 }
+
+/**
+ * The preview address of a visualization: its own page in the site, for signed-in staff only (`/data-preview/<id>`). It shows the draft, with
+ * any staged dataset version, and says what is missing before it can be published. It is not a draft-mode preview of a story: a visualization has
+ * no address of its own for readers.
+ */
+export const generateDataPreviewPath = ({ data }: { data: { id?: string | number | null } | null | undefined; req: PayloadRequest }): string | null =>
+  data?.id !== undefined && data?.id !== null ? `/data-preview/${data.id}` : null

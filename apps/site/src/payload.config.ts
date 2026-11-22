@@ -12,6 +12,9 @@ import { Memberships } from './collections/Memberships'
 import { MemberFeeds } from './collections/MemberFeeds'
 import { Seasons } from './collections/Seasons'
 import { Audio } from './collections/Audio'
+import { Datasets } from './collections/Data/Datasets'
+import { DatasetVersions } from './collections/Data/DatasetVersions'
+import { Visualizations } from './collections/Data/Visualizations'
 import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
 import { Pages } from './collections/Pages'
@@ -133,6 +136,9 @@ export default buildConfig({
     EventSubmissionImages,
     Media,
     Audio,
+    Datasets,
+    DatasetVersions,
+    Visualizations,
     Video,
     Clips,
     Seasons,

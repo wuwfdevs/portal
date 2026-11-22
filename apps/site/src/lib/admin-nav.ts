@@ -57,6 +57,11 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     items: [c('media'), c('audio'), c('video')],
   },
   {
+    // Charts, maps and tables for stories and pages: the data they draw (a dataset, with its uploaded versions) and the figures themselves.
+    label: 'Data & charts',
+    items: [c('visualizations'), c('datasets'), c('dataset-versions', 'Uploaded versions')],
+  },
+  {
     label: 'Sponsorship',
     items: [c('sponsors'), c('placement-items'), c('underwriting-agreements'), g('sponsorship-settings')],
   },

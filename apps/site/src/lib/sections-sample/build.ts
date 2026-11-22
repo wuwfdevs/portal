@@ -13,6 +13,7 @@ export interface SampleRefs {
   /** Pictures from the media library, in the order to use them. */
   mediaIds: Array<number | string>
   postId?: number | string
+  visualizationId?: number | string
   sectionId?: number | string
   topicId?: number | string
   productionId?: number | string
@@ -195,6 +196,8 @@ export const SAMPLES: Record<string, Maker> = {
     ),
   }),
   // The fellowship first: its agreement is the one a demonstration database is most likely to hold. A record with no running agreement draws nothing.
+  // A published visualization from the data library, if the database has one; without one the section draws nothing.
+  sectionDataViz: ({ label, refs }) => ({ ...head(label), visualization: refs.visualizationId }),
   sectionCredit: ({ refs }) => ({
     target:
       refs.fellowshipId !== undefined

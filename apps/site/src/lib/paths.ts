@@ -22,6 +22,8 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'next',
   '_next',
   '_draft',
+  // A visualization's staff preview (`/data-preview/<id>`).
+  'data-preview',
   'posts',
   'latest',
   'search',

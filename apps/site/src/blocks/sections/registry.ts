@@ -26,6 +26,8 @@ import { Steps } from './Steps/config'
 import { StepsSection } from './Steps/Component'
 import { Support } from './Support/config'
 import { SupportSection } from './Support/Component'
+import { DataViz } from './DataViz/config'
+import { DataVizSection } from './DataViz/Component'
 import { Table } from './Table/config'
 import { TableSection } from './Table/Component'
 import { Credit } from './Credit/config'
@@ -110,6 +112,7 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Callout', block: Callout, Component: CalloutSection },
   { dir: 'CheckList', block: CheckList, Component: CheckListSection },
   { dir: 'Table', block: Table, Component: TableSection },
+  { dir: 'DataViz', block: DataViz, Component: DataVizSection },
   { dir: 'Picker', block: Picker, Component: PickerSection },
   { dir: 'Text', block: Text, Component: TextSection },
   { dir: 'Credit', block: Credit, Component: CreditSection },

@@ -53,6 +53,7 @@ import * as migration_20261118_154406_site_settings_embedding_tuning from './202
 import * as migration_20261118_161412_news_sections_and_placements from './20261118_161412_news_sections_and_placements';
 import * as migration_20261118_191825_placement_items from './20261118_191825_placement_items';
 import * as migration_20261118_221136_network_content from './20261118_221136_network_content';
+import * as migration_20261119_031411_dataviz_tables from './20261119_031411_dataviz_tables';
 import * as migration_20261119_031412_sections_pages from './20261119_031412_sections_pages';
 import * as migration_20261119_031420_home_page_flag_columns from './20261119_031420_home_page_flag_columns';
 import * as migration_20261119_031427_blocks_to_json from './20261119_031427_blocks_to_json';
@@ -354,6 +355,13 @@ export const migrations = [
     up: migration_20261118_221136_network_content.up,
     down: migration_20261118_221136_network_content.down,
     name: '20261118_221136_network_content',
+  },
+  {
+    // The data visualization tables. Written late but named early, so it runs before the migrations that read documents through the config
+    // (CLAUDE.md, "Database": a table or column the config has must exist before any Local-API migration).
+    up: migration_20261119_031411_dataviz_tables.up,
+    down: migration_20261119_031411_dataviz_tables.down,
+    name: '20261119_031411_dataviz_tables',
   },
   {
     up: migration_20261119_031412_sections_pages.up,
