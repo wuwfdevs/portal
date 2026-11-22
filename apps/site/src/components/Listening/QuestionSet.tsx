@@ -80,7 +80,8 @@ export const QuestionSet: React.FC<{
   const [error, setError] = useState<string | null>(null)
   const [doneCount, setDoneCount] = useState(0)
   // The recordings saved this visit, kept in this page's memory so a participant can hear them again on the review screen. They never leave the device (playing one
-  // uploads nothing), are dropped when the answer is replaced or the set is sent, and are gone if the page is reloaded.
+  // uploads nothing), stay while a replacement is only being considered (Keep the answer I already sent), are overwritten when a replacement is saved, are dropped when the
+  // Portal no longer holds the answer or the set is sent, and are gone if the page is reloaded.
   const [takes, setTakes] = useState<Record<string, { blob: Blob; seconds: number }>>({})
   const dropTake = (questionId: string) =>
     setTakes((all) => {
@@ -150,6 +151,7 @@ export const QuestionSet: React.FC<{
     const again = await startResponse(query.publicId)
     const fromPortal = again.ok ? answersFromProgress(questions, again.answers)[question.id] : undefined
     setAnswers((all) => ({ ...all, [question.id]: fromPortal ?? EMPTY_ANSWER }))
+    if (fromPortal?.state !== 'saved') dropTake(question.id)
   }
 
   // -- question: save the take or the written words ---------------------------------------------------------------
@@ -342,14 +344,7 @@ export const QuestionSet: React.FC<{
                 {current.text && <p className="whitespace-pre-wrap text-sm text-ink-2">{current.text}</p>}
                 {!current.text && takes[question.id] && <ListenBack blob={takes[question.id]!.blob} seconds={takes[question.id]!.seconds} />}
                 <div className="flex gap-2.5">
-                  <button
-                    className={cn(buttonSecondary, 'flex-1')}
-                    onClick={() => {
-                      patch(question.id, { retake: true })
-                      dropTake(question.id)
-                    }}
-                    type="button"
-                  >
+                  <button className={cn(buttonSecondary, 'flex-1')} onClick={() => patch(question.id, { retake: true })} type="button">
                     Replace this answer
                   </button>
                   <button className={cn(buttonPrimary, 'flex-1')} onClick={advance} type="button">
@@ -489,21 +484,19 @@ export const QuestionSet: React.FC<{
                   <div className="flex min-w-60 flex-1 flex-col gap-0.5">
                     <span className="text-sm font-semibold text-ink">{row.prompt}</span>
                     <span className="text-xs text-ink-3">{row.status}</span>
-                    {takes[row.questionId] ? (
-                      <div className="mt-2">
-                        <ListenBack blob={takes[row.questionId]!.blob} seconds={takes[row.questionId]!.seconds} />
-                      </div>
-                    ) : (
-                      row.hasAudio && <span className="mt-1 text-xs text-ink-4">Playback isn’t available once the page has been reloaded.</span>
-                    )}
+                    {row.hasAudio &&
+                      (takes[row.questionId] ? (
+                        <div className="mt-2">
+                          <ListenBack blob={takes[row.questionId]!.blob} seconds={takes[row.questionId]!.seconds} />
+                        </div>
+                      ) : (
+                        <span className="mt-1 text-xs text-ink-4">Playback isn’t available once the page has been reloaded.</span>
+                      ))}
                   </div>
                   <button
                     className={buttonLink}
                     onClick={() => {
-                      if (row.action === 'Replace') {
-                        patch(row.questionId, { retake: true })
-                        dropTake(row.questionId)
-                      }
+                      if (row.action === 'Replace') patch(row.questionId, { retake: true })
                       open(row.position - 1)
                     }}
                     type="button"

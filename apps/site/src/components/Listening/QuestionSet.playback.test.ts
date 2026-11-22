@@ -77,10 +77,31 @@ describe('review playback', () => {
     expect(screen.queryByText(/Playback isn’t available/)).toBeNull()
   })
 
-  it('drops the player when the answer is replaced, and shows the recorder again', async () => {
+  it('shows the recorder, not the old player, while an answer is being replaced', async () => {
     await toReview()
     fireEvent.click(screen.getByRole('button', { name: 'Replace' }))
     expect(await screen.findByRole('button', { name: 'Start recording' })).toBeTruthy()
     expect(screen.queryByRole('group', { name: 'Listen back' })).toBeNull()
+  })
+
+  it('keeps the player when the participant chooses to keep the answer already sent', async () => {
+    await toReview()
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep the answer I already sent' }))
+    // The saved answer's own screen still has its player, and so does the review after it; nothing blames a reload.
+    expect(await screen.findByRole('group', { name: 'Listen back' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Review answers' }))
+    await screen.findByText('You can replace any recording before you continue.')
+    expect(screen.getByRole('group', { name: 'Listen back' })).toBeTruthy()
+    expect(screen.queryByText(/Playback isn’t available/)).toBeNull()
+  })
+
+  it('has one player, for the new recording, after a replacement is saved', async () => {
+    await toReview()
+    fireEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Start recording' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and review' }))
+    await screen.findByText('You can replace any recording before you continue.')
+    expect(screen.getAllByRole('group', { name: 'Listen back' })).toHaveLength(1)
   })
 })
