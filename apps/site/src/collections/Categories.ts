@@ -38,8 +38,8 @@ export const Categories: CollectionConfig = {
       label: 'Listening question',
       admin: {
         position: 'sidebar',
-        description:
-          'Optional. A WUWF Listens question to ask at the head of this topic’s page: its 16-character code, or its address (…/listens/<code>), from the Portal. Shows nothing once the question closes.',
+        components: { Field: '@/components/admin/ListeningQuestion#ListeningQuestion' },
+        description: 'Optional. A WUWF Listens question to ask at the head of this topic’s page: choose one from the Portal or write a new one here. Shows nothing once the question closes.',
       },
       validate: (value: string | null | undefined) => (!value?.trim() || publicIdFromInput(value) ? true : PUBLIC_ID_MESSAGE),
     },

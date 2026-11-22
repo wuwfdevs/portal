@@ -20,7 +20,10 @@ export const ListeningAsk: Block = {
       type: 'text',
       required: true,
       label: 'Question code or address',
-      admin: { description: 'From the question’s page in the Portal (Audience Listening): its 16-character code, or its address (…/listens/<code>).' },
+      admin: {
+        components: { Field: '@/components/admin/ListeningQuestion#ListeningQuestion' },
+        description: 'Choose a question from the Portal, or press New question to write one here (it starts as a draft; open it when it is ready). The story holds only its 16-character code.',
+      },
       validate: (value: string | null | undefined) => (publicIdFromInput(value) ? true : PUBLIC_ID_MESSAGE),
     },
     {

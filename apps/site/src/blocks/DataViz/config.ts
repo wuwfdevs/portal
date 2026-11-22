@@ -17,6 +17,7 @@ export const DataViz: Block = {
       admin: {
         allowCreate: true,
         allowEdit: true,
+        components: { Field: '@/components/admin/VisualizationPicker#VisualizationPicker' },
         description: 'Choose one from the data library, or press + to make a new one here: pick or add its dataset, choose the columns, save as a draft, and it is placed in the story. Only a published visualization shows to readers.',
       },
     },
