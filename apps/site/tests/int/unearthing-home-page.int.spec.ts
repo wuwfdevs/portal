@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { ensureTestSection } from '../helpers/section'
 import { down, up } from '@/migrations/20261123_013300_unearthing_home_page'
 import { resolveShowHome } from '@/utilities/resolvePath'
+import { loadUnearthingSlot } from '@/lib/homepage/load-slots'
 
 // The migration that gives Unearthing Florida its home page: written through the Local API from the words the coded hub held, only where the show exists, once.
 
@@ -50,6 +51,11 @@ describe('the Unearthing Florida home page migration', () => {
     expect(about.path).toBe('/shows/unearthing-florida/about')
     expect((await payload.findByID({ collection: 'productions', id: show.id, depth: 0, overrideAccess: true })).listed).toBe(true)
     expect((await resolveShowHome(SHOW_PATH, false))?.id).toBe(home.id)
+  })
+  it('feeds the home page\'s Unearthing panel from the show whose home page is in the set, with no hub global: its newest episode', async () => {
+    const slot = await loadUnearthingSlot(null)
+    expect(slot?.production.id).toBe(show.id)
+    expect(slot?.episode.title).toBe(`Ep ${run}`)
   })
   it('puts the hub\'s words and the show\'s collections on the page, and no show or episode typed anywhere', async () => {
     const home = (await pagesOf()).docs.find((p) => p.slug === 'unearthing-florida-home')!
