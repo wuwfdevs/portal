@@ -248,10 +248,21 @@ await ensure('performances', byTitle('Demonstration show: an upcoming night'), {
   title: 'Demonstration show: an upcoming night', startsAt: inDays(21), description: DEMO, lineup: artists.map((a) => a.id), _status: 'published',
   ticketsStatus: 'onSale', ticketsUrl: 'https://example.org/tickets',
 }, 'RadioLive upcoming show')
-await ensure('performances', byTitle('Demonstration show: a recorded night'), {
+const recordedNight = await ensure('performances', byTitle('Demonstration show: a recorded night'), {
   title: 'Demonstration show: a recorded night', startsAt: inDays(-30), description: DEMO, lineup: artists.slice(0, 2).map((a) => a.id), _status: 'published',
   video: videoFile.id, captionsVtt: captions,
 }, 'RadioLive recorded show')
+// The RadioLive page's lead always shows the latest recorded set (`lib/radiolive/latest-set.ts`), and a show counts as recorded only with a captioned file (or a video address).
+// Staging's recorded night was first made with neither, and `ensure` leaves an existing record alone, so it gives the lead nothing and the page falls back to its typed words.
+// Attach the demonstration recording to it, once; a show an editor has already given a recording (a file, captions or an address) is never touched.
+{
+  const night = recordedNight as { video?: unknown; captionsVtt?: unknown; recordingUrl?: unknown }
+  const hasRecording = Boolean(night.video) || Boolean(night.captionsVtt) || Boolean(night.recordingUrl)
+  if (typeof recordedNight.id === 'number' && typeof videoFile.id === 'number' && !hasRecording) {
+    made.push('RadioLive recorded show: attach the demonstration recording and captions')
+    if (go) await payload.update({ collection: 'performances', id: recordedNight.id, data: { video: videoFile.id, captionsVtt: captions } as never, overrideAccess: true, context: ctx })
+  }
+}
 
 // ---------------------------------------------------------------- placeholder pictures
 // Anything demonstrational still without a picture gets an arbitrary one from the media library (rules: `placeholder-pictures.ts`).
