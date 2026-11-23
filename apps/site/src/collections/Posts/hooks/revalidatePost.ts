@@ -6,7 +6,7 @@ import { revalidatePath, revalidateTag } from '@/lib/revalidate'
 import type { Post } from '../../../payload-types'
 
 // Hub pages list the newest work of one production or newsroom; a story saved anywhere may change one of them.
-const HUB_PATHS = ['/unearthing-florida', '/voyager']
+const HUB_PATHS = ['/shows/unearthing-florida', '/voyager']
 
 export const revalidatePost: CollectionAfterChangeHook<Post> = async ({
   doc,

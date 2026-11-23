@@ -5,13 +5,12 @@ import { requirePermission } from '@/access/permissions'
 import { revalidateUnearthingHub } from './hooks/revalidate'
 
 /**
- * The Unearthing Florida hub (`/unearthing-florida`, board 11). Its structure is fixed; staff choose what fills it. The episodes,
- * the timeline counts, the collections and the pins all come from the episodes and sites themselves, so there is nothing here to
- * keep in step. Showing something on a hub is publishing, so it takes publish permission.
+ * The Unearthing Florida hub's settings (board 11). Retiring: the hub is now the show's home page (a page of blocks at `/shows/unearthing-florida`) and `/unearthing-florida` redirects
+ * to it; what remains here is read only by the home page's Unearthing panel until the cleanup (PAGE-BLOCKS.md, phase 7) empties it. Then & now was dropped (hubs redesign, 2026-11-23). Showing something on a hub is publishing, so it takes publish permission.
  */
 export const UnearthingHub: GlobalConfig = {
   slug: 'unearthing-hub',
-  admin: { livePreview: { url: '/unearthing-florida' } },
+  admin: { livePreview: { url: '/shows/unearthing-florida' } },
   label: 'Unearthing Florida hub',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateUnearthingHub] },
@@ -30,26 +29,6 @@ export const UnearthingHub: GlobalConfig = {
       relationTo: 'posts',
       admin: { description: 'The episode shown large with its player. Empty means the newest episode.' },
       filterOptions: { _status: { equals: 'published' } },
-    },
-    {
-      name: 'thenNow',
-      type: 'group',
-      label: 'Then & now',
-      admin: { description: 'Pairs a history episode with today\'s reporting on the same place. Leave the pairs empty to hide the band.' },
-      fields: [
-        { name: 'heading', type: 'text', admin: { description: 'For example "People have rebuilt on this coast after storms for 500 years."' } },
-        { name: 'blurb', type: 'text' },
-        {
-          name: 'pairs',
-          type: 'array',
-          maxRows: 4,
-          labels: { singular: 'Pair', plural: 'Pairs' },
-          fields: [
-            { name: 'then', type: 'relationship', relationTo: 'posts', required: true, label: 'Then (history episode)', filterOptions: { _status: { equals: 'published' } } },
-            { name: 'now', type: 'relationship', relationTo: 'posts', required: true, label: 'Now (today\'s reporting)', filterOptions: { _status: { equals: 'published' } } },
-          ],
-        },
-      ],
     },
   ],
 }

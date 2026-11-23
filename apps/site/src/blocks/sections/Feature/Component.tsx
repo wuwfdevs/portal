@@ -9,6 +9,7 @@ import { cn } from '@/utilities/ui'
 import { SectionBand } from '../SectionBand'
 import { type ActionData, SectionActions, SectionImage, eyebrowClass, populatedMedia } from '../parts'
 import type { SectionData, SectionProps } from '../types'
+import { LatestPlay } from './LatestPlay'
 import { type FrameSource, VideoFrame } from './VideoFrame'
 
 export interface FeatureData extends SectionData {
@@ -18,6 +19,8 @@ export interface FeatureData extends SectionData {
   actions?: ActionData[] | null
   image?: unknown
   audio?: unknown
+  playLatest?: boolean | null
+  playLatestLabel?: string | null
   videoUrl?: string | null
   video?: unknown
   ratio?: string | null
@@ -41,7 +44,7 @@ export function frameSource(block: Pick<FeatureData, 'video' | 'videoUrl'>): Fra
 }
 
 /** Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. */
-export function FeatureSection({ block }: SectionProps<FeatureData>) {
+export function FeatureSection({ block, context }: SectionProps<FeatureData>) {
   const headline = block.headline?.trim()
   if (!headline) return null
   const split = block.variant === 'split'
@@ -80,6 +83,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       )}
       <SectionActions actions={block.actions} className="pt-2" />
       {track && <PlayAudioButton toned track={track} />}
+      {block.playLatest && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
     </div>
   )
 

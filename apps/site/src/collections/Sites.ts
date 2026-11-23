@@ -5,14 +5,14 @@ import { anyone } from '../access/anyone'
 import { requirePermission } from '../access/permissions'
 import { ensureSlug } from '../hooks/ensureSlug'
 import { ERA_OPTIONS } from '../lib/unearthing/periods'
-import { revalidatePath } from '../lib/revalidate'
+import { revalidateTag } from '../lib/revalidate'
 
 const percent = (label: string) => (v: number | null | undefined) => (v === undefined || v === null || (v >= 0 && v <= 100) ? true : `${label} must be between 0 and 100.`)
 
 /**
- * A place Unearthing Florida's episodes are about: a mission, a fort, a shell midden. Episodes point at one; the hub's map shows
- * each as a pin. The map is schematic (a drawing of the state, not a survey), so a pin's position is two percentages that an
- * editor can nudge, not a latitude and longitude.
+ * A place Unearthing Florida's episodes are about: a mission, a fort, a shell midden. Episodes point at one; the Explore block's map shows each as a pin at its latitude and longitude
+ * (hubs redesign, 2026-11-23). A site with no coordinates is listed but not mapped. The old schematic position (two percentages on a drawing of the state) is retired: those fields are
+ * hidden and kept only until the cleanup drops them, because a drawing's percentages cannot be turned into a place.
  */
 export const Sites: CollectionConfig = {
   slug: 'sites',
@@ -23,15 +23,15 @@ export const Sites: CollectionConfig = {
     update: requirePermission('content.write'),
     delete: requirePermission('content.publish'),
   },
-  admin: { useAsTitle: 'name', defaultColumns: ['name', 'place', 'era', 'updatedAt'], description: 'Places Unearthing Florida episodes are about. Each appears as a pin on the hub\'s map.' },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'place', 'era', 'updatedAt'], description: 'Places Unearthing Florida episodes are about. Each with a latitude and longitude appears on the Explore map.' },
   hooks: {
     beforeValidate: [ensureSlug('name')],
     afterChange: [({ doc, req: { context } }) => {
-      if (!context.disableRevalidate) revalidatePath('/unearthing-florida')
+      if (!context.disableRevalidate) revalidateTag('explore', 'max')
       return doc
     }],
     afterDelete: [({ doc, req: { context } }) => {
-      if (!context.disableRevalidate) revalidatePath('/unearthing-florida')
+      if (!context.disableRevalidate) revalidateTag('explore', 'max')
       return doc
     }],
   },
@@ -45,9 +45,24 @@ export const Sites: CollectionConfig = {
     {
       type: 'row',
       fields: [
-        { name: 'mapX', type: 'number', label: 'Map: across', defaultValue: 50, min: 0, max: 100, validate: percent('Across'), admin: { description: '0 is the west edge, 100 the east.', width: '50%' } },
-        { name: 'mapY', type: 'number', label: 'Map: down', defaultValue: 50, min: 0, max: 100, validate: percent('Down'), admin: { description: '0 is the north edge, 100 the south.', width: '50%' } },
+        {
+          name: 'latitude',
+          type: 'number',
+          min: -90,
+          max: 90,
+          admin: { width: '50%', step: 0.000001, description: 'Degrees north, e.g. 30.4213 for Pensacola. Decimal, with a minus sign south of the equator. With the longitude, puts the site on the Explore map; without both it is listed but not mapped.' },
+        },
+        {
+          name: 'longitude',
+          type: 'number',
+          min: -180,
+          max: 180,
+          admin: { width: '50%', step: 0.000001, description: 'Degrees east: negative in Florida, e.g. -87.2169 for Pensacola.' },
+        },
       ],
     },
+    // Retired (the old schematic map): kept, hidden, until the cleanup drops them.
+    { name: 'mapX', type: 'number', defaultValue: 50, min: 0, max: 100, validate: percent('Across'), admin: { hidden: true } },
+    { name: 'mapY', type: 'number', defaultValue: 50, min: 0, max: 100, validate: percent('Down'), admin: { hidden: true } },
   ],
 }

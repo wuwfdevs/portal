@@ -109,7 +109,7 @@ export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['une
   return (
     <section aria-labelledby="unearthing-heading" className="flex min-w-0 flex-col gap-4 rounded-4 bg-warning-bg p-6 md:p-8">
       <h2 className="font-serif text-2xl font-bold italic text-warning-fg" id="unearthing-heading">
-        <Link className="text-warning-fg hover:underline" href="/unearthing-florida">
+        <Link className="text-warning-fg hover:underline" href="/shows/unearthing-florida">
           {production.title}
         </Link>
       </h2>
@@ -129,7 +129,7 @@ export function UnearthingPanel({ slot }: { slot: NonNullable<HomepageSlots['une
       </h3>
       {episode.meta?.description && <p className="text-base text-ink-2">{episode.meta.description}</p>}
       {track && <PlayAudioButton className="self-start" track={track} />}
-      <Link className="inline-flex min-h-11 items-center self-start text-base font-bold text-warning-fg underline" href="/unearthing-florida">
+      <Link className="inline-flex min-h-11 items-center self-start text-base font-bold text-warning-fg underline" href="/shows/unearthing-florida">
         Explore the map of sites
       </Link>
     </section>

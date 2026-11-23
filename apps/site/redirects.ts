@@ -35,5 +35,9 @@ export const redirects: NextConfig['redirects'] = async () => {
   // The home page built from blocks was previewed at /home-blocks beside the coded one; it is the home page now (2026-11-21).
   const homeRedirects = [{ source: '/home-blocks', destination: '/', permanent: false }]
 
-  return [...givingRedirects, ...postsRedirects, ...adminRedirects, ...homeRedirects, internetExplorerRedirect]
+  // The Unearthing Florida hub was a coded page at /unearthing-florida. The show is listed like every other show and its home is a page of blocks at its own address (hubs redesign,
+  // 2026-11-23): the old hub address leads there. Only the hub's own address: the episodes under /unearthing-florida/<date>/<slug> keep their addresses until the archive migration moves them.
+  const unearthingRedirects = [{ source: '/unearthing-florida', destination: '/shows/unearthing-florida', permanent: true }]
+
+  return [...givingRedirects, ...postsRedirects, ...adminRedirects, ...homeRedirects, ...unearthingRedirects, internetExplorerRedirect]
 }

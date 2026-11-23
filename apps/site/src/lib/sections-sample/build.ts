@@ -197,6 +197,8 @@ export const SAMPLES: Record<string, Maker> = {
   }),
   // The fellowship first: its agreement is the one a demonstration database is most likely to hold. A record with no running agreement draws nothing.
   // A published visualization from the data library, if the database has one; without one the section draws nothing.
+  // Reads the show the page speaks for: a sample page names none, so it draws nothing there (as the other data blocks do on a database without their records).
+  sectionExplore: ({ label }) => head(label),
   sectionDataViz: ({ label, refs }) => ({ ...head(label), visualization: refs.visualizationId }),
   sectionCredit: ({ refs }) => ({
     target:

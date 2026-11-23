@@ -48,6 +48,8 @@ import { ShowSpotlight } from './ShowSpotlight/config'
 import { ShowSpotlightSection } from './ShowSpotlight/Component'
 import { FeaturePanels } from './FeaturePanels/config'
 import { FeaturePanelsSection } from './FeaturePanels/Component'
+import { Explore } from './Explore/config'
+import { ExploreSection } from './Explore/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
 import { Carpool } from './Carpool/config'
@@ -129,6 +131,8 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'NewsRun', block: NewsRun, Component: NewsRunSection, sets: ['home', 'voyager'], claimRequest: newsRunClaim, anchor: true },
   { dir: 'ShowSpotlight', block: ShowSpotlight, Component: ShowSpotlightSection, sets: ['home', 'voyager'] },
   { dir: 'FeaturePanels', block: FeaturePanels, Component: FeaturePanelsSection, sets: ['home'] },
+  // Offered only on pages in the Unearthing Florida set (hubs redesign, 2026-11-23): the map, the time window and the list of sites, read from the show the page speaks for.
+  { dir: 'Explore', block: Explore, Component: ExploreSection, sets: ['unearthing'] },
   // Offered only on pages in the sponsor set (PAGE-BLOCKS.md → Block catalogue, set-only blocks). Each reads the Sponsorship settings.
   { dir: 'RateEstimator', block: RateEstimator, Component: RateEstimatorSection, sets: ['sponsor'] },
   { dir: 'Packages', block: Packages, Component: PackagesSection, sets: ['sponsor'] },

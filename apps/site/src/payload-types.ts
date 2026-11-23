@@ -93,6 +93,7 @@ export interface Config {
     sectionNewsRun: SectionNewsRun;
     sectionShowSpotlight: SectionShowSpotlight;
     sectionFeaturePanels: SectionFeaturePanels;
+    sectionExplore: SectionExplore;
     sectionRateEstimator: SectionRateEstimator;
     sectionPackages: SectionPackages;
     sectionCarpool: SectionCarpool;
@@ -340,6 +341,14 @@ export interface SectionFeature {
    * Optional. A file from the video library instead of an address. If both are set, the file plays.
    */
   video?: (number | null) | Video;
+  /**
+   * On a page that speaks for a show: a play button for the show's newest episode with audio. It follows the show, so nobody edits the page when a new episode comes out.
+   */
+  playLatest?: boolean | null;
+  /**
+   * The words on that button. Empty: "Play the latest".
+   */
+  playLatestLabel?: string | null;
   /**
    * Optional. A play button that hands the audio to the site's player.
    */
@@ -835,7 +844,7 @@ export interface Post {
    */
   site?: (number | null) | Site;
   /**
-   * Unearthing Florida: where this episode falls on the timeline.
+   * Unearthing Florida: where this episode falls on the timeline. Used for the years below when they are empty.
    */
   period?:
     | (
@@ -848,6 +857,14 @@ export interface Post {
         | 'civil-war'
       )
     | null;
+  /**
+   * Unearthing Florida: the first year the episode is about. Negative for BCE (-1000 is 1000 BCE); there is no year 0.
+   */
+  yearStart?: number | null;
+  /**
+   * The last year. The same as From for a single year. Drives the Explore time window.
+   */
+  yearEnd?: number | null;
   /**
    * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
@@ -1459,7 +1476,7 @@ export interface Season {
   _status?: ('draft' | 'published') | null;
 }
 /**
- * Places Unearthing Florida episodes are about. Each appears as a pin on the hub's map.
+ * Places Unearthing Florida episodes are about. Each with a latitude and longitude appears on the Explore map.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sites".
@@ -1489,12 +1506,14 @@ export interface Site {
    */
   description?: string | null;
   /**
-   * 0 is the west edge, 100 the east.
+   * Degrees north, e.g. 30.4213 for Pensacola. Decimal, with a minus sign south of the equator. With the longitude, puts the site on the Explore map; without both it is listed but not mapped.
    */
-  mapX?: number | null;
+  latitude?: number | null;
   /**
-   * 0 is the north edge, 100 the south.
+   * Degrees east: negative in Florida, e.g. -87.2169 for Pensacola.
    */
+  longitude?: number | null;
+  mapX?: number | null;
   mapY?: number | null;
   updatedAt: string;
   createdAt: string;
@@ -3116,6 +3135,43 @@ export interface SectionFeaturePanels {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionExplore".
+ */
+export interface SectionExplore {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionExplore';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionRateEstimator".
  */
 export interface SectionRateEstimator {
@@ -4190,6 +4246,7 @@ export interface Page {
         | SectionNewsRun
         | SectionShowSpotlight
         | SectionFeaturePanels
+        | SectionExplore
         | SectionRateEstimator
         | SectionPackages
         | SectionCarpool
@@ -5695,6 +5752,8 @@ export interface PostsSelect<T extends boolean = true> {
   noPlacements?: T;
   site?: T;
   period?: T;
+  yearStart?: T;
+  yearEnd?: T;
   generateSlug?: T;
   slug?: T;
   updatedAt?: T;
@@ -6137,6 +6196,8 @@ export interface SitesSelect<T extends boolean = true> {
   place?: T;
   era?: T;
   description?: T;
+  latitude?: T;
+  longitude?: T;
   mapX?: T;
   mapY?: T;
   updatedAt?: T;
@@ -7174,23 +7235,6 @@ export interface UnearthingHub {
    * The episode shown large with its player. Empty means the newest episode.
    */
   featured?: (number | null) | Post;
-  /**
-   * Pairs a history episode with today's reporting on the same place. Leave the pairs empty to hide the band.
-   */
-  thenNow?: {
-    /**
-     * For example "People have rebuilt on this coast after storms for 500 years."
-     */
-    heading?: string | null;
-    blurb?: string | null;
-    pairs?:
-      | {
-          then: number | Post;
-          now: number | Post;
-          id?: string | null;
-        }[]
-      | null;
-  };
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -9701,19 +9745,6 @@ export interface UnearthingHubSelect<T extends boolean = true> {
   dateline?: T;
   about?: T;
   featured?: T;
-  thenNow?:
-    | T
-    | {
-        heading?: T;
-        blurb?: T;
-        pairs?:
-          | T
-          | {
-              then?: T;
-              now?: T;
-              id?: T;
-            };
-      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

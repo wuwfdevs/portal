@@ -21,7 +21,7 @@ import { usePlayer } from './PlayerProvider'
  * Without script there is no player to hand it to, so a plain browser audio control is there instead (`<noscript>`), and the same
  * control stands in on a page with no provider (never the case inside the site's layout).
  */
-export const PlayAudioButton: React.FC<{ track: Track; className?: string; /** Inside a section band: take the band's own button colours (`--tone-*`), so the button is right on every tone (lime on a lime band would vanish). */ toned?: boolean }> = ({ track, className, toned = false }) => {
+export const PlayAudioButton: React.FC<{ track: Track; className?: string; /** Inside a section band: take the band's own button colours (`--tone-*`), so the button is right on every tone (lime on a lime band would vanish). */ toned?: boolean; /** The word on the button while it is idle ("Play the latest"); the default is "Listen". It never changes what a screen reader hears: that is always "Listen" and the title. */ label?: string }> = ({ track, className, toned = false, label = 'Listen' }) => {
   const player = usePlayer()
   const fallback = <audio aria-label={`Listen: ${track.title}`} className="w-full" controls preload="none" src={track.src} />
   if (!player) return fallback
@@ -40,7 +40,7 @@ export const PlayAudioButton: React.FC<{ track: Track; className?: string; /** I
       >
         <PlayIcon playing={playing} size={14} />
         <span aria-hidden="true">
-          {playing ? 'Pause' : mine ? 'Resume' : 'Listen'}
+          {playing ? 'Pause' : mine ? 'Resume' : label}
           {length && <span className="font-normal"> · {length}</span>}
         </span>
       </button>

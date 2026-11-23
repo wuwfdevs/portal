@@ -39,6 +39,7 @@ Controls: a version's file cannot be replaced (upload a new one); only a publish
 
 - Charts have no hover tooltips or animation (static, accessible, cacheable); the data table and legend carry the detail.
 - No grouped (side-by-side) columns: several series stack. A new chart type is one case in `engines/chart.ts` and one option in `lib/dataviz/spec.ts`.
+- The Explore block (a show's sites, a time window and a list, Unearthing Florida) is the same MapLibre with clustering; it has its own rules in `CLAUDE.md` ("Explore is one object"). With no `MAP_STYLE_URL` Florida is drawn from `public/data/florida-outline.geojson`, a file this site serves.
 - Point maps have no basemap by default (no request to a map provider on a reader's behalf). Set `MAP_STYLE_URL` (https) to give the interactive map one, after deciding which provider may see visits.
 - "Where is this used" lists for stories: the story body is rich text, so references are not queryable. Visualizations list their dataset; datasets list their visualizations.
 - Joined boundary pinning for maps is by version (`map.boundaryVersion`); a map's boundary dataset otherwise follows the latest.

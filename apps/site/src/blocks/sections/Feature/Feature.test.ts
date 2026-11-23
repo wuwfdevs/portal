@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { renderBlock } from '../testing'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+import { renderBlock, testContext } from '../testing'
 import { FeatureSection, frameSource } from './Component'
 
 const html = (block: Record<string, unknown>) => renderBlock(FeatureSection, 'sectionFeature', block)
@@ -116,5 +119,21 @@ describe('Feature video frame (hubs redesign)', () => {
     const out = html({ variant: 'hero', headline: 'Unearthing Florida' })
     expect(out).toContain('[font-style:var(--tone-display-style,normal)]')
     expect(out).toContain('[color:var(--tone-display,var(--tone-text))]')
+  })
+})
+
+// The control itself is an async server component (`LatestPlay.test.ts`); here a marker stands in for it, to check that Feature places it with the page's show and the right words.
+vi.mock('./LatestPlay', () => ({ LatestPlay: (props: { showId: number; label: string }) => createElement('i', { 'data-latest': props.showId }, props.label) }))
+
+describe('Feature "Play the latest" (a show\'s newest episode)', () => {
+  const draw = (block: Record<string, unknown>, show?: { id: number }) =>
+    renderToStaticMarkup(FeatureSection({ block: { blockType: 'sectionFeature', headline: 'Unearthing Florida', variant: 'hero', ...block } as never, context: { ...testContext, ...(show ? { show } : {}) } }) as never)
+  it('puts the control in the words, for the page\'s show, with the default or the editor\'s words', () => {
+    expect(draw({ playLatest: true }, { id: 7 })).toContain('<i data-latest="7">Play the latest</i>')
+    expect(draw({ playLatest: true, playLatestLabel: ' Hear the newest ' }, { id: 7 })).toContain('>Hear the newest</i>')
+  })
+  it('draws no control when it is not asked for, or when the page speaks for no show', () => {
+    expect(draw({ playLatest: false }, { id: 7 })).not.toContain('data-latest')
+    expect(draw({ playLatest: true })).not.toContain('data-latest')
   })
 })
