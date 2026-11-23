@@ -31,6 +31,17 @@ export const Feature = defineSection({
     own: [
       { name: 'label', type: 'text', admin: { description: 'A short line above the headline: "Next show · Thursday, Dec. 3".' } },
       { name: 'headline', type: 'text', required: true },
+      {
+        name: 'pageTitle',
+        type: 'checkbox',
+        label: 'The headline is the page\'s title',
+        defaultValue: false,
+        admin: {
+          description:
+            'Split only. A split\'s headline is a section heading; tick this when the split is the top of the page and nothing else on it is the page\'s main heading, so screen readers and search engines find the title. A hero\'s headline is always the page\'s title.',
+          condition: (_, sibling) => sibling?.variant === 'split',
+        },
+      },
       { name: 'line', type: 'textarea', admin: { description: 'One or two sentences under the headline.' } },
       actionsField(),
       { name: 'image', type: 'upload', relationTo: 'media', admin: { description: 'Its description (alt text) is what a screen reader says.' } },

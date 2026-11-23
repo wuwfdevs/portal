@@ -89,6 +89,7 @@ import * as migration_20261123_030000_voyager_footnote_column from './20261123_0
 import * as migration_20261123_030100_voyager_page from './20261123_030100_voyager_page';
 import * as migration_20261123_040000_drop_site_map_xy from './20261123_040000_drop_site_map_xy';
 import * as migration_20261123_050000_unearthing_lead_episode from './20261123_050000_unearthing_lead_episode';
+import * as migration_20261123_060000_unearthing_lead_split from './20261123_060000_unearthing_lead_split';
 
 export const migrations = [
   {
@@ -547,5 +548,10 @@ export const migrations = [
     up: migration_20261123_050000_unearthing_lead_episode.up,
     down: migration_20261123_050000_unearthing_lead_episode.down,
     name: '20261123_050000_unearthing_lead_episode',
+  },
+  {
+    up: migration_20261123_060000_unearthing_lead_split.up,
+    down: migration_20261123_060000_unearthing_lead_split.down,
+    name: '20261123_060000_unearthing_lead_split',
   },
 ];

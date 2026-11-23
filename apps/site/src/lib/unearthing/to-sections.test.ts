@@ -28,7 +28,7 @@ describe('Unearthing Florida\'s pages', () => {
   })
   it('leads with the show\'s newest episode (so the page does not repeat the name the strip carries) and lists the show\'s own, without typing a show or an episode anywhere', () => {
     const lead = home!.sections[0]!
-    expect(lead).toMatchObject({ latestEpisode: true, variant: 'hero', label: 'Northwest Florida to the Keys', line: facts.summary })
+    expect(lead).toMatchObject({ latestEpisode: true, variant: 'split', pageTitle: true, label: 'Northwest Florida to the Keys', line: facts.summary })
     expect(lead).not.toHaveProperty('playLatest')
     expect(home!.sections[1]).toMatchObject({ source: 'episodes', count: 3 })
     expect(home!.sections[1]).not.toHaveProperty('show')

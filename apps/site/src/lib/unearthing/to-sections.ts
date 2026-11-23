@@ -46,7 +46,10 @@ export function unearthingPages(f: UnearthingFacts): PageSpec[] {
     blockType: 'sectionFeature',
     hidden: false,
     tone: 'plain',
-    variant: 'hero',
+    // Two columns: the words and the actions beside the episode's picture, so the first screen holds the episode and what to do with it, not a picture the width of the page. The
+    // split's headline is a section heading unless it is marked as the page's title, and this is the top of the page.
+    variant: 'split',
+    pageTitle: true,
     ...(dateline ? { label: dateline } : {}),
     headline: f.title,
     ...(summary ? { line: summary } : {}),

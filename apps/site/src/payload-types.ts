@@ -317,6 +317,10 @@ export interface SectionFeature {
   label?: string | null;
   headline: string;
   /**
+   * Split only. A split's headline is a section heading; tick this when the split is the top of the page and nothing else on it is the page's main heading, so screen readers and search engines find the title. A hero's headline is always the page's title.
+   */
+  pageTitle?: boolean | null;
+  /**
    * One or two sentences under the headline.
    */
   line?: string | null;

@@ -25,6 +25,7 @@ export interface FeatureData extends SectionData {
   playLatestLabel?: string | null
   latestSet?: boolean | null
   latestEpisode?: boolean | null
+  pageTitle?: boolean | null
   videoUrl?: string | null
   video?: unknown
   ratio?: string | null
@@ -99,7 +100,12 @@ export function FeatureSection({ block: typed, context, set, episode }: SectionP
     <div className="flex min-w-0 flex-col items-start gap-4">
       {label && <p className={eyebrowClass}>{label}</p>}
       {split ? (
-        <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
+        block.pageTitle ? (
+          // A split that opens the page: the page's one h1, in the theme's display title (Unearthing's is italic and brown), sized for a half-width column.
+          <h1 className="font-serif text-4xl font-bold leading-[1.05] tracking-tight [color:var(--tone-display,var(--tone-text))] [font-style:var(--tone-display-style,normal)] md:text-5xl">{headline}</h1>
+        ) : (
+          <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
+        )
       ) : (
         // The page theme sets the display title: Unearthing's is italic and in the paper's brown (`--tone-display`, `--tone-display-style`); every other theme's is the band's text.
         <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight [color:var(--tone-display,var(--tone-text))] [font-style:var(--tone-display-style,normal)] md:text-[3.5rem]">{headline}</h1>

@@ -198,3 +198,20 @@ describe('Feature "lead with the show\'s latest episode"', () => {
     expect(out).not.toContain('About this episode')
   })
 })
+
+describe('Feature split as the page\'s title', () => {
+  const draw = (block: Record<string, unknown>) => renderToStaticMarkup(FeatureSection({ block: { blockType: 'sectionFeature', headline: 'The council house', variant: 'split', ...block } as never, context: testContext }) as never)
+  it('draws a split\'s headline as a section heading unless it is marked as the page\'s title', () => {
+    expect(draw({})).toMatch(/<h2[^>]*>The council house<\/h2>/)
+    expect(draw({})).not.toContain('<h1')
+  })
+  it('draws the page\'s one h1, in the theme\'s display title, when it is marked', () => {
+    const out = draw({ pageTitle: true })
+    expect(out).toMatch(/<h1[^>]*>The council house<\/h1>/)
+    expect(out).not.toContain('<h2')
+    expect(out).toContain('[font-style:var(--tone-display-style,normal)]')
+  })
+  it('leaves a hero\'s headline the page\'s title whether or not it is marked', () => {
+    expect(draw({ variant: 'hero' })).toMatch(/<h1[^>]*>The council house<\/h1>/)
+  })
+})
