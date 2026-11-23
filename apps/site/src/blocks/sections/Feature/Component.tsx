@@ -93,7 +93,6 @@ export function FeatureSection({ block: typed, context, set, episode }: SectionP
         image: set.photo ?? typed.image,
         video: null,
         videoUrl: null,
-        actions: [...(typed.actions ?? []), { label: 'About this show', href: set.href }],
       }
     : episode
       ? {
@@ -149,7 +148,10 @@ export function FeatureSection({ block: typed, context, set, episode }: SectionP
         <EpisodeActions actions={typed.actions} episode={episode} label={block.playLatestLabel?.trim() || 'Play the latest'} />
       ) : (
         <>
-          <SectionActions actions={block.actions} className="pt-2" />
+          {/* The typed buttons are the lead's buttons (the first filled, the next outlined); the link to the set's page is a plain link beside them, so a lead never has three buttons. */}
+          <SectionActions actions={block.actions} className="pt-2">
+            {set && <SectionLink href={set.href} label="About this show" />}
+          </SectionActions>
           {track && <PlayAudioButton toned track={track} />}
           {block.playLatest && !block.latestEpisode && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
         </>

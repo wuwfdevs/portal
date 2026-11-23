@@ -22,16 +22,19 @@ export interface ActionData {
 const primary = buttonClasses({ variant: 'tone' })
 const secondary = buttonClasses({ variant: 'toneOutline' })
 
-/** The buttons of a band: the first is filled, the others outlined. A button with no label or no safe address is not drawn. */
-export function SectionActions({ actions, className }: { actions: ReadonlyArray<ActionData | null | undefined> | null | undefined; className?: string }) {
+/**
+ * The buttons of a band: the first is filled, the others outlined. A button with no label or no safe address is not drawn. `children` (a link, say) are drawn in the same row after the
+ * buttons, so a band can have a quieter third action without a third button.
+ */
+export function SectionActions({ actions, className, children }: { actions: ReadonlyArray<ActionData | null | undefined> | null | undefined; className?: string; children?: React.ReactNode }) {
   const rows = (actions ?? []).flatMap((a) => {
     const href = safeHref(a?.href)
     const label = a?.label?.trim()
     return href && label ? [{ id: a?.id, href, label }] : []
   })
-  if (rows.length === 0) return null
+  if (rows.length === 0 && !children) return null
   return (
-    <div className={cn('flex flex-wrap gap-3', className)}>
+    <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1', className)}>
       {rows.map((a, i) => {
         const cls = i === 0 ? primary : secondary
         return isInternalHref(a.href) ? (
@@ -44,6 +47,7 @@ export function SectionActions({ actions, className }: { actions: ReadonlyArray<
           </a>
         )
       })}
+      {children}
     </div>
   )
 }
