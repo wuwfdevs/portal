@@ -10,6 +10,7 @@ import { SectionBand } from '../SectionBand'
 import { type ActionData, SectionActions, SectionImage, eyebrowClass, populatedMedia } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 import { LatestPlay } from './LatestPlay'
+import type { LatestSet } from '@/lib/radiolive/latest-set'
 import { type FrameSource, VideoFrame } from './VideoFrame'
 
 export interface FeatureData extends SectionData {
@@ -21,6 +22,7 @@ export interface FeatureData extends SectionData {
   audio?: unknown
   playLatest?: boolean | null
   playLatestLabel?: string | null
+  latestSet?: boolean | null
   videoUrl?: string | null
   video?: unknown
   ratio?: string | null
@@ -43,8 +45,24 @@ export function frameSource(block: Pick<FeatureData, 'video' | 'videoUrl'>): Fra
   return embed?.ok ? { kind: 'embed', src: embed.embed.src } : null
 }
 
-/** Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. */
-export function FeatureSection({ block, context }: SectionProps<FeatureData>) {
+/**
+ * Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. With `set` (the page asked for the latest recorded
+ * RadioLive set and there is one), the set's date, title and description are the label, headline and line, its picture the still and its recording the video, and a link to its page
+ * is added after the typed buttons.
+ */
+export function FeatureSection({ block: typed, context, set }: SectionProps<FeatureData> & { set?: LatestSet | null }) {
+  const block: FeatureData = set
+    ? {
+        ...typed,
+        label: `Latest set · recorded ${set.when}`,
+        headline: set.title,
+        line: set.description ?? typed.line,
+        image: set.photo ?? typed.image,
+        video: null,
+        videoUrl: null,
+        actions: [...(typed.actions ?? []), { label: 'About this show', href: set.href }],
+      }
+    : typed
   const headline = block.headline?.trim()
   if (!headline) return null
   const split = block.variant === 'split'
@@ -53,7 +71,7 @@ export function FeatureSection({ block, context }: SectionProps<FeatureData>) {
   const audio = populatedMedia(block.audio as { id: number; url?: string | null; title?: string | null; credit?: string | null; durationSeconds?: number | null } | null | undefined)
   const track = audio ? trackFromAudio(audio as Parameters<typeof trackFromAudio>[0], { title: headline }) : null
   const hasImage = populatedMedia(block.image as object | null | undefined) !== null && Boolean((block.image as { url?: string | null }).url)
-  const source = frameSource(block)
+  const source: FrameSource | null = set ? set.frame : frameSource(block)
   const hasMedia = hasImage || source !== null
   // The picture slot: the picture, or, with a video, a frame that plays it (the picture is the still). A video frame is always 16:9.
   const media = (priority?: boolean) =>
@@ -151,4 +169,15 @@ export function FeatureSection({ block, context }: SectionProps<FeatureData>) {
       {hasMedia && <div className="aspect-video overflow-hidden rounded-4">{media(true)}</div>}
     </SectionBand>
   )
+}
+
+/** The registered Feature: the same block, with the latest recorded RadioLive set read when the page asks for it (the loader is imported here, never at the top: the registry is read by the Payload CLI). */
+export async function FeatureBlock(props: SectionProps<FeatureData>) {
+  if (!props.block.latestSet) return <FeatureSection {...props} />
+  const { loadLatestSet } = await import('@/lib/radiolive/latest-set')
+  const set = await loadLatestSet().catch((error: unknown) => {
+    console.error('The latest RadioLive set could not be loaded and the typed words are drawn.', error)
+    return null
+  })
+  return <FeatureSection {...props} set={set} />
 }

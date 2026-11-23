@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { EMBED_REFERRER_POLICY, EMBED_SANDBOX, embedAllow } from '@/lib/embeds'
 
 /** What a Feature's video is: a hosted video (the embed address `lib/embeds` resolved) or a file in the video library. */
-export type FrameSource = { kind: 'embed'; src: string } | { kind: 'file'; url: string; mimeType?: string | null }
+export type FrameSource = { kind: 'embed'; src: string } | { kind: 'file'; url: string; mimeType?: string | null; captionsHref?: string | null }
 
 /**
  * A video in a picture's place (the hubs redesign: RadioLive's latest set). The still is the Feature's picture with a play disc on it; nothing from the video's host
@@ -29,6 +29,8 @@ export function VideoFrame({ title, source, children }: { title: string; source:
     ) : (
       <video aria-label={title} autoPlay className="size-full bg-ink" controls playsInline>
         <source src={source.url} type={source.mimeType ?? undefined} />
+        {/* A recorded RadioLive set carries its captions (the editor cannot publish one without them), on by default. */}
+        {source.captionsHref && <track default kind="captions" label="English" src={source.captionsHref} srcLang="en" />}
       </video>
     )
   }

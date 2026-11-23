@@ -15,6 +15,8 @@ import { getCachedGlobal } from '@/utilities/getGlobals'
 import { loadCalendar } from '@/lib/events/load'
 import { zonedInstant } from '@/lib/events/schedule'
 import { loadDirectory } from '@/lib/shows/load'
+import { appearanceLine, appearances } from '@/lib/radiolive/arrange'
+import { voyagerIdentityId } from '@/lib/home-blocks/load'
 import { loadClips, type ClipView } from '@/lib/video/load'
 import { pickClips } from '@/lib/homepage/slots'
 import { clipsForSection } from '@/lib/video/section'
@@ -39,12 +41,9 @@ const isNotFound = (e: unknown): boolean => typeof e === 'object' && e !== null 
  */
 export const sectionClock = unstable_cache(async () => new Date().toISOString(), ['section-clock'], { revalidate: SECTION_REVALIDATE.dates, tags: TAGS })
 
-const readList = async (spec: Exclude<ListSpec, { source: 'performances' }>): Promise<ListItem[]> => {
+const readList = async (spec: Exclude<ListSpec, { source: 'performances' | 'artists' }>): Promise<ListItem[]> => {
+  const voyager: Where[] = 'voyager' in spec && spec.voyager ? [{ publishingIdentity: { equals: (await voyagerIdentityId()) ?? 0 } }] : []
   const payload = await getPayload({ config: configPromise })
-  if (spec.source === 'artists') {
-    const found = await payload.find({ collection: 'artists', depth: 1, limit: spec.count, sort: 'name', overrideAccess: false, draft: false })
-    return found.docs.map(artistListItem).filter((i): i is ListItem => i !== null)
-  }
   // The podcast directory's own read (every listed original show with its count, and the newest episodes across them) is the one source for
   // both: a show's page and the directory agree because they share it.
   if (spec.source === 'shows') {
@@ -65,13 +64,14 @@ const readList = async (spec: Exclude<ListSpec, { source: 'performances' }>): Pr
       : spec.source === 'episodes'
         ? { and: [{ production: { equals: 'id' in spec ? spec.id : 0 } }, { format: { equals: 'audio' } }] }
         : { format: { equals: 'video' } }
-  const found = await payload.find({ collection: 'posts', where, depth: 1, limit: spec.count, sort: '-publishedAt', overrideAccess: false, draft: false })
+  const found = await payload.find({ collection: 'posts', where: voyager.length > 0 ? { and: [where, ...voyager] } : where, depth: 1, limit: spec.count, sort: '-publishedAt', overrideAccess: false, draft: false })
   return found.docs.map(storyListItem).filter((i): i is ListItem => i !== null)
 }
 const cachedList = unstable_cache(readList, ['section-list'], { revalidate: SECTION_REVALIDATE.list, tags: [...TAGS, 'section-data:list'] })
 
 const readClips = async (spec: Extract<ListSpec, { source: 'clips' }>): Promise<ClipView[]> => {
-  const all = await loadClips()
+  // On The Voyager's pages only the clips of a Voyager story (a clip has no identity of its own: it takes its story's).
+  const all = (await loadClips()).filter((c) => !spec.voyager || c.voyager)
   if (spec.scope === 'section') return clipsForSection(all, spec.id, spec.count)
   return pickClips(all, { seriesId: spec.firstSeries ?? null, count: spec.count })
 }
@@ -99,11 +99,35 @@ const readPerformances = async (spec: Extract<ListSpec, { source: 'performances'
   })
   return found.docs.map(performanceListItem).filter((i): i is ListItem => i !== null)
 }
+/**
+ * RadioLive's artists, as the old page listed them: those who have played a show that is over, the most recent first, each with how many times and when last ("2 appearances ·
+ * Oct. 29, 2026"). An artist only on a coming bill is not yet an artist of RadioLive here. Cached with the dates' window, because "over" depends on the clock.
+ */
+const readArtists = async (spec: Extract<ListSpec, { source: 'artists' }>, nowIso: string): Promise<ListItem[]> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({ collection: 'performances', where: { startsAt: { less_than: nowIso } }, depth: 2, limit: 500, pagination: false, sort: '-startsAt', overrideAccess: false, draft: false })
+  const docs = new Map<string, unknown>()
+  const played = found.docs.map((p) => ({
+    slug: p.slug ?? String(p.id),
+    startsAt: p.startsAt,
+    lineup: (p.lineup ?? []).flatMap((a) => {
+      if (typeof a !== 'object' || a === null || !a.slug) return []
+      if (!docs.has(a.slug)) docs.set(a.slug, a)
+      return [{ slug: a.slug, name: a.name }]
+    }),
+  }))
+  return appearances(played)
+    .slice(0, spec.count)
+    .map((a) => artistListItem(docs.get(a.slug), appearanceLine(a)))
+    .filter((i): i is ListItem => i !== null)
+}
+const cachedArtists = unstable_cache(readArtists, ['section-artists'], { revalidate: SECTION_REVALIDATE.dates, tags: [...TAGS, 'section-data:list', 'section-data:dates', 'radiolive'] })
 const cachedPerformances = unstable_cache(readPerformances, ['section-performances'], { revalidate: SECTION_REVALIDATE.dates, tags: [...TAGS, 'section-data:list', 'section-data:dates'] })
 
 /** The entries a List shows. An empty list (nothing published, a deleted section) is `[]`. */
 export async function loadList(spec: ListSpec): Promise<ListItem[]> {
   if (spec.source === 'performances') return cachedPerformances(spec, await sectionClock())
+  if (spec.source === 'artists') return cachedArtists(spec, await sectionClock())
   return cachedList(spec)
 }
 

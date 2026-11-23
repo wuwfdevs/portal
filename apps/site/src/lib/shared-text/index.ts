@@ -54,6 +54,11 @@ export function fellowshipPolicyOf(raw: unknown): FellowshipPolicy | null {
   return { title: str(g.title) || 'How the fellowship works', items, linkLabel: str(g.linkLabel) || 'Read our editorial independence policy' }
 }
 
+/** The footnote under every page of The Voyager (who publishes it and how the students and WUWF work together): empty when there is none. */
+export function voyagerFootnoteOf(raw: unknown): string | null {
+  return str(group(raw).voyagerFootnote) || null
+}
+
 export type TextPart = { kind: 'text'; text: string } | { kind: 'email'; email: string }
 
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g

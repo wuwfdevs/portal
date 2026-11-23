@@ -1,4 +1,4 @@
-import { defineSection, sectionFields } from '../fields'
+import { defineSection, moreLinkFields, sectionFields } from '../fields'
 
 export const PROFILE_VARIANTS = [
   { label: 'About: words and a picture', value: 'about' },
@@ -30,6 +30,7 @@ export const ProfileBand = defineSection({
           { name: 'photo', type: 'upload', relationTo: 'media' },
         ],
       },
+      ...moreLinkFields(),
     ],
   }),
 })

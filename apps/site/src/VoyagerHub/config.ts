@@ -6,13 +6,16 @@ import { validateSupportHref } from '@/lib/support-link'
 import { revalidateVoyagerHub } from './hooks/revalidate'
 
 /**
+ * **Retired (hubs redesign, slices 5 and 6):** `/voyager` is a page record in the voyager set; this global was copied into it by the migration `voyager_page`, which still reads it on a database built from
+ * the migrations. Nothing reads it for a visitor. Hidden; dropped at the cleanup (PAGE-BLOCKS.md phase 7).
+ *
  * The Voyager hub (`/voyager`, board 13): the UWF student newspaper, published on the WUWF platform. Student editors make its
  * editorial decisions, so the stories, bylines and sections are theirs; this only says which publishing identity is The Voyager,
  * which sections head the page, who is on staff, and the invitation to join. Stories are found by their publishing identity.
  */
 export const VoyagerHub: GlobalConfig = {
   slug: 'voyager-hub',
-  admin: { livePreview: { url: '/voyager' } },
+  admin: { hidden: true, description: 'Retired: The Voyager is a page of sections (Pages → The Voyager). Nothing reads this any more; it is kept until the next cleanup because the migration that wrote the pages reads it.' },
   label: 'The Voyager hub',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateVoyagerHub] },

@@ -5,7 +5,7 @@ import { anyone } from '../access/anyone'
 import { requirePermission } from '../access/permissions'
 import { ensureSlug } from '../hooks/ensureSlug'
 import { validateSupportHref } from '../lib/support-link'
-import { revalidatePath } from '../lib/revalidate'
+import { revalidatePath, revalidateTag } from '../lib/revalidate'
 
 /**
  * A musician who plays RadioLive. Kept apart from `contributors` (the people who write and host for WUWF): a performer has no
@@ -20,7 +20,14 @@ export const Artists: CollectionConfig = {
   hooks: {
     beforeValidate: [ensureSlug('name')],
     afterChange: [({ doc, previousDoc, req: { context } }) => {
-      if (!context.disableRevalidate) for (const slug of new Set([doc?.slug, previousDoc?.slug])) if (typeof slug === 'string' && slug) revalidatePath(`/radiolive/artists/${slug}`)
+      if (!context.disableRevalidate) {
+        for (const slug of new Set([doc?.slug, previousDoc?.slug])) if (typeof slug === 'string' && slug) revalidatePath(`/radiolive/artists/${slug}`)
+        // The RadioLive page's artists and the "All artists" index read through caches of their own.
+        revalidatePath('/radiolive')
+        revalidatePath('/radiolive/artists')
+        revalidateTag('section-data:list', 'max')
+        revalidateTag('radiolive', 'max')
+      }
       return doc
     }],
   },

@@ -35,6 +35,7 @@ async function make<T extends { id: string | number }>(collection: string, data:
 
 describe('the home page feature slots (what the Show spotlight, Feature panels and short-video blocks read)', () => {
   const ids: Record<string, string | number> = {}
+  let homePageId: string | number | undefined
 
   beforeAll(async () => {
     payload = await getPayload({ config: await config })
@@ -66,12 +67,12 @@ describe('the home page feature slots (what the Show spotlight, Feature panels a
     await ep('Hidden ep', ids['Hidden show']!, '2099-02-04T12:00:00.000Z')
     await ep('Draft ep', ids['Older show']!, '2099-02-05T12:00:00.000Z', { _status: 'draft' })
 
-    // Unearthing Florida: a production on the hub, two episodes, and a story from elsewhere.
+    // Unearthing Florida: a production whose home page is a page of the unearthing set, two episodes, and a story from elsewhere.
     const unearthing = await show('Unearthing')
     ids.ue1 = (await ep('UE first', unearthing, '2099-02-06T12:00:00.000Z')).id
     ids.ue2 = (await ep('UE newest', unearthing, '2099-02-07T12:00:00.000Z')).id
     ids.elsewhere = (await ep('Elsewhere', ids['Newer show']!, '2099-02-01T12:00:00.000Z')).id
-    await payload.updateGlobal({ slug: 'unearthing-hub', overrideAccess: true, context: ctx, data: { production: unearthing, featured: null } as never })
+    homePageId = (await make<{ id: string | number }>('pages', { title: `Unearthing home ${run}`, slug: `unearthing-home-${run}`, template: 'sections', pageSet: 'unearthing', show: unearthing, isShowHome: true, navHidden: true, sections: [], _status: 'published' }, { draft: false })).id
 
     // RadioLive: a past show with a recording and a coming one.
     const artist = await make<{ id: string | number }>('artists', { name: `Home Artist ${run}` })
@@ -80,7 +81,6 @@ describe('the home page feature slots (what the Show spotlight, Feature panels a
   }, 120_000)
 
   afterAll(async () => {
-    await payload.updateGlobal({ slug: 'unearthing-hub', overrideAccess: true, context: ctx, data: { production: null, featured: null } as never }).catch(() => undefined)
     for (const { collection, id } of [...created].reverse()) await payload.delete({ collection: collection as never, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
@@ -117,8 +117,8 @@ describe('the home page feature slots (what the Show spotlight, Feature panels a
     expect((await loadUnearthingSlot(ids.elsewhere!))?.episode.title).toBe(`UE newest ${run}`)
   })
 
-  it('leaves out Unearthing Florida while its hub has no production', async () => {
-    await payload.updateGlobal({ slug: 'unearthing-hub', overrideAccess: true, context: ctx, data: { production: null } as never })
+  it('leaves out Unearthing Florida while no show has a home page in the unearthing set', async () => {
+    await payload.update({ collection: 'pages', id: homePageId!, data: { isShowHome: false } as never, overrideAccess: true, context: ctx, draft: false })
     expect(await loadUnearthingSlot(null)).toBeNull()
   })
 })

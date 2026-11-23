@@ -1,22 +1,17 @@
 import type { Metadata } from 'next'
+import React from 'react'
 
-import { notFound } from 'next/navigation'
+import { SectionsRoute, sectionsRouteMetadata } from '@/components/Page/SectionsRoute'
 
-import { VoyagerHub } from '@/components/Voyager/VoyagerHub'
-import { loadVoyagerHub } from '@/lib/voyager/load'
+const VOYAGER_PATH = '/voyager'
 
-// The masthead prints today's date, so the page refreshes every ten minutes as well as when the hub, a section or a story is
-// saved. Stories (`/voyager/<date>/<slug>`) and the section lists are still served by the catch-all route.
+// The Voyager's hub is a page in the voyager set (Pages → The Voyager; hubs redesign, slice 5). This shell renders the record: `/voyager` is also a coded route, so the catch-all does not
+// serve it (`CODED_SHELL_PATHS`). Its news runs, clips and shows refresh on their own windows, and a saved page or story refreshes it at once. Stories (`/voyager/<date>/<slug>`) and the
+// section lists are still served by the catch-all route.
 export const revalidate = 600
 
-export default async function VoyagerPage() {
-  const data = await loadVoyagerHub()
-  if (!data) notFound()
-  return <VoyagerHub data={data} />
-}
+export const generateMetadata = (): Promise<Metadata> => sectionsRouteMetadata(VOYAGER_PATH)
 
-export async function generateMetadata(): Promise<Metadata> {
-  const data = await loadVoyagerHub()
-  if (!data) return {}
-  return { title: 'The Voyager', description: data.tagline ?? undefined }
+export default async function VoyagerPage() {
+  return <SectionsRoute path={VOYAGER_PATH} query={{}} />
 }

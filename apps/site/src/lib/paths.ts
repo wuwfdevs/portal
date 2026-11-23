@@ -43,6 +43,13 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'ie-incompatible.html',
 ])
 
+/**
+ * The two page records that may sit under a reserved first segment: the RadioLive page and its artists index (hubs redesign, slice 4). `/radiolive/<show>` and
+ * `/radiolive/artists/<artist>` stay routes of their own, so exactly these two addresses are allowed, and only to a page in the `radiolive` set (`checkPath`'s `allowPaths`);
+ * a show may not take the address name `artists` (`Performances`).
+ */
+export const RADIOLIVE_PAGE_PATHS: ReadonlySet<string> = new Set(['/radiolive', '/radiolive/artists'])
+
 export type PathCheck = { ok: true } | { ok: false; reason: string }
 
 const FORBIDDEN_CHARS = /[\u0000- \u007f?#\\%]/
@@ -72,7 +79,7 @@ export const livePath = (slug: string): string => `/${LIVE_FIRST_SEGMENT}/${slug
  * Whether a stored path is acceptable. Lenient about letters (Grove's paths are kept as they are), strict about shape.
  * `allowFirstSegment` lets one reserved first segment through, for the one kind of record that is meant to live under it (a live blog).
  */
-export function checkPath(path: unknown, opts: { allowFirstSegment?: string } = {}): PathCheck {
+export function checkPath(path: unknown, opts: { allowFirstSegment?: string; allowPaths?: ReadonlySet<string> } = {}): PathCheck {
   if (typeof path !== 'string' || path === '') return { ok: false, reason: 'A path is required.' }
   if (!path.startsWith('/')) return { ok: false, reason: 'A path starts with "/".' }
   if (path === '/') return { ok: false, reason: 'The home page is served at "/" and has no path of its own.' }
@@ -82,7 +89,7 @@ export function checkPath(path: unknown, opts: { allowFirstSegment?: string } = 
   const segments = path.slice(1).split('/')
   if (segments.some((s) => s === '')) return { ok: false, reason: 'A path has no empty segment ("//").' }
   if (segments.some((s) => s === '.' || s === '..')) return { ok: false, reason: 'A path has no "." or ".." segment.' }
-  if (isReservedPath(path) && !(opts.allowFirstSegment && segments[0] === opts.allowFirstSegment)) return { ok: false, reason: `"/${segments[0]}" belongs to the site itself.` }
+  if (isReservedPath(path) && !(opts.allowFirstSegment && segments[0] === opts.allowFirstSegment) && !opts.allowPaths?.has(path)) return { ok: false, reason: `"/${segments[0]}" belongs to the site itself.` }
   return { ok: true }
 }
 

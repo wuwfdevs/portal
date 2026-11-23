@@ -27,7 +27,7 @@ export async function FrontPageSection({ block, context }: SectionProps<FrontPag
   const claimed = block.id ? context.claims?.get(block.id) : undefined
   const { lead, top } = claimed
     ? await (async () => {
-        const [first, ...rest] = await storiesByIds(claimed)
+        const [first, ...rest] = await storiesByIds(claimed, storyScopeOf(context))
         return { lead: first ?? null, top: rest }
       })()
     : await arrangeFront(block, storyScopeOf(context))

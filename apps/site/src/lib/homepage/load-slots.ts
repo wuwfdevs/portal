@@ -3,7 +3,8 @@ import { getPayload } from 'payload'
 
 import type { Media, Production } from '@/payload-types'
 
-import { loadRadioLive, type ShowView } from '@/lib/radiolive/load'
+import { splitPerformances } from '@/lib/radiolive/arrange'
+import { loadShows, type ShowView } from '@/lib/radiolive/load'
 import { loadDirectory, type Episode } from '@/lib/shows/load'
 import { getProductionHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
@@ -42,21 +43,30 @@ export async function loadPodcastsSlot(featuredShowId: string | number | null, o
   return { featured: picked.featured, acknowledgments, others: picked.others }
 }
 
-/** The RadioLive panel: the next show and the newest recorded set. Null when there is neither. */
+/**
+ * The RadioLive panel: the next show and the newest recorded set, from the shows themselves, with the line under the name taken from the RadioLive page's own description (the page is
+ * sections now; the old `radiolive-hub` global is read by nothing). Null when there is neither a coming show nor a recorded one.
+ */
 export async function loadRadioLiveSlot(): Promise<HomepageSlots['radioLive']> {
-  const data = await loadRadioLive()
-  const picked = pickRadioLive({ upcoming: data.upcoming, latest: data.latest })
-  return picked ? { tagline: data.tagline, ...picked } : null
+  const payload = await getPayload({ config: configPromise })
+  const [shows, page] = await Promise.all([
+    loadShows(),
+    payload.find({ collection: 'pages', where: { and: [{ path: { equals: '/radiolive' } }, { pageSet: { equals: 'radiolive' } }] }, limit: 1, depth: 0, draft: false, overrideAccess: false, pagination: false, select: { meta: true } }),
+  ])
+  const { upcoming, past } = splitPerformances(shows, new Date())
+  const picked = pickRadioLive({ upcoming, latest: past.find((s) => s.recording) ?? null })
+  const description = page.docs[0]?.meta?.description?.trim() || null
+  return picked ? { tagline: description, ...picked } : null
 }
 
 /**
- * The Unearthing Florida panel. Only the one episode is read, not the whole hub: the editor's pick when it belongs to the series, else the hub's featured episode, else
- * the newest. Null when the hub has no series or the series has no published episode.
+ * The Unearthing Florida panel. Only the one episode is read, not the whole show: the editor's pick, else the newest. Null when no show has an Unearthing home page or the show has no published episode.
  */
 export async function loadUnearthingSlot(pickedEpisodeId: string | number | null): Promise<HomepageSlots['unearthing']> {
   const payload = await getPayload({ config: configPromise })
-  const hub = await payload.findGlobal({ slug: 'unearthing-hub', depth: 0, overrideAccess: false })
-  const productionId = idOf(hub.production as never)
+  // The show is the one whose home page is a page of the unearthing set (the old `unearthing-hub` global is read by nothing).
+  const home = await payload.find({ collection: 'pages', where: { and: [{ pageSet: { equals: 'unearthing' } }, { isShowHome: { equals: true } }] }, limit: 1, depth: 0, draft: false, overrideAccess: false, pagination: false, select: { show: true } })
+  const productionId = idOf(home.docs[0]?.show as never)
   if (productionId === null) return null
   const production = (await payload.find({ collection: 'productions', where: { id: { equals: productionId } }, depth: 1, limit: 1, overrideAccess: false })).docs[0]
   if (!production) return null
@@ -66,7 +76,6 @@ export async function loadUnearthingSlot(pickedEpisodeId: string | number | null
     const found = await payload.find({ collection: 'posts', depth: 1, draft: false, limit: 1, overrideAccess: false, pagination: false, select: EPISODE_FIELDS, sort: '-publishedAt', where: where as never })
     return (found.docs[0] as Episode | undefined) ?? null
   }
-  const hubPick = idOf(hub.featured as never)
-  const episode = (pickedEpisodeId !== null ? await one(pickedEpisodeId) : null) ?? (hubPick !== null ? await one(hubPick) : null) ?? (await one(null))
+  const episode = (pickedEpisodeId !== null ? await one(pickedEpisodeId) : null) ?? (await one(null))
   return episode ? { production, heroImage: named<Media>(production.heroImage), episode } : null
 }

@@ -3,7 +3,7 @@ import type { CollectionAfterChangeHook, CollectionBeforeChangeHook, Payload, Pa
 import { APIError, ValidationError } from 'payload'
 
 import { userCan } from '../access/permissions'
-import { LIVE_FIRST_SEGMENT, checkPath, livePath, localDate, pagePath, storyPath } from '../lib/paths'
+import { LIVE_FIRST_SEGMENT, RADIOLIVE_PAGE_PATHS, checkPath, livePath, localDate, pagePath, storyPath } from '../lib/paths'
 import { newEpisodePath } from '../lib/shows/consolidate'
 
 /** The collections whose records are served by path (a production is a show). One registry, so the resolver and the uniqueness check agree. */
@@ -97,7 +97,8 @@ export const pathBeforeChange =
     }
 
     if (path && path !== existing) {
-      const check = checkPath(path, isLive ? { allowFirstSegment: LIVE_FIRST_SEGMENT } : {})
+      const inRadioLiveSet = kind === 'pages' && (data.pageSet ?? originalDoc?.pageSet) === 'radiolive'
+      const check = checkPath(path, isLive ? { allowFirstSegment: LIVE_FIRST_SEGMENT } : inRadioLiveSet ? { allowPaths: RADIOLIVE_PAGE_PATHS } : {})
       if (!check.ok) invalid(kind, req, 'path', check.reason)
       const id = originalDoc?.id as string | number | undefined
       if (await pathTaken(req.payload, req, path, id !== undefined ? { collection: kind, id } : undefined)) {

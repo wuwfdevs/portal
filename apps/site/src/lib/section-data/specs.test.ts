@@ -82,3 +82,17 @@ describe('datesSpecOf and creditSpecOf', () => {
     expect(creditSpecOf({})).toBeNull()
   })
 })
+
+describe('a list on The Voyager\'s pages (hubs redesign, slice 5)', () => {
+  it('reads only the Voyager\'s stories, video stories and short videos, and says so in the spec (so it is in the cache key)', () => {
+    expect(listSpecOf({ source: 'stories', count: 3 }, null, 'voyager')).toEqual({ source: 'stories', scope: 'latest', count: 3, voyager: true })
+    expect(listSpecOf({ source: 'videos', count: 2 }, null, 'voyager')).toEqual({ source: 'videos', count: 2, voyager: true })
+    expect(listSpecOf({ source: 'clips', count: 4 }, null, 'voyager')).toEqual({ source: 'clips', scope: 'latest', count: 4, voyager: true })
+  })
+  it('leaves the station\'s pages and the sources that are not an identity\'s stories alone', () => {
+    expect(listSpecOf({ source: 'clips', count: 4 }, null, 'station')).toEqual({ source: 'clips', scope: 'latest', count: 4 })
+    expect(listSpecOf({ source: 'clips', count: 4 })).not.toHaveProperty('voyager')
+    expect(listSpecOf({ source: 'artists', count: 3 }, null, 'voyager')).toEqual({ source: 'artists', count: 3 })
+    expect(listSpecOf({ source: 'shows' }, null, 'voyager')).toEqual({ source: 'shows' })
+  })
+})

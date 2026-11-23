@@ -81,6 +81,15 @@ export const SharedText: GlobalConfig = {
             ),
           ],
         },
+        {
+          label: 'The Voyager’s foot',
+          fields: [
+            area('voyagerFootnote', {
+              maxLength: 600,
+              admin: { description: 'Who publishes The Voyager and how the students and WUWF work together. Printed under every page of The Voyager, beside “Published with WUWF Public Media”. Empty: only that line is drawn.' },
+            }),
+          ],
+        },
       ],
     },
   ],

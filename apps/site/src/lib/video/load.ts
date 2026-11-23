@@ -7,6 +7,7 @@ import type { Clip, Contributor, Media, Series, Video } from '@/payload-types'
 import { getSeriesHubAcknowledgments } from '@/lib/underwriting/load'
 import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
+import { isVoyagerIdentity } from '@/lib/voyager/identity'
 import { ctaLabelOf, groupIntoRows, nextClip, type ClipRow } from './clips'
 
 const named = <T extends object>(v: T | string | number | null | undefined): T | null => (v && typeof v === 'object' ? v : null)
@@ -30,6 +31,8 @@ export interface ClipView {
   /** The section of that story: where the clip belongs on a section page. A clip has none of its own, so one with no story has no section. */
   sectionId: string | number | null
   captionsHref: string
+  /** The story it came from was published under The Voyager's identity: a Voyager page shows only these. */
+  voyager: boolean
 }
 
 function toView(clip: Clip): ClipView | null {
@@ -37,7 +40,7 @@ function toView(clip: Clip): ClipView | null {
   if (!file?.url || !clip.slug) return null
   const poster = named<Media>(file.poster)
   const series = named<Series>(clip.series)
-  const story = named<{ path?: string | null; section?: { id: string | number } | string | number | null }>(clip.story as never)
+  const story = named<{ path?: string | null; section?: { id: string | number } | string | number | null; publishingIdentity?: unknown }>(clip.story as never)
   const section = story?.section
   const people = (clip.contributors ?? []).map((c) => named<Contributor>(c)?.name).filter((n): n is string => Boolean(n))
   return {
@@ -55,6 +58,7 @@ function toView(clip: Clip): ClipView | null {
     story: story?.path ? { href: story.path, label: ctaLabelOf(clip.ctaLabel) } : null,
     sectionId: section == null ? null : typeof section === 'object' ? section.id : section,
     captionsHref: `/video/${clip.slug}/captions.vtt`,
+    voyager: isVoyagerIdentity(story?.publishingIdentity),
   }
 }
 
@@ -63,7 +67,7 @@ export const loadClips = cache(async (): Promise<ClipView[]> => {
   const payload = await getPayload({ config: configPromise })
   const found = await payload.find({ collection: 'clips', depth: 2, draft: false, limit: 300, overrideAccess: false, pagination: false, sort: '-publishedAt', where: { _status: { equals: 'published' } },
     // A story is populated with a few fields only (its `defaultPopulate`); a clip needs its story's address and its section.
-    populate: { posts: { path: true, section: true } },
+    populate: { posts: { path: true, section: true, publishingIdentity: true } },
   })
   return found.docs.flatMap((c) => {
     const v = toView(c)

@@ -137,3 +137,31 @@ describe('Feature "Play the latest" (a show\'s newest episode)', () => {
     expect(draw({ playLatest: true })).not.toContain('data-latest')
   })
 })
+
+describe('Feature "latest recorded RadioLive set" (hubs redesign, slice 4)', () => {
+  const set = { title: 'The Emerald Coast Strings with Jesse Bumann', when: 'Nov 6, 2026', description: 'Recorded before a full house.', href: '/radiolive/emerald-coast', photo: null, frame: { kind: 'file' as const, url: '/media/set.mp4', mimeType: 'video/mp4', captionsHref: '/radiolive/emerald-coast/captions.vtt' } }
+  const draw = (block: Record<string, unknown>, s: typeof set | null) =>
+    renderToStaticMarkup(FeatureSection({ block: { blockType: 'sectionFeature', headline: 'RadioLive', variant: 'split', latestSet: true, label: 'typed label', ...block } as never, context: testContext, set: s }) as never)
+  it('takes its label, headline and line from the set, and links to the set\'s page after the typed buttons', () => {
+    const out = draw({ line: 'typed line', actions: [{ label: 'Watch past shows', href: '#watch' }] }, set)
+    expect(out).toContain('Latest set · recorded Nov 6, 2026')
+    expect(out).toContain('The Emerald Coast Strings with Jesse Bumann')
+    expect(out).toContain('Recorded before a full house.')
+    expect(out).not.toContain('typed label')
+    expect(out).not.toContain('typed line')
+    expect(out.indexOf('Watch past shows')).toBeLessThan(out.indexOf('About this show'))
+    expect(out).toContain('href="/radiolive/emerald-coast"')
+  })
+  it('draws the video as a frame with a play button (nothing from the recording is requested before it is pressed)', () => {
+    const out = draw({}, set)
+    expect(out).toContain('Play video: The Emerald Coast Strings with Jesse Bumann')
+    expect(out).not.toContain('<video')
+    expect(out).not.toContain('/media/set.mp4')
+  })
+  it('keeps the typed words when there is no recorded set yet', () => {
+    const out = draw({ headline: 'RadioLive' }, null)
+    expect(out).toContain('typed label')
+    expect(out).toContain('RadioLive')
+    expect(out).not.toContain('About this show')
+  })
+})

@@ -11,9 +11,11 @@ vi.mock('next/cache', async (importOriginal) => ({
 
 import { GET as captions } from '@/app/(frontend)/radiolive/[slug]/captions.vtt/route'
 import { GET as sitemapChild } from '@/app/(frontend)/(sitemaps)/sitemaps/[name]/route'
-import { loadArtist, loadRadioLive, loadShow } from '@/lib/radiolive/load'
+import { appearances, splitPerformances } from '@/lib/radiolive/arrange'
+import { loadArtist, loadShow, loadShows } from '@/lib/radiolive/load'
+import { loadRadioLiveSlot } from '@/lib/homepage/load-slots'
 
-// RadioLive: shows (upcoming and past), artists derived from lineups, recordings that need captions, and the funder line.
+// RadioLive: shows (upcoming and past), artists derived from lineups, recordings that need captions, and the home page's RadioLive panel.
 
 const run = Date.now().toString(36)
 let payload: Payload
@@ -63,20 +65,27 @@ describe('RadioLive', () => {
     void original
   })
 
-  it('puts a coming show in "upcoming" with a ticket button, and a past one with a recording in "watch"', async () => {
-    const data = await loadRadioLive()
-    const coming = data.upcoming.find((s) => s.slug === futureShow.slug)
+  it('puts a coming show in "upcoming" with a ticket button, and a past one with a recording among the recorded', async () => {
+    const { upcoming, past } = splitPerformances(await loadShows(), new Date())
+    const coming = upcoming.find((s) => s.slug === futureShow.slug)
     expect(coming?.tickets).toEqual({ label: 'Get tickets', href: 'https://tix.example.com/x' })
     expect(coming?.virtualTickets).toEqual({ label: 'Get virtual tickets', href: 'https://virtual.example.com/y' })
-    expect(data.upcoming.some((s) => s.title.startsWith('Draft night'))).toBe(false)
-    expect(data.watch.some((s) => s.slug === pastShow.slug)).toBe(true)
-    expect(data.upcoming.some((s) => s.slug === pastShow.slug)).toBe(false)
+    expect(upcoming.some((s) => s.title.startsWith('Draft night'))).toBe(false)
+    expect(past.filter((s) => s.recording).some((s) => s.slug === pastShow.slug)).toBe(true)
+    expect(upcoming.some((s) => s.slug === pastShow.slug)).toBe(false)
   })
 
-  it('lists only artists of a show that is over, with their appearance counts, and carries the production\'s funder line', async () => {
-    const data = await loadRadioLive()
-    expect(data.artists.map((a) => a.slug)).toEqual(expect.arrayContaining([artistA.slug, artistB.slug]))
-    expect(data.acknowledgments.map((l) => l.text)).toContain(`RadioLive is made possible by RL Sponsor ${run}.`)
+  it('lists only artists of a show that is over, with their appearance counts', async () => {
+    const { past } = splitPerformances(await loadShows(), new Date())
+    const artists = appearances(past)
+    expect(artists.map((a) => a.slug)).toEqual(expect.arrayContaining([artistA.slug, artistB.slug]))
+    expect(artists.find((a) => a.slug === artistA.slug)?.count).toBe(1) // artist A is also on a coming bill, which does not count
+  })
+
+  it('feeds the home page\'s panel from the shows, with no hub global: the next show and the newest recorded set', async () => {
+    const slot = await loadRadioLiveSlot()
+    expect(slot?.next?.slug).toBe(futureShow.slug)
+    expect(slot?.latest?.slug).toBe(pastShow.slug)
   })
 
   it('loads a show with its lineup and recording, and an artist with their shows', async () => {
@@ -94,17 +103,13 @@ describe('RadioLive', () => {
   it('shows a recording hosted on YouTube without needing captions here, and refuses an address that is not one video on YouTube or Vimeo', async () => {
     const s = await loadShow(hostedShow.slug)
     expect(s?.show.recording).toMatchObject({ kind: 'embed', provider: 'youtube' })
-    expect((await loadRadioLive()).watch.some((x) => x.slug === hostedShow.slug)).toBe(true)
+    expect(splitPerformances(await loadShows(), new Date()).past.some((x) => x.slug === hostedShow.slug && x.recording)).toBe(true)
     for (const bad of ['https://example.com/set', 'https://www.youtube.com/playlist?list=PL7wabVdOsi0NL7ozG7c702xTmikRYGwEJ', 'http://youtu.be/hVgWH8kF_RQ']) {
       await expect(payload.create({ collection: 'performances', overrideAccess: true, context: ctx, data: { title: `Bad ${run}`, startsAt: day(-9), recordingUrl: bad, _status: 'published' } as never })).rejects.toThrow()
     }
   })
 
-  it('shows plan-your-visit facts and a membership level with checked contact links, and refuses a bad email or phone', async () => {
-    await payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { visit: { items: [{ label: 'Show', text: 'Starts at 6 p.m.' }, { label: 'Where', text: 'Museum of Commerce' }] }, membership: { heading: 'RadioLive 25', text: `$1,000 annually ${run}.`, contactName: 'The membership office', contactEmail: 'members@example.org', contactPhone: '850-555-0123' } } as never })
-    const data = await loadRadioLive()
-    expect(data.visit.items.map((i) => i.label)).toEqual(['Show', 'Where'])
-    expect(data.membership).toMatchObject({ heading: 'RadioLive 25', mailto: 'mailto:members@example.org', tel: 'tel:8505550123' })
+  it('still refuses a bad email or phone on the retired hub global\'s membership contact (the global is kept until the next cleanup)', async () => {
     for (const bad of [{ contactEmail: 'Name <a@b.org>' }, { contactPhone: 'call us' }]) {
       await expect(payload.updateGlobal({ slug: 'radiolive-hub', overrideAccess: true, context: ctx, data: { membership: { heading: 'x', ...bad } } as never })).rejects.toThrow()
     }

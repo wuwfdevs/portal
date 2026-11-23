@@ -3,10 +3,12 @@ import React from 'react'
 import { paragraphs } from '@/lib/page-content'
 
 import { SectionBand, SectionHeading } from '../SectionBand'
-import { SectionImage, populatedMedia } from '../parts'
+import { SectionImage, SectionMore, populatedMedia } from '../parts'
 import type { SectionData, SectionProps } from '../types'
 
 export interface ProfileBandData extends SectionData {
+  moreLabel?: string | null
+  moreHref?: string | null
   text?: string | null
   image?: unknown
   people?: Array<{ id?: string | null; name?: string | null; role?: string | null; photo?: unknown } | null> | null
@@ -36,6 +38,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
             </li>
           ))}
         </ul>
+        <SectionMore block={block} />
       </SectionBand>
     )
   }
@@ -52,6 +55,7 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
               <p key={p}>{p}</p>
             ))}
           </div>
+          <SectionMore block={block} />
         </div>
         {picture && (
           <div className="aspect-[4/3] overflow-hidden rounded-4">

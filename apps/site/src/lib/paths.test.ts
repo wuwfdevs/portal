@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkPath, draftPreviewPath, isReservedPath, localDate, PAGE_SET_FIRST_SEGMENTS, pagePath, pathFromSegments, RESERVED_FIRST_SEGMENTS, SECTION_SLUG, storyPath } from './paths'
+import { checkPath, draftPreviewPath, isReservedPath, localDate, PAGE_SET_FIRST_SEGMENTS, pagePath, pathFromSegments, RADIOLIVE_PAGE_PATHS, RESERVED_FIRST_SEGMENTS, SECTION_SLUG, storyPath } from './paths'
 
 describe('first segments owned by page sets', () => {
   it('let a page take a path there, and keep a section from being named one', () => {
@@ -110,5 +110,16 @@ describe('small helpers', () => {
   it('a section slug is a safe lowercase segment', () => {
     expect(SECTION_SLUG.test('local-news')).toBe(true)
     for (const bad of ['Local-News', 'local news', 'local--news', '-local', 'local-', 'a/b', '']) expect(SECTION_SLUG.test(bad)).toBe(false)
+  })
+})
+
+describe('the RadioLive page records (hubs redesign, slice 4)', () => {
+  it('allows exactly the page and its artists index, and only when the caller says so', () => {
+    expect(checkPath('/radiolive').ok).toBe(false)
+    expect(checkPath('/radiolive', { allowPaths: RADIOLIVE_PAGE_PATHS })).toEqual({ ok: true })
+    expect(checkPath('/radiolive/artists', { allowPaths: RADIOLIVE_PAGE_PATHS })).toEqual({ ok: true })
+  })
+  it('keeps a show\'s and an artist\'s address to their routes', () => {
+    for (const p of ['/radiolive/some-show', '/radiolive/artists/pat-byrn', '/radiolive/artists/x/y']) expect(checkPath(p, { allowPaths: RADIOLIVE_PAGE_PATHS }).ok, p).toBe(false)
   })
 })

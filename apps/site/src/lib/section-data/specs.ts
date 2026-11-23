@@ -9,15 +9,19 @@ export const LIST_SCOPES = ['latest', 'section', 'topic'] as const
 export type ListScope = (typeof LIST_SCOPES)[number]
 export const LIST_MAX = 12
 
+/**
+ * `voyager: true` is set on a spec when the page is The Voyager's (`PageSetSpec.stories`): a list of stories, video stories or short videos on such a page reads only what was published under The
+ * Voyager's identity, never the station's reporting under the student newspaper's name. It is part of the spec so it is part of the cache key.
+ */
 export type ListSpec =
-  | { source: 'stories'; scope: 'latest'; count: number }
-  | { source: 'stories'; scope: 'section' | 'topic'; id: number | string; count: number }
+  | { source: 'stories'; scope: 'latest'; count: number; voyager?: true }
+  | { source: 'stories'; scope: 'section' | 'topic'; id: number | string; count: number; voyager?: true }
   | { source: 'episodes'; id: number | string; count: number }
   | { source: 'episodes'; all: true; count: number }
   | { source: 'shows' }
-  | { source: 'videos'; count: number }
-  | { source: 'clips'; scope: 'latest'; count: number; firstSeries?: number | string }
-  | { source: 'clips'; scope: 'section'; id: number | string; count: number }
+  | { source: 'videos'; count: number; voyager?: true }
+  | { source: 'clips'; scope: 'latest'; count: number; firstSeries?: number | string; voyager?: true }
+  | { source: 'clips'; scope: 'section'; id: number | string; count: number; voyager?: true }
   | { source: 'artists'; count: number }
   | { source: 'performances'; count: number }
 
@@ -31,6 +35,16 @@ const count = (v: unknown, fallback: number, max: number): number => {
  * the page speaks for (`SectionContext.show`): a list of "Episodes of a show" with no show chosen lists that show's, so a show's home page needs no show typed on each list.
  */
 export function listSpecOf(
+  block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown; series?: unknown },
+  pageShow?: { id: number | string } | null,
+  storyScope: 'station' | 'voyager' = 'station',
+): ListSpec | null {
+  const spec = listSpecFor(block, pageShow)
+  // On The Voyager's pages the story-reading sources read only The Voyager's (shows, episodes, artists and performances are not stories of an identity).
+  return spec && storyScope === 'voyager' && (spec.source === 'stories' || spec.source === 'videos' || spec.source === 'clips') ? { ...spec, voyager: true } : spec
+}
+
+function listSpecFor(
   block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown; series?: unknown },
   pageShow?: { id: number | string } | null,
 ): ListSpec | null {
