@@ -11,6 +11,7 @@ import { type ActionData, SectionActions, SectionImage, eyebrowClass, populatedM
 import type { SectionData, SectionProps } from '../types'
 import { LatestPlay } from './LatestPlay'
 import type { LatestSet } from '@/lib/radiolive/latest-set'
+import type { LatestEpisode } from '@/lib/shows/latest'
 import { type FrameSource, VideoFrame } from './VideoFrame'
 
 export interface FeatureData extends SectionData {
@@ -23,6 +24,8 @@ export interface FeatureData extends SectionData {
   playLatest?: boolean | null
   playLatestLabel?: string | null
   latestSet?: boolean | null
+  latestEpisode?: boolean | null
+  pageTitle?: boolean | null
   videoUrl?: string | null
   video?: unknown
   ratio?: string | null
@@ -48,9 +51,10 @@ export function frameSource(block: Pick<FeatureData, 'video' | 'videoUrl'>): Fra
 /**
  * Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. With `set` (the page asked for the latest recorded
  * RadioLive set and there is one), the set's date, title and description are the label, headline and line, its picture the still and its recording the video, and a link to its page
- * is added after the typed buttons.
+ * is added after the typed buttons. With `episode` (the page asked to lead with its show's latest episode and the show has one), the episode's date, title and description are the label,
+ * headline and line, its picture the picture, its audio a play button, and a link to its page is added after the typed buttons.
  */
-export function FeatureSection({ block: typed, context, set }: SectionProps<FeatureData> & { set?: LatestSet | null }) {
+export function FeatureSection({ block: typed, context, set, episode }: SectionProps<FeatureData> & { set?: LatestSet | null; episode?: LatestEpisode | null }) {
   const block: FeatureData = set
     ? {
         ...typed,
@@ -62,7 +66,16 @@ export function FeatureSection({ block: typed, context, set }: SectionProps<Feat
         videoUrl: null,
         actions: [...(typed.actions ?? []), { label: 'About this show', href: set.href }],
       }
-    : typed
+    : episode
+      ? {
+          ...typed,
+          label: episode.when ? `Latest episode · ${episode.when}` : 'Latest episode',
+          headline: episode.title,
+          line: episode.description ?? typed.line,
+          image: episode.photo ?? typed.image,
+          actions: [...(typed.actions ?? []), { label: 'About this episode', href: episode.href }],
+        }
+      : typed
   const headline = block.headline?.trim()
   if (!headline) return null
   const split = block.variant === 'split'
@@ -87,7 +100,12 @@ export function FeatureSection({ block: typed, context, set }: SectionProps<Feat
     <div className="flex min-w-0 flex-col items-start gap-4">
       {label && <p className={eyebrowClass}>{label}</p>}
       {split ? (
-        <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
+        block.pageTitle ? (
+          // A split that opens the page: the page's one h1, in the theme's display title (Unearthing's is italic and brown), sized for a half-width column.
+          <h1 className="font-serif text-4xl font-bold leading-[1.05] tracking-tight [color:var(--tone-display,var(--tone-text))] [font-style:var(--tone-display-style,normal)] md:text-5xl">{headline}</h1>
+        ) : (
+          <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
+        )
       ) : (
         // The page theme sets the display title: Unearthing's is italic and in the paper's brown (`--tone-display`, `--tone-display-style`); every other theme's is the band's text.
         <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight [color:var(--tone-display,var(--tone-text))] [font-style:var(--tone-display-style,normal)] md:text-[3.5rem]">{headline}</h1>
@@ -101,7 +119,8 @@ export function FeatureSection({ block: typed, context, set }: SectionProps<Feat
       )}
       <SectionActions actions={block.actions} className="pt-2" />
       {track && <PlayAudioButton toned track={track} />}
-      {block.playLatest && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
+      {episode?.track && <PlayAudioButton label={block.playLatestLabel?.trim() || 'Play the latest'} toned track={episode.track} />}
+      {block.playLatest && !block.latestEpisode && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
     </div>
   )
 
@@ -173,6 +192,14 @@ export function FeatureSection({ block: typed, context, set }: SectionProps<Feat
 
 /** The registered Feature: the same block, with the latest recorded RadioLive set read when the page asks for it (the loader is imported here, never at the top: the registry is read by the Payload CLI). */
 export async function FeatureBlock(props: SectionProps<FeatureData>) {
+  if (props.block.latestEpisode && !props.block.latestSet && props.context.show) {
+    const { loadLatestEpisode } = await import('@/lib/shows/latest')
+    const episode = await loadLatestEpisode(props.context.show.id).catch((error: unknown) => {
+      console.error('The latest episode could not be loaded and the typed words are drawn.', error)
+      return null
+    })
+    return <FeatureSection {...props} episode={episode} />
+  }
   if (!props.block.latestSet) return <FeatureSection {...props} />
   const { loadLatestSet } = await import('@/lib/radiolive/latest-set')
   const set = await loadLatestSet().catch((error: unknown) => {

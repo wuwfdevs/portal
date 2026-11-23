@@ -7,6 +7,7 @@ import { getPayload } from 'payload'
 
 import type { Audio } from '@/payload-types'
 import { trackFromAudio, type Track } from '@/lib/player/track'
+import { leadImageOf } from '@/lib/seo/meta'
 
 /** How many of the newest episodes are looked through for one that can be played. */
 const RECENT = 10
@@ -38,3 +39,59 @@ const cached = unstable_cache(read, ['show-latest-track'], { revalidate: 300, ta
 
 /** A track for the show's newest playable episode, or null when it has none. */
 export const loadLatestTrack = (showId: number | string): Promise<Track | null> => cached(showId)
+
+
+/**
+ * The show's newest published episode, shaped for a Feature's lead (hubs redesign: a show's home leads with what is newest, so the page does not repeat the name the strip already carries).
+ * Plain JSON, because it is cached. Unlike "Play the latest" it does not skip an episode that cannot be played: the lead is the newest episode, and `track` is null when its audio is members-only or missing.
+ */
+export interface LatestEpisode {
+  title: string
+  /** "Nov 6, 2026", or null when the episode has no publication date. */
+  when: string | null
+  description: string | null
+  /** The episode's own page. */
+  href: string
+  /** The episode's picture (its share image, else its lead picture), or null. */
+  photo: unknown
+  track: Track | null
+}
+
+const ZONE = 'America/Chicago'
+const dateOf = (iso: string | null | undefined): string | null => {
+  if (!iso) return null
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : new Intl.DateTimeFormat('en-US', { timeZone: ZONE, month: 'short', day: 'numeric', year: 'numeric' }).format(d)
+}
+
+const readEpisode = async (showId: number | string): Promise<LatestEpisode | null> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({
+    collection: 'posts',
+    depth: 1,
+    draft: false,
+    limit: 1,
+    overrideAccess: false,
+    pagination: false,
+    sort: '-publishedAt',
+    select: { title: true, dek: true, path: true, publishedAt: true, meta: true, featuredMedia: true, featuredAudio: true },
+    where: { and: [{ production: { equals: showId } }, { format: { equals: 'audio' } }] },
+  })
+  const episode = found.docs[0]
+  // An episode with no address has no page to link to and is not a story the public can open yet.
+  if (!episode?.path || !episode.title) return null
+  const audio = episode.featuredAudio && typeof episode.featuredAudio === 'object' ? (episode.featuredAudio as Audio) : null
+  return {
+    title: episode.title,
+    when: dateOf(episode.publishedAt),
+    description: episode.dek?.trim() || episode.meta?.description?.trim() || null,
+    href: episode.path,
+    photo: leadImageOf(episode),
+    track: trackFromAudio(audio, { title: episode.title, href: episode.path }),
+  }
+}
+
+const cachedEpisode = unstable_cache(readEpisode, ['show-latest-episode'], { revalidate: 300, tags: ['section-data', 'section-data:list'] })
+
+/** The show's newest published episode, or null when it has none. A failed read throws and is never cached. */
+export const loadLatestEpisode = (showId: number | string): Promise<LatestEpisode | null> => cachedEpisode(showId)

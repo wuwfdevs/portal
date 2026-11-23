@@ -31,6 +31,17 @@ export const Feature = defineSection({
     own: [
       { name: 'label', type: 'text', admin: { description: 'A short line above the headline: "Next show · Thursday, Dec. 3".' } },
       { name: 'headline', type: 'text', required: true },
+      {
+        name: 'pageTitle',
+        type: 'checkbox',
+        label: 'The headline is the page\'s title',
+        defaultValue: false,
+        admin: {
+          description:
+            'Split only. A split\'s headline is a section heading; tick this when the split is the top of the page and nothing else on it is the page\'s main heading, so screen readers and search engines find the title. A hero\'s headline is always the page\'s title.',
+          condition: (_, sibling) => sibling?.variant === 'split',
+        },
+      },
       { name: 'line', type: 'textarea', admin: { description: 'One or two sentences under the headline.' } },
       actionsField(),
       { name: 'image', type: 'upload', relationTo: 'media', admin: { description: 'Its description (alt text) is what a screen reader says.' } },
@@ -58,6 +69,17 @@ export const Feature = defineSection({
         admin: {
           description:
             'The newest RadioLive show that is over and has a recording: its date, title and description take the place of the label, headline and line below (they stay as the words when there is no recorded show yet), its picture is the still and its recording is the video, with captions. It follows the shows, so nobody edits the page each month.',
+        },
+      },
+      {
+        name: 'latestEpisode',
+        type: 'checkbox',
+        label: 'Lead with the show\'s latest episode',
+        defaultValue: false,
+        admin: {
+          description:
+            'On a page that speaks for a show: the newest episode\'s date, title and description take the place of the label, headline and line below (they stay as the words when the show has no episode yet), its picture is the picture, and it gets a play button and a link to the episode. The page then does not need to repeat the show\'s name, which the page strip already carries. It follows the show, so nobody edits the page when an episode comes out.',
+          condition: (_, s) => s?.latestSet !== true,
         },
       },
       { name: 'audio', type: 'upload', relationTo: 'audio', admin: { description: 'Optional. A play button that hands the audio to the site\'s player.' } },

@@ -46,11 +46,16 @@ export function unearthingPages(f: UnearthingFacts): PageSpec[] {
     blockType: 'sectionFeature',
     hidden: false,
     tone: 'plain',
-    variant: 'hero',
+    // Two columns: the words and the actions beside the episode's picture, so the first screen holds the episode and what to do with it, not a picture the width of the page. The
+    // split's headline is a section heading unless it is marked as the page's title, and this is the top of the page.
+    variant: 'split',
+    pageTitle: true,
     ...(dateline ? { label: dateline } : {}),
     headline: f.title,
     ...(summary ? { line: summary } : {}),
-    playLatest: true,
+    // The lead follows the show: its newest episode's date, title, description, picture and a play button take the place of the words above (the show's own title is the page strip's, so the page
+    // does not say it twice). These words are the lead only while the show has no episode.
+    latestEpisode: true,
     playLatestLabel: 'Play the latest',
     actions: [{ label: 'Explore the map of sites', href: '#explore', style: 'outline' }],
   })
@@ -73,7 +78,8 @@ export function unearthingPages(f: UnearthingFacts): PageSpec[] {
     tone: 'grey',
     anchor: at('explore'),
     navLabel: 'Explore',
-    heading: { eyebrow: 'Explore', title: 'Every site, by place and by time' },
+    // The show's summary, now that the lead is the newest episode and no longer says what the show is.
+    heading: { eyebrow: 'Explore', title: 'Every site, by place and by time', ...(summary ? { intro: summary } : {}) },
   })
   if (f.collections.length > 0) {
     sections.push({
