@@ -60,6 +60,17 @@ export const Feature = defineSection({
             'The newest RadioLive show that is over and has a recording: its date, title and description take the place of the label, headline and line below (they stay as the words when there is no recorded show yet), its picture is the still and its recording is the video, with captions. It follows the shows, so nobody edits the page each month.',
         },
       },
+      {
+        name: 'latestEpisode',
+        type: 'checkbox',
+        label: 'Lead with the show\'s latest episode',
+        defaultValue: false,
+        admin: {
+          description:
+            'On a page that speaks for a show: the newest episode\'s date, title and description take the place of the label, headline and line below (they stay as the words when the show has no episode yet), its picture is the picture, and it gets a play button and a link to the episode. The page then does not need to repeat the show\'s name, which the page strip already carries. It follows the show, so nobody edits the page when an episode comes out.',
+          condition: (_, s) => s?.latestSet !== true,
+        },
+      },
       { name: 'audio', type: 'upload', relationTo: 'audio', admin: { description: 'Optional. A play button that hands the audio to the site\'s player.' } },
       {
         name: 'aside',

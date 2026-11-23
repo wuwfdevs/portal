@@ -26,11 +26,17 @@ describe('Unearthing Florida\'s pages', () => {
     const named = home!.sections.filter((s) => s.navLabel).map((s) => [s.navLabel, s.anchor])
     expect(named).toEqual([['Episodes', 'episodes'], ['Explore', 'explore'], ['Collections', 'collections']])
   })
-  it('plays the show\'s newest episode and lists the show\'s own, without typing a show or an episode anywhere', () => {
+  it('leads with the show\'s newest episode (so the page does not repeat the name the strip carries) and lists the show\'s own, without typing a show or an episode anywhere', () => {
     const lead = home!.sections[0]!
-    expect(lead).toMatchObject({ playLatest: true, variant: 'hero', label: 'Northwest Florida to the Keys', line: facts.summary })
+    expect(lead).toMatchObject({ latestEpisode: true, variant: 'hero', label: 'Northwest Florida to the Keys', line: facts.summary })
+    expect(lead).not.toHaveProperty('playLatest')
     expect(home!.sections[1]).toMatchObject({ source: 'episodes', count: 3 })
     expect(home!.sections[1]).not.toHaveProperty('show')
+  })
+  it('says what the show is under the Explore heading, since the lead is an episode now', () => {
+    expect(home!.sections[2]).toMatchObject({ heading: { title: 'Every site, by place and by time', intro: facts.summary } })
+    const bare = unearthingPages({ ...facts, summary: null })[0]!
+    expect(bare.sections[2]!.heading).not.toHaveProperty('intro')
   })
   it('makes a card for each collection with a link to it, and types no count', () => {
     const cards = (home!.sections[3] as { cards: Array<Record<string, string>> }).cards

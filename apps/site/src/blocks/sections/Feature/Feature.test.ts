@@ -165,3 +165,36 @@ describe('Feature "latest recorded RadioLive set" (hubs redesign, slice 4)', () 
     expect(out).not.toContain('About this show')
   })
 })
+
+describe('Feature "lead with the show\'s latest episode"', () => {
+  const episode = { title: 'The council house at Fort Walton', when: 'Nov 4, 2026', description: 'A house older than the county.', href: '/shows/unearthing-florida/2026-11-04/council-house', photo: null, track: { id: 'audio-1', src: 'https://files.example/ep.mp3', title: 'The council house at Fort Walton', credit: null, durationSeconds: 600, href: '/shows/unearthing-florida/2026-11-04/council-house' } }
+  const draw = (block: Record<string, unknown>, e: typeof episode | null, show: { id: number } | undefined = { id: 7 }) =>
+    renderToStaticMarkup(FeatureSection({ block: { blockType: 'sectionFeature', headline: 'Unearthing Florida', variant: 'hero', latestEpisode: true, label: 'typed label', line: 'typed line', playLatest: true, ...block } as never, context: { ...testContext, ...(show ? { show } : {}) }, episode: e }) as never)
+  it('takes its label, headline and line from the episode, and links to the episode after the typed buttons', () => {
+    const out = draw({ actions: [{ label: 'Explore the map of sites', href: '#explore' }] }, episode)
+    expect(out).toContain('Latest episode · Nov 4, 2026')
+    expect(out).toContain('The council house at Fort Walton')
+    expect(out).toContain('A house older than the county.')
+    expect(out).not.toContain('Unearthing Florida')
+    expect(out).not.toContain('typed label')
+    expect(out).not.toContain('typed line')
+    expect(out.indexOf('Explore the map of sites')).toBeLessThan(out.indexOf('About this episode'))
+    expect(out).toContain('href="/shows/unearthing-florida/2026-11-04/council-house"')
+  })
+  it('draws one play button, for the episode, and not the separate "Play the latest" control', () => {
+    const out = draw({}, episode)
+    expect(out).toContain('The council house at Fort Walton')
+    expect(out).not.toContain('data-latest')
+  })
+  it('draws the episode with no play button when its audio cannot be played', () => {
+    const out = draw({}, { ...episode, track: null as never })
+    expect(out).toContain('The council house at Fort Walton')
+    expect(out).toContain('About this episode')
+  })
+  it('keeps the typed words when the show has no episode yet', () => {
+    const out = draw({}, null)
+    expect(out).toContain('Unearthing Florida')
+    expect(out).toContain('typed label')
+    expect(out).not.toContain('About this episode')
+  })
+})
