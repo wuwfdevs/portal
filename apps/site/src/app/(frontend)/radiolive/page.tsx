@@ -1,18 +1,16 @@
 import type { Metadata } from 'next'
+import React from 'react'
 
-import { RadioLiveHub } from '@/components/RadioLive/RadioLiveHub'
-import { loadRadioLive } from '@/lib/radiolive/load'
-import { getCachedGlobal } from '@/utilities/getGlobals'
+import { SectionsRoute, sectionsRouteMetadata } from '@/components/Page/SectionsRoute'
+import { RADIOLIVE_HOME_PATH } from '@/lib/radiolive/paths'
 
-// The RadioLive page. "Upcoming" depends on today's date and an agreement has a term, so it refreshes on a schedule as well as when a
-// show, an artist or the page's settings are saved.
+// RadioLive is a page in the radiolive set (Pages → RadioLive; hubs redesign, slice 4). This shell renders the record: `/radiolive` is a first segment that routes own
+// (`/radiolive/<show>`), so the catch-all does not serve it (`CODED_SHELL_PATHS`). "Upcoming" depends on today's date, so it refreshes on a schedule as well as when a show, an
+// artist or the page is saved.
 export const revalidate = 1800
 
-export default async function RadioLivePage() {
-  const data = await loadRadioLive()
-  const settings = await getCachedGlobal('site-settings', 1)()
-  const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
-  return <RadioLiveHub data={data} independenceHref={policy?.slug ? `/${policy.slug}` : null} />
-}
+export const generateMetadata = (): Promise<Metadata> => sectionsRouteMetadata(RADIOLIVE_HOME_PATH)
 
-export const metadata: Metadata = { title: 'RadioLive', description: 'Songwriters live from downtown Pensacola, on the air on 88.1 FM. Shows, full sets with captions and the artists.' }
+export default async function RadioLivePage() {
+  return <SectionsRoute path={RADIOLIVE_HOME_PATH} query={{}} />
+}

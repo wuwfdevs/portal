@@ -30,4 +30,9 @@ describe('Profile band section', () => {
     expect(out).not.toContain('No name')
     expect(out.match(/<img/g)?.length).toBe(1)
   })
+  it('draws its one link, in either layout, only with a label and a safe address', () => {
+    expect(html({ variant: 'about', text: 'Words', moreLabel: 'The story of RadioLive', moreHref: '/radiolive-story' })).toContain('href="/radiolive-story"')
+    expect(html({ variant: 'roster', people: [{ name: 'Someone' }], moreLabel: 'Meet everyone', moreHref: '/about' })).toContain('Meet everyone')
+    expect(html({ variant: 'about', text: 'Words', moreLabel: 'Bad', moreHref: 'javascript:alert(1)' })).not.toContain('Bad')
+  })
 })

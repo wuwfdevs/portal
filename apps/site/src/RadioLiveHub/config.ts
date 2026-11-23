@@ -7,6 +7,9 @@ import { validateSupportHref } from '@/lib/support-link'
 import { revalidateRadioLiveHub } from './hooks/revalidate'
 
 /**
+ * **Retired as the page's words (hubs redesign, slice 4):** `/radiolive` is a page record in the radiolive set; this global was copied into it by the migration `radiolive_page` and is read now
+ * only by the home page's RadioLive panel. It is dropped with that panel (PAGE-BLOCKS.md phase 7).
+ *
  * The RadioLive page (`/radiolive`, board 12). The shows and artists are their own records; this holds what is the page's own: which
  * production RadioLive is (its funders come from that), the picture at the top, the host, the Encores broadcast and the call to support.
  * Not here, because nothing stands behind them: the lineup email, "tell me when tickets go on sale", and the giving levels (a gift is made
@@ -15,7 +18,11 @@ import { revalidateRadioLiveHub } from './hooks/revalidate'
 export const RadioLiveHub: GlobalConfig = {
   slug: 'radiolive-hub',
   label: 'RadioLive page',
-  admin: { livePreview: { url: '/radiolive' } },
+  admin: {
+    description:
+      'The RadioLive page is now a page of sections (Pages → RadioLive): edit its words there. This screen is read only by the home page\'s RadioLive panel (the tagline) until that panel moves, and it is retired with it.',
+    livePreview: { url: '/radiolive' },
+  },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateRadioLiveHub] },
   fields: [

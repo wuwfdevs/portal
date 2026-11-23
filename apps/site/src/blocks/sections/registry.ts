@@ -7,7 +7,7 @@ import { CardsSection } from './Cards/Component'
 import { ClosingBand } from './ClosingBand/config'
 import { ClosingBandSection } from './ClosingBand/Component'
 import { Feature } from './Feature/config'
-import { FeatureSection } from './Feature/Component'
+import { FeatureBlock } from './Feature/Component'
 import { Questions } from './Questions/config'
 import { QuestionsSection } from './Questions/Component'
 import { Stats } from './Stats/config'
@@ -48,6 +48,8 @@ import { ShowSpotlight } from './ShowSpotlight/config'
 import { ShowSpotlightSection } from './ShowSpotlight/Component'
 import { FeaturePanels } from './FeaturePanels/config'
 import { FeaturePanelsSection } from './FeaturePanels/Component'
+import { ArtistIndex } from './ArtistIndex/config'
+import { ArtistIndexSection } from './ArtistIndex/Component'
 import { Explore } from './Explore/config'
 import { ExploreSection } from './Explore/Component'
 import { Text } from './Text/config'
@@ -100,7 +102,7 @@ import type { SectionBlockEntry } from './types'
  * offered elsewhere without growing the config.
  */
 export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
-  { dir: 'Feature', block: Feature, Component: FeatureSection },
+  { dir: 'Feature', block: Feature, Component: FeatureBlock },
   { dir: 'FeaturedRecord', block: FeaturedRecord, Component: FeaturedRecordSection },
   { dir: 'ProfileBand', block: ProfileBand, Component: ProfileBandSection },
   { dir: 'Cards', block: Cards, Component: CardsSection },
@@ -133,6 +135,8 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'FeaturePanels', block: FeaturePanels, Component: FeaturePanelsSection, sets: ['home'] },
   // Offered only on pages in the Unearthing Florida set (hubs redesign, 2026-11-23): the map, the time window and the list of sites, read from the show the page speaks for.
   { dir: 'Explore', block: Explore, Component: ExploreSection, sets: ['unearthing'] },
+  // Offered only on pages in the RadioLive set (hubs redesign, slice 4): every artist of a published show, with a search and an A to Z.
+  { dir: 'ArtistIndex', block: ArtistIndex, Component: ArtistIndexSection, sets: ['radiolive'] },
   // Offered only on pages in the sponsor set (PAGE-BLOCKS.md → Block catalogue, set-only blocks). Each reads the Sponsorship settings.
   { dir: 'RateEstimator', block: RateEstimator, Component: RateEstimatorSection, sets: ['sponsor'] },
   { dir: 'Packages', block: Packages, Component: PackagesSection, sets: ['sponsor'] },

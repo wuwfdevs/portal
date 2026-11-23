@@ -112,6 +112,7 @@ export const SAMPLES: Record<string, Maker> = {
     const picked = plan[toneIndex % plan.length]!
     return { ...head(`${label} · ${String(picked.source)}`), ...picked, count: variant === 'lead' ? 4 : 6, moreLabel: 'All stories', moreHref: '/latest' }
   },
+  sectionArtistIndex: ({ label }) => head(label, 'Every artist who has played RadioLive, from the shows. A search and an A to Z narrow the list.'),
   sectionBroadcastSchedule: ({ label }) => head(label, 'The week’s programs for each stream, from the Listen live settings and NPR Cadence.'),
   sectionDates: ({ refs, toneIndex, label }) => ({
     ...head(label),

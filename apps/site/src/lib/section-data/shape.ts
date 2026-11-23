@@ -157,14 +157,14 @@ export function productionFeatured(doc: unknown): FeaturedItem | null {
   return { kind: 'show', title, description: str(p.tagline) ?? str(p.schedule), href: slug && /^[a-z0-9-]+$/.test(slug) ? `/shows/${slug}` : null, image: null, audio: null }
 }
 
-/** An artist as a List entry, linking to its RadioLive page. */
-export function artistListItem(doc: unknown): ListItem | null {
+/** An artist as a List entry, linking to its RadioLive page. `meta` is the line under the name ("2 appearances · Oct. 29, 2026"). */
+export function artistListItem(doc: unknown, meta: string | null = null): ListItem | null {
   const a = obj(doc)
   const name = str(a?.name)
   const slug = str(a?.slug)
   const id = idOf(a?.id)
   if (!a || !name || id === null) return null
-  return { id: `artist-${id}`, title: name, href: slug && /^[a-z0-9-]+$/.test(slug) ? `/radiolive/artists/${slug}` : null, image: pictureOf(a.photo), meta: null }
+  return { id: `artist-${id}`, title: name, href: slug && /^[a-z0-9-]+$/.test(slug) ? `/radiolive/artists/${slug}` : null, image: pictureOf(a.photo), meta }
 }
 
 /** A RadioLive show (a performance) as a dated line. Its address is `/radiolive/<slug>`. A show with no title or no valid start is left out. */

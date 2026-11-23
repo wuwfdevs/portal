@@ -45,7 +45,7 @@ function toArtist(a: Artist): ArtistView | null {
   return a.slug ? { slug: a.slug, name: a.name, photo: named<Media>(a.photo), bio: a.bio ?? null, link: supportHref(a.link) } : null
 }
 
-function toShow(p: Performance): ShowView | null {
+export function toShow(p: Performance): ShowView | null {
   if (!p.slug) return null
   const lineup = (p.lineup ?? []).map((a) => named<Artist>(a)).flatMap((a) => (a ? [toArtist(a)].filter((x): x is ArtistView => x !== null) : []))
   const photo = named<Media>(p.photo)

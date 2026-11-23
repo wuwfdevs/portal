@@ -421,7 +421,7 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 5*. **Where the code did not fit t
 
 ### Phase 6: the three hubs, redesigned to board 28
 
-**Revised 2026-11-23 (the owner, "WUWF Hubs Redesign" canvas): the hubs are rebuilt to that canvas, not board 28; the coded RadioLive and Voyager hubs were works in progress and are replaced directly, with no preview address and no hold for sign-off.** The three themes are built (slice 1), a show's home is a page (slice 2), Unearthing Florida is the first (slice 3). See `ROADMAP.md`, "The hubs redesign". The checklist below is the original plan.
+**Revised 2026-11-23 (the owner, "WUWF Hubs Redesign" canvas): the hubs are rebuilt to that canvas, not board 28; the coded RadioLive and Voyager hubs were works in progress and are replaced directly, with no preview address and no hold for sign-off.** The three themes are built (slice 1), a show's home is a page (slice 2), Unearthing Florida is the first (slice 3), RadioLive the second (slice 4). See `ROADMAP.md`, "The hubs redesign". The checklist below is the original plan.
 
 - [ ] Themes `unearthing`, `voyager`, `radiolive`, each passing the contrast test (text 4.5:1, button against its ground 3:1), with token
       values the hub owners have confirmed.

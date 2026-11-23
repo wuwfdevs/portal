@@ -22,6 +22,11 @@ const notArtists: CollectionBeforeValidateHook = ({ data }) => {
 
 const refresh = (slug: unknown): void => {
   revalidatePath('/radiolive')
+  revalidatePath('/radiolive/artists')
+  // The RadioLive page is sections now: its dates, past shows and artists are read through caches of their own.
+  revalidateTag('section-data:dates', 'max')
+  revalidateTag('section-data:list', 'max')
+  revalidateTag('radiolive', 'max')
   revalidatePath('/') // the home page's RadioLive panel
   if (typeof slug === 'string' && slug) revalidatePath(`/radiolive/${slug}`)
   revalidateTag('radiolive-sitemap', 'max')

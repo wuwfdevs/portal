@@ -94,6 +94,7 @@ export interface Config {
     sectionShowSpotlight: SectionShowSpotlight;
     sectionFeaturePanels: SectionFeaturePanels;
     sectionExplore: SectionExplore;
+    sectionArtistIndex: SectionArtistIndex;
     sectionRateEstimator: SectionRateEstimator;
     sectionPackages: SectionPackages;
     sectionCarpool: SectionCarpool;
@@ -349,6 +350,10 @@ export interface SectionFeature {
    * The words on that button. Empty: "Play the latest".
    */
   playLatestLabel?: string | null;
+  /**
+   * The newest RadioLive show that is over and has a recording: its date, title and description take the place of the label, headline and line below (they stay as the words when there is no recorded show yet), its picture is the still and its recording is the video, with captions. It follows the shows, so nobody edits the page each month.
+   */
+  latestSet?: boolean | null;
   /**
    * Optional. A play button that hands the audio to the site's player.
    */
@@ -1571,6 +1576,11 @@ export interface SectionProfileBand {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Optional: the words of one link at the top right of the section, e.g. "See the credit guidelines →".
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionProfileBand';
@@ -3172,6 +3182,43 @@ export interface SectionExplore {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionArtistIndex".
+ */
+export interface SectionArtistIndex {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionArtistIndex';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "SectionRateEstimator".
  */
 export interface SectionRateEstimator {
@@ -4247,6 +4294,7 @@ export interface Page {
         | SectionShowSpotlight
         | SectionFeaturePanels
         | SectionExplore
+        | SectionArtistIndex
         | SectionRateEstimator
         | SectionPackages
         | SectionCarpool
@@ -7290,6 +7338,8 @@ export interface VoyagerHub {
   createdAt?: string | null;
 }
 /**
+ * The RadioLive page is now a page of sections (Pages → RadioLive): edit its words there. This screen is read only by the home page's RadioLive panel (the tagline) until that panel moves, and it is retired with it.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "radiolive-hub".
  */
