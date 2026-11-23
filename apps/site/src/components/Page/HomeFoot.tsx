@@ -22,9 +22,7 @@ export async function HomeFoot() {
           All stories
         </Button>
       </p>
-      <section className="max-w-[60rem]">
-        <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} />
-      </section>
+      <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} />
     </div>
   )
 }

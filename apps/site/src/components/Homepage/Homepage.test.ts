@@ -130,12 +130,22 @@ describe('the Briefing', () => {
 })
 
 describe('MembershipAppeal', () => {
-  it('is a rounded-4 panel with a pill button and a semibold line, and nothing without words', () => {
+  it('is the site\'s call-to-action card: a rounded-4 panel with a pill button under a semibold line, and nothing without words', () => {
     const out = draw(createElement(MembershipAppeal, { appeal: { text: 'Support us.', button: { label: 'Become a member', href: '/support' } } }))
     expect(out).toContain('rounded-4')
     expect(out).toContain('rounded-pill')
     expect(out).toContain('font-semibold')
     expect(out).not.toContain('rounded-sm')
+    // The same card Support and Closing band draw, with a page theme of its own (a story page has none), and the line is a sentence, not a heading.
+    expect(out).toContain('data-tone="plain"')
+    expect(out).toContain('data-page-theme="wuwf"')
+    expect(out).not.toContain('<h2')
+    expect(out.indexOf('Support us.')).toBeLessThan(out.indexOf('Become a member'))
     expect(draw(createElement(MembershipAppeal, { appeal: null }))).toBe('')
+  })
+  it('draws the line alone when it has no button', () => {
+    const out = draw(createElement(MembershipAppeal, { appeal: { text: 'Support us.', button: null } }))
+    expect(out).toContain('Support us.')
+    expect(out).not.toContain('rounded-pill')
   })
 })

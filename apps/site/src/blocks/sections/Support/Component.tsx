@@ -2,7 +2,7 @@ import React from 'react'
 
 import { supportHref } from '@/lib/support-link'
 
-import { CtaCard } from '../CtaCard'
+import { CtaCard } from '@/components/Kit'
 import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
 

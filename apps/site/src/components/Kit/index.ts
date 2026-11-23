@@ -3,3 +3,4 @@ export { buttonClasses, BUTTON_VARIANTS, type ButtonSize, type ButtonVariant } f
 export { NumberBadge, SectionChip } from './SectionChip'
 export { Eyebrow, eyebrowLabel, eyebrowText } from './Eyebrow'
 export { headingClasses, SectionHeading, type HeadingMark, type HeadingSize } from './SectionHeading'
+export { CtaCard, type CtaAction } from './CtaCard'

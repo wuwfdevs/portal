@@ -91,6 +91,7 @@ import * as migration_20261123_040000_drop_site_map_xy from './20261123_040000_d
 import * as migration_20261123_050000_unearthing_lead_episode from './20261123_050000_unearthing_lead_episode';
 import * as migration_20261123_060000_unearthing_lead_split from './20261123_060000_unearthing_lead_split';
 import * as migration_20261123_070000_hub_strip_links from './20261123_070000_hub_strip_links';
+import * as migration_20261123_080000_radiolive_one_title from './20261123_080000_radiolive_one_title';
 
 export const migrations = [
   {
@@ -559,5 +560,10 @@ export const migrations = [
     up: migration_20261123_070000_hub_strip_links.up,
     down: migration_20261123_070000_hub_strip_links.down,
     name: '20261123_070000_hub_strip_links',
+  },
+  {
+    up: migration_20261123_080000_radiolive_one_title.up,
+    down: migration_20261123_080000_radiolive_one_title.down,
+    name: '20261123_080000_radiolive_one_title',
   },
 ];

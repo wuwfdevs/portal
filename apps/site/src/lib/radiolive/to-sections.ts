@@ -52,6 +52,8 @@ export function radioLivePages(f: RadioLiveFacts): { home: RadioLivePageSpec; ar
     variant: 'split',
     // Follows the shows: the newest recorded set (its date, title, description, picture and recording). These words are the page's when no show has a recording yet.
     latestSet: true,
+    // The lead is the page's title (its one h1), as Unearthing's is: a split's headline is a section heading unless it is marked.
+    pageTitle: true,
     headline: 'RadioLive',
     ...(tagline ? { line: tagline } : {}),
     ...(f.heroPhotoId !== null ? { image: f.heroPhotoId } : {}),
@@ -121,7 +123,8 @@ export function radioLivePages(f: RadioLiveFacts): { home: RadioLivePageSpec; ar
       blockType: 'sectionFeature',
       hidden: false,
       tone: 'teal',
-      variant: 'hero',
+      // A band of words with a button, not a second page title: a hero's headline is the page's h1 at 56px, which is too much for it (and the page already has its h1, the lead).
+      variant: 'split',
       label: 'RadioLive Encores',
       headline: clean(encores.heading) ?? 'RadioLive Encores',
       ...(clean(encores.text) ? { line: clean(encores.text) } : {}),

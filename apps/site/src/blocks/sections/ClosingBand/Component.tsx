@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { CtaCard } from '../CtaCard'
+import { CtaCard } from '@/components/Kit'
 import { SectionBand } from '../SectionBand'
 import type { ActionData } from '../parts'
 import type { SectionData, SectionProps } from '../types'

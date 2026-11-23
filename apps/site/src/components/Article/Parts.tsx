@@ -3,7 +3,7 @@ import React from 'react'
 
 import type { Contributor, Media as MediaDoc } from '@/payload-types'
 
-import { Button } from '@/components/Kit'
+import { CtaCard } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
 import { listHref } from '@/lib/lists/route'
@@ -77,17 +77,15 @@ export const AuthorBox: React.FC<{ contributor: Contributor; photo?: MediaDoc | 
   </div>
 )
 
-/** The membership appeal. Its words are the Shared text global's (`membershipAppealOf`); with none, it is not drawn. */
+/**
+ * The membership appeal. Its words are the Shared text global's (`membershipAppealOf`); with none, it is not drawn. It is the site's call-to-action card (`Kit/CtaCard`), the same one Support and
+ * Closing band draw, as wide as the place it sits in. It sets its own page theme because a story page has none, and the card's tone rules are written under one.
+ */
 export const MembershipAppeal: React.FC<{ appeal: MembershipAppealWords | null }> = ({ appeal }) => {
   if (!appeal) return null
   return (
-    <aside aria-label="Support WUWF" className="flex flex-col gap-3 rounded-4 bg-wuwf-blue-100 p-6 md:flex-row md:items-center md:justify-between md:gap-6 md:px-8 md:py-7">
-      <p className="font-serif text-xl font-semibold text-ink md:text-2xl md:leading-snug">{appeal.text}</p>
-      {appeal.button && (
-        <Button className="shrink-0 self-start md:self-auto" href={appeal.button.href} size="lg" variant="action">
-          {appeal.button.label}
-        </Button>
-      )}
+    <aside aria-label="Support WUWF" data-page-theme="wuwf">
+      <CtaCard actions={appeal.button ? [appeal.button] : []} as="p" size="md" title={appeal.text} tone="plain" />
     </aside>
   )
 }
