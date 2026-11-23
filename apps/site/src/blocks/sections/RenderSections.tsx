@@ -31,13 +31,61 @@ export function RenderSections({ sections, context }: { sections: ReadonlyArray<
   const ordered = Boolean(set?.dedupe) || Boolean(set?.placements && set.slots && context.slots)
   // Only a page set that asks for the ordered pass or for slots needs the async work; every other page renders synchronously, as it always has.
   if (ordered) return <OrderedSections context={context} drawn={drawn} />
+  const runs = ctaRuns(drawn)
   return (
     <>
       {drawn.map(({ block, key, entry }) => {
+        if (runs.consumed.has(key)) return null
+        const run = runs.starts.get(key)
+        if (run) return <CtaGroup context={context} items={run} key={key} />
         const Section = entry.Component
         return <Section block={block} context={context} key={key} />
       })}
     </>
+  )
+}
+
+/**
+ * Call-to-action sections (`cta` in the registry) that follow one another are one band with a card each, side by side on a wide screen and stacked with a gap on a phone, instead of
+ * two full-width bands one on top of the other. `starts` maps the first section of each such run (two or more) to the whole run; `consumed` holds the others, which are drawn by the run.
+ */
+export function ctaRuns(drawn: readonly Drawn[]): { starts: Map<string, Drawn[]>; consumed: Set<string> } {
+  const starts = new Map<string, Drawn[]>()
+  const consumed = new Set<string>()
+  let run: Drawn[] = []
+  const close = () => {
+    if (run.length >= 2) {
+      starts.set(run[0]!.key, run)
+      for (const d of run.slice(1)) consumed.add(d.key)
+    }
+    run = []
+  }
+  for (const d of drawn) {
+    if (d.entry.cta) run.push(d)
+    else close()
+  }
+  close()
+  return { starts, consumed }
+}
+
+/**
+ * One band of call-to-action cards: as many columns as fit at 20rem, so two cards sit side by side on a wide screen and stack with a gap on a phone. Each section draws only its card (`inline`);
+ * one that draws nothing (a Support section with no donation address) leaves its cell empty, which is hidden, so the others share the width; with every cell empty the band is hidden too.
+ */
+export function CtaGroup({ items, context }: { items: readonly Drawn[]; context: SectionContext }) {
+  return (
+    <section className="hidden py-12 has-[div:not(:empty)]:block md:py-14" data-section="ctaGroup" data-tone="plain">
+      <div className="container grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-6 [&>div:empty]:hidden">
+        {items.map(({ block, key, entry }) => {
+          const Section = entry.Component
+          return (
+            <div className="min-w-0" key={key}>
+              <Section block={{ ...block, inline: true }} context={context} />
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -72,7 +120,11 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
   const lastAnchor = anchors[anchors.length - 1]
   let anchorIndex = 0
 
+  const runs = ctaRuns(drawn)
   const nodes = drawn.map(({ block, key, entry }) => {
+    if (runs.consumed.has(key)) return null
+    const run = runs.starts.get(key)
+    if (run) return <CtaGroup context={ctx} items={run} key={key} />
     const Section = entry.Component
     const rows = plan && entry.anchor ? plan.before[anchorIndex++] : null
     const closesNews = plan && lastAnchor && lastAnchor.key === key

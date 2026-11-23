@@ -14,6 +14,12 @@ export const FadeScroller: React.FC<{ label: string; className?: string; childre
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    // A link to a place on this page whose section drew nothing (a news run with no story left after the lead, a spotlight with no show chosen) goes nowhere: hide it. Without script it stays,
+    // which is harmless (an anchor with no target does not move the page), so this is only a tidy-up, never what makes the strip work.
+    for (const item of Array.from(el.querySelectorAll<HTMLElement>('li[data-anchor]'))) {
+      const id = item.dataset.anchor
+      if (id && !document.getElementById(id)) item.hidden = true
+    }
     const update = () => {
       const start = el.scrollLeft > 1
       const end = Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth - 1

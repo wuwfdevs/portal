@@ -45,7 +45,7 @@ export const loadSetNavPages = (set: PageSetId, showId?: number | string | null)
           noindex: d.noindex,
           navHidden: d.navHidden,
           isShowHome: d.isShowHome,
-          sections: ((d.sections ?? []) as Array<{ anchor?: string | null; navLabel?: string | null; hidden?: boolean | null }>).map((s) => ({ anchor: s?.anchor, navLabel: s?.navLabel, hidden: s?.hidden })),
+          sections: ((d.sections ?? []) as Array<{ anchor?: string | null; navLabel?: string | null; navHref?: string | null; hidden?: boolean | null }>).map((s) => ({ anchor: s?.anchor, navLabel: s?.navLabel, navHref: s?.navHref, hidden: s?.hidden })),
         })),
         showPath: typeof show?.path === 'string' ? show.path : null,
       }

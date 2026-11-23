@@ -37,11 +37,29 @@ export function sectionFields(options: {
       name: 'navLabel',
       type: 'text',
       label: 'Name in the page strip',
-      admin: { description: 'Optional. Adds a link with this name to the strip of the set\'s (or the show\'s) pages, to this section. Needs an anchor above.' },
-      validate: (value: unknown, { siblingData }: { siblingData?: { anchor?: unknown } }) =>
-        typeof value === 'string' && value.trim() !== '' && !(typeof siblingData?.anchor === 'string' && siblingData.anchor.trim() !== '')
-          ? 'Give the section an anchor first: the strip links to the anchor.'
+      admin: { description: 'Optional. Adds a link with this name to the strip of the set\'s (or the show\'s) pages, to this section. Needs an anchor above, or a page below.' },
+      validate: (value: unknown, { siblingData }: { siblingData?: { anchor?: unknown; navHref?: unknown } }) =>
+        typeof value === 'string' &&
+        value.trim() !== '' &&
+        !(typeof siblingData?.anchor === 'string' && siblingData.anchor.trim() !== '') &&
+        !(typeof siblingData?.navHref === 'string' && siblingData.navHref.trim() !== '')
+          ? 'Give the section an anchor first (the strip links to the anchor), or the page the link should go to.'
           : true,
+    },
+    {
+      name: 'navHref',
+      type: 'text',
+      label: 'Page the strip link goes to',
+      admin: {
+        description:
+          'Optional. When what this section is about has a page of its own (/campus), the strip\'s link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.',
+      },
+      validate: (value: unknown, { siblingData }: { siblingData?: { navLabel?: unknown } }) => {
+        const bad = validateHref(value)
+        if (bad !== true) return bad
+        if (typeof value === 'string' && value.trim() !== '' && !(typeof siblingData?.navLabel === 'string' && siblingData.navLabel.trim() !== '')) return 'Give the link a name above first.'
+        return true
+      },
     },
     {
       name: 'tone',

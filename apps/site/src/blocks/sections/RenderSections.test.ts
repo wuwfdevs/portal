@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { Media } from '@/payload-types'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { OrderedSections, type Drawn } from './RenderSections'
+import { OrderedSections, RenderSections, ctaRuns, type Drawn } from './RenderSections'
 import type { SectionBlockEntry, SectionContext } from './types'
 
 // The page-level work a page set can ask of its sections: nobody shows a story twice, and the layout (not an editor) draws the sponsor places.
@@ -95,5 +95,53 @@ describe('the sponsor slots', () => {
   it('draws no slot for a page set that does not allow placements, or when the route loaded no tiles', async () => {
     expect(await render(news, { setId: 'giving', slots: slots(6) })).not.toContain('data-placement')
     expect(await render(news, {})).not.toContain('data-placement')
+  })
+})
+
+describe('call-to-action sections in a row', () => {
+  const cta = (id: string, title: string, tone = 'plain') => ({ blockType: 'sectionClosingBand', id, tone, heading: { title }, actions: [{ label: `Go ${id}`, href: '/go' }] })
+  const callout = (id: string) => ({ blockType: 'sectionCallout', id, tone: 'plain', text: 'A note.' })
+  const html = (sections: unknown[], context: Partial<SectionContext> = {}) =>
+    renderToStaticMarkup(createElement(RenderSections, { sections: sections as never, context: { themeId: 'wuwf', setId: null, draft: false, pageId: 1, ...context } }))
+
+  it('finds runs of two or more, and leaves a single one alone', () => {
+    const entry = (c: boolean): SectionBlockEntry => ({ dir: 'x', block: { slug: 'x', fields: [] }, Component: () => null, cta: c })
+    const d = (key: string, c: boolean): Drawn => ({ block: { blockType: 'x', id: key }, key, entry: entry(c) })
+    const { starts, consumed } = ctaRuns([d('a', false), d('b', true), d('c', true), d('d', true), d('e', false), d('f', true)])
+    expect([...starts.keys()]).toEqual(['b'])
+    expect(starts.get('b')!.map((x) => x.key)).toEqual(['b', 'c', 'd'])
+    expect([...consumed]).toEqual(['c', 'd'])
+  })
+  it('draws two in a row as one band of cards, each in its own tone, not two bands stacked', () => {
+    const out = html([cta('a', 'Join us', 'dark'), cta('b', 'Support us', 'plain')])
+    expect((out.match(/data-section="ctaGroup"/g) ?? []).length).toBe(1)
+    expect(out).not.toMatch(/<section[^>]*data-section="sectionClosingBand"/)
+    expect(out).toContain('Join us')
+    expect(out).toContain('Support us')
+    expect(out).toContain('data-tone="dark"')
+    expect(out.indexOf('Join us')).toBeLessThan(out.indexOf('Support us'))
+  })
+  it('keeps the page\'s own section order: what comes before and after stays where it is', () => {
+    const out = html([callout('n1'), cta('a', 'First'), cta('b', 'Second'), callout('n2')])
+    expect(out.indexOf('A note.')).toBeLessThan(out.indexOf('First'))
+    expect(out.lastIndexOf('A note.')).toBeGreaterThan(out.indexOf('Second'))
+  })
+  it('draws one on its own as a single card in its own band, and two apart as two single cards', () => {
+    expect(html([cta('a', 'Alone')])).not.toContain('ctaGroup')
+    const apart = html([cta('a', 'One'), callout('n'), cta('b', 'Two')])
+    expect(apart).not.toContain('ctaGroup')
+    expect((apart.match(/<section[^>]*data-section="sectionClosingBand"/g) ?? []).length).toBe(2)
+  })
+  it('does the same on a page set\'s ordered pass', async () => {
+    const entry = (label: string, isCta: boolean): SectionBlockEntry => ({ dir: label, block: { slug: `section${label}`, fields: [] }, Component: ({ block }: { block: { id?: string } }) => createElement('i', { 'data-card': block.id }), cta: isCta })
+    const d: Drawn[] = [
+      { block: { blockType: 'x', id: 'lead' }, key: 'lead', entry: entry('Lead', false) },
+      { block: { blockType: 'x', id: 'a' }, key: 'a', entry: entry('A', true) },
+      { block: { blockType: 'x', id: 'b' }, key: 'b', entry: entry('B', true) },
+    ]
+    const out = renderToStaticMarkup((await OrderedSections({ drawn: d, context: { themeId: 'wuwf', setId: 'voyager', draft: false, pageId: 1 } })) as never)
+    expect((out.match(/data-section="ctaGroup"/g) ?? []).length).toBe(1)
+    expect(out).toContain('data-card="a"')
+    expect(out).toContain('data-card="b"')
   })
 })

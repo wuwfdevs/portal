@@ -21,6 +21,9 @@ describe('the RadioLive page', () => {
     expect(home.sections.map((s) => s.blockType)).toEqual(['sectionFeature', 'sectionDates', 'sectionList', 'sectionList', 'sectionProfileBand', 'sectionFeature', 'sectionSupport', 'sectionCallout'])
     expect(home.sections.map((s) => s.tone)).toEqual(['dark', 'plain', 'dark', 'grey', 'plain', 'teal', 'plain', 'grey'])
   })
+  it('sends the strip\'s Artists link to the artists\' page, which is left out of the strip, so the strip has one Artists link', () => {
+    expect(home.sections.find((s) => s.id === 'rl-artists')).toMatchObject({ navLabel: 'Artists', navHref: '/radiolive/artists' })
+  })
   it('names the places the strip links to: Shows, Watch, Artists, About (the board\'s four), each with an anchor', () => {
     expect(home.sections.filter((s) => s.navLabel).map((s) => [s.navLabel, s.anchor])).toEqual([['Shows', 'shows'], ['Watch', 'watch'], ['Artists', 'artists'], ['About', 'about']])
   })
@@ -53,7 +56,7 @@ describe('the RadioLive page', () => {
     expect(bare.sections.map((s) => s.blockType)).toEqual(['sectionFeature', 'sectionDates', 'sectionList', 'sectionList'])
   })
   it('has an artists page at /radiolive/artists with the index', () => {
-    expect(artists).toMatchObject({ path: '/radiolive/artists', navLabel: 'All artists' })
+    expect(artists).toMatchObject({ path: '/radiolive/artists', navLabel: 'All artists', navHidden: true })
     expect(artists.sections.map((s) => s.blockType)).toEqual(['sectionArtistIndex'])
   })
 })

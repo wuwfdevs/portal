@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { setNavItems, setNavTag } from './nav'
+import { setHomeHref, setNavItems, setNavTag } from './nav'
 
 describe('setNavItems', () => {
   const pages = [
@@ -60,3 +60,43 @@ describe('setNavItems for a hub: a page\'s sections can ask for a link, and a sh
   })
 })
 
+
+describe('a section whose strip link goes to a page of its own, and the strip\'s home', () => {
+  const hub = {
+    title: 'The Voyager', path: '/voyager', navHidden: true, navOrder: 1,
+    sections: [
+      { anchor: 'front', navLabel: 'Front page' },
+      { anchor: 'campus', navLabel: 'Campus', navHref: '/campus' },
+      { navLabel: 'Sports', navHref: '/sports' },
+      { anchor: 'video', navLabel: 'Video', navHref: 'javascript:alert(1)' },
+      { anchor: 'staff', navLabel: 'Staff', navHref: '#staff' },
+      { anchor: 'gone', navLabel: 'Gone', navHref: '/gone', hidden: true },
+    ],
+  }
+  const about = { title: 'About', path: '/voyager/about', navOrder: 2 }
+  it('links a section that has a page to that page (with or without an anchor), and a section with none to its place on the page', () => {
+    expect(setNavItems([hub, about], '/voyager').map((i) => [i.label, i.href])).toEqual([
+      ['Front page', '#front'], ['Campus', '/campus'], ['Sports', '/sports'], ['Video', '#video'], ['Staff', '#staff'], ['About', '/voyager/about'],
+    ])
+  })
+  it('does not take an unsafe address as a page, and never as a place on the page', () => {
+    const items = setNavItems([hub, about], '/voyager')
+    expect(items.find((i) => i.label === 'Video')?.href).toBe('#video')
+    expect(items.some((i) => i.href.startsWith('javascript'))).toBe(false)
+  })
+  it('marks the page the reader is on, for a link to a page', () => {
+    expect(setNavItems([hub, about], '/campus').find((i) => i.label === 'Campus')?.current).toBe(true)
+    expect(setNavItems([hub, about], '/voyager').find((i) => i.label === 'Campus')?.current).toBe(false)
+  })
+  it('sends the strip\'s title to the set\'s first page, even a page left out of the strip, and not to the strip\'s first link', () => {
+    expect(setHomeHref([about, hub])).toBe('/voyager')
+    expect(setNavItems([about, hub], '/voyager')[0]?.href).toBe('#front')
+    const show = { title: 'Unearthing Florida', isShowHome: true, navHidden: true, navOrder: 1, sections: [{ anchor: 'episodes', navLabel: 'Episodes' }] }
+    expect(setHomeHref([{ title: 'About', path: '/shows/uf/about', navOrder: 2 }, show], { showPath: '/shows/uf' })).toBe('/shows/uf')
+  })
+  it('has no home for a set with no page that has an address, or only a page that asks not to be listed', () => {
+    expect(setHomeHref([])).toBeNull()
+    expect(setHomeHref([{ title: 'Thanks', path: '/support/thanks', noindex: true }])).toBeNull()
+    expect(setHomeHref([{ title: 'Home', isShowHome: true }], { showPath: null })).toBeNull()
+  })
+})

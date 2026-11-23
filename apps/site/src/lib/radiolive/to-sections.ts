@@ -31,8 +31,9 @@ export interface ArtistsPageSpec {
   slug: string
   title: string
   path: string
-  /** The page strip lists it after the RadioLive page's own links. */
   navLabel: string
+  /** Left out of the strip's own links: the home page's Artists section links to it. */
+  navHidden: boolean
   sections: Array<Record<string, unknown>>
 }
 
@@ -89,6 +90,8 @@ export function radioLivePages(f: RadioLiveFacts): { home: RadioLivePageSpec; ar
     variant: 'tiles',
     anchor: 'artists',
     navLabel: 'Artists',
+    // The strip's "Artists" goes to the artists' own page (every artist, searchable), not to this short run of recent ones; that page is left out of the strip, so the strip has one Artists link.
+    navHref: '/radiolive/artists',
     source: 'artists',
     count: 12,
     heading: { title: 'Recent artists' },
@@ -162,6 +165,7 @@ export function radioLivePages(f: RadioLiveFacts): { home: RadioLivePageSpec; ar
       title: 'All artists',
       path: '/radiolive/artists',
       navLabel: 'All artists',
+      navHidden: true,
       sections: [
         {
           id: 'rl-all-artists',

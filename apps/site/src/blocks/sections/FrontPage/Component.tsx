@@ -35,16 +35,26 @@ export async function FrontPageSection({ block, context }: SectionProps<FrontPag
   // Loaded when it draws: the view reads story fields and the block registry is read by the Payload config.
   const { Briefing, FirstScreen, LeadArticle } = await import('@/components/Homepage/FrontPage')
   const topUnit = topUnitOf(context)
+  const fitsFirstScreen = context.setId === 'home'
   return (
     <SectionBand block={block} tight={Boolean(topUnit)}>
       {/* The first screen (`FirstScreen`): the lead and the page's top unit (`home.top`, when its set has one), together as tall as the window leaves below the header, so The
           Briefing starts just under the fold. The unit is directly under the header on a wide screen, so above the lead; on a phone it is after the lead's headline and picture
           and before The Briefing. One element, ordered by the screen, so it is drawn (and counted) once. With a unit the band's top padding is the tight one (`tight`), and the
           first screen subtracts that smaller padding (`bandTight`). */}
-      <FirstScreen offset={topUnit ? 'bandTight' : 'band'}>
-        <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={block.leadKicker?.trim() || null} />
-        <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={topUnit} />
-      </FirstScreen>
+      {/* Only the home page fits its first screen: there the lead's picture takes the height the window leaves. On a hub (The Voyager) the lead is a section's front page, not the whole first
+          screen, so its picture keeps to its own shape (16:9, and from a wide screen as tall as its words, at least 24rem) and The Briefing follows at once. */}
+      {fitsFirstScreen ? (
+        <FirstScreen offset={topUnit ? 'bandTight' : 'band'}>
+          <LeadArticle className="order-1 md:order-2 lg:flex-1" lead={lead} leadKicker={block.leadKicker?.trim() || null} />
+          <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={topUnit} />
+        </FirstScreen>
+      ) : (
+        <div className="flex flex-col">
+          <LeadArticle className="order-1 md:order-2" lead={lead} leadKicker={block.leadKicker?.trim() || null} />
+          <TopUnit className="order-2 mt-8 md:order-1 md:mb-6 md:mt-0" tile={topUnit} />
+        </div>
+      )}
       <Briefing top={top} />
     </SectionBand>
   )

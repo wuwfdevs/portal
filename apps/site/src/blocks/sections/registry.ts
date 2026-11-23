@@ -120,8 +120,8 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Picker', block: Picker, Component: PickerSection },
   { dir: 'Text', block: Text, Component: TextSection },
   { dir: 'Credit', block: Credit, Component: CreditSection },
-  { dir: 'Support', block: Support, Component: SupportSection },
-  { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection },
+  { dir: 'Support', block: Support, Component: SupportSection, cta: true },
+  { dir: 'ClosingBand', block: ClosingBand, Component: ClosingBandSection, cta: true },
   // Layout: Columns holds other sections (one level); Illustration is drawn only inside it.
   { dir: 'Columns', block: Columns, Component: ColumnsSection },
   { dir: 'Illustration', block: Illustration, Component: IllustrationSection, inlineOnly: true },

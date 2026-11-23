@@ -21,6 +21,8 @@ describe('the Voyager hub', () => {
   it('has the strip the board draws: Front page, each section, Video, Shows, Staff, then the About page', () => {
     expect(home.sections.filter((s) => s.navLabel).map((s) => s.navLabel)).toEqual(['Front page', 'Campus', 'Arts', 'Sports & Rec', 'Video', 'Shows', 'Staff'])
     expect(home).toMatchObject({ path: '/voyager', navHidden: true })
+    // Each news run's strip link goes to the section's own page, not to a run that can be empty.
+    expect(home.sections.filter((s) => s.blockType === 'sectionNewsRun' && s.navLabel).map((s) => [s.navLabel, s.navHref])).toEqual([['Campus', '/campus'], ['Arts', '/arts'], ['Sports & Rec', '/sports-and-rec']])
     expect(about).toMatchObject({ path: '/voyager/about', navLabel: 'About', navHidden: false })
   })
   it('puts the featured story in the lead and lets the Briefing fill itself with the Voyager\'s newest', () => {

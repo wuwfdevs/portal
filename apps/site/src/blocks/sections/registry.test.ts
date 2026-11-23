@@ -40,8 +40,8 @@ describe('section block registry: every block is complete', () => {
       })
       it('starts with the shared fields, in order, and has labels and an interface name', () => {
         const names = block.fields.map((f) => ('name' in f ? f.name : undefined))
-        expect(names.slice(0, 4)).toEqual(['hidden', 'anchor', 'navLabel', 'tone'])
-        if (names.includes('variant')) expect(names[4]).toBe('variant')
+        expect(names.slice(0, 5)).toEqual(['hidden', 'anchor', 'navLabel', 'navHref', 'tone'])
+        if (names.includes('variant')) expect(names[5]).toBe('variant')
         expect(block.slug.startsWith('section')).toBe(true)
         expect(block.interfaceName).toBeTruthy()
         expect(block.labels?.singular).toBeTruthy()
