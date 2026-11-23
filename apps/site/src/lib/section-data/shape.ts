@@ -34,6 +34,8 @@ export interface ListItem {
   meta: string | null
   /** Lines under the title (a show's tagline, then its summary), one per line; `null` for an entry that has none. */
   summary?: string | null
+  /** The story's audio when it has some (an episode): the card draws the site's play button for it. A members-only file has no address, so no button. */
+  audio?: AudioData | null
 }
 
 /** What a Featured record leads with: a story, an episode or a show. */
@@ -107,7 +109,8 @@ export function storyListItem(doc: unknown): ListItem | null {
   const meta = obj(p.meta)
   const format = str(p.format)
   const bits = [format ? FORMAT_WORDS[format] ?? null : null, shortDate(p.publishedAt)].filter((b): b is string => b !== null)
-  return { id: `post-${id}`, title, href: sitePath(p.path), image: pictureOf(meta?.image), meta: bits.length > 0 ? bits.join(' · ') : null }
+  const audio = audioOf(p.featuredAudio)
+  return { id: `post-${id}`, title, href: sitePath(p.path), image: pictureOf(meta?.image), meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
 }
 
 /**
@@ -136,7 +139,7 @@ export function episodeListItem(doc: unknown, showTitle: string | null): ListIte
   const audio = audioOf(p.featuredAudio)
   const length = audio?.durationSeconds ? formatDuration(audio.durationSeconds) : ''
   const bits = [showTitle, published ? formatLongDate(published) : null, length || null].filter((b): b is string => Boolean(b))
-  return { id: `post-${id}`, title, href: sitePath(p.path), image: null, meta: bits.length > 0 ? bits.join(' · ') : null }
+  return { id: `post-${id}`, title, href: sitePath(p.path), image: null, meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
 }
 
 /** A story as a Featured record. The line is the story's description, else its dek. */

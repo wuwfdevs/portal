@@ -178,18 +178,34 @@ describe('Feature "lead with the show\'s latest episode"', () => {
     expect(out).not.toContain('Unearthing Florida')
     expect(out).not.toContain('typed label')
     expect(out).not.toContain('typed line')
-    expect(out.indexOf('Explore the map of sites')).toBeLessThan(out.indexOf('About this episode'))
     expect(out).toContain('href="/shows/unearthing-florida/2026-11-04/council-house"')
+  })
+  it('puts one main action first: Play is the filled button, the episode link the outline button, and the typed action a plain link after them', () => {
+    const out = draw({ actions: [{ label: 'Explore the map of sites', href: '#explore' }] }, episode)
+    expect(out.indexOf('Listen: The council house at Fort Walton')).toBeGreaterThan(-1)
+    expect(out.indexOf('Listen: The council house at Fort Walton')).toBeLessThan(out.indexOf('About this episode'))
+    expect(out.indexOf('About this episode')).toBeLessThan(out.indexOf('Explore the map of sites'))
+    // The episode link is the outline button (a ring), and the typed action is a link, not a button.
+    expect(out).toMatch(/<a[^>]*class="[^"]*shadow-\[inset[^"]*"[^>]*>About this episode/)
+    expect(out).not.toMatch(/<a[^>]*rounded-pill[^>]*>Explore the map of sites/)
+    expect(out).toMatch(/<a[^>]*underline[^>]*>Explore the map of sites/)
   })
   it('draws one play button, for the episode, and not the separate "Play the latest" control', () => {
     const out = draw({}, episode)
     expect(out).toContain('The council house at Fort Walton')
     expect(out).not.toContain('data-latest')
   })
-  it('draws the episode with no play button when its audio cannot be played', () => {
-    const out = draw({}, { ...episode, track: null as never })
+  it('makes the episode link the filled button when its audio cannot be played, with the typed action still a link', () => {
+    const out = draw({ actions: [{ label: 'Explore the map of sites', href: '#explore' }] }, { ...episode, track: null as never })
     expect(out).toContain('The council house at Fort Walton')
-    expect(out).toContain('About this episode')
+    expect(out).not.toContain('Listen:')
+    expect(out).toMatch(/<a[^>]*class="[^"]*rounded-pill[^"]*"[^>]*>About this episode/)
+    expect(out).not.toMatch(/<a[^>]*class="[^"]*shadow-\[inset[^"]*"[^>]*>About this episode/)
+    expect(out).toMatch(/<a[^>]*underline[^>]*>Explore the map of sites/)
+  })
+  it('keeps the typed actions as buttons (the first filled) when there is no episode yet', () => {
+    const out = draw({ actions: [{ label: 'Explore the map of sites', href: '#explore' }] }, null)
+    expect(out).toMatch(/<a[^>]*rounded-pill[^>]*>Explore the map of sites/)
   })
   it('keeps the typed words when the show has no episode yet', () => {
     const out = draw({}, null)

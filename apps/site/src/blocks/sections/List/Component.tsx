@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { ClipRail } from '@/components/Video/ClipRail'
+import { trackFromAudio } from '@/lib/player/track'
 import { listSpecOf } from '@/lib/section-data/specs'
 import { storyScopeOf } from '../slots'
 import type { ListItem } from '@/lib/section-data/shape'
@@ -58,6 +60,19 @@ function Summary({ item }: { item: ListItem }) {
   )
 }
 
+/**
+ * The site's play button for an entry that has audio (an episode), above the card's stretched link so pressing it plays the audio in the one player instead of opening the page. It is the band's own
+ * button colours, so it is right on every tone. Nothing when the entry has no audio the public may play.
+ */
+function Play({ item }: { item: ListItem }) {
+  const track = item.audio ? trackFromAudio(item.audio as Parameters<typeof trackFromAudio>[0], { title: item.title, href: item.href }) : null
+  return track ? (
+    <div className="relative z-10 self-start pt-1">
+      <PlayAudioButton toned track={track} />
+    </div>
+  ) : null
+}
+
 function Picture({ item, className }: { item: ListItem; className: string }) {
   return item.image ? (
     <div className={`overflow-hidden rounded-4 ${className}`}>
@@ -80,6 +95,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
             <Picture className="aspect-video" item={item} />
             {item.meta && <p className={eyebrow}>{item.meta}</p>}
             <Title className="font-serif text-lg font-bold" item={item} />
+            <Play item={item} />
           </li>
         ))}
       </ul>
@@ -95,6 +111,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
             <div className="flex flex-col gap-1">
               <Title className="font-serif text-xl font-bold" item={item} />
               {item.meta && <p className={eyebrow}>{item.meta}</p>}
+              <Play item={item} />
             </div>
           </li>
         ))}
@@ -108,6 +125,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
           <Picture className="aspect-[3/2]" item={lead!} />
           {lead!.meta && <p className={eyebrow}>{lead!.meta}</p>}
           <Title className="font-serif text-3xl font-bold leading-tight" item={lead!} />
+          <Play item={lead!} />
         </div>
         {rest.length > 0 && (
           <ul className="flex list-none flex-col p-0">
@@ -115,6 +133,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
               <li className="relative flex flex-col gap-1 border-t py-4 first:border-t-0 first:pt-0 [border-color:var(--tone-rule)]" key={item.id}>
                 {item.meta && <p className={eyebrow}>{item.meta}</p>}
                 <Title className="font-serif text-xl font-bold" item={item} />
+                <Play item={item} />
               </li>
             ))}
           </ul>
@@ -131,6 +150,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
               <Title className="font-serif text-xl font-bold leading-snug" item={item} />
               <Summary item={item} />
               {item.meta && <p className="mt-1 text-xs font-semibold [color:var(--tone-muted)]">{item.meta}</p>}
+              <Play item={item} />
             </div>
           </li>
         ))}
@@ -144,6 +164,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
             {item.meta && <p className={eyebrow}>{item.meta}</p>}
             <Title className="font-serif text-xl font-bold leading-snug" item={item} />
             <Summary item={item} />
+            <Play item={item} />
           </li>
         ))}
       </ol>
@@ -156,6 +177,7 @@ export function ListView({ block, items }: { block: ListData; items: readonly Li
             <Picture className="aspect-[3/2]" item={item} />
             {item.meta && <p className={eyebrow}>{item.meta}</p>}
             <Title className="font-serif text-xl font-bold" item={item} />
+            <Play item={item} />
           </li>
         ))}
       </ul>

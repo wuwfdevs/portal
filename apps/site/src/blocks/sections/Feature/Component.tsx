@@ -1,5 +1,7 @@
+import Link from 'next/link'
 import React from 'react'
 
+import { buttonClasses } from '@/components/Kit/button'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { paragraphs } from '@/lib/page-content'
 import { trackFromAudio } from '@/lib/player/track'
@@ -7,7 +9,8 @@ import { recordingEmbed } from '@/lib/radiolive/recording'
 import { cn } from '@/utilities/ui'
 
 import { SectionBand } from '../SectionBand'
-import { type ActionData, SectionActions, SectionImage, eyebrowClass, populatedMedia } from '../parts'
+import { type ActionData, SectionActions, SectionImage, SectionLink, eyebrowClass, populatedMedia } from '../parts'
+import { safeHref } from '@/lib/section-links'
 import type { SectionData, SectionProps } from '../types'
 import { LatestPlay } from './LatestPlay'
 import type { LatestSet } from '@/lib/radiolive/latest-set'
@@ -49,6 +52,32 @@ export function frameSource(block: Pick<FeatureData, 'video' | 'videoUrl'>): Fra
 }
 
 /**
+ * The actions of a lead that follows the show's latest episode, in three tiers so one thing is the main thing: Play is the filled button, the link to the episode is the outline button
+ * (the filled one when the audio cannot be played), and the page's own typed actions ("Explore the map of sites") are links beside them. Three buttons would make the reader choose.
+ */
+function EpisodeActions({ episode, actions, label }: { episode: LatestEpisode; actions: ReadonlyArray<ActionData | null | undefined> | null | undefined; label: string }) {
+  const about = safeHref(episode.href)
+  const links = (actions ?? []).flatMap((a) => {
+    const href = safeHref(a?.href)
+    const text = a?.label?.trim()
+    return href && text ? [{ id: a?.id, href, text }] : []
+  })
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2">
+      {episode.track && <PlayAudioButton label={label} toned track={episode.track} />}
+      {about && (
+        <Link className={buttonClasses({ variant: episode.track ? 'toneOutline' : 'tone' })} href={about}>
+          About this episode
+        </Link>
+      )}
+      {links.map((l) => (
+        <SectionLink href={l.href} key={l.id ?? l.href} label={l.text} />
+      ))}
+    </div>
+  )
+}
+
+/**
  * Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. With `set` (the page asked for the latest recorded
  * RadioLive set and there is one), the set's date, title and description are the label, headline and line, its picture the still and its recording the video, and a link to its page
  * is added after the typed buttons. With `episode` (the page asked to lead with its show's latest episode and the show has one), the episode's date, title and description are the label,
@@ -73,7 +102,6 @@ export function FeatureSection({ block: typed, context, set, episode }: SectionP
           headline: episode.title,
           line: episode.description ?? typed.line,
           image: episode.photo ?? typed.image,
-          actions: [...(typed.actions ?? []), { label: 'About this episode', href: episode.href }],
         }
       : typed
   const headline = block.headline?.trim()
@@ -117,10 +145,15 @@ export function FeatureSection({ block: typed, context, set, episode }: SectionP
           ))}
         </div>
       )}
-      <SectionActions actions={block.actions} className="pt-2" />
-      {track && <PlayAudioButton toned track={track} />}
-      {episode?.track && <PlayAudioButton label={block.playLatestLabel?.trim() || 'Play the latest'} toned track={episode.track} />}
-      {block.playLatest && !block.latestEpisode && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
+      {episode ? (
+        <EpisodeActions actions={typed.actions} episode={episode} label={block.playLatestLabel?.trim() || 'Play the latest'} />
+      ) : (
+        <>
+          <SectionActions actions={block.actions} className="pt-2" />
+          {track && <PlayAudioButton toned track={track} />}
+          {block.playLatest && !block.latestEpisode && context.show && <LatestPlay label={block.playLatestLabel?.trim() || 'Play the latest'} showId={context.show.id} />}
+        </>
+      )}
     </div>
   )
 

@@ -120,3 +120,13 @@ describe('dated lines', () => {
     expect(datePartsOf('2026-12-04T18:00:00Z').time).toBe('12 p.m.')
   })
 })
+
+describe('list entries carry their audio', () => {
+  const audio = { id: 9, url: 'https://files.example/ep.mp3', title: 'T', credit: null, durationSeconds: 600 }
+  it('keeps a story\'s or an episode\'s audio, and leaves the key out when there is none', () => {
+    expect(storyListItem({ id: 1, title: 'T', path: '/a', featuredAudio: audio })?.audio).toMatchObject({ id: 9, url: 'https://files.example/ep.mp3' })
+    expect(episodeListItem({ id: 1, title: 'T', path: '/a', featuredAudio: audio }, 'Show')?.audio).toMatchObject({ id: 9 })
+    expect(storyListItem({ id: 1, title: 'T', path: '/a' })).not.toHaveProperty('audio')
+    expect(storyListItem({ id: 1, title: 'T', path: '/a', featuredAudio: 12 })).not.toHaveProperty('audio')
+  })
+})

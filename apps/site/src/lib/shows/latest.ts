@@ -43,7 +43,7 @@ export const loadLatestTrack = (showId: number | string): Promise<Track | null> 
 
 /**
  * The show's newest published episode, shaped for a Feature's lead (hubs redesign: a show's home leads with what is newest, so the page does not repeat the name the strip already carries).
- * Plain JSON, because it is cached. Unlike "Play the latest" it does not skip an episode that cannot be played: the lead is the newest episode, and `track` is null when its audio is members-only or missing.
+ * Plain JSON, because it is cached. Like "Play the latest" it looks through the newest few episodes for one that can be played, so the lead carries a player whenever any of them has audio; only when none can be played is it the newest episode, with `track` null.
  */
 export interface LatestEpisode {
   title: string
@@ -70,25 +70,31 @@ const readEpisode = async (showId: number | string): Promise<LatestEpisode | nul
     collection: 'posts',
     depth: 1,
     draft: false,
-    limit: 1,
+    limit: RECENT,
     overrideAccess: false,
     pagination: false,
     sort: '-publishedAt',
     select: { title: true, dek: true, path: true, publishedAt: true, meta: true, featuredMedia: true, featuredAudio: true },
+    // An episode is a story in the audio format (the podcast feed, the directory and the show page all say so); the show's other stories are its notes.
     where: { and: [{ production: { equals: showId } }, { format: { equals: 'audio' } }] },
   })
-  const episode = found.docs[0]
-  // An episode with no address has no page to link to and is not a story the public can open yet.
-  if (!episode?.path || !episode.title) return null
-  const audio = episode.featuredAudio && typeof episode.featuredAudio === 'object' ? (episode.featuredAudio as Audio) : null
-  return {
-    title: episode.title,
-    when: dateOf(episode.publishedAt),
-    description: episode.dek?.trim() || episode.meta?.description?.trim() || null,
-    href: episode.path,
-    photo: leadImageOf(episode),
-    track: trackFromAudio(audio, { title: episode.title, href: episode.path }),
-  }
+  const recent = found.docs.flatMap((episode): LatestEpisode[] => {
+    // An episode with no address has no page to link to and is not a story the public can open yet.
+    if (!episode.path || !episode.title) return []
+    const audio = episode.featuredAudio && typeof episode.featuredAudio === 'object' ? (episode.featuredAudio as Audio) : null
+    return [
+      {
+        title: episode.title,
+        when: dateOf(episode.publishedAt),
+        description: episode.dek?.trim() || episode.meta?.description?.trim() || null,
+        href: episode.path,
+        photo: leadImageOf(episode),
+        track: trackFromAudio(audio, { title: episode.title, href: episode.path }),
+      },
+    ]
+  })
+  // The lead is for listening: the newest of the recent episodes that can be played (a members-only episode's audio comes back without its address), and the newest one when none can.
+  return recent.find((e) => e.track) ?? recent[0] ?? null
 }
 
 const cachedEpisode = unstable_cache(readEpisode, ['show-latest-episode'], { revalidate: 300, tags: ['section-data', 'section-data:list'] })
