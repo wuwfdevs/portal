@@ -3,6 +3,7 @@ import React from 'react'
 
 import { ClipRail } from '@/components/Video/ClipRail'
 import { listSpecOf } from '@/lib/section-data/specs'
+import { storyScopeOf } from '../slots'
 import type { ListItem } from '@/lib/section-data/shape'
 import type { ClipView } from '@/lib/video/load'
 
@@ -182,7 +183,7 @@ export function ClipListView({ block, clips }: { block: ListData; clips: readonl
 
 /** List. Draws nothing when its source needs a choice that is not made, or when there is nothing published to list. */
 export async function ListSection({ block, context }: SectionProps<ListData>) {
-  const spec = listSpecOf(block, context.show)
+  const spec = listSpecOf(block, context.show, storyScopeOf(context))
   if (!spec) return null
   const loaded = await import('@/lib/section-data/load')
   if (spec.source === 'clips') return <ClipListView block={block} clips={await loaded.loadClipList(spec)} />

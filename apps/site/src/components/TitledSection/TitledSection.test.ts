@@ -28,7 +28,7 @@ describe('TitledSection', () => {
 
 const clip = (over: Partial<ClipView> = {}): ClipView => ({
   id: 1, slug: 'a-clip', title: 'A clip', description: null, videoUrl: '/v.mp4', mimeType: 'video/mp4', posterUrl: '/p.jpg', durationSeconds: 75, by: 'Leigh Ostrander', publishedAt: null,
-  series: { id: 2, slug: 's', title: 'After Isaias' }, story: null, sectionId: 7, captionsHref: '/video/a-clip/captions.vtt', ...over,
+  series: { id: 2, slug: 's', title: 'After Isaias' }, story: null, sectionId: 7, captionsHref: '/video/a-clip/captions.vtt', voyager: false, ...over,
 })
 
 describe('ClipRail', () => {

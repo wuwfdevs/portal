@@ -16,6 +16,7 @@ import { loadCalendar } from '@/lib/events/load'
 import { zonedInstant } from '@/lib/events/schedule'
 import { loadDirectory } from '@/lib/shows/load'
 import { appearanceLine, appearances } from '@/lib/radiolive/arrange'
+import { voyagerIdentityId } from '@/lib/home-blocks/load'
 import { loadClips, type ClipView } from '@/lib/video/load'
 import { pickClips } from '@/lib/homepage/slots'
 import { clipsForSection } from '@/lib/video/section'
@@ -41,6 +42,7 @@ const isNotFound = (e: unknown): boolean => typeof e === 'object' && e !== null 
 export const sectionClock = unstable_cache(async () => new Date().toISOString(), ['section-clock'], { revalidate: SECTION_REVALIDATE.dates, tags: TAGS })
 
 const readList = async (spec: Exclude<ListSpec, { source: 'performances' | 'artists' }>): Promise<ListItem[]> => {
+  const voyager: Where[] = 'voyager' in spec && spec.voyager ? [{ publishingIdentity: { equals: (await voyagerIdentityId()) ?? 0 } }] : []
   const payload = await getPayload({ config: configPromise })
   // The podcast directory's own read (every listed original show with its count, and the newest episodes across them) is the one source for
   // both: a show's page and the directory agree because they share it.
@@ -62,13 +64,14 @@ const readList = async (spec: Exclude<ListSpec, { source: 'performances' | 'arti
       : spec.source === 'episodes'
         ? { and: [{ production: { equals: 'id' in spec ? spec.id : 0 } }, { format: { equals: 'audio' } }] }
         : { format: { equals: 'video' } }
-  const found = await payload.find({ collection: 'posts', where, depth: 1, limit: spec.count, sort: '-publishedAt', overrideAccess: false, draft: false })
+  const found = await payload.find({ collection: 'posts', where: voyager.length > 0 ? { and: [where, ...voyager] } : where, depth: 1, limit: spec.count, sort: '-publishedAt', overrideAccess: false, draft: false })
   return found.docs.map(storyListItem).filter((i): i is ListItem => i !== null)
 }
 const cachedList = unstable_cache(readList, ['section-list'], { revalidate: SECTION_REVALIDATE.list, tags: [...TAGS, 'section-data:list'] })
 
 const readClips = async (spec: Extract<ListSpec, { source: 'clips' }>): Promise<ClipView[]> => {
-  const all = await loadClips()
+  // On The Voyager's pages only the clips of a Voyager story (a clip has no identity of its own: it takes its story's).
+  const all = (await loadClips()).filter((c) => !spec.voyager || c.voyager)
   if (spec.scope === 'section') return clipsForSection(all, spec.id, spec.count)
   return pickClips(all, { seriesId: spec.firstSeries ?? null, count: spec.count })
 }

@@ -85,6 +85,8 @@ import * as migration_20261123_010555_show_home_page from './20261123_010555_sho
 import * as migration_20261123_013206_unearthing_explore from './20261123_013206_unearthing_explore';
 import * as migration_20261123_013300_unearthing_home_page from './20261123_013300_unearthing_home_page';
 import * as migration_20261123_020000_radiolive_page from './20261123_020000_radiolive_page';
+import * as migration_20261123_030000_voyager_footnote_column from './20261123_030000_voyager_footnote_column';
+import * as migration_20261123_030100_voyager_page from './20261123_030100_voyager_page';
 
 export const migrations = [
   {
@@ -523,5 +525,15 @@ export const migrations = [
     up: migration_20261123_020000_radiolive_page.up,
     down: migration_20261123_020000_radiolive_page.down,
     name: '20261123_020000_radiolive_page',
+  },
+  {
+    up: migration_20261123_030000_voyager_footnote_column.up,
+    down: migration_20261123_030000_voyager_footnote_column.down,
+    name: '20261123_030000_voyager_footnote_column',
+  },
+  {
+    up: migration_20261123_030100_voyager_page.up,
+    down: migration_20261123_030100_voyager_page.down,
+    name: '20261123_030100_voyager_page',
   },
 ];

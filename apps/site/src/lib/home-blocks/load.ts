@@ -33,7 +33,7 @@ const stories = (where: Where, limit: number) => readStories(JSON.stringify(wher
 export type StoryScope = PageSetSpec['stories']
 
 /** The id of The Voyager's publishing identity, or null while it has not been made (then a Voyager page has no stories, not the station's). */
-const voyagerIdentityId = cache(async (): Promise<string | number | null> => {
+export const voyagerIdentityId = cache(async (): Promise<string | number | null> => {
   const payload = await getPayload({ config: configPromise })
   const found = await payload.find({ collection: 'publishing-identities', where: { slug: { equals: VOYAGER_IDENTITY_SLUG } }, limit: 1, depth: 0, pagination: false, overrideAccess: false, select: { slug: true } })
   return found.docs[0]?.id ?? null

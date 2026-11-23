@@ -12,4 +12,4 @@
  *
  * `shells.test.ts` fails when a route that renders a record is missing from this list.
  */
-export const CODED_SHELL_PATHS: ReadonlySet<string> = new Set(['/support/ways', '/support/thanks', '/listens', '/listens/host', '/radiolive', '/radiolive/artists', '/'])
+export const CODED_SHELL_PATHS: ReadonlySet<string> = new Set(['/support/ways', '/support/thanks', '/listens', '/listens/host', '/radiolive', '/radiolive/artists', '/voyager', '/'])

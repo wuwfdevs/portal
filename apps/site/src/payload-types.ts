@@ -8080,6 +8080,10 @@ export interface SharedText {
      */
     linkLabel?: string | null;
   };
+  /**
+   * Who publishes The Voyager and how the students and WUWF work together. Printed under every page of The Voyager, beside “Published with WUWF Public Media”. Empty: only that line is drawn.
+   */
+  voyagerFootnote?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -10261,6 +10265,7 @@ export interface SharedTextSelect<T extends boolean = true> {
             };
         linkLabel?: T;
       };
+  voyagerFootnote?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
