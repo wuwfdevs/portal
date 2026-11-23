@@ -23,6 +23,7 @@ import { hero } from '@/heros/config'
 import { slugField, validations } from 'payload'
 
 import { demoteOtherHomePages, guardHomePage, isHomeField } from '@/hooks/homePage'
+import { demoteOtherShowHomePages, guardShowHome, isShowHomeField, navHiddenField, showField } from '@/hooks/showHomePage'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import { revalidateDelete, revalidatePage } from './hooks/revalidatePage'
@@ -52,6 +53,8 @@ export const Pages: CollectionConfig<'pages'> = {
     slug: true,
     path: true,
     isHome: true,
+    show: true,
+    isShowHome: true,
   },
   admin: {
     defaultColumns: ['title', 'path', 'updatedAt'],
@@ -95,6 +98,8 @@ export const Pages: CollectionConfig<'pages'> = {
       options: Object.values(PAGE_THEMES).filter((t) => t.built).map((t) => ({ label: t.label, value: t.id })),
       admin: { position: 'sidebar', condition: (_, { template }) => template === 'sections', description: 'Empty: the page set\'s theme.' },
     },
+    showField,
+    isShowHomeField,
     {
       type: 'row',
       admin: { condition: (_, { template }) => template === 'sections' },
@@ -103,6 +108,7 @@ export const Pages: CollectionConfig<'pages'> = {
         { name: 'navOrder', type: 'number', admin: { width: '40%', description: 'Lowest first. Empty: after the numbered pages.' } },
       ],
     },
+    navHiddenField,
     {
       type: 'row',
       admin: { condition: (_, { template }) => template === 'sections' },
@@ -239,8 +245,8 @@ export const Pages: CollectionConfig<'pages'> = {
   ],
   hooks: {
     beforeValidate: [ensureSlug('title')],
-    afterChange: [demoteOtherHomePages, redirectOnPathChange, revalidatePage],
-    beforeChange: [enforcePageSet, guardHomePage, restrictedBlocksGuard(['body', 'sections']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
+    afterChange: [demoteOtherHomePages, demoteOtherShowHomePages, redirectOnPathChange, revalidatePage],
+    beforeChange: [enforcePageSet, guardHomePage, guardShowHome, restrictedBlocksGuard(['body', 'sections']), pathBeforeChange('pages'), legacyIdentityWriteOnce, populatePublishedAt],
     afterDelete: [revalidateDelete],
   },
   versions: {

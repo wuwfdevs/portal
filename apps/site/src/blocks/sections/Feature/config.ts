@@ -1,3 +1,5 @@
+import { validateRecordingUrl } from '@/lib/radiolive/recording'
+
 import { actionsField, defineSection, sectionFields } from '../fields'
 
 export const FEATURE_VARIANTS = [
@@ -14,7 +16,8 @@ export const FEATURE_RATIOS = [
 
 /**
  * Feature: the one thing a page leads with (PAGE-BLOCKS.md → Block catalogue). Typed fields: a label, a headline, a line, up to two
- * buttons, a picture, and audio the visitor can play in the site's one player. `hero` and `split` are layouts over the same fields; the
+ * buttons, a picture, audio the visitor can play in the site's one player, and a video (a hosted address or a file in the video library) that takes the picture's
+ * place: the picture is its still, with a play button, and nothing from the video's host loads until it is pressed. `hero` and `split` are layouts over the same fields; the
  * split's `ratio` and `imageSide` are read only by it (a hidden field keeps its data and is not validated).
  */
 export const Feature = defineSection({
@@ -31,6 +34,22 @@ export const Feature = defineSection({
       { name: 'line', type: 'textarea', admin: { description: 'One or two sentences under the headline.' } },
       actionsField(),
       { name: 'image', type: 'upload', relationTo: 'media', admin: { description: 'Its description (alt text) is what a screen reader says.' } },
+      {
+        name: 'videoUrl',
+        type: 'text',
+        label: 'Video address',
+        validate: validateRecordingUrl,
+        admin: { description: 'Optional. The address of one video on YouTube or Vimeo. The picture becomes its still, with a play button; the video loads only when a visitor presses it.' },
+      },
+      { name: 'video', type: 'upload', relationTo: 'video', admin: { description: 'Optional. A file from the video library instead of an address. If both are set, the file plays.' } },
+      {
+        name: 'playLatest',
+        type: 'checkbox',
+        label: 'Play the latest episode',
+        defaultValue: false,
+        admin: { description: 'On a page that speaks for a show: a play button for the show\'s newest episode with audio. It follows the show, so nobody edits the page when a new episode comes out.' },
+      },
+      { name: 'playLatestLabel', type: 'text', admin: { description: 'The words on that button. Empty: "Play the latest".', condition: (_, s) => s?.playLatest === true } },
       { name: 'audio', type: 'upload', relationTo: 'audio', admin: { description: 'Optional. A play button that hands the audio to the site\'s player.' } },
       {
         name: 'aside',

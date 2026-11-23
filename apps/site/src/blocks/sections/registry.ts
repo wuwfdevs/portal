@@ -48,6 +48,8 @@ import { ShowSpotlight } from './ShowSpotlight/config'
 import { ShowSpotlightSection } from './ShowSpotlight/Component'
 import { FeaturePanels } from './FeaturePanels/config'
 import { FeaturePanelsSection } from './FeaturePanels/Component'
+import { Explore } from './Explore/config'
+import { ExploreSection } from './Explore/Component'
 import { Text } from './Text/config'
 import { TextSection } from './Text/Component'
 import { Carpool } from './Carpool/config'
@@ -121,13 +123,16 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   // Layout: Columns holds other sections (one level); Illustration is drawn only inside it.
   { dir: 'Columns', block: Columns, Component: ColumnsSection },
   { dir: 'Illustration', block: Illustration, Component: IllustrationSection, inlineOnly: true },
-  // Offered only on pages in the home set (PAGE-BLOCKS.md → Home). The Front page lead, the Fellowship feature and the News runs take part in the page's ordered pass, so a
+  // Offered only on pages in the home set and, for the Front page lead, News run and Show spotlight, The Voyager's (hubs redesign, 2026-11-23: on its pages they read the Voyager's stories and shows alone).
+  // (PAGE-BLOCKS.md → Home). The Front page lead, the Fellowship feature and the News runs take part in the page's ordered pass, so a
   // story appears once; the News runs are what the page's sponsor rows sit above.
-  { dir: 'FrontPage', block: FrontPage, Component: FrontPageSection, sets: ['home'], claimRequest: frontPageClaim, drawsTop: true },
+  { dir: 'FrontPage', block: FrontPage, Component: FrontPageSection, sets: ['home', 'voyager'], claimRequest: frontPageClaim, drawsTop: true },
   { dir: 'FellowshipFeature', block: FellowshipFeature, Component: FellowshipFeatureSection, sets: ['home'], claimRequest: fellowshipFeatureClaim },
-  { dir: 'NewsRun', block: NewsRun, Component: NewsRunSection, sets: ['home'], claimRequest: newsRunClaim, anchor: true },
-  { dir: 'ShowSpotlight', block: ShowSpotlight, Component: ShowSpotlightSection, sets: ['home'] },
+  { dir: 'NewsRun', block: NewsRun, Component: NewsRunSection, sets: ['home', 'voyager'], claimRequest: newsRunClaim, anchor: true },
+  { dir: 'ShowSpotlight', block: ShowSpotlight, Component: ShowSpotlightSection, sets: ['home', 'voyager'] },
   { dir: 'FeaturePanels', block: FeaturePanels, Component: FeaturePanelsSection, sets: ['home'] },
+  // Offered only on pages in the Unearthing Florida set (hubs redesign, 2026-11-23): the map, the time window and the list of sites, read from the show the page speaks for.
+  { dir: 'Explore', block: Explore, Component: ExploreSection, sets: ['unearthing'] },
   // Offered only on pages in the sponsor set (PAGE-BLOCKS.md → Block catalogue, set-only blocks). Each reads the Sponsorship settings.
   { dir: 'RateEstimator', block: RateEstimator, Component: RateEstimatorSection, sets: ['sponsor'] },
   { dir: 'Packages', block: Packages, Component: PackagesSection, sets: ['sponsor'] },

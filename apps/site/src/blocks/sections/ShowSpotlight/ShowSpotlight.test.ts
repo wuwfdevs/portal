@@ -40,6 +40,22 @@ describe('Show spotlight', () => {
     expect(out).toContain('Other')
     expect(out.indexOf('All podcasts')).toBeLessThan(out.indexOf('A new episode'))
   })
+  it('with Only these shows, asks for those alone and links where the editor says', async () => {
+    const out = renderToStaticMarkup((await ShowSpotlightSection({ block: { blockType: 'sectionShowSpotlight', onlyShows: [{ id: 5 }, 6], moreLabel: 'All shows', moreHref: '/voyager/shows' } as never, context: testContext })) as never)
+    expect(loadPodcastsSlot).toHaveBeenLastCalledWith(null, [5, 6])
+    expect(out).toContain('All shows')
+    expect(out).toContain('href="/voyager/shows"')
+    expect(out).not.toContain('All podcasts')
+  })
+  it('on a Voyager page it draws nothing until some shows are chosen, and never reads the directory for them', async () => {
+    const voyager = { ...testContext, setId: 'voyager' as const }
+    const bare = await ShowSpotlightSection({ block: { blockType: 'sectionShowSpotlight' } as never, context: voyager })
+    expect(bare).toBeNull()
+    expect(loadPodcastsSlot).not.toHaveBeenCalled()
+    const chosen = await ShowSpotlightSection({ block: { blockType: 'sectionShowSpotlight', onlyShows: [5] } as never, context: voyager })
+    expect(renderToStaticMarkup(chosen as never)).toContain('A new episode')
+    expect(loadPodcastsSlot).toHaveBeenLastCalledWith(null, [5])
+  })
   it('draws nothing when no listed show has an episode, and when the read fails', async () => {
     slot = null
     expect(await draw({})).toBe('')

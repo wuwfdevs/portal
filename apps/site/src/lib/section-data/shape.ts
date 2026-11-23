@@ -178,6 +178,20 @@ export function performanceDateItem(doc: unknown): DateItem | null {
   return { id: `show-${id}`, title, startsAt, endsAt: null, place: str(p.venue), href: slug && /^[a-z0-9-]+$/.test(slug) ? `/radiolive/${slug}` : null }
 }
 
+/**
+ * A past RadioLive show as a List entry (the hub's "Watch recent shows"): its title, its address (`/radiolive/<slug>`), the night's photo and the date it was held.
+ * The photo is the entry's picture; a show with no photo draws a title and a date only.
+ */
+export function performanceListItem(doc: unknown): ListItem | null {
+  const p = obj(doc)
+  const title = str(p?.title)
+  const startsAt = isoOf(p?.startsAt)
+  const slug = str(p?.slug)
+  const id = idOf(p?.id)
+  if (!p || !title || !startsAt || id === null) return null
+  return { id: `show-${id}`, title, href: slug && /^[a-z0-9-]+$/.test(slug) ? `/radiolive/${slug}` : null, image: pictureOf(p.photo), meta: shortDate(startsAt) }
+}
+
 /** A typed date row as a dated line. A row needs a title and a start. */
 export function typedDateItem(row: unknown, index: number): DateItem | null {
   const r = obj(row)

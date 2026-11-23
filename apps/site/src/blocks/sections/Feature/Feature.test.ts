@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { renderBlock } from '../testing'
-import { FeatureSection } from './Component'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+import { renderBlock, testContext } from '../testing'
+import { FeatureSection, frameSource } from './Component'
 
 const html = (block: Record<string, unknown>) => renderBlock(FeatureSection, 'sectionFeature', block)
 const picture = { id: 4, url: '/media/lead.jpg', alt: 'A guitarist on stage', width: 1200, height: 800, mimeType: 'image/jpeg' }
@@ -81,5 +84,56 @@ describe('Feature section: a panel beside the hero', () => {
     expect(out).toContain('Support comes from Example.')
     expect(html({ variant: 'hero', headline: 'H', aside: 'none', figures: [{ value: '1', text: 'a' }] })).not.toContain('<li')
     expect(html({ variant: 'hero', headline: 'H', aside: 'quote' })).not.toContain('<figure')
+  })
+})
+
+describe('Feature video frame (hubs redesign)', () => {
+  const file = { id: 9, url: '/video/set.mp4', title: 'The set', mimeType: 'video/mp4' }
+  it('a YouTube address makes the picture a still with a play button, and loads nothing from the host', () => {
+    const out = html({ variant: 'split', headline: 'The Emerald Coast Strings', image: picture, videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' })
+    expect(out).toContain('aria-label="Play video: The Emerald Coast Strings"')
+    expect(out).toContain('lead.jpg')
+    expect(out).not.toContain('<iframe')
+    expect(out).not.toContain('youtube')
+    expect(out).toContain('aspect-video')
+  })
+  it('a library file wins over an address', () => {
+    expect(frameSource({ video: file, videoUrl: 'https://vimeo.com/123456789' })).toEqual({ kind: 'file', url: '/video/set.mp4', mimeType: 'video/mp4' })
+  })
+  it('an address becomes the site\'s own embed address, never the pasted one', () => {
+    expect(frameSource({ videoUrl: 'https://youtu.be/dQw4w9WgXcQ?t=5' })).toEqual({ kind: 'embed', src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=5' })
+  })
+  it('refuses an address that is not one video on YouTube or Vimeo, and a deleted file (a bare id), leaving the picture alone', () => {
+    expect(frameSource({ videoUrl: 'https://example.org/clip' })).toBeNull()
+    expect(frameSource({ videoUrl: 'https://www.youtube.com/playlist?list=PLabc' })).toBeNull()
+    expect(frameSource({ video: 12 })).toBeNull()
+    const out = html({ variant: 'split', headline: 'H', image: picture, video: 12, ratio: 'portrait' })
+    expect(out).not.toContain('Play video')
+    expect(out).toContain('aspect-[4/5]')
+  })
+  it('a video alone, with no picture, still draws a frame; the hero draws it below the headline', () => {
+    expect(html({ variant: 'split', headline: 'H', videoUrl: 'https://vimeo.com/123456789' })).toContain('Play video: H')
+    expect(html({ variant: 'hero', headline: 'H', videoUrl: 'https://vimeo.com/123456789' })).toContain('Play video: H')
+  })
+  it('the hero title reads the theme\'s display style and colour, which fall back to the band\'s text', () => {
+    const out = html({ variant: 'hero', headline: 'Unearthing Florida' })
+    expect(out).toContain('[font-style:var(--tone-display-style,normal)]')
+    expect(out).toContain('[color:var(--tone-display,var(--tone-text))]')
+  })
+})
+
+// The control itself is an async server component (`LatestPlay.test.ts`); here a marker stands in for it, to check that Feature places it with the page's show and the right words.
+vi.mock('./LatestPlay', () => ({ LatestPlay: (props: { showId: number; label: string }) => createElement('i', { 'data-latest': props.showId }, props.label) }))
+
+describe('Feature "Play the latest" (a show\'s newest episode)', () => {
+  const draw = (block: Record<string, unknown>, show?: { id: number }) =>
+    renderToStaticMarkup(FeatureSection({ block: { blockType: 'sectionFeature', headline: 'Unearthing Florida', variant: 'hero', ...block } as never, context: { ...testContext, ...(show ? { show } : {}) } }) as never)
+  it('puts the control in the words, for the page\'s show, with the default or the editor\'s words', () => {
+    expect(draw({ playLatest: true }, { id: 7 })).toContain('<i data-latest="7">Play the latest</i>')
+    expect(draw({ playLatest: true, playLatestLabel: ' Hear the newest ' }, { id: 7 })).toContain('>Hear the newest</i>')
+  })
+  it('draws no control when it is not asked for, or when the page speaks for no show', () => {
+    expect(draw({ playLatest: false }, { id: 7 })).not.toContain('data-latest')
+    expect(draw({ playLatest: true })).not.toContain('data-latest')
   })
 })

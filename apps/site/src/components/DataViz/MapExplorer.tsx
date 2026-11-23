@@ -8,6 +8,7 @@ import * as maplibregl from 'maplibre-gl'
 import React, { useEffect, useRef } from 'react'
 
 import type { MapModel } from '@/lib/dataviz/engines/types'
+import { mapStyle } from '@/lib/dataviz/map-style'
 
 type Interactive = NonNullable<MapModel['interactive']>
 
@@ -27,7 +28,7 @@ export default function MapExplorer({ data, styleUrl, label }: { data: Interacti
     if (!el) return
     const map: MapLibreMap = new maplibregl.Map({
       container: el,
-      style: styleUrl ?? { version: 8, sources: {}, layers: [{ id: 'ground', type: 'background', paint: { 'background-color': colors['surface-2'] } }] },
+      style: mapStyle(styleUrl),
       bounds: data.bounds,
       fitBoundsOptions: { padding: 32, maxZoom: 12 },
       attributionControl: false,

@@ -23,7 +23,7 @@ import type { AcknowledgmentLine } from '@/lib/underwriting/resolve'
 
 import type { CreditSpec, DatesSpec, FeaturedSpec, ListSpec } from './specs'
 import {
-  artistListItem, episodeListItem, performanceDateItem, productionFeatured, showListItem, storyFeatured, storyListItem, upcomingDates,
+  artistListItem, episodeListItem, performanceDateItem, performanceListItem, productionFeatured, showListItem, storyFeatured, storyListItem, upcomingDates,
   DEFAULT_DURATION_HOURS, type DateItem, type FeaturedItem, type ListItem,
 } from './shape'
 
@@ -39,7 +39,7 @@ const isNotFound = (e: unknown): boolean => typeof e === 'object' && e !== null 
  */
 export const sectionClock = unstable_cache(async () => new Date().toISOString(), ['section-clock'], { revalidate: SECTION_REVALIDATE.dates, tags: TAGS })
 
-const readList = async (spec: ListSpec): Promise<ListItem[]> => {
+const readList = async (spec: Exclude<ListSpec, { source: 'performances' }>): Promise<ListItem[]> => {
   const payload = await getPayload({ config: configPromise })
   if (spec.source === 'artists') {
     const found = await payload.find({ collection: 'artists', depth: 1, limit: spec.count, sort: 'name', overrideAccess: false, draft: false })
@@ -82,8 +82,28 @@ export async function loadClipList(spec: Extract<ListSpec, { source: 'clips' }>)
   return cachedClips(spec)
 }
 
+/**
+ * RadioLive shows that are over and have a recording to watch (an address on YouTube or Vimeo, or a file in the video library), newest first. The clock is the cached one, so
+ * a show that has just ended joins the list on the page's next regeneration and the page is cached for no longer than the dates' window.
+ */
+const readPerformances = async (spec: Extract<ListSpec, { source: 'performances' }>, nowIso: string): Promise<ListItem[]> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({
+    collection: 'performances',
+    where: { and: [{ startsAt: { less_than: nowIso } }, { or: [{ recordingUrl: { exists: true } }, { video: { exists: true } }] }] },
+    depth: 1,
+    limit: spec.count,
+    sort: '-startsAt',
+    overrideAccess: false,
+    draft: false,
+  })
+  return found.docs.map(performanceListItem).filter((i): i is ListItem => i !== null)
+}
+const cachedPerformances = unstable_cache(readPerformances, ['section-performances'], { revalidate: SECTION_REVALIDATE.dates, tags: [...TAGS, 'section-data:list', 'section-data:dates'] })
+
 /** The entries a List shows. An empty list (nothing published, a deleted section) is `[]`. */
 export async function loadList(spec: ListSpec): Promise<ListItem[]> {
+  if (spec.source === 'performances') return cachedPerformances(spec, await sectionClock())
   return cachedList(spec)
 }
 

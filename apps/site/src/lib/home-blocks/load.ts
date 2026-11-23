@@ -11,6 +11,8 @@ import { arrangeHomepage } from '@/lib/homepage/select'
 import { CARD_FIELDS, type HomeStory } from '@/lib/homepage/story'
 import { MODULE_SLACK } from '@/lib/homepage/modules'
 import { getFellowshipHubAcknowledgments } from '@/lib/underwriting/load'
+import { VOYAGER_IDENTITY_SLUG } from '@/lib/voyager/identity'
+import type { PageSetSpec } from '@/lib/page-sets/registry'
 import type { Fellowship } from '@/payload-types'
 
 import { relationId } from '@/lib/section-data/shape'
@@ -27,11 +29,26 @@ const readStories = cache(async (whereKey: string, limit: number): Promise<HomeS
 
 const stories = (where: Where, limit: number) => readStories(JSON.stringify(where), limit)
 
-/** The newest published stories filed under a section, whatever their source (Florida News is featured on purpose), `count` plus the slack the ordered pass needs. */
-export const newestInSection = (sectionId: string | number, count: number): Promise<HomeStory[]> => stories({ section: { equals: sectionId } }, count + MODULE_SLACK)
+/** Whose stories a page's story blocks read (`PageSetSpec.stories`). */
+export type StoryScope = PageSetSpec['stories']
 
-/** The newest of WUWF's own stories: what the lead and the Briefing fall back to. */
-export const newestOwn = (limit: number = RECENT_LIMIT): Promise<HomeStory[]> => stories({ source: { equals: 'wuwf' } }, limit)
+/** The id of The Voyager's publishing identity, or null while it has not been made (then a Voyager page has no stories, not the station's). */
+const voyagerIdentityId = cache(async (): Promise<string | number | null> => {
+  const payload = await getPayload({ config: configPromise })
+  const found = await payload.find({ collection: 'publishing-identities', where: { slug: { equals: VOYAGER_IDENTITY_SLUG } }, limit: 1, depth: 0, pagination: false, overrideAccess: false, select: { slug: true } })
+  return found.docs[0]?.id ?? null
+})
+
+/** The condition a scope adds to a read: nothing for the station's pages; The Voyager's identity for its pages (an id that matches nothing when the identity does not exist). */
+const scopeWhere = async (scope: StoryScope): Promise<Where[]> => (scope === 'voyager' ? [{ publishingIdentity: { equals: (await voyagerIdentityId()) ?? 0 } }] : [])
+
+/** The newest published stories filed under a section, whatever their source (Florida News is featured on purpose), `count` plus the slack the ordered pass needs. On a Voyager page, only the Voyager's. */
+export const newestInSection = async (sectionId: string | number, count: number, scope: StoryScope = 'station'): Promise<HomeStory[]> =>
+  stories({ and: [{ section: { equals: sectionId } }, ...(await scopeWhere(scope))] }, count + MODULE_SLACK)
+
+/** The newest of WUWF's own stories: what the lead and the Briefing fall back to. On a Voyager page, the newest of the Voyager's. */
+export const newestOwn = async (limit: number = RECENT_LIMIT, scope: StoryScope = 'station'): Promise<HomeStory[]> =>
+  scope === 'voyager' ? stories({ and: await scopeWhere(scope) }, limit) : stories({ source: { equals: 'wuwf' } }, limit)
 
 /** Published stories by id, in the order given. An id that is no longer published is left out. */
 export async function storiesByIds(ids: readonly (string | number)[]): Promise<HomeStory[]> {
@@ -53,10 +70,10 @@ export const sectionById = cache(async (id: string | number): Promise<{ id: stri
  * The lead and the Briefing as the editors set them: the chosen lead, else the newest of WUWF's own; the chosen top stories, filled up to five with the newest. The same
  * arrangement the coded home page makes (`arrangeHomepage`), returned as ids in order (the lead first) so the page's ordered pass can claim them before any news run does.
  */
-export async function arrangeFront(block: { lead?: unknown; topStories?: unknown }): Promise<{ lead: HomeStory | null; top: HomeStory[] }> {
+export async function arrangeFront(block: { lead?: unknown; topStories?: unknown }, scope: StoryScope = 'station'): Promise<{ lead: HomeStory | null; top: HomeStory[] }> {
   const leadId = relationId(block.lead)
   const topIds = (Array.isArray(block.topStories) ? block.topStories : []).map(relationId).filter((v): v is string | number => v !== null)
-  const [recent, picked] = await Promise.all([newestOwn(), storiesByIds([...(leadId !== null ? [leadId] : []), ...topIds])])
+  const [recent, picked] = await Promise.all([newestOwn(RECENT_LIMIT, scope), storiesByIds([...(leadId !== null ? [leadId] : []), ...topIds])])
   const byId = new Map(picked.map((s) => [String(s.id), s]))
   return arrangeHomepage({
     curatedLead: leadId !== null ? (byId.get(String(leadId)) ?? null) : null,

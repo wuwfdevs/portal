@@ -1,5 +1,6 @@
 /* Generated from src/lib/page-themes/themes.ts by scripts/generate-page-themes-css.ts. Do not edit; run `pnpm generate:themes`. */
-[data-page-theme="wuwf"] [data-tone="plain"] {
+[data-page-theme="wuwf"] [data-tone="plain"],
+[data-page-theme="wuwf"] [data-nav-tone="plain"] {
   --tone-ground: var(--color-surface);
   --tone-text: var(--color-ink);
   --tone-muted: var(--color-ink-3);
@@ -12,6 +13,8 @@
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-wuwf-blue-100);
   --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -21,7 +24,8 @@
 [data-page-theme="wuwf"] [data-tone="plain"]:has(+ [data-tone="plain"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="grey"] {
+[data-page-theme="wuwf"] [data-tone="grey"],
+[data-page-theme="wuwf"] [data-nav-tone="grey"] {
   --tone-ground: var(--color-surface-2);
   --tone-text: var(--color-ink);
   --tone-muted: var(--color-ink-3);
@@ -34,6 +38,8 @@
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-wuwf-blue-100);
   --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -43,7 +49,8 @@
 [data-page-theme="wuwf"] [data-tone="grey"]:has(+ [data-tone="grey"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="accent"] {
+[data-page-theme="wuwf"] [data-tone="accent"],
+[data-page-theme="wuwf"] [data-nav-tone="accent"] {
   --tone-ground: var(--color-wuwf-blue-100);
   --tone-text: var(--color-ink);
   --tone-muted: var(--color-ink-2);
@@ -56,6 +63,8 @@
   --tone-card-rule: var(--color-rule-strong);
   --tone-tint: var(--color-surface);
   --tone-mark: var(--color-wuwf-lime-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -65,7 +74,8 @@
 [data-page-theme="wuwf"] [data-tone="accent"]:has(+ [data-tone="accent"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="dark"] {
+[data-page-theme="wuwf"] [data-tone="dark"],
+[data-page-theme="wuwf"] [data-nav-tone="dark"] {
   --tone-ground: var(--color-surface-dark);
   --tone-text: var(--color-surface);
   --tone-muted: var(--color-surface-dark-text);
@@ -78,6 +88,8 @@
   --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
   --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
   --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -87,7 +99,8 @@
 [data-page-theme="wuwf"] [data-tone="dark"]:has(+ [data-tone="dark"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="teal"] {
+[data-page-theme="wuwf"] [data-tone="teal"],
+[data-page-theme="wuwf"] [data-nav-tone="teal"] {
   --tone-ground: var(--color-wuwf-teal);
   --tone-text: var(--color-surface);
   --tone-muted: var(--color-surface-dark-text);
@@ -100,6 +113,8 @@
   --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
   --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
   --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -109,7 +124,8 @@
 [data-page-theme="wuwf"] [data-tone="teal"]:has(+ [data-tone="teal"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="lime"] {
+[data-page-theme="wuwf"] [data-tone="lime"],
+[data-page-theme="wuwf"] [data-nav-tone="lime"] {
   --tone-ground: var(--color-wuwf-lime);
   --tone-text: var(--color-ink);
   --tone-muted: var(--color-ink-2);
@@ -122,6 +138,8 @@
   --tone-card-rule: var(--color-ink-3);
   --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
   --tone-mark: var(--color-wuwf-lime-600);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -131,7 +149,8 @@
 [data-page-theme="wuwf"] [data-tone="lime"]:has(+ [data-tone="lime"]) {
   padding-bottom: 0;
 }
-[data-page-theme="wuwf"] [data-tone="softlime"] {
+[data-page-theme="wuwf"] [data-tone="softlime"],
+[data-page-theme="wuwf"] [data-nav-tone="softlime"] {
   --tone-ground: var(--color-wuwf-lime-100);
   --tone-text: var(--color-ink);
   --tone-muted: var(--color-ink-2);
@@ -144,6 +163,8 @@
   --tone-card-rule: var(--color-wuwf-lime-600);
   --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
   --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
   background-color: var(--tone-ground);
   color: var(--tone-text);
 }
@@ -151,5 +172,533 @@
   padding-top: 2rem;
 }
 [data-page-theme="wuwf"] [data-tone="softlime"]:has(+ [data-tone="softlime"]) {
+  padding-bottom: 0;
+}
+
+[data-page-theme="radiolive"] [data-tone="plain"],
+[data-page-theme="radiolive"] [data-nav-tone="plain"] {
+  --tone-ground: var(--color-surface);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-rule);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-blue-100);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="plain"] + [data-tone="plain"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="plain"]:has(+ [data-tone="plain"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="grey"],
+[data-page-theme="radiolive"] [data-nav-tone="grey"] {
+  --tone-ground: var(--color-surface-2);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-blue-100);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="grey"] + [data-tone="grey"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="grey"]:has(+ [data-tone="grey"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="accent"],
+[data-page-theme="radiolive"] [data-nav-tone="accent"] {
+  --tone-ground: var(--color-wuwf-blue-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-surface);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="accent"] + [data-tone="accent"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="accent"]:has(+ [data-tone="accent"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="dark"],
+[data-page-theme="radiolive"] [data-nav-tone="dark"] {
+  --tone-ground: var(--color-surface-dark);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="dark"] + [data-tone="dark"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="dark"]:has(+ [data-tone="dark"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="teal"],
+[data-page-theme="radiolive"] [data-nav-tone="teal"] {
+  --tone-ground: var(--color-wuwf-teal);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="teal"] + [data-tone="teal"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="teal"]:has(+ [data-tone="teal"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="lime"],
+[data-page-theme="radiolive"] [data-nav-tone="lime"] {
+  --tone-ground: var(--color-wuwf-lime);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-ink);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-ink);
+  --tone-ghost: var(--color-ink);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-ink-3);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --tone-mark: var(--color-wuwf-lime-600);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="lime"] + [data-tone="lime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="lime"]:has(+ [data-tone="lime"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="radiolive"] [data-tone="softlime"],
+[data-page-theme="radiolive"] [data-nav-tone="softlime"] {
+  --tone-ground: var(--color-wuwf-lime-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-wuwf-lime-600);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="radiolive"] [data-tone="softlime"] + [data-tone="softlime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="radiolive"] [data-tone="softlime"]:has(+ [data-tone="softlime"]) {
+  padding-bottom: 0;
+}
+
+[data-page-theme="voyager"] [data-tone="plain"],
+[data-page-theme="voyager"] [data-nav-tone="plain"] {
+  --tone-ground: var(--color-surface);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-rule);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-teal);
+  --tone-ghost: var(--color-wuwf-teal);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-teal-100);
+  --tone-mark: var(--color-wuwf-teal-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="plain"] + [data-tone="plain"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="plain"]:has(+ [data-tone="plain"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="grey"],
+[data-page-theme="voyager"] [data-nav-tone="grey"] {
+  --tone-ground: var(--color-surface-2);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-teal);
+  --tone-ghost: var(--color-wuwf-teal);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-wuwf-teal-100);
+  --tone-mark: var(--color-wuwf-teal-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="grey"] + [data-tone="grey"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="grey"]:has(+ [data-tone="grey"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="accent"],
+[data-page-theme="voyager"] [data-nav-tone="accent"] {
+  --tone-ground: var(--color-wuwf-teal-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-teal);
+  --tone-ghost: var(--color-wuwf-teal);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-surface);
+  --tone-mark: var(--color-surface);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="accent"] + [data-tone="accent"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="accent"]:has(+ [data-tone="accent"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="dark"],
+[data-page-theme="voyager"] [data-nav-tone="dark"] {
+  --tone-ground: var(--color-surface-dark);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="dark"] + [data-tone="dark"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="dark"]:has(+ [data-tone="dark"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="teal"],
+[data-page-theme="voyager"] [data-nav-tone="teal"] {
+  --tone-ground: var(--color-wuwf-teal);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="teal"] + [data-tone="teal"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="teal"]:has(+ [data-tone="teal"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="lime"],
+[data-page-theme="voyager"] [data-nav-tone="lime"] {
+  --tone-ground: var(--color-wuwf-lime);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-ink);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-ink);
+  --tone-ghost: var(--color-ink);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-ink-3);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --tone-mark: var(--color-wuwf-lime-600);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="lime"] + [data-tone="lime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="lime"]:has(+ [data-tone="lime"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="voyager"] [data-tone="softlime"],
+[data-page-theme="voyager"] [data-nav-tone="softlime"] {
+  --tone-ground: var(--color-wuwf-lime-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-wuwf-lime-600);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-text);
+  --tone-display-style: normal;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="voyager"] [data-tone="softlime"] + [data-tone="softlime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="voyager"] [data-tone="softlime"]:has(+ [data-tone="softlime"]) {
+  padding-bottom: 0;
+}
+
+[data-page-theme="unearthing"] [data-tone="plain"],
+[data-page-theme="unearthing"] [data-nav-tone="plain"] {
+  --tone-ground: var(--color-warning-bg);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-warning-border);
+  --tone-button: var(--color-ink);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-warning-fg);
+  --tone-ghost: var(--color-warning-fg);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-warning-border);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  --tone-mark: var(--color-surface);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="plain"] + [data-tone="plain"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="plain"]:has(+ [data-tone="plain"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="grey"],
+[data-page-theme="unearthing"] [data-nav-tone="grey"] {
+  --tone-ground: var(--color-surface);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-3);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-ink);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-warning-fg);
+  --tone-ghost: var(--color-warning-fg);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-warning-border);
+  --tone-tint: var(--color-warning-bg);
+  --tone-mark: var(--color-warning-bg);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="grey"] + [data-tone="grey"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="grey"]:has(+ [data-tone="grey"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="accent"],
+[data-page-theme="unearthing"] [data-nav-tone="accent"] {
+  --tone-ground: var(--color-wuwf-blue-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-rule-strong);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-rule-strong);
+  --tone-tint: var(--color-surface);
+  --tone-mark: var(--color-wuwf-lime-100);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="accent"] + [data-tone="accent"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="accent"]:has(+ [data-tone="accent"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="dark"],
+[data-page-theme="unearthing"] [data-nav-tone="dark"] {
+  --tone-ground: var(--color-surface-dark);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="dark"] + [data-tone="dark"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="dark"]:has(+ [data-tone="dark"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="teal"],
+[data-page-theme="unearthing"] [data-nav-tone="teal"] {
+  --tone-ground: var(--color-wuwf-teal);
+  --tone-text: var(--color-surface);
+  --tone-muted: var(--color-surface-dark-text);
+  --tone-rule: var(--color-surface-dark-line);
+  --tone-button: var(--color-wuwf-lime);
+  --tone-button-text: var(--color-ink);
+  --tone-accent: var(--color-wuwf-lime);
+  --tone-ghost: var(--color-surface);
+  --tone-card: color-mix(in srgb, var(--color-surface) 6%, transparent);
+  --tone-card-rule: color-mix(in srgb, var(--color-surface) 18%, transparent);
+  --tone-tint: color-mix(in srgb, var(--color-surface) 10%, transparent);
+  --tone-mark: var(--color-wuwf-lime);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="teal"] + [data-tone="teal"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="teal"]:has(+ [data-tone="teal"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="lime"],
+[data-page-theme="unearthing"] [data-nav-tone="lime"] {
+  --tone-ground: var(--color-wuwf-lime);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-ink);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-ink);
+  --tone-ghost: var(--color-ink);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-ink-3);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --tone-mark: var(--color-wuwf-lime-600);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="lime"] + [data-tone="lime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="lime"]:has(+ [data-tone="lime"]) {
+  padding-bottom: 0;
+}
+[data-page-theme="unearthing"] [data-tone="softlime"],
+[data-page-theme="unearthing"] [data-nav-tone="softlime"] {
+  --tone-ground: var(--color-wuwf-lime-100);
+  --tone-text: var(--color-ink);
+  --tone-muted: var(--color-ink-2);
+  --tone-rule: var(--color-ink-3);
+  --tone-button: var(--color-wuwf-blue-700);
+  --tone-button-text: var(--color-surface);
+  --tone-accent: var(--color-wuwf-blue-700);
+  --tone-ghost: var(--color-wuwf-blue-700);
+  --tone-card: var(--color-surface);
+  --tone-card-rule: var(--color-wuwf-lime-600);
+  --tone-tint: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  --tone-mark: var(--color-wuwf-blue-100);
+  --tone-display: var(--tone-accent);
+  --tone-display-style: italic;
+  background-color: var(--tone-ground);
+  color: var(--tone-text);
+}
+[data-page-theme="unearthing"] [data-tone="softlime"] + [data-tone="softlime"] {
+  padding-top: 2rem;
+}
+[data-page-theme="unearthing"] [data-tone="softlime"]:has(+ [data-tone="softlime"]) {
   padding-bottom: 0;
 }

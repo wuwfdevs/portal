@@ -28,6 +28,7 @@ import {
 } from '@payloadcms/plugin-seo/fields'
 import { slugField } from 'payload'
 import { PERIOD_OPTIONS } from '../../lib/unearthing/periods'
+import { validateYear } from '../../lib/explore/years'
 
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
@@ -428,7 +429,15 @@ export const Posts: CollectionConfig<'posts'> = {
       name: 'period',
       type: 'select',
       options: PERIOD_OPTIONS,
-      admin: { position: 'sidebar', description: 'Unearthing Florida: where this episode falls on the timeline.' },
+      admin: { position: 'sidebar', description: 'Unearthing Florida: where this episode falls on the timeline. Used for the years below when they are empty.' },
+    },
+    {
+      type: 'row',
+      admin: { position: 'sidebar' },
+      fields: [
+        { name: 'yearStart', type: 'number', label: 'From (year)', validate: validateYear, admin: { step: 1, width: '50%', description: 'Unearthing Florida: the first year the episode is about. Negative for BCE (-1000 is 1000 BCE); there is no year 0.' } },
+        { name: 'yearEnd', type: 'number', label: 'To (year)', validate: validateYear, admin: { step: 1, width: '50%', description: 'The last year. The same as From for a single year. Drives the Explore time window.' } },
+      ],
     },
     slugField(),
   ],

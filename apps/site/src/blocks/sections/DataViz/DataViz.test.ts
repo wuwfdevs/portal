@@ -5,7 +5,7 @@ import { DataViz } from './config'
 
 describe('Chart, map or table section', () => {
   it('is a reference to a visualization, and nothing else of its own', () => {
-    const own = DataViz.fields.map((f) => ('name' in f ? f.name : '')).filter((n) => !['hidden', 'anchor', 'tone', 'heading', 'placement'].includes(n))
+    const own = DataViz.fields.map((f) => ('name' in f ? f.name : '')).filter((n) => !['hidden', 'anchor', 'navLabel', 'tone', 'heading', 'placement'].includes(n))
     expect(own).toEqual(['visualization'])
   })
   it('reads the chosen id whether the relation is populated, bare or gone', () => {

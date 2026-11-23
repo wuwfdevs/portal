@@ -38,6 +38,20 @@ export interface PageSetSpec {
   dedupe: boolean
   /** Whether the set draws a strip of its pages under the header. The Listens pages are two screens of one flow, not a place to browse between. */
   subNav: boolean
+  /** Whether the set's pages belong to shows, each show with its own pages: the strip lists only the pages that name the same show as the page being drawn. */
+  perShow: boolean
+  /**
+   * Whether the set's foot is the funder line of the production its page names (`pages.show`; `components/Page/FunderFoot`): the underwriting agreement's own wording, drawn by the set so
+   * an editor cannot delete or duplicate it. The sponsor and giving sets have their own footer lines (`footerLine`); The Voyager's foot is its "Published with" line.
+   */
+  funderFoot: boolean
+  /**
+   * Whose stories the set's story blocks (Front page lead, News run) read: `station` is the station's own and every story filed in a section (the home page's rule);
+   * `voyager` is only the stories published under The Voyager's identity, so a Voyager page never shows WUWF's reporting under the student newspaper's name.
+   */
+  stories: 'station' | 'voyager'
+  /** Whether the strip carries the set's name as its title, linking to the set's first page: a hub is a place with a name (the sponsor and giving strips are only a row of links). */
+  navTitle: boolean
 }
 
 export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
@@ -52,13 +66,17 @@ export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
     slots: { top: 'home.top', rail: 'home.rail', band: 'home.band' },
     dedupe: true,
     subNav: false,
+    navTitle: false,
+    stories: 'station',
+    funderFoot: false,
+    perShow: false,
   },
-  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true },
-  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true },
-  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, slots: null, dedupe: false, subNav: false },
-  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
-  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
-  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true },
+  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, slots: null, dedupe: false, subNav: false, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: true, subNav: true, navTitle: true, stories: 'voyager', funderFoot: false, perShow: false },
+  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true, perShow: true },
+  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true, perShow: false },
 }
 
 /** What staff need to edit a page that is in no set. */

@@ -7,6 +7,9 @@ import { SupportSection } from './Component'
 
 let global: unknown = null
 let fail = false
+let showHref: string | null = null
+const loadShowDonationHref = vi.fn(async () => showHref)
+vi.mock('@/lib/shows/support-load', () => ({ loadShowDonationHref: (...a: unknown[]) => (loadShowDonationHref as unknown as (...x: unknown[]) => unknown)(...a) }))
 vi.mock('@/utilities/getGlobals', () => ({
   getCachedGlobal: (slug: string) => async () => {
     if (slug !== 'giving-settings') throw new Error(`unexpected global ${slug}`)
@@ -20,6 +23,8 @@ const html = async (block: Record<string, unknown>) =>
 const given = { heading: { title: 'Support the show', intro: 'Keep the music live.' } }
 
 beforeEach(() => {
+  showHref = null
+  loadShowDonationHref.mockClear()
   global = { donationForm: { monthlyAddress: 'https://give.example.org/monthly' } }
   fail = false
 })
@@ -52,5 +57,18 @@ describe('Support section', () => {
   it('never carries an amount or a payment field', async () => {
     const out = await html(given)
     expect(out).not.toMatch(/<input|<form|amount=/i)
+  })
+  it('on a page that speaks for a show, gives to that show: the production\'s own form address, with its attribution code', async () => {
+    showHref = 'https://give.example.org/form?fund=unearthing'
+    const out = renderToStaticMarkup((await SupportSection({ block: { blockType: 'sectionSupport', ...given } as never, context: { ...testContext, show: { id: 12 } } })) as never)
+    expect(loadShowDonationHref).toHaveBeenCalledWith(12)
+    expect(out).toContain('href="https://give.example.org/form?fund=unearthing"')
+    expect(out).not.toContain('give.example.org/monthly')
+  })
+  it('falls back to the station\'s form when the show has none, and never asks for a show on a page without one', async () => {
+    const out = renderToStaticMarkup((await SupportSection({ block: { blockType: 'sectionSupport', ...given } as never, context: { ...testContext, show: { id: 12 } } })) as never)
+    expect(out).toContain('href="https://give.example.org/monthly"')
+    await html(given)
+    expect(loadShowDonationHref).toHaveBeenCalledTimes(1)
   })
 })

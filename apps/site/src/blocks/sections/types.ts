@@ -14,6 +14,8 @@ export interface SectionData {
   blockType: string
   hidden?: boolean | null
   anchor?: string | null
+  /** A name for this section in the page strip (needs an anchor). */
+  navLabel?: string | null
   tone?: string | null
   variant?: string | null
   /** Set by Columns on a section it holds: draw without a band of its own (the band around the columns carries the tone and the spacing). */
@@ -28,6 +30,11 @@ export interface SectionContext {
   /** True when a signed-in editor is previewing a draft. */
   draft: boolean
   pageId: number | string | undefined
+  /**
+   * The production the page speaks for (`pages.show`), when it names one: a show's pages, and a hub that has a production (RadioLive). A show-aware block (episodes of "the show",
+   * Support's attribution, the funder line) reads its facts from the production by this id and never from the page. Set from the page record, never from the request.
+   */
+  show?: { id: number | string }
   /**
    * The request's query string, handed in by a coded route that has to answer it per request (`/support/ways?way=`, `/support/thanks?name=`), as
    * the page-record renderer's one input from the request. `undefined` on every page the cached catch-all serves. A block reads it only from

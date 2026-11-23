@@ -23,6 +23,14 @@ describe('listSpecOf', () => {
     expect(listSpecOf({ source: 'episodes', show: 3, section: 4 })).toEqual({ source: 'episodes', id: 3, count: 6 })
     expect(listSpecOf({ source: 'videos', show: 3 })).toEqual({ source: 'videos', count: 6 })
     expect(listSpecOf({ source: 'artists', count: 3 })).toEqual({ source: 'artists', count: 3 })
+    expect(listSpecOf({ source: 'performances', count: 3, show: 4 })).toEqual({ source: 'performances', count: 3 })
+  })
+  it('lists the page\'s show when a list of a show\'s episodes has none chosen, and the chosen show otherwise', () => {
+    expect(listSpecOf({ source: 'episodes', count: 3 }, { id: 8 })).toEqual({ source: 'episodes', id: 8, count: 3 })
+    expect(listSpecOf({ source: 'episodes', show: { id: 5 } }, { id: 8 })).toEqual({ source: 'episodes', id: 5, count: 6 })
+    expect(listSpecOf({ source: 'episodes' }, null)).toBeNull()
+    expect(listSpecOf({ source: 'episodes' })).toBeNull()
+    expect(listSpecOf({ source: 'episodes', allShows: true }, { id: 8 })).toEqual({ source: 'episodes', all: true, count: 6 })
   })
   it('reads every listed show for the shows source, and episodes from every show only when asked', () => {
     expect(listSpecOf({ source: 'shows', count: 3, show: 4 })).toEqual({ source: 'shows' })
