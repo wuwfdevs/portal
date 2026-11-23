@@ -4,7 +4,7 @@ import config from '@/payload.config'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { down, up } from '@/migrations/20261123_030100_voyager_page'
-import { newestInSection } from '@/lib/home-blocks/load'
+import { arrangeFront, newestInSection } from '@/lib/home-blocks/load'
 import { VOYAGER_IDENTITY_SLUG } from '@/lib/voyager/identity'
 
 // The migration that gives The Voyager its hub and About pages: written through the Local API from the words the coded hub's global held, only where the hub is set up, once; and the
@@ -27,6 +27,7 @@ const pagesOf = () => payload.find({ collection: 'pages', where: { slug: { in: [
 describe('the Voyager pages migration', () => {
   let identity: { id: number }
   let wuwf: { id: number }
+  let wuwfStory: { id: number }
   let campus: { id: number; slug?: string | null }
   let person: { id: number }
   let hubBefore: Record<string, unknown>
@@ -44,7 +45,7 @@ describe('the Voyager pages migration', () => {
     const story = (title: string, identityId: number, extra: Record<string, unknown> = {}) =>
       make('posts', { title: `${title} ${run}`, content: body, _status: 'published', section: campus.id, publishingIdentity: identityId, publishedAt: '2090-05-01T12:00:00.000Z', ...extra })
     await story('Library hours', identity.id)
-    await story('WUWF story', wuwf.id)
+    wuwfStory = (await story('WUWF story', wuwf.id)) as { id: number }
     await story('Draft story', identity.id, { _status: 'draft' })
   }, 90_000)
   afterAll(async () => {
@@ -95,5 +96,13 @@ describe('the Voyager pages migration', () => {
     expect(found.map((s) => s.title)).toEqual([`Library hours ${run}`])
     const station = await newestInSection(campus.id, 10, 'station')
     expect(station.map((s) => s.title).sort()).toEqual([`Library hours ${run}`, `WUWF story ${run}`])
+  })
+
+  it('never leads a Voyager page with a story of another identity, even one an editor picked: the pick falls away to the Voyager\'s newest', async () => {
+    const front = await arrangeFront({ lead: wuwfStory.id, topStories: [wuwfStory.id] }, 'voyager')
+    expect(front.lead?.title).toBe(`Library hours ${run}`)
+    expect([front.lead, ...front.top].map((s) => s?.title)).not.toContain(`WUWF story ${run}`)
+    // The station's own page still honours the same pick.
+    expect((await arrangeFront({ lead: wuwfStory.id }, 'station')).lead?.title).toBe(`WUWF story ${run}`)
   })
 })

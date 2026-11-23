@@ -70,10 +70,14 @@ describe('Front page lead', () => {
   })
   it('takes its stories from the page\'s ordered pass when it has one: the first is the lead, the rest the Briefing', async () => {
     const out = await draw({ id: 'blk' }, new Map([['blk', [9, 8, 7]]]))
-    expect(storiesByIds).toHaveBeenCalledWith([9, 8, 7])
+    expect(storiesByIds).toHaveBeenCalledWith([9, 8, 7], 'station')
     expect(arrangeFront).not.toHaveBeenCalled()
     expect(out.indexOf('Claimed 9')).toBeLessThan(out.indexOf('The Briefing'))
     expect(out).toContain('Claimed 8')
+  })
+  it('reads the claimed stories under the page\'s scope, so a Voyager page never draws another identity\'s story', async () => {
+    await draw({ id: 'blk' }, new Map([['blk', [9, 8]]]), { setId: 'voyager' } as never)
+    expect(storiesByIds).toHaveBeenCalledWith([9, 8], 'voyager')
   })
   it('claims its lead and Briefing first, pinned, six in all', async () => {
     expect(await frontPageClaim({ blockType: 'sectionFrontPage' })).toEqual({ candidates: [], take: 6, pinned: [1, 2, 3] })

@@ -50,10 +50,13 @@ export const newestInSection = async (sectionId: string | number, count: number,
 export const newestOwn = async (limit: number = RECENT_LIMIT, scope: StoryScope = 'station'): Promise<HomeStory[]> =>
   scope === 'voyager' ? stories({ and: await scopeWhere(scope) }, limit) : stories({ source: { equals: 'wuwf' } }, limit)
 
-/** Published stories by id, in the order given. An id that is no longer published is left out. */
-export async function storiesByIds(ids: readonly (string | number)[]): Promise<HomeStory[]> {
+/**
+ * Published stories by id, in the order given. An id that is no longer published is left out. On a Voyager page (`scope`) an id whose story was published under another identity is left out too,
+ * so an editor's pick (or a featured story copied from the old hub) can never put the station's reporting under the student newspaper's name: the page falls back to the Voyager's newest.
+ */
+export async function storiesByIds(ids: readonly (string | number)[], scope: StoryScope = 'station'): Promise<HomeStory[]> {
   if (ids.length === 0) return []
-  const found = await stories({ id: { in: [...ids] } }, ids.length)
+  const found = await stories({ and: [{ id: { in: [...ids] } }, ...(await scopeWhere(scope))] }, ids.length)
   const byId = new Map(found.map((s) => [String(s.id), s]))
   return ids.map((id) => byId.get(String(id))).filter((s): s is HomeStory => Boolean(s))
 }
@@ -73,7 +76,7 @@ export const sectionById = cache(async (id: string | number): Promise<{ id: stri
 export async function arrangeFront(block: { lead?: unknown; topStories?: unknown }, scope: StoryScope = 'station'): Promise<{ lead: HomeStory | null; top: HomeStory[] }> {
   const leadId = relationId(block.lead)
   const topIds = (Array.isArray(block.topStories) ? block.topStories : []).map(relationId).filter((v): v is string | number => v !== null)
-  const [recent, picked] = await Promise.all([newestOwn(RECENT_LIMIT, scope), storiesByIds([...(leadId !== null ? [leadId] : []), ...topIds])])
+  const [recent, picked] = await Promise.all([newestOwn(RECENT_LIMIT, scope), storiesByIds([...(leadId !== null ? [leadId] : []), ...topIds], scope)])
   const byId = new Map(picked.map((s) => [String(s.id), s]))
   return arrangeHomepage({
     curatedLead: leadId !== null ? (byId.get(String(leadId)) ?? null) : null,
