@@ -6,7 +6,7 @@ import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-postgres'
  *  - **The Voyager:** each news run's strip link (Campus, Sports, Arts & Life, Opinion) goes to the section's own page (`/campus`), which lists all of its stories. The run on the hub can be empty
  *    once the lead and The Briefing have taken the newest stories, and a link to a part of the page that is not drawn went nowhere.
  *  - **RadioLive:** the strip's "Artists" goes to the artists' page (`/radiolive/artists`), and that page is left out of the strip's own links, so the strip has one Artists link, not two.
- * Only the sections named here, by id, and only the strip fields are touched. Nothing is written where there is no such page, and a re-run changes nothing. An editor's own value is kept: a section that
+ * Only the sections named here, by id, and only the strip fields are touched. Nothing is written where there is no such page, and a re-run changes nothing. The artists' page is hidden from the strip also on a database where the section's link was already there. An editor's own value is kept: a section that
  * already has a page for its link is left alone. `down` empties the links this wrote and lists the artists' page in the strip again.
  */
 type Section = Record<string, unknown> & { id?: string; blockType?: string; anchor?: string | null; navLabel?: string | null; navHref?: string | null }
@@ -37,13 +37,23 @@ export async function up(args: MigrateUpArgs): Promise<void> {
   const radiolive = await pageOf(args, 'radiolive', 'radiolive')
   if (radiolive) {
     let changed = false
+    let linked = false
     const sections = ((radiolive.sections ?? []) as unknown as Section[]).map((s) => {
-      if (s.id !== 'rl-artists' || s.blockType !== 'sectionList' || !s.navLabel || (typeof s.navHref === 'string' && s.navHref.trim() !== '')) return s
+      if (s.id !== 'rl-artists' || s.blockType !== 'sectionList' || !s.navLabel) return s
+      if (s.navHref === '/radiolive/artists') {
+        // Already links to the artists' page (a database built from the migrations, whose page was written by the current mapper).
+        linked = true
+        return s
+      }
+      if (typeof s.navHref === 'string' && s.navHref.trim() !== '') return s
       changed = true
+      linked = true
       return { ...s, navHref: '/radiolive/artists' }
     })
-    if (changed) {
-      await writeSections(args, radiolive.id, sections)
+    if (changed) await writeSections(args, radiolive.id, sections)
+    // The artists' page is left out of the strip's own links whenever the Artists section links to it, whether this wrote that link or it was already there: the earlier migration that wrote
+    // the page does not set `navHidden`.
+    if (linked) {
       const artists = await pageOf(args, 'radiolive-artists', 'radiolive')
       if (artists && artists.navHidden !== true) await args.payload.update({ collection: 'pages', id: artists.id, data: { navHidden: true } as never, draft: false, overrideAccess: true, req: args.req, context: { disableRevalidate: true } })
     }
