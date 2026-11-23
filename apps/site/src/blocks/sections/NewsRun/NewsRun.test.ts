@@ -47,6 +47,24 @@ describe('News run', () => {
     expect(out).toContain('Story 9')
     expect(out).not.toContain('Story 1<')
   })
+  it('reads the station\'s stories on a station page and only The Voyager\'s on a Voyager page, for the pass and for the draw', async () => {
+    await draw({ section: 4, count: 3 })
+    expect(newest).toHaveBeenLastCalledWith(4, 3, 'station')
+    const voyager = { ...testContext, setId: 'voyager' as const }
+    await NewsRunSection({ block: { blockType: 'sectionNewsRun', section: 4, count: 3 } as never, context: voyager })
+    expect(newest).toHaveBeenLastCalledWith(4, 3, 'voyager')
+    await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, count: 3 }, voyager)
+    expect(newest).toHaveBeenLastCalledWith(4, 3, 'voyager')
+  })
+  it('leaves the Voyager badge off its cards on a Voyager page and keeps it elsewhere', async () => {
+    const voyagerStory = { ...story(1), publishingIdentity: { id: 3, slug: 'the-voyager', name: 'The Voyager' } }
+    newest.mockImplementationOnce(async () => [voyagerStory] as never).mockImplementationOnce(async () => [voyagerStory] as never)
+    const home = renderToStaticMarkup((await NewsRunSection({ block: { blockType: 'sectionNewsRun', section: 4 } as never, context: testContext })) as never)
+    expect(home).toContain('Student journalism')
+    const voyager = renderToStaticMarkup((await NewsRunSection({ block: { blockType: 'sectionNewsRun', section: 4 } as never, context: { ...testContext, setId: 'voyager' } })) as never)
+    expect(voyager).toContain('Story 1')
+    expect(voyager).not.toContain('Student journalism')
+  })
   it('draws nothing when the pass left it nothing', async () => {
     expect(await draw({ id: 'run', section: 4 }, new Map([['run', []]]))).toBe('')
   })

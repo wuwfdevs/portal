@@ -40,9 +40,11 @@ export const Card: React.FC<{
   showDate?: boolean
   /** The section chip on the picture, in the editorial look. On by default. */
   showSection?: boolean
+  /** Leave out the Voyager badge: on The Voyager's own pages every card is student work, so the badge would say the same thing on each. Off by default (a story elsewhere keeps it). */
+  hideVoyagerBadge?: boolean
   title?: string
   variant?: 'default' | 'editorial'
-}> = ({ className, doc, fixedImage, lead, showCategories, showDate = false, showSection = true, title: titleFromProps, variant = 'default' }) => {
+}> = ({ className, doc, fixedImage, lead, showCategories, showDate = false, showSection = true, hideVoyagerBadge = false, title: titleFromProps, variant = 'default' }) => {
   const { path, categories, meta, title, format, publishingIdentity, featuredAudio, publishedAt } = doc || {}
   const editorial = variant === 'editorial'
   // Whether the story has a section to show; the chip draws only when `showSection`, but the topics line stays hidden either way (a section's stories need no topics under them).
@@ -92,7 +94,7 @@ export const Card: React.FC<{
             </span>
           </p>
         )}
-        {isVoyagerIdentity(publishingIdentity) && (
+        {!hideVoyagerBadge && isVoyagerIdentity(publishingIdentity) && (
           <SectionChip className="self-start" label={VOYAGER_BADGE_LABEL} swatch="teal" />
         )}
         {showCategories && topics.length > 0 && !(editorial && known) && (

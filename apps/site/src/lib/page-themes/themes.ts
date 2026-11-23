@@ -9,8 +9,10 @@ import { colors, themeCss, type ThemeOverrides } from '@wuwf/design-tokens'
  * `themes.test.ts` checks every tone of every built theme: text 4.5:1 on its ground, muted text 4.5:1, button text 4.5:1 on its fill, and
  * the button fill 3:1 against its ground (RadioLive's lime button on white was 1.5:1; text contrast alone would not have caught it).
  *
- * Only `wuwf` is built. The other three are named so a page set can name them; until a theme is built a page set using it renders in
- * `wuwf` (`resolveTheme`). Their token values come with their hub, signed off by the owner (PAGE-BLOCKS.md, phase 6).
+ * All four are built (the three hub themes, 2026-11-23, PAGE-BLOCKS.md phase 6). A hub theme is the station's tones with a few recoloured: RadioLive's heading
+ * highlight is lime on light bands; the Voyager's accent, outlined button and highlight are teal; Unearthing's `plain` tone is paper (`warning-bg`) with a white
+ * highlight and its `grey` tone is white, its accent the paper's own brown (`warning-fg`) and its hero title italic. A theme that is only named renders in `wuwf`
+ * (`resolveTheme`).
  */
 export const THEME_IDS = ['wuwf', 'radiolive', 'voyager', 'unearthing'] as const
 export type ThemeId = (typeof THEME_IDS)[number]
@@ -57,6 +59,10 @@ export interface PageTheme {
   built: boolean
   overrides: ThemeOverrides
   tones: Record<Tone, ToneStyle>
+  /** The tone the section navigation (`components/SectionNav`) takes: a name, so the theme decides the ground (paper for Unearthing, teal for the Voyager). */
+  nav: Tone
+  /** How a hero Feature's title is set: italic, and in the band's accent colour rather than its text colour (Unearthing's display title). */
+  display: { italic: boolean; accent: boolean }
 }
 
 const onLight = {
@@ -73,6 +79,8 @@ const wuwf: PageTheme = {
   label: 'WUWF',
   built: true,
   overrides: {},
+  nav: 'plain',
+  display: { italic: false, accent: false },
   tones: {
     plain: { ground: 'surface', rule: 'rule', ...onLight, muted: 'ink-3' },
     grey: { ground: 'surface-2', rule: 'rule-strong', ...onLight, muted: 'ink-3' },
@@ -90,14 +98,62 @@ const wuwf: PageTheme = {
   },
 }
 
-/** A theme that is only named. Its tones are the station's, so nothing renders half-themed. */
-const named = (id: ThemeId, label: string): PageTheme => ({ ...wuwf, id, label, built: false })
+/** The light tones whose highlight a hub theme changes. */
+const LIGHT_TONES = ['plain', 'grey', 'accent'] as const
+
+/** RadioLive: the station's tones, with the full lime under a heading on every light band (the navy and teal bands already mark in lime). */
+const radiolive: PageTheme = {
+  ...wuwf,
+  id: 'radiolive',
+  label: 'RadioLive',
+  nav: 'dark',
+  tones: { ...wuwf.tones, ...Object.fromEntries(LIGHT_TONES.map((t) => [t, { ...wuwf.tones[t], mark: 'wuwf-lime' }])) } as Record<Tone, ToneStyle>,
+}
+
+/**
+ * The Voyager: its identity is teal. On light bands the accent (eyebrow, link, figure rule), the outlined button and the highlight are teal; the primary button stays the
+ * action blue (a gift is the one blue ask) and the dark and teal bands are the station's. The accent band is the teal tint, with a white highlight.
+ */
+const voyager: PageTheme = {
+  ...wuwf,
+  id: 'voyager',
+  label: 'The Voyager',
+  nav: 'teal',
+  tones: {
+    ...wuwf.tones,
+    plain: { ...wuwf.tones.plain, accent: 'wuwf-teal', ghost: 'wuwf-teal', mark: 'wuwf-teal-100', tint: 'var(--color-wuwf-teal-100)' },
+    grey: { ...wuwf.tones.grey, accent: 'wuwf-teal', ghost: 'wuwf-teal', mark: 'wuwf-teal-100', tint: 'var(--color-wuwf-teal-100)' },
+    accent: { ...wuwf.tones.accent, ground: 'wuwf-teal-100', accent: 'wuwf-teal', ghost: 'wuwf-teal', mark: 'surface' },
+  },
+}
+
+/**
+ * Unearthing Florida: the page is paper. `plain` (an editor's default) is the paper ground (`warning-bg`) with a white highlight, `grey` is the white band beside it
+ * with a paper highlight, and cards are white with the paper's amber border. The accent, the outlined button and the hero title are the paper's brown (`warning-fg`).
+ * The primary button is ink: the board's lime button on paper is 1.3:1 against the ground, under the 3:1 a button's fill must keep (`themes.test.ts`).
+ */
+const paper = {
+  text: 'ink', muted: 'ink-3', buttonFill: 'ink', buttonText: 'surface', accent: 'warning-fg', ghost: 'warning-fg',
+  cardRule: 'var(--color-warning-border)',
+} as const
+const unearthing: PageTheme = {
+  ...wuwf,
+  id: 'unearthing',
+  label: 'Unearthing Florida',
+  nav: 'plain',
+  display: { italic: true, accent: true },
+  tones: {
+    ...wuwf.tones,
+    plain: { ground: 'warning-bg', rule: 'warning-border', mark: 'surface', card: 'var(--color-surface)', tint: 'color-mix(in srgb, var(--color-surface) 70%, transparent)', ...paper },
+    grey: { ground: 'surface', rule: 'rule-strong', mark: 'warning-bg', card: 'var(--color-surface)', tint: 'var(--color-warning-bg)', ...paper },
+  },
+}
 
 export const PAGE_THEMES: Readonly<Record<ThemeId, PageTheme>> = {
   wuwf,
-  radiolive: named('radiolive', 'RadioLive'),
-  voyager: named('voyager', 'The Voyager'),
-  unearthing: named('unearthing', 'Unearthing Florida'),
+  radiolive,
+  voyager,
+  unearthing,
 }
 
 export function isThemeId(value: unknown): value is ThemeId {
@@ -128,11 +184,14 @@ export function pageThemeCss(theme: PageTheme): string {
   const parts = [themeCss(scope, theme.overrides)]
   for (const tone of TONES) {
     const t = theme.tones[tone]
+    // `[data-nav-tone]` is the section navigation's own hook: the same ground and colours as a band of that tone, without the band's sibling spacing rules below (a teal
+    // navigation above a teal band must not shorten the band's top padding).
     parts.push(
-      `${scope} [data-tone="${tone}"] {\n` +
+      `${scope} [data-tone="${tone}"],\n${scope} [data-nav-tone="${tone}"] {\n` +
         `  --tone-ground: var(--color-${t.ground});\n  --tone-text: var(--color-${t.text});\n  --tone-muted: var(--color-${t.muted});\n` +
         `  --tone-rule: var(--color-${t.rule});\n  --tone-button: var(--color-${t.buttonFill});\n  --tone-button-text: var(--color-${t.buttonText});\n` +
         `  --tone-accent: var(--color-${t.accent});\n  --tone-ghost: var(--color-${t.ghost});\n  --tone-card: ${t.card};\n  --tone-card-rule: ${t.cardRule};\n  --tone-tint: ${t.tint};\n  --tone-mark: var(--color-${t.mark});\n` +
+        `  --tone-display: var(--tone-${theme.display.accent ? 'accent' : 'text'});\n  --tone-display-style: ${theme.display.italic ? 'italic' : 'normal'};\n` +
         `  background-color: var(--tone-ground);\n  color: var(--tone-text);\n}`,
       // Two bands of the same tone in a row read as one: the gap between them is a section gap, not two bands' padding.
       `${scope} [data-tone="${tone}"] + [data-tone="${tone}"] {\n  padding-top: 2rem;\n}\n${scope} [data-tone="${tone}"]:has(+ [data-tone="${tone}"]) {\n  padding-bottom: 0;\n}`,

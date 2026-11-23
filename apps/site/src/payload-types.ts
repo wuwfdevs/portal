@@ -329,6 +329,14 @@ export interface SectionFeature {
    */
   image?: (number | null) | Media;
   /**
+   * Optional. The address of one video on YouTube or Vimeo. The picture becomes its still, with a play button; the video loads only when a visitor presses it.
+   */
+  videoUrl?: string | null;
+  /**
+   * Optional. A file from the video library instead of an address. If both are set, the file plays.
+   */
+  video?: (number | null) | Video;
+  /**
    * Optional. A play button that hands the audio to the site's player.
    */
   audio?: (number | null) | Audio;
@@ -507,6 +515,52 @@ export interface FolderInterface {
   folderType?: 'media'[] | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video".
+ */
+export interface Video {
+  id: number;
+  /**
+   * What the video is. Read aloud by a screen reader as its label.
+   */
+  title: string;
+  description?: string | null;
+  /**
+   * Who made it, e.g. "WUWF News".
+   */
+  credit?: string | null;
+  /**
+   * Length in seconds. Optional; shown next to the player when set.
+   */
+  durationSeconds?: number | null;
+  /**
+   * The picture shown before the video plays. Optional; a story can choose a different one.
+   */
+  poster?: (number | null) | Media;
+  /**
+   * Set by the migration. Leave empty for new work.
+   */
+  legacy?: {
+    /**
+     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
+     */
+    sourceUrl?: string | null;
+  };
+  prefix?: string | null;
+  _objectKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -871,52 +925,6 @@ export interface VideoPlayerBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'videoPlayer';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "video".
- */
-export interface Video {
-  id: number;
-  /**
-   * What the video is. Read aloud by a screen reader as its label.
-   */
-  title: string;
-  description?: string | null;
-  /**
-   * Who made it, e.g. "WUWF News".
-   */
-  credit?: string | null;
-  /**
-   * Length in seconds. Optional; shown next to the player when set.
-   */
-  durationSeconds?: number | null;
-  /**
-   * The picture shown before the video plays. Optional; a story can choose a different one.
-   */
-  poster?: (number | null) | Media;
-  /**
-   * Set by the migration. Leave empty for new work.
-   */
-  legacy?: {
-    /**
-     * The address this file was copied from. The import matches on it, so a file used in many stories is stored once. Cannot be changed once set.
-     */
-    sourceUrl?: string | null;
-  };
-  prefix?: string | null;
-  _objectKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1628,7 +1636,7 @@ export interface SectionList {
    * Where the heading sits. A phone always shows it above.
    */
   placement?: ('stacked' | 'side') | null;
-  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'clips' | 'artists';
+  source: 'stories' | 'episodes' | 'shows' | 'videos' | 'clips' | 'artists' | 'performances';
   /**
    * Stories, and short videos (by their story's section). A topic is for stories only.
    */
@@ -2955,6 +2963,15 @@ export interface SectionShowSpotlight {
    * Optional. The show to feature. Leave empty to feature the show with the newest episode.
    */
   featuredShow?: (number | null) | Production;
+  /**
+   * Optional. Draw only these shows (the featured one and the list beside it). Empty draws every listed show; on The Voyager's pages, empty draws nothing.
+   */
+  onlyShows?: (number | Production)[] | null;
+  /**
+   * Optional. The link at the top right. Empty: "All podcasts", to the podcast directory.
+   */
+  moreLabel?: string | null;
+  moreHref?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionShowSpotlight';
@@ -3944,7 +3961,7 @@ export interface Page {
   /**
    * Empty: the page set's theme.
    */
-  theme?: 'wuwf' | null;
+  theme?: ('wuwf' | 'radiolive' | 'voyager' | 'unearthing') | null;
   /**
    * The page's name in its set's sub-navigation. Empty: the title.
    */

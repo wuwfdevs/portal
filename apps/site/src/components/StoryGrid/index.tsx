@@ -23,6 +23,7 @@ export function StoryGrid<T extends CardDoc & { id: string | number }>({
   variant = 'default',
   showSection = true,
   showDate = false,
+  hideVoyagerBadge = false,
   className,
 }: {
   stories: readonly T[]
@@ -31,10 +32,12 @@ export function StoryGrid<T extends CardDoc & { id: string | number }>({
   variant?: 'default' | 'editorial'
   showSection?: boolean
   showDate?: boolean
+  /** On The Voyager's own pages: the teal "The Voyager" badge is left off every card (`Card`). */
+  hideVoyagerBadge?: boolean
   className?: string
 }) {
   if (stories.length === 0) return null
-  const card = (story: T, lead?: typeof LEAD_ROW) => <Card className="h-full" doc={withLeadPicture(story)} fixedImage lead={lead} showCategories showDate={showDate} showSection={showSection} variant={variant} />
+  const card = (story: T, lead?: typeof LEAD_ROW) => <Card className="h-full" doc={withLeadPicture(story)} fixedImage lead={lead} showCategories hideVoyagerBadge={hideVoyagerBadge} showDate={showDate} showSection={showSection} variant={variant} />
   const gap = cn('gap-6', variant === 'editorial' && 'gap-y-8')
   if (spanFirst && !beside && stories.length > 1) {
     const [first, ...rest] = stories

@@ -10,3 +10,8 @@ export function topUnitOf(context: SectionContext): NonNullable<SectionContext['
   const set = pageSetOf(context.setId)
   return set?.placements && set.slots ? (context.slots?.top ?? null) : null
 }
+
+/** Whose stories this page's story blocks read: the station's own, or only The Voyager's on a Voyager page (`PageSetSpec.stories`). A call with no context (a test) is the station's. */
+export function storyScopeOf(context: Pick<SectionContext, 'setId'> | undefined): 'station' | 'voyager' {
+  return pageSetOf(context?.setId)?.stories ?? 'station'
+}

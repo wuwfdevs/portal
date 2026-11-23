@@ -3,11 +3,13 @@ import React from 'react'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { paragraphs } from '@/lib/page-content'
 import { trackFromAudio } from '@/lib/player/track'
+import { recordingEmbed } from '@/lib/radiolive/recording'
 import { cn } from '@/utilities/ui'
 
 import { SectionBand } from '../SectionBand'
 import { type ActionData, SectionActions, SectionImage, eyebrowClass, populatedMedia } from '../parts'
 import type { SectionData, SectionProps } from '../types'
+import { type FrameSource, VideoFrame } from './VideoFrame'
 
 export interface FeatureData extends SectionData {
   label?: string | null
@@ -16,6 +18,8 @@ export interface FeatureData extends SectionData {
   actions?: ActionData[] | null
   image?: unknown
   audio?: unknown
+  videoUrl?: string | null
+  video?: unknown
   ratio?: string | null
   imageSide?: string | null
   aside?: string | null
@@ -28,7 +32,15 @@ export interface FeatureData extends SectionData {
 const RATIO_CLASS: Record<string, string> = { portrait: 'aspect-[4/5]', standard: 'aspect-[4/3]', wide: 'aspect-video' }
 const ratioClass = (r: unknown): string => (typeof r === 'string' && RATIO_CLASS[r]) || RATIO_CLASS.standard!
 
-/** Feature. Draws nothing without a headline. A deleted picture or audio file (a bare id) is left out; the words still draw. */
+/** The video a Feature plays, if it has one: a library file (it wins), else a YouTube or Vimeo address. A deleted file (a bare id) or an address the site will not embed is left out. */
+export function frameSource(block: Pick<FeatureData, 'video' | 'videoUrl'>): FrameSource | null {
+  const file = populatedMedia(block.video as { url?: string | null; mimeType?: string | null } | number | null | undefined)
+  if (file?.url) return { kind: 'file', url: file.url, mimeType: file.mimeType }
+  const embed = block.videoUrl ? recordingEmbed(block.videoUrl) : null
+  return embed?.ok ? { kind: 'embed', src: embed.embed.src } : null
+}
+
+/** Feature. Draws nothing without a headline. A deleted picture, video or audio file (a bare id) is left out; the words still draw. */
 export function FeatureSection({ block }: SectionProps<FeatureData>) {
   const headline = block.headline?.trim()
   if (!headline) return null
@@ -38,6 +50,17 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
   const audio = populatedMedia(block.audio as { id: number; url?: string | null; title?: string | null; credit?: string | null; durationSeconds?: number | null } | null | undefined)
   const track = audio ? trackFromAudio(audio as Parameters<typeof trackFromAudio>[0], { title: headline }) : null
   const hasImage = populatedMedia(block.image as object | null | undefined) !== null && Boolean((block.image as { url?: string | null }).url)
+  const source = frameSource(block)
+  const hasMedia = hasImage || source !== null
+  // The picture slot: the picture, or, with a video, a frame that plays it (the picture is the still). A video frame is always 16:9.
+  const media = (priority?: boolean) =>
+    source ? (
+      <VideoFrame source={source} title={headline}>
+        {hasImage && <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" priority={priority} />}
+      </VideoFrame>
+    ) : (
+      <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" priority={priority} />
+    )
 
   const words = (
     <div className="flex min-w-0 flex-col items-start gap-4">
@@ -45,7 +68,8 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       {split ? (
         <h2 className="font-serif text-3xl font-bold leading-tight md:text-4xl">{headline}</h2>
       ) : (
-        <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight md:text-[3.5rem]">{headline}</h1>
+        // The page theme sets the display title: Unearthing's is italic and in the paper's brown (`--tone-display`, `--tone-display-style`); every other theme's is the band's text.
+        <h1 className="max-w-3xl font-serif text-4xl font-bold leading-[1.05] tracking-tight [color:var(--tone-display,var(--tone-text))] [font-style:var(--tone-display-style,normal)] md:text-[3.5rem]">{headline}</h1>
       )}
       {lines.length > 0 && (
         <div className="flex max-w-3xl flex-col gap-3 text-lg md:text-[1.1875rem] md:leading-normal">
@@ -89,7 +113,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       </figure>
     ) : null
   if (split) {
-    if (aside && !hasImage) {
+    if (aside && !hasMedia) {
       return (
         <SectionBand block={block}>
           <div className="grid items-center gap-8 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
@@ -101,12 +125,10 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
     }
     return (
       <SectionBand block={block}>
-        <div className={cn('grid items-center gap-8 md:grid-cols-2 md:gap-12', !hasImage && 'md:grid-cols-1')}>
+        <div className={cn('grid items-center gap-8 md:grid-cols-2 md:gap-12', !hasMedia && 'md:grid-cols-1')}>
           <div className={cn(block.imageSide === 'left' && 'md:order-2')}>{words}</div>
-          {hasImage && (
-            <div className={cn('overflow-hidden rounded-4', ratioClass(block.ratio), block.imageSide === 'left' && 'md:order-1')}>
-              <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" />
-            </div>
+          {hasMedia && (
+            <div className={cn('overflow-hidden rounded-4', source ? 'aspect-video' : ratioClass(block.ratio), block.imageSide === 'left' && 'md:order-1')}>{media()}</div>
           )}
         </div>
       </SectionBand>
@@ -122,11 +144,7 @@ export function FeatureSection({ block }: SectionProps<FeatureData>) {
       ) : (
         words
       )}
-      {hasImage && (
-        <div className="aspect-video overflow-hidden rounded-4">
-          <SectionImage className="size-full" image={block.image} imgClassName="size-full object-cover" priority />
-        </div>
-      )}
+      {hasMedia && <div className="aspect-video overflow-hidden rounded-4">{media(true)}</div>}
     </SectionBand>
   )
 }

@@ -31,9 +31,11 @@ export interface HomepageSlots {
 }
 
 /** The podcasts slot: the pinned show (or the one with the newest episode), its funder lines, and the shows beside it. Null when no listed show has an episode. */
-export async function loadPodcastsSlot(featuredShowId: string | number | null): Promise<HomepageSlots['podcasts']> {
+export async function loadPodcastsSlot(featuredShowId: string | number | null, only?: readonly (string | number)[]): Promise<HomepageSlots['podcasts']> {
   const payload = await getPayload({ config: configPromise })
-  const { shows } = await loadDirectory()
+  const { shows: all } = await loadDirectory()
+  // `only` scopes the slot to chosen shows (The Voyager's): the featured show and the others are drawn from them alone. Still only listed shows, since the directory is.
+  const shows = only ? all.filter((row) => only.some((id) => String(id) === String(row.show.id))) : all
   const picked = pickPodcasts(shows, { featuredId: featuredShowId, othersCount: OTHER_SHOWS })
   if (!picked) return null
   const acknowledgments = await getProductionHubAcknowledgments(payload, picked.featured.show.id, new Date().toISOString())

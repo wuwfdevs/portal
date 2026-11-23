@@ -12,7 +12,7 @@ export const LIST_VARIANTS = [
 ] as const
 
 /**
- * List: stories, episodes, video stories or artists, read from the site (PAGE-BLOCKS.md → Block catalogue). Its source is a query, so it
+ * List: stories, episodes, video stories, artists or past RadioLive shows, read from the site (PAGE-BLOCKS.md → Block catalogue). Its source is a query, so it
  * is not Cards. Four layouts over the same entries. It reads published records only, at draw time, cached for five minutes; the page
  * holding it is cached for no longer. A source's own choice (the section, topic or show) is read only when that source is picked.
  */
@@ -36,6 +36,7 @@ export const List = defineSection({
           { label: 'Video stories', value: 'videos' },
           { label: 'Short videos (the clips)', value: 'clips' },
           { label: 'RadioLive artists', value: 'artists' },
+          { label: 'RadioLive shows to watch (past shows with a recording, newest first)', value: 'performances' },
         ],
       },
       {

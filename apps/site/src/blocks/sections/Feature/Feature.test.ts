@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { renderBlock } from '../testing'
-import { FeatureSection } from './Component'
+import { FeatureSection, frameSource } from './Component'
 
 const html = (block: Record<string, unknown>) => renderBlock(FeatureSection, 'sectionFeature', block)
 const picture = { id: 4, url: '/media/lead.jpg', alt: 'A guitarist on stage', width: 1200, height: 800, mimeType: 'image/jpeg' }
@@ -81,5 +81,40 @@ describe('Feature section: a panel beside the hero', () => {
     expect(out).toContain('Support comes from Example.')
     expect(html({ variant: 'hero', headline: 'H', aside: 'none', figures: [{ value: '1', text: 'a' }] })).not.toContain('<li')
     expect(html({ variant: 'hero', headline: 'H', aside: 'quote' })).not.toContain('<figure')
+  })
+})
+
+describe('Feature video frame (hubs redesign)', () => {
+  const file = { id: 9, url: '/video/set.mp4', title: 'The set', mimeType: 'video/mp4' }
+  it('a YouTube address makes the picture a still with a play button, and loads nothing from the host', () => {
+    const out = html({ variant: 'split', headline: 'The Emerald Coast Strings', image: picture, videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' })
+    expect(out).toContain('aria-label="Play video: The Emerald Coast Strings"')
+    expect(out).toContain('lead.jpg')
+    expect(out).not.toContain('<iframe')
+    expect(out).not.toContain('youtube')
+    expect(out).toContain('aspect-video')
+  })
+  it('a library file wins over an address', () => {
+    expect(frameSource({ video: file, videoUrl: 'https://vimeo.com/123456789' })).toEqual({ kind: 'file', url: '/video/set.mp4', mimeType: 'video/mp4' })
+  })
+  it('an address becomes the site\'s own embed address, never the pasted one', () => {
+    expect(frameSource({ videoUrl: 'https://youtu.be/dQw4w9WgXcQ?t=5' })).toEqual({ kind: 'embed', src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=5' })
+  })
+  it('refuses an address that is not one video on YouTube or Vimeo, and a deleted file (a bare id), leaving the picture alone', () => {
+    expect(frameSource({ videoUrl: 'https://example.org/clip' })).toBeNull()
+    expect(frameSource({ videoUrl: 'https://www.youtube.com/playlist?list=PLabc' })).toBeNull()
+    expect(frameSource({ video: 12 })).toBeNull()
+    const out = html({ variant: 'split', headline: 'H', image: picture, video: 12, ratio: 'portrait' })
+    expect(out).not.toContain('Play video')
+    expect(out).toContain('aspect-[4/5]')
+  })
+  it('a video alone, with no picture, still draws a frame; the hero draws it below the headline', () => {
+    expect(html({ variant: 'split', headline: 'H', videoUrl: 'https://vimeo.com/123456789' })).toContain('Play video: H')
+    expect(html({ variant: 'hero', headline: 'H', videoUrl: 'https://vimeo.com/123456789' })).toContain('Play video: H')
+  })
+  it('the hero title reads the theme\'s display style and colour, which fall back to the band\'s text', () => {
+    const out = html({ variant: 'hero', headline: 'Unearthing Florida' })
+    expect(out).toContain('[font-style:var(--tone-display-style,normal)]')
+    expect(out).toContain('[color:var(--tone-display,var(--tone-text))]')
   })
 })

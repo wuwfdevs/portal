@@ -3,7 +3,7 @@
 
 import { relationId } from './shape'
 
-export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists', 'shows', 'clips'] as const
+export const LIST_SOURCES = ['stories', 'episodes', 'videos', 'artists', 'shows', 'clips', 'performances'] as const
 export type ListSource = (typeof LIST_SOURCES)[number]
 export const LIST_SCOPES = ['latest', 'section', 'topic'] as const
 export type ListScope = (typeof LIST_SCOPES)[number]
@@ -19,6 +19,7 @@ export type ListSpec =
   | { source: 'clips'; scope: 'latest'; count: number; firstSeries?: number | string }
   | { source: 'clips'; scope: 'section'; id: number | string; count: number }
   | { source: 'artists'; count: number }
+  | { source: 'performances'; count: number }
 
 const count = (v: unknown, fallback: number, max: number): number => {
   const n = typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : fallback
@@ -55,6 +56,8 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
     }
     case 'artists':
       return { source: 'artists', count: n }
+    case 'performances':
+      return { source: 'performances', count: n }
     case 'shows':
       return { source: 'shows' }
     default:

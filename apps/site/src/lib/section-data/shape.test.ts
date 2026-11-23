@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  artistListItem, audioOf, datePartsOf, episodeListItem, isUpcoming, performanceDateItem, pictureOf, productionFeatured, relationId, showListItem, storyFeatured, storyListItem, typedDateItem, upcomingDates,
+  artistListItem, performanceListItem, audioOf, datePartsOf, episodeListItem, isUpcoming, performanceDateItem, pictureOf, productionFeatured, relationId, showListItem, storyFeatured, storyListItem, typedDateItem, upcomingDates,
 } from './shape'
 
 const media = { id: 5, url: '/media/a.jpg', alt: 'A guitar', width: 800, height: 600, mimeType: 'image/jpeg', updatedAt: '2026-11-01T00:00:00Z', focalX: 10, focalY: 90 }
@@ -49,6 +49,14 @@ describe('story and show shaping', () => {
   it('an artist links to its RadioLive page', () => {
     expect(artistListItem({ id: 1, name: 'Pat Byrn', slug: 'pat-byrn', photo: media })).toMatchObject({ id: 'artist-1', href: '/radiolive/artists/pat-byrn' })
     expect(artistListItem({ id: 1, slug: 'x' })).toBeNull()
+  })
+  it('a past RadioLive show links to its page and carries its photo and date', () => {
+    expect(performanceListItem({ id: 7, title: 'Jake Rabalais and The Bluffline Trio', slug: 'jake-rabalais', startsAt: '2026-10-02T19:00:00-05:00', photo: media })).toMatchObject({
+      id: 'show-7', title: 'Jake Rabalais and The Bluffline Trio', href: '/radiolive/jake-rabalais', meta: 'Oct 2, 2026',
+    })
+    expect(performanceListItem({ id: 7, title: 'X', slug: '../admin', startsAt: '2026-10-02T19:00:00-05:00' })?.href).toBeNull()
+    expect(performanceListItem({ id: 7, title: 'X', slug: 'x' })).toBeNull()
+    expect(performanceListItem({ id: 7, slug: 'x', startsAt: '2026-10-02T19:00:00-05:00' })).toBeNull()
   })
 })
 

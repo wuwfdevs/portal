@@ -4,7 +4,8 @@ import { TopUnit } from '@/components/Placements'
 
 import { SectionBand } from '../SectionBand'
 import { topUnitOf } from '../slots'
-import type { SectionData, SectionProps } from '../types'
+import type { SectionContext, SectionData, SectionProps } from '../types'
+import { storyScopeOf } from '../slots'
 
 export interface FrontPageData extends SectionData {
   lead?: unknown
@@ -13,9 +14,9 @@ export interface FrontPageData extends SectionData {
 }
 
 /** What the page's ordered pass asks of this block: the lead and the Briefing, in order, taken before any news run. Pinned, because they are the editors' choice or the newest. */
-export async function frontPageClaim(block: FrontPageData): Promise<{ candidates: (string | number)[]; take: number; pinned: (string | number)[] }> {
+export async function frontPageClaim(block: FrontPageData, context?: SectionContext): Promise<{ candidates: (string | number)[]; take: number; pinned: (string | number)[] }> {
   const { arrangeFront, TOP_COUNT } = await import('@/lib/home-blocks/load')
-  const { lead, top } = await arrangeFront(block)
+  const { lead, top } = await arrangeFront(block, storyScopeOf(context))
   const ids = [lead, ...top].filter((s): s is NonNullable<typeof s> => Boolean(s)).map((s) => s.id)
   return { candidates: [], take: TOP_COUNT + 1, pinned: ids }
 }
@@ -29,7 +30,7 @@ export async function FrontPageSection({ block, context }: SectionProps<FrontPag
         const [first, ...rest] = await storiesByIds(claimed)
         return { lead: first ?? null, top: rest }
       })()
-    : await arrangeFront(block)
+    : await arrangeFront(block, storyScopeOf(context))
   if (!lead) return null
   // Loaded when it draws: the view reads story fields and the block registry is read by the Payload config.
   const { Briefing, FirstScreen, LeadArticle } = await import('@/components/Homepage/FrontPage')
