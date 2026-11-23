@@ -35,7 +35,8 @@ import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
 import { imageUrlOf } from '@/lib/seo/meta'
 import { loadClips } from '@/lib/video/load'
 import { clipsForSection } from '@/lib/video/section'
-import { resolveDraftById, resolvePath } from '@/utilities/resolvePath'
+import { SectionsPageView, type SectionsPageData } from '@/components/Page/SectionsPageView'
+import { resolveDraftById, resolvePath, resolveShowHome } from '@/utilities/resolvePath'
 
 // One route for every address on the site (ROADMAP → URL scheme): a path resolves to a story or a page. A campaign agreement shows only while its term runs, and a deleted agreement cannot name the pages it
 // reached, so these pages also refresh on a schedule.
@@ -60,6 +61,7 @@ type Result =
   | { kind: 'post'; doc: Post; url: string }
   | { kind: 'page'; doc: Pick<Page, 'hero' | 'layout' | 'meta'> & Partial<Page>; url: string }
   | { kind: 'list'; data: StoryListData; url: string }
+  | { kind: 'show-home'; doc: Page; url: string }
   | { kind: 'show'; data: ShowData; url: string }
   | { kind: 'themed-show'; data: ThemedShowData; url: string }
   | { kind: 'themed-subpage'; data: ThemedShowData; subpage: ShowSubpage; url: string }
@@ -86,6 +88,10 @@ const resolveRequest = cache(async (joined: string, draft: boolean): Promise<Res
   if (!path) return { kind: 'miss', url: `/${joined}` }
   const hit = await resolvePath(path, draft)
   if (hit) return { kind: hit.kind, doc: hit.doc, url: path } as Result
+
+  // A show's address renders its home page when it has one (a page of sections that names the show and is flagged as its home); otherwise the standard show page below.
+  const showHome = await resolveShowHome(path, draft)
+  if (showHome) return { kind: 'show-home', doc: showHome, url: path }
 
   // A show (an original production) at its own address.
   const show = await loadShowByPath(path)
@@ -131,6 +137,7 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
     const top = topUnitHeldBack(banner, 'other') ? null : placements.top
     return <StoryListView clips={clips} data={result.data} rail={placements.rail} top={top} />
   }
+  if (result.kind === 'show-home') return <SectionsPageView draft={draft} page={result.doc as unknown as SectionsPageData} url={result.url} />
   if (result.kind === 'event') return <EventView data={result.data} />
   if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
   if (result.kind === 'themed-subpage') {
@@ -166,6 +173,8 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
       openGraph: mergeOpenGraph({ title: show.title, ...(description ? { description } : {}), url: result.url, ...(image ? { images: [{ url: image }] } : {}) }),
     }
   }
+  // A show's home page: its own SEO words (else the page's title), at the show's address, which is its one canonical address.
+  if (result.kind === 'show-home') return generateMeta({ doc: { ...result.doc, path: result.url } })
   if (result.kind === 'event') return { title: result.data.event.title, description: result.data.event.teaser ?? undefined, alternates: { canonical: result.url } }
   if (result.kind === 'list') {
     const { kind, slug, title, blurb, page } = result.data

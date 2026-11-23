@@ -38,6 +38,8 @@ export interface PageSetSpec {
   dedupe: boolean
   /** Whether the set draws a strip of its pages under the header. The Listens pages are two screens of one flow, not a place to browse between. */
   subNav: boolean
+  /** Whether the set's pages belong to shows, each show with its own pages: the strip lists only the pages that name the same show as the page being drawn. */
+  perShow: boolean
   /**
    * Whether the set's foot is the funder line of the production its page names (`pages.show`; `components/Page/FunderFoot`): the underwriting agreement's own wording, drawn by the set so
    * an editor cannot delete or duplicate it. The sponsor and giving sets have their own footer lines (`footerLine`); The Voyager's foot is its "Published with" line.
@@ -67,13 +69,14 @@ export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
     navTitle: false,
     stories: 'station',
     funderFoot: false,
+    perShow: false,
   },
-  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false },
-  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false },
-  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, slots: null, dedupe: false, subNav: false, navTitle: false, stories: 'station', funderFoot: false },
-  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: true, subNav: true, navTitle: true, stories: 'voyager', funderFoot: false },
-  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true },
-  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true },
+  sponsor: { id: 'sponsor', name: 'Sponsorship', theme: 'wuwf', editBy: ['content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  giving: { id: 'giving', name: 'Ways to give', theme: 'wuwf', editBy: ['membership.manage', 'content.publish'], footerLine: true, placements: false, slots: null, dedupe: false, subNav: true, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  listens: { id: 'listens', name: 'WUWF Listens', theme: 'wuwf', editBy: ['content.write'], footerLine: false, placements: false, slots: null, dedupe: false, subNav: false, navTitle: false, stories: 'station', funderFoot: false, perShow: false },
+  voyager: { id: 'voyager', name: 'The Voyager', theme: 'voyager', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: true, subNav: true, navTitle: true, stories: 'voyager', funderFoot: false, perShow: false },
+  unearthing: { id: 'unearthing', name: 'Unearthing Florida', theme: 'unearthing', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true, perShow: true },
+  radiolive: { id: 'radiolive', name: 'RadioLive', theme: 'radiolive', editBy: ['content.write'], footerLine: false, placements: true, slots: null, dedupe: false, subNav: true, navTitle: true, stories: 'station', funderFoot: true, perShow: false },
 }
 
 /** What staff need to edit a page that is in no set. */

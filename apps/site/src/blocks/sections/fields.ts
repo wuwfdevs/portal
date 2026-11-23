@@ -10,7 +10,7 @@ export const thumbnailUrl = (slug: string): string => `/section-thumbnails/${slu
 
 /**
  * The fields every section block starts with, in this order, from one builder (PAGE-BLOCKS.md → Anatomy of a section block):
- * `hidden`, `anchor`, `tone`, then `variant` where the block has more than one layout, then the optional `heading`, then the block's own.
+ * `hidden`, `anchor`, `navLabel`, `tone`, then `variant` where the block has more than one layout, then the optional `heading`, then the block's own.
  * No free colour, spacing or HTML field: the tone is a name and the theme decides what it looks like.
  */
 export function sectionFields(options: {
@@ -32,6 +32,16 @@ export function sectionFields(options: {
       admin: { description: 'Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.' },
       validate: (value: unknown) =>
         value === undefined || value === null || value === '' || isValidAnchor(value) ? true : 'Use lower-case words joined by hyphens, e.g. on-air-rates.',
+    },
+    {
+      name: 'navLabel',
+      type: 'text',
+      label: 'Name in the page strip',
+      admin: { description: 'Optional. Adds a link with this name to the strip of the set\'s (or the show\'s) pages, to this section. Needs an anchor above.' },
+      validate: (value: unknown, { siblingData }: { siblingData?: { anchor?: unknown } }) =>
+        typeof value === 'string' && value.trim() !== '' && !(typeof siblingData?.anchor === 'string' && siblingData.anchor.trim() !== '')
+          ? 'Give the section an anchor first: the strip links to the anchor.'
+          : true,
     },
     {
       name: 'tone',

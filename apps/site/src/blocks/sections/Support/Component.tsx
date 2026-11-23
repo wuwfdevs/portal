@@ -16,8 +16,14 @@ export interface SupportData extends SectionData {
  * every page holding this block. Loaded when the block is drawn, not when the registry is read (the registry is imported by the Payload
  * config, which cannot load the global helper). A failed read is "no address", and the block draws nothing.
  */
-async function donationFormAddress(): Promise<string | null> {
+async function donationFormAddress(showId: number | string | null): Promise<string | null> {
   try {
+    // A page that speaks for a show gives to that show: the production's own form address, with its attribution code. Without one it is the station's form, as everywhere else.
+    if (showId !== null) {
+      const { loadShowDonationHref } = await import('@/lib/shows/support-load')
+      const own = await loadShowDonationHref(showId)
+      if (own) return own
+    }
     const { getCachedGlobal } = await import('@/utilities/getGlobals')
     const page = (await getCachedGlobal('giving-settings', 0)()) as { donationForm?: { monthlyAddress?: string | null } | null } | null
     return supportHref(page?.donationForm?.monthlyAddress)
@@ -27,10 +33,10 @@ async function donationFormAddress(): Promise<string | null> {
 }
 
 /** Support. Draws nothing without a title or without a safe form address; never asks for or shows an amount, card or bank detail. */
-export async function SupportSection({ block }: SectionProps<SupportData>) {
+export async function SupportSection({ block, context }: SectionProps<SupportData>) {
   const title = block.heading?.title?.trim()
   if (!title) return null
-  const href = await donationFormAddress()
+  const href = await donationFormAddress(context.show?.id ?? null)
   if (!href) return null
   const eyebrow = block.heading?.eyebrow?.trim()
   const intro = block.heading?.intro?.trim()

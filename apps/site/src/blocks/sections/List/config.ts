@@ -66,7 +66,7 @@ export const List = defineSection({
         defaultValue: false,
         admin: { description: 'The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.', condition: (_, s) => s?.source === 'episodes' },
       },
-      { name: 'show', type: 'relationship', relationTo: 'productions', admin: { condition: (_, s) => s?.source === 'episodes' && s?.allShows !== true } },
+      { name: 'show', type: 'relationship', relationTo: 'productions', admin: { description: 'Empty: the show the page speaks for (a show\'s home page), if it names one.', condition: (_, s) => s?.source === 'episodes' && s?.allShows !== true } },
       { name: 'count', type: 'number', min: 1, max: 12, defaultValue: 6, admin: { description: 'How many to show, 1 to 12. A list of shows has every listed show.', condition: (_, s) => s?.source !== 'shows' } },
       { name: 'moreLabel', type: 'text', admin: { description: 'Optional link at the top right of the list: "All stories".' } },
       { name: 'moreHref', type: 'text', label: 'More link', validate: validateHref },

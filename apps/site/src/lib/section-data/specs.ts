@@ -26,8 +26,14 @@ const count = (v: unknown, fallback: number, max: number): number => {
   return Math.min(max, Math.max(1, n))
 }
 
-/** What a List reads, or null when its source needs a section, topic or show that is not chosen (or was deleted: a bare id still counts, and reads nothing). */
-export function listSpecOf(block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown; series?: unknown }): ListSpec | null {
+/**
+ * What a List reads, or null when its source needs a section, topic or show that is not chosen (or was deleted: a bare id still counts, and reads nothing). `pageShow` is the production
+ * the page speaks for (`SectionContext.show`): a list of "Episodes of a show" with no show chosen lists that show's, so a show's home page needs no show typed on each list.
+ */
+export function listSpecOf(
+  block: { source?: unknown; scope?: unknown; section?: unknown; topic?: unknown; show?: unknown; allShows?: unknown; count?: unknown; series?: unknown },
+  pageShow?: { id: number | string } | null,
+): ListSpec | null {
   const n = count(block.count, 6, LIST_MAX)
   switch (block.source) {
     case 'stories': {
@@ -39,7 +45,7 @@ export function listSpecOf(block: { source?: unknown; scope?: unknown; section?:
     }
     case 'episodes': {
       if (block.allShows === true) return { source: 'episodes', all: true, count: n }
-      const id = relationId(block.show)
+      const id = relationId(block.show) ?? relationId(pageShow)
       return id === null ? null : { source: 'episodes', id, count: n }
     }
     case 'videos':

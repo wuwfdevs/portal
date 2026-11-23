@@ -181,8 +181,8 @@ export function ClipListView({ block, clips }: { block: ListData; clips: readonl
 }
 
 /** List. Draws nothing when its source needs a choice that is not made, or when there is nothing published to list. */
-export async function ListSection({ block }: SectionProps<ListData>) {
-  const spec = listSpecOf(block)
+export async function ListSection({ block, context }: SectionProps<ListData>) {
+  const spec = listSpecOf(block, context.show)
   if (!spec) return null
   const loaded = await import('@/lib/section-data/load')
   if (spec.source === 'clips') return <ClipListView block={block} clips={await loaded.loadClipList(spec)} />

@@ -301,6 +301,10 @@ export interface SectionFeature {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -621,6 +625,10 @@ export interface SectionFeaturedRecord {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1381,7 +1389,7 @@ export interface Production {
    */
   theme?: 'barefoot-mary' | null;
   /**
-   * The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.
+   * The donation form address with this show's attribution code is used by every page that speaks for the show (the Support block on its home page). The rest is a themed show's own support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.
    */
   showSupport?: {
     eyebrow?: string | null;
@@ -1505,6 +1513,10 @@ export interface SectionProfileBand {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -1557,6 +1569,10 @@ export interface SectionCards {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1620,6 +1636,10 @@ export interface SectionList {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -1651,6 +1671,9 @@ export interface SectionList {
    * The newest episodes across all the podcasts, each with its show’s name, instead of one show’s.
    */
   allShows?: boolean | null;
+  /**
+   * Empty: the show the page speaks for (a show's home page), if it names one.
+   */
   show?: (number | null) | Production;
   /**
    * How many to show, 1 to 12. A list of shows has every listed show.
@@ -1678,6 +1701,10 @@ export interface SectionDates {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1741,6 +1768,10 @@ export interface SectionBroadcastSchedule {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -1773,6 +1804,10 @@ export interface SectionQuotes {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1820,6 +1855,10 @@ export interface SectionStats {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1889,6 +1928,10 @@ export interface SectionSteps {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -1935,6 +1978,10 @@ export interface SectionQuestions {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -1980,6 +2027,10 @@ export interface SectionCallout {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2015,6 +2066,10 @@ export interface SectionCheckList {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2063,6 +2118,10 @@ export interface SectionTable {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2114,6 +2173,10 @@ export interface SectionDataViz {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2478,6 +2541,10 @@ export interface SectionPicker {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2575,6 +2642,10 @@ export interface SectionText {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2626,6 +2697,10 @@ export interface SectionCredit {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2662,6 +2737,10 @@ export interface SectionSupport {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2703,6 +2782,10 @@ export interface SectionClosingBand {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2746,6 +2829,10 @@ export interface SectionColumns {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2803,6 +2890,10 @@ export interface SectionIllustration {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2844,6 +2935,10 @@ export interface SectionFrontPage {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2877,6 +2972,10 @@ export interface SectionFellowshipFeature {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -2902,6 +3001,10 @@ export interface SectionNewsRun {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2943,6 +3046,10 @@ export interface SectionShowSpotlight {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2990,6 +3097,10 @@ export interface SectionFeaturePanels {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3016,6 +3127,10 @@ export interface SectionRateEstimator {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3072,6 +3187,10 @@ export interface SectionPackages {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3112,6 +3231,10 @@ export interface SectionCarpool {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3160,6 +3283,10 @@ export interface SectionOpenPrograms {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3215,6 +3342,10 @@ export interface SectionInquiryForm {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3283,6 +3414,10 @@ export interface SectionGiftCard {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3373,6 +3508,10 @@ export interface SectionGivingLevels {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3415,6 +3554,10 @@ export interface SectionWaysToGive {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3506,6 +3649,10 @@ export interface SectionThankYou {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3569,6 +3716,10 @@ export interface SectionGivingContact {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3617,6 +3768,10 @@ export interface SectionAskWuwf {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3650,6 +3805,10 @@ export interface SectionListeningOpen {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3697,6 +3856,10 @@ export interface SectionListeningSessions {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3731,6 +3894,10 @@ export interface SectionListeningOutcomes {
    */
   anchor?: string | null;
   /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
+  /**
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
@@ -3763,6 +3930,10 @@ export interface SectionHostForm {
    * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
    */
   anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   */
+  navLabel?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3963,6 +4134,14 @@ export interface Page {
    */
   theme?: ('wuwf' | 'radiolive' | 'voyager' | 'unearthing') | null;
   /**
+   * The production this page speaks for. Its funder line, support attribution and episodes are read from the production, never typed on the page. Choose it for a show's pages and for a hub that has a production (RadioLive).
+   */
+  show?: (number | null) | Production;
+  /**
+   * The show's own address (wuwf.org/shows/…) shows this page instead of the standard show page. Ticking this and publishing makes this page the show's home and unticks the current one. This page then has no address of its own; its old one leads to the show's.
+   */
+  isShowHome?: boolean | null;
+  /**
    * The page's name in its set's sub-navigation. Empty: the title.
    */
   navLabel?: string | null;
@@ -3970,6 +4149,10 @@ export interface Page {
    * Lowest first. Empty: after the numbered pages.
    */
   navOrder?: number | null;
+  /**
+   * The strip of the set's (or the show's) pages does not list this page. Use it for a page the strip's title already links to (a show's home).
+   */
+  navHidden?: boolean | null;
   /**
    * Ask search engines not to list this page.
    */
@@ -5673,8 +5856,11 @@ export interface PagesSelect<T extends boolean = true> {
   template?: T;
   pageSet?: T;
   theme?: T;
+  show?: T;
+  isShowHome?: T;
   navLabel?: T;
   navOrder?: T;
+  navHidden?: T;
   noindex?: T;
   noReferrer?: T;
   sections?: T | {};

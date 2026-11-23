@@ -108,15 +108,14 @@ export const Productions = fundableCollection({
     {
       name: 'showSupport',
       type: 'group',
-      label: 'Support page (themed shows)',
+      label: 'Support',
       admin: {
-        condition: (data) => Boolean(data?.theme),
-        description: "The show's support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.",
+        description: "The donation form address with this show's attribution code is used by every page that speaks for the show (the Support block on its home page). The rest is a themed show's own support page, the membership pathway (board 24). Supporting the show means becoming a WUWF sustaining member at the station's levels: there is no subscription and no level of the show's own. The levels shown come from the Support page settings.",
       },
       fields: [
-        { name: 'eyebrow', type: 'text', defaultValue: 'Support the work' },
-        { name: 'heading', type: 'text', admin: { description: 'e.g. "Support Barefoot Mary".' } },
-        { name: 'intro', type: 'textarea', maxLength: 600, admin: { description: 'Why supporting the station supports the show. Say the gift is a tax-deductible donation to WUWF; never call it a subscription.' } },
+        { name: 'eyebrow', type: 'text', defaultValue: 'Support the work', admin: { condition: (data) => Boolean(data?.theme) } },
+        { name: 'heading', type: 'text', admin: { condition: (data) => Boolean(data?.theme), description: 'e.g. "Support Barefoot Mary".' } },
+        { name: 'intro', type: 'textarea', maxLength: 600, admin: { condition: (data) => Boolean(data?.theme), description: 'Why supporting the station supports the show. Say the gift is a tax-deductible donation to WUWF; never call it a subscription.' } },
         {
           name: 'donateUrl',
           type: 'text',
@@ -124,12 +123,13 @@ export const Productions = fundableCollection({
           validate: validateSupportHref,
           admin: { description: "WUWF's donation form, with this show's attribution code (\"count my gift as support for …\") built in. Empty hides the button." },
         },
-        { name: 'donateLabel', type: 'text', label: 'Donation button text', defaultValue: "Give on WUWF's secure form" },
+        { name: 'donateLabel', type: 'text', label: 'Donation button text', defaultValue: "Give on WUWF's secure form", admin: { condition: (data) => Boolean(data?.theme) } },
         {
           name: 'questions',
           type: 'array',
           maxRows: 10,
           labels: { singular: 'Question', plural: 'Questions' },
+          admin: { condition: (data) => Boolean(data?.theme) },
           fields: [
             { name: 'question', type: 'text', required: true },
             { name: 'answer', type: 'textarea', required: true, maxLength: 800 },

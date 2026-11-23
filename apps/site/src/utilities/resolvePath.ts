@@ -50,6 +50,25 @@ export async function resolveHome(draft: boolean): Promise<Page | null> {
   return result.docs[0] ?? null
 }
 
+/**
+ * A show's home page, by the show's address: the page of sections that names the production at `path` and is flagged as its home (`pages.isShowHome`, one per show). Null when the path is
+ * not a show's, or the show has no home page: the show then keeps the standard show page. The page holds no rule; it presents the show.
+ */
+export async function resolveShowHome(path: string, draft: boolean): Promise<Page | null> {
+  const payload = await getPayload({ config: configPromise })
+  const show = (await payload.find({ collection: 'productions', where: { path: { equals: path } }, limit: 1, depth: 0, pagination: false, overrideAccess: draft, select: { path: true } })).docs[0]
+  if (!show) return null
+  const pages = await payload.find({
+    collection: 'pages',
+    draft,
+    limit: 1,
+    overrideAccess: draft,
+    pagination: false,
+    where: { and: [{ isShowHome: { equals: true } }, { show: { equals: show.id } }, { template: { equals: 'sections' } }] },
+  })
+  return pages.docs[0] ?? null
+}
+
 /** A record that has no path yet, for the preview of a draft that was never published. Authorised previews only. */
 export async function resolveDraftById(collection: 'posts' | 'pages', id: string): Promise<Resolved | null> {
   const payload = await getPayload({ config: configPromise })

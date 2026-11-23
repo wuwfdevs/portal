@@ -1,6 +1,13 @@
 import type { SectionNavItem } from '@/components/SectionNav'
+import { isValidAnchor } from '@/lib/sections-anchors'
 
 import type { PageSetId } from './registry'
+
+export interface SetNavSection {
+  anchor?: string | null
+  navLabel?: string | null
+  hidden?: boolean | null
+}
 
 export interface SetNavPage {
   title?: string | null
@@ -9,20 +16,38 @@ export interface SetNavPage {
   navOrder?: number | null
   /** A page that asks search engines not to list it (the thank-you page) is a place a visitor ends up, not one to browse to: it is left out of the strip. */
   noindex?: boolean | null
+  /** A page the strip does not list as a link of its own (a show's home: the strip's title links to it). Its sections' links still show. */
+  navHidden?: boolean | null
+  /** The show's home page has no path of its own; its address is the show's. */
+  isShowHome?: boolean | null
+  /** The sections that asked for a link (a name and an anchor), in the page's order. */
+  sections?: ReadonlyArray<SetNavSection | null | undefined> | null
 }
 
 /** The cache tag the set's navigation is read under; saving a page in the set revalidates it, so every page in the set shows the change. */
 export const setNavTag = (set: PageSetId): string => `page-set_${set}`
 
 /**
- * The sub-navigation of a page set: one link for each published page in it, in `navOrder` (pages without one last, then by title), labelled
- * `navLabel` or else the title, with the page the reader is on marked. A set with one page has nothing to move between, so it has none.
+ * The strip of a page set (or of one show's pages): one link for each published page in it, in `navOrder` (pages without one last, then by title), labelled `navLabel` or else the title,
+ * with the page the reader is on marked. After a page's own link come the links its sections asked for (`navLabel` on a section with an anchor), so a hub's strip can reach its own parts
+ * (Episodes, Explore, Collections) as well as its other pages; on the page itself such a link is `#anchor`, from another page it is `/page#anchor`. A show's home page has the show's address
+ * (`showPath`). A strip with fewer than two links has nothing to move between, so it has none.
  */
-export function setNavItems(pages: ReadonlyArray<SetNavPage | null | undefined>, currentPath: string): SectionNavItem[] {
+export function setNavItems(pages: ReadonlyArray<SetNavPage | null | undefined>, currentPath: string, options: { showPath?: string | null } = {}): SectionNavItem[] {
   const rows = pages
-    .filter((p): p is SetNavPage & { path: string } => Boolean(p && !p.noindex && typeof p.path === 'string' && p.path.startsWith('/') && (p.navLabel?.trim() || p.title?.trim())))
-    .map((p) => ({ label: (p.navLabel?.trim() || p.title?.trim()) as string, href: p.path, order: typeof p.navOrder === 'number' ? p.navOrder : Number.POSITIVE_INFINITY }))
+    .map((p) => (p && !p.noindex ? { p, address: p.isShowHome ? (options.showPath ?? null) : typeof p.path === 'string' ? p.path : null } : null))
+    .filter((r): r is { p: SetNavPage; address: string } => r !== null && typeof r.address === 'string' && r.address.startsWith('/'))
+    .map(({ p, address }) => ({ p, address, label: p.navLabel?.trim() || p.title?.trim() || '', order: typeof p.navOrder === 'number' ? p.navOrder : Number.POSITIVE_INFINITY }))
     .sort((a, b) => (a.order === b.order ? a.label.localeCompare(b.label) : a.order - b.order))
-  if (rows.length < 2) return []
-  return rows.map(({ label, href }) => ({ label, href, current: href === currentPath }))
+  const items: SectionNavItem[] = []
+  for (const { p, address, label } of rows) {
+    if (label && !p.navHidden) items.push({ label, href: address, current: address === currentPath })
+    for (const s of p.sections ?? []) {
+      const name = s?.navLabel?.trim()
+      const anchor = s?.anchor?.trim()
+      if (!s || s.hidden || !name || !anchor || !isValidAnchor(anchor)) continue
+      items.push({ label: name, href: address === currentPath ? `#${anchor}` : `${address}#${anchor}` })
+    }
+  }
+  return items.length < 2 ? [] : items
 }
