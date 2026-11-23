@@ -430,6 +430,31 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 5*. **Where the code did not fit t
 **Exit:** the owner has signed off each hub. The review behind board 28 did not read boards 11 to 25, so each hub's new look needs the
 owner's eye before it is built.
 
+#### Revision, 2026-11-23: hubs, shows and a show's home page (owner decisions; design only, nothing built)
+
+The redesign is on the canvas "WUWF Hubs Redesign" (https://claude.ai/artifact/4xSB7KPURiTSueJr2qXP7W), drawn from the real blocks and components as of `claude/main`
+at c588e97. It supersedes the hub layouts above where they differ. Decided:
+
+- **A show's home is a page of blocks, not a coded shell.** A show (a `productions` record) keeps being the one record and the one address (`/shows/<slug>`), and owns the facts
+  and the rules: listing, seasons, episodes, feeds, member levels and entitlements, funder agreements, the support setting. A **page names its show** (`pages.show`) and one
+  page per show is flagged as its **home** (the pattern of `pages.isHome`, with the same guard that keeps one). The show's address renders its home page; a show with no home page
+  keeps the standard show page. **Two choices, not three: the themed shell (`showThemeOf`, `components/Show/themed`) is retired** once Barefoot Mary's pages exist, built second,
+  after Unearthing proves the model. A page never holds an access rule: gates, member feeds and the support attribution code are read from the production through the page's show.
+- **A show's other pages** (About, Field Notes, Archive) are ordinary pages with the same show; the set's sub-navigation lists them. Show-only blocks (Seasons, Episodes by
+  season, Membership band, Explore) are offered on show pages. A show's theme becomes a page theme (its tones, and fonts as theme settings).
+- **Unearthing Florida is a show like the others:** listed, at `/shows/unearthing-florida`, its episodes at `/shows/unearthing-florida/<date>/<episode>`. Its Grove addresses (the
+  hub, its list pages, every episode) redirect permanently in the archive migration, one hop each to a 200, with the old path kept as `legacy.legacyPath`; the sitemap and
+  canonical tags list the new addresses only; links inside migrated story bodies are rewritten to the new paths; code that hard-codes `/unearthing-florida` (home page slots,
+  the census list) reads the show's address instead.
+- **RadioLive and The Voyager are not shows**: areas of the site, kept as page sets. The Voyager drops its newspaper nameplate and takes the teal tone; its About page is a page in
+  its set.
+- **Then & Now is dropped** (not part of the editors' workflow). Unearthing's Explore is one object: a map, a docked time window and a site list. The library has no basemap by
+  default (no map provider sees a visit); choosing one (`MAP_STYLE_URL`, self-hosted or not) is an open decision.
+- **To build** (each marked on the canvas's grammar board): Feature with a video frame; a List source for past RadioLive shows; the Explore block (on the existing MapLibre map,
+  with clustering, a time window and a site list; episodes need a start and end year, sites a latitude and longitude); ShowSpotlight scoped to the Voyager's shows; FrontPage,
+  NewsRun and ShowSpotlight offered to the Voyager set; SectionNav taking a band tone (paper for Unearthing, teal for the Voyager); the three hub themes; the Voyager badge hidden
+  on cards inside its own pages; the funder line as a set foot. Support is one block, identical on every hub.
+
 ### Phase 7: close out
 
 - [ ] Drop the emptied page globals and their tables; remove dead loaders.
