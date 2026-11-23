@@ -7,12 +7,11 @@ import { ensureSlug } from '../hooks/ensureSlug'
 import { ERA_OPTIONS } from '../lib/unearthing/periods'
 import { revalidateTag } from '../lib/revalidate'
 
-const percent = (label: string) => (v: number | null | undefined) => (v === undefined || v === null || (v >= 0 && v <= 100) ? true : `${label} must be between 0 and 100.`)
 
 /**
  * A place Unearthing Florida's episodes are about: a mission, a fort, a shell midden. Episodes point at one; the Explore block's map shows each as a pin at its latitude and longitude
- * (hubs redesign, 2026-11-23). A site with no coordinates is listed but not mapped. The old schematic position (two percentages on a drawing of the state) is retired: those fields are
- * hidden and kept only until the cleanup drops them, because a drawing's percentages cannot be turned into a place.
+ * (hubs redesign, 2026-11-23). A site with no coordinates is listed but not mapped. The old schematic position (two percentages on a drawing of the state) is gone: a drawing's percentages
+ * cannot be turned into a place, so the columns were dropped (`20261123_040000_drop_site_map_xy`) and nothing was guessed.
  */
 export const Sites: CollectionConfig = {
   slug: 'sites',
@@ -61,8 +60,5 @@ export const Sites: CollectionConfig = {
         },
       ],
     },
-    // Retired (the old schematic map): kept, hidden, until the cleanup drops them.
-    { name: 'mapX', type: 'number', defaultValue: 50, min: 0, max: 100, validate: percent('Across'), admin: { hidden: true } },
-    { name: 'mapY', type: 'number', defaultValue: 50, min: 0, max: 100, validate: percent('Down'), admin: { hidden: true } },
   ],
 }

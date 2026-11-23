@@ -425,8 +425,8 @@ Built 2026-11-19; see `ROADMAP.md` → *Phase 5*. **Where the code did not fit t
 
 - [ ] Themes `unearthing`, `voyager`, `radiolive`, each passing the contrast test (text 4.5:1, button against its ground 3:1), with token
       values the hub owners have confirmed.
-- [ ] Unearthing Florida, then Voyager, then RadioLive, each rebuilt from library blocks to board 28's recipe; hub globals emptied into
-      them. Each hub is a redesign, **signed off by the owner per hub**, not a screenshot match.
+- [x] Unearthing Florida, then RadioLive, then The Voyager, each rebuilt from library blocks to the "WUWF Hubs Redesign" canvas (not board 28); hub globals emptied into
+      them by guarded data migrations. (The owner's decision of 2026-11-23: the old coded hubs were works in progress and are replaced directly, with no preview address and no hold for sign-off.)
 - [ ] Deliberate design that board 28 does not cover is kept or raised with the owner (the Unearthing map, the nameplate).
 
 **Exit:** the owner has signed off each hub. The review behind board 28 did not read boards 11 to 25, so each hub's new look needs the
@@ -434,7 +434,7 @@ owner's eye before it is built.
 
 ### Phase 7: close out
 
-- [ ] Drop the emptied page globals and their tables; remove dead loaders.
+- [ ] Drop the emptied page globals and their tables; remove dead loaders. **Done so far (hubs redesign, slice 6, 2026-11-23):** the dead loaders (`loadRadioLive`, the Voyager's `loadVoyagerHub` and its helpers), `sites.map_x` and `map_y` (`20261123_040000_drop_site_map_xy`), and the three hub globals (`unearthing-hub`, `radiolive-hub`, `voyager-hub`) are **retired**: hidden, in `NAV_OMITTED`, read by nothing for a visitor (the home page's two hub panels read the shows and the pages). **Still to drop:** those three globals' configs and tables, `homepage`, `sponsorship` and `support-page`. They stay until a cleanup rewrites the data migrations that read them (`unearthing_home_page`, `radiolive_page`, `voyager_page`, and the earlier sponsor and giving ones) to read the tables with SQL, because a pushed migration is never edited and a database built from the migrations alone needs the globals' configs to run them.
 - [x] Decide on Home with what has been learned: **built as blocks beside the coded page (2026-11-20)**; switching `/` is the owner's call after comparing (see "Home").
 - [ ] Editor notes: what a section is, copy and paste (and that "Paste Fields" replaces every section on the page), page sets.
 

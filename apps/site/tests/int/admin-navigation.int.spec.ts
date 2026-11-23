@@ -46,12 +46,11 @@ describe('admin navigation', async () => {
     expect(topGroupOf('collection', 'users')).toBe('Members & accounts')
   })
 
-  it('offers live preview on every page-like global in the Pages group', () => {
-    const pageGlobals = navEntries()
-      .filter((e) => e.kind === 'global' && e.group === 'Pages')
-      .map((e) => globals.find((g) => g.slug === e.slug)!)
-    expect(pageGlobals.map((g) => g.slug).sort()).toEqual(['radiolive-hub', 'unearthing-hub', 'voyager-hub'])
-    for (const g of pageGlobals) expect(typeof g.admin?.livePreview === 'object' && g.admin.livePreview !== null && 'url' in g.admin.livePreview, g.slug).toBe(true)
+  it('has no coded-page global left in the Pages group: the three hubs are pages now, and their retired globals are hidden', () => {
+    expect(navEntries().filter((e) => e.kind === 'global' && e.group === 'Pages')).toEqual([])
+    for (const slug of ['unearthing-hub', 'radiolive-hub', 'voyager-hub']) {
+      expect(globals.find((g) => g.slug === slug)?.admin?.hidden, slug).toBe(true)
+    }
   })
 
   it('keeps pictures, audio and video together, and the plugins\' collections under System', () => {

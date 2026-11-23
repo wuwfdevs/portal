@@ -7,8 +7,8 @@ import { validateSupportHref } from '@/lib/support-link'
 import { revalidateRadioLiveHub } from './hooks/revalidate'
 
 /**
- * **Retired as the page's words (hubs redesign, slice 4):** `/radiolive` is a page record in the radiolive set; this global was copied into it by the migration `radiolive_page` and is read now
- * only by the home page's RadioLive panel. It is dropped with that panel (PAGE-BLOCKS.md phase 7).
+ * **Retired (hubs redesign, slices 4 and 6):** `/radiolive` is a page record in the radiolive set; this global was copied into it by the migration `radiolive_page`, which still reads it on a database built from
+ * the migrations. Nothing reads it for a visitor (the home page's RadioLive panel reads the shows). Hidden; dropped at the cleanup (PAGE-BLOCKS.md phase 7).
  *
  * The RadioLive page (`/radiolive`, board 12). The shows and artists are their own records; this holds what is the page's own: which
  * production RadioLive is (its funders come from that), the picture at the top, the host, the Encores broadcast and the call to support.
@@ -18,11 +18,7 @@ import { revalidateRadioLiveHub } from './hooks/revalidate'
 export const RadioLiveHub: GlobalConfig = {
   slug: 'radiolive-hub',
   label: 'RadioLive page',
-  admin: {
-    description:
-      'The RadioLive page is now a page of sections (Pages → RadioLive): edit its words there. This screen is read only by the home page\'s RadioLive panel (the tagline) until that panel moves, and it is retired with it.',
-    livePreview: { url: '/radiolive' },
-  },
+  admin: { hidden: true, description: 'Retired: the RadioLive page is a page of sections (Pages → RadioLive). Nothing reads this any more; it is kept until the next cleanup because the migration that wrote the page reads it.' },
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateRadioLiveHub] },
   fields: [

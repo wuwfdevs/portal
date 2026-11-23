@@ -224,9 +224,6 @@ export interface Config {
   };
   fallbackLocale: null;
   globals: {
-    'unearthing-hub': UnearthingHub;
-    'voyager-hub': VoyagerHub;
-    'radiolive-hub': RadioliveHub;
     'sponsorship-settings': SponsorshipSetting;
     'giving-settings': GivingSetting;
     header: Header;
@@ -237,12 +234,12 @@ export interface Config {
     'listen-live': ListenLive;
     homepage: Homepage;
     'support-page': SupportPage;
+    'unearthing-hub': UnearthingHub;
+    'voyager-hub': VoyagerHub;
+    'radiolive-hub': RadioliveHub;
     sponsorship: Sponsorship;
   };
   globalsSelect: {
-    'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
-    'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
-    'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     'sponsorship-settings': SponsorshipSettingsSelect<false> | SponsorshipSettingsSelect<true>;
     'giving-settings': GivingSettingsSelect<false> | GivingSettingsSelect<true>;
     header: HeaderSelect<false> | HeaderSelect<true>;
@@ -253,6 +250,9 @@ export interface Config {
     'listen-live': ListenLiveSelect<false> | ListenLiveSelect<true>;
     homepage: HomepageSelect<false> | HomepageSelect<true>;
     'support-page': SupportPageSelect<false> | SupportPageSelect<true>;
+    'unearthing-hub': UnearthingHubSelect<false> | UnearthingHubSelect<true>;
+    'voyager-hub': VoyagerHubSelect<false> | VoyagerHubSelect<true>;
+    'radiolive-hub': RadioliveHubSelect<false> | RadioliveHubSelect<true>;
     sponsorship: SponsorshipSelect<false> | SponsorshipSelect<true>;
   };
   locale: null;
@@ -1518,8 +1518,6 @@ export interface Site {
    * Degrees east: negative in Florida, e.g. -87.2169 for Pensacola.
    */
   longitude?: number | null;
-  mapX?: number | null;
-  mapY?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -6246,8 +6244,6 @@ export interface SitesSelect<T extends boolean = true> {
   description?: T;
   latitude?: T;
   longitude?: T;
-  mapX?: T;
-  mapY?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -7260,173 +7256,6 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "unearthing-hub".
- */
-export interface UnearthingHub {
-  id: number;
-  /**
-   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
-   */
-  production?: (number | null) | Production;
-  /**
-   * The small line above the title, e.g. "Northwest Florida to the Keys".
-   */
-  dateline?: string | null;
-  /**
-   * The "About the project" box: who makes it, since when, when it airs.
-   */
-  about?: string | null;
-  /**
-   * The episode shown large with its player. Empty means the newest episode.
-   */
-  featured?: (number | null) | Post;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "voyager-hub".
- */
-export interface VoyagerHub {
-  id: number;
-  /**
-   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
-   */
-  identity?: (number | null) | PublishingIdentity;
-  tagline?: string | null;
-  /**
-   * The large story at the top. Empty means the newest Voyager story.
-   */
-  featured?: (number | null) | Post;
-  /**
-   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
-   */
-  sections?: (number | Section)[] | null;
-  /**
-   * A Voyager podcast to show in the Multimedia band. Optional.
-   */
-  podcast?: (number | null) | Production;
-  /**
-   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
-   */
-  staff?:
-    | {
-        person: number | Contributor;
-        /**
-         * Their role this term, e.g. "News editor". Empty uses their title.
-         */
-        role?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  join?: {
-    heading?: string | null;
-    /**
-     * Say only what is true this term (who can join, whether editor roles are paid).
-     */
-    text?: string | null;
-    /**
-     * Where "Join the newsroom" goes. Empty hides the button.
-     */
-    href?: string | null;
-  };
-  footnote?: string | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
- * The RadioLive page is now a page of sections (Pages → RadioLive): edit its words there. This screen is read only by the home page's RadioLive panel (the tagline) until that panel moves, and it is retired with it.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "radiolive-hub".
- */
-export interface RadioliveHub {
-  id: number;
-  /**
-   * The RadioLive production. Its funder lines ("RadioLive is made possible by...") come from its underwriting agreements.
-   */
-  production?: (number | null) | Production;
-  tagline?: string | null;
-  /**
-   * The wide picture at the top. Give it alt text in the media library.
-   */
-  heroPhoto?: (number | null) | Media;
-  host?: {
-    kicker?: string | null;
-    heading?: string | null;
-    text?: string | null;
-    portrait?: (number | null) | Media;
-    /**
-     * Where "The story of RadioLive" goes. Empty hides it.
-     */
-    href?: string | null;
-  };
-  encores?: {
-    heading?: string | null;
-    text?: string | null;
-    linkLabel?: string | null;
-    /**
-     * Where the audio archive is. Empty hides the button.
-     */
-    href?: string | null;
-  };
-  support?: {
-    heading?: string | null;
-    text?: string | null;
-    buttonLabel?: string | null;
-    /**
-     * The donation page. Empty hides the button.
-     */
-    href?: string | null;
-    /**
-     * Say only what the donation form really offers.
-     */
-    note?: string | null;
-  };
-  visit?: {
-    heading?: string | null;
-    /**
-     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
-     */
-    items?:
-      | {
-          /**
-           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
-           */
-          label: string;
-          text: string;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
-   */
-  membership?: {
-    /**
-     * The level's name, e.g. "RadioLive 25".
-     */
-    heading?: string | null;
-    /**
-     * The price and what members receive, exactly as the station sells it.
-     */
-    text?: string | null;
-    /**
-     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
-     */
-    contactName?: string | null;
-    contactEmail?: string | null;
-    contactPhone?: string | null;
-    /**
-     * An optional page to join or learn more.
-     */
-    href?: string | null;
-  };
-  updatedAt?: string | null;
-  createdAt?: string | null;
 }
 /**
  * Prices, rates, contact details and the proposal form’s choices. The words on each sponsorship page are on the page’s sections.
@@ -8816,6 +8645,177 @@ export interface SupportPage {
   createdAt?: string | null;
 }
 /**
+ * Retired: Unearthing Florida is the show's home page (a page of blocks). Nothing reads this any more; it is kept until the next cleanup because three migrations read it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub".
+ */
+export interface UnearthingHub {
+  id: number;
+  /**
+   * The Unearthing Florida production. Its title, summary and funding line are used; its episodes fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  production?: (number | null) | Production;
+  /**
+   * The small line above the title, e.g. "Northwest Florida to the Keys".
+   */
+  dateline?: string | null;
+  /**
+   * The "About the project" box: who makes it, since when, when it airs.
+   */
+  about?: string | null;
+  /**
+   * The episode shown large with its player. Empty means the newest episode.
+   */
+  featured?: (number | null) | Post;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Retired: The Voyager is a page of sections (Pages → The Voyager). Nothing reads this any more; it is kept until the next cleanup because the migration that wrote the pages reads it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub".
+ */
+export interface VoyagerHub {
+  id: number;
+  /**
+   * The "The Voyager" publishing identity. Stories with this identity fill the hub. Until it is chosen, the hub says it is not set up.
+   */
+  identity?: (number | null) | PublishingIdentity;
+  tagline?: string | null;
+  /**
+   * The large story at the top. Empty means the newest Voyager story.
+   */
+  featured?: (number | null) | Post;
+  /**
+   * Up to six sections, in order (e.g. Campus, Sports, Arts & Life, Opinion). Each shows its newest two Voyager stories.
+   */
+  sections?: (number | Section)[] | null;
+  /**
+   * A Voyager podcast to show in the Multimedia band. Optional.
+   */
+  podcast?: (number | null) | Production;
+  /**
+   * Who is on staff this term. Everyone here needs a contributor record (add one for a new student).
+   */
+  staff?:
+    | {
+        person: number | Contributor;
+        /**
+         * Their role this term, e.g. "News editor". Empty uses their title.
+         */
+        role?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  join?: {
+    heading?: string | null;
+    /**
+     * Say only what is true this term (who can join, whether editor roles are paid).
+     */
+    text?: string | null;
+    /**
+     * Where "Join the newsroom" goes. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  footnote?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Retired: the RadioLive page is a page of sections (Pages → RadioLive). Nothing reads this any more; it is kept until the next cleanup because the migration that wrote the page reads it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub".
+ */
+export interface RadioliveHub {
+  id: number;
+  /**
+   * The RadioLive production. Its funder lines ("RadioLive is made possible by...") come from its underwriting agreements.
+   */
+  production?: (number | null) | Production;
+  tagline?: string | null;
+  /**
+   * The wide picture at the top. Give it alt text in the media library.
+   */
+  heroPhoto?: (number | null) | Media;
+  host?: {
+    kicker?: string | null;
+    heading?: string | null;
+    text?: string | null;
+    portrait?: (number | null) | Media;
+    /**
+     * Where "The story of RadioLive" goes. Empty hides it.
+     */
+    href?: string | null;
+  };
+  encores?: {
+    heading?: string | null;
+    text?: string | null;
+    linkLabel?: string | null;
+    /**
+     * Where the audio archive is. Empty hides the button.
+     */
+    href?: string | null;
+  };
+  support?: {
+    heading?: string | null;
+    text?: string | null;
+    buttonLabel?: string | null;
+    /**
+     * The donation page. Empty hides the button.
+     */
+    href?: string | null;
+    /**
+     * Say only what the donation form really offers.
+     */
+    note?: string | null;
+  };
+  visit?: {
+    heading?: string | null;
+    /**
+     * Short facts for people coming to a show: when it starts, soundcheck, seating, tickets, the venue address. Leave empty to hide the panel.
+     */
+    items?:
+      | {
+          /**
+           * e.g. "Show", "Soundcheck", "Seating", "Tickets", "Where".
+           */
+          label: string;
+          text: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * A membership level sold for RadioLive. Leave the heading empty to hide it. A gift is still made on the donation form; this only describes the level and who to contact.
+   */
+  membership?: {
+    /**
+     * The level's name, e.g. "RadioLive 25".
+     */
+    heading?: string | null;
+    /**
+     * The price and what members receive, exactly as the station sells it.
+     */
+    text?: string | null;
+    /**
+     * Who to contact. Prefer a role (e.g. "the membership office") if the station has one.
+     */
+    contactName?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    /**
+     * An optional page to join or learn more.
+     */
+    href?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * Moved. The sponsorship pages are edited under Pages; prices and contact details under Sponsorship settings.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -9792,108 +9792,6 @@ export interface Sponsorship {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "unearthing-hub_select".
- */
-export interface UnearthingHubSelect<T extends boolean = true> {
-  production?: T;
-  dateline?: T;
-  about?: T;
-  featured?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "voyager-hub_select".
- */
-export interface VoyagerHubSelect<T extends boolean = true> {
-  identity?: T;
-  tagline?: T;
-  featured?: T;
-  sections?: T;
-  podcast?: T;
-  staff?:
-    | T
-    | {
-        person?: T;
-        role?: T;
-        id?: T;
-      };
-  join?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        href?: T;
-      };
-  footnote?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "radiolive-hub_select".
- */
-export interface RadioliveHubSelect<T extends boolean = true> {
-  production?: T;
-  tagline?: T;
-  heroPhoto?: T;
-  host?:
-    | T
-    | {
-        kicker?: T;
-        heading?: T;
-        text?: T;
-        portrait?: T;
-        href?: T;
-      };
-  encores?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        linkLabel?: T;
-        href?: T;
-      };
-  support?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        buttonLabel?: T;
-        href?: T;
-        note?: T;
-      };
-  visit?:
-    | T
-    | {
-        heading?: T;
-        items?:
-          | T
-          | {
-              label?: T;
-              text?: T;
-              id?: T;
-            };
-      };
-  membership?:
-    | T
-    | {
-        heading?: T;
-        text?: T;
-        contactName?: T;
-        contactEmail?: T;
-        contactPhone?: T;
-        href?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "sponsorship-settings_select".
  */
 export interface SponsorshipSettingsSelect<T extends boolean = true> {
@@ -10774,6 +10672,108 @@ export interface SupportPageSelect<T extends boolean = true> {
                   };
             };
         helpLine?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "unearthing-hub_select".
+ */
+export interface UnearthingHubSelect<T extends boolean = true> {
+  production?: T;
+  dateline?: T;
+  about?: T;
+  featured?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "voyager-hub_select".
+ */
+export interface VoyagerHubSelect<T extends boolean = true> {
+  identity?: T;
+  tagline?: T;
+  featured?: T;
+  sections?: T;
+  podcast?: T;
+  staff?:
+    | T
+    | {
+        person?: T;
+        role?: T;
+        id?: T;
+      };
+  join?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        href?: T;
+      };
+  footnote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "radiolive-hub_select".
+ */
+export interface RadioliveHubSelect<T extends boolean = true> {
+  production?: T;
+  tagline?: T;
+  heroPhoto?: T;
+  host?:
+    | T
+    | {
+        kicker?: T;
+        heading?: T;
+        text?: T;
+        portrait?: T;
+        href?: T;
+      };
+  encores?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        linkLabel?: T;
+        href?: T;
+      };
+  support?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        buttonLabel?: T;
+        href?: T;
+        note?: T;
+      };
+  visit?:
+    | T
+    | {
+        heading?: T;
+        items?:
+          | T
+          | {
+              label?: T;
+              text?: T;
+              id?: T;
+            };
+      };
+  membership?:
+    | T
+    | {
+        heading?: T;
+        text?: T;
+        contactName?: T;
+        contactEmail?: T;
+        contactPhone?: T;
+        href?: T;
       };
   updatedAt?: T;
   createdAt?: T;

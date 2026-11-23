@@ -33,9 +33,9 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     items: [c('posts'), c('clips'), c('network-items'), c('network-sources')],
   },
   {
-    // The coded pages leave this list as they move into `pages` (PAGE-BLOCKS.md phases 4 to 7); the home page has gone (2026-11-21), the three hubs are left.
+    // The coded pages leave this list as they move into `pages` (PAGE-BLOCKS.md phases 4 to 7); the home page went 2026-11-21 and the three hubs on 2026-11-23: nothing is left.
     label: 'Pages',
-    items: [c('pages'), g('unearthing-hub'), g('voyager-hub'), g('radiolive-hub')],
+    items: [c('pages')],
   },
   {
     label: 'Shows & series',
@@ -92,6 +92,9 @@ export const NAV_OMITTED: readonly { kind: NavEntityKind; slug: string; why: str
   { kind: 'collection', slug: 'event-submission-images', why: 'Pictures belong to a submitted event and are reached from it.' },
   { kind: 'collection', slug: 'portal-sign-ins', why: 'Records of one-time Portal tokens; never edited.' },
   { kind: 'global', slug: 'homepage', why: 'Retired 2026-11-21: the home page is a page in Pages and the banner is the Site banner; kept hidden until the next cleanup drops it.' },
+  { kind: 'global', slug: 'unearthing-hub', why: 'Retired 2026-11-23: Unearthing Florida is the show\'s home page; kept hidden because a migration reads it, dropped in PAGE-BLOCKS.md phase 7.' },
+  { kind: 'global', slug: 'radiolive-hub', why: 'Retired 2026-11-23: RadioLive is a page in Pages; kept hidden because a migration reads it, dropped in PAGE-BLOCKS.md phase 7.' },
+  { kind: 'global', slug: 'voyager-hub', why: 'Retired 2026-11-23: The Voyager is a page in Pages; kept hidden because a migration reads it, dropped in PAGE-BLOCKS.md phase 7.' },
   { kind: 'global', slug: 'sponsorship', why: 'Moved into pages and Sponsorship settings; dropped in PAGE-BLOCKS.md phase 7.' },
   { kind: 'global', slug: 'support-page', why: 'Moved into pages and Giving settings; dropped in PAGE-BLOCKS.md phase 7.' },
 ]

@@ -6,11 +6,11 @@ import { revalidateUnearthingHub } from './hooks/revalidate'
 
 /**
  * The Unearthing Florida hub's settings (board 11). Retiring: the hub is now the show's home page (a page of blocks at `/shows/unearthing-florida`) and `/unearthing-florida` redirects
- * to it; what remains here is read only by the home page's Unearthing panel until the cleanup (PAGE-BLOCKS.md, phase 7) empties it. Then & now was dropped (hubs redesign, 2026-11-23). Showing something on a hub is publishing, so it takes publish permission.
+ * to it; **retired (hubs redesign, slice 6):** nothing reads it for a visitor (the home page's Unearthing panel takes its show from the unearthing set's home page) and it is hidden, kept only because the migration that wrote the pages (`unearthing_home_page`) reads it on a database built from the migrations; it is dropped at the cleanup (PAGE-BLOCKS.md, phase 7). Then & now was dropped (hubs redesign, 2026-11-23). Showing something on a hub is publishing, so it takes publish permission.
  */
 export const UnearthingHub: GlobalConfig = {
   slug: 'unearthing-hub',
-  admin: { livePreview: { url: '/shows/unearthing-florida' } },
+  admin: { hidden: true, description: 'Retired: Unearthing Florida is the show\'s home page (a page of blocks). Nothing reads this any more; it is kept until the next cleanup because three migrations read it.' },
   label: 'Unearthing Florida hub',
   access: { read: () => true, update: requirePermission('content.publish') },
   hooks: { afterChange: [revalidateUnearthingHub] },
