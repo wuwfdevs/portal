@@ -91,7 +91,9 @@ export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: V
       blockType: 'sectionNewsRun',
       hidden: false,
       tone: i % 2 === 0 ? 'grey' : 'plain',
-      ...(anchor ? { anchor, navLabel: s.title } : {}),
+      // The strip's link goes to the section's own page (`/campus`), which lists all of its stories, and not to this run on the hub: the run can be empty once the lead and The Briefing have taken the
+      // newest stories, and a link to a part of the page that is not drawn goes nowhere.
+      ...(anchor ? { anchor, navLabel: s.title, navHref: `/${anchor}` } : {}),
       section: s.id,
       count: i === 0 ? 5 : 3,
       heading: { title: s.title },

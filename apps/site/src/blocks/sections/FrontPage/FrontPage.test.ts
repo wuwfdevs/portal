@@ -15,7 +15,7 @@ vi.mock('@/lib/home-blocks/load', () => ({
 }))
 
 const draw = async (block: Record<string, unknown>, claims?: ReadonlyMap<string, readonly (string | number)[]>, context: Record<string, unknown> = {}) => {
-  const out = await FrontPageSection({ block: { blockType: 'sectionFrontPage', ...block } as never, context: { ...testContext, ...(claims ? { claims } : {}), ...context } })
+  const out = await FrontPageSection({ block: { blockType: 'sectionFrontPage', ...block } as never, context: { ...testContext, setId: 'home', ...(claims ? { claims } : {}), ...context } })
   return out ? renderToStaticMarkup(out as never) : ''
 }
 beforeEach(() => {
@@ -43,6 +43,15 @@ describe('Front page lead', () => {
     const out = await draw({})
     expect(out).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]')
     expect(out).toContain('lg:flex-1')
+  })
+  it('fits the first screen on the home page only: a hub\'s lead keeps to its own shape, not the height of the window', async () => {
+    const home = await draw({}, undefined, { setId: 'home' })
+    expect(home).toContain('lg:min-h-[min(calc(100svh_-_var(--header-h)_-_3.5rem),62rem)]')
+    const hub = await draw({}, undefined, { setId: 'voyager' })
+    expect(hub).not.toContain('100svh')
+    expect(hub).not.toContain('lg:flex-1')
+    expect(hub).toContain('The lead')
+    expect(hub).toContain('The Briefing')
   })
   it('keeps the full top padding when the page has no top unit, and the first screen subtracts it', async () => {
     const out = await draw({})

@@ -21,11 +21,21 @@ describe('the RadioLive page', () => {
     expect(home.sections.map((s) => s.blockType)).toEqual(['sectionFeature', 'sectionDates', 'sectionList', 'sectionList', 'sectionProfileBand', 'sectionFeature', 'sectionSupport', 'sectionCallout'])
     expect(home.sections.map((s) => s.tone)).toEqual(['dark', 'plain', 'dark', 'grey', 'plain', 'teal', 'plain', 'grey'])
   })
+  it('has one h1, the lead, and the Encores band is an ordinary band of words (a split), not a second page title', () => {
+    expect(home.sections.find((x) => x.id === 'rl-lead')).toMatchObject({ variant: 'split', pageTitle: true })
+    const encores = home.sections.find((x) => x.id === 'rl-encores')
+    expect(encores).toMatchObject({ blockType: 'sectionFeature', variant: 'split', tone: 'teal' })
+    expect(encores).not.toHaveProperty('pageTitle')
+    expect(home.sections.filter((x) => x.blockType === 'sectionFeature' && (x.variant === 'hero' || x.pageTitle === true)).length).toBe(1)
+  })
+  it('sends the strip\'s Artists link to the artists\' page, which is left out of the strip, so the strip has one Artists link', () => {
+    expect(home.sections.find((s) => s.id === 'rl-artists')).toMatchObject({ navLabel: 'Artists', navHref: '/radiolive/artists' })
+  })
   it('names the places the strip links to: Shows, Watch, Artists, About (the board\'s four), each with an anchor', () => {
     expect(home.sections.filter((s) => s.navLabel).map((s) => [s.navLabel, s.anchor])).toEqual([['Shows', 'shows'], ['Watch', 'watch'], ['Artists', 'artists'], ['About', 'about']])
   })
   it('follows the shows instead of typing them: the latest recorded set, RadioLive dates, past shows and artists from the shows', () => {
-    expect(home.sections[0]).toMatchObject({ latestSet: true, variant: 'split', line: facts.tagline, image: 11 })
+    expect(home.sections[0]).toMatchObject({ latestSet: true, variant: 'split', pageTitle: true, line: facts.tagline, image: 11 })
     expect(home.sections[1]).toMatchObject({ source: 'radiolive', variant: 'rows' })
     expect(home.sections[2]).toMatchObject({ source: 'performances', variant: 'grid' })
     expect(home.sections[3]).toMatchObject({ source: 'artists', variant: 'tiles', moreHref: '/radiolive/artists', moreLabel: 'All artists →' })
@@ -53,7 +63,7 @@ describe('the RadioLive page', () => {
     expect(bare.sections.map((s) => s.blockType)).toEqual(['sectionFeature', 'sectionDates', 'sectionList', 'sectionList'])
   })
   it('has an artists page at /radiolive/artists with the index', () => {
-    expect(artists).toMatchObject({ path: '/radiolive/artists', navLabel: 'All artists' })
+    expect(artists).toMatchObject({ path: '/radiolive/artists', navLabel: 'All artists', navHidden: true })
     expect(artists.sections.map((s) => s.blockType)).toEqual(['sectionArtistIndex'])
   })
 })

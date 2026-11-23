@@ -303,9 +303,13 @@ export interface SectionFeature {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -648,9 +652,13 @@ export interface SectionFeaturedRecord {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1543,9 +1551,13 @@ export interface SectionProfileBand {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1605,9 +1617,13 @@ export interface SectionCards {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1671,9 +1687,13 @@ export interface SectionList {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1737,9 +1757,13 @@ export interface SectionDates {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1803,9 +1827,13 @@ export interface SectionBroadcastSchedule {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1840,9 +1868,13 @@ export interface SectionQuotes {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1891,9 +1923,13 @@ export interface SectionStats {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -1963,9 +1999,13 @@ export interface SectionSteps {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2013,9 +2053,13 @@ export interface SectionQuestions {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2062,9 +2106,13 @@ export interface SectionCallout {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2102,9 +2150,13 @@ export interface SectionCheckList {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2154,9 +2206,13 @@ export interface SectionTable {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2209,9 +2265,13 @@ export interface SectionDataViz {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2576,9 +2636,13 @@ export interface SectionPicker {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2677,9 +2741,13 @@ export interface SectionText {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2732,9 +2800,13 @@ export interface SectionCredit {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2773,9 +2845,13 @@ export interface SectionSupport {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2818,9 +2894,13 @@ export interface SectionClosingBand {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2865,9 +2945,13 @@ export interface SectionColumns {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2925,9 +3009,13 @@ export interface SectionIllustration {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -2970,9 +3058,13 @@ export interface SectionFrontPage {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3007,9 +3099,13 @@ export interface SectionFellowshipFeature {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3037,9 +3133,13 @@ export interface SectionNewsRun {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3082,9 +3182,13 @@ export interface SectionShowSpotlight {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3132,9 +3236,13 @@ export interface SectionFeaturePanels {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3163,9 +3271,13 @@ export interface SectionExplore {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3200,9 +3312,13 @@ export interface SectionArtistIndex {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3237,9 +3353,13 @@ export interface SectionRateEstimator {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3296,9 +3416,13 @@ export interface SectionPackages {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3341,9 +3465,13 @@ export interface SectionCarpool {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3393,9 +3521,13 @@ export interface SectionOpenPrograms {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3452,9 +3584,13 @@ export interface SectionInquiryForm {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3524,9 +3660,13 @@ export interface SectionGiftCard {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3617,9 +3757,13 @@ export interface SectionGivingLevels {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3664,9 +3808,13 @@ export interface SectionWaysToGive {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3758,9 +3906,13 @@ export interface SectionThankYou {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3825,9 +3977,13 @@ export interface SectionGivingContact {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3877,9 +4033,13 @@ export interface SectionAskWuwf {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3915,9 +4075,13 @@ export interface SectionListeningOpen {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -3965,9 +4129,13 @@ export interface SectionListeningSessions {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -4003,9 +4171,13 @@ export interface SectionListeningOutcomes {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */
@@ -4040,9 +4212,13 @@ export interface SectionHostForm {
    */
   anchor?: string | null;
   /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above.
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
    */
   navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
   /**
    * The ground of the section. The page theme decides what each looks like.
    */

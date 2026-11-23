@@ -16,6 +16,8 @@ export interface SectionData {
   anchor?: string | null
   /** A name for this section in the page strip (needs an anchor). */
   navLabel?: string | null
+  /** A page the strip's link goes to instead of this section (a section that has a page of its own). */
+  navHref?: string | null
   tone?: string | null
   variant?: string | null
   /** Set by Columns on a section it holds: draw without a band of its own (the band around the columns carries the tone and the spacing). */
@@ -86,6 +88,11 @@ export interface SectionBlockEntry {
    * `RenderSections` does not place it again. A page with no such block gets the top unit after its first section.
    */
   drawsTop?: boolean
+  /**
+   * A call to action drawn as a card (Support, Closing band). Two or more of these in a row on a page share one band, side by side on a wide screen (`RenderSections`), so the page never
+   * has two full-width bands stacked. The component draws only its card when it is given `inline`.
+   */
+  cta?: boolean
   /** A news run: the page's sponsor rows sit above these, one row above each, as the home page's rail does. */
   anchor?: boolean
 }

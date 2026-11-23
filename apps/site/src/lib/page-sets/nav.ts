@@ -1,4 +1,5 @@
 import type { SectionNavItem } from '@/components/SectionNav'
+import { safeHref } from '@/lib/section-links'
 import { isValidAnchor } from '@/lib/sections-anchors'
 
 import type { PageSetId } from './registry'
@@ -6,6 +7,8 @@ import type { PageSetId } from './registry'
 export interface SetNavSection {
   anchor?: string | null
   navLabel?: string | null
+  /** A page the link goes to instead of the section (a section that has a page of its own: a news run's section page). */
+  navHref?: string | null
   hidden?: boolean | null
 }
 
@@ -44,10 +47,30 @@ export function setNavItems(pages: ReadonlyArray<SetNavPage | null | undefined>,
     if (label && !p.navHidden) items.push({ label, href: address, current: address === currentPath })
     for (const s of p.sections ?? []) {
       const name = s?.navLabel?.trim()
-      const anchor = s?.anchor?.trim()
-      if (!s || s.hidden || !name || !anchor || !isValidAnchor(anchor)) continue
+      if (!s || s.hidden || !name) continue
+      // A section that has a page of its own links to that page (a news run's section, a list's full page), so the strip leads to the page and not to a part of this one.
+      const page = safeHref(s.navHref)
+      if (page && !page.startsWith('#')) {
+        items.push({ label: name, href: page, current: page === currentPath })
+        continue
+      }
+      const anchor = s.anchor?.trim()
+      if (!anchor || !isValidAnchor(anchor)) continue
       items.push({ label: name, href: address === currentPath ? `#${anchor}` : `${address}#${anchor}` })
     }
   }
   return items.length < 2 ? [] : items
+}
+
+/**
+ * Where the strip's title goes: the set's first page (the show's home for a show's set, which has no address of its own), even when that page is left out of the strip's links. The title is the way
+ * back to the start, so it must not be the strip's first link, which on a page left out of the strip is a part of the page (`#episodes`).
+ */
+export function setHomeHref(pages: ReadonlyArray<SetNavPage | null | undefined>, options: { showPath?: string | null } = {}): string | null {
+  const rows = pages
+    .map((p) => (p && !p.noindex ? { p, address: p.isShowHome ? (options.showPath ?? null) : typeof p.path === 'string' ? p.path : null } : null))
+    .filter((r): r is { p: SetNavPage; address: string } => r !== null && typeof r.address === 'string' && r.address.startsWith('/'))
+    .map(({ p, address }) => ({ address, label: p.navLabel?.trim() || p.title?.trim() || '', order: typeof p.navOrder === 'number' ? p.navOrder : Number.POSITIVE_INFINITY }))
+    .sort((a, b) => (a.order === b.order ? a.label.localeCompare(b.label) : a.order - b.order))
+  return rows[0]?.address ?? null
 }

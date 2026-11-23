@@ -9,7 +9,7 @@ import { HomeFoot } from '@/components/Page/HomeFoot'
 import { FunderFoot } from '@/components/Page/FunderFoot'
 import { SetFooter } from '@/components/Page/SetFooter'
 import { loadSetNavPages } from '@/lib/page-sets/load'
-import { setNavItems } from '@/lib/page-sets/nav'
+import { setHomeHref, setNavItems } from '@/lib/page-sets/nav'
 import { pageSetOf } from '@/lib/page-sets/registry'
 import { resolveTheme } from '@/lib/page-themes/themes'
 import { relationId } from '@/lib/section-data/shape'
@@ -52,12 +52,13 @@ export async function SectionsPageView({
   const showId = relationId(page.show)
   const nav = set && set.subNav ? await loadSetNavPages(set.id, set.perShow ? showId : null)() : null
   const items = set && nav ? setNavItems(nav.pages, url, { showPath: nav.showPath }) : []
+  const home = set && nav ? setHomeHref(nav.pages, { showPath: nav.showPath }) : null
   return (
     <article data-page-theme={theme.id}>
       {/* Allows redirects for valid pages too */}
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
-      {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav band={theme.nav} hideTitle={!set.navTitle} homeHref={items[0]?.href} label={set.name} items={items} />}
+      {set && set.subNav && !page.noindex && items.length > 0 && <SectionNav band={theme.nav} hideTitle={!set.navTitle} homeHref={home ?? undefined} label={set.name} items={items} />}
       <RenderSections sections={page.sections} context={{ themeId: theme.id, setId: set?.id ?? null, draft, pageId: page.id, ...(showId !== null ? { show: { id: showId } } : {}), ...(query ? { query } : {}), ...(listeningHub ? { listeningHub } : {}), ...(slots ? { slots } : {}) }} />
       {set && <SetFooter items={items} set={set} />}
       {set?.funderFoot && <FunderFoot productionId={showId} />}

@@ -23,7 +23,8 @@ export type SectionNavItem = {
  *   edge with more beyond it fades (`FadeScroller`, the one client piece here), so a cut-off link reads as "scroll for more";
  * - every link is at least 44px tall to touch;
  * - the current page is marked with `aria-current="page"` and an underline, not by colour alone;
- * - only items that lead somewhere: the caller leaves out a link to a part of the page that is not rendered.
+ * - only items that lead somewhere: the caller leaves out a link to a part of the page that is not rendered, and a link to a place on this page whose section drew nothing is hidden
+ *   when the page loads (`FadeScroller`), so the strip never has a link that goes nowhere.
  *
  * `band` is a band tone (`plain`, `dark`, `teal`...): the strip takes that tone's ground and colours from the page theme, so a theme grounds it (paper for
  * Unearthing, teal for the Voyager, navy for RadioLive). It must sit inside a page theme (`data-page-theme`). The older `tone` (`dark` or `light`) is fixed
@@ -74,7 +75,7 @@ export const SectionNav: React.FC<{
           >
             <ul className="flex">
               {items.map((item) => (
-                <li className="shrink-0" key={`${item.href}-${item.label}`}>
+                <li className="shrink-0" data-anchor={item.href.startsWith('#') ? item.href.slice(1) : undefined} key={`${item.href}-${item.label}`}>
                   {item.href.startsWith('#') ? (
                     <a className={link} href={item.href}>
                       {item.label}
