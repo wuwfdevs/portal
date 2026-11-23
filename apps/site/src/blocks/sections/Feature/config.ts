@@ -78,7 +78,7 @@ export const Feature = defineSection({
         defaultValue: false,
         admin: {
           description:
-            'On a page that speaks for a show: the newest episode\'s date, title and description take the place of the label, headline and line below (they stay as the words when the show has no episode yet), its picture is the picture, and it gets a play button and a link to the episode. The page then does not need to repeat the show\'s name, which the page strip already carries. It follows the show, so nobody edits the page when an episode comes out.',
+            'On a page that speaks for a show: the newest episode\'s date, title and description take the place of the label, headline and line below (they stay as the words when the show has no episode yet), its picture is the picture, and it gets a play button and a link to the episode. The play button is the filled button and the link to the episode the outline one; the buttons typed below become plain links beside them, so there is one main action. The page then does not need to repeat the show\'s name, which the page strip already carries. It looks through the newest episodes for one that can be played, and follows the show, so nobody edits the page when an episode comes out.',
           condition: (_, s) => s?.latestSet !== true,
         },
       },

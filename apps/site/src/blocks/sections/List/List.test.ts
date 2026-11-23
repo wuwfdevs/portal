@@ -142,3 +142,20 @@ describe('List section: short videos', () => {
     expect(renderToStaticMarkup(createElement(ClipListView, { block: { blockType: 'sectionList' }, clips: [] }))).toBe('')
   })
 })
+
+describe('List cards with audio', () => {
+  const audio = { id: 9, url: 'https://files.example/ep.mp3', title: 'The council house', credit: null, durationSeconds: 600 }
+  const withAudio: ListItem[] = [
+    { id: 'post-1', title: 'Heard episode', href: '/shows/uf/2026-11-04/a', image: null, meta: null, audio },
+    { id: 'post-2', title: 'Silent episode', href: '/shows/uf/2026-11-03/b', image: null, meta: null },
+    { id: 'post-3', title: 'Members only', href: '/shows/uf/2026-11-02/c', image: null, meta: null, audio: { ...audio, id: 10, url: null } },
+  ]
+  for (const variant of ['grid', 'tiles', 'rows', 'rail', 'numbered', 'lead']) {
+    it(`draws the site's play button for an entry with audio the public may play, in the ${variant} layout, and for no other`, () => {
+      const out = view({ variant }, withAudio)
+      expect(out).toContain('Listen: Heard episode')
+      expect(out).not.toContain('Listen: Silent episode')
+      expect(out).not.toContain('Listen: Members only')
+    })
+  }
+})
