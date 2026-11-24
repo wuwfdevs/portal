@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { ImagePlaceholder } from '@/components/Kit'
 import { formatDuration } from '@/lib/format'
 import type { ClipView } from '@/lib/video/load'
 
@@ -17,9 +18,11 @@ export function ClipRail({ clips, label, toned = false }: { clips: readonly Clip
         return (
           <li className="relative flex w-36 shrink-0 snap-start flex-col gap-2 sm:w-52" key={clip.id}>
             <span className="relative block aspect-[9/16] overflow-hidden rounded-4 bg-surface-dark">
-              {clip.posterUrl && (
+              {clip.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- a decorative poster; the link below carries the title
                 <img alt="" className="absolute inset-0 size-full object-cover" loading="lazy" src={clip.posterUrl} />
+              ) : (
+                <ImagePlaceholder className="absolute inset-0" />
               )}
               {clip.series && <span className="absolute left-2 top-2 max-w-[85%] truncate rounded-pill bg-surface/90 px-2.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-ink-2">{clip.series.title}</span>}
               <span aria-hidden="true" className="absolute bottom-2.5 left-2.5 flex size-10 items-center justify-center rounded-pill bg-wuwf-lime">

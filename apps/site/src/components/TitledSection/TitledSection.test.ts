@@ -43,4 +43,9 @@ describe('ClipRail', () => {
     expect(out).toContain('1:15')
     expect(out).toContain('Leigh Ostrander')
   })
+  it('keeps the poster frame with the placeholder in it for a clip with no poster, so the rail has one shape', () => {
+    const out = renderToStaticMarkup(createElement(ClipRail, { clips: [clip(), clip({ id: 2, slug: 'b', posterUrl: null })], label: 'Short videos' }))
+    expect((out.match(/data-placeholder="picture"/g) ?? []).length).toBe(1)
+    expect((out.match(/<img/g) ?? []).length).toBe(1)
+  })
 })

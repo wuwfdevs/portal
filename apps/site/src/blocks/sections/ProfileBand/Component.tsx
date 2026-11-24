@@ -1,5 +1,6 @@
 import React from 'react'
 
+import { initialsOf } from '@/lib/format'
 import { paragraphs } from '@/lib/page-content'
 
 import { SectionBand, SectionHeading } from '../SectionBand'
@@ -26,11 +27,16 @@ export function ProfileBandSection({ block }: SectionProps<ProfileBandData>) {
         <ul className="grid list-none grid-cols-2 gap-4 p-0 sm:gap-6 lg:grid-cols-4">
           {people.map((p, i) => (
             <li className="flex flex-col gap-3" key={p.id ?? `${p.name}-${i}`}>
-              {hasPicture(p.photo) && (
-                <div className="aspect-square overflow-hidden rounded-4">
+              {/* A person with no photo keeps the square, with their initials in it, so a roster has one shape. */}
+              <div className="aspect-square overflow-hidden rounded-4">
+                {hasPicture(p.photo) ? (
                   <SectionImage className="size-full" image={p.photo} imgClassName="size-full object-cover" />
-                </div>
-              )}
+                ) : (
+                  <div aria-hidden="true" className="flex size-full items-center justify-center font-serif text-5xl font-semibold [background-color:var(--tone-tint)] [color:var(--tone-accent)]">
+                    {initialsOf(p.name ?? '')}
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col">
                 <strong className="text-lg">{p.name}</strong>
                 {p.role?.trim() && <span className="[color:var(--tone-muted)]">{p.role}</span>}

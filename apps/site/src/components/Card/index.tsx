@@ -1,20 +1,21 @@
 import Link from 'next/link'
 import React from 'react'
 
-import type { Post } from '@/payload-types'
+import type { Media as MediaDoc, Post } from '@/payload-types'
 
 import { Media } from '@/components/Media'
-import { SectionChip } from '@/components/Kit'
+import { ImagePlaceholder, SectionChip } from '@/components/Kit'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { formatLongDate } from '@/lib/format'
 import { trackFromAudio } from '@/lib/player/track'
 import { isVoyagerIdentity, VOYAGER_BADGE_LABEL } from '@/lib/voyager/identity'
 import type { LeadClasses } from '@/lib/homepage/modules'
+import { leadPicture } from '@/lib/homepage/select'
 import { bylineOf, sectionOf } from '@/lib/homepage/story'
 import { cn } from '@/utilities/ui'
 
 /** `path` is the story's address; a card for a record without one (never published) shows its title without a link. */
-export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio' | 'section' | 'publishedAt' | 'contributors'>>
+export type CardPostData = Pick<Post, 'path' | 'categories' | 'meta' | 'title'> & Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio' | 'section' | 'publishedAt' | 'contributors' | 'featuredMedia'>>
 
 /**
  * A story card. A story with audio carries a play button on the card itself (the one thing on it that is not part of the link); it plays in the site's one player. The whole card is clickable through one link whose box is stretched over it with CSS
@@ -50,7 +51,9 @@ export const Card: React.FC<{
   // Whether the story has a section to show; the chip draws only when `showSection`, but the topics line stays hidden either way (a section's stories need no topics under them).
   const known = editorial && doc ? sectionOf({ section: doc.section }) : null
   const section = showSection ? known : null
-  const { description, image: metaImage } = meta || {}
+  const { description } = meta || {}
+  // The story's picture: its featured photo or gallery, else the SEO image an editor set. A migrated story has no SEO image, so a card that is not handed its picture by a feeder finds it here.
+  const image = leadPicture<MediaDoc>({ featuredMedia: doc?.featuredMedia, meta })
 
   const topics = (categories ?? [])
     .map((c) => (typeof c === 'object' && c !== null ? c.title : null))
@@ -72,18 +75,24 @@ export const Card: React.FC<{
         className,
       )}
     >
-      {metaImage && typeof metaImage !== 'string' && (
+      {image ? (
         fixedImage ? (
           <div className={cn('relative aspect-[3/2] w-full overflow-hidden bg-surface-3', editorial && 'rounded-4', lead?.frame)}>
-            <Media imgClassName="absolute inset-0 size-full object-cover" resource={metaImage} size="33vw" />
+            <Media imgClassName="absolute inset-0 size-full object-cover" resource={image} size="33vw" />
             {section && <SectionChip className="absolute bottom-3 left-3" label={section.title} swatch={section.swatch} />}
           </div>
         ) : (
           <div className={cn('relative w-full', editorial && 'overflow-hidden rounded-4')}>
-            <Media resource={metaImage} size="33vw" />
+            <Media resource={image} size="33vw" />
             {section && <SectionChip className="absolute bottom-3 left-3" label={section.title} swatch={section.swatch} />}
           </div>
         )
+      ) : (
+        // No picture: the same frame with the placeholder in it, so a card keeps its shape beside cards that have one.
+        <div className={cn('relative aspect-[3/2] w-full overflow-hidden', editorial && 'rounded-4', lead?.frame)}>
+          <ImagePlaceholder className="absolute inset-0" />
+          {section && <SectionChip className="absolute bottom-3 left-3" label={section.title} swatch={section.swatch} />}
+        </div>
       )}
       <div className={cn('flex flex-col gap-2', editorial ? 'p-0' : 'p-4', lead?.body)}>
         {format === 'live' && (

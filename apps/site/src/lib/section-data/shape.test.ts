@@ -130,3 +130,22 @@ describe('list entries carry their audio', () => {
     expect(storyListItem({ id: 1, title: 'T', path: '/a', featuredAudio: 12 })).not.toHaveProperty('audio')
   })
 })
+
+describe('list entries take the story\'s lead picture', () => {
+  const media = (id: number, name: string) => ({ id, url: `/media/${name}.jpg`, alt: name, width: 800, height: 600, mimeType: 'image/jpeg', updatedAt: null, focalX: null, focalY: null })
+  it('uses the featured photo, else the gallery\'s first, else the SEO image, for a story, an episode and a featured record', () => {
+    const viaFeatured = { id: 1, title: 'T', path: '/a', meta: {}, featuredMedia: [{ blockType: 'mediaBlock', media: media(5, 'featured') }] }
+    const viaGallery = { id: 2, title: 'T', path: '/a', meta: {}, featuredMedia: [{ blockType: 'gallery', images: [{ image: media(6, 'gallery') }] }] }
+    const viaMeta = { id: 3, title: 'T', path: '/a', meta: { image: media(7, 'seo') }, featuredMedia: [] }
+    expect(storyListItem(viaFeatured)?.image?.url).toBe('/media/featured.jpg')
+    expect(storyListItem(viaGallery)?.image?.url).toBe('/media/gallery.jpg')
+    expect(storyListItem(viaMeta)?.image?.url).toBe('/media/seo.jpg')
+    expect(episodeListItem(viaFeatured, 'Show')?.image?.url).toBe('/media/featured.jpg')
+    expect(storyFeatured(viaGallery)?.image?.url).toBe('/media/gallery.jpg')
+  })
+  it('has no picture for a story with none, or whose media was not loaded (a bare id)', () => {
+    expect(storyListItem({ id: 1, title: 'T', path: '/a', meta: {}, featuredMedia: [] })?.image).toBeNull()
+    expect(storyListItem({ id: 1, title: 'T', path: '/a', meta: { image: 12 }, featuredMedia: [{ blockType: 'mediaBlock', media: 9 }] })?.image).toBeNull()
+    expect(episodeListItem({ id: 1, title: 'T', path: '/a' }, null)?.image).toBeNull()
+  })
+})

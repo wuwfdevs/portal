@@ -1,12 +1,15 @@
 import Link from 'next/link'
 import React from 'react'
 
+import type { Media as MediaDoc } from '@/payload-types'
 import type { RelatedStory } from '@/lib/embeddings/related'
 
+import { ImagePlaceholder } from '@/components/Kit'
 import { SectionHeader } from '@/components/SectionHeader'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { Media } from '@/components/Media'
 import { namedRecord, presentRelated, storyFactsOf, type RelatedFacts, type RelatedPresentation, type StoryFacts } from '@/lib/embeddings/present'
+import { leadPicture } from '@/lib/homepage/select'
 import { trackFromAudio } from '@/lib/player/track'
 import { isVoyagerIdentity } from '@/lib/voyager/identity'
 import { cn } from '@/utilities/ui'
@@ -43,7 +46,7 @@ const Title: React.FC<{ story: RelatedStory; className: string }> = ({ story, cl
   </h3>
 )
 
-const imageOf = (story: RelatedStory) => (story.meta?.image && typeof story.meta.image === 'object' ? story.meta.image : null)
+const imageOf = (story: RelatedStory) => leadPicture<MediaDoc>({ featuredMedia: story.featuredMedia, meta: story.meta })
 
 /** Only a file the reader may play: a members-only story's audio comes back without its address for the public, so no button shows. */
 const trackOf = (story: RelatedStory) =>
@@ -95,12 +98,15 @@ export const RelatedStories: React.FC<{ current: StoryFacts; now?: Date; stories
 
       <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-14">
         <article className={cn('relative flex min-w-0 flex-col gap-4', solo ? 'md:flex-row md:items-center md:gap-10 lg:grow' : 'lg:grow-3 lg:basis-0')}>
-          {leadImage && (
-            <div className={cn('relative aspect-video w-full overflow-hidden rounded-4 bg-surface-3', solo && 'md:flex-1')}>
+          {/* Always a frame: a story with no picture gets the placeholder, so the section keeps one shape. */}
+          <div className={cn('relative aspect-video w-full overflow-hidden rounded-4 bg-surface-3', solo && 'md:flex-1')}>
+            {leadImage ? (
               <Media imgClassName="absolute inset-0 size-full object-cover" resource={leadImage} size={solo ? '(min-width: 768px) 50vw, 100vw' : '(min-width: 1024px) 55vw, 100vw'} />
-            </div>
-          )}
-          <div className={cn('flex min-w-0 flex-col gap-3', solo && 'md:flex-1', !leadImage && 'rounded-4 bg-surface-2 p-5 md:p-8')}>
+            ) : (
+              <ImagePlaceholder className="absolute inset-0" />
+            )}
+          </div>
+          <div className={cn('flex min-w-0 flex-col gap-3', solo && 'md:flex-1')}>
             <Kicker presentation={leadPresentation} />
             <Title className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl" story={lead} />
             {lead.meta?.description && <p className="line-clamp-3 text-lg text-ink-2">{lead.meta.description.replace(/\s/g, ' ')}</p>}
@@ -117,11 +123,9 @@ export const RelatedStories: React.FC<{ current: StoryFacts; now?: Date; stories
               return (
                 <li className="relative border-t border-rule py-5 first:border-t-0 first:pt-0" key={story.id}>
                   <div className="flex gap-4">
-                    {image && (
-                      <div className="relative aspect-[3/2] w-28 shrink-0 self-start overflow-hidden rounded-4 bg-surface-3">
-                        <Media imgClassName="absolute inset-0 size-full object-cover" resource={image} size="112px" />
-                      </div>
-                    )}
+                    <div className="relative aspect-[3/2] w-28 shrink-0 self-start overflow-hidden rounded-4 bg-surface-3">
+                      {image ? <Media imgClassName="absolute inset-0 size-full object-cover" resource={image} size="112px" /> : <ImagePlaceholder className="absolute inset-0" />}
+                    </div>
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <Kicker presentation={presentation} />
                       <Title className="text-xl font-semibold leading-snug" story={story} />
