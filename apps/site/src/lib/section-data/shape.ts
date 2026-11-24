@@ -4,6 +4,7 @@
 // record that cannot be drawn is left out, never half-drawn.
 
 import { STATION_TIME_ZONE, formatDuration, formatLongDate } from '@/lib/format'
+import { leadPicture } from '@/lib/homepage/select'
 
 export interface PictureData {
   id: number | string
@@ -77,6 +78,16 @@ export function pictureOf(value: unknown): PictureData | null {
   return { id, url, alt: str(m.alt), width: num(m.width), height: num(m.height), mimeType: str(m.mimeType), updatedAt: str(m.updatedAt), focalX: num(m.focalX), focalY: num(m.focalY) }
 }
 
+/**
+ * The picture a story is known by: its featured photo or gallery, else the SEO image an editor set (`leadPicture`). A migrated story has no SEO image, so reading `meta.image` alone left every
+ * list card of a migrated story without its picture. A record whose media was not loaded (a bare id) has none.
+ */
+export function storyPicture(story: unknown): PictureData | null {
+  const p = obj(story)
+  if (!p) return null
+  return pictureOf(leadPicture({ featuredMedia: p.featuredMedia as never, meta: p.meta as never }))
+}
+
 /** An audio file to hand to the player. A members-only file reads back without its address, which `trackFromAudio` then refuses. */
 export function audioOf(value: unknown): AudioData | null {
   const a = obj(value)
@@ -106,11 +117,10 @@ export function storyListItem(doc: unknown): ListItem | null {
   const title = str(p?.title)
   const id = idOf(p?.id)
   if (!p || !title || id === null) return null
-  const meta = obj(p.meta)
   const format = str(p.format)
   const bits = [format ? FORMAT_WORDS[format] ?? null : null, shortDate(p.publishedAt)].filter((b): b is string => b !== null)
   const audio = audioOf(p.featuredAudio)
-  return { id: `post-${id}`, title, href: sitePath(p.path), image: pictureOf(meta?.image), meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
+  return { id: `post-${id}`, title, href: sitePath(p.path), image: storyPicture(p), meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
 }
 
 /**
@@ -139,7 +149,7 @@ export function episodeListItem(doc: unknown, showTitle: string | null): ListIte
   const audio = audioOf(p.featuredAudio)
   const length = audio?.durationSeconds ? formatDuration(audio.durationSeconds) : ''
   const bits = [showTitle, published ? formatLongDate(published) : null, length || null].filter((b): b is string => Boolean(b))
-  return { id: `post-${id}`, title, href: sitePath(p.path), image: null, meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
+  return { id: `post-${id}`, title, href: sitePath(p.path), image: storyPicture(p), meta: bits.length > 0 ? bits.join(' · ') : null, ...(audio ? { audio } : {}) }
 }
 
 /** A story as a Featured record. The line is the story's description, else its dek. */
@@ -148,7 +158,7 @@ export function storyFeatured(doc: unknown): FeaturedItem | null {
   const title = str(p?.title)
   if (!p || !title) return null
   const meta = obj(p.meta)
-  return { kind: 'story', title, description: str(meta?.description) ?? str(p.dek), href: sitePath(p.path), image: pictureOf(meta?.image), audio: audioOf(p.featuredAudio) }
+  return { kind: 'story', title, description: str(meta?.description) ?? str(p.dek), href: sitePath(p.path), image: storyPicture(p), audio: audioOf(p.featuredAudio) }
 }
 
 /** A show (an original production, or a syndicated program) as a Featured record. Its address is `/shows/<slug>`. */

@@ -159,3 +159,23 @@ describe('List cards with audio', () => {
     })
   }
 })
+
+describe('List cards with no picture', () => {
+  const bare: ListItem[] = [
+    { id: 'post-1', title: 'With a picture', href: '/a', image: { id: 5, url: '/media/a.jpg', alt: 'A guitar', width: 800, height: 600, mimeType: 'image/jpeg', updatedAt: null, focalX: null, focalY: null }, meta: null },
+    { id: 'post-2', title: 'Without one', href: '/b', image: null, meta: null },
+  ]
+  for (const variant of ['grid', 'tiles', 'rail', 'lead']) {
+    it(`keeps the frame with the placeholder in it for an entry with no picture, in the ${variant} layout, so the cards have one shape`, () => {
+      // The lead layout draws a picture for its first entry only, so the entry with no picture goes first there.
+      const out = view({ variant }, variant === 'lead' ? [bare[1]!] : bare)
+      expect((out.match(/data-placeholder="picture"/g) ?? []).length).toBe(1)
+      expect((out.match(/<img/g) ?? []).length).toBe(variant === 'lead' ? 0 : 1)
+    })
+  }
+  for (const variant of ['rows', 'numbered']) {
+    it(`draws no picture frame at all in the ${variant} layout, which has none by design`, () => {
+      expect(view({ variant }, bare)).not.toContain('data-placeholder')
+    })
+  }
+})

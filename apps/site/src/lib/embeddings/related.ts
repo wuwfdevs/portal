@@ -8,7 +8,7 @@ import { nearestToStory } from './store'
 import { DEFAULT_TUNING, type EmbeddingTuning } from './tuning'
 
 /** A similar story as the page needs it: what a card needs, plus the date, series and show that "More like this" says things about. */
-export type RelatedStory = Pick<Post, 'id' | 'path' | 'title' | 'categories' | 'meta' | 'publishedAt' | 'series' | 'production'> &
+export type RelatedStory = Pick<Post, 'id' | 'path' | 'title' | 'categories' | 'meta' | 'publishedAt' | 'series' | 'production' | 'featuredMedia'> &
   Partial<Pick<Post, 'format' | 'publishingIdentity' | 'featuredAudio'>>
 
 /**
@@ -66,7 +66,7 @@ async function readNeighbours(payload: Payload, ids: number[]) {
     limit: ids.length,
     overrideAccess: false,
     pagination: false,
-    select: { title: true, slug: true, path: true, categories: true, meta: true, publishedAt: true, series: true, production: true, publishingIdentity: true, featuredAudio: true, format: true },
+    select: { title: true, slug: true, path: true, categories: true, meta: true, featuredMedia: true, publishedAt: true, series: true, production: true, publishingIdentity: true, featuredAudio: true, format: true },
     where: { id: { in: ids } },
   })
   return found.docs

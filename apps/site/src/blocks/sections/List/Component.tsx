@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { ImagePlaceholder } from '@/components/Kit'
 import { PlayAudioButton } from '@/components/ListenLive/PlayAudioButton'
 import { ClipRail } from '@/components/Video/ClipRail'
 import { trackFromAudio } from '@/lib/player/track'
@@ -74,11 +75,12 @@ function Play({ item }: { item: ListItem }) {
 }
 
 function Picture({ item, className }: { item: ListItem; className: string }) {
-  return item.image ? (
+  // An entry with no picture keeps the frame with the placeholder in it, so a row of cards has one shape (and a picture added later does not move the page).
+  return (
     <div className={`overflow-hidden rounded-4 ${className}`}>
-      <SectionImage className="size-full" image={item.image} imgClassName="size-full object-cover" />
+      {item.image ? <SectionImage className="size-full" image={item.image} imgClassName="size-full object-cover" /> : <ImagePlaceholder />}
     </div>
-  ) : null
+  )
 }
 
 /** The four layouts over the same entries. Draws nothing without an entry. */

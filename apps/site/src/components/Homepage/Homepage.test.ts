@@ -149,3 +149,33 @@ describe('MembershipAppeal', () => {
     expect(out).not.toContain('rounded-pill')
   })
 })
+
+describe('Card, with and without a picture', () => {
+  const gallery = { blockType: 'gallery', images: [{ image: { ...picture, id: 2, url: '/media/gallery.jpg' } }] }
+  const featured = { blockType: 'mediaBlock', media: { ...picture, id: 5, url: '/media/featured.jpg' } }
+  it('finds a migrated story\'s picture itself (no SEO image: its featured photo, else the first of its gallery), so a card is never left bare because a feeder forgot to hand it over', () => {
+    const viaFeatured = draw(createElement(Card, { doc: story({ meta: {}, featuredMedia: [featured] }), fixedImage: true, variant: 'editorial' }))
+    expect(viaFeatured).toContain('featured.jpg')
+    const viaGallery = draw(createElement(Card, { doc: story({ meta: {}, featuredMedia: [gallery] }), variant: 'editorial' }))
+    expect(viaGallery).toContain('gallery.jpg')
+    expect(viaFeatured).not.toContain('data-placeholder')
+  })
+  it('prefers the featured picture and falls back to the SEO image an editor set', () => {
+    expect(draw(createElement(Card, { doc: story({ featuredMedia: [featured] }), fixedImage: true, variant: 'editorial' }))).toContain('featured.jpg')
+    expect(draw(createElement(Card, { doc: story({ featuredMedia: null }), fixedImage: true, variant: 'editorial' }))).toContain('1.jpg')
+  })
+  it('draws the placeholder in the same frame when the story has no picture, with its section chip, so a row of cards keeps one shape', () => {
+    for (const fixedImage of [true, false]) {
+      const out = draw(createElement(Card, { doc: story({ meta: {}, featuredMedia: null }), fixedImage, variant: 'editorial' }))
+      expect(out).toContain('data-placeholder="picture"')
+      expect(out).toContain('aspect-[3/2]')
+      expect(out).toContain('rounded-4')
+      expect(out).toContain('Local News')
+      expect(out).not.toContain('<img')
+    }
+  })
+  it('treats a picture that was not loaded (a bare id) as no picture', () => {
+    const out = draw(createElement(Card, { doc: story({ meta: { image: 12 }, featuredMedia: [{ blockType: 'mediaBlock', media: 9 }] }), fixedImage: true, variant: 'editorial' }))
+    expect(out).toContain('data-placeholder="picture"')
+  })
+})

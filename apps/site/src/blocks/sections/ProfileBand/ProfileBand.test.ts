@@ -30,6 +30,13 @@ describe('Profile band section', () => {
     expect(out).not.toContain('No name')
     expect(out.match(/<img/g)?.length).toBe(1)
   })
+  it('roster: a person with no photo keeps the square with their initials in it, so the roster has one shape', () => {
+    const out = html({ variant: 'roster', people: [{ name: 'Tanya Gallagher', photo }, { name: 'Will Howell' }, { name: 'Cher' }] })
+    expect((out.match(/aspect-square/g) ?? []).length).toBe(3)
+    expect(out.match(/<img/g)?.length).toBe(1)
+    expect(out).toContain('>WH<')
+    expect(out).toContain('>C<')
+  })
   it('draws its one link, in either layout, only with a label and a safe address', () => {
     expect(html({ variant: 'about', text: 'Words', moreLabel: 'The story of RadioLive', moreHref: '/radiolive-story' })).toContain('href="/radiolive-story"')
     expect(html({ variant: 'roster', people: [{ name: 'Someone' }], moreLabel: 'Meet everyone', moreHref: '/about' })).toContain('Meet everyone')
