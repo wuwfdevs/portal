@@ -47,6 +47,10 @@ describe('More by section', () => {
     expect(out.indexOf('All stories')).toBeLessThan(out.indexOf('Local Politics'))
     expect(out).toContain('md:grid-cols-3')
     expect(out).not.toContain('<img')
+    // Each column leads on to its section's page, under its headlines.
+    expect(out).toContain('More from Local Politics →')
+    expect(out.indexOf('S1 story 3')).toBeLessThan(out.indexOf('More from Local Politics'))
+    expect(out).toContain('More from UWF News →')
   })
   it('shows what the page handed each column, and leaves out a column with nothing left', async () => {
     const claims = new Map([

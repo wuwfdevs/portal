@@ -133,7 +133,9 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'FrontPage', block: FrontPage, Component: FrontPageSection, sets: ['home', 'voyager'], claimRequest: frontPageClaim, drawsTop: true },
   { dir: 'FellowshipFeature', block: FellowshipFeature, Component: FellowshipFeatureSection, sets: ['home'], claimRequest: fellowshipFeatureClaim },
   { dir: 'NewsRun', block: NewsRun, Component: NewsRunSection, sets: ['home', 'voyager'], claimRequest: newsRunClaim, anchor: true },
-  { dir: 'SectionHeadlines', block: SectionHeadlines, Component: SectionHeadlinesSection, sets: ['home'], claimRequest: sectionHeadlinesClaim },
+  // More by section is an anchor like a news run, so the page's sponsor rows also count it: on the agreed page (Local, Florida, NPR, More by section) the bands fall after
+  // Local News and after NPR News, and rows with no place follow More by section rather than stacking under the last run.
+  { dir: 'SectionHeadlines', block: SectionHeadlines, Component: SectionHeadlinesSection, sets: ['home'], claimRequest: sectionHeadlinesClaim, anchor: true },
   { dir: 'ShowSpotlight', block: ShowSpotlight, Component: ShowSpotlightSection, sets: ['home', 'voyager'] },
   { dir: 'FeaturePanels', block: FeaturePanels, Component: FeaturePanelsSection, sets: ['home'] },
   // Offered only on pages in the Unearthing Florida set (hubs redesign, 2026-11-23): the map, the time window and the list of sites, read from the show the page speaks for.
