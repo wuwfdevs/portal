@@ -14,7 +14,7 @@ import { voyagerPages } from '../lib/voyager/to-sections'
  *
  * `down` removes the two pages this wrote and leaves the footnote where it is (Shared text may have been edited since).
  */
-const SLUGS = ['voyager', 'voyager-about']
+const SLUGS = ['voyager', 'voyager-about', 'voyager-video', 'voyager-shows', 'voyager-staff']
 
 const idOf = (v: unknown): number | null => {
   if (typeof v === 'number') return v
@@ -33,7 +33,7 @@ export async function up({ payload, req, db }: MigrateUpArgs): Promise<void> {
     return person ? [{ name: person.name, role: text(staffRole(m.role, person.title)), photoId: idOf(person.photo) }] : []
   })
   const footnote = text(hub.footnote)
-  const { home, about } = voyagerPages({
+  const { home, about, listings } = voyagerPages({
     tagline: text(hub.tagline),
     leadId: idOf(hub.featured),
     sections,
@@ -50,7 +50,7 @@ export async function up({ payload, req, db }: MigrateUpArgs): Promise<void> {
   }
 
   const context = { disableRevalidate: true, disableEmbedding: true }
-  for (const page of [home, about]) {
+  for (const page of [home, about, ...listings]) {
     const found = await payload.find({ collection: 'pages', where: { slug: { equals: page.slug } }, limit: 1, depth: 0, draft: true, overrideAccess: true, req })
     if (found.docs.length > 0) continue
     await payload.create({

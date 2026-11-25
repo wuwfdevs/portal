@@ -11,8 +11,8 @@ const facts: VoyagerFacts = {
   join: { heading: 'Write for The Voyager', text: 'Any UWF student can join.', href: '/voyager/about#join' },
   footnote: 'The Voyager is written and edited by UWF students, with faculty advising. It is published on the WUWF platform; student editors make its editorial decisions.',
 }
-const { home, about } = voyagerPages(facts)
-const all = JSON.stringify([home, about])
+const { home, about, listings } = voyagerPages(facts)
+const all = JSON.stringify([home, about, ...listings])
 
 describe('the Voyager hub', () => {
   it('follows the board: the front page, a run for each section, video, the shows, the staff, join, support', () => {
@@ -52,6 +52,25 @@ describe('the Voyager hub', () => {
     const bare = voyagerPages({ ...facts, showIds: [], staff: [], join: { heading: 'Write for The Voyager', text: null, href: null }, sections: [{ id: 4, title: 'Odd', slug: 'Odd Name!' }] })
     expect(bare.home.sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionNewsRun', 'sectionList', 'sectionSupport'])
     expect(bare.home.sections[1]).not.toHaveProperty('navLabel')
+  })
+})
+
+describe('the Voyager listing pages', () => {
+  it('gives Video, Shows and Staff a full page, left out of the strip, that the hub\'s sections and strip links lead to', () => {
+    expect(listings.map((l) => [l.path, l.navHidden])).toEqual([['/voyager/video', true], ['/voyager/shows', true], ['/voyager/staff', true]])
+    const byAnchor = (a: string) => home.sections.find((s) => s.anchor === a)
+    expect(byAnchor('video')).toMatchObject({ navHref: '/voyager/video', moreHref: '/voyager/video' })
+    expect(byAnchor('shows')).toMatchObject({ navHref: '/voyager/shows', moreHref: '/voyager/shows' })
+    expect(byAnchor('staff')).toMatchObject({ navHref: '/voyager/staff', moreHref: '/voyager/staff' })
+  })
+  it('lists every clip, the chosen shows and the whole roster, each under one title', () => {
+    expect(listings[0]!.sections[1]).toMatchObject({ source: 'clips', variant: 'grid', count: 12 })
+    expect(listings[1]!.sections[1]).toMatchObject({ onlyShows: [9] })
+    expect(listings[2]!.sections[1]).toMatchObject({ variant: 'roster', people: [{ name: 'Marisol Tran' }, { name: 'Jo Park' }] })
+    for (const l of listings) expect(l.sections[0]).toMatchObject({ blockType: 'sectionFeature', headline: l.title })
+  })
+  it('makes no page for shows or staff the hub does not have', () => {
+    expect(voyagerPages({ ...facts, showIds: [], staff: [] }).listings.map((l) => l.path)).toEqual(['/voyager/video'])
   })
 })
 
