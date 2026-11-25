@@ -40,8 +40,10 @@ consent choice, provisionally, until counsel answers whether a count with no coo
   refuses bots, other sites, unknown placements and malformed posts; the endpoint's permissions, range checks and CSV); `pnpm verify:migrations`;
   `pnpm build`, and the built server answering 204 at the counter and 401 at the delivery endpoint signed out. **Staging:** the preview build of
   `038a223` applied the migration (batch 72); verified by query: owner `payload_app`, the columns and primary key, no foreign keys, no grants to
-  `anon` or `authenticated`, empty. **Not checked:** a real browser sending counts on the preview (it needs a Vercel sign-in), and the Delivery panel
-  drawn in the admin. The first thing to look at on staging: open a page with tiles, then the placement's Delivery panel.
+  `anon` or `authenticated`, empty. The review fix's migration was applied by the preview of `8542411` (batch 73) and verified the same way (the
+  unique key, the `id` primary key, no grants on the table or its sequence). **Seen working on staging (2026-11-25, 23:35 UTC):** three loads of the
+  preview's home page produced ten rows, each tile shown 3 times, the top unit viewed 2 of 3, rail tiles fewer, one click, house promotions with no
+  sponsor and each sponsor tile with its own. **Not checked:** the Delivery panel drawn in the admin; look at placement 1 or 17 on staging.
 ## The homepage rethink (2026-11-25; built on `claude/great-gauss-5hwn51`; design: the "WUWF Homepage Rethink" canvas, https://claude.ai/artifact/Rn43y9Mcs9vvCL5XqDegzF)
 
 The owner reviewed the built home page (staging, demo content) and found five near-identical news runs, a sponsor row between nearly every block, and no sign of WUWF Listens, audio
