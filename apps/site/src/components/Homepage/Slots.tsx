@@ -21,6 +21,17 @@ import { audioOf, type Episode } from '@/lib/shows/load'
 
 const length = (e: Episode): string | null => formatDuration(audioOf(e)?.durationSeconds) || null
 
+/**
+ * The line under a show beside the featured one: what there is to hear (its newest episode's title and date), so the list offers something to play, not a count. A show whose newest
+ * episode has no title, or that has none, falls back to how many episodes it has.
+ */
+export function otherShowLine(card: Pick<PodcastCard, 'episodes' | 'latest'>): string {
+  const title = card.latest?.title?.trim()
+  const date = card.latest?.publishedAt ? formatLongDate(card.latest.publishedAt) : null
+  if (title) return ['Latest: ' + title, date].filter(Boolean).join(' · ')
+  return `${card.episodes} ${card.episodes === 1 ? 'episode' : 'episodes'}${date ? ` · latest ${date}` : ''}`
+}
+
 function Cover({ card, className, label }: { card: PodcastCard; className: string; label?: boolean }) {
   return (
     <span className={`relative flex shrink-0 flex-col justify-end overflow-hidden rounded-3 bg-wuwf-teal p-3 ${className}`}>
@@ -79,7 +90,7 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
             <ul aria-label="More podcasts" className="flex flex-col gap-3">
               {others.map((card) => (
                 <li className="relative flex items-center gap-4 rounded-4 bg-surface-2 p-3 hover:shadow-2" key={card.show.id}>
-                  <Cover card={card} className="size-16" />
+                  <Cover card={card} className="size-[4.5rem]" />
                   <span className="flex min-w-0 flex-col gap-0.5">
                     {card.show.path ? (
                       <Link className="text-base font-bold leading-snug text-ink after:absolute after:inset-0 hover:text-wuwf-blue-700 hover:no-underline" href={card.show.path}>
@@ -88,10 +99,7 @@ export function PodcastsBody({ slot, independenceHref }: { slot: NonNullable<Hom
                     ) : (
                       <strong className="text-base leading-snug text-ink">{card.show.title}</strong>
                     )}
-                    <span className="text-sm text-ink-3">
-                      {card.episodes} {card.episodes === 1 ? 'episode' : 'episodes'}
-                      {card.latest?.publishedAt ? ` · latest ${formatLongDate(card.latest.publishedAt)}` : ''}
-                    </span>
+                    <span className="line-clamp-2 text-sm text-ink-3">{otherShowLine(card)}</span>
                   </span>
                 </li>
               ))}
