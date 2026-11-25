@@ -15,6 +15,7 @@ import { ShowView } from '@/components/Show/ShowView'
 import { ThemedListView } from '@/components/Show/themed/ThemedListView'
 import { ThemedShowView } from '@/components/Show/themed/ThemedShowView'
 import { ThemedSupportView } from '@/components/Show/themed/ThemedSupportView'
+import { HubNav, hubSetLinkingTo } from '@/components/SectionNav/HubNav'
 import { StoryListView } from '@/components/StoryList/StoryListView'
 import { loadEventByPath, type EventPageData } from '@/lib/events/load'
 import { loadStoryListFor, type StoryListData } from '@/lib/lists/load'
@@ -135,7 +136,15 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
     const [placements, banner] = await Promise.all([loadListPlacements({ page: 'list', kind, id: targetId }), loadBanner()])
     // A top unit yields to an emergency banner; the rail beside the stories does not.
     const top = topUnitHeldBack(banner, 'other') ? null : placements.top
-    return <StoryListView clips={clips} data={result.data} rail={placements.rail} top={top} />
+    // A list the hub's strip links to (the Voyager's Campus, Sports...) is one of the hub's pages, so it keeps the strip; later pages of the list count as the list.
+    const base = listHref(kind, result.data.slug, 1)
+    const hub = await hubSetLinkingTo(base)
+    return (
+      <>
+        {hub && <HubNav setId={hub} url={base} />}
+        <StoryListView clips={clips} data={result.data} rail={placements.rail} top={top} />
+      </>
+    )
   }
   if (result.kind === 'show-home') return <SectionsPageView draft={draft} page={result.doc as unknown as SectionsPageData} url={result.url} />
   if (result.kind === 'event') return <EventView data={result.data} />

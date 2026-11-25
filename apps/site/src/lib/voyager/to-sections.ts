@@ -42,6 +42,9 @@ const clean = (v: string | null | undefined): string | null => (v && v.trim() !=
 /** A section's slug, lowercase letters, digits and hyphens, is its anchor; anything else has none (and so no strip link). */
 const anchorOf = (slug: string | null): string | null => (slug && /^[a-z][a-z0-9-]*$/.test(slug) ? slug : null)
 
+/** A listing page's opening: the page's one title, on the teal tone like the About page's. */
+const listingLead = (id: string, title: string, headline: string): Record<string, unknown> => ({ id, blockType: 'sectionFeature', hidden: false, tone: 'teal', variant: 'split', label: title, headline })
+
 /** The closing band and the Support band, the same on both pages. */
 function ending(f: VoyagerFacts, idPrefix: string): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = []
@@ -69,7 +72,7 @@ function ending(f: VoyagerFacts, idPrefix: string): Array<Record<string, unknown
 }
 
 /** The hub (`/voyager`, left out of the strip: its parts are the strip's links) and the About page (`/voyager/about`). */
-export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: VoyagerPageSpec } {
+export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: VoyagerPageSpec; listings: VoyagerPageSpec[] } {
   const tagline = clean(f.tagline)
   const sections: Array<Record<string, unknown>> = []
 
@@ -107,6 +110,10 @@ export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: V
     variant: 'rail',
     anchor: 'video',
     navLabel: 'Video',
+    // The strip's link and the section's own link go to the full listing, not to this short rail.
+    navHref: '/voyager/video',
+    moreLabel: 'All video →',
+    moreHref: '/voyager/video',
     // Reads only the Voyager's clips on this page (`PageSetSpec.stories`).
     source: 'clips',
     scope: 'latest',
@@ -121,6 +128,9 @@ export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: V
       tone: 'grey',
       anchor: 'shows',
       navLabel: 'Shows',
+      navHref: '/voyager/shows',
+      moreLabel: 'All Voyager shows →',
+      moreHref: '/voyager/shows',
       onlyShows: f.showIds,
       heading: { eyebrow: 'Student-made', title: 'Voyager shows' },
     })
@@ -134,6 +144,9 @@ export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: V
       variant: 'roster',
       anchor: 'staff',
       navLabel: 'Staff',
+      navHref: '/voyager/staff',
+      moreLabel: 'Full staff page →',
+      moreHref: '/voyager/staff',
       heading: { title: 'Staff' },
       people: f.staff.map((p) => ({ name: p.name, ...(clean(p.role) ? { role: clean(p.role) } : {}), ...(p.photoId !== null ? { photo: p.photoId } : {}) })),
     })
@@ -159,7 +172,33 @@ export function voyagerPages(f: VoyagerFacts): { home: VoyagerPageSpec; about: V
   }
   about.push(...ending(f, 'vya'))
 
+  // The full listings the hub's Video, Shows and Staff sections link to. Left out of the strip's own links (the hub's sections carry them), like the About page is not.
+  const listing = (slug: string, title: string, order: number, body: Array<Record<string, unknown>>): VoyagerPageSpec => ({
+    slug: `voyager-${slug}`,
+    title,
+    path: `/voyager/${slug}`,
+    navHidden: true,
+    navLabel: null,
+    navOrder: order,
+    description: null,
+    sections: [listingLead(`vyl-${slug}-lead`, 'The Voyager', title), ...body, ...ending(f, `vyl-${slug}`)],
+  })
+  const listings: VoyagerPageSpec[] = [
+    listing('video', 'Voyager video', 3, [{ id: 'vyl-video-list', blockType: 'sectionList', hidden: false, tone: 'plain', variant: 'grid', source: 'clips', scope: 'latest', count: 12 }]),
+  ]
+  if (f.showIds.length > 0) {
+    listings.push(listing('shows', 'Voyager shows', 4, [{ id: 'vyl-shows-spot', blockType: 'sectionShowSpotlight', hidden: false, tone: 'grey', onlyShows: f.showIds }]))
+  }
+  if (f.staff.length > 0) {
+    listings.push(
+      listing('staff', 'Voyager staff', 5, [
+        { id: 'vyl-staff-roster', blockType: 'sectionProfileBand', hidden: false, tone: 'plain', variant: 'roster', people: f.staff.map((p) => ({ name: p.name, ...(clean(p.role) ? { role: clean(p.role) } : {}), ...(p.photoId !== null ? { photo: p.photoId } : {}) })) },
+      ]),
+    )
+  }
+
   return {
+    listings,
     home: { slug: 'voyager', title: 'The Voyager', path: '/voyager', navHidden: true, navLabel: null, navOrder: 1, description: tagline, sections },
     about: { slug: 'voyager-about', title: 'About', path: '/voyager/about', navHidden: false, navLabel: 'About', navOrder: 2, description: null, sections: about },
   }
