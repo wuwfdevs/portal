@@ -7,29 +7,30 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
-## Sponsor placement measurement: the foundation (2026-11-25; built on `claude/adoring-wozniak-2wypfv`; nothing collected)
+## Sponsor placement measurement (2026-11-25; built on `claude/adoring-wozniak-2wypfv`)
 
 **Decided with the owner:** the site counts each placement's views and clicks itself, for proof of performance (closes `PLACEMENTS.md` decision 2);
 "no third-party tracking" is narrowed to what it was for (no ad network or ad server, no sponsor's or verifier's pixel or script, nothing that follows a
-reader to other sites; the old rule's reason was never written down); the placement counter comes first and does not depend on a vendor, and PostHog
-or another product-analytics tool is a later, optional second destination. `CLAUDE.md`, `PLACEMENTS.md` and `ANALYTICS.md` say so.
+reader to other sites; the old rule's reason was never written down); the placement counter does not depend on a vendor, and PostHog or another
+product-analytics tool is a later, optional second destination. **Then (same day): "assume no consent for now"** — the placement counts run without a
+consent choice, provisionally, until counsel answers whether a count with no cookie, identifier or address needs one (`ANALYTICS.md`, "Consent").
 
-- **Built** (tests with each): `lib/analytics` (`events.ts` with `parseEvent`, `consent.ts`, `dispatch.ts` with `analytics.track` and `noopSink`,
-  `viewability.ts`); tiles carry `placementId`, `sponsorId` and `zone` (`tileRef`; the sponsor id is read in `toRecord`); `components/Placements/Tracked`
-  is the card's outer element in the rail tile, the top unit and the inline band, and emits `sponsor_placement_measurable`, `_viewable` (50% for one
-  continuous second in a visible tab, once) and `_clicked` (a person's click or middle click on the link).
-- **Changed from the spec:** `sponsor_placement_rendered` is not counted. Pages are cached, so the server never sees each view; the client's
-  "measurable" is the count of units actually put in front of someone. There is no `campaign_id`: the site does not know how a placement was sold, so
-  reports join on `placement_id` in the Portal.
-- **Nothing leaves the browser:** no consent is ever recorded and the sink sends nothing. That is the honest state until steps 2 and 3 of
-  `ANALYTICS.md`, "Order of work".
-- **Next, before launch:** the collection route and daily totals table (a migration, applied to staging only until launch), a `sendBeacon` sink, then
-  consent. **Ask counsel first** whether a count with no cookie, identifier or address needs consent: the answer decides whether sponsor counts wait for
-  the banner. Then the staff report and the sponsor export.
-- **Checked:** typecheck; lint (no new problems; the two errors in `PlayAudioButton.test.ts` and `PlayerProvider.test.ts` were there before); every unit
-  test under `src` (256 files, 3,034 tests); `pnpm build` on a scratch database migrated to the latest migration. **Not checked:** a real browser (the
-  observer and timers are tested in jsdom with a stand-in observer).
-
+- **Built, first commit (the foundation):** `lib/analytics` (`events.ts` with `parseEvent`, `consent.ts`, `dispatch.ts` with `analytics.track`,
+  `viewability.ts`); tiles carry `placementId`, `sponsorId` and `zone` (`tileRef`); `components/Placements/Tracked` is the card's outer element in the
+  rail tile, the top unit and the inline band, and emits `sponsor_placement_measurable`, `_viewable` (50% for one continuous second in a visible tab,
+  once) and `_clicked` (a person's click or middle click on the link).
+- **Built, second commit (the counter):** the browser sink (`beacon.ts`, `sendBeacon` to `/api/placement-counts`, batched, never retried); the route
+  with the versioned traffic filter (`filter.ts`, `FILTER_VERSION` `2026-11-25.1`) and `tally.ts` (zone, kind and sponsor from the record, never the
+  browser; only switched-on placements); `placement_counts` (`src/db/placementCounts.ts`, a plain table like `story_embeddings`, migration
+  `20261125_230850_placement_counts`) through `counts.ts`; the staff endpoint `GET /api/placement-items/delivery` (`sponsorship.manage`); the
+  **Delivery** panel on placements and sponsors (`components/admin/PlacementDelivery`) and the sponsor's CSV (`report.ts`, small figures hidden).
+  Payload's CLI loads `counts.ts` through the config, so it carries no `server-only` marker (the CLI cannot resolve it).
+- **Changed from the spec:** `sponsor_placement_rendered` is not counted (pages are cached; the client's "measurable" is the count of units actually
+  put in front of someone). No `campaign_id`: the site does not know how a placement was sold, so a campaign is reached through `placement_id` in
+  the Portal.
+- **Not built:** data-center ranges and rate limits in the filter (they need the address); delivery against commitment and the formal proof of
+  performance (the Portal's; a signed contract to read the totals, later); consent for every other event.
+- **Next:** ask counsel the counting question; watch staging's counts against its traffic and tighten the filter if bots show through.
 ## The homepage rethink (2026-11-25; built on `claude/great-gauss-5hwn51`; design: the "WUWF Homepage Rethink" canvas, https://claude.ai/artifact/Rn43y9Mcs9vvCL5XqDegzF)
 
 The owner reviewed the built home page (staging, demo content) and found five near-identical news runs, a sponsor row between nearly every block, and no sign of WUWF Listens, audio
@@ -1313,7 +1314,7 @@ sponsorship and listening were deferred (sponsorship pages built 2026-11-17).
 | Homepage `/` (boards 1, 2) | **First slice done** (2026-11-03). Edited in the **Home page** global (fixed tabs, publish permission): **emergency coverage** (switch, label, headline, text, link; first-class, at the very top; refreshed the moment it is saved), lead story, up to five top stories ("The Briefing"), a fellowship feature (with its funder panel), and a local-news list (any section, 3 to 12). Anything left empty is filled from the newest published WUWF work, a pick that is no longer published falls away, and no story appears twice. Publishing, unpublishing or deleting a story refreshes the front page; it also refreshes on a 5-minute schedule. The old "home" page record is no longer used. Migration `20261103_024053`; 8 unit + 6 integration tests; checked in a browser at 1440 and 390 px. **Left out on purpose (their features are not built):** the live player and "on now", the WUWF Listens question, newsletters, "From NPR", sponsor placements. (Podcasts, RadioLive, Unearthing Florida and short videos were added 2026-11-06: see *Resume here*.) The membership band's wording is the Article page's; the owner should confirm the front-page copy |
 | **Author profiles and the Unearthing Florida and Voyager hubs** (Grove `AuthorPage`; boards 11, 13) | **Built** (2026-11-03). See *Phase 4*. |
 | Audience listening: screens over the Portal's signed listening API (decided 2026-11-04: the Portal owns the data; the site has no listening collections) | **Phase B built (2026-11-09):** the full question set (`/listens/<publicId>`, boards 5b and 6-H), the inline asks B, C and D (since replaced by the full set in every placement), and the hub (`/listens`, board 5, as far as the Portal serves it). Verified in a real browser at 1440 and 390 px against a stand-in Portal that checks every signature; **not yet against the real Portal**: it needs `PORTAL_ORIGIN` and `PORTAL_LISTENING_SECRET` set here and the matching secret in the Portal, and the Portal's two 2026-11-09 migrations applied. Unverified until the first real upload: the raw `PUT` to the signed upload address. **Not built:** an editor block to place B, C or D in a story, topic page or episode (needs a Payload migration; `components/Listening/ListeningInline` is what the block will render), Ask WUWF, host requests, sessions, tables, and the campaign and report bands (suite phases C to E). See *Listening: where it stands* below |
-| Analytics foundations | Events, consent rules, dispatcher and sponsor placement watching built; nothing collected (`ANALYTICS.md`, "Order of work") |
+| Analytics foundations | Sponsor placement counter built end to end (counts, Delivery panel, sponsor CSV); other events and consent not built (`ANALYTICS.md`) |
 | Supabase Auth, audience profile + RLS, passwordless sign-in, entitlements model | Not started |
 | Starter lint errors (Header, Card, Theme provider) | **Fixed** (components replaced); 3 warnings remain in the starter's e2e tests |
 
@@ -1346,7 +1347,7 @@ in them has been started.
    (server-to-server calls asserting the subject; audio to Portal storage by signed upload URL). No
    collections here and no staff review in Payload — review is in the Portal. Needs the listening contract
    in `@wuwf/portal-contracts` first (Portal-side work).
-8. **Analytics foundations** per `ANALYTICS.md`: step 1 built 2026-11-25; next the placement counter (its "Order of work").
+8. **Analytics foundations** per `ANALYTICS.md`: the placement counter built 2026-11-25; next its "Order of work" step 3.
 9. **Supabase Auth** with `@supabase/ssr`, audience profile + RLS, entitlements with manual grants.
 10. Final pass: acceptance criteria (project brief §17), browser verification at phone width, update every doc.
 

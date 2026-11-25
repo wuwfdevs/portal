@@ -1,9 +1,10 @@
 # Analytics
 
-**Status (2026-11-25): the foundation and the sponsor placement watching are built; nothing is collected.** `src/lib/analytics`
-(the events, the consent rules, the dispatcher, the viewable rule) and `components/Placements/Tracked` exist and are tested, but no
-visitor's consent is ever recorded and the only sink sends nothing, so no event leaves the browser. The rest is the contract the
-implementation will be held to (see "Order of work"). Where a definition is custom rather than an audited standard, it says so.
+**Status (2026-11-25): the sponsor placement counter is built, end to end; the rest is specified.** The tiles report what they
+show, the site's own route adds it to daily totals, and corporate support reads them (and downloads a sponsor's export) on each placement
+and sponsor in the admin. **Placement counts run without a consent choice, provisionally** (owner, 2026-11-25, pending counsel; see
+"Consent"). Nothing else is collected: the other events below are not emitted yet, and there is no consent banner. Where a definition is
+custom rather than an audited standard, it says so.
 
 ## Principles
 
@@ -11,7 +12,7 @@ implementation will be held to (see "Order of work"). Where a definition is cust
   primary candidate; GA4 and Chartbeat are possible complements) sits behind it and can be replaced. Do not
   install redundant trackers.
 - **Consent first.** The adapter drops everything until consent is recorded, and drops what the visitor's choice
-  excludes.
+  excludes. The one exception is *counting*, the sponsor placement totals, provisionally (see "Consent").
 - **First party on sponsor placements** (owner, 2026-11-25, narrowing the old "no third-party tracking pixels"): no ad
   network or ad server, no sponsor's or verification vendor's pixel or script, nothing that follows a reader to other sites.
   The site counts its own placements. If a sponsor ever needs audited figures, that is a new decision for the owner, and a
@@ -94,25 +95,46 @@ filtered before delivery is counted; the filter's rules are versioned with each 
 ## Consent
 
 Categories: *necessary* (always on; no analytics), *measurement* (events above), *personalization* (relationship
-states). The default is off. Consent is stored per browser, revocable, and honoured by the adapter before any
-vendor code loads. A signed-in person can export and delete their data.
+states), and *counting* (below). The default for the chosen categories is off. Consent is stored per browser, revocable, and honoured by
+the adapter before any vendor code loads. A signed-in person can export and delete their data.
+
+**Counting needs no choice, provisionally** (owner, 2026-11-25: "assume no consent for now"). Only the three sponsor placement events are in
+it. They set no cookie and store no identifier, no address and no page: each one adds one to a daily total per placement and is gone. **Open
+for counsel:** whether that may run without consent. If counsel says no, `categoryOf` in `src/lib/analytics/consent.ts` puts them under
+measurement and they wait for the banner; nothing else changes. Every other event stays behind a choice.
+
+## The placement counter
+
+- **In the page:** `components/Placements/Tracked` (each tile's card) emits the events; `analytics.track` checks them (`parseEvent`); the
+  browser sink (`lib/analytics/beacon.ts`) holds them a few seconds and posts them in one batch to `/api/placement-counts` with
+  `navigator.sendBeacon`, or at once when the page is hidden or left. A failed post is dropped, never retried, so nothing is counted twice.
+- **At the route** (`app/api/placement-counts/route.ts`): the traffic filter (`lib/analytics/filter.ts`, versioned, its rules printed on every
+  export) keeps posts from this site's pages, from browsers, at most 20 well-formed events and 4 KB, each kind once per placement per post.
+  `tally` then keeps only events for a placement that is switched on and whose zone, kind and sponsor match the record, and takes those from
+  the record, never from the browser. It answers 204 with no body whatever it counted, and a failure never reaches the reader.
+- **Stored** in `placement_counts` (`src/db/placementCounts.ts`, migration `20261125_230850_placement_counts`): one row per station day,
+  placement, zone and filter version, with the three totals. A plain table, not a collection; no foreign key, so a deleted placement keeps its
+  history. Nothing personal is in it.
+- **Read** by `GET /api/placement-items/delivery` (`collections/placementDeliveryEndpoints.ts`, the `sponsorship.manage` permission), drawn by
+  the Delivery panel on a placement's and a sponsor's edit screen (`components/admin/PlacementDelivery`), and exported for a sponsor as CSV
+  (`sponsorCsv`: figures under 10 shown as "fewer than 10", the definitions and the filter printed, "not audited").
+- **Not built:** data-center address ranges and rate limits (they need the address, which is never kept); delivery against a contract's
+  commitment (the commitment is the Portal's); the formal proof of performance, which stays the Portal's (`CLAUDE.md`: proof of delivery is
+  not Payload's), reading these totals through a signed contract in `packages/portal-contracts` when that is designed.
 
 ## Order of work
 
-1. **Built (2026-11-25):** `src/lib/analytics/events.ts` (the typed events and `parseEvent`, the one check every event passes, which the
-   collection endpoint will reuse), `consent.ts` (the categories and `allows`; no choice means nothing is sent), `dispatch.ts` (`analytics.track`;
-   the sink is `noopSink`), `viewability.ts` (50% for one continuous second in a visible tab, once per page view). Placement tiles carry their
-   record ids (`PlacementTile.placementId`, `sponsorId`, `zone`) and `components/Placements/Tracked`, the card's own outer element, emits
-   measurable, viewable and clicked. **Nothing is collected:** no consent is recorded and the sink sends nothing.
-2. **The placement counter, before launch** so there is history at the first renewal: a first-party collection route that runs `parseEvent`
-   on what it receives, filters automated traffic and duplicates (rules versioned), and adds to a table of daily totals per placement, event and
-   day in the site's database (a migration; no raw events, no addresses kept). A sink that posts to it with `navigator.sendBeacon`.
-3. **Consent:** the visitor's choice (a banner and a settings link), stored per browser, read by the dispatcher; the wording through the
-   university's privacy review and the UWF IT-04 notice. **Ask counsel first** whether a placement count that stores no cookie, identifier or
-   address may run without consent; if yes, placement events move to a category that does not need it and nothing else changes.
-4. **Reports:** a staff view of each placement's daily totals in the admin, and a proof-of-performance export for a sponsor (aggregates only,
-   small counts suppressed, the definitions and filter version printed on it). Delivery against commitment needs the contracted figure from the
-   Portal through `packages/portal-contracts`.
+1. **Built (2026-11-25):** the events, `parseEvent`, consent rules, the dispatcher and the viewable rule (`src/lib/analytics`); tiles carrying
+   their record ids; `components/Placements/Tracked`.
+2. **Built (2026-11-25):** the placement counter (above): the sink, the route and filter, `placement_counts`, the Delivery panel and the
+   sponsor's export. Counting runs without a consent choice until counsel answers.
+3. **Next:** ask counsel the counting question. Watch the first weeks of staging and production counts against the pages' traffic, and
+   tighten the filter (a new `FILTER_VERSION`) if automated traffic shows through.
+4. **Consent** for everything else: the visitor's choice (a banner and a settings link), stored per browser, read by the dispatcher; the
+   wording through the university's privacy review and the UWF IT-04 notice.
 5. **The rest of the taxonomy** (content views and engagement, listening steps, newsletter signup, membership appeals, acknowledgment shown),
-   each added to `events.ts` when something emits it, and **a product-analytics vendor** behind the same adapter if staff want one, chosen after
-   evaluating PostHog against the privacy and hosting constraints. It is a second destination, never the source of sponsor figures.
+   each added to `events.ts` when something emits it, behind consent, and **a product-analytics vendor** behind the same adapter if staff want
+   one (PostHog the candidate, after evaluating it against the privacy and hosting constraints). It is a second destination, never the source
+   of sponsor figures.
+6. **The Portal's proof of performance:** a signed contract for the Portal to read a placement's daily totals, designed with the Portal's
+   booking work.

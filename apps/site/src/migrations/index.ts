@@ -91,9 +91,10 @@ import * as migration_20261123_040000_drop_site_map_xy from './20261123_040000_d
 import * as migration_20261123_050000_unearthing_lead_episode from './20261123_050000_unearthing_lead_episode';
 import * as migration_20261123_060000_unearthing_lead_split from './20261123_060000_unearthing_lead_split';
 import * as migration_20261123_070000_hub_strip_links from './20261123_070000_hub_strip_links';
-import * as migration_20261125_010000_voyager_listing_pages from './20261125_010000_voyager_listing_pages';
 import * as migration_20261123_080000_radiolive_one_title from './20261123_080000_radiolive_one_title';
+import * as migration_20261125_010000_voyager_listing_pages from './20261125_010000_voyager_listing_pages';
 import * as migration_20261125_200256_home_band_retired from './20261125_200256_home_band_retired';
+import * as migration_20261125_230850_placement_counts from './20261125_230850_placement_counts';
 
 export const migrations = [
   {
@@ -372,8 +373,6 @@ export const migrations = [
     name: '20261118_221136_network_content',
   },
   {
-    // The data visualization tables. Written late but named early, so it runs before the migrations that read documents through the config
-    // (CLAUDE.md, "Database": a table or column the config has must exist before any Local-API migration).
     up: migration_20261119_031411_dataviz_tables.up,
     down: migration_20261119_031411_dataviz_tables.down,
     name: '20261119_031411_dataviz_tables',
@@ -577,5 +576,10 @@ export const migrations = [
     up: migration_20261125_200256_home_band_retired.up,
     down: migration_20261125_200256_home_band_retired.down,
     name: '20261125_200256_home_band_retired',
+  },
+  {
+    up: migration_20261125_230850_placement_counts.up,
+    down: migration_20261125_230850_placement_counts.down,
+    name: '20261125_230850_placement_counts'
   },
 ];

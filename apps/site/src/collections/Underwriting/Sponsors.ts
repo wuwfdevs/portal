@@ -23,5 +23,11 @@ export const Sponsors: CollectionConfig = {
     { name: 'url', type: 'text', admin: { description: 'The sponsor\'s website, if it may be linked.' } },
     { name: 'logo', type: 'upload', relationTo: 'media' },
     { name: 'notes', type: 'textarea', admin: { description: 'Internal. Never shown to the public.' } },
+    {
+      // What the site counted for this sponsor's placements, and the export for the sponsor. A ui field: no column, nothing saved.
+      name: 'delivery',
+      type: 'ui',
+      admin: { components: { Field: '@/components/admin/PlacementDelivery#SponsorDelivery' } },
+    },
   ],
 }

@@ -3,6 +3,8 @@ import type { CollectionAfterChangeHook, CollectionAfterDeleteHook, CollectionBe
 import { APIError } from 'payload'
 
 import { requireAnyPermission, userCan } from '@/access/permissions'
+
+import { placementDeliveryEndpoints } from './placementDeliveryEndpoints'
 import { STILL_IMAGE_MESSAGE, STILL_IMAGE_TYPES, isStillPicture } from '@/lib/placements/media'
 import { describeDates, exclusiveConflicts, type BookedPlacement } from '@/lib/placements/conflicts'
 import { stationDay } from '@/lib/placements/pick'
@@ -181,6 +183,8 @@ export const PlacementItems: CollectionConfig = {
   },
   hooks: { beforeChange: [checkKind, clearFillerFlag, checkCapacity, checkExclusive], afterChange: [afterChange], afterDelete: [afterDelete] },
   defaultSort: 'order',
+  // `/api/placement-items/delivery`: what the site counted (`placementDeliveryEndpoints.ts`).
+  endpoints: placementDeliveryEndpoints,
   fields: [
     { name: 'name', type: 'text', required: true, maxLength: 120, admin: { description: 'For staff only, to find it again, e.g. "Alphastar: home rail, December".' } },
     {
@@ -297,6 +301,12 @@ export const PlacementItems: CollectionConfig = {
       virtual: true,
       admin: { readOnly: true, position: 'sidebar', description: 'Where this runs, in short.' },
       hooks: { afterRead: [({ siblingData }) => describeTarget(siblingData as PlacementRecord<unknown>)] },
+    },
+    {
+      // What the site counted for this placement (`ANALYTICS.md`, "The placement counter"). A ui field: no column, nothing saved.
+      name: 'delivery',
+      type: 'ui',
+      admin: { components: { Field: '@/components/admin/PlacementDelivery#PlacementDelivery' } },
     },
   ],
 }

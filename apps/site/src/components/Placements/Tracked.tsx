@@ -21,7 +21,7 @@ export function countsAsClick({ type, button, trusted, onLink }: { type: string;
  * runs, viewable when it meets the rule in `viewability.ts`, clicked on a real click. It is the tile's own outer element, so it changes nothing
  * about how the tile looks, and it never stops or delays the link. With no reference (a tile with no record id) it is a plain `div`.
  *
- * Everything goes through `analytics.track`, which today sends nothing (no consent is recorded and the sink is a no-op).
+ * Everything goes through `analytics.track`, which sends these to the site's own counter (`/api/placement-counts`): ids only, no visitor.
  */
 export function Tracked({ track, className, children }: { track: PlacementRef | null; className?: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)

@@ -138,9 +138,10 @@ These are **not website zones** and are not in the registry; the website must no
 
 1. **Artwork sizes** for the banner and the rails (above). Corporate support.
 2. ~~**Proof of performance.**~~ **Decided (owner, 2026-11-25): the site counts each placement's views and clicks itself.** First party, consent-aware,
-   ids only, no ad server and nothing on the tile but its picture and link; `ANALYTICS.md` has the definitions and the order of work. The watching is
-   built (`components/Placements/Tracked`); nothing is collected yet. Open inside it, for counsel: whether a count that stores no cookie, identifier or
-   address may run without consent (until answered, it waits for consent like any measurement).
+   ids only, no ad server and nothing on the tile but its picture and link; `ANALYTICS.md` has the definitions and "The placement counter". **Built
+   (2026-11-25):** each tile is counted (shown, viewed, clicked) into daily totals, and corporate support reads them in the **Delivery** panel on a
+   placement or a sponsor, with **Download for the sponsor (CSV)**. Counting runs without a consent choice, provisionally; whether it may is open for
+   counsel. Delivery against a contract's commitment, and the formal proof of performance, are the Portal's.
 3. **Ten tiles on a phone** is still about 3,000 pixels of tiles, now spread between the news sections (two after each tall one) and a "More from our sponsors" row, instead of
    all after the last story. A paid tile is never hidden to shorten it; if it needs shortening, sell fewer places. Revisit once there is data on how far people scroll.
 4. **House promotions versus sponsors** in a rail: they share the column in the order editors set, as on the live site. Promotions marked **Can fill a gap** are the

@@ -46,13 +46,10 @@ describe('parseEvent', () => {
 
 describe('consent', () => {
   const e = parseEvent(ev()) as PlacementEvent
-  it('puts placement events under measurement', () => {
-    for (const name of ['sponsor_placement_measurable', 'sponsor_placement_viewable', 'sponsor_placement_clicked'] as const) expect(categoryOf({ ...e, name })).toBe('measurement')
-  })
-  it('sends nothing until a choice is made, and only what the choice allows', () => {
-    expect(allows(null, e)).toBe(false)
-    expect(allows({ measurement: false, personalization: true }, e)).toBe(false)
-    expect(allows(YES, e)).toBe(true)
+  it('puts placement events under counting, which needs no choice (provisional, until counsel answers)', () => {
+    for (const name of ['sponsor_placement_measurable', 'sponsor_placement_viewable', 'sponsor_placement_clicked'] as const) expect(categoryOf({ ...e, name })).toBe('counting')
+    expect(allows(null, e)).toBe(true)
+    expect(allows({ measurement: false, personalization: false }, e)).toBe(true)
   })
 })
 
@@ -67,11 +64,11 @@ describe('the dispatcher', () => {
     expect(createDispatcher({ sink, consent: () => YES }).track(ev() as unknown as PlacementEvent)).toBe(true)
     expect(sent).toEqual([ev()])
   })
-  it('sends nothing without consent, and nothing malformed', () => {
+  it('sends a placement count with no choice made, and nothing malformed', () => {
     const { sent, sink } = sinkOf()
-    expect(createDispatcher({ sink, consent: () => null }).track(ev() as unknown as PlacementEvent)).toBe(false)
+    expect(createDispatcher({ sink, consent: () => null }).track(ev() as unknown as PlacementEvent)).toBe(true)
     expect(createDispatcher({ sink, consent: () => YES }).track(ev({ title: 'x' }) as unknown as PlacementEvent)).toBe(false)
-    expect(sent).toEqual([])
+    expect(sent).toEqual([ev()])
   })
   it('never throws when the sink or the consent check fails', () => {
     const broken: AnalyticsSink = { send: vi.fn(() => { throw new Error('down') }) }
