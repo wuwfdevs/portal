@@ -154,7 +154,8 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'GivingContact', block: GivingContact, Component: GivingContactSection, sets: ['giving'] },
   // Offered only on pages in the listens set. The first four read the Portal's hub through the page context; the host form sends a request to the Portal.
   { dir: 'AskWuwf', block: AskWuwf, Component: AskWuwfSection, sets: ['listens'] },
-  { dir: 'ListeningOpen', block: ListeningOpen, Component: ListeningOpenSection, sets: ['listens'] },
+  // Open questions is also offered on the home page (the homepage rethink, 2026-11-25): there it draws the reporters' questions as at most three cards, from the hub the home shell reads.
+  { dir: 'ListeningOpen', block: ListeningOpen, Component: ListeningOpenSection, sets: ['listens', 'home'] },
   { dir: 'ListeningSessions', block: ListeningSessions, Component: ListeningSessionsSection, sets: ['listens'] },
   { dir: 'ListeningOutcomes', block: ListeningOutcomes, Component: ListeningOutcomesSection, sets: ['listens'] },
   { dir: 'HostForm', block: HostForm, Component: HostFormSection, sets: ['listens'] },

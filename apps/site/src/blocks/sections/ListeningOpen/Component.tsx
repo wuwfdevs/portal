@@ -7,7 +7,7 @@ import { bandLabel, deskLabel, hubLayout, openMeta } from '@/lib/listening/hub'
 import type { HubLoad } from '@/lib/listening/load'
 
 import { SectionBand } from '../SectionBand'
-import { eyebrowClass } from '../parts'
+import { eyebrowClass, SectionLink } from '../parts'
 import { cardClass, hubProblem, lightFormCard, outlineButton } from '../listening-parts'
 import type { SectionData, SectionProps } from '../types'
 
@@ -21,10 +21,20 @@ export interface ListeningOpenData extends SectionData {
 const TILE_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3']
 const tile = 'flex flex-col gap-2 rounded-md p-[18px] [background:var(--tone-tint)]'
 
-/** Open questions. A pure view over what the Portal answered, so it is tested with fixtures. */
-export function ListeningOpenView({ block, load, KitchenTable }: { block: ListeningOpenData; load: HubLoad | undefined; KitchenTable: typeof KitchenTableForm }) {
+/** How many reporters' questions the home page shows; the rest are on the hub, one link away. */
+export const HOME_QUESTIONS = 3
+
+/**
+ * Open questions. A pure view over what the Portal answered, so it is tested with fixtures.
+ *
+ * On the home page (`home`, the homepage rethink, 2026-11-25) it is the restrained form: the reporters' questions only (a campaign's sessions and tables stay on the hub),
+ * at most three cards, "See all of WUWF Listens" in the heading's row, and nothing at all, never a message, when nothing is open or the Portal is not set up or cannot be read,
+ * so the page closes up.
+ */
+export function ListeningOpenView({ block, load, KitchenTable, home = false }: { block: ListeningOpenData; load: HubLoad | undefined; KitchenTable: typeof KitchenTableForm; home?: boolean }) {
   if (!load) return null
-  const reporters = block.variant === 'reporters'
+  if (home && load.kind !== 'ok') return null
+  const reporters = home || block.variant === 'reporters'
   const problem = hubProblem(load)
   if (problem) {
     // One band says it (the campaigns one), so a page holding both does not say it twice.
@@ -39,13 +49,15 @@ export function ListeningOpenView({ block, load, KitchenTable }: { block: Listen
   const { bands, questions, sessions, tables } = hubLayout(hub)
 
   if (reporters) {
-    if (questions.length === 0) return null
-    const writtenToo = questions.some((item) => item.allowTextAnswers)
+    const shown = home ? questions.slice(0, HOME_QUESTIONS) : questions
+    if (shown.length === 0) return null
+    const writtenToo = shown.some((item) => item.allowTextAnswers)
     const heading = { ...block.heading, intro: writtenToo ? block.heading?.intro : block.voiceOnlyIntro?.trim() || block.heading?.intro }
+    const more = home ? <SectionLink href="/listens" label="See all of WUWF Listens" /> : undefined
     return (
-      <SectionBand block={block} heading={heading}>
+      <SectionBand block={block} heading={heading} more={more}>
         <ul className="grid list-none gap-4 p-0 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
-          {questions.map((item) => (
+          {shown.map((item) => (
             <li className={`flex flex-col gap-2.5 p-5 ${cardClass}`} key={item.publicId}>
               {deskLabel(item) && <span className={eyebrowClass}>{deskLabel(item)}</span>}
               <span className="flex-auto font-serif text-[1.3125rem] font-semibold leading-snug">{item.title}</span>
@@ -142,5 +154,5 @@ export function ListeningOpenView({ block, load, KitchenTable }: { block: Listen
 export async function ListeningOpenSection({ block, context }: SectionProps<ListeningOpenData>) {
   // The table form is a client component that sends through a server action to the Portal: loaded when the section draws, not when the registry is read.
   const { KitchenTable } = await import('@/components/Listening/KitchenTable')
-  return <ListeningOpenView KitchenTable={KitchenTable} block={block} load={context.listeningHub} />
+  return <ListeningOpenView KitchenTable={KitchenTable} block={block} home={context.setId === 'home'} load={context.listeningHub} />
 }
