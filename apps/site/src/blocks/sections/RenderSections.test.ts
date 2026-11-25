@@ -38,6 +38,22 @@ describe('the ordered pass (no story twice)', () => {
     expect(out).toContain('A:4,5')
     expect(out).toContain('B:6,7')
   })
+  it('hands a block with several parts (More by section) a share per part, in order, under its own key and the part', async () => {
+    const parts: SectionBlockEntry = {
+      dir: 'Parts',
+      block: { slug: 'sectionParts', fields: [] },
+      Component: ({ block, context }: { block: { id?: string }; context: SectionContext }) =>
+        createElement('section', null, `P1:${(context.claims?.get(`${block.id}:1`) ?? []).join(',')} P2:${(context.claims?.get(`${block.id}:2`) ?? []).join(',')}`),
+      claimRequest: async () => [
+        { part: '1', candidates: [4, 5, 6, 7, 8, 10], take: 2 },
+        { part: '2', candidates: [8, 9, 10, 11], take: 2 },
+      ],
+    }
+    const out = await render([...page, ...drawn([['p', parts]])], {})
+    // What the runs above took is gone, and the second column does not repeat the first's.
+    expect(out).toContain('P1:8,10')
+    expect(out).toContain('P2:9,11')
+  })
   it('is not run for a page set that does not ask for it', async () => {
     const out = await render(page, { setId: 'sponsor' })
     expect(out).toContain('Lead:<')

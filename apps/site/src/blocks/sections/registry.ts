@@ -44,6 +44,8 @@ import { NewsRun } from './NewsRun/config'
 import { NewsRunSection, newsRunClaim } from './NewsRun/Component'
 import { FellowshipFeature } from './FellowshipFeature/config'
 import { FellowshipFeatureSection, fellowshipFeatureClaim } from './FellowshipFeature/Component'
+import { SectionHeadlines } from './SectionHeadlines/config'
+import { SectionHeadlinesSection, sectionHeadlinesClaim } from './SectionHeadlines/Component'
 import { ShowSpotlight } from './ShowSpotlight/config'
 import { ShowSpotlightSection } from './ShowSpotlight/Component'
 import { FeaturePanels } from './FeaturePanels/config'
@@ -126,11 +128,12 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'Columns', block: Columns, Component: ColumnsSection },
   { dir: 'Illustration', block: Illustration, Component: IllustrationSection, inlineOnly: true },
   // Offered only on pages in the home set and, for the Front page lead, News run and Show spotlight, The Voyager's (hubs redesign, 2026-11-23: on its pages they read the Voyager's stories and shows alone).
-  // (PAGE-BLOCKS.md → Home). The Front page lead, the Fellowship feature and the News runs take part in the page's ordered pass, so a
-  // story appears once; the News runs are what the page's sponsor rows sit above.
+  // (PAGE-BLOCKS.md → Home). The Front page lead, the Fellowship feature, the News runs and More by section take part in the page's ordered pass, so a
+  // story appears once; the News runs are what the page's sponsor rows are placed by.
   { dir: 'FrontPage', block: FrontPage, Component: FrontPageSection, sets: ['home', 'voyager'], claimRequest: frontPageClaim, drawsTop: true },
   { dir: 'FellowshipFeature', block: FellowshipFeature, Component: FellowshipFeatureSection, sets: ['home'], claimRequest: fellowshipFeatureClaim },
   { dir: 'NewsRun', block: NewsRun, Component: NewsRunSection, sets: ['home', 'voyager'], claimRequest: newsRunClaim, anchor: true },
+  { dir: 'SectionHeadlines', block: SectionHeadlines, Component: SectionHeadlinesSection, sets: ['home'], claimRequest: sectionHeadlinesClaim },
   { dir: 'ShowSpotlight', block: ShowSpotlight, Component: ShowSpotlightSection, sets: ['home', 'voyager'] },
   { dir: 'FeaturePanels', block: FeaturePanels, Component: FeaturePanelsSection, sets: ['home'] },
   // Offered only on pages in the Unearthing Florida set (hubs redesign, 2026-11-23): the map, the time window and the list of sites, read from the show the page speaks for.

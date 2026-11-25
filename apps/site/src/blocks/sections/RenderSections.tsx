@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { HomeBand, SponsorBand, TopUnit } from '@/components/Placements'
-import { claimInOrder, planSlots } from '@/lib/page-slots'
+import { claimInOrder, planSlots, type ClaimRequest } from '@/lib/page-slots'
 import { pageSetOf } from '@/lib/page-sets/registry'
 
 import { sectionEntry } from './registry'
@@ -104,7 +104,9 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
     const requests = []
     for (const { block, key, entry } of drawn) {
       const request = entry.claimRequest ? await entry.claimRequest(block, context) : null
-      if (request) requests.push({ key, ...request })
+      // A block with several parts (More by section: one per column) asks once per part, in order, each under `<key>:<part>`.
+      if (Array.isArray(request)) for (const { part, ...r } of request) requests.push({ key: `${key}:${part}`, ...r })
+      else if (request) requests.push({ key, ...(request as Omit<ClaimRequest, 'key'>) })
     }
     ctx = { ...context, claims: claimInOrder(requests) }
   }

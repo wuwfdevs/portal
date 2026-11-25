@@ -82,7 +82,7 @@ export interface SectionBlockEntry {
    * which it pins. `RenderSections` asks every such section in the page's order, gives each the newest that nothing above took (`lib/page-slots`), and hands the answer
    * back as `context.claims`. A section that is not on such a page ignores all of it and draws its own.
    */
-  claimRequest?: (block: any, context: SectionContext) => Promise<Omit<ClaimRequest, 'key'> | null>
+  claimRequest?: (block: any, context: SectionContext) => Promise<Omit<ClaimRequest, 'key'> | ReadonlyArray<Omit<ClaimRequest, 'key'> & { part: string }> | null>
   /**
    * The block draws the page's top unit itself, in its own layout (the Front page lead puts it between the lead and The Briefing on a phone, as the coded page does), so
    * `RenderSections` does not place it again. A page with no such block gets the top unit after its first section.
