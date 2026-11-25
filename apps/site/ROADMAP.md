@@ -43,7 +43,9 @@ consent choice, provisionally, until counsel answers whether a count with no coo
   `anon` or `authenticated`, empty. The review fix's migration was applied by the preview of `8542411` (batch 73) and verified the same way (the
   unique key, the `id` primary key, no grants on the table or its sequence). **Seen working on staging (2026-11-25, 23:35 UTC):** three loads of the
   preview's home page produced ten rows, each tile shown 3 times, the top unit viewed 2 of 3, rail tiles fewer, one click, house promotions with no
-  sponsor and each sponsor tile with its own. **Not checked:** the Delivery panel drawn in the admin; look at placement 1 or 17 on staging.
+  sponsor and each sponsor tile with its own. **The Delivery panel was seen in the staging admin by the owner** (placement 1: 3 shown, 1 viewed, 1
+  clicked, matching the table); on a phone its table ran off the edge, so it now lays itself out by its own width (`delivery.scss`, a container
+  query: a table when wide, a card per row under 560px), checked at 390 and 1000 px with no sideways scroll.
 ## The homepage rethink (2026-11-25; built on `claude/great-gauss-5hwn51`; design: the "WUWF Homepage Rethink" canvas, https://claude.ai/artifact/Rn43y9Mcs9vvCL5XqDegzF)
 
 The owner reviewed the built home page (staging, demo content) and found five near-identical news runs, a sponsor row between nearly every block, and no sign of WUWF Listens, audio
