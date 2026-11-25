@@ -1,0 +1,153 @@
+// The Delivery panel on placements and sponsors. Payload theme variables only (`--theme-*`), which app/(payload)/custom.scss maps to the WUWF
+// design tokens, so the panel follows the brand without naming a colour. Touch targets are 44px; date fields are 16px.
+//
+// It lays itself out by its own width, not the window's (a container query): the admin's sidebar and the document's sidebar change how much room
+// it has. Wide, the figures are a table. Narrow (a phone, or a squeezed column), each row of the table becomes a card: what it is as a heading,
+// then each figure on a line with its name, read from the cell's `data-label`. The markup stays one table, so a screen reader reads the same
+// structure at every width.
+
+.wuwf-delivery {
+  container: wuwf-delivery / inline-size;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 4px;
+  background: var(--theme-elevation-50);
+
+  &__title {
+    margin: 0 0 4px;
+  }
+
+  &__muted {
+    margin: 0;
+    max-width: 680px;
+    color: var(--theme-elevation-600);
+  }
+
+  &__range {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-top: 12px;
+
+    label {
+      display: grid;
+      flex: 1 1 10rem;
+      gap: 4px;
+      max-width: 14rem;
+    }
+
+    input {
+      min-height: 44px;
+      padding: 6px 8px;
+      border: 1px solid var(--theme-elevation-250);
+      border-radius: 4px;
+      background: var(--theme-input-bg);
+      color: inherit;
+      font: inherit;
+      font-size: 16px;
+    }
+
+    .btn {
+      min-height: 44px;
+      margin: 0;
+    }
+  }
+
+  &__error {
+    margin: 12px 0 0;
+    color: var(--theme-error-500);
+  }
+
+  &__table {
+    width: 100%;
+    margin-top: 12px;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--theme-elevation-100);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th {
+      border-bottom-color: var(--theme-elevation-150);
+      font-weight: 600;
+      vertical-align: bottom;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    tr.is-total td {
+      font-weight: 600;
+    }
+  }
+
+  &__days {
+    min-height: 44px;
+    margin-top: 12px;
+  }
+
+  &__foot {
+    margin: 12px 0 0;
+    color: var(--theme-elevation-600);
+  }
+
+  @container wuwf-delivery (max-width: 560px) {
+    &__range label {
+      max-width: none;
+    }
+
+    // Each row a card; the header row is still there for a screen reader, just not drawn.
+    &__table {
+      thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      tbody,
+      tr,
+      td {
+        display: block;
+      }
+
+      tr {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--theme-elevation-150);
+      }
+
+      td {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 2px 0;
+        border: 0;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: var(--theme-elevation-600);
+        text-align: left;
+      }
+
+      td:first-child {
+        padding-bottom: 6px;
+        font-weight: 600;
+      }
+
+      td:first-child::before {
+        content: none;
+      }
+    }
+  }
+}

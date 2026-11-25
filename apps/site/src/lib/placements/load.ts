@@ -2,6 +2,7 @@ import configPromise from '@payload-config'
 import { unstable_cache } from 'next/cache'
 import { getPayload } from 'payload'
 
+import type { KnownPlacement } from '@/lib/analytics/tally'
 import type { Media, PlacementItem } from '@/payload-types'
 import { cacheGeneration } from '@/utilities/getGlobals'
 
@@ -29,6 +30,7 @@ export function toRecord(doc: PlacementItem, sponsorNames: ReadonlyMap<string, s
     zone: doc.zone,
     kind: doc.kind,
     sponsor: sponsorId ? (sponsorNames.get(sponsorId) ?? null) : null,
+    sponsorId,
     enabled: doc.enabled,
     runFrom: doc.runFrom,
     runUntil: doc.runUntil,
@@ -127,4 +129,19 @@ async function logFailure(err: unknown): Promise<void> {
   } catch {
     // Nothing more can be done: the page draws without placements.
   }
+}
+
+/**
+ * Every switched-on placement by id, as the placement counter needs it (`app/api/placement-counts`): its zone, kind and sponsor, from the record,
+ * so a count never takes them from the browser. Read through the same cache as the pages.
+ */
+export async function knownPlacements(): Promise<Map<string, KnownPlacement>> {
+  const records = await readRecords()
+  const known = new Map<string, KnownPlacement>()
+  for (const r of records) {
+    if (r.id == null || typeof r.zone !== 'string') continue
+    const kind = r.kind === 'house' ? 'house' : 'sponsor'
+    known.set(String(r.id), { id: String(r.id), zone: r.zone, kind, sponsorId: kind === 'sponsor' ? (r.sponsorId ?? null) : null })
+  }
+  return known
 }

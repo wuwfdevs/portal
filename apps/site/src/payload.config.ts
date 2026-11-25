@@ -5,6 +5,7 @@ import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { sectionBlockDefinitions } from './blocks/sections/registry'
+import { placementCountsSchema } from './db/placementCounts'
 import { storyEmbeddingsSchema } from './db/storyEmbeddings'
 import { ArchiveItems } from './collections/ArchiveItems'
 import { AudienceProfiles } from './collections/AudienceProfiles'
@@ -119,7 +120,8 @@ export default buildConfig({
     // pgvector, for story embeddings (`story_embeddings`, declared in src/db/storyEmbeddings.ts). `migrate` creates the extension if it
     // is missing; on Supabase it must be enabled on the project first (ROADMAP: Needs the owner).
     extensions: ['vector'],
-    afterSchemaInit: [storyEmbeddingsSchema],
+    // `placement_counts`, the sponsor placements' daily totals (src/db/placementCounts.ts), is declared the same way.
+    afterSchemaInit: [storyEmbeddingsSchema, placementCountsSchema],
     // Blocks fields (stories' featured media, form fields, page sections) are one jsonb column each, not a table per block type.
     // Database-wide. Switching it needs a migration that moves the data (migration blocks_to_json; PAGE-BLOCKS.md).
     blocksAsJSON: true,

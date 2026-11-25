@@ -7,8 +7,10 @@ import { Media } from '@/components/Media'
 import type { RowItem } from '@/lib/placements/flow'
 import { fillsFrame } from '@/lib/placements/media'
 import { TOP_UNIT_ARTWORK, TOP_UNIT_PHONE_ARTWORK, ZONES, type ZoneId } from '@/lib/placements/registry'
-import type { PlacementTile } from '@/lib/placements/tiles'
+import { tileRef, type PlacementTile } from '@/lib/placements/tiles'
 import { cn } from '@/utilities/ui'
+
+import { Tracked } from './Tracked'
 
 type Tile = PlacementTile<MediaDoc>
 
@@ -70,12 +72,12 @@ function Strip({ tile, labelled = false }: { tile: Tile; labelled?: boolean }) {
 /** One tile: the label strip, then the artwork as the link. Every tile is the same card and the same shape (the zone's recommended 5:4), so the column has one rhythm. */
 function TileCard({ tile, size, labelled }: { tile: Tile; size: string; labelled?: boolean }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-rule bg-surface">
+    <Tracked className="overflow-hidden rounded-lg border border-rule bg-surface" track={tileRef(tile)}>
       <Strip labelled={labelled} tile={tile} />
       <TileLink tile={tile}>
         <Art image={tile.image} shape={RAIL_SHAPE} size={size} />
       </TileLink>
-    </div>
+    </Tracked>
   )
 }
 
@@ -155,13 +157,13 @@ export function TopUnit({ tile, className }: { tile: Tile | null; className?: st
   const phone = tile.phoneImage
   return (
     <aside aria-label={tile.label} className={cn('w-full', className)} data-placement={tile.key}>
-      <div className="overflow-hidden rounded-lg border border-rule bg-surface">
+      <Tracked className="overflow-hidden rounded-lg border border-rule bg-surface" track={tileRef(tile)}>
         <Strip tile={tile} />
         <TileLink tile={tile}>
           <Art className={cn(phone && 'hidden md:block')} image={tile.image} shape={TOP_UNIT_ARTWORK} size="(min-width: 1280px) 1200px, 100vw" />
           {phone && <Art className="md:hidden" image={phone} shape={TOP_UNIT_PHONE_ARTWORK} size="100vw" />}
         </TileLink>
-      </div>
+      </Tracked>
     </aside>
   )
 }
@@ -175,13 +177,13 @@ export function InlineUnit({ tile }: { tile: Tile | null }) {
   const phone = tile.phoneImage
   return (
     <aside aria-label={tile.label} className="not-prose my-10" data-placement={tile.key}>
-      <div className="overflow-hidden rounded-lg border border-rule bg-surface">
+      <Tracked className="overflow-hidden rounded-lg border border-rule bg-surface" track={tileRef(tile)}>
         <Strip tile={tile} />
         <TileLink tile={tile}>
           <Art className={cn(phone && 'hidden md:block')} image={tile.image} shape={BAND_SHAPE} size="(min-width: 768px) 760px, 100vw" />
           {phone && <Art className="md:hidden" image={phone} shape={PHONE_SHAPE} size="100vw" />}
         </TileLink>
-      </div>
+      </Tracked>
     </aside>
   )
 }

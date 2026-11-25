@@ -11,7 +11,7 @@ import type { SectionBlockEntry, SectionContext } from './types'
 // The page-level work a page set can ask of its sections: nobody shows a story twice, and the layout (not an editor) draws the sponsor places.
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
-const tile = (key: string): PlacementTile<Media> => ({ key, kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: `Tile ${key}`, href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: media(1), phoneImage: null })
+const tile = (key: string): PlacementTile<Media> => ({ key, placementId: '1', sponsorId: '7', zone: 'home.rail', kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: `Tile ${key}`, href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: media(1), phoneImage: null })
 const slots = (rail: number, extra: Partial<NonNullable<SectionContext['slots']>> = {}): NonNullable<SectionContext['slots']> => ({ top: null, rail: Array.from({ length: rail }, (_, i) => tile(`home.rail.${i + 1}`)), fillers: [], ...extra })
 
 const kind = (label: string, claim?: { candidates: number[]; take: number; pinned?: number[] }, anchor = false): SectionBlockEntry => ({

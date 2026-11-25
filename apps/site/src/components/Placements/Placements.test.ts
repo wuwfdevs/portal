@@ -11,6 +11,9 @@ import { InlineUnit, ListRail, SponsorBand, SponsorRow, TopUnit } from './index'
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
   key: 'home.rail.1',
+  placementId: '1',
+  sponsorId: '7',
+  zone: 'home.rail',
   kind: 'sponsor',
   label: 'Sponsor message',
   sponsor: 'Acme',
