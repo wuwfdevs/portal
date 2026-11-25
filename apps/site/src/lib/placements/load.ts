@@ -14,12 +14,11 @@ export interface HomePlacements {
   /** The home page's top unit (`home.top`), one sponsor for a stretch of dates. The page holds it back while an emergency banner is on. */
   top: PlacementTile<Media> | null
   rail: PlacementTile<Media>[]
-  band: PlacementTile<Media> | null
   /** WUWF promotions that may complete the foot row (`flow.ts`). Optional: usually empty. */
   fillers: PlacementTile<Media>[]
 }
 
-const NONE: HomePlacements = { top: null, rail: [], band: null, fillers: [] }
+const NONE: HomePlacements = { top: null, rail: [], fillers: [] }
 const MAX_RECORDS = 200
 
 /** The record the resolver reads, from a stored placement whose sponsor's name has been looked up. */
@@ -75,7 +74,7 @@ export async function loadHomePlacements(now: Date = new Date()): Promise<HomePl
   try {
     const records = await readRecords()
     const ctx: PageContext = { page: 'home' }
-    return { top: resolveZone('home.top', ctx, records, now)[0] ?? null, rail: resolveZone('home.rail', ctx, records, now), band: resolveZone('home.band', ctx, records, now)[0] ?? null, fillers: resolveFillers(records, now) }
+    return { top: resolveZone('home.top', ctx, records, now)[0] ?? null, rail: resolveZone('home.rail', ctx, records, now), fillers: resolveFillers(records, now) }
   } catch (err) {
     await logFailure(err)
     return NONE

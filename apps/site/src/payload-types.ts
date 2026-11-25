@@ -91,6 +91,7 @@ export interface Config {
     sectionFrontPage: SectionFrontPage;
     sectionFellowshipFeature: SectionFellowshipFeature;
     sectionNewsRun: SectionNewsRun;
+    sectionHeadlines: SectionHeadlines;
     sectionShowSpotlight: SectionShowSpotlight;
     sectionFeaturePanels: SectionFeaturePanels;
     sectionExplore: SectionExplore;
@@ -3144,6 +3145,7 @@ export interface SectionNewsRun {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'lead' | 'row';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -3161,12 +3163,61 @@ export interface SectionNewsRun {
    */
   section: number | Section;
   /**
-   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it.
+   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it. A one-row run always shows 3.
    */
   count?: number | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionNewsRun';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SectionHeadlines".
+ */
+export interface SectionHeadlines {
+  /**
+   * Parks the section without deleting it. It does not show on the page.
+   */
+  hidden?: boolean | null;
+  /**
+   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
+   */
+  anchor?: string | null;
+  /**
+   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
+   */
+  navLabel?: string | null;
+  /**
+   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
+   */
+  navHref?: string | null;
+  /**
+   * The ground of the section. The page theme decides what each looks like.
+   */
+  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  heading?: {
+    eyebrow?: string | null;
+    title?: string | null;
+    /**
+     * A blank line starts a new paragraph.
+     */
+    intro?: string | null;
+  };
+  /**
+   * Where the heading sits. A phone always shows it above.
+   */
+  placement?: ('stacked' | 'side') | null;
+  /**
+   * Up to three sections (two or three is usual), one column each, in this order. Each column's title links to its section's page.
+   */
+  sections: (number | Section)[];
+  /**
+   * How many headlines in each column (3 to 6).
+   */
+  count?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'sectionHeadlines';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4473,6 +4524,7 @@ export interface Page {
         | SectionFrontPage
         | SectionFellowshipFeature
         | SectionNewsRun
+        | SectionHeadlines
         | SectionShowSpotlight
         | SectionFeaturePanels
         | SectionExplore
@@ -5351,9 +5403,9 @@ export interface PlacementItem {
   /**
    * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
    */
-  zone: 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.inline';
+  zone: 'home.top' | 'home.rail' | 'list.top' | 'list.rail' | 'story.inline';
   /**
-   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   * The artwork. A rail tile is 880 × 704 pixels; a story band is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
    */
   image: number | Media;
   /**

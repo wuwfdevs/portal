@@ -7,6 +7,30 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## The homepage rethink (2026-11-25; built on `claude/great-gauss-5hwn51`; design: the "WUWF Homepage Rethink" canvas, https://claude.ai/artifact/Rn43y9Mcs9vvCL5XqDegzF)
+
+The owner reviewed the built home page (staging, demo content) and found five near-identical news runs, a sponsor row between nearly every block, and no sign of WUWF Listens, audio
+or support in the first scrolls. The canvas holds the evaluation, the reasoning and the agreed page. Agreed with the owner, in order down the page: the lead and The Briefing
+(unchanged); **WUWF Listens** as cards of the reporters' open questions (at most three, a link to the hub, nothing when none is open); the **fellowship feature** when one is
+running (moved up); the short videos; **Local News** as the one full run with its lead; **Florida News and NPR News** as one row of three each; **Local Politics, Local Arts and UWF
+News** as text-only headline columns ("More by section"); the **podcasts** (the built block, small changes); the membership appeal. **RadioLive and Unearthing leave the home page**
+(they keep their hubs). Sponsor tiles: **two tinted bands of three** (after Local News, after NPR News), "Sponsor messages" once per band; the **lower banner is retired**.
+
+- **Built** (one commit each, tests with each): Podcasts' other shows name their newest episode (`otherShowLine`) at a 4.5rem cover; News run's **`row` variant**
+  (`NEWS_RUN_VARIANTS`, `newsRunTake`, `rowGridClass`); **More by section** (`sectionHeadlines`, home set; a claim request may now hold several parts, `<key>:<part>`);
+  **sponsor rows after every other run** (`flowHomeRail`, `rowFollowsRun`; `SlotPlan` is now `after` and `trailing`), one band label (`SPONSOR_BAND_LABEL`), **`home.band`
+  retired** (migration `20261125_200256_home_band_retired`: deletes any placement in the zone, then drops it from the enum; tested on a scratch database holding a banner row);
+  **Open questions on the home page** (`sets: ['listens', 'home']`, `ListeningOpenView` `home`, the hub read by `loadPlacedHub` in the home shell); **`homepageToSections`**
+  writes the new arrangement (what `seed:home` and the launch use).
+- **Decisions taken with the owner while building:** rows after runs 1 and 3 (leftover rows after the last run, never dropped); retire the banner zone rather than hide it; a WUWF
+  promotion in a band keeps "From WUWF"; the home page shows reporters' questions only, campaigns stay on the hub. **For counsel:** the sponsor label now sits on the band, not on
+  each tile (`PLACEMENTS.md`).
+- **Staging's home page record is not rearranged yet.** Its sections are still the old order (five full runs, the panels, no Listens, no fellowship). Staging has no NPR News
+  section, so its page would be: lead, Listens, videos, Local News (lead), Florida News (row), More by section (Local Politics, Local Arts, UWF News), podcasts. Rewriting it is a
+  content change to the page the owner reviews; it waits for the owner's word (write the `jsonb` column and the latest version row, or give the blocks new ids: see `CLAUDE.md`).
+- **Not checked:** the page rendered in a browser (no screenshots taken), the Listens cards against the real Portal (the hub read is not unit-tested: `server-only` does not resolve
+  in Vitest, the same reason `loadPlacedQuery` has no test), and the migration on staging (applied by the branch's preview build; verify the zone enum and that placement 11 is gone).
+
 ## The hubs redesign (2026-11-23; built on `claude/upbeat-mayer-edqava` (slices 1 to 3, PR 402, merged) and `claude/vibrant-noether-16u48u` (slices 4 on); design: the "WUWF Hubs Redesign" canvas, https://claude.ai/artifact/4xSB7KPURiTSueJr2qXP7W)
 
 RadioLive, Unearthing Florida and The Voyager become pages of blocks in the same order (sub-nav, opening, now, browse, own section, people, support, a set foot), each under its own theme; a show's home is a page that names its show. Decisions are in `CLAUDE.md` ("A show's home is a page of blocks", "Explore") and `PAGE-BLOCKS.md` phase 6.

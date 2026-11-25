@@ -10,7 +10,7 @@
 //
 // The key of one tile on a page is `<zone>.<position>`, position counting from 1 (`home.rail.3`), and is the reference a booking will name.
 
-export type ZoneId = 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.inline'
+export type ZoneId = 'home.top' | 'home.rail' | 'list.top' | 'list.rail' | 'story.inline'
 
 /** The kind of page a zone is on. A zone on the home page has no targets; a zone on a list page can be aimed at sections, topics or reporters. */
 export type ZonePage = 'home' | 'list' | 'story'
@@ -68,24 +68,12 @@ export const ZONES: Readonly<Record<ZoneId, ZoneSpec>> = {
   'home.rail': {
     id: 'home.rail',
     name: 'Home page rail',
-    where: 'Beside the news on the home page; after the news on a phone.',
+    where: 'Rows of three on the home page, each in a tinted band: after the first news run, after the third, and so on; any row left over after the last run.',
     page: 'home',
     shape: 'tiles',
     capacity: 9,
     targetable: false,
     artwork: { width: 880, height: 704 },
-    built: true,
-  },
-  'home.band': {
-    id: 'home.band',
-    name: 'Home page banner',
-    where: 'A slim band after the news sections and before the podcasts, never above the news.',
-    page: 'home',
-    shape: 'band',
-    capacity: 1,
-    targetable: false,
-    artwork: { width: 1200, height: 200 },
-    phoneArtwork: { width: 800, height: 400 },
     built: true,
   },
   'list.top': {

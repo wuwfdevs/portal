@@ -179,3 +179,15 @@ describe('Card, with and without a picture', () => {
     expect(out).toContain('data-placeholder="picture"')
   })
 })
+
+describe('Podcasts: the line under a show beside the featured one', () => {
+  it('names the newest episode and its date, so the list offers something to hear', async () => {
+    const { otherShowLine } = await import('./Slots')
+    expect(otherShowLine({ episodes: 12, latest: { title: 'The bay at low tide', publishedAt: '2026-11-20T12:00:00.000Z' } as never })).toBe('Latest: The bay at low tide · Nov 20, 2026')
+  })
+  it('falls back to the count when the newest episode has no title, or there is none', async () => {
+    const { otherShowLine } = await import('./Slots')
+    expect(otherShowLine({ episodes: 1, latest: null })).toBe('1 episode')
+    expect(otherShowLine({ episodes: 4, latest: { title: ' ', publishedAt: '2026-11-20T12:00:00.000Z' } as never })).toBe('4 episodes · latest Nov 20, 2026')
+  })
+})

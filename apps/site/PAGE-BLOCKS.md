@@ -478,6 +478,10 @@ that is rejected.
 
 ## Home (built 2026-11-20, beside the coded page; `/` is not switched)
 
+**Rethought 2026-11-25** (`ROADMAP.md`, "The homepage rethink"): News run has a `row` variant (one row of three, no lead); **More by section** (`sectionHeadlines`) holds up to three
+sections as text-only headline columns; **Open questions** is offered on the home set, where it draws the reporters' questions as at most three cards; the sponsor rows follow every other
+news run and the home banner zone is retired. `homepageToSections` writes the new order.
+
 The home page can be a page of blocks in a new **home set** (`PAGE_SETS.home`, edited by publishers). The two things that made it "not blockable" were solved **by the page, not
 by the editor**:
 

@@ -11,6 +11,31 @@ export const NEWS_RUN_COUNT = { min: 3, max: 7, standard: 5 } as const
 /** A stored count held to the News run's range, and the standard one when it is not a number. */
 export const newsRunCount = (stored: number | null | undefined): number =>
   typeof stored === 'number' && Number.isFinite(stored) ? Math.min(NEWS_RUN_COUNT.max, Math.max(NEWS_RUN_COUNT.min, Math.round(stored))) : NEWS_RUN_COUNT.standard
+/**
+ * A news run's two layouts (2026-11-25, the homepage rethink): `lead` gives the first story a row of its own and the rest an even grid below it (the station's own
+ * section, Local News); `row` is one row of cards with no lead, for a section that rarely has one story above the rest (Florida News, NPR News).
+ */
+export const NEWS_RUN_VARIANTS = [
+  { label: 'Lead and cards: the first story on a row of its own', value: 'lead' },
+  { label: 'One row: three cards, no lead', value: 'row' },
+] as const
+export type NewsRunVariant = (typeof NEWS_RUN_VARIANTS)[number]['value']
+/** How many stories a one-row run shows: one row of three on a wide screen. */
+export const NEWS_ROW_COUNT = 3
+/** A stored variant, read safely: anything but `row` is the lead layout, so a run saved before the variant existed keeps its look. */
+export const newsRunVariant = (stored: unknown): NewsRunVariant => (stored === 'row' ? 'row' : 'lead')
+/** How many stories a run takes: a row takes one row, a lead run the editor's count. */
+export const newsRunTake = (variant: unknown, stored: number | null | undefined): number => (newsRunVariant(variant) === 'row' ? NEWS_ROW_COUNT : newsRunCount(stored))
+/**
+ * The columns of a one-row run on a wide screen, written whole for Tailwind: three across, or as many as there are when a quiet day leaves fewer, so two stories fill the
+ * row at half width each rather than leaving a hole where the third would be. Merged over `StoryGrid`'s own classes.
+ */
+export function rowGridClass(shown: number): string {
+  const n = Math.max(0, Math.floor(shown))
+  if (n === 1) return 'sm:grid-cols-1 lg:grid-cols-1'
+  if (n === 2) return 'sm:grid-cols-2 lg:grid-cols-2'
+  return 'sm:grid-cols-2 lg:grid-cols-3'
+}
 /** How many stories past the count a news run asks for, so what the page already shows above it cannot leave it short. */
 export const MODULE_SLACK = 12
 

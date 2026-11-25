@@ -9,7 +9,8 @@ export const LISTENING_OPEN_VARIANTS = [
  * Open questions: what the Portal has open for the WUWF Listens hub (board 5). Two layouts over the same read: the **campaigns** (a band for each: its
  * question, then answer alone, join a session, host a table) and the **reporters' questions** that belong to no campaign (a card for each). It
  * draws what is open now, so it changes with no one editing the page; its words (the section's heading and intro, and the lines below) are typed here.
- * An open question shows no count. Offered only on Listens pages.
+ * An open question shows no count. Offered on Listens pages and on the home page, where it is always the restrained form: the reporters' questions as at most three
+ * cards and a link to the hub, and nothing at all when none is open (the homepage rethink, 2026-11-25; the layout choice is ignored there).
  */
 export const ListeningOpen = defineSection({
   slug: 'sectionListeningOpen',

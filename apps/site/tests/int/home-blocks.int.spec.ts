@@ -43,7 +43,7 @@ describe('the home page of blocks', () => {
     created.push({ collection: 'pages', id: page.id })
     const read = await payload.findByID({ collection: 'pages', id: page.id, depth: 0, overrideAccess: true })
     expect(read.pageSet).toBe('home')
-    expect((read.sections as Array<{ blockType: string }>).map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionList', 'sectionNewsRun', 'sectionShowSpotlight', 'sectionFeaturePanels'])
+    expect((read.sections as Array<{ blockType: string }>).map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionListeningOpen', 'sectionList', 'sectionNewsRun', 'sectionShowSpotlight'])
   })
 
   it('refuses a block of the home set on a page in no set, and an editor writing in the set', async () => {

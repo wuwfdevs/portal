@@ -55,3 +55,28 @@ export async function loadPlacedQuery(publicId: string): Promise<ListeningQuery 
     return null
   }
 }
+
+/**
+ * The hub as a PLACEMENT reads it: on the home page, which is cached and shared by every reader (the homepage rethink, 2026-11-25). The ordinary `loadHub` reads the
+ * request's headers for the rate-limit hash and never caches, which would make the home page render fresh on every view and wait on the Portal. This one sends no hash
+ * and keeps the answer for a few minutes, as `loadPlacedQuery` does for a question; a failure is not kept (it throws out of the cache and reads as an error, which the
+ * home page's block draws as nothing), so one bad moment does not hide the questions for five minutes. The Portal still refuses an answer to a question that has closed.
+ */
+const placedHub = unstable_cache(
+  async (): Promise<HubLoad> => {
+    const result = await callListening<{ hub: ListeningHub }>(LISTENING_PATHS.hub, {})
+    if (result.ok) return { kind: 'ok', hub: result.hub }
+    if (result.error === 'not_set_up') return { kind: 'not_set_up' }
+    throw new Error(`listening hub read failed: ${result.error}`)
+  },
+  ['listening-placed-hub'],
+  { revalidate: PLACEMENT_REVALIDATE_SECONDS, tags: ['listening-hub'] },
+)
+
+export async function loadPlacedHub(): Promise<HubLoad> {
+  try {
+    return await placedHub()
+  } catch {
+    return { kind: 'error' }
+  }
+}

@@ -65,3 +65,42 @@ describe('Open questions: reporters’ questions', () => {
     expect(view(reporters, notSetUp)).toBe('')
   })
 })
+
+describe('Open questions on the home page', () => {
+  const homeView = (block: Record<string, unknown>, load: Parameters<typeof ListeningOpenView>[0]['load']) =>
+    renderToStaticMarkup(createElement(ListeningOpenView, { block: block as never, load, KitchenTable: Table, home: true }))
+  const many = (n: number) => ({
+    kind: 'ok' as const,
+    hub: { ...hub, open: Array.from({ length: n }, (_, i) => ({ ...hub.open[1]!, publicId: `q-${i + 1}`, title: `Question ${i + 1}` })) },
+  })
+  it('draws the reporters’ questions as cards, whatever layout was chosen, with "See all of WUWF Listens" in the heading row', () => {
+    const html = homeView(campaigns, ok)
+    expect(html).toContain('How is your insurance bill?')
+    expect(html).toContain('href="/listens/q-reporter"')
+    expect(html).not.toContain('id="campaign-c-1"')
+    expect(html).not.toContain('table form')
+    expect(html).toContain('See all of WUWF Listens')
+    expect(html).toContain('href="/listens"')
+  })
+  it('shows at most three, leaving the rest to the hub', () => {
+    const html = homeView(reporters, many(5))
+    expect(html).toContain('Question 3')
+    expect(html).not.toContain('Question 4')
+  })
+  it('draws nothing, never a message, when none is open or the Portal is not set up or cannot be read', () => {
+    expect(homeView(reporters, empty)).toBe('')
+    expect(homeView(campaigns, empty)).toBe('')
+    expect(homeView(campaigns, notSetUp)).toBe('')
+    expect(homeView(campaigns, failed)).toBe('')
+    expect(homeView(reporters, undefined)).toBe('')
+  })
+  it('shows no count on an open question', () => {
+    expect(homeView(reporters, ok)).not.toMatch(/\b41\b/)
+  })
+  it('is the home form when the page is in the home set', async () => {
+    const out = await ListeningOpenSection({ block: campaigns as never, context: { ...testContext, setId: 'home', listeningHub: ok } })
+    const html = renderToStaticMarkup(out as never)
+    expect(html).toContain('See all of WUWF Listens')
+    expect(html).not.toContain('id="campaign-c-1"')
+  })
+})

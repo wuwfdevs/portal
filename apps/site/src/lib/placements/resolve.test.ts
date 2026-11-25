@@ -104,7 +104,7 @@ describe('resolveZone', () => {
   })
   it('is empty for no records', () => {
     expect(resolveZone('list.rail', section(3), null, NOW)).toEqual([])
-    expect(resolveZone('home.band', { page: 'home' }, [], NOW)).toEqual([])
+    expect(resolveZone('home.top', { page: 'home' }, [], NOW)).toEqual([])
   })
 })
 
