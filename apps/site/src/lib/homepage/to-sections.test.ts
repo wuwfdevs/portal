@@ -24,28 +24,44 @@ describe('homepageToSections', () => {
   const { sections, notCarried } = homepageToSections(full)
   const of = (blockType: string) => sections.filter((s) => s.blockType === blockType)
 
-  it('writes the coded page\'s order: lead, feature, videos, a run per section, podcasts, panels', () => {
-    expect(sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionFellowshipFeature', 'sectionList', 'sectionNewsRun', 'sectionNewsRun', 'sectionShowSpotlight', 'sectionFeaturePanels'])
+  it('writes the rethink\'s order: lead, Listens, feature, videos, the news runs, podcasts, and no panels', () => {
+    expect(sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionListeningOpen', 'sectionFellowshipFeature', 'sectionList', 'sectionNewsRun', 'sectionNewsRun', 'sectionShowSpotlight'])
+  })
+  it('puts WUWF Listens second, as the reporters\' questions on the soft lime ground, in the hub\'s own words', () => {
+    expect(sections[1]).toMatchObject({ blockType: 'sectionListeningOpen', tone: 'softlime', variant: 'reporters', heading: { eyebrow: 'WUWF Listens', title: 'A reporter would like to hear from you' } })
+  })
+  it('shares the news out: the first section a full run, the next two a row each, up to three more as headline columns, and says what is past them', () => {
+    const many = homepageToSections({ newsModules: Array.from({ length: 7 }, (_, i) => ({ id: `n${i}`, heading: `Section ${i + 1}`, section: i + 1, count: 6 })) })
+    const runs = many.sections.filter((s) => s.blockType === 'sectionNewsRun')
+    expect(runs.map((s) => [s.variant, s.section])).toEqual([['lead', 1], ['row', 2], ['row', 3]])
+    expect(runs[0]).toMatchObject({ count: 6 })
+    expect(many.sections.find((s) => s.blockType === 'sectionHeadlines')).toMatchObject({ sections: [4, 5, 6], count: 4 })
+    expect(many.notCarried.join(' ')).toContain('Section 7')
+  })
+  it('says the RadioLive and Unearthing panels are left off, when they were on', () => {
+    expect(notCarried.join(' ')).toContain('RadioLive and Unearthing Florida panels are left off')
   })
   it('keeps the lead, the kicker and every top story, as ids', () => {
     expect(of('sectionFrontPage')[0]).toMatchObject({ lead: 11, leadKicker: 'After Isaias', topStories: [12, 13] })
   })
   it('holds a news section\'s count to what a News run takes (3 to 7), so an old count of 8 still saves', () => {
-    const runs = homepageToSections({ ...full, newsModules: [{ id: 'x', heading: 'Big', section: 1, count: 8 }, { id: 'y', heading: 'Small', section: 2, count: 1 }, { id: 'z', heading: 'None', section: 3 }] }).sections.filter((s) => s.blockType === 'sectionNewsRun')
-    expect(runs.map((s) => s.count)).toEqual([7, 3, 5])
+    const big = homepageToSections({ ...full, newsModules: [{ id: 'x', heading: 'Big', section: 1, count: 8 }] }).sections.find((s) => s.blockType === 'sectionNewsRun')
+    const small = homepageToSections({ ...full, newsModules: [{ id: 'y', heading: 'Small', section: 2, count: 1 }] }).sections.find((s) => s.blockType === 'sectionNewsRun')
+    const none = homepageToSections({ ...full, newsModules: [{ id: 'z', heading: 'None', section: 3 }] }).sections.find((s) => s.blockType === 'sectionNewsRun')
+    expect([big?.count, small?.count, none?.count]).toEqual([7, 3, 5])
   })
   it('loses no news section that is switched on, keeps its heading and count, and leaves a held one out', () => {
-    expect(of('sectionNewsRun').map((s) => [s.heading, s.section, s.count])).toEqual([[{ title: 'Local News' }, 1, 6], [{ title: 'Music & Arts' }, 3, 4]])
+    expect(of('sectionNewsRun').map((s) => [s.heading, s.section, s.variant])).toEqual([[{ title: 'Local News' }, 1, 'lead'], [{ title: 'Music & Arts' }, 3, 'row']])
   })
-  it('carries the feature, the videos, the podcasts and the panels\' choices', () => {
+  it('carries the feature, the videos and the podcasts\' choices', () => {
     expect(of('sectionFellowshipFeature')[0]).toMatchObject({ fellowship: 5, story: 14 })
     expect(of('sectionList')[0]).toMatchObject({ source: 'clips', count: 8, moreHref: '/video', series: 4 })
     expect(of('sectionShowSpotlight')[0]).toMatchObject({ featuredShow: 21 })
-    expect(of('sectionFeaturePanels')[0]).toMatchObject({ radioLive: true, unearthing: true, unearthingEpisode: 31 })
+    expect(of('sectionFeaturePanels')).toEqual([])
   })
   it('leaves out what is switched off, and a section that has no section or heading', () => {
     const off = homepageToSections({ fellowshipFeature: { enabled: false, fellowship: 5 }, videoRow: { enabled: false }, podcasts: { enabled: false }, radioLive: { enabled: false }, unearthing: { enabled: false }, newsModules: [{ heading: 'No section' }, { section: 4, heading: ' ' }] })
-    expect(off.sections.map((s) => s.blockType)).toEqual(['sectionFrontPage'])
+    expect(off.sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionListeningOpen'])
   })
   it('writes only block types that are registered, each for the home set, with unique ids', () => {
     for (const s of sections) {
@@ -58,6 +74,6 @@ describe('homepageToSections', () => {
   it('says what the blocks do not carry over (the "Latest stories" stand-in), and carries a pinned video series', () => {
     expect(notCarried.join(' ')).toContain('Latest stories')
     expect(notCarried.join(' ')).not.toContain('series')
-    expect(homepageToSections(null).sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionList', 'sectionShowSpotlight', 'sectionFeaturePanels'])
+    expect(homepageToSections(null).sections.map((s) => s.blockType)).toEqual(['sectionFrontPage', 'sectionListeningOpen', 'sectionList', 'sectionShowSpotlight'])
   })
 })
