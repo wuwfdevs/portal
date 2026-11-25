@@ -39,3 +39,24 @@ describe('newsRunCount', () => {
     expect(NEWS_RUN_COUNT).toEqual({ min: 3, max: 7, standard: 5 })
   })
 })
+
+describe('news run variants', () => {
+  it('reads anything but row as the lead layout', async () => {
+    const { newsRunVariant } = await import('./modules')
+    expect(newsRunVariant('row')).toBe('row')
+    expect(newsRunVariant(undefined)).toBe('lead')
+    expect(newsRunVariant('rows')).toBe('lead')
+  })
+  it('takes three for a row and the held count for a lead run', async () => {
+    const { newsRunTake } = await import('./modules')
+    expect(newsRunTake('row', 7)).toBe(3)
+    expect(newsRunTake('lead', 7)).toBe(7)
+    expect(newsRunTake(undefined, 99)).toBe(7)
+  })
+  it('sizes a row to the stories it has', async () => {
+    const { rowGridClass } = await import('./modules')
+    expect(rowGridClass(3)).toContain('lg:grid-cols-3')
+    expect(rowGridClass(2)).toBe('sm:grid-cols-2 lg:grid-cols-2')
+    expect(rowGridClass(1)).toBe('sm:grid-cols-1 lg:grid-cols-1')
+  })
+})

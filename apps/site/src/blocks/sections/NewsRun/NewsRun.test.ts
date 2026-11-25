@@ -92,3 +92,26 @@ describe('News run', () => {
     expect(out.match(/Nov 20, 2026/g)).toHaveLength(3)
   })
 })
+
+describe('News run, one row', () => {
+  it('shows one row of three whatever the stored count, with no lead row', async () => {
+    const out = await draw({ id: 'r1', section: 4, variant: 'row', count: 7 })
+    expect(out).toContain('Story 3')
+    expect(out).not.toContain('Story 4')
+    expect(out).not.toContain('border-b border-rule pb-8')
+    expect(out).toContain('lg:grid-cols-3')
+    expect(newest).toHaveBeenCalledWith(4, 3, 'station')
+  })
+  it('asks the page for three stories', async () => {
+    expect((await newsRunClaim({ blockType: 'sectionNewsRun', section: 4, variant: 'row', count: 6 } as never))?.take).toBe(3)
+  })
+  it('fills the row with the two it has on a quiet day, rather than leaving a hole', async () => {
+    const out = await draw({ id: 'r1', section: 4, variant: 'row' }, new Map([['r1', [1, 2]]]))
+    expect(out).toContain('lg:grid-cols-2')
+    expect(out).not.toContain('lg:grid-cols-3')
+  })
+  it('keeps the lead layout for a run saved before the variant existed', async () => {
+    const out = await draw({ section: 4, count: 4 })
+    expect(out).toContain('border-b border-rule pb-8')
+  })
+})

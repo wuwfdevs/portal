@@ -3144,6 +3144,7 @@ export interface SectionNewsRun {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
+  variant: 'lead' | 'row';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -3161,7 +3162,7 @@ export interface SectionNewsRun {
    */
   section: number | Section;
   /**
-   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it.
+   * How many stories to show (3 to 7). The first is the lead, on a row of its own; the rest sit below it. A one-row run always shows 3.
    */
   count?: number | null;
   id?: string | null;
