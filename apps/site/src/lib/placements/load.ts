@@ -29,6 +29,7 @@ export function toRecord(doc: PlacementItem, sponsorNames: ReadonlyMap<string, s
     zone: doc.zone,
     kind: doc.kind,
     sponsor: sponsorId ? (sponsorNames.get(sponsorId) ?? null) : null,
+    sponsorId,
     enabled: doc.enabled,
     runFrom: doc.runFrom,
     runUntil: doc.runUntil,

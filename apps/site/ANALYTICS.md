@@ -1,7 +1,9 @@
 # Analytics
 
-**Status: Specified. Nothing here is built or collecting data.** This is the contract the implementation will be
-held to. Where a definition is custom rather than an audited standard, it says so.
+**Status (2026-11-25): the foundation and the sponsor placement watching are built; nothing is collected.** `src/lib/analytics`
+(the events, the consent rules, the dispatcher, the viewable rule) and `components/Placements/Tracked` exist and are tested, but no
+visitor's consent is ever recorded and the only sink sends nothing, so no event leaves the browser. The rest is the contract the
+implementation will be held to (see "Order of work"). Where a definition is custom rather than an audited standard, it says so.
 
 ## Principles
 
@@ -9,7 +11,15 @@ held to. Where a definition is custom rather than an audited standard, it says s
   primary candidate; GA4 and Chartbeat are possible complements) sits behind it and can be replaced. Do not
   install redundant trackers.
 - **Consent first.** The adapter drops everything until consent is recorded, and drops what the visitor's choice
-  excludes. No third-party tracking pixels, ever, on sponsor placements.
+  excludes.
+- **First party on sponsor placements** (owner, 2026-11-25, narrowing the old "no third-party tracking pixels"): no ad
+  network or ad server, no sponsor's or verification vendor's pixel or script, nothing that follows a reader to other sites.
+  The site counts its own placements. If a sponsor ever needs audited figures, that is a new decision for the owner, and a
+  report from a vendor's server is preferred to a vendor's script on the page.
+- **Sponsor counts do not depend on a vendor.** The placement counter is the site's own (an endpoint and a table of daily
+  totals), so the definitions and filters in a sponsor's report are ours and stay comparable year to year. A product-analytics
+  vendor (PostHog the candidate) is a second, optional destination behind the same adapter, for staff questions, never the
+  source of a sponsor's figures.
 - **Minimal.** No raw user text or audio in events or logs. Identifiers, not content.
 - **Anonymous stays anonymous.** Never merge an anonymous history into an identified profile without a basis
   (an explicit sign-in by that person). Never link an analytics identity to a donor record.
@@ -41,9 +51,9 @@ Names are `object_action`, past tense, snake case.
 | `listening_started` / `listening_answered` / `listening_submitted` | Listening flow steps | `listening_query_id`, `answer_mode`; **never** the answer |
 | `follow_toggled` / `save_toggled` | Follow a topic/show, save an item | `target_kind`, `target_id`, `on` |
 | `event_registered` | Event registration | `event_id` |
-| `sponsor_placement_rendered` | A sponsor unit was put on the page | `sponsor_id`, `campaign_id`, `placement_id` |
-| `sponsor_placement_viewable` | The unit met the viewable definition below | same |
-| `sponsor_placement_clicked` | The unit was clicked | same |
+| `sponsor_placement_measurable` | The unit is on the page and the page's script can see it (**built**; replaces `sponsor_placement_rendered`, see below) | `placement_id`, `sponsor_id`, `zone`, `kind` |
+| `sponsor_placement_viewable` | The unit met the viewable definition below (**built**) | same |
+| `sponsor_placement_clicked` | A person clicked or middle-clicked the unit's link (**built**) | same |
 | `acknowledgment_shown` | An underwriting line was rendered | `agreement_id`, `content_id` |
 | `membership_appeal_shown` / `membership_appeal_clicked` | A member-support ask | `appeal_kind`, `surface` |
 | `conversion_started` | Handoff to the donation form | `appeal_kind`, `attribution_code` |
@@ -58,12 +68,15 @@ Kept apart, because they are not the same number:
 | Measure | Definition | Standard? |
 |---|---|---|
 | **Pageview** | A page was loaded and displayed to a human-like client | custom |
-| **Placement rendered** | The server put the placement in the page | custom |
+| **Placement rendered** | The server put the placement in the page. **Not countable per visit:** pages are cached and served many times from one render, so the server never sees each view. Not reported. | custom |
 | **Placement measurable** | The client could observe it (JS ran, element exists) | custom |
 | **Viewable exposure** | At least 50% of the unit's pixels in view for at least 1 continuous second | modelled on the common display standard; **not audited** |
 | **Click** | A trusted user-initiated activation of the unit | custom |
 | **Audio/video engagement** | Play start and percent milestones, plus seconds played | custom |
 | **Delivery vs commitment** | Valid viewable exposures ÷ contracted exposures for the period | custom |
+
+The site has no `campaign_id`: it knows nothing of how a placement was sold (`PLACEMENTS.md`), so a placement event carries the placement
+record and its sponsor, and a report reaches a campaign by joining on `placement_id` in the Portal.
 
 Reports must not present a custom measure as an audited one. Automated traffic (known bot user agents, data-center
 ranges, impossible interaction rates) and duplicates (the same visitor and placement inside a short window) are
@@ -84,12 +97,22 @@ Categories: *necessary* (always on; no analytics), *measurement* (events above),
 states). The default is off. Consent is stored per browser, revocable, and honoured by the adapter before any
 vendor code loads. A signed-in person can export and delete their data.
 
-## Implementation notes (Planned)
+## Order of work
 
-1. `src/lib/analytics/events.ts` — the typed taxonomy (a discriminated union) and a runtime validator.
-2. `src/lib/analytics/consent.ts` — pure consent state and rules, tested.
-3. `src/lib/analytics/dispatch.ts` — the adapter interface and a no-op/console implementation.
-4. A vendor implementation behind the interface, chosen after evaluating PostHog against the privacy and
-   hosting constraints.
-5. Instrument first: content views and engagement, listening steps, newsletter signup, membership appeals,
-   sponsor rendered/viewable/clicked, acknowledgment shown.
+1. **Built (2026-11-25):** `src/lib/analytics/events.ts` (the typed events and `parseEvent`, the one check every event passes, which the
+   collection endpoint will reuse), `consent.ts` (the categories and `allows`; no choice means nothing is sent), `dispatch.ts` (`analytics.track`;
+   the sink is `noopSink`), `viewability.ts` (50% for one continuous second in a visible tab, once per page view). Placement tiles carry their
+   record ids (`PlacementTile.placementId`, `sponsorId`, `zone`) and `components/Placements/Tracked`, the card's own outer element, emits
+   measurable, viewable and clicked. **Nothing is collected:** no consent is recorded and the sink sends nothing.
+2. **The placement counter, before launch** so there is history at the first renewal: a first-party collection route that runs `parseEvent`
+   on what it receives, filters automated traffic and duplicates (rules versioned), and adds to a table of daily totals per placement, event and
+   day in the site's database (a migration; no raw events, no addresses kept). A sink that posts to it with `navigator.sendBeacon`.
+3. **Consent:** the visitor's choice (a banner and a settings link), stored per browser, read by the dispatcher; the wording through the
+   university's privacy review and the UWF IT-04 notice. **Ask counsel first** whether a placement count that stores no cookie, identifier or
+   address may run without consent; if yes, placement events move to a category that does not need it and nothing else changes.
+4. **Reports:** a staff view of each placement's daily totals in the admin, and a proof-of-performance export for a sponsor (aggregates only,
+   small counts suppressed, the definitions and filter version printed on it). Delivery against commitment needs the contracted figure from the
+   Portal through `packages/portal-contracts`.
+5. **The rest of the taxonomy** (content views and engagement, listening steps, newsletter signup, membership appeals, acknowledgment shown),
+   each added to `events.ts` when something emits it, and **a product-analytics vendor** behind the same adapter if staff want one, chosen after
+   evaluating PostHog against the privacy and hosting constraints. It is a second destination, never the source of sponsor figures.
