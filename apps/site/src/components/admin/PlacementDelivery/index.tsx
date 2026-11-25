@@ -5,38 +5,35 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { DeliveryReport, Totals } from '@/lib/analytics/report'
 
+import './delivery.scss'
+
 /**
  * The "Delivery" panel: what the site counted for one placement (on its edit screen) or for all of a sponsor's placements (on the sponsor's),
  * over a range of station days, with the sponsor's export. Reads `GET /api/placement-items/delivery` (`collections/placementDeliveryEndpoints.ts`),
  * which needs the sponsorship role. Staff see exact figures; the export hides small ones and prints how they are counted.
  *
- * Written for the admin, so it uses Payload's own theme variables rather than the public site's design tokens.
+ * Written for the admin, so it uses Payload's own theme variables rather than the public site's design tokens (`delivery.scss`, which also makes it
+ * a table when wide and a card per row when narrow).
  */
-
-const box: React.CSSProperties = { border: '1px solid var(--theme-elevation-150)', borderRadius: 4, padding: 16, background: 'var(--theme-elevation-50)', marginTop: 24 }
-const muted: React.CSSProperties = { color: 'var(--theme-elevation-600)', margin: 0 }
-const table: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', marginTop: 12 }
-const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid var(--theme-elevation-150)', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '6px 8px', borderBottom: '1px solid var(--theme-elevation-100)' }
-const num: React.CSSProperties = { ...td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
-const input: React.CSSProperties = { font: 'inherit', fontSize: 16, padding: '6px 8px', border: '1px solid var(--theme-elevation-250)', borderRadius: 4, background: 'var(--theme-input-bg)', color: 'inherit' }
 
 const pct = (part: number, whole: number) => (whole > 0 ? `${((part / whole) * 100).toFixed(1)}%` : '–')
 const fmt = (n: number) => n.toLocaleString('en-US')
 
+const HEAD = ['Shown', 'Viewed', 'Clicked', 'Viewed of shown', 'Clicked of viewed'] as const
+
+/** The five figures of a row, each cell carrying its column's name for the narrow layout. */
 function Figures({ t }: { t: Totals }) {
+  const values = [fmt(t.measurable), fmt(t.viewable), fmt(t.clicked), pct(t.viewable, t.measurable), pct(t.clicked, t.viewable)]
   return (
     <>
-      <td style={num}>{fmt(t.measurable)}</td>
-      <td style={num}>{fmt(t.viewable)}</td>
-      <td style={num}>{fmt(t.clicked)}</td>
-      <td style={num}>{pct(t.viewable, t.measurable)}</td>
-      <td style={num}>{pct(t.clicked, t.viewable)}</td>
+      {values.map((v, i) => (
+        <td data-label={HEAD[i]} key={HEAD[i]}>
+          {v}
+        </td>
+      ))}
     </>
   )
 }
-
-const HEAD = ['Shown', 'Viewed', 'Clicked', 'Viewed of shown', 'Clicked of viewed']
 
 function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
   const { id } = useDocumentInfo()
@@ -90,18 +87,18 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
   const title = scope === 'sponsor' ? 'Delivery of this sponsor\'s messages' : 'Delivery'
   if (id == null) {
     return (
-      <div style={box}>
-        <h3 style={{ margin: 0 }}>{title}</h3>
-        <p style={muted}>Counts appear here once the {scope === 'sponsor' ? 'sponsor' : 'placement'} is saved and running.</p>
+      <div className="wuwf-delivery">
+        <h3 className="wuwf-delivery__title">{title}</h3>
+        <p className="wuwf-delivery__muted">Counts appear here once the {scope === 'sponsor' ? 'sponsor' : 'placement'} is saved and running.</p>
       </div>
     )
   }
 
   const nothing = report && report.total.measurable + report.total.viewable + report.total.clicked === 0
   return (
-    <div style={box}>
-      <h3 style={{ margin: 0 }}>{title}</h3>
-      <p style={muted}>
+    <div className="wuwf-delivery">
+      <h3 className="wuwf-delivery__title">{title}</h3>
+      <p className="wuwf-delivery__muted">
         Counted by the site itself, as daily totals: nothing about the people who saw it is kept. Not audited by a third party. A count reaches
         here within a few seconds of a visit.
       </p>
@@ -117,37 +114,37 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
             void load()
           }
         }}
-        style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'end', marginTop: 12 }}
+        className="wuwf-delivery__range"
       >
-        <label style={{ display: 'grid', gap: 4 }}>
+        <label>
           First day
-          <input onChange={(e) => setFrom(e.target.value)} style={input} type="date" value={from} />
+          <input onChange={(e) => setFrom(e.target.value)} type="date" value={from} />
         </label>
-        <label style={{ display: 'grid', gap: 4 }}>
+        <label>
           Last day
-          <input onChange={(e) => setTo(e.target.value)} style={input} type="date" value={to} />
+          <input onChange={(e) => setTo(e.target.value)} type="date" value={to} />
         </label>
-        <button className="btn btn--style-secondary btn--size-small" disabled={loading} onClick={() => void load()} style={{ margin: 0 }} type="button">
+        <button className="btn btn--style-secondary btn--size-small" disabled={loading} onClick={() => void load()} type="button">
           {loading ? 'Loading…' : 'Show'}
         </button>
-        <a className="btn btn--style-primary btn--size-small" download href={query({ format: 'csv' })} style={{ margin: 0 }}>
+        <a className="btn btn--style-primary btn--size-small" download href={query({ format: 'csv' })}>
           Download for the sponsor (CSV)
         </a>
       </div>
       {error && (
-        <p role="alert" style={{ ...muted, color: 'var(--theme-error-500)', marginTop: 12 }}>
+        <p className="wuwf-delivery__error" role="alert">
           {error}
         </p>
       )}
-      {report && nothing && <p style={{ ...muted, marginTop: 12 }}>Nothing was counted from {report.from} to {report.to}.</p>}
+      {report && nothing && <p className="wuwf-delivery__foot">Nothing was counted from {report.from} to {report.to}.</p>}
       {report && !nothing && (
         <>
-          <table style={table}>
+          <table className="wuwf-delivery__table">
             <thead>
               <tr>
-                <th style={th}>{scope === 'sponsor' ? 'Message' : 'Place on the site'}</th>
+                <th scope="col">{scope === 'sponsor' ? 'Message' : 'Place on the site'}</th>
                 {HEAD.map((h) => (
-                  <th key={h} style={{ ...th, textAlign: 'right' }}>
+                  <th key={h} scope="col">
                     {h}
                   </th>
                 ))}
@@ -156,28 +153,28 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
             <tbody>
               {report.placements.map((p) => (
                 <tr key={`${p.placementId}|${p.zone}`}>
-                  <td style={td}>{scope === 'sponsor' ? `${p.name} (${p.place})` : p.place}</td>
+                  <td>{scope === 'sponsor' ? `${p.name} (${p.place})` : p.place}</td>
                   <Figures t={p} />
                 </tr>
               ))}
               {report.placements.length > 1 && (
-                <tr>
-                  <td style={{ ...td, fontWeight: 600 }}>Total</td>
+                <tr className="is-total">
+                  <td>Total</td>
                   <Figures t={report.total} />
                 </tr>
               )}
             </tbody>
           </table>
-          <button className="btn btn--style-subtle btn--size-small" onClick={() => setShowDays((v) => !v)} style={{ marginTop: 12 }} type="button">
+          <button aria-expanded={showDays} className="btn btn--style-subtle btn--size-small wuwf-delivery__days" onClick={() => setShowDays((v) => !v)} type="button">
             {showDays ? 'Hide the days' : 'Show each day'}
           </button>
           {showDays && (
-            <table style={table}>
+            <table className="wuwf-delivery__table">
               <thead>
                 <tr>
-                  <th style={th}>Day</th>
+                  <th scope="col">Day</th>
                   {HEAD.map((h) => (
-                    <th key={h} style={{ ...th, textAlign: 'right' }}>
+                    <th key={h} scope="col">
                       {h}
                     </th>
                   ))}
@@ -186,14 +183,14 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
               <tbody>
                 {report.days.map((d) => (
                   <tr key={d.day}>
-                    <td style={td}>{d.day}</td>
+                    <td>{d.day}</td>
                     <Figures t={d} />
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          <p style={{ ...muted, marginTop: 12 }}>Traffic filter {report.filterVersions.join(', ')}.</p>
+          <p className="wuwf-delivery__foot">Traffic filter {report.filterVersions.join(', ')}.</p>
         </>
       )}
     </div>
