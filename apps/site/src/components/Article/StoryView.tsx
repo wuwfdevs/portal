@@ -19,6 +19,7 @@ import { ThemedEpisodeView } from '@/components/Show/themed/ThemedEpisodeView'
 import { showThemeOf } from '@/lib/shows/themes'
 import { loadMembersListeningLevel } from '@/lib/shows/themed-load'
 import { MembersOnlyPanel } from '@/components/Members/MembersOnlyPanel'
+import { HubNav } from '@/components/SectionNav/HubNav'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import RichText from '@/components/RichText'
@@ -101,6 +102,8 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
       <script type="application/ld+json">{jsonLdText(storySchema(storySeoInputOf(post, getServerSideURL())))}</script>
       <PayloadRedirects disableNotFound url={url} />
       {draft && <LivePreviewListener />}
+      {/* A Voyager story is one of the hub's pages: it keeps the hub's strip. */}
+      {isVoyagerIdentity(post.publishingIdentity) && <HubNav setId="voyager" url={url} />}
 
       <header className="container flex max-w-[52rem] flex-col gap-4 pt-8 md:pt-12">
         {sectionLabel && (
