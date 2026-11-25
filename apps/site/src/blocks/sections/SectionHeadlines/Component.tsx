@@ -83,6 +83,12 @@ export function SectionHeadlinesView({ block, columns }: { block: SectionHeadlin
                 </li>
               ))}
             </ul>
+            {/* Each column leads on to its section's page, as the boards draw it. */}
+            {section.slug && (
+              <Link className="mt-2 inline-flex min-h-11 items-center font-bold underline underline-offset-2 [color:var(--tone-accent)]" href={`/${section.slug}`}>
+                More from {section.title} →
+              </Link>
+            )}
           </section>
         ))}
       </div>
