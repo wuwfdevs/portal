@@ -31,6 +31,13 @@ consent choice, provisionally, until counsel answers whether a count with no coo
 - **Not built:** data-center ranges and rate limits in the filter (they need the address); delivery against commitment and the formal proof of
   performance (the Portal's; a signed contract to read the totals, later); consent for every other event.
 - **Next:** ask counsel the counting question; watch staging's counts against its traffic and tighten the filter if bots show through.
+- **Checked:** typecheck; lint (no new problems; the two `react/no-children-prop` errors in the ListenLive tests were there before); every unit test
+  under `src` (257 files, 3,050 tests); the integration test `tests/int/placement-counts.int.spec.ts` (the route adds to and accumulates the totals,
+  refuses bots, other sites, unknown placements and malformed posts; the endpoint's permissions, range checks and CSV); `pnpm verify:migrations`;
+  `pnpm build`, and the built server answering 204 at the counter and 401 at the delivery endpoint signed out. **Staging:** the preview build of
+  `038a223` applied the migration (batch 72); verified by query: owner `payload_app`, the columns and primary key, no foreign keys, no grants to
+  `anon` or `authenticated`, empty. **Not checked:** a real browser sending counts on the preview (it needs a Vercel sign-in), and the Delivery panel
+  drawn in the admin. The first thing to look at on staging: open a page with tiles, then the placement's Delivery panel.
 ## The homepage rethink (2026-11-25; built on `claude/great-gauss-5hwn51`; design: the "WUWF Homepage Rethink" canvas, https://claude.ai/artifact/Rn43y9Mcs9vvCL5XqDegzF)
 
 The owner reviewed the built home page (staging, demo content) and found five near-identical news runs, a sponsor row between nearly every block, and no sign of WUWF Listens, audio
