@@ -84,6 +84,16 @@ describe('the sponsor slots', () => {
     expect(out.indexOf('home.rail.6"')).toBeLessThan(out.indexOf('home.rail.7"'))
     expect(out.indexOf('home.rail.9"')).toBeLessThan(out.indexOf('Tail:'))
   })
+  it('never stacks two bands: rows with no place join the last anchor\'s band, one label for it', async () => {
+    const out = await render(news, { slots: slots(9) })
+    expect(out.match(/data-sponsor-band/g)).toHaveLength(2)
+    const second = out.slice(out.lastIndexOf('data-sponsor-band'))
+    for (const i of [4, 5, 6, 7, 8, 9]) expect(second).toContain(`data-placement="home.rail.${i}"`)
+    // Two anchors (a staging page with Local News and Florida News only): one place, and the rest join it instead of a band under it.
+    const two = await render(drawn([['a', kind('A', undefined, true)], ['b', kind('B', undefined, true)], ['tail', kind('Tail')]]), { slots: slots(9) })
+    expect(two.match(/data-sponsor-band/g)).toHaveLength(2)
+    expect(two.indexOf('B:')).toBeLessThan(two.indexOf('home.rail.4"'))
+  })
   it('puts the top unit once, ordered by the screen: first on a wide screen, after the first section on a phone', async () => {
     const out = await render(news, { slots: slots(0, { top: tile('home.top.1') }) })
     expect(out.match(/data-placement="home\.top\.1"/g)).toHaveLength(1)

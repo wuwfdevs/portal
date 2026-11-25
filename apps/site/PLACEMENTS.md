@@ -85,7 +85,7 @@ Designed on the canvas "Sponsor Rail Redesign" (option B). The pieces are `lib/p
   (`flowHomeRail`, `rowFollowsRun`). Nothing sits in a side column, so no section has a gutter at any height, story count or tile count.
   Tiles are a fixed 22rem and wrap, centered: three fill a wide screen's row, a tablet shows two and one, a phone a stack. The page is cached and shared by every reader, so the server
   never needs a screen's width.
-- **A paid tile is never held back.** Every tile that runs is drawn. Rows that have no place after a run (more rows than places) follow the last run. Capacity (nine for the
+- **A paid tile is never held back.** Every tile that runs is drawn. Rows that have no place after a run (more rows than places) join the band after the last anchor, one band with one label whose tiles wrap into rows, **never a second band stacked under it** (2026-11-25, after the owner saw two bands stacked on staging). More by section is an anchor too, so on the agreed page the bands fall after Local News and after NPR News, and extra rows follow More by section. Capacity (nine for the
   home rail) is the only limit, as before.
 - **A short last row is completed by WUWF's own promotions, which are optional.** On a house promotion in the home rail the admin shows **Can fill a gap**. Those promotions are held
   apart from the rail's tiles: they take no place from a sponsor, do not count toward the rail's capacity, are used only to complete the last row (at most two, since a row of three needs at most
