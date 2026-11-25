@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { HomeBand, SponsorBand, TopUnit } from '@/components/Placements'
+import { SponsorBand, TopUnit } from '@/components/Placements'
 import { claimInOrder, planSlots, type ClaimRequest } from '@/lib/page-slots'
 import { pageSetOf } from '@/lib/page-sets/registry'
 
@@ -21,7 +21,7 @@ export interface Drawn {
  * Two things a page set can ask of the page (`lib/page-sets/registry.ts`), both done here so no section has to know about the others:
  *  - **No story twice** (`dedupe`): every section that lists stories is asked, in the page's order, which it would show (`claimRequest`), and each is handed the newest
  *    that nothing above it took, as `context.claims`.
- *  - **Sponsor slots** (`slots`): the top unit, a row of the rail above each news run (`anchor`), the rows that did not fit after the last, and the band. The layout draws
+ *  - **Sponsor slots** (`slots`): the top unit, a row of the rail after every other news run (`anchor`: the first, third, fifth...), and the rows that did not fit after the last. The layout draws
  *    them, not an editor, so they cannot be deleted, hidden or duplicated, and a tile that runs is always drawn. Only for a set that allows placements, and only when
  *    the page's coded route loaded tiles (`context.slots`).
  */
@@ -128,23 +128,21 @@ export async function OrderedSections({ drawn, context }: { drawn: Drawn[]; cont
     const run = runs.starts.get(key)
     if (run) return <CtaGroup context={ctx} items={run} key={key} />
     const Section = entry.Component
-    const rows = plan && entry.anchor ? plan.before[anchorIndex++] : null
+    const rows = plan && entry.anchor ? plan.after[anchorIndex++] : null
     const closesNews = plan && lastAnchor && lastAnchor.key === key
     return (
       <React.Fragment key={key}>
-        {rows && <SponsorBand items={rows} />}
         <Section block={block} context={entry.drawsTop && key !== topOwner ? withoutTop : ctx} />
-        {closesNews && plan.after.map((row, i) => <SponsorBand items={row} key={`after-${i}`} />)}
-        {closesNews && plan.band && <HomeBand tile={plan.band} />}
+        {rows && <SponsorBand items={rows} />}
+        {closesNews && plan.trailing.map((row, i) => <SponsorBand items={row} key={`trailing-${i}`} />)}
       </React.Fragment>
     )
   })
 
-  // No news run on the page: every row still shows, after the content, and the band with them.
+  // No news run on the page: every row still shows, after the content.
   const trailing = plan && !lastAnchor ? (
     <>
-      {plan.after.map((row, i) => <SponsorBand items={row} key={`after-${i}`} />)}
-      {plan.band && <HomeBand tile={plan.band} />}
+      {plan.trailing.map((row, i) => <SponsorBand items={row} key={`trailing-${i}`} />)}
     </>
   ) : null
 

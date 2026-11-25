@@ -59,11 +59,11 @@ describe('placements', () => {
     sectionA = await keep('sections', { title: `Place A ${run}`, slug: `place-a-${run}` })
     sectionB = await keep('sections', { title: `Place B ${run}`, slug: `place-b-${run}` })
     topic = await keep('categories', { title: `Place topic ${run}`, slug: `place-topic-${run}` })
-    for (const z of ['home.rail', 'home.band', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
+    for (const z of ['home.rail', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
   }, 60_000)
 
   afterAll(async () => {
-    for (const z of ['home.rail', 'home.band', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
+    for (const z of ['home.rail', 'home.top', 'list.top', 'list.rail']) await clearZone(z)
     for (const { collection, id } of [...made].reverse()) await payload.delete({ collection, id, overrideAccess: true, context: ctx }).catch(() => undefined)
   })
 
@@ -112,7 +112,7 @@ describe('placements', () => {
       const gif = await asMedia('moving', { data: await sharp({ create: { width: 8, height: 6, channels: 3, background: '#336699' } }).gif().toBuffer(), mimetype: 'image/gif' })
       await expect(make({ image: mp4.id })).rejects.toThrow()
       await expect(make({ image: gif.id })).rejects.toThrow()
-      await expect(make({ zone: 'home.band', image: img.id, phoneImage: mp4.id })).rejects.toThrow()
+      await expect(make({ zone: 'home.top', image: img.id, phoneImage: mp4.id })).rejects.toThrow()
       await expect(createdItem({ image: img.id })).resolves.toBeDefined()
     })
   })
@@ -227,11 +227,11 @@ describe('placements', () => {
       await expect(payload.update({ collection: 'placement-items', id: ended.id, data: { alt: 'Edited' } as never, overrideAccess: true, context: ctx })).resolves.toBeDefined()
       await clearZone('home.rail')
     })
-    it('holds one banner, not a rotation', async () => {
-      await clearZone('home.band')
-      await createdItem({ zone: 'home.band', name: `Band ${run}`, phoneImage: phone.id })
-      await expect(make({ zone: 'home.band', name: `Second band ${run}` })).rejects.toThrow(/holds 1/)
-      await clearZone('home.band')
+    it('holds one top unit, not a rotation', async () => {
+      await clearZone('home.top')
+      await createdItem({ zone: 'home.top', name: `Top ${run}`, phoneImage: phone.id })
+      await expect(make({ zone: 'home.top', name: `Second top ${run}` })).rejects.toThrow()
+      await clearZone('home.top')
     })
     it('leaves a list-page zone to the resolver, which counts per page (different placements aim at different pages)', async () => {
       await clearZone('list.rail')
@@ -272,17 +272,17 @@ describe('placements', () => {
       expect(resolveZone('list.rail', { page: 'home' }, records, NOW)).toEqual([])
       await clearZone('list.rail')
     })
-    it('runs the home page rail and banner on the home page, and nowhere else', async () => {
+    it('runs the home page rail and top unit on the home page, and nowhere else', async () => {
       await clearZone('home.rail')
-      await clearZone('home.band')
+      await clearZone('home.top')
       await createdItem({ zone: 'home.rail', name: `Home tile ${run}`, order: 5 })
-      await createdItem({ zone: 'home.band', name: `Home band ${run}`, phoneImage: phone.id })
+      await createdItem({ zone: 'home.top', name: `Home top unit ${run}`, phoneImage: phone.id })
       const records = await readPlacementRecords()
       expect(resolveZone('home.rail', { page: 'home' }, records, NOW)).toHaveLength(1)
-      expect(resolveZone('home.band', { page: 'home' }, records, NOW)[0]?.phoneImage?.url).toBeTruthy()
+      expect(resolveZone('home.top', { page: 'home' }, records, NOW)[0]?.phoneImage?.url).toBeTruthy()
       expect(resolveZone('home.rail', { page: 'list', kind: 'section', id: sectionA.id }, records, NOW)).toEqual([])
       await clearZone('home.rail')
-      await clearZone('home.band')
+      await clearZone('home.top')
     })
   })
 })

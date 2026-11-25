@@ -104,7 +104,7 @@ describe('the staging demonstration for news sections and placements', () => {
     expect(await runHeadings()).toHaveLength(0)
   })
 
-  it('makes the partner section and stories, the news sections, the banner and the aimed placements', async () => {
+  it('makes the partner section and stories, the news sections and the aimed placements', async () => {
     madeFlorida = !(await payload.find({ collection: 'sections', where: { slug: { equals: 'florida-news' } }, limit: 1, depth: 0, overrideAccess: true })).docs[0]
     const report = await seedPlacementsDemo(payload, { apply: true, assetDir, now: NOW })
     expect(report.skipped).toEqual([])
@@ -130,10 +130,8 @@ describe('the staging demonstration for news sections and placements', () => {
     expect(names(list('topic', topic.id))).toHaveLength(2)
     // The all-stories page: the example sponsor (20), then the app.
     expect(names(list('latest', null))).toEqual([['list.rail.1', 'sponsor'], ['list.rail.2', 'house']])
-    // The banner is a sponsor's, with a phone picture, on the home page only.
-    const band = resolveZone('home.band', { page: 'home' }, records, NOW)[0]
-    expect(band).toMatchObject({ label: 'Sponsor message', href: '/sponsor' })
-    expect(band?.phoneImage?.url).toBeTruthy()
+    // No home banner: the zone was retired (2026-11-25), so the seed makes none.
+    expect(records.some((r) => String((r as { zone?: unknown }).zone) === 'home.band')).toBe(false)
   })
 
   it('run again, it makes nothing and changes nothing', async () => {
@@ -143,12 +141,11 @@ describe('the staging demonstration for news sections and placements', () => {
     expect([await count('placement-items'), await count('posts'), await count('sponsors')]).toEqual(before)
   })
 
-  it('never changes a home page an editor has built, nor a banner that is already there', async () => {
+  it('never changes a home page an editor has built', async () => {
     await setRuns([1, 2, 3].map((i) => ({ heading: `Mine ${i}`, section: sections['local-news']!.id })))
     const report = await seedPlacementsDemo(payload, { apply: true, assetDir, now: NOW })
     expect(report.kept.join('\n')).toMatch(/left as they are/)
     expect(await runHeadings()).toEqual(['Mine 1', 'Mine 2', 'Mine 3'])
-    expect(report.kept.join('\n')).toMatch(/a home page banner/)
   })
 
   it('skips, and says so, what this database has no sections or promotions for', async () => {

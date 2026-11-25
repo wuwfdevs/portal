@@ -28,7 +28,7 @@ export default async function HomePage() {
   return (
     <>
       <Banner banner={bannerFor(banner, 'home-page')} />
-      <SectionsRoute path={HOME_PAGE_PATH} query={{}} slots={{ top, rail: placements.rail, fillers: placements.fillers, band: placements.band }} />
+      <SectionsRoute path={HOME_PAGE_PATH} query={{}} slots={{ top, rail: placements.rail, fillers: placements.fillers }} />
     </>
   )
 }

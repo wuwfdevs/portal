@@ -6,7 +6,7 @@ import type { Media } from '@/payload-types'
 import type { RowItem } from '@/lib/placements/flow'
 import type { PlacementTile } from '@/lib/placements/tiles'
 
-import { HomeBand, InlineUnit, ListRail, SponsorBand, SponsorRow, TopUnit } from './index'
+import { InlineUnit, ListRail, SponsorBand, SponsorRow, TopUnit } from './index'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> => ({
@@ -24,7 +24,7 @@ const tile = (over: Partial<PlacementTile<Media>> = {}): PlacementTile<Media> =>
 const house = (over: Partial<PlacementTile<Media>> = {}) => tile({ kind: 'house', label: 'From WUWF', sponsor: null, href: '/weather', rel: undefined, name: 'Weather', key: 'home.rail.9', ...over })
 const items = (tiles: PlacementTile<Media>[], filler = false): RowItem<PlacementTile<Media>>[] => tiles.map((t) => ({ tile: t, filler }))
 const oneRow = (tiles: PlacementTile<Media>[]) => renderToStaticMarkup(React.createElement(SponsorRow, { items: items(tiles) }))
-const band = (t: PlacementTile<Media> | null) => renderToStaticMarkup(React.createElement(HomeBand, { tile: t }))
+const band = (t: PlacementTile<Media> | null) => renderToStaticMarkup(React.createElement(InlineUnit, { tile: t }))
 const wide = { ...media(2), width: 1000, height: 400 } as Media
 
 describe('a tile', () => {
@@ -122,28 +122,28 @@ describe('a row of sponsor tiles', () => {
   })
 })
 
-describe('the home page banner', () => {
-  it('draws nothing without a banner', () => {
+describe('a band in a story (the shape the retired home banner shared)', () => {
+  it('draws nothing without a tile', () => {
     expect(band(null)).toBe('')
   })
   it('is one labeled, sponsored link in a band no taller than a sixth of its width', () => {
-    const html = band(tile({ key: 'home.band.1', image: media(3) }))
+    const html = band(tile({ key: 'story.inline.1', image: media(3) }))
     expect(html).toContain('Sponsor message')
     expect(html).toContain('rel="sponsored noopener noreferrer"')
     expect(html).toMatch(/aspect-ratio:\s*1200 \/ 200/)
     expect(html).not.toMatch(/<script|<iframe/i)
   })
   it('gives phones their own picture when there is one, and the wide picture alone when there is not', () => {
-    const without = band(tile({ key: 'home.band.1' }))
+    const without = band(tile({ key: 'story.inline.1' }))
     expect(without).not.toContain('md:hidden')
-    const withPhone = band(tile({ key: 'home.band.1', phoneImage: media(4) }))
+    const withPhone = band(tile({ key: 'story.inline.1', phoneImage: media(4) }))
     expect(withPhone).toContain('md:hidden')
     expect(withPhone).toMatch(/aspect-ratio:\s*800 \/ 400/)
   })
   it('lays a picture that is not the band\'s shape on a blurred copy of itself, and leaves one that is alone', () => {
     const exact = { ...media(5), width: 1200, height: 200 } as Media
-    expect(band(tile({ key: 'home.band.1', image: exact }))).not.toContain('blur-2xl')
-    expect(band(tile({ key: 'home.band.1', image: media(6) }))).toContain('blur-2xl')
+    expect(band(tile({ key: 'story.inline.1', image: exact }))).not.toContain('blur-2xl')
+    expect(band(tile({ key: 'story.inline.1', image: media(6) }))).toContain('blur-2xl')
   })
 })
 
@@ -201,10 +201,25 @@ describe('a band of sponsor tiles between the news sections', () => {
     expect(html).toContain('aria-label="Sponsors and promotions"')
     expect(html.indexOf('border-y')).toBeLessThan(html.indexOf('container'))
   })
-  it('holds the same tiles as the row, with the same labels and links, and never a sponsor\'s own colour', () => {
+  it('holds the same tiles as the row, with the same links, and never a sponsor\'s own colour', () => {
     const html = inBand([tile()])
-    expect(html).toContain('Sponsor message')
     expect(html).toContain('data-placement="home.rail.1"')
     expect(html).not.toMatch(/style="[^"]*background(-color)?:/i)
+  })
+  it('says "Sponsor messages" once for the band, not on every sponsor\'s tile, and keeps each sponsor\'s name', () => {
+    const html = inBand([tile(), tile({ key: 'home.rail.2', image: media(2) }), tile({ key: 'home.rail.3', image: media(3) })])
+    expect(html.match(/Sponsor messages/g)).toHaveLength(1)
+    expect(html.match(/Sponsor message</g)).toBeNull()
+    expect(html.match(/Acme/g)?.length).toBeGreaterThanOrEqual(3)
+  })
+  it('keeps "From WUWF" on a WUWF promotion in the band: a promotion is never labelled a sponsor\'s', () => {
+    const html = inBand([tile(), tile({ key: 'home.rail.2', kind: 'house', label: 'From WUWF', sponsor: null })])
+    expect(html).toContain('Sponsor messages')
+    expect(html).toContain('From WUWF')
+  })
+  it('gives a band of WUWF promotions alone no sponsor label at all', () => {
+    const html = inBand([tile({ kind: 'house', label: 'From WUWF', sponsor: null })])
+    expect(html).not.toContain('Sponsor message')
+    expect(html).toContain('From WUWF')
   })
 })

@@ -6,7 +6,7 @@
 //  - It sends nothing: no email, no embedding (`disableEmbedding`), no cache refresh (a new deployment reads fresh).
 //
 // What it makes: a Florida News section with six demonstration stories from a "partner" (the owner features partner content: a section's run is
-// every story filed under it, whatever its source); the home page's news sections; a sample banner with a phone picture; and five placements on
+// every story filed under it, whatever its source); the home page's news sections; and five placements on
 // the list pages, aimed at one section, several sections, a reporter and a topic, the all-stories page and every page, using a sample sponsor and WUWF's
 // own promotions already in the home rail.
 
@@ -145,8 +145,6 @@ export async function seedPlacementsDemo(payload: Payload, opts: SeedOptions): P
     return doc
   }
   const tile = await picture('demo-sponsor-tile.png', `${DEMO} sponsor tile`)
-  const banner = await picture('demo-sponsor-banner.png', `${DEMO} sponsor banner`)
-  const bannerPhone = await picture('demo-sponsor-banner-phone.png', `${DEMO} sponsor banner for phones`)
 
   const exists = (name: string) => first('placement-items', { name: { equals: name } })
   const place = async (name: string, data: Record<string, unknown>) => {
@@ -155,12 +153,6 @@ export async function seedPlacementsDemo(payload: Payload, opts: SeedOptions): P
     note('made', `placement "${name}"`)
   }
 
-  // ---- the home banner (only when the home page has none) --------------------------------------------------------------------------------
-  const anyBanner = await first('placement-items', { zone: { equals: 'home.band' } })
-  if (anyBanner) note('kept', 'a home page banner (left as it is)')
-  else if (banner && sponsor) {
-    await place(`${DEMO}: example sponsor, home page banner`, { kind: 'sponsor', sponsor: sponsor.id, zone: 'home.band', image: banner.id, phoneImage: bannerPhone?.id, alt: `${DEMO} banner: example sponsor, your message here`, href: '/sponsor', order: 10 })
-  } else if (!opts.apply) note('made', 'placement "home page banner"')
 
   // ---- the list-page rail: five placements, each aimed differently ------------------------------------------------------------------------
   const id = async (collection: string, slug: string) => (await first<{ id: string | number }>(collection, { slug: { equals: slug } }))?.id

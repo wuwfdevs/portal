@@ -29,8 +29,8 @@ function TileLink({ tile, className, children }: { tile: Tile; className?: strin
 }
 
 const RAIL_SHAPE = ZONES['home.rail'].artwork
-const BAND_SHAPE = ZONES['home.band'].artwork
-const PHONE_SHAPE = ZONES['home.band'].phoneArtwork ?? BAND_SHAPE
+const BAND_SHAPE = ZONES['story.inline'].artwork
+const PHONE_SHAPE = ZONES['story.inline'].phoneArtwork ?? BAND_SHAPE
 
 /**
  * A picture in a frame of a fixed shape. The picture is always shown whole and uncropped (sponsors' artwork carries their words). When it does not fill
@@ -51,21 +51,27 @@ function Art({ image, shape, size, className }: { image: MediaDoc; shape: { widt
   )
 }
 
-/** The strip above the artwork, in the site's own type: "Sponsor message" (or "From WUWF") and the sponsor's name. It is the page's label, never part of the picture. */
-function Strip({ tile }: { tile: Tile }) {
+/**
+ * The strip above the artwork, in the site's own type: "Sponsor message" (or "From WUWF") and the sponsor's name. It is the page's label, never part of the picture.
+ * `labelled` is set when the band around the tile already says "Sponsor messages" (`SponsorBand`): a sponsor's tile then shows only its name, and a WUWF promotion still
+ * says "From WUWF", because a promotion is never labelled as a sponsor's (`PLACEMENTS.md`).
+ */
+function Strip({ tile, labelled = false }: { tile: Tile; labelled?: boolean }) {
+  const label = labelled && tile.kind !== 'house' ? null : tile.label
+  if (!label && !tile.sponsor) return null
   return (
     <div className="flex items-center justify-between gap-3 border-b border-rule px-3.5 py-2">
-      <p className={cn('shrink-0 font-sans text-xs font-bold uppercase tracking-widest', tile.kind === 'house' ? 'text-wuwf-blue-700' : 'text-ink-3')}>{tile.label}</p>
+      {label && <p className={cn('shrink-0 font-sans text-xs font-bold uppercase tracking-widest', tile.kind === 'house' ? 'text-wuwf-blue-700' : 'text-ink-3')}>{label}</p>}
       {tile.sponsor && <p className="min-w-0 truncate font-sans text-sm font-semibold text-ink-2">{tile.sponsor}</p>}
     </div>
   )
 }
 
 /** One tile: the label strip, then the artwork as the link. Every tile is the same card and the same shape (the zone's recommended 5:4), so the column has one rhythm. */
-function TileCard({ tile, size }: { tile: Tile; size: string }) {
+function TileCard({ tile, size, labelled }: { tile: Tile; size: string; labelled?: boolean }) {
   return (
     <div className="overflow-hidden rounded-lg border border-rule bg-surface">
-      <Strip tile={tile} />
+      <Strip labelled={labelled} tile={tile} />
       <TileLink tile={tile}>
         <Art image={tile.image} shape={RAIL_SHAPE} size={size} />
       </TileLink>
@@ -102,14 +108,14 @@ export const ListRail = ({ tiles }: { tiles: readonly Tile[] }) => <Rail tiles={
  * fill a wide screen's row, two and one sit on a tablet, and a phone gets a stack, with no blank gutter and no row left half empty at any width. A short
  * last row (or one completed by WUWF's own promotions) is centered, so it looks deliberate. Draws nothing with no tiles.
  */
-export function SponsorRow({ items }: { items: readonly RowItem<Tile>[] }) {
+export function SponsorRow({ items, labelled = false }: { items: readonly RowItem<Tile>[]; labelled?: boolean }) {
   if (items.length === 0) return null
   return (
     <aside aria-label="Sponsors and promotions" data-placement="home.rail">
       <ul className="flex flex-wrap justify-center gap-6">
         {items.map(({ tile }) => (
           <li className="w-[22rem] max-w-full" data-placement={tile.key} key={tile.key}>
-            <TileCard size="22rem" tile={tile} />
+            <TileCard labelled={labelled} size="22rem" tile={tile} />
           </li>
         ))}
       </ul>
@@ -120,36 +126,22 @@ export function SponsorRow({ items }: { items: readonly RowItem<Tile>[] }) {
 /**
  * A row of tiles as the home page draws it between the news sections: `SponsorRow` in a full-width band of the neutral surface tint with a hairline above and below, so a row
  * of sponsor messages is plainly apart from the reporting around it and never reads as the section above's last row. The tint is the site's own neutral, never a sponsor's
- * colour; the tiles stay white cards on it. It carries the same label and `data-placement` as the row it holds, and draws nothing with no tiles.
+ * colour; the tiles stay white cards on it. When the row holds a sponsor's tile the band says "Sponsor messages" once, above the row, and a sponsor's tile shows only its name;
+ * a WUWF promotion keeps its own "From WUWF". It carries the same `data-placement` as the row it holds, and draws nothing with no tiles.
  */
+export const SPONSOR_BAND_LABEL = 'Sponsor messages'
+
 export function SponsorBand({ items }: { items: readonly RowItem<Tile>[] }) {
   if (items.length === 0) return null
+  // One label for the band when it holds a sponsor's message (the homepage rethink, 2026-11-25), in place of one on every tile; a WUWF promotion in it keeps "From WUWF".
+  const labelled = items.some(({ tile }) => tile.kind !== 'house')
   return (
     <div className="border-y border-rule bg-surface-2" data-sponsor-band="">
       <div className="container py-8">
-        <SponsorRow items={items} />
+        {labelled && <p className="mb-4 font-sans text-xs font-bold uppercase tracking-widest text-ink-3">{SPONSOR_BAND_LABEL}</p>}
+        <SponsorRow items={items} labelled={labelled} />
       </div>
     </div>
-  )
-}
-
-/**
- * The home page banner (`home.band`): one message in a slim band between the news and the podcasts. It is never above the news and never
- * more than a sixth as tall as it is wide. A phone gets its own picture when the sponsor supplied one, else the wide picture scaled down.
- */
-export function HomeBand({ tile }: { tile: Tile | null }) {
-  if (!tile) return null
-  const phone = tile.phoneImage
-  return (
-    <aside aria-label="Sponsor banner" className="container mt-16" data-placement={tile.key}>
-      <div className="overflow-hidden rounded-lg border border-rule bg-surface">
-        <Strip tile={tile} />
-        <TileLink tile={tile}>
-          <Art className={cn(phone && 'hidden md:block')} image={tile.image} shape={BAND_SHAPE} size="(min-width: 1280px) 1200px, 100vw" />
-          {phone && <Art className="md:hidden" image={phone} shape={PHONE_SHAPE} size="100vw" />}
-        </TileLink>
-      </div>
-    </aside>
   )
 }
 

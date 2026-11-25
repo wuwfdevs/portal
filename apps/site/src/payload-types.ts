@@ -5403,9 +5403,9 @@ export interface PlacementItem {
   /**
    * The place on the site. Each place has a fixed shape and holds a fixed number; those that can be aimed at particular pages offer the choice below.
    */
-  zone: 'home.top' | 'home.rail' | 'home.band' | 'list.top' | 'list.rail' | 'story.inline';
+  zone: 'home.top' | 'home.rail' | 'list.top' | 'list.rail' | 'story.inline';
   /**
-   * The artwork. A rail tile is 880 × 704 pixels; a banner is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
+   * The artwork. A rail tile is 880 × 704 pixels; a story band is 1200 × 200 pixels; a top unit is 1600 × 200 pixels. The words in the picture are read by people who cannot see it, so say what it says below.
    */
   image: number | Media;
   /**

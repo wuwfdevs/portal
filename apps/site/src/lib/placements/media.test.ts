@@ -50,8 +50,8 @@ describe('what is drawn', () => {
     expect(placementTiles('home.rail', [tile({ id: 2, url: '/media/v.mp4', mimeType: 'video/mp4' })], NOW)).toEqual([])
     expect(placementTiles('home.rail', [tile({ id: 3, url: '/media/a.gif', mimeType: 'image/gif' })], NOW)).toEqual([])
   })
-  it('does not use a video as a banner\'s phone picture, but still draws the banner with its wide picture', () => {
-    const [banner] = placementTiles('home.band', [tile(png, { id: 4, url: '/media/v.mp4', mimeType: 'video/mp4' })], NOW)
+  it('does not use a video as a band\'s phone picture, but still draws the band with its wide picture', () => {
+    const [banner] = placementTiles('home.top', [tile(png, { id: 4, url: '/media/v.mp4', mimeType: 'video/mp4' })], NOW)
     expect(banner?.phoneImage).toBeNull()
     expect(banner?.image).toEqual(png)
   })

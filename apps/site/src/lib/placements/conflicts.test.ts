@@ -26,7 +26,7 @@ describe('exclusiveConflicts: the home top unit', () => {
   it('ignores itself, a switched-off placement, one in another zone, and one that has ended', () => {
     expect(exclusiveConflicts(top(), [top()], TODAY)).toEqual([])
     expect(exclusiveConflicts(top({ id: 2 }), [top({ enabled: false })], TODAY)).toEqual([])
-    expect(exclusiveConflicts(top({ id: 2 }), [top({ zone: 'home.band' })], TODAY)).toEqual([])
+    expect(exclusiveConflicts(top({ id: 2 }), [top({ zone: 'list.top' })], TODAY)).toEqual([])
     expect(exclusiveConflicts(top({ id: 2 }), [top({ runFrom: '2026-10-01', runUntil: '2026-10-07' })], TODAY)).toEqual([])
   })
   it('says nothing for a candidate that is off or already over, and for a zone that is not exclusive', () => {

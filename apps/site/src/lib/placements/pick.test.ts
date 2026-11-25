@@ -101,11 +101,12 @@ describe('labels and links', () => {
 describe('the zone registry', () => {
   it('names a tile by its zone and its position', () => {
     expect(tileKey('home.rail', 3)).toBe('home.rail.3')
-    expect(tileKey('home.band', 0)).toBe('home.band.1')
+    expect(tileKey('home.top', 0)).toBe('home.top.1')
   })
-  it('builds every zone (the story rail was retired and is not a zone): the top units, the home page\'s rail and banner, the list pages\' rail and the story page\'s inline bands', () => {
-    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.band', 'home.rail', 'home.top', 'list.rail', 'list.top', 'story.inline'])
+  it('builds every zone (the story rail and the home banner were retired and are not zones): the top units, the home page\'s rail, the list pages\' rail and the story page\'s inline bands', () => {
+    expect(BUILT_ZONES.map((z) => z.id).sort()).toEqual(['home.rail', 'home.top', 'list.rail', 'list.top', 'story.inline'])
     expect(Object.keys(ZONES)).not.toContain('story.rail')
+    expect(Object.keys(ZONES)).not.toContain('home.band')
   })
   it('holds nine tiles in the home rail (three full rows; owner glide to six, 2026-11-20), four on a list page, one in a band or top unit, and two in a story (the second only in a long one); none is a rotation', () => {
     expect(ZONES['home.rail'].capacity).toBe(9)

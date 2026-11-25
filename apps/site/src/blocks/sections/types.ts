@@ -93,6 +93,6 @@ export interface SectionBlockEntry {
    * has two full-width bands stacked. The component draws only its card when it is given `inline`.
    */
   cta?: boolean
-  /** A news run: the page's sponsor rows sit above these, one row above each, as the home page's rail does. */
+  /** A news run: the page's sponsor rows follow these, one row after every other run from the first (`lib/placements/flow.ts`). */
   anchor?: boolean
 }

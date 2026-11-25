@@ -92,6 +92,7 @@ import * as migration_20261123_050000_unearthing_lead_episode from './20261123_0
 import * as migration_20261123_060000_unearthing_lead_split from './20261123_060000_unearthing_lead_split';
 import * as migration_20261123_070000_hub_strip_links from './20261123_070000_hub_strip_links';
 import * as migration_20261123_080000_radiolive_one_title from './20261123_080000_radiolive_one_title';
+import * as migration_20261125_200256_home_band_retired from './20261125_200256_home_band_retired';
 
 export const migrations = [
   {
@@ -565,5 +566,10 @@ export const migrations = [
     up: migration_20261123_080000_radiolive_one_title.up,
     down: migration_20261123_080000_radiolive_one_title.down,
     name: '20261123_080000_radiolive_one_title',
+  },
+  {
+    up: migration_20261125_200256_home_band_retired.up,
+    down: migration_20261125_200256_home_band_retired.down,
+    name: '20261125_200256_home_band_retired',
   },
 ];

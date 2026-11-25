@@ -31,9 +31,9 @@ export interface PageSetSpec {
   placements: boolean
   /**
    * The sponsor places the page's layout draws (never an editor among the sections, so paid delivery cannot be deleted, hidden or duplicated): the zone for the top
-   * unit, for the rows of the rail between its news runs, and for the band after them. Only meaningful with `placements`; `null` for a set with none.
+   * unit and for the rows of the rail between its news runs. Only meaningful with `placements`; `null` for a set with none.
    */
-  slots: { top: ZoneId; rail: ZoneId; band: ZoneId } | null
+  slots: { top: ZoneId; rail: ZoneId } | null
   /** Whether sections that list stories take them in the page's order, so a story appears once on the page (`lib/page-slots`). */
   dedupe: boolean
   /** Whether the set draws a strip of its pages under the header. The Listens pages are two screens of one flow, not a place to browse between. */
@@ -63,7 +63,7 @@ export const PAGE_SETS: Readonly<Record<PageSetId, PageSetSpec>> = {
     editBy: ['content.publish'],
     footerLine: false,
     placements: true,
-    slots: { top: 'home.top', rail: 'home.rail', band: 'home.band' },
+    slots: { top: 'home.top', rail: 'home.rail' },
     dedupe: true,
     subNav: false,
     navTitle: false,

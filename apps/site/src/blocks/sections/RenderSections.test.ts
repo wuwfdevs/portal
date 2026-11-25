@@ -12,7 +12,7 @@ import type { SectionBlockEntry, SectionContext } from './types'
 
 const media = (id: number): Media => ({ id, alt: 'Tile', url: `/media/tile-${id}.png`, width: 880, height: 704, updatedAt: '2026-11-18T00:00:00.000Z', createdAt: '2026-11-18T00:00:00.000Z' }) as Media
 const tile = (key: string): PlacementTile<Media> => ({ key, kind: 'sponsor', label: 'Sponsor message', sponsor: 'Acme', name: `Tile ${key}`, href: 'https://acme.example/', rel: 'sponsored noopener noreferrer', image: media(1), phoneImage: null })
-const slots = (rail: number, extra: Partial<NonNullable<SectionContext['slots']>> = {}): NonNullable<SectionContext['slots']> => ({ top: null, rail: Array.from({ length: rail }, (_, i) => tile(`home.rail.${i + 1}`)), fillers: [], band: null, ...extra })
+const slots = (rail: number, extra: Partial<NonNullable<SectionContext['slots']>> = {}): NonNullable<SectionContext['slots']> => ({ top: null, rail: Array.from({ length: rail }, (_, i) => tile(`home.rail.${i + 1}`)), fillers: [], ...extra })
 
 const kind = (label: string, claim?: { candidates: number[]; take: number; pinned?: number[] }, anchor = false): SectionBlockEntry => ({
   dir: label,
@@ -66,23 +66,23 @@ describe('the sponsor slots', () => {
     ['lead', kind('Lead')],
     ['a', kind('A', undefined, true)],
     ['b', kind('B', undefined, true)],
+    ['c', kind('C', undefined, true)],
+    ['tail', kind('Tail')],
   ])
-  it('puts a row of three above each news run, after the lead', async () => {
+  it('puts a row of three after the first news run and after the third, so the news reads in pairs between bands', async () => {
     const out = await render(news, { slots: slots(6) })
-    expect(out.indexOf('Lead:')).toBeLessThan(out.indexOf('home.rail.1"'))
-    expect(out.indexOf('home.rail.1"')).toBeLessThan(out.indexOf('A:'))
-    expect(out.indexOf('A:')).toBeLessThan(out.indexOf('home.rail.4"'))
-    expect(out.indexOf('home.rail.4"')).toBeLessThan(out.indexOf('B:'))
+    expect(out.indexOf('A:')).toBeLessThan(out.indexOf('home.rail.1"'))
+    expect(out.indexOf('home.rail.3"')).toBeLessThan(out.indexOf('B:'))
+    expect(out.indexOf('B:')).toBeLessThan(out.indexOf('C:'))
+    expect(out.indexOf('C:')).toBeLessThan(out.indexOf('home.rail.4"'))
+    expect(out.indexOf('home.rail.6"')).toBeLessThan(out.indexOf('Tail:'))
+    expect(out.match(/data-sponsor-band/g)).toHaveLength(2)
   })
-  it('draws every tile that runs, whatever the layout: rows past the last run follow it', async () => {
+  it('draws every tile that runs, whatever the layout: rows past the last place follow the last run', async () => {
     const out = await render(news, { slots: slots(9) })
     for (let i = 1; i <= 9; i++) expect(out, `home.rail.${i}`).toContain(`data-placement="home.rail.${i}"`)
-    expect(out.indexOf('B:')).toBeLessThan(out.indexOf('home.rail.7"'))
-  })
-  it('puts the band after the last run and its leftover rows', async () => {
-    const out = await render(news, { slots: slots(9, { band: tile('home.band.1') }) })
-    expect(out.indexOf('home.rail.9"')).toBeLessThan(out.indexOf('home.band.1'))
-    expect(out.indexOf('B:')).toBeLessThan(out.indexOf('home.band.1'))
+    expect(out.indexOf('home.rail.6"')).toBeLessThan(out.indexOf('home.rail.7"'))
+    expect(out.indexOf('home.rail.9"')).toBeLessThan(out.indexOf('Tail:'))
   })
   it('puts the top unit once, ordered by the screen: first on a wide screen, after the first section on a phone', async () => {
     const out = await render(news, { slots: slots(0, { top: tile('home.top.1') }) })
@@ -104,9 +104,8 @@ describe('the sponsor slots', () => {
     expect(out).not.toContain('data-top-given-to="Again"')
   })
   it('shows every row after the content when the page has no news run', async () => {
-    const out = await render(drawn([['lead', kind('Lead')]]), { slots: slots(3, { band: tile('home.band.1') }) })
+    const out = await render(drawn([['lead', kind('Lead')]]), { slots: slots(3) })
     expect(out.indexOf('Lead:')).toBeLessThan(out.indexOf('home.rail.1"'))
-    expect(out).toContain('home.band.1')
   })
   it('draws no slot for a page set that does not allow placements, or when the route loaded no tiles', async () => {
     expect(await render(news, { setId: 'giving', slots: slots(6) })).not.toContain('data-placement')

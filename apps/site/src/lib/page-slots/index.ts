@@ -2,7 +2,8 @@
 //
 // A page set can own SLOTS: places the page's layout draws for the zones in the registry (`lib/placements/registry.ts`), in the page's own positions, never placed by an
 // editor among the sections (so a publisher cannot delete, hide or duplicate paid delivery, and the rule that a paid tile that runs is always drawn holds by construction).
-// The home page set has three: the top unit, the rail (rows of three between its news runs, `lib/placements/flow.ts`) and the band after them.
+// The home page set has two: the top unit and the rail (rows of three after every other news run, `lib/placements/flow.ts`). The slim band after the news was retired
+// on 2026-11-25 (the homepage rethink): it sat directly after a row of tiles, two sponsor units back to back.
 //
 // A page can also ask that no story appear twice: sections that LIST stories claim them in the page's order, and a section left with nothing is left out.
 
@@ -15,26 +16,23 @@ export interface SlotTiles<T> {
   rail: readonly T[]
   /** WUWF promotions that may complete a short last row (`flow.ts`). */
   fillers: readonly T[]
-  band: T | null
 }
 
 export interface SlotPlan<T> {
   top: T | null
-  /** One entry per anchor section (a news run): the row of tiles drawn just above it, or null. */
-  before: ReadonlyArray<RowItem<T>[] | null>
-  /** Rows that did not fit above an anchor, drawn after the last one: a paid tile that runs is always drawn. */
-  after: RowItem<T>[][]
-  /** The slim band, after the anchors and any leftover rows. */
-  band: T | null
+  /** One entry per anchor section (a news run): the row of tiles drawn just after it, or null (every other run, from the first, has a place). */
+  after: ReadonlyArray<RowItem<T>[] | null>
+  /** Rows that did not fit after an anchor, drawn after the last one: a paid tile that runs is always drawn. */
+  trailing: RowItem<T>[][]
 }
 
 /**
- * Where a page's tiles go: the rail's rows above its anchor sections as `flowHomeRail` sets them out, the top unit and the band where the page puts them. With no anchor
- * the rail's rows all follow the content (nothing above them), so a page with no news run still shows every tile that runs.
+ * Where a page's tiles go: the rail's rows after its anchor sections as `flowHomeRail` sets them out, and the top unit where the page puts it. With no anchor the rail's
+ * rows all follow the content, so a page with no news run still shows every tile that runs.
  */
 export function planSlots<T>(tiles: SlotTiles<T>, anchors: number): SlotPlan<T> {
   const flow = flowHomeRail({ tiles: tiles.rail, fillers: tiles.fillers, sections: anchors })
-  return { top: tiles.top, before: flow.before, after: flow.after, band: tiles.band }
+  return { top: tiles.top, after: flow.after, trailing: flow.trailing }
 }
 
 export interface ClaimRequest {

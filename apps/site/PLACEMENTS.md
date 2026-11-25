@@ -39,21 +39,21 @@ They are enforced in code, not by configuration (they restate `CLAUDE.md`, "Deci
 | Zone | Where | Holds (per page) | Can be aimed | Artwork | Built |
 | --- | --- | --- | --- | --- | --- |
 | `home.top` | Directly under the header on the home page (on a phone, after the lead story's headline and picture); held back while an emergency banner is on | 1, exclusive | no | 1600 × 200 (phone 640 × 200) | **Yes** |
-| `home.rail` | Between the news sections (rows of three); after the news on a phone | 9 (target 6) | no | 880 × 704 | **Yes** |
-| `home.band` | A slim band after the news sections, before the podcasts | 1 | no | 1200 × 200 (phone 800 × 400) | **Yes** |
+| `home.rail` | Rows of three, each in a tinted band: after the first news run, the third, the fifth (two bands on a page of three runs); rows with no place follow the last run | 9 (target 6) | no | 880 × 704 | **Yes** |
+| `home.band` | **Retired 2026-11-25** (the homepage rethink): it sat directly after a row of tiles, two sponsor units back to back with no story between, and needed artwork of its own. Removed from the zones and from the database's zone list (migration `home_band_retired`; the one demonstration placement on staging was deleted) | 0 | n/a | n/a | No |
 | `list.top` | Under the title of a section, topic, reporter or all-stories page: **a section's presenting sponsor**; held back while an emergency banner is on | 1 per page, exclusive | **yes** | 1600 × 200 (phone 640 × 200) | **Yes** |
 | `list.rail` | Beside the stories on a section, topic, reporter or all-stories page | 4 | **yes** | 880 × 704 | **Yes** |
 | `story.inline` | A band after a story's fourth paragraph (a story of at least six) and, in a story of at least sixteen, a second after its twelfth | 2 | yes | 1200 × 200 (phone 800 × 400) | **Yes** |
 | `story.rail` | **Retired 2026-11-20** (owner): a rail beside the text scrolled away after the first paragraphs, needed its own artwork, crowded the band and pushed the text off the story's centred column. Removed from the zones and from the database's zone list (migration `story_rail_retired`; the demonstration placements that used it were deleted) | 0 | n/a | n/a | No |
 
 - **Top units and the rail's glide (owner, 2026-11-20).** Everything is sold **at a flat rate for a period**; a top unit is the highest tier, then a section's presenting
-  sponsor, then a rail tile, then the band. The rail's capacity is **nine** (three full rows, so no gap-filling promotion is needed) and is meant to **glide to six** as bookings
+  sponsor, then a rail tile. The rail's capacity is **nine** (three full rows, so no gap-filling promotion is needed) and is meant to **glide to six** as bookings
   end: lower the number in `registry.ts` only when fewer placements than that are running, because the admin refuses a placement past capacity and a lower number must never
   displace a sponsor who is running. A **presenting sponsor** is a placement in `list.top` aimed at the section, drawn as the same labeled "Sponsor message" tile as any other,
   **never in the acknowledgment panel's voice** and never "presented by" copy of ours: a section is navigation and is never underwritten (`CLAUDE.md`). The sponsor's
   contract must say it conveys no editorial approval; counsel confirms whether such a placement is advertising or qualified sponsorship before the first sale.
-- **The banner (`home.band`) is not a leaderboard.** It sits in the page's flow after the news, at most a sixth as tall as it is wide (a test holds that), never at
-  the top. **The artwork sizes are proposals** (880 wide is what the live rail serves today): corporate support confirms them before a sponsor is
+- **Six is what the home page is designed for.** With its three news runs it draws two bands of three (after Local News, after NPR News); a seventh to ninth tile is
+  still drawn, in a third band after the last run, because a paid tile that runs is never held back. **The artwork sizes are proposals** (880 wide is what the live rail serves today): corporate support confirms them before a sponsor is
   sent a spec.
 - **A zone holds a fixed number, and a band is not a rotation.** The home page zones are one page each, so the admin **refuses a placement past the
   capacity** and says what to do (switch one off, set its last day, delete one); a placement that is switched off or has ended does not count, so a full
@@ -80,17 +80,19 @@ Designed on the canvas "Sponsor Rail Redesign" (option B). The pieces are `lib/p
   shape; this covers the edge cases.
 - **Rows, not a side column.** The first version put a pair of tiles in a side column beside each news section. A real section is about 1,800 px tall (a lead story and two rows of
   cards) and a pair about 660 px, so two thirds of every section had blank space beside it, and the video row had none. The tiles are now **full-width rows of three between the sections**:
-  the first row just after the short videos, the next above the second section, and so on. Nothing sits in a side column, so no section has a gutter at any height, story count or tile count.
+  originally one above every section. **Changed 2026-11-25 (the homepage rethink):** a row follows every other news run, from the first (after the first, the third, the fifth),
+  because a row between nearly every block made the page read as a stack of equal bands; on the home page's three runs that is a band after Local News and one after NPR News
+  (`flowHomeRail`, `rowFollowsRun`). Nothing sits in a side column, so no section has a gutter at any height, story count or tile count.
   Tiles are a fixed 22rem and wrap, centered: three fill a wide screen's row, a tablet shows two and one, a phone a stack. The page is cached and shared by every reader, so the server
   never needs a screen's width.
-- **A paid tile is never held back.** Every tile that runs is drawn. Rows that do not fit above a section (more rows than sections) follow the last section. Capacity (nine for the
+- **A paid tile is never held back.** Every tile that runs is drawn. Rows that have no place after a run (more rows than places) follow the last run. Capacity (nine for the
   home rail) is the only limit, as before.
 - **A short last row is completed by WUWF's own promotions, which are optional.** On a house promotion in the home rail the admin shows **Can fill a gap**. Those promotions are held
   apart from the rail's tiles: they take no place from a sponsor, do not count toward the rail's capacity, are used only to complete the last row (at most two, since a row of three needs at most
   two), and are keyed `home.rail.fill.N`. With none marked, the short row's tiles are **centered at the same size**. The flag on anything but a house promotion in the home rail is
   cleared on save (and ignored by the resolver).
-- **Each row sits in a neutral band.** A row of tiles between the news sections is drawn by `SponsorBand` (2026-11-22): full width, the neutral surface tint, a hairline above and below, the white tile cards inside, so a row of sponsor messages is plainly apart from the reporting and never reads as the last row of the section above. It is the site's own tint, never a sponsor's colour.
-- **The news cards are a lead row and an even grid.** With no side column a news run's first story has a row of its own (`LEAD_ROW`, `lib/homepage/modules.ts`) and the rest run in
+- **Each row sits in a neutral band.** A row of tiles between the news sections is drawn by `SponsorBand` (2026-11-22): full width, the neutral surface tint, a hairline above and below, the white tile cards inside, so a row of sponsor messages is plainly apart from the reporting and never reads as the last row of the section above. It is the site's own tint, never a sponsor's colour. **One label for the band** (2026-11-25): when the row holds a sponsor's tile the band says "Sponsor messages" once, above the row, and a sponsor's tile shows only its name (`SPONSOR_BAND_LABEL`); a WUWF promotion in the band keeps "From WUWF", because a promotion is never labelled as a sponsor's, and a band of promotions alone carries no sponsor label. *For counsel:* the label now sits on the band, not on each tile; confirm this is enough before the first sale.
+- **The news cards are a lead row and an even grid, or one row.** (2026-11-25: a News run's `row` variant is one row of three with no lead, for Florida News and NPR News; Local News keeps the lead.) With no side column a news run's first story has a row of its own (`LEAD_ROW`, `lib/homepage/modules.ts`) and the rest run in
   a grid under a rule (`restGridClass`: two stories two across, four stories four across, otherwise three; two across on a tablet). A run holds 3 to 7 stories, so only a run of six
   ends in a short row (two). This replaced the first story spanning columns (`leadSpanClass`, 2026-11-22), which put a card beside the lead and made it read as part of it.
 
