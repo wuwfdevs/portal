@@ -12,18 +12,19 @@ import type { CountRow } from './tally'
 type Db = { execute: (query: ReturnType<typeof sql>) => Promise<{ rows?: unknown[] }> }
 const db = (payload: Payload): Db => (payload.db as unknown as { drizzle: Db }).drizzle
 
-/** Adds each row to its day's totals, making the row if it is the day's first. One statement per row, each atomic. */
+/**
+ * Adds each row to its day's totals, making the row if it is the first for that day, placement, zone, sponsor, kind and filter. One statement per
+ * row, each atomic. A sponsor or kind that changed during the day starts a row of its own; an existing row's sponsor is never rewritten.
+ */
 export async function addCounts(payload: Payload, rows: readonly CountRow[]): Promise<void> {
   for (const r of rows) {
     await db(payload).execute(sql`
       INSERT INTO placement_counts (day, placement_id, zone, kind, sponsor_id, filter_version, measurable, viewable, clicked, updated_at)
       VALUES (${r.day}, ${r.placementId}, ${r.zone}, ${r.kind}, ${r.sponsorId}, ${r.filterVersion}, ${r.measurable}, ${r.viewable}, ${r.clicked}, now())
-      ON CONFLICT (day, placement_id, zone, filter_version) DO UPDATE SET
+      ON CONFLICT ON CONSTRAINT placement_counts_key DO UPDATE SET
         measurable = placement_counts.measurable + EXCLUDED.measurable,
         viewable = placement_counts.viewable + EXCLUDED.viewable,
         clicked = placement_counts.clicked + EXCLUDED.clicked,
-        kind = EXCLUDED.kind,
-        sponsor_id = EXCLUDED.sponsor_id,
         updated_at = now()`)
   }
 }
@@ -47,7 +48,7 @@ export async function readCounts(payload: Payload, filter: { placementId: number
     SELECT to_char(day, 'YYYY-MM-DD') AS day, placement_id, zone, kind, sponsor_id, filter_version, measurable, viewable, clicked
     FROM placement_counts
     WHERE ${who} AND day BETWEEN ${from}::date AND ${to}::date
-    ORDER BY day, placement_id, zone, filter_version`)
+    ORDER BY day, placement_id, zone, kind, sponsor_id NULLS FIRST, filter_version`)
   return ((result.rows ?? []) as Record<string, unknown>[]).map((r) => ({
     day: String(r.day),
     placementId: Number(r.placement_id),

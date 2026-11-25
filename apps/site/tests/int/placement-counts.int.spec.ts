@@ -17,10 +17,18 @@ const PLACEMENT = 900_000 + Math.floor(Math.random() * 90_000)
 const SPONSOR = 800_000 + Math.floor(Math.random() * 90_000)
 const OTHER = PLACEMENT + 1
 
+// What is running: two placements of SPONSOR, unless a test switches the first to another sponsor or to a house promotion.
+const NEXT_SPONSOR = SPONSOR + 1
+const running = vi.hoisted(() => ({ first: 'sponsor' as 'sponsor' | 'next' | 'house' }))
 vi.mock('@/lib/placements/load', () => ({
   knownPlacements: async () =>
     new Map([
-      [String(PLACEMENT), { id: String(PLACEMENT), zone: 'home.rail', kind: 'sponsor', sponsorId: String(SPONSOR) }],
+      [
+        String(PLACEMENT),
+        running.first === 'house'
+          ? { id: String(PLACEMENT), zone: 'home.rail', kind: 'house', sponsorId: null }
+          : { id: String(PLACEMENT), zone: 'home.rail', kind: 'sponsor', sponsorId: String(running.first === 'next' ? NEXT_SPONSOR : SPONSOR) },
+      ],
       [String(OTHER), { id: String(OTHER), zone: 'list.rail', kind: 'sponsor', sponsorId: String(SPONSOR) }],
     ]),
 }))
@@ -45,7 +53,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await (payload.db as unknown as { drizzle: { execute: (q: unknown) => Promise<unknown> } }).drizzle.execute(sql`DELETE FROM placement_counts WHERE sponsor_id = ${SPONSOR}`)
+  await (payload.db as unknown as { drizzle: { execute: (q: unknown) => Promise<unknown> } }).drizzle.execute(sql`DELETE FROM placement_counts WHERE placement_id IN (${PLACEMENT}, ${OTHER})`)
 })
 
 describe('the placement counter', () => {
@@ -73,6 +81,28 @@ describe('the placement counter', () => {
       expect(await response.text()).toBe('')
     }
     expect(await readCounts(payload, { placementId: PLACEMENT }, today(), today())).toEqual(before)
+  })
+})
+
+describe('a placement whose sponsor changes during the day', () => {
+  // It must leave SPONSOR's totals as the first describe made them: the endpoint tests below read them, and that is the point of the fix.
+  it('keeps each sponsor\'s delivery with that sponsor, and a house promotion\'s apart', async () => {
+    const before = await readCounts(payload, { sponsorId: SPONSOR }, today(), today())
+    running.first = 'next'
+    await POST(beacon([{ ...ev('sponsor_placement_measurable'), sponsor_id: String(NEXT_SPONSOR) }]))
+    running.first = 'house'
+    await POST(beacon([{ ...ev('sponsor_placement_measurable'), sponsor_id: null, kind: 'house' }]))
+    await POST(beacon([{ ...ev('sponsor_placement_viewable'), sponsor_id: null, kind: 'house' }]))
+    running.first = 'sponsor'
+    // The first sponsor's figures are untouched; the new sponsor and the promotion each have their own row.
+    expect(await readCounts(payload, { sponsorId: SPONSOR }, today(), today())).toEqual(before)
+    expect((await readCounts(payload, { sponsorId: NEXT_SPONSOR }, today(), today())).map((r) => [r.placementId, r.measurable])).toEqual([[PLACEMENT, 1]])
+    const all = await readCounts(payload, { placementId: PLACEMENT }, today(), today())
+    expect(all.map((r) => [r.kind, r.sponsorId, r.measurable, r.viewable])).toEqual([
+      ['house', null, 1, 1],
+      ['sponsor', SPONSOR, 2, 1],
+      ['sponsor', NEXT_SPONSOR, 1, 0],
+    ])
   })
 })
 

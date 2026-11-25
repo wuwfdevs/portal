@@ -112,8 +112,9 @@ measurement and they wait for the banner; nothing else changes. Every other even
   export) keeps posts from this site's pages, from browsers, at most 20 well-formed events and 4 KB, each kind once per placement per post.
   `tally` then keeps only events for a placement that is switched on and whose zone, kind and sponsor match the record, and takes those from
   the record, never from the browser. It answers 204 with no body whatever it counted, and a failure never reaches the reader.
-- **Stored** in `placement_counts` (`src/db/placementCounts.ts`, migration `20261125_230850_placement_counts`): one row per station day,
-  placement, zone and filter version, with the three totals. A plain table, not a collection; no foreign key, so a deleted placement keeps its
+- **Stored** in `placement_counts` (`src/db/placementCounts.ts`, migrations `20261125_230850_placement_counts` and
+  `20261125_233720_placement_counts_attribution`): one row per station day, placement, zone, **sponsor and kind**, and filter version, with the
+  three totals. The sponsor is in the key so a sponsor changed during a day never takes over the earlier sponsor's delivery (found in review). A plain table, not a collection; no foreign key, so a deleted placement keeps its
   history. Nothing personal is in it.
 - **Read** by `GET /api/placement-items/delivery` (`collections/placementDeliveryEndpoints.ts`, the `sponsorship.manage` permission), drawn by
   the Delivery panel on a placement's and a sponsor's edit screen (`components/admin/PlacementDelivery`), and exported for a sponsor as CSV

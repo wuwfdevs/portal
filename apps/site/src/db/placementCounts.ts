@@ -1,5 +1,5 @@
 import type { postgresAdapter } from '@payloadcms/db-postgres'
-import { date, integer, pgTable, primaryKey, text, timestamp } from '@payloadcms/db-postgres/drizzle/pg-core'
+import { bigserial, date, integer, pgTable, text, timestamp, unique } from '@payloadcms/db-postgres/drizzle/pg-core'
 
 type SchemaHook = NonNullable<NonNullable<Parameters<typeof postgresAdapter>[0]['afterSchemaInit']>[number]>
 
@@ -12,13 +12,17 @@ type SchemaHook = NonNullable<NonNullable<Parameters<typeof postgresAdapter>[0][
  *
  * No foreign key to `placement_items`: a placement that is deleted keeps its history, because a sponsor's report outlives the tile. The zone,
  * kind and sponsor are copied from the placement when the count is made (never from the browser), so a report reads them from here.
- * `filter_version` is part of the key: a day counted under two versions of the traffic filter (`lib/analytics/filter.ts`) keeps them apart.
+ * A row is one day of one placement in one zone, **for one sponsor and kind**, under one version of the traffic filter (`lib/analytics/filter.ts`).
+ * The sponsor and kind are part of the key (migration `placement_counts_attribution`): if staff change a placement's sponsor, or turn it into a
+ * house promotion, during a day, the counts before and after stay with whoever they were delivered for and are never moved to the new one. The
+ * key treats "no sponsor" as one value (`NULLS NOT DISTINCT`, Postgres 15+), so a house promotion's day is one row.
  * Only the server touches it, through `lib/analytics/counts.ts`.
  */
 export const placementCountsSchema: SchemaHook = ({ schema }) => {
   const placementCounts = pgTable(
     'placement_counts',
     {
+      id: bigserial('id', { mode: 'number' }).primaryKey(),
       day: date('day', { mode: 'string' }).notNull(),
       placementId: integer('placement_id').notNull(),
       zone: text('zone').notNull(),
@@ -30,7 +34,7 @@ export const placementCountsSchema: SchemaHook = ({ schema }) => {
       clicked: integer('clicked').notNull().default(0),
       updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     },
-    (t) => [primaryKey({ name: 'placement_counts_pkey', columns: [t.day, t.placementId, t.zone, t.filterVersion] })],
+    (t) => [unique('placement_counts_key').on(t.day, t.placementId, t.zone, t.kind, t.sponsorId, t.filterVersion).nullsNotDistinct()],
   )
   return { ...schema, tables: { ...schema.tables, placement_counts: placementCounts } }
 }

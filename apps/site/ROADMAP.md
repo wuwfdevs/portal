@@ -30,6 +30,10 @@ consent choice, provisionally, until counsel answers whether a count with no coo
   the Portal.
 - **Not built:** data-center ranges and rate limits in the filter (they need the address); delivery against commitment and the formal proof of
   performance (the Portal's; a signed contract to read the totals, later); consent for every other event.
+- **Fixed after review (PR 411):** the Delivery panel was a `<form>` inside the document's edit form, so "Show" could submit the document; it is
+  now a group with a button. The row key left out the sponsor, so a sponsor changed during a day moved that day's earlier counts to the new one;
+  migration `20261125_233720_placement_counts_attribution` adds sponsor and kind to the key (a unique constraint, `NULLS NOT DISTINCT`, and an
+  `id` primary key). Its `down` merges split rows into the old key. Tested up, split rows, down (merged), up again on a database holding rows.
 - **Next:** ask counsel the counting question; watch staging's counts against its traffic and tighten the filter if bots show through.
 - **Checked:** typecheck; lint (no new problems; the two `react/no-children-prop` errors in the ListenLive tests were there before); every unit test
   under `src` (257 files, 3,050 tests); the integration test `tests/int/placement-counts.int.spec.ts` (the route adds to and accumulates the totals,

@@ -105,10 +105,17 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
         Counted by the site itself, as daily totals: nothing about the people who saw it is kept. Not audited by a third party. A count reaches
         here within a few seconds of a visit.
       </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          void load()
+      {/* Not a <form>: this panel sits inside the document's own edit form, and a nested form's submit would bubble up and save the document. */}
+      <div
+        aria-label="Days to show"
+        role="group"
+        onKeyDown={(e) => {
+          // Enter in a date would otherwise submit the document's form; here it means "Show".
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
+            e.preventDefault()
+            e.stopPropagation()
+            void load()
+          }
         }}
         style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'end', marginTop: 12 }}
       >
@@ -120,13 +127,13 @@ function Delivery({ scope }: { scope: 'placement' | 'sponsor' }) {
           Last day
           <input onChange={(e) => setTo(e.target.value)} style={input} type="date" value={to} />
         </label>
-        <button className="btn btn--style-secondary btn--size-small" disabled={loading} style={{ margin: 0 }} type="submit">
+        <button className="btn btn--style-secondary btn--size-small" disabled={loading} onClick={() => void load()} style={{ margin: 0 }} type="button">
           {loading ? 'Loading…' : 'Show'}
         </button>
         <a className="btn btn--style-primary btn--size-small" download href={query({ format: 'csv' })} style={{ margin: 0 }}>
           Download for the sponsor (CSV)
         </a>
-      </form>
+      </div>
       {error && (
         <p role="alert" style={{ ...muted, color: 'var(--theme-error-500)', marginTop: 12 }}>
           {error}
