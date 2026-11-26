@@ -74,24 +74,25 @@ export function ConsentBanner({ privacyHref }: { privacyHref: string | null }) {
   return (
     <>
       {recorded === 'none' && !open && (
-        <section aria-label={BANNER_LABEL} className="fixed inset-x-0 bottom-0 z-50 border-t border-surface-dark-line bg-surface-dark text-surface shadow-3" data-consent-banner="">
+        <section aria-label={BANNER_LABEL} className="fixed inset-x-0 bottom-0 z-50 border-t border-rule-strong bg-surface text-ink shadow-3" data-consent-banner="">
           <div className="container flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between">
             <p className="max-w-3xl text-base">
               {BANNER_TEXT}{' '}
               {privacyHref && (
-                <a className="font-semibold text-surface underline underline-offset-2" href={privacyHref}>
+                <a className="font-semibold text-ink underline underline-offset-2" href={privacyHref}>
                   How we measure visits
                 </a>
               )}
             </p>
             <div className="flex shrink-0 flex-wrap items-center gap-3">
-              <Button onClick={() => writeConsent({ ...DEFAULT_CONSENT, measurement: true })} variant="onDark">
+              {/* Accept and Decline are the same style on purpose: a choice about being measured must not lean one way. */}
+              <Button onClick={() => writeConsent({ ...DEFAULT_CONSENT, measurement: true })} variant="outline">
                 Accept
               </Button>
-              <Button onClick={() => writeConsent({ ...DEFAULT_CONSENT, measurement: false })} variant="outlineOnDark">
+              <Button onClick={() => writeConsent({ ...DEFAULT_CONSENT, measurement: false })} variant="outline">
                 Decline
               </Button>
-              <Button className="text-surface" onClick={() => setOpen(true)} variant="link">
+              <Button onClick={() => setOpen(true)} variant="link">
                 Settings
               </Button>
             </div>
