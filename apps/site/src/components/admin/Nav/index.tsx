@@ -4,6 +4,7 @@ import type { ServerProps } from 'payload'
 import { PREFERENCE_KEYS } from 'payload/shared'
 import React from 'react'
 
+import { canSeeAudience } from '@/access/permissions'
 import { ADMIN_NAV, isNavGroup, pruneNav, type NavGroup as TreeGroup, type NavItem, type NavNode } from '@/lib/admin-nav'
 
 import { AdminNavClient } from './Client'
@@ -14,6 +15,11 @@ import { AdminNavClient } from './Client'
  * this replaces; it cannot nest. What a person sees is what they may read: a link is dropped when `permissions` say no, and a heading
  * with nothing left under it goes too.
  */
+
+/** Who may open each custom view (`NavViewItem`): the same rule the view itself checks. A view missing here is shown to nobody. */
+const VIEW_ACCESS: Record<string, (user: unknown) => boolean> = {
+  audience: (user) => canSeeAudience(user as Parameters<typeof canSeeAudience>[0]),
+}
 
 type Label = string | Record<string, string> | ((args: { t: (key: string) => string }) => string) | undefined
 
@@ -37,13 +43,15 @@ export const AdminNav: React.FC<ServerProps> = async ({ payload, permissions, us
     const list = kind === 'collection' ? visibleEntities?.collections : visibleEntities?.globals
     return list ? (list as readonly string[]).includes(slug) : true
   }
-  const canRead = (kind: 'collection' | 'global', slug: string) => {
+  const canRead = (kind: NavItem['kind'], slug: string) => {
+    if (kind === 'view') return VIEW_ACCESS[slug]?.(user) ?? false
     const entry = kind === 'collection' ? permissions?.collections?.[slug] : permissions?.globals?.[slug]
     return Boolean(entry?.read) && visible(kind, slug)
   }
 
   const nameFor = (item: NavItem): string => {
     if (item.label) return item.label
+    if (item.kind === 'view') return item.slug
     if (item.kind === 'collection') {
       const found = collections.find((c) => c.slug === item.slug)
       return nameOf(found?.labels?.plural as Label, i18n.language, item.slug)
@@ -56,12 +64,14 @@ export const AdminNav: React.FC<ServerProps> = async ({ payload, permissions, us
   const toNode = (entry: NavItem | TreeGroup): NavNode =>
     isNavGroup(entry)
       ? { type: 'group', label: entry.label, items: entry.items.map(toNode) }
-      : {
-          type: 'link',
-          label: nameFor(entry),
-          href: `${adminRoute}/${entry.kind === 'collection' ? 'collections' : 'globals'}/${entry.slug}`,
-          id: entry.kind === 'collection' ? `nav-${entry.slug}` : `nav-global-${entry.slug}`,
-        }
+      : entry.kind === 'view'
+        ? { type: 'link', label: entry.label, href: `${adminRoute}${entry.path}`, id: `nav-view-${entry.slug}` }
+        : {
+            type: 'link',
+            label: nameFor(entry),
+            href: `${adminRoute}/${entry.kind === 'collection' ? 'collections' : 'globals'}/${entry.slug}`,
+            id: entry.kind === 'collection' ? `nav-${entry.slug}` : `nav-global-${entry.slug}`,
+          }
 
   const groups = pruneNav(ADMIN_NAV, canRead).map((g) => toNode(g) as Extract<NavNode, { type: 'group' }>)
 

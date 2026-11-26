@@ -17,7 +17,16 @@
 export type NavEntityKind = 'collection' | 'global'
 
 /** One link: a collection's list, or a global's edit screen. `label` replaces the entity's own name where the heading above already gives context. */
-export type NavItem = { kind: NavEntityKind; slug: string; label?: string }
+export type NavEntityItem = { kind: NavEntityKind; slug: string; label?: string }
+
+/**
+ * A link to one of the site's own admin screens that is not a collection or a global (a custom view registered in `payload.config.ts`
+ * under `admin.components.views`, at `path` under the admin). It is on no dashboard card, and who may open it is the view's own rule
+ * (`components/admin/Nav`, `VIEW_ACCESS`).
+ */
+export type NavViewItem = { kind: 'view'; slug: string; label: string; path: `/${string}` }
+
+export type NavItem = NavEntityItem | NavViewItem
 
 /** A heading. Its items are links or further headings; the sidebar draws at most two levels (a group and a sub-group). */
 export type NavGroup = { label: string; items: (NavItem | NavGroup)[] }
@@ -26,6 +35,7 @@ export const isNavGroup = (entry: NavItem | NavGroup): entry is NavGroup => 'ite
 
 const c = (slug: string, label?: string): NavItem => ({ kind: 'collection', slug, ...(label ? { label } : {}) })
 const g = (slug: string, label?: string): NavItem => ({ kind: 'global', slug, ...(label ? { label } : {}) })
+const v = (slug: string, label: string, path: `/${string}`): NavItem => ({ kind: 'view', slug, label, path })
 
 export const ADMIN_NAV: readonly NavGroup[] = [
   {
@@ -59,7 +69,8 @@ export const ADMIN_NAV: readonly NavGroup[] = [
   {
     // Charts, maps and tables for stories and pages: the data they draw (a dataset, with its uploaded versions) and the figures themselves.
     label: 'Data & charts',
-    items: [c('visualizations'), c('datasets'), c('dataset-versions', 'Uploaded versions')],
+    // Audience: what readers and listeners do on the site, from PostHog (`components/admin/AudienceReport`, `ANALYTICS.md`, "The Audience screen").
+    items: [v('audience', 'Audience', '/audience'), c('visualizations'), c('datasets'), c('dataset-versions', 'Uploaded versions')],
   },
   {
     label: 'Sponsorship',
@@ -105,7 +116,8 @@ export function navEntries(tree: readonly NavGroup[] = ADMIN_NAV): { kind: NavEn
   const walk = (group: NavGroup, top: string, path: string[]) => {
     for (const entry of group.items) {
       if (isNavGroup(entry)) walk(entry, top, [...path, entry.label])
-      else out.push({ kind: entry.kind, slug: entry.slug, group: top, path })
+      // A custom view is no entity: it has no `admin.group` to set and no dashboard card.
+      else if (entry.kind !== 'view') out.push({ kind: entry.kind, slug: entry.slug, group: top, path })
     }
   }
   for (const group of tree) walk(group, group.label, [group.label])
@@ -121,7 +133,7 @@ export function topGroupOf(kind: NavEntityKind, slug: string, tree: readonly Nav
  * The tree as one signed-in person may see it: links they cannot read are dropped, and a heading left with nothing under it goes too
  * (an editor never sees an empty "Members & accounts"). `canRead` is how the caller answers "may this person open this?".
  */
-export function pruneNav(tree: readonly NavGroup[], canRead: (kind: NavEntityKind, slug: string) => boolean): NavGroup[] {
+export function pruneNav(tree: readonly NavGroup[], canRead: (kind: NavItem['kind'], slug: string) => boolean): NavGroup[] {
   const prune = (group: NavGroup): NavGroup | null => {
     const items: (NavItem | NavGroup)[] = []
     for (const entry of group.items) {

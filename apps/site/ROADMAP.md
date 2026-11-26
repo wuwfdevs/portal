@@ -21,6 +21,9 @@ clicked, the Give page's click through). `ANALYTICS.md`, "Consent" and "PostHog"
 - **Set up (2026-11-26):** PostHog project WUWF.org (id 768664; one project on this plan, staging and production told apart by
   `environment`, insights default to production), and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` on wuwf-site (Production and Preview). At launch:
   set replay's authorized domains to wuwf.org.
+- **The Audience screen** (2026-11-26): Data & charts > Audience in the admin reads PostHog's query API from the server with a read-only key
+  (`ANALYTICS.md`, "The Audience screen"); any staff role sees it. Needs `POSTHOG_PERSONAL_API_KEY` (Sensitive, set by the owner) and
+  `POSTHOG_PROJECT_ID` on Vercel.
 - **Open:** the university's privacy review and the UWF IT-04 notice for the wording and the opt-out model; the privacy page needs the
   paragraphs in `lib/analytics/notice.ts`; counsel's counting question (unchanged).
 

@@ -78,6 +78,11 @@ export default buildConfig({
       graphics: { Logo: '@/components/admin/Brand/Logo#AdminLogo', Icon: '@/components/admin/Brand/Icon#AdminIcon' },
       // The sidebar is the tree in `lib/admin-nav.ts`, two levels deep (Payload's own is one level and cannot nest).
       Nav: '@/components/admin/Nav#AdminNav',
+      // Screens of our own that are not a collection or a global; each is a `view` link in `lib/admin-nav.ts` and checks its own access.
+      views: {
+        // How readers and listeners use the site, from PostHog (`lib/audience-report`).
+        audience: { Component: '@/components/admin/AudienceReport#AudienceReportView', path: '/audience', meta: { title: 'Audience' } },
+      },
     },
     importMap: {
       baseDir: path.resolve(dirname),

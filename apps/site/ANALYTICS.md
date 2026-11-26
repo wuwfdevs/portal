@@ -173,6 +173,25 @@ each event to one destination, **placements to the counter only, never to PostHo
   commitment (the commitment is the Portal's); the formal proof of performance, which stays the Portal's (`CLAUDE.md`: proof of delivery is
   not Payload's), reading these totals through a signed contract in `packages/portal-contracts` when that is designed.
 
+## The Audience screen
+
+Staff read the numbers in the admin, not in PostHog: **Data & charts > Audience** (`/admin/audience`, owner, 2026-11-26), a custom admin
+view (`components/admin/AudienceReport`, registered in `payload.config.ts` under `admin.components.views` and linked from the sidebar tree as
+a `view` item, `lib/admin-nav.ts`). The site's server asks PostHog's query API with a **read-only personal key** (`POSTHOG_PERSONAL_API_KEY`,
+scope `query:read`, server only; `POSTHOG_PROJECT_ID`) and draws the answers in the admin's own look. Nothing is embedded and nothing is
+public: the admin login is the lock (a shared PostHog dashboard would be readable by anyone with its link).
+
+- **Who sees it:** any staff member with any site permission (`canSeeAudience`, `access/permissions.ts`); the screen checks it itself and the
+  sidebar hides the link from anyone else.
+- **What it shows** (`lib/audience-report/queries.ts`, HogQL; `shape.ts`, pure): page views, visitors, visits, listening hours and listens;
+  page views by day; listening by stream (channel or on-demand audio, named from the CMS); the top stories, episodes and shows with how many
+  views became engaged reads or plays; membership appeals seen and clicked by place; clicks to the donation form by frequency; and where
+  visits come from. Totals only: never a person, an address or a replay ("Open in PostHog" goes to those).
+- **Range:** the last 7, 28 or 90 days, the public site or staging (`?days=&env=`; only those values ever reach a query). Answers are kept
+  15 minutes per range (`unstable_cache`); a failed query is never kept, and only its panel says so.
+- **Counts only visitors who did not decline**, and PostHog drops bots, so it is lower than raw traffic; the sponsor placement counts stay the
+  sponsor figures.
+
 ## Order of work
 
 1. **Built (2026-11-25):** the events, `parseEvent`, consent rules, the dispatcher and the viewable rule (`src/lib/analytics`); tiles carrying
