@@ -136,6 +136,14 @@ each event to one destination, **placements to the counter only, never to PostHo
   errors (`capture_exceptions`), and **session replays** with every typed value masked (`maskAllInputs`) and the text of anything under
   `data-ph-mask` masked: the listening screens (`QuestionSet`, Ask WUWF, everything under `/listens`) and the account pages (`/account`).
   Web vitals follow the project's setting.
+- **Secrets in addresses are redacted before anything is sent** (`redactEvent`, PostHog's `before_send`, on every event including replay
+  snapshots): a membership claim's `?token=`, a sign-in page's `?next=` (which can hold a claim link) and the token in `/listens/table/<token>`
+  become `redacted` wherever they appear (URL properties, autocaptured link addresses, person properties, replay data). Possession of a claim
+  token attaches a membership to an account, so it must never reach analytics. Replay snapshots are compressed before `before_send` sees them,
+  so the page's own attributes (the claim page's sign-in link carries the claim link) are redacted by the recorder's `maskAttributeFn`, before
+  compression. A new route that carries a secret in its address is added there.
+- **A decline keeps PostHog's own opt-out marker** (`__ph_opt_in_out_<token>`) while removing everything else it stored, so its automatic
+  capture stays off for the rest of the page.
 - **Loaded only while measurement is on**, lazily (`import('posthog-js')`), from a client component in the root layout (`ConsentBanner`
   calls `posthog.start()`); it follows the choice from then on. Events sent while it loads are held (at most 50).
 - **First party:** the browser talks only to this site, under `/relay` (`lib/analytics/posthog-config.ts`; a reserved first segment), and

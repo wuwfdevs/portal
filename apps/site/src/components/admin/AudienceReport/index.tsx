@@ -33,11 +33,25 @@ const PANEL_LABEL: Record<QueryName, string> = {
   sources: 'where visits come from',
 }
 
-export async function AudienceReportView({ initPageResult, searchParams, params, i18n, payload, permissions, user, locale, visibleEntities }: AdminViewServerProps) {
+export async function AudienceReportView({ initPageResult, searchParams, params, i18n, payload }: AdminViewServerProps) {
   const viewer = initPageResult.req.user
   if (!viewer) redirect(`${payload.config.routes.admin}/login`)
   const range = rangeOf(searchParams as { days?: unknown; env?: unknown })
-  const template = { i18n, locale, params, payload, permissions, searchParams, user, visibleEntities: visibleEntities ?? initPageResult.visibleEntities }
+  // A new custom view is rendered bare, so it wraps itself in Payload's template, with what Payload's own views pass it. A custom view gets the
+  // person's permissions only inside `initPageResult`; without them the sidebar (`components/admin/Nav`) hides every collection and global.
+  // The entity lists are copied, as Payload does, because React 19 refuses the read-only originals.
+  const { permissions, locale, visibleEntities } = initPageResult
+  const template = {
+    i18n,
+    locale,
+    params,
+    payload,
+    permissions,
+    req: initPageResult.req,
+    searchParams,
+    user: viewer,
+    visibleEntities: { collections: [...(visibleEntities?.collections ?? [])], globals: [...(visibleEntities?.globals ?? [])] },
+  }
 
   if (!canSeeAudience(viewer as Parameters<typeof canSeeAudience>[0])) {
     return (
