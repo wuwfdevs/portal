@@ -89,9 +89,9 @@ describe('the PostHog reader', () => {
 })
 
 describe('the Audience link in the sidebar', () => {
-  it('sits under Data & charts and is no entity (no dashboard card, no group to set)', () => {
-    const data = ADMIN_NAV.find((g) => g.label === 'Data & charts')!
-    expect(data.items[0]).toEqual({ kind: 'view', slug: 'audience', label: 'Audience', path: '/audience' })
+  it('is Analytics, first under the Audience heading, and no entity (no dashboard card, no group to set)', () => {
+    const audience = ADMIN_NAV.find((g) => g.label === 'Audience')!
+    expect(audience.items[0]).toEqual({ kind: 'view', slug: 'audience', label: 'Analytics', path: '/audience' })
     expect(navEntries().some((e) => e.slug === 'audience')).toBe(false)
   })
   it('is shown to any staff role and to nobody without one', () => {
@@ -99,6 +99,6 @@ describe('the Audience link in the sidebar', () => {
     expect(canSeeAudience({ roles: [] })).toBe(false)
     expect(canSeeAudience(null)).toBe(false)
     const pruned = pruneNav(ADMIN_NAV, (kind) => kind === 'view')
-    expect(pruned.map((g) => g.label)).toEqual(['Data & charts'])
+    expect(pruned.map((g) => g.label)).toEqual(['Audience'])
   })
 })

@@ -81,7 +81,7 @@ export default buildConfig({
       // Screens of our own that are not a collection or a global; each is a `view` link in `lib/admin-nav.ts` and checks its own access.
       views: {
         // How readers and listeners use the site, from PostHog (`lib/audience-report`).
-        audience: { Component: '@/components/admin/AudienceReport#AudienceReportView', path: '/audience', meta: { title: 'Audience' } },
+        audience: { Component: '@/components/admin/AudienceReport#AudienceReportView', path: '/audience', meta: { title: 'Analytics' } },
       },
     },
     importMap: {

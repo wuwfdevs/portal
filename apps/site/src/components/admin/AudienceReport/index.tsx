@@ -13,7 +13,7 @@ import { percent, type AudienceReport } from '@/lib/audience-report/shape'
 import './audience.scss'
 
 /**
- * The Audience screen (`/admin/audience`, Data & charts > Audience): how readers and listeners use the site, read from PostHog by the site's
+ * The Analytics screen (`/admin/audience`, Audience > Analytics in the sidebar): how readers and listeners use the site, read from PostHog by the site's
  * server with a read-only key (`lib/audience-report`). Totals only, never a person or a replay; "Open in PostHog" is the way to those. The admin
  * login is the lock: the screen checks the person itself (`canSeeAudience`), and nothing about it is public.
  *
@@ -43,7 +43,7 @@ export async function AudienceReportView({ initPageResult, searchParams, params,
     return (
       <DefaultTemplate {...template}>
         <Gutter>
-          <h1>Audience</h1>
+          <h1>Analytics</h1>
           <p>Your account does not have access to this screen.</p>
         </Gutter>
       </DefaultTemplate>
@@ -58,7 +58,7 @@ export async function AudienceReportView({ initPageResult, searchParams, params,
       <Gutter className="wuwf-audience">
         <header className="wuwf-audience__head">
           <div>
-            <h1>Audience</h1>
+            <h1>Analytics</h1>
             <p className="wuwf-audience__muted">
               How people use WUWF.org, from PostHog. Totals for visitors who did not decline analytics; refreshed every 15 minutes. Times are Central.
             </p>

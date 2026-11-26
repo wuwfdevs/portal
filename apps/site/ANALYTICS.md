@@ -175,7 +175,7 @@ each event to one destination, **placements to the counter only, never to PostHo
 
 ## The Audience screen
 
-Staff read the numbers in the admin, not in PostHog: **Data & charts > Audience** (`/admin/audience`, owner, 2026-11-26), a custom admin
+Staff read the numbers in the admin, not in PostHog: **Audience > Analytics** (`/admin/audience`, owner, 2026-11-26; the heading was "Members & accounts"), a custom admin
 view (`components/admin/AudienceReport`, registered in `payload.config.ts` under `admin.components.views` and linked from the sidebar tree as
 a `view` item, `lib/admin-nav.ts`). The site's server asks PostHog's query API with a **read-only personal key** (`POSTHOG_PERSONAL_API_KEY`,
 scope `query:read`, server only; `POSTHOG_PROJECT_ID`) and draws the answers in the admin's own look. Nothing is embedded and nothing is

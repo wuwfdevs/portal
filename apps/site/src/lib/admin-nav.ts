@@ -69,8 +69,7 @@ export const ADMIN_NAV: readonly NavGroup[] = [
   {
     // Charts, maps and tables for stories and pages: the data they draw (a dataset, with its uploaded versions) and the figures themselves.
     label: 'Data & charts',
-    // Audience: what readers and listeners do on the site, from PostHog (`components/admin/AudienceReport`, `ANALYTICS.md`, "The Audience screen").
-    items: [v('audience', 'Audience', '/audience'), c('visualizations'), c('datasets'), c('dataset-versions', 'Uploaded versions')],
+    items: [c('visualizations'), c('datasets'), c('dataset-versions', 'Uploaded versions')],
   },
   {
     label: 'Sponsorship',
@@ -78,8 +77,10 @@ export const ADMIN_NAV: readonly NavGroup[] = [
   },
   {
     // Staff and readers are different identities and different collections (CLAUDE.md, "Boundaries"); only the sidebar puts them side by side.
-    label: 'Members & accounts',
-    items: [c('users'), c('audience-profiles'), c('memberships'), c('member-feeds'), g('giving-settings')],
+    // "Audience" (owner, 2026-11-26; was "Members & accounts"): Analytics, how readers and listeners use the site, from PostHog
+    // (`components/admin/AudienceReport`, `ANALYTICS.md`, "The Audience screen"), first; then the accounts and memberships.
+    label: 'Audience',
+    items: [v('audience', 'Analytics', '/audience'), c('users'), c('audience-profiles'), c('memberships'), c('member-feeds'), g('giving-settings')],
   },
   {
     label: 'System',
@@ -131,7 +132,7 @@ export function topGroupOf(kind: NavEntityKind, slug: string, tree: readonly Nav
 
 /**
  * The tree as one signed-in person may see it: links they cannot read are dropped, and a heading left with nothing under it goes too
- * (an editor never sees an empty "Members & accounts"). `canRead` is how the caller answers "may this person open this?".
+ * (an editor never sees an empty "Audience"). `canRead` is how the caller answers "may this person open this?".
  */
 export function pruneNav(tree: readonly NavGroup[], canRead: (kind: NavItem['kind'], slug: string) => boolean): NavGroup[] {
   const prune = (group: NavGroup): NavGroup | null => {

@@ -43,7 +43,7 @@ describe('admin navigation', async () => {
       const entity = (e.kind === 'collection' ? collections : globals).find((x) => x.slug === e.slug)!
       expect(entity.admin?.group, e.slug).toBe(e.group)
     }
-    expect(topGroupOf('collection', 'users')).toBe('Members & accounts')
+    expect(topGroupOf('collection', 'users')).toBe('Audience')
   })
 
   it('has no coded-page global left in the Pages group: the three hubs are pages now, and their retired globals are hidden', () => {
@@ -76,7 +76,7 @@ describe('admin navigation', async () => {
       'Media library',
       'Data & charts',
       'Sponsorship',
-      'Members & accounts',
+      'Audience',
       'System',
       'Site settings',
     ])
