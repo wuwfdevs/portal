@@ -39,9 +39,15 @@ export function posthogOptions(environment: string): Partial<PostHogConfig> {
     person_profiles: 'identified_only',
     autocapture: true,
     capture_exceptions: true,
-    session_recording: { maskAllInputs: true, maskTextSelector: MASK_SELECTOR },
-    // Addresses that carry a secret (a membership claim link, a listening table's link) never reach PostHog: every event, replay snapshots
-    // included, is passed through `redactEvent` before it is sent.
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: MASK_SELECTOR,
+      // Replay snapshots are compressed before `before_send` sees them, so a secret in the page itself (the claim page's "sign in" link
+      // carries the claim link in its `href`) is redacted here, as the recorder reads each attribute, before compression.
+      maskAttributeFn: (_name, value) => redactText(value),
+    },
+    // Addresses that carry a secret (a membership claim link, a listening table's link) never reach PostHog: every event is passed through
+    // `redactEvent` before it is sent (replay's page address included; the page's own attributes are handled by `maskAttributeFn` above).
     before_send: (event) => redactEvent(event),
     loaded: (ph) => {
       ph.register({ environment })

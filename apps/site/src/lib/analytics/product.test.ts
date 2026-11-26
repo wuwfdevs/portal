@@ -208,9 +208,12 @@ describe('secrets in addresses', () => {
     expect(text).not.toContain('Kq9zT2')
     expect(out.event).toBe('$autocapture')
   })
-  it('is PostHog\'s before_send', () => {
+  it('is PostHog\'s before_send, and redacts the page\'s own attributes in replays before they are compressed', () => {
     const options = posthogOptions('test')
     expect(options.before_send).toBeTypeOf('function')
+    const maskAttribute = options.session_recording!.maskAttributeFn!
+    expect(maskAttribute('href', '/account/sign-in?next=%2Faccount%2Fclaim%3Ftoken%3Dabc')).toBe('/account/sign-in?next=redacted')
+    expect(maskAttribute('class', 'btn btn--primary')).toBe('btn btn--primary')
     expect(redactEvent(null)).toBeNull()
   })
 })
