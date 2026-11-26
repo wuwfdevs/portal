@@ -423,3 +423,97 @@ live one without a per-target variable. The variable is a fallback only. Secrets
 exports, and both ends of the signing secret must match exactly. The staff sign-in handoff to the website keeps its own variable on purpose, because it
 sends a signed identity token to that address.
 
+
+## 13. Proposal: the query is the core record (2026-11-26) — NOT YET DECIDED, NOT BUILT
+
+Status: **a proposal for the owner to accept or change.** Nothing in §1 to §12 is changed until it is accepted; the sections above describe what is built. If
+accepted, it supersedes the campaign layer of §2 and the tag vocabulary, and the build is a migration plus the screens and messages named below.
+
+### 13.1 Why
+
+The suite grew a **campaign** above the **query**: the campaign owns the question set, the tags, the span, the owner, the report and the Sourcework project, and a
+query is an optional 1:1 child. Events require a campaign (`al_events.campaign_id not null`), so a reporter who makes a plain query cannot convene anyone around it
+without making a second record that repeats the questions. "Bring a listening session to your table" (`al_host_requests`) belongs to no query at all, so staff have
+to guess which initiative a request is about. The word "campaign" is never shown to the public, so the split buys nothing a visitor can see.
+
+**Decision proposed: a query is the one core record. Anyone can convene around any query, in a small group or a large one.** A query with no events is the
+reporter-only case; a query with events is one people also gather around. There is no separate thing to promote it into.
+
+### 13.2 The model
+
+```
+Query (al_queries; the existing record, with what the campaign carried)
+├── Questions        (one ordered list, 1 to 5: answered alone, or discussed at a table)
+├── Event            (query_id; a session in a place at a time)
+│   └── Table → Conversation → Segments, Speakers, Marks, Contact cards   (unchanged)
+├── Host requests    (query_id: "host this one")
+├── Outcomes         (existing al_outcomes) and an optional Report
+└── Sourcework project (one per query; each table a source, as §12 already does for a campaign)
+Station-level (not per query)
+├── Consent wording            (al_consent_texts, unchanged)
+└── Standard opening prompts   (new, versioned the same way; §13.4)
+```
+
+Moves from campaign to query: `owner_id` and `owner_label`, `sourcework_project_id`, the report, and the "hosting allowed" setting (§13.6). The span is the query's
+existing `opens_at` and `closes_at`; the rule "an event's date falls inside the span" and "closing closes the query" collapse into "an event falls inside its query's
+span". Dropped with the campaign: `al_campaigns`, `al_campaign_prompts`, `al_campaign_tags`.
+
+### 13.3 One list of questions
+
+A table discusses the same questions an individual answers alone. There is no second "prompts" list. `required` and written-or-audio mean something only for an
+individual answer and are ignored at a table. The per-question `suggested_seconds` of `al_campaign_prompts` is **not carried over**; pacing is the event's (§13.5).
+
+### 13.4 The standard opening
+
+What every recording starts with (each person says their first name, where they live, and that they are okay being recorded) is a **station-level, versioned item**,
+not per query and not editable by a reporter. It is the on-tape half of the consent in §11 item 1, and Florida needs every party's consent to a recorded
+conversation, so it is a legal artifact. It is stored like `al_consent_texts` (insert-only numbered versions, a coordinator adds one) and the table records which
+version of the opening it was shown, as it already records the consent version. Order at a table: the standard opening, then the query's questions in order.
+Whether an *individual* answer also plays the opening is open (§13.8); today an individual's consent is the checkbox in the flow.
+
+### 13.5 Pacing belongs to the event
+
+How long a question gets depends on the session, not the question: a 90-minute public evening and a 30-minute kitchen table need different clocks for the same
+questions. So:
+
+- The event has a **planned length** (`al_events.planned_minutes`, nullable; when empty it is `ends_at - starts_at`). A kitchen table's host chooses it when they
+  start the table (30, 45 or 60), since a kitchen table has no scheduled end.
+- **Suggested times are computed, never stored per question.** Planned length, minus the standard opening's estimate and the last-call five minutes, divided across
+  the query's questions. Tonight and the table's phone show the result as a suggestion; nothing enforces it (a table already has its own `prompt_position` and
+  `elapsed_seconds`, and moves at its own pace).
+- Equal shares to start. A per-event "give this question more time" weight is deliberately left out until a facilitator asks for it.
+
+### 13.6 Who may host
+
+One setting on the query, with a default of staff-run only: **staff only · anyone may host a private table · anyone may ask to host a public event.** This replaces
+the campaign flag behind kitchen tables (`al_events.kitchen_host_subject`). Public listing stays exactly as §11 item 4: a coordinator approves every public event.
+"Bring a listening session to your table" becomes a call to action on each query's page; its form carries `query_id`. Open: whether a request with no query is
+allowed (§13.8).
+
+### 13.7 Tags go; marks stay
+
+Themes are discovered by Sourcework, so a vocabulary chosen before anyone has listened defeats the point and steers what facilitators notice.
+
+- **Remove** the tag vocabulary (`al_campaign_tags`, and `tags` in the contract's campaign and conversation messages) and the facilitator's tag pick.
+  `al_highlights.tag` is already nullable, so the column is dropped, not backfilled.
+- **Keep the mark.** "This line mattered" is the facilitator's judgement from being in the room, which Sourcework cannot know. It stays as a salience signal, with
+  an optional free-text "why" in place of the tag. The hourly job still turns marks into Sourcework excerpts, with that note as the reason.
+- **Keep report themes** (`al_reports.themes`): they are filled from Sourcework's Synthesis after the fact and edited by a person, which is discovery, not a
+  vocabulary.
+
+### 13.8 Open items
+
+1. **A host request with no query:** require one, or keep a general door staff pair with a query afterwards (`query_id` nullable). Recommended: require one.
+2. **Does an individual's answer play the standard opening too,** or only a table's recording?
+3. **Existing data.** Whether production has live campaigns, events or recordings decides how careful the backfill is (campaign → query, `campaign_id` →
+   `query_id`, a campaign without a query gets one made from its question set). Not yet checked against either Supabase project.
+4. **Contract.** `hub`, `report`, `event` and the conversation messages carry campaign fields in `packages/portal-contracts/src/listening.ts`. They stay as additive
+   aliases for one version so the site keeps working during the cutover, then are removed in a versioned bump.
+
+### 13.9 Build order if accepted
+
+1. **Migration** (ledger, both projects, with the Resources release note): add the query's columns, events' `query_id` and `planned_minutes`, the host-request
+   `query_id`, the standard-opening table and the marks' note; backfill; then drop the campaign tables and the tag column.
+2. **Portal pure logic and tests:** suggested-time computation, the span rule on the query, the hosting setting.
+3. **Staff screens:** the query gains Events, Report and Hosting tabs; the Campaigns screens go; the standard-opening page sits beside Consent wording.
+4. **Contract and site:** additive fields first, the site moved over, then the aliases removed.
