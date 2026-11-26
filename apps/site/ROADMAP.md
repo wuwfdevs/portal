@@ -18,8 +18,9 @@ clicked, the Give page's click through). `ANALYTICS.md`, "Consent" and "PostHog"
   `posthog-config.ts`, `listening.ts`, `engagement.ts`, `notice.ts`); `components/ConsentBanner` (notice and settings dialog, the footer's
   "Privacy settings"); `components/Analytics` (`ContentSeen`, `AppealWatch`, `ReaderIdentity`); the player's `useListenAnalytics`; the
   `/relay` rewrites with the trailing-slash redirect moved into `redirects.ts`; `data-ph-mask` on the listening and account screens.
-- **Owner to do:** create the PostHog project (US), set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` on Vercel (Preview and Production; a separate
-  project for staging is better), turn on session replay and set the authorized domains, and decide on "discard client IP" (left off).
+- **Set up (2026-11-26):** PostHog project WUWF.org (id 768664; one project on this plan, staging and production told apart by
+  `environment`, insights default to production), and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` on wuwf-site (Production and Preview). At launch:
+  set replay's authorized domains to wuwf.org.
 - **Open:** the university's privacy review and the UWF IT-04 notice for the wording and the opt-out model; the privacy page needs the
   paragraphs in `lib/analytics/notice.ts`; counsel's counting question (unchanged).
 

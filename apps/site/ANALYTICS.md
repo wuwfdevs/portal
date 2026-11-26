@@ -146,9 +146,12 @@ each event to one destination, **placements to the counter only, never to PostHo
 - **People:** anonymous visitors have no person profile (`person_profiles: 'identified_only'`). A reader's account page identifies the
   browser by their Supabase user id (`components/Analytics/ReaderIdentity`), the explicit sign-in "Anonymous stays anonymous" asks for, never
   an email, member or donor id; signing out resets it.
-- **Environments:** every event carries `environment` (`NEXT_PUBLIC_VERCEL_ENV`). Use a separate PostHog project for staging, or filter on it.
-- **Set up in PostHog (the owner):** the project token in Vercel (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`), session replay on, the authorized
-  domains, and the IP setting.
+- **The project (set up 2026-11-26):** PostHog organization WUWF, project **WUWF.org** (id 768664, US Cloud, timezone America/Chicago).
+  The plan allows one project, so **staging and production share it**: every event carries `environment` (`NEXT_PUBLIC_VERCEL_ENV`:
+  `production`, `preview`), and the project's internal filter (`test_account_filters`, ticked by default) keeps insights to
+  `environment = production`; untick it to see staging. Session replay, autocapture and exception capture are on; client IPs are kept
+  (owner). Replay records on every domain for now (previews change address per branch); at launch, set the authorized recording domains
+  to wuwf.org. The token is the Vercel variable `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` on wuwf-site, Production and Preview.
 
 ## The placement counter
 
