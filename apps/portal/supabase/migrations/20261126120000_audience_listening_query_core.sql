@@ -536,7 +536,7 @@ begin
      where ts.id = seg.speaker_id;
     insert into public.al_highlights (conversation_id, start_ms, end_ms, text, note, speaker_id)
     values (c.id, seg.start_ms, seg.end_ms, left(seg.text, 4000), v_note, v_speaker)
-    on conflict (conversation_id, start_ms) do update set note = excluded.note;
+    on conflict (conversation_id, start_ms) do update set note = excluded.note where al_highlights.note is distinct from excluded.note;
   end loop;
   return jsonb_build_object('ok', true);
 exception
