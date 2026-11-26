@@ -1,18 +1,19 @@
 # Analytics
 
-**Status (2026-11-25): the sponsor placement counter is built, end to end; the rest is specified.** The tiles report what they
-show, the site's own route adds it to daily totals, and corporate support reads them (and downloads a sponsor's export) on each placement
-and sponsor in the admin. **Placement counts run without a consent choice, provisionally** (owner, 2026-11-25, pending counsel; see
-"Consent"). Nothing else is collected: the other events below are not emitted yet, and there is no consent banner. Where a definition is
-custom rather than an audited standard, it says so.
+**Status (2026-11-26): the sponsor placement counter is built, end to end, and PostHog is built behind an opt-out notice.** The placement
+counter is unchanged (below). **PostHog (US Cloud) runs from the first page view unless the visitor declines** (owner, 2026-11-26; see
+"Consent" and "PostHog"), and carries the listening, content and giving events below plus what PostHog measures on its own. It is off on any
+deployment without `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`. Placement counts still run without a consent choice, provisionally (owner,
+2026-11-25, pending counsel). Where a definition is custom rather than an audited standard, it says so.
 
 ## Principles
 
 - **Vendor independent.** Components call a small dispatch adapter with a typed event. A vendor (PostHog is the
   primary candidate; GA4 and Chartbeat are possible complements) sits behind it and can be replaced. Do not
   install redundant trackers.
-- **Consent first.** The adapter drops everything until consent is recorded, and drops what the visitor's choice
-  excludes. The one exception is *counting*, the sponsor placement totals, provisionally (see "Consent").
+- **A notice, and the visitor's choice wins** (owner, 2026-11-26, replacing "consent first"). Measurement is on until the visitor
+  declines (the banner, or "Privacy settings" in the footer), or off from the start when the browser sends Global Privacy Control; the
+  adapter drops what the visitor's choice excludes. *Counting*, the sponsor placement totals, needs no choice, provisionally (see "Consent").
 - **First party on sponsor placements** (owner, 2026-11-25, narrowing the old "no third-party tracking pixels"): no ad
   network or ad server, no sponsor's or verification vendor's pixel or script, nothing that follows a reader to other sites.
   The site counts its own placements. If a sponsor ever needs audited figures, that is a new decision for the owner, and a
@@ -45,9 +46,11 @@ Names are `object_action`, past tense, snake case.
 
 | Event | When | Key properties |
 |---|---|---|
-| `content_viewed` | A story, episode or video page is shown | `content_id`, identifiers, `format`, `placement_surface` |
-| `content_engaged` | Meaningful engagement: scrolled to 75% **and** at least 30 s visible, or any play | `content_id`, `engagement_kind` |
-| `audio_progressed` / `video_progressed` | 25/50/75/100% | `content_id`, `episode_id`, `percent`, `source` (live/on-demand) |
+| `content_viewed` | A story, episode or show page is shown (**built**: `components/Analytics/ContentSeen`, from the catch-all route) | `content_id`, `content_kind` (story, episode, show), `format`, `show_id`, `topic_id` (the first category) |
+| `content_engaged` | Meaningful engagement: scrolled to 75% **and** at least 30 s visible, or play pressed on the page (**built**, once per view) | `content_id`, `content_kind`, `engagement_kind` (read, play) |
+| `listen_started` / `listen_stopped` | The site's player: from the first sound to a pause, close, error, switch or leaving the site (**built**: `components/ListenLive/useListenAnalytics`) | `source` (live, on_demand), `stream_id` (the channel's key or the track's id); `seconds` on stop |
+| `audio_progressed` | On-demand audio at 25/50/75/100%, once per listen each (**built**) | `audio_id` (the track's id), `percent` |
+| `video_progressed` | 25/50/75/100% (not built) | `content_id`, `percent` |
 | `newsletter_subscribed` | Signup confirmed | `newsletter_id`, `surface` |
 | `listening_started` / `listening_answered` / `listening_submitted` | Listening flow steps | `listening_query_id`, `answer_mode`; **never** the answer |
 | `follow_toggled` / `save_toggled` | Follow a topic/show, save an item | `target_kind`, `target_id`, `on` |
@@ -56,8 +59,8 @@ Names are `object_action`, past tense, snake case.
 | `sponsor_placement_viewable` | The unit met the viewable definition below (**built**) | same |
 | `sponsor_placement_clicked` | A person clicked or middle-clicked the unit's link (**built**) | same |
 | `acknowledgment_shown` | An underwriting line was rendered | `agreement_id`, `content_id` |
-| `membership_appeal_shown` / `membership_appeal_clicked` | A member-support ask | `appeal_kind`, `surface` |
-| `conversion_started` | Handoff to the donation form | `appeal_kind`, `attribution_code` |
+| `membership_appeal_shown` / `membership_appeal_clicked` | A member-support ask half in view / its button clicked (**built**: `components/Analytics/AppealWatch` on the membership appeal and the Support section) | `appeal_kind` (membership, support), `surface` (story, home, section) |
+| `conversion_started` | The Give page's button to the donation form (**built**, in `DonateCard`) | `surface` (give_page), `frequency`; never the amount |
 | `gift_completed` | **Server-side, verified** | `attribution_code`, `level`; no donor identity |
 | `feed_activated` | A member added a private feed in a podcast app or the site | `show_id` |
 | `account_created` | A public account was created | `method` |
@@ -94,14 +97,58 @@ filtered before delivery is counted; the filter's rules are versioned with each 
 
 ## Consent
 
-Categories: *necessary* (always on; no analytics), *measurement* (events above), *personalization* (relationship
-states), and *counting* (below). The default for the chosen categories is off. Consent is stored per browser, revocable, and honoured by
-the adapter before any vendor code loads. A signed-in person can export and delete their data.
+Categories: *necessary* (always on; no analytics), *measurement* (PostHog and the events above), *personalization* (relationship states;
+nothing uses it yet, so it stays off and is not offered), and *counting* (below).
+
+**Measurement is on until the visitor turns it off** (owner, 2026-11-26: "build the best thing for our purposes"; PostHog is not stripped down,
+so cookies, IP-based location, autocapture and session replay stay on). `effectiveConsent` (`lib/analytics/consent.ts`): a recorded choice
+always wins; with none, measurement is on, unless the browser sends **Global Privacy Control**, which starts it off. The choice is stored per
+browser in localStorage (`wuwf-consent`, `lib/analytics/consent-store.ts`; never a cookie, never the server, so pages stay cached), and can be
+changed at any time.
+
+- **The notice** (`components/ConsentBanner`): a bar at the foot of the window while no choice is recorded, with what is measured, a link to
+  the privacy page (the footer's legal link whose label names privacy, `Footer/privacy.ts`), and Accept, Decline and Settings. It never
+  blocks the page. It is not the Site banner global and shares nothing with it. Its words are `lib/analytics/notice.ts`.
+- **Privacy settings**: a dialog with an Analytics switch and a description of what is always on; opened from the notice and from "Privacy
+  settings" in every page's footer (coded, so an editor cannot drop it).
+- **Declining** stops PostHog at once (no more events, recording stopped, opted out) and removes the cookies and storage it wrote.
+- With no PostHog token on a deployment, neither the notice nor the footer link is drawn: there is nothing to choose about.
+- A signed-in person can export and delete their data (PostHog's person, found by their account id; not yet a self-service screen).
 
 **Counting needs no choice, provisionally** (owner, 2026-11-25: "assume no consent for now"). Only the three sponsor placement events are in
-it. They set no cookie and store no identifier, no address and no page: each one adds one to a daily total per placement and is gone. **Open
-for counsel:** whether that may run without consent. If counsel says no, `categoryOf` in `src/lib/analytics/consent.ts` puts them under
-measurement and they wait for the banner; nothing else changes. Every other event stays behind a choice.
+it. They set no cookie and store no identifier, no address and no page: each one adds one to a daily total per placement and is gone. A
+decline does not stop them. **Open for counsel:** whether that may run without consent. If counsel says no, `categoryOf` in
+`src/lib/analytics/consent.ts` puts them under measurement; nothing else changes.
+
+**Open: the university's privacy review and the UWF IT-04 notice** have not seen this wording or the opt-out model. The wording is in one
+file (`lib/analytics/notice.ts`) so it can change in one commit when they have; `PRIVACY_PAGE_PARAGRAPHS` there is the text for the privacy
+page in the admin.
+
+## PostHog
+
+The product-analytics destination (owner, 2026-11-26), **PostHog US Cloud**, in `lib/analytics/posthog.ts`, the only file that imports
+`posthog-js` (pinned). Components never call it: the site's own events go through `analytics.track`, and `routingSink` (`dispatch.ts`) sends
+each event to one destination, **placements to the counter only, never to PostHog**, everything else to PostHog.
+
+- **What it measures on its own:** page views on every address change and page leave (`defaults: '2026-08-30'`, a date so an SDK update
+  changes nothing without a commit), the referrer and campaign parameters, device, browser and approximate location (from the IP address
+  PostHog receives; "discard client IP" is a project setting, left off), clicks on links and buttons (autocapture, rage clicks), script
+  errors (`capture_exceptions`), and **session replays** with every typed value masked (`maskAllInputs`) and the text of anything under
+  `data-ph-mask` masked: the listening screens (`QuestionSet`, Ask WUWF, everything under `/listens`) and the account pages (`/account`).
+  Web vitals follow the project's setting.
+- **Loaded only while measurement is on**, lazily (`import('posthog-js')`), from a client component in the root layout (`ConsentBanner`
+  calls `posthog.start()`); it follows the choice from then on. Events sent while it loads are held (at most 50).
+- **First party:** the browser talks only to this site, under `/relay` (`lib/analytics/posthog-config.ts`; a reserved first segment), and
+  `next.config.ts` rewrites pass it to PostHog (assets to `us-assets.i.posthog.com`, the rest to `us.i.posthog.com`). PostHog's API paths end
+  in a slash, so Next's own trailing-slash redirect is off (`skipTrailingSlashRedirect`) and `redirects.ts` does the same redirect for every
+  address but the relay's (`trailingSlashRedirect`). This traffic, replays above all, counts toward Vercel's data transfer; PostHog's free
+  managed reverse proxy (a wuwf.org subdomain by DNS) is the change if that grows, and only `api_host` would change.
+- **People:** anonymous visitors have no person profile (`person_profiles: 'identified_only'`). A reader's account page identifies the
+  browser by their Supabase user id (`components/Analytics/ReaderIdentity`), the explicit sign-in "Anonymous stays anonymous" asks for, never
+  an email, member or donor id; signing out resets it.
+- **Environments:** every event carries `environment` (`NEXT_PUBLIC_VERCEL_ENV`). Use a separate PostHog project for staging, or filter on it.
+- **Set up in PostHog (the owner):** the project token in Vercel (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`), session replay on, the authorized
+  domains, and the IP setting.
 
 ## The placement counter
 
@@ -129,13 +176,12 @@ measurement and they wait for the banner; nothing else changes. Every other even
    their record ids; `components/Placements/Tracked`.
 2. **Built (2026-11-25):** the placement counter (above): the sink, the route and filter, `placement_counts`, the Delivery panel and the
    sponsor's export. Counting runs without a consent choice until counsel answers.
-3. **Next:** ask counsel the counting question. Watch the first weeks of staging and production counts against the pages' traffic, and
-   tighten the filter (a new `FILTER_VERSION`) if automated traffic shows through.
-4. **Consent** for everything else: the visitor's choice (a banner and a settings link), stored per browser, read by the dispatcher; the
-   wording through the university's privacy review and the UWF IT-04 notice.
-5. **The rest of the taxonomy** (content views and engagement, listening steps, newsletter signup, membership appeals, acknowledgment shown),
-   each added to `events.ts` when something emits it, behind consent, and **a product-analytics vendor** behind the same adapter if staff want
-   one (PostHog the candidate, after evaluating it against the privacy and hosting constraints). It is a second destination, never the source
-   of sponsor figures.
+3. **Built (2026-11-26):** the notice and privacy settings (opt-out, Global Privacy Control honoured), PostHog behind the same adapter with
+   its relay, and the listening, content and giving events.
+4. **Next:** ask counsel the counting question, and take the notice's wording and the opt-out model through the university's privacy
+   review and the UWF IT-04 notice. Put the privacy-page paragraphs (`lib/analytics/notice.ts`) on the privacy page. Watch the first weeks of
+   counts against PostHog's page views, and tighten the counter's filter (a new `FILTER_VERSION`) if automated traffic shows through.
+5. **The rest of the taxonomy** (newsletter signup, event registration, listening steps, follows and saves, acknowledgment shown, video
+   progress), each added to `events.ts` when something emits it.
 6. **The Portal's proof of performance:** a signed contract for the Portal to read a placement's daily totals, designed with the Portal's
    booking work.

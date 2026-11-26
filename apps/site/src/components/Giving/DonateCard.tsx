@@ -2,6 +2,8 @@
 
 import React, { useId, useState } from 'react'
 
+import { countsAsClick } from '@/components/Placements/Tracked'
+import { analytics } from '@/lib/analytics/dispatch'
 import type { DonateFrequency } from '@/lib/giving/donate'
 import { cn } from '@/utilities/ui'
 
@@ -26,6 +28,10 @@ export const DonateCard: React.FC<{
 
   const current = frequencies.find((f) => f.key === frequency) ?? frequencies[0]!
   const option = current.options.find((o) => o.key === chosen[current.key]) ?? current.options[0]!
+  const onGiveClick = (e: React.MouseEvent) => {
+    if (!countsAsClick({ type: e.type, button: e.button, trusted: e.nativeEvent.isTrusted, onLink: Boolean((e.target as Element).closest?.('a')) })) return
+    analytics.track({ name: 'conversion_started', surface: 'give_page', frequency: current.key })
+  }
   const focus = 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-wuwf-blue-700'
 
   return (
@@ -67,7 +73,17 @@ export const DonateCard: React.FC<{
         <CheckList items={option.benefits} className="text-sm" />
       </div>
 
-      {option.href ? <ButtonLink className="min-h-[3.25rem] w-full text-[1.0625rem]" href={option.href} label={option.cta} /> : unavailable}
+      {option.href ? (
+        // The click through to the donation form is `conversion_started`, with how often (never the amount: the gift is the form's).
+        <div
+          onAuxClick={onGiveClick}
+          onClick={onGiveClick}
+        >
+          <ButtonLink className="min-h-[3.25rem] w-full text-[1.0625rem]" href={option.href} label={option.cta} />
+        </div>
+      ) : (
+        unavailable
+      )}
       {option.href && note && <p className="text-center text-[0.8125rem] text-ink-3">{note}</p>}
     </div>
   )

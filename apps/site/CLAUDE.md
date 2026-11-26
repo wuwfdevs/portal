@@ -173,7 +173,7 @@ Portal only as a keyed, per-day hash.
 Collect the minimum. Analytics are consent-aware; never put raw user text or audio in analytics or logs;
 sponsors receive aggregates, never personal data. **The sponsor placement counts run without a consent choice, provisionally** (owner,
 2026-11-25, until counsel answers; `ANALYTICS.md`, "Consent"): they set no cookie and keep no identifier, address or page, only daily totals
-per placement. Nothing else may join that category; anything that identifies a visitor or a visit needs a choice. Public pages that collect information carry the UWF IT-04
+per placement. Nothing else may join that category. **Product analytics (PostHog) is on until the visitor declines** (owner, 2026-11-26, replacing "anything that identifies a visitor or a visit needs a choice"): a notice with Accept, Decline and Settings, "Privacy settings" in every page's footer, Global Privacy Control starts it off, a recorded choice always wins, and declining stops it at once and removes what it stored (`ANALYTICS.md`, "Consent" and "PostHog"). Replays mask every typed value and any text under `data-ph-mask`; a screen that shows what a reader typed or holds (listening answers, account details) carries `data-ph-mask`. The notice's wording (`lib/analytics/notice.ts`) has not yet been through the university's privacy review. Public pages that collect information carry the UWF IT-04
 policy notice. Service-role credentials stay server-side; privileged Local API operations enforce
 authorization themselves rather than relying on RLS.
 
@@ -306,7 +306,7 @@ Run typecheck, lint and tests before calling a change done.
 - Colours, type and spacing come from `@wuwf/design-tokens`; no one-off hex values or pixel sizes.
 - Accessible by default: real buttons and links, labelled controls, 16px minimum on any focusable text
   field on a phone, touch targets of at least 44px, text contrast of at least 4.5:1.
-- **Every analytics event goes through `analytics.track` (`lib/analytics/dispatch.ts`)**, never a vendor's code in a component. An event is
+- **Every analytics event goes through `analytics.track` (`lib/analytics/dispatch.ts`)**, never a vendor's code in a component. **`lib/analytics/posthog.ts` is the only file that imports `posthog-js`**; placement events never go to PostHog (`routingSink`), and PostHog is reached only through this site's `/relay` (`lib/analytics/posthog-config.ts`). An event is
   defined in `lib/analytics/events.ts` and passes `parseEvent` (ids and fixed words only; unknown or extra fields are refused), is held to the
   visitor's choice (`consent.ts`), and tracking never throws or delays what the page does. A sponsor placement is watched by
   `components/Placements/Tracked`, its card's own outer element; do not add tracking to a tile any other way. **`placement_counts` is touched

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { PrivacySettingsButton } from '@/components/ConsentBanner/PrivacySettingsButton'
 import { CMSLink } from '@/components/Link'
 import { Logo } from '@/components/Logo/Logo'
 import { getCachedGlobal } from '@/utilities/getGlobals'
@@ -52,22 +53,22 @@ export async function Footer() {
             <p>© {new Date().getFullYear()} WUWF Public Media</p>
             {publicFile?.url && publicFile.accessibilityContact && <p className="max-w-xl">{publicFile.accessibilityContact}</p>}
           </div>
-          {(legal.length > 0 || publicFile?.url) && (
-            <ul className="flex flex-wrap gap-x-5">
-              {publicFile?.url && (
-                <li>
-                  <a className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" href={publicFile.url}>
-                    {publicFile.label || 'FCC Public File'}
-                  </a>
-                </li>
-              )}
-              {legal.map(({ link, id }) => (
-                <li key={id ?? link.label}>
-                  <CMSLink className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" {...link} />
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="flex flex-wrap gap-x-5">
+            {publicFile?.url && (
+              <li>
+                <a className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" href={publicFile.url}>
+                  {publicFile.label || 'FCC Public File'}
+                </a>
+              </li>
+            )}
+            {legal.map(({ link, id }) => (
+              <li key={id ?? link.label}>
+                <CMSLink className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" {...link} />
+              </li>
+            ))}
+            {/* Coded, so an editor cannot drop it from the row. It draws nothing when the site has no analytics to choose about. */}
+            <PrivacySettingsButton className="inline-flex min-h-11 items-center text-surface-dark-text hover:text-surface" />
+          </ul>
         </div>
       </div>
     </footer>

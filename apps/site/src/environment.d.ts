@@ -5,6 +5,8 @@ declare global {
       DATABASE_URL: string
       NEXT_PUBLIC_SERVER_URL: string
       VERCEL_PROJECT_PRODUCTION_URL: string
+      /** PostHog's project token (public). Unset: no product analytics, no consent notice. */
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?: string
     }
   }
 }

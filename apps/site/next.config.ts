@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 import { redirects } from './redirects'
+import { posthogRewrites } from './src/lib/analytics/posthog-config'
 
 const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
@@ -52,6 +53,11 @@ const nextConfig: NextConfig = {
   },
   // A trailing slash redirects (308) to the path without one: the canonical address is the path itself.
   trailingSlash: false,
+  // PostHog's API paths end in a slash, so Next's own trailing-slash redirect is off and `redirects.ts` does it for every other address
+  // (`trailingSlashRedirect`, `lib/analytics/posthog-config.ts`).
+  skipTrailingSlashRedirect: true,
+  // PostHog through this site's own address (`RELAY_PATH`): the browser never talks to PostHog's hosts.
+  rewrites: async () => posthogRewrites(),
   reactStrictMode: true,
   // The community-calendar form can carry a picture of up to 4 MB (and the platform refuses a request over 4.5 MB anyway).
   experimental: { serverActions: { bodySizeLimit: '5mb' } },

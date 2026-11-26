@@ -5,6 +5,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { LiveChannel } from '@/lib/live/channels'
 import { clampSeek, type Track } from '@/lib/player/track'
 
+import { useListenAnalytics } from './useListenAnalytics'
+
 /**
  * The site's one player (board 26). One <audio> element for the whole site, in the layout, so it keeps playing as the reader
  * moves between pages. It plays two kinds of thing, one at a time: a live stream (a channel) or a piece of on-demand audio (a
@@ -90,6 +92,9 @@ export const PlayerProvider: React.FC<{ channels: LiveChannel[]; children: React
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
   const current = channels.find((c) => c.key === key) ?? channels[0] ?? null
+
+  // Listening events (listen started and stopped, on-demand quarter marks): read from what the player shows, never changing it.
+  useListenAnalytics({ mode, channelKey: current?.key ?? null, trackId: track?.id ?? null, status, position, duration })
 
   // The media events fire outside React's render, so they read the latest mode here rather than a stale closure.
   const modeRef = useRef<PlayerMode>('live')

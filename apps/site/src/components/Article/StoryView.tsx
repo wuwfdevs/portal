@@ -213,7 +213,7 @@ export async function StoryView({ post, draft, url }: { post: Post; draft: boole
           {byline.map((c) => (
             <AuthorBox contributor={c} key={c.id} photo={bylinePhotos.get(c.id)} />
           ))}
-          <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} />
+          <MembershipAppeal appeal={membershipAppealOf(sharedText?.membershipAppeal)} surface="story" />
         </div>
       </div>
 

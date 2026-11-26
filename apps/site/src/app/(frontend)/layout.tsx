@@ -5,9 +5,11 @@ import React from 'react'
 
 import { AdminBar } from '@/components/AdminBar'
 import { Banner } from '@/components/Banner'
+import { ConsentBanner } from '@/components/ConsentBanner'
 import { PlayerBar } from '@/components/ListenLive/PlayerBar'
 import { PlayerProvider } from '@/components/ListenLive/PlayerProvider'
 import { Footer } from '@/Footer/Component'
+import { privacyHrefOf } from '@/Footer/privacy'
 import { Header } from '@/Header/Component'
 import { bannerFor } from '@/lib/banner'
 import { loadBanner } from '@/lib/banner/load'
@@ -55,6 +57,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // A banner set for every page (the Site banner global), through the cached global; if it cannot be read the page renders without it.
   const banner = bannerFor(await loadBanner(), 'layout')
+  // The privacy notice's address for the analytics notice, from the footer's legal links (the same cached read the footer makes).
+  const privacyHref = await getCachedGlobal('footer', 1)()
+    .then((footer) => privacyHrefOf(footer?.navItems))
+    .catch(() => null)
 
   return (
     <html className={cn(sourceSans.variable, sourceSerif.variable)} lang="en">
@@ -78,6 +84,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </main>
           <Footer />
           <PlayerBar />
+          <ConsentBanner privacyHref={privacyHref} />
         </PlayerProvider>
       </body>
     </html>

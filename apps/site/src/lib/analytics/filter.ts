@@ -7,7 +7,7 @@
 // other sites, malformed or oversized posts, repeats within one post). What it does not do yet, and the report says so: data-center address
 // ranges and rate limits, which need the address, and the address is never kept.
 
-import { parseEvent, type PlacementEvent } from './events'
+import { parsePlacementEvent, type PlacementEvent } from './events'
 
 export const FILTER_VERSION = '2026-11-25.1'
 export const MAX_EVENTS = 20
@@ -65,7 +65,7 @@ export function acceptedEvents(input: CollectInput): PlacementEvent[] {
   const seen = new Set<string>()
   const out: PlacementEvent[] = []
   for (const item of list) {
-    const event = parseEvent(item)
+    const event = parsePlacementEvent(item)
     if (!event) continue
     const key = `${event.name}|${event.placement_id}`
     if (seen.has(key)) continue

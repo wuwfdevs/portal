@@ -13,6 +13,7 @@ import { podcastAppLinks } from '@/lib/members/feeds'
 import { siteOrigin } from '@/lib/audience/origin'
 import { derivedSecret } from '@/lib/audience/secret'
 import { CopyFeedLink } from '@/components/Account/CopyFeedLink'
+import { ReaderIdentity, SignOutForm } from '@/components/Analytics/ReaderIdentity'
 
 import { resetFeed, signOut } from './actions'
 
@@ -128,11 +129,12 @@ export default async function AccountPage({ searchParams }: Args) {
         </section>
       )}
 
-      <form action={signOut}>
+      <SignOutForm action={signOut}>
         <button className="inline-flex min-h-12 items-center rounded-sm border border-rule-strong px-6 text-base font-bold text-ink hover:bg-surface-2" type="submit">
           Sign out
         </button>
-      </form>
+      </SignOutForm>
+      <ReaderIdentity userId={user.id} />
     </main>
   )
 }

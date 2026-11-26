@@ -3,6 +3,7 @@ import React from 'react'
 
 import type { Contributor, Media as MediaDoc } from '@/payload-types'
 
+import { AppealWatch } from '@/components/Analytics/AppealWatch'
 import { CtaCard } from '@/components/Kit'
 import { Media } from '@/components/Media'
 import { initialsOf } from '@/lib/format'
@@ -81,11 +82,14 @@ export const AuthorBox: React.FC<{ contributor: Contributor; photo?: MediaDoc | 
  * The membership appeal. Its words are the Shared text global's (`membershipAppealOf`); with none, it is not drawn. It is the site's call-to-action card (`Kit/CtaCard`), the same one Support and
  * Closing band draw, as wide as the place it sits in. It sets its own page theme because a story page has none, and the card's tone rules are written under one.
  */
-export const MembershipAppeal: React.FC<{ appeal: MembershipAppealWords | null }> = ({ appeal }) => {
+export const MembershipAppeal: React.FC<{ appeal: MembershipAppealWords | null; surface: 'story' | 'home' }> = ({ appeal, surface }) => {
   if (!appeal) return null
   return (
     <aside aria-label="Support WUWF" data-page-theme="wuwf">
-      <CtaCard actions={appeal.button ? [appeal.button] : []} as="p" size="md" title={appeal.text} tone="plain" />
+      {/* Reports that the appeal was seen and clicked (`membership_appeal_shown` / `_clicked`). */}
+      <AppealWatch kind="membership" surface={surface}>
+        <CtaCard actions={appeal.button ? [appeal.button] : []} as="p" size="md" title={appeal.text} tone="plain" />
+      </AppealWatch>
     </aside>
   )
 }

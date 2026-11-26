@@ -12,6 +12,8 @@ import { PageView } from '@/components/PageView'
 import { EventView } from '@/components/Events/EventView'
 import { PayloadRedirects } from '@/components/PayloadRedirects'
 import { ShowView } from '@/components/Show/ShowView'
+import { ContentSeen } from '@/components/Analytics/ContentSeen'
+import { showContentRef, storyContentRef } from '@/lib/analytics/engagement'
 import { ThemedListView } from '@/components/Show/themed/ThemedListView'
 import { ThemedShowView } from '@/components/Show/themed/ThemedShowView'
 import { ThemedSupportView } from '@/components/Show/themed/ThemedSupportView'
@@ -128,7 +130,14 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
 
   // Nothing owns this path: a redirect an editor made for it, or a real 404.
   if (result.kind === 'miss') return <PayloadRedirects url={result.url} />
-  if (result.kind === 'post') return <StoryView draft={draft} post={result.doc} url={result.url} />
+  // A story, an episode or a show page reports that it was viewed and read (`ContentSeen`); a draft preview does not.
+  if (result.kind === 'post')
+    return (
+      <>
+        {!draft && <ContentSeen content={storyContentRef(result.doc)} />}
+        <StoryView draft={draft} post={result.doc} url={result.url} />
+      </>
+    )
   if (result.kind === 'list') {
     const { kind, targetId } = result.data
     // Short videos on a section's first page: the clips whose story is filed in it. A failed read leaves the strip out, never the page.
@@ -146,9 +155,24 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
       </>
     )
   }
-  if (result.kind === 'show-home') return <SectionsPageView draft={draft} page={result.doc as unknown as SectionsPageData} url={result.url} />
+  if (result.kind === 'show-home') {
+    const show = result.doc.show
+    const showId = typeof show === 'object' && show ? show.id : show
+    return (
+      <>
+        {!draft && showId != null && <ContentSeen content={showContentRef({ id: showId })} />}
+        <SectionsPageView draft={draft} page={result.doc as unknown as SectionsPageData} url={result.url} />
+      </>
+    )
+  }
   if (result.kind === 'event') return <EventView data={result.data} />
-  if (result.kind === 'themed-show') return <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
+  if (result.kind === 'themed-show')
+    return (
+      <>
+        <ContentSeen content={showContentRef(result.data.show)} />
+        <ThemedShowView data={result.data} independenceHref={await independenceHrefOf()} />
+      </>
+    )
   if (result.kind === 'themed-subpage') {
     if (result.subpage === 'support') return <ThemedSupportView data={result.data} levels={await loadStationLevels()} membersLevel={await loadMembersListeningLevel()} />
     return <ThemedListView data={result.data} list={result.subpage} />
@@ -156,7 +180,12 @@ export default async function CatchAllPage({ params: paramsPromise }: Args) {
   if (result.kind === 'show') {
     const settings = await getCachedGlobal('site-settings', 1)()
     const policy = settings?.independencePolicy && typeof settings.independencePolicy === 'object' ? settings.independencePolicy : null
-    return <ShowView data={result.data} independenceHref={policy?.slug ? `/${policy.slug}` : null} />
+    return (
+      <>
+        <ContentSeen content={showContentRef(result.data.show)} />
+        <ShowView data={result.data} independenceHref={policy?.slug ? `/${policy.slug}` : null} />
+      </>
+    )
   }
   return <PageView draft={draft} page={result.doc as Page} url={result.url} />
 }
