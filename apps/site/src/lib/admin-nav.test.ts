@@ -48,7 +48,7 @@ describe('the admin sidebar tree', () => {
   it('answers which heading a collection is under, whatever its depth', () => {
     expect(topGroupOf('collection', 'performances')).toBe('Events')
     expect(topGroupOf('collection', 'events')).toBe('Events')
-    expect(topGroupOf('collection', 'users')).toBe('Audience')
+    expect(topGroupOf('collection', 'users')).toBe('System')
     expect(topGroupOf('global', 'sponsorship-settings')).toBe('Sponsorship')
     expect(topGroupOf('global', 'giving-settings')).toBe('Audience')
     expect(topGroupOf('collection', 'nope')).toBeNull()
@@ -57,7 +57,7 @@ describe('the admin sidebar tree', () => {
 
 describe('pruneNav', () => {
   it('drops links a person cannot read and the headings left empty', () => {
-    const staffOnly = new Set(['audience', 'users', 'audience-profiles', 'memberships', 'member-feeds', 'giving-settings'])
+    const staffOnly = new Set(['audience', 'audience-profiles', 'memberships', 'member-feeds', 'giving-settings'])
     const pruned = pruneNav(ADMIN_NAV, (_k, slug) => !staffOnly.has(slug))
     expect(pruned.map((g) => g.label)).not.toContain('Audience')
     expect(pruned.map((g) => g.label)).toContain('Stories')

@@ -43,7 +43,7 @@ describe('admin navigation', async () => {
       const entity = (e.kind === 'collection' ? collections : globals).find((x) => x.slug === e.slug)!
       expect(entity.admin?.group, e.slug).toBe(e.group)
     }
-    expect(topGroupOf('collection', 'users')).toBe('Audience')
+    expect(topGroupOf('collection', 'users')).toBe('System')
   })
 
   it('has no coded-page global left in the Pages group: the three hubs are pages now, and their retired globals are hidden', () => {
@@ -53,10 +53,10 @@ describe('admin navigation', async () => {
     }
   })
 
-  it('keeps pictures, audio and video together, and the plugins\' collections under System', () => {
+  it('keeps pictures, audio and video together, and staff accounts with the plugins\' collections under System', () => {
     const under = (heading: string) => navEntries().filter((e) => e.group === heading).map((e) => e.slug)
     expect(under('Media library')).toEqual(['media', 'audio', 'video'])
-    expect(under('System')).toEqual(['redirects', 'forms', 'form-submissions', 'search'])
+    expect(under('System')).toEqual(['users', 'redirects', 'forms', 'form-submissions', 'search'])
   })
 
   it('lists the collections and globals in the tree\'s order, which is how Payload orders its dashboard', () => {

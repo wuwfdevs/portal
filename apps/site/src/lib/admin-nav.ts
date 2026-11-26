@@ -76,15 +76,15 @@ export const ADMIN_NAV: readonly NavGroup[] = [
     items: [c('sponsors'), c('placement-items'), c('underwriting-agreements'), g('sponsorship-settings')],
   },
   {
-    // Staff and readers are different identities and different collections (CLAUDE.md, "Boundaries"); only the sidebar puts them side by side.
     // "Audience" (owner, 2026-11-26; was "Members & accounts"): Analytics, how readers and listeners use the site, from PostHog
-    // (`components/admin/AudienceReport`, `ANALYTICS.md`, "The Audience screen"), first; then the accounts and memberships.
+    // (`components/admin/AudienceReport`, `ANALYTICS.md`, "The Audience screen"), first; then readers' accounts and memberships. Staff
+    // accounts are the CMS's own users, so they sit under System (owner, 2026-11-26).
     label: 'Audience',
-    items: [v('audience', 'Analytics', '/audience'), c('users'), c('audience-profiles'), c('memberships'), c('member-feeds'), g('giving-settings')],
+    items: [v('audience', 'Analytics', '/audience'), c('audience-profiles'), c('memberships'), c('member-feeds'), g('giving-settings')],
   },
   {
     label: 'System',
-    items: [c('redirects'), c('forms'), c('form-submissions'), c('search')],
+    items: [c('users'), c('redirects'), c('forms'), c('form-submissions'), c('search')],
   },
   {
     // Last, and the only heading made of globals alone: Payload's dashboard lists every collection's group before any global-only group,
