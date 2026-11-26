@@ -424,10 +424,11 @@ exports, and both ends of the signing secret must match exactly. The staff sign-
 sends a signed identity token to that address.
 
 
-## 13. Proposal: the query is the core record (2026-11-26) — NOT YET DECIDED, NOT BUILT
+## 13. The query is the core record (2026-11-26) — ACCEPTED, being built
 
-Status: **a proposal for the owner to accept or change.** Nothing in §1 to §12 is changed until it is accepted; the sections above describe what is built. If
-accepted, it supersedes the campaign layer of §2 and the tag vocabulary, and the build is a migration plus the screens and messages named below.
+Status: **accepted by the owner, 2026-11-26; build in progress.** It supersedes the campaign layer of §2 and the tag vocabulary; §1 to §12 describe what
+was built before and are read with this section on top. Nothing is in production, so the build is done the right way, with no compatibility layer, no aliases and
+no backfill: the campaign tables are dropped and the contract changes in one step.
 
 ### 13.1 Why
 
@@ -501,19 +502,19 @@ Themes are discovered by Sourcework, so a vocabulary chosen before anyone has li
 - **Keep report themes** (`al_reports.themes`): they are filled from Sourcework's Synthesis after the fact and edited by a person, which is discovery, not a
   vocabulary.
 
-### 13.8 Open items
+### 13.8 Decisions on the open items (owner, 2026-11-26)
 
-1. **A host request with no query:** require one, or keep a general door staff pair with a query afterwards (`query_id` nullable). Recommended: require one.
-2. **Does an individual's answer play the standard opening too,** or only a table's recording?
-3. **Existing data.** Whether production has live campaigns, events or recordings decides how careful the backfill is (campaign → query, `campaign_id` →
-   `query_id`, a campaign without a query gets one made from its question set). Not yet checked against either Supabase project.
-4. **Contract.** `hub`, `report`, `event` and the conversation messages carry campaign fields in `packages/portal-contracts/src/listening.ts`. They stay as additive
-   aliases for one version so the site keeps working during the cutover, then are removed in a versioned bump.
+1. **No general door.** A host request is made on a query and carries `query_id`, which is required. There is no "host something" request without one.
+2. **An individual's answer does not play the standard opening.** Only a table's recording does; an individual's consent stays the checkbox in the flow.
+3. **Nothing is in production**, so there is no backfill and no data to carry: the migration drops the campaign tables outright and builds the new shape. The
+   ledger rule still applies (applied to both Portal projects, verified, recorded in `APPLIED.md`).
+4. **Contract.** No aliases. The campaign fields in `packages/portal-contracts/src/listening.ts` are removed and replaced in one versioned change, with the site
+   moved in the same series of commits.
 
-### 13.9 Build order if accepted
+### 13.9 Build order
 
 1. **Migration** (ledger, both projects, with the Resources release note): add the query's columns, events' `query_id` and `planned_minutes`, the host-request
-   `query_id`, the standard-opening table and the marks' note; backfill; then drop the campaign tables and the tag column.
+   `query_id`, the standard-opening table and the marks' note; drop the campaign tables and the tag column; rewrite the functions and policies that named them.
 2. **Portal pure logic and tests:** suggested-time computation, the span rule on the query, the hosting setting.
 3. **Staff screens:** the query gains Events, Report and Hosting tabs; the Campaigns screens go; the standard-opening page sits beside Consent wording.
-4. **Contract and site:** additive fields first, the site moved over, then the aliases removed.
+4. **Contract and site:** the contract changed once, the site moved over with it.
