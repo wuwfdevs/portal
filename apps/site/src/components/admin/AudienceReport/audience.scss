@@ -138,6 +138,8 @@
     span {
       flex: 1 1 0;
       min-width: 2px;
+      // A short range (a day or two of data) keeps bars bar-shaped instead of one block across the panel.
+      max-width: 2.5rem;
       border-radius: 2px 2px 0 0;
       background: var(--theme-success-500);
     }
