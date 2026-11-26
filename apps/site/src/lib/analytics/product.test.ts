@@ -8,7 +8,7 @@ import { createDispatcher, routingSink, type AnalyticsSink } from './dispatch'
 import { isRead, scrollDepth, showContentRef, storyContentRef } from './engagement'
 import { parseEvent, parsePlacementEvent, type AnalyticsEvent } from './events'
 import { listenRefOf, listenSeconds, marksReached, sameListen } from './listening'
-import { cookieDomains, createPostHogDestination, isPostHogStorageName, postHogCookieNames, type PostHogClient } from './posthog'
+import { cookieDomains, createPostHogDestination, isPostHogStorageName, postHogCookieNames, posthogOptions, redactEvent, redactText, type PostHogClient } from './posthog'
 import { posthogRewrites, RELAY_PATH, trailingSlashRedirect } from './posthog-config'
 
 const placement: AnalyticsEvent = { name: 'sponsor_placement_viewable', placement_id: '12', sponsor_id: '3', zone: 'story.inline', kind: 'sponsor' } as AnalyticsEvent
@@ -176,9 +176,42 @@ describe('the PostHog destination', () => {
     expect(off.calls).not.toContain('identify:user-2')
   })
   it('finds what PostHog stored by name, on the host and its parents', () => {
-    expect(postHogCookieNames('wuwf-consent=1; ph_phc_x_posthog=abc; other=2; __ph_opt_in_out_phc_x=0')).toEqual(['ph_phc_x_posthog', '__ph_opt_in_out_phc_x'])
+    // Its opt-out marker stays: PostHog reads it to keep capture off for the rest of the page after a decline.
+    expect(postHogCookieNames('wuwf-consent=1; ph_phc_x_posthog=abc; other=2; __ph_opt_in_out_phc_x=0')).toEqual(['ph_phc_x_posthog'])
+    expect(isPostHogStorageName('__ph_opt_in_out_phc_x')).toBe(false)
     expect(isPostHogStorageName('graph_x')).toBe(false)
     expect(cookieDomains('www.wuwf.org')).toEqual(['www.wuwf.org', 'wuwf.org'])
+  })
+})
+
+describe('secrets in addresses', () => {
+  it('redacts a claim token, a sign-in return address and a table token, and leaves other addresses alone', () => {
+    expect(redactText('https://wuwf.org/account/claim?token=abc123&x=1')).toBe('https://wuwf.org/account/claim?token=redacted&x=1')
+    expect(redactText('/account/sign-in?next=%2Faccount%2Fclaim%3Ftoken%3Dabc')).toBe('/account/sign-in?next=redacted')
+    expect(redactText('https://wuwf.org/listens/table/Kq9zT2/after')).toBe('https://wuwf.org/listens/table/redacted/after')
+    expect(redactText('https://wuwf.org/news/2026-11-26/story?utm_source=x')).toBe('https://wuwf.org/news/2026-11-26/story?utm_source=x')
+  })
+  it('redacts every address PostHog would send: URL properties, autocapture links, person properties and replay data', () => {
+    const out = redactEvent({
+      uuid: 'u',
+      event: '$autocapture',
+      properties: {
+        $current_url: 'https://wuwf.org/account/claim?token=abc',
+        $referrer: 'https://mail.example/?next=/account/claim?token=abc',
+        $elements: [{ attr__href: '/account/sign-in?next=%2Faccount%2Fclaim%3Ftoken%3Dabc', tag_name: 'a' }],
+        $snapshot_data: [{ type: 4, data: { href: 'https://wuwf.org/listens/table/Kq9zT2' } }],
+      },
+      $set_once: { $initial_current_url: 'https://wuwf.org/account/claim?token=abc' },
+    } as never)!
+    const text = JSON.stringify(out)
+    expect(text).not.toContain('abc')
+    expect(text).not.toContain('Kq9zT2')
+    expect(out.event).toBe('$autocapture')
+  })
+  it('is PostHog\'s before_send', () => {
+    const options = posthogOptions('test')
+    expect(options.before_send).toBeTypeOf('function')
+    expect(redactEvent(null)).toBeNull()
   })
 })
 

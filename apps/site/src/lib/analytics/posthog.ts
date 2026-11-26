@@ -8,7 +8,7 @@
 // off, removes the cookies and storage it wrote, and starts again if it is turned back on. Nothing here throws or delays the page: a failed
 // load leaves the site exactly as it was.
 
-import type { PostHog, PostHogConfig } from 'posthog-js'
+import type { CaptureResult, PostHog, PostHogConfig } from 'posthog-js'
 
 import type { ChosenCategory } from './consent'
 import type { AnalyticsSink } from './dispatch'
@@ -40,14 +40,56 @@ export function posthogOptions(environment: string): Partial<PostHogConfig> {
     autocapture: true,
     capture_exceptions: true,
     session_recording: { maskAllInputs: true, maskTextSelector: MASK_SELECTOR },
+    // Addresses that carry a secret (a membership claim link, a listening table's link) never reach PostHog: every event, replay snapshots
+    // included, is passed through `redactEvent` before it is sent.
+    before_send: (event) => redactEvent(event),
     loaded: (ph) => {
       ph.register({ environment })
     },
   }
 }
 
-/** Names PostHog writes to cookies and storage: `ph_<token>_posthog`, `__ph_opt_in_out_<token>` and the like. Pure. */
-export const isPostHogStorageName = (name: string): boolean => /(^|_)ph_/.test(name)
+/**
+ * Addresses whose parts are secrets: a membership claim's `?token=`, a sign-in page's `?next=` (which can hold a claim link), and the token
+ * in a listening table's address (`/listens/table/<token>`). Possession of a claim token attaches a membership to an account
+ * (`lib/members/claim.ts`), so it must never sit in an analytics property, a link's address in autocapture or a replay's page address.
+ */
+const SECRET_QUERY = /([?&](?:token|next)=)[^&#\s"']*/gi
+const SECRET_PATH = /(\/listens\/table\/)[^/?#\s"']+/gi
+export const REDACTED = 'redacted'
+
+/** The text with every secret part of an address in it replaced. Pure. */
+export function redactText(text: string): string {
+  if (!/(token|next)=|\/listens\/table\//i.test(text)) return text
+  return text.replace(SECRET_QUERY, `$1${REDACTED}`).replace(SECRET_PATH, `$1${REDACTED}`)
+}
+
+/** A copy of a value with `redactText` applied to every string in it, however deep (properties, `$set`, autocapture's elements, replay data). */
+export function redactValue<T>(value: T, depth = 0): T {
+  if (typeof value === 'string') return redactText(value) as T
+  if (depth > 40 || value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map((v) => redactValue(v, depth + 1)) as T
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = redactValue(v, depth + 1)
+  return out as T
+}
+
+/** PostHog's `before_send`: the event with secrets in addresses redacted. Never drops an event, and never throws (a failure drops it). */
+export function redactEvent(event: CaptureResult | null): CaptureResult | null {
+  if (!event) return event
+  try {
+    return { ...event, properties: redactValue(event.properties), $set: redactValue(event.$set), $set_once: redactValue(event.$set_once) }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Names PostHog writes to cookies and storage (`ph_<token>_posthog` and the like), which a decline removes. Not its opt-out marker
+ * (`__ph_opt_in_out_<token>`): `opt_out_capturing()` writes it, and PostHog reads it to keep capture off, so removing it would let page views
+ * and autocapture resume in the same page after a decline. Pure.
+ */
+export const isPostHogStorageName = (name: string): boolean => /(^|_)ph_/.test(name) && !/_opt_in_out_/.test(name)
 
 /** The cookie names in a `document.cookie` string that PostHog wrote. Pure. */
 export function postHogCookieNames(cookieString: string): string[] {
