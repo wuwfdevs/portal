@@ -41,9 +41,10 @@ describe('ConsentBanner', () => {
     expect(host.querySelector('a[href="/privacy"]')).not.toBeNull()
     expect(start).toHaveBeenCalled()
   })
-  it('gives Accept and Decline the same weight, on a light surface', () => {
+  it('gives Accept and Decline the same weight, on a pale brand-blue surface (not white, not the dark navy)', () => {
     draw()
     expect(button('Accept')?.className).toBe(button('Decline')?.className)
+    expect(banner()?.className).toContain('bg-wuwf-blue-100')
     expect(banner()?.className).not.toContain('bg-surface-dark')
   })
   it('Decline records measurement off, in this browser, and the notice goes', () => {
