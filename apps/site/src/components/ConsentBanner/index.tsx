@@ -74,7 +74,7 @@ export function ConsentBanner({ privacyHref }: { privacyHref: string | null }) {
   return (
     <>
       {recorded === 'none' && !open && (
-        <section aria-label={BANNER_LABEL} className="fixed inset-x-0 bottom-0 z-50 border-t border-rule-strong bg-surface text-ink shadow-3" data-consent-banner="">
+        <section aria-label={BANNER_LABEL} className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-wuwf-blue-700 bg-wuwf-blue-100 text-ink shadow-3" data-consent-banner="">
           <div className="container flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between">
             <p className="max-w-3xl text-base">
               {BANNER_TEXT}{' '}
