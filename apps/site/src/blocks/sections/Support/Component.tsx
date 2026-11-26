@@ -2,6 +2,7 @@ import React from 'react'
 
 import { supportHref } from '@/lib/support-link'
 
+import { AppealWatch } from '@/components/Analytics/AppealWatch'
 import { CtaCard } from '@/components/Kit'
 import { SectionBand } from '../SectionBand'
 import type { SectionData, SectionProps } from '../types'
@@ -40,6 +41,7 @@ export async function SupportSection({ block, context }: SectionProps<SupportDat
   if (!href) return null
   return (
     <SectionBand block={{ ...block, tone: 'plain' }}>
+      <AppealWatch className="h-full" kind="support" surface="section">
       <CtaCard
         actions={[{ label: block.label?.trim() || 'Become a member', href }]}
         eyebrow={block.heading?.eyebrow?.trim()}
@@ -48,6 +50,7 @@ export async function SupportSection({ block, context }: SectionProps<SupportDat
         title={title}
         tone={block.tone}
       />
+      </AppealWatch>
     </SectionBand>
   )
 }

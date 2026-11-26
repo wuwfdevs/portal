@@ -49,7 +49,7 @@ export const AskWuwf: React.FC = () => {
   }
 
   return (
-    <div
+    <div data-ph-mask=""
       className="flex w-full flex-col gap-4 rounded-lg border-2 border-ink bg-surface p-5 md:p-7"
       id="ask"
     >

@@ -141,10 +141,10 @@ export interface Config {
     sponsors: Sponsor;
     'placement-items': PlacementItem;
     'underwriting-agreements': UnderwritingAgreement;
-    users: User;
     'audience-profiles': AudienceProfile;
     memberships: Membership;
     'member-feeds': MemberFeed;
+    users: User;
     redirects: Redirect;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -201,10 +201,10 @@ export interface Config {
     sponsors: SponsorsSelect<false> | SponsorsSelect<true>;
     'placement-items': PlacementItemsSelect<false> | PlacementItemsSelect<true>;
     'underwriting-agreements': UnderwritingAgreementsSelect<false> | UnderwritingAgreementsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     'audience-profiles': AudienceProfilesSelect<false> | AudienceProfilesSelect<true>;
     memberships: MembershipsSelect<false> | MembershipsSelect<true>;
     'member-feeds': MemberFeedsSelect<false> | MemberFeedsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -5874,10 +5874,6 @@ export interface PayloadLockedDocument {
         value: number | UnderwritingAgreement;
       } | null)
     | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
         relationTo: 'audience-profiles';
         value: number | AudienceProfile;
       } | null)
@@ -5888,6 +5884,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'member-feeds';
         value: number | MemberFeed;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -7085,33 +7085,6 @@ export interface UnderwritingAgreementsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  name?: T;
-  roles?: T;
-  sessionsValidAfter?: T;
-  portalUserId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  resetPasswordRequestedAt?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "audience-profiles_select".
  */
 export interface AudienceProfilesSelect<T extends boolean = true> {
@@ -7154,6 +7127,33 @@ export interface MemberFeedsSelect<T extends boolean = true> {
   version?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  roles?: T;
+  sessionsValidAfter?: T;
+  portalUserId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  resetPasswordRequestedAt?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -41,6 +41,8 @@ export const RESERVED_FIRST_SEGMENTS: ReadonlySet<string> = new Set([
   'sitemap.xml',
   'sitemaps',
   'ie-incompatible.html',
+  // PostHog's first-party address (`lib/analytics/posthog-config.ts`, `next.config.ts` rewrites).
+  'relay',
 ])
 
 /**

@@ -7,6 +7,26 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Product analytics: PostHog and the consent notice (2026-11-26; built on `claude/nifty-davinci-sc3j2k`)
+
+**Decided with the owner:** PostHog (US Cloud) now, behind a **notice, not an opt-in**: measurement runs until the visitor declines; cookies,
+IP-based location, autocapture and session replay stay on ("build the best thing for our purposes"). Global Privacy Control starts it off.
+The first events: listening (start, stop with seconds, on-demand quarter marks), content (viewed, engaged) and giving (appeal shown and
+clicked, the Give page's click through). `ANALYTICS.md`, "Consent" and "PostHog", has the design.
+
+- **Built:** `lib/analytics` (`events.ts` with every event's fields, `consent.ts` `effectiveConsent`, `consent-store.ts`, `posthog.ts`,
+  `posthog-config.ts`, `listening.ts`, `engagement.ts`, `notice.ts`); `components/ConsentBanner` (notice and settings dialog, the footer's
+  "Privacy settings"); `components/Analytics` (`ContentSeen`, `AppealWatch`, `ReaderIdentity`); the player's `useListenAnalytics`; the
+  `/relay` rewrites with the trailing-slash redirect moved into `redirects.ts`; `data-ph-mask` on the listening and account screens.
+- **Set up (2026-11-26):** PostHog project WUWF.org (id 768664; one project on this plan, staging and production told apart by
+  `environment`, insights default to production), and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` on wuwf-site (Production and Preview). At launch:
+  set replay's authorized domains to wuwf.org.
+- **The Audience screen** (2026-11-26): Audience > Analytics in the admin (the "Members & accounts" heading, renamed by the owner) reads PostHog's query API from the server with a read-only key
+  (`ANALYTICS.md`, "The Audience screen"); any staff role sees it. Needs `POSTHOG_PERSONAL_API_KEY` (Sensitive, set by the owner) and
+  `POSTHOG_PROJECT_ID` on Vercel.
+- **Open:** the university's privacy review and the UWF IT-04 notice for the wording and the opt-out model; the privacy page needs the
+  paragraphs in `lib/analytics/notice.ts`; counsel's counting question (unchanged).
+
 ## Sponsor placement measurement (2026-11-25; built on `claude/adoring-wozniak-2wypfv`)
 
 **Decided with the owner:** the site counts each placement's views and clicks itself, for proof of performance (closes `PLACEMENTS.md` decision 2);

@@ -632,7 +632,8 @@ export const QuestionSet: React.FC<{
   // The frame: the same eyebrow on every placement, then the card, or, at a topic's head, the invitation that opens it.
   return (
     // A story or an episode already sets the reading width, so the set fills it; a topic's head is wider than a card should be.
-    <section aria-label="WUWF Listens" className={cn('flex w-full flex-col gap-3', placement === 'topic' && 'max-w-2xl')}>
+    // `data-ph-mask`: a listener's answers never show in an analytics replay (`lib/analytics/posthog.ts`, `MASK_SELECTOR`).
+    <section aria-label="WUWF Listens" className={cn('flex w-full flex-col gap-3', placement === 'topic' && 'max-w-2xl')} data-ph-mask="">
       <span className={eyebrow}>{placedEyebrow(query)}</span>
       {opened ? (
         card

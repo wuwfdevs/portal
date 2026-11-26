@@ -1,6 +1,6 @@
 import type { Access, FieldAccess, PayloadRequest } from 'payload'
 
-import { can, type SitePermission } from '@wuwf/portal-contracts'
+import { can, SITE_PERMISSIONS, type SitePermission } from '@wuwf/portal-contracts'
 
 type WithRoles = { roles?: readonly string[] | null } | null | undefined
 
@@ -38,3 +38,11 @@ export const publishedOrContentStaff: Access = ({ req }) => {
 }
 
 export const isStaff = ({ req }: { req: PayloadRequest }): boolean => Boolean(req.user)
+
+/**
+ * Who may see the Audience screen (`components/admin/AudienceReport`): any staff member holding any site permission (every role has one), so
+ * editors, publishers, sponsorship and membership staff all see how the site is used. It shows totals only, never a person. Narrow it here.
+ */
+export function canSeeAudience(user: WithRoles): boolean {
+  return SITE_PERMISSIONS.some((permission) => userCan(user, permission))
+}

@@ -41,6 +41,7 @@ import { AdminNav as AdminNav_a9d4b87e0306b3ddfe97926a52a69591 } from '@/compone
 import { AdminIcon as AdminIcon_c7e7270bf7f257a2ce4b947f1778cead } from '@/components/admin/Brand/Icon'
 import { AdminLogo as AdminLogo_f1eb8e9cb376fe19e520ffac63fc8eff } from '@/components/admin/Brand/Logo'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
+import { AudienceReportView as AudienceReportView_3fca881d073685ade0a8619110b85b9b } from '@/components/admin/AudienceReport'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
@@ -89,6 +90,7 @@ export const importMap = {
   "@/components/admin/Brand/Icon#AdminIcon": AdminIcon_c7e7270bf7f257a2ce4b947f1778cead,
   "@/components/admin/Brand/Logo#AdminLogo": AdminLogo_f1eb8e9cb376fe19e520ffac63fc8eff,
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
+  "@/components/admin/AudienceReport#AudienceReportView": AudienceReportView_3fca881d073685ade0a8619110b85b9b,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

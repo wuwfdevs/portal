@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 
+import { trailingSlashRedirect } from './src/lib/analytics/posthog-config'
 import { legacyGivingRedirects } from './src/lib/giving/legacy-addresses'
 
 export const redirects: NextConfig['redirects'] = async () => {
@@ -39,5 +40,7 @@ export const redirects: NextConfig['redirects'] = async () => {
   // 2026-11-23): the old hub address leads there. Only the hub's own address: the episodes under /unearthing-florida/<date>/<slug> keep their addresses until the archive migration moves them.
   const unearthingRedirects = [{ source: '/unearthing-florida', destination: '/shows/unearthing-florida', permanent: true }]
 
-  return [...givingRedirects, ...postsRedirects, ...adminRedirects, ...homeRedirects, ...unearthingRedirects, internetExplorerRedirect]
+  // First: a trailing slash goes to the address without one, as Next itself did before `skipTrailingSlashRedirect` (`next.config.ts`), except
+  // under PostHog's relay, whose API paths end in a slash.
+  return [trailingSlashRedirect(), ...givingRedirects, ...postsRedirects, ...adminRedirects, ...homeRedirects, ...unearthingRedirects, internetExplorerRedirect]
 }
