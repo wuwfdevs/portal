@@ -17,8 +17,8 @@ export interface ListeningOpenData extends SectionData {
   voiceOnlyIntro?: string | null
 }
 
-/** A campaign's ways in sit in one row from a tablet up, one column on a phone: the class is chosen by how many there are. */
-const TILE_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3']
+/** A question's ways in sit in one row from a tablet up, one column on a phone: the class is chosen by how many there are. */
+const TILE_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3', 'md:grid-cols-2']
 const tile = 'flex flex-col gap-2 rounded-md p-[18px] [background:var(--tone-tint)]'
 
 /** How many reporters' questions the home page shows; the rest are on the hub, one link away. */
@@ -27,7 +27,7 @@ export const HOME_QUESTIONS = 3
 /**
  * Open questions. A pure view over what the Portal answered, so it is tested with fixtures.
  *
- * On the home page (`home`, the homepage rethink, 2026-11-25) it is the restrained form: the reporters' questions only (a campaign's sessions and tables stay on the hub),
+ * On the home page (`home`, the homepage rethink, 2026-11-25) it is the restrained form: the questions as cards (their sessions and tables stay on the hub),
  * at most three cards, "See all of WUWF Listens" in the heading's row, and nothing at all, never a message, when nothing is open or the Portal is not set up or cannot be read,
  * so the page closes up.
  */
@@ -37,7 +37,7 @@ export function ListeningOpenView({ block, load, KitchenTable, home = false }: {
   const reporters = home || block.variant === 'reporters'
   const problem = hubProblem(load)
   if (problem) {
-    // One band says it (the campaigns one), so a page holding both does not say it twice.
+    // One band says it (the bands one), so a page holding both does not say it twice.
     return reporters ? null : (
       <SectionBand block={block} heading={block.heading}>
         <p className="max-w-2xl text-lg [color:var(--tone-muted)]">{problem}</p>
@@ -46,7 +46,7 @@ export function ListeningOpenView({ block, load, KitchenTable, home = false }: {
   }
   if (load.kind !== 'ok') return null
   const hub = load.hub
-  const { bands, questions, sessions, tables } = hubLayout(hub)
+  const { bands, questions, sessions } = hubLayout(hub)
 
   if (reporters) {
     const shown = home ? questions.slice(0, HOME_QUESTIONS) : questions
@@ -72,7 +72,7 @@ export function ListeningOpenView({ block, load, KitchenTable, home = false }: {
     )
   }
 
-  const empty = bands.length === 0 && questions.length === 0 && hub.answered.length === 0 && sessions.length === 0 && tables.length === 0
+  const empty = bands.length === 0 && hub.answered.length === 0 && sessions.length === 0
   if (empty) {
     const text = block.emptyText?.trim()
     return text ? (
@@ -85,31 +85,30 @@ export function ListeningOpenView({ block, load, KitchenTable, home = false }: {
   return (
     <SectionBand block={block} heading={block.heading}>
       <div className="flex flex-col gap-6">
-        {bands.map(({ campaign, question, sessions: bandSessions, table }) => (
-          <article
-            aria-labelledby={`campaign-${campaign.publicId}-title`}
-            className="flex flex-col gap-5 rounded-lg border-2 p-5 [background:var(--tone-card)] [border-color:var(--tone-text)] md:p-8"
-            id={`campaign-${campaign.publicId}`}
-            key={campaign.publicId}
-          >
-            <div className="flex max-w-3xl flex-col gap-2">
-              <span className={eyebrowClass}>{bandLabel(campaign)}</span>
-              <h3 className="font-serif text-2xl font-bold leading-tight md:text-[2rem]" id={`campaign-${campaign.publicId}-title`}>
-                {campaign.question}
-              </h3>
-              {campaign.intro && <p className="text-base [color:var(--tone-muted)]">{campaign.intro}</p>}
-            </div>
-            {(question || bandSessions.length > 0 || table) && (
-              <div className={`grid grid-cols-1 gap-4 ${TILE_COLUMNS[[question, bandSessions.length > 0, table].filter(Boolean).length]}`}>
-                {question && (
-                  <div className={tile}>
-                    <strong className="text-base">Answer on your own</strong>
-                    <span className="flex-auto text-[0.9375rem] [color:var(--tone-muted)]">{openMeta(question)}</span>
-                    <Link className={outlineButton} href={`/listens/${question.publicId}`}>
-                      Answer
-                    </Link>
-                  </div>
-                )}
+        {bands.map(({ question, sessions: bandSessions }) => {
+          const ways = [true, bandSessions.length > 0, question.canHostTable, question.canRequestHost].filter(Boolean).length
+          return (
+            <article
+              aria-labelledby={`question-${question.publicId}-title`}
+              className="flex flex-col gap-5 rounded-lg border-2 p-5 [background:var(--tone-card)] [border-color:var(--tone-text)] md:p-8"
+              id={`question-${question.publicId}`}
+              key={question.publicId}
+            >
+              <div className="flex max-w-3xl flex-col gap-2">
+                <span className={eyebrowClass}>{bandLabel(question)}</span>
+                <h3 className="font-serif text-2xl font-bold leading-tight md:text-[2rem]" id={`question-${question.publicId}-title`}>
+                  {question.title}
+                </h3>
+                {question.intro && <p className="text-base [color:var(--tone-muted)]">{question.intro}</p>}
+              </div>
+              <div className={`grid grid-cols-1 gap-4 ${TILE_COLUMNS[ways]}`}>
+                <div className={tile}>
+                  <strong className="text-base">Answer on your own</strong>
+                  <span className="flex-auto text-[0.9375rem] [color:var(--tone-muted)]">{openMeta(question)}</span>
+                  <Link className={outlineButton} href={`/listens/${question.publicId}`}>
+                    Answer
+                  </Link>
+                </div>
                 {bandSessions.length > 0 && (
                   <div className={tile}>
                     <strong className="text-base">Join a session</strong>
@@ -126,25 +125,30 @@ export function ListeningOpenView({ block, load, KitchenTable, home = false }: {
                     </ul>
                   </div>
                 )}
-                {table && (
-                  <div className={tile} id={`table-${campaign.publicId}`}>
+                {question.canHostTable && (
+                  <div className={tile} id={`table-${question.publicId}`}>
                     <strong className="text-base">Host a table of your own</strong>
                     {block.tableText?.trim() && <p className="text-[0.9375rem] [color:var(--tone-muted)]">{block.tableText.trim()}</p>}
                     <div className={lightFormCard}>
-                      <KitchenTable bare campaign={table} />
+                      <KitchenTable bare query={{ publicId: question.publicId, title: question.title }} />
                     </div>
-                    <p className="text-sm [color:var(--tone-muted)]">
-                      Hosting more than one table, or want a WUWF journalist to join?{' '}
-                      <Link className="font-semibold [color:var(--tone-accent)]" href="/listens/host">
-                        Ask to host a session →
-                      </Link>
+                  </div>
+                )}
+                {question.canRequestHost && (
+                  <div className={tile}>
+                    <strong className="text-base">Bring a session to your table</strong>
+                    <p className="flex-auto text-[0.9375rem] [color:var(--tone-muted)]">
+                      Invite a few people, or open it to anyone, and ask for a WUWF journalist to join. Someone at WUWF will write back within a week.
                     </p>
+                    <Link className={outlineButton} href={`/listens/host?query=${question.publicId}`}>
+                      Ask to host one
+                    </Link>
                   </div>
                 )}
               </div>
-            )}
-          </article>
-        ))}
+            </article>
+          )
+        })}
       </div>
     </SectionBand>
   )

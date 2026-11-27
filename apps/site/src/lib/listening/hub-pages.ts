@@ -22,11 +22,12 @@ export const HUB_WORDS = {
   nowIntro: 'Each question is open for a while, and there is more than one way to answer it. A person at WUWF reads every answer.',
   empty: 'No reporter has a question open right now. Check back soon.',
   table: KITCHEN,
+  sessionsTitle: 'Join a listening session',
+  sessionsIntro: 'Sit down with your neighbors at a table, talk about a question that matters here, and a WUWF journalist listens to what was said.',
+  // The cards on the home page (Open questions, cards layout); the hub itself has a band for every question.
   reportersTitle: 'A reporter would like to hear from you',
   reportersIntro: 'One reporter, one story, a few minutes by voice or in writing.',
   reportersVoiceOnly: 'One reporter, one story, a few minutes by voice.',
-  sessionsTitle: 'Join a listening session',
-  sessionsIntro: 'Sit down with your neighbors at a table, talk about a question that matters here, and a WUWF journalist listens to what was said.',
   tablesTitle: 'Host a table of your own',
   tablesIntro: KITCHEN,
   outcomesTitle: 'You asked. Here’s what came of it.',
@@ -57,13 +58,6 @@ export function listensPages(): PageRecord[] {
     'plain',
     { heading: { title: HUB_WORDS.nowTitle, intro: HUB_WORDS.nowIntro }, emptyText: HUB_WORDS.empty, tableText: HUB_WORDS.table },
     { anchor: 'now', variant: 'campaigns' },
-  )
-  hub.add(
-    'reporters',
-    'sectionListeningOpen',
-    'plain',
-    { heading: { title: HUB_WORDS.reportersTitle, intro: HUB_WORDS.reportersIntro }, voiceOnlyIntro: HUB_WORDS.reportersVoiceOnly },
-    { anchor: 'help-us-report', variant: 'reporters' },
   )
   hub.add('sessions', 'sectionListeningSessions', 'plain', { heading: { title: HUB_WORDS.sessionsTitle, intro: HUB_WORDS.sessionsIntro } }, { anchor: 'join-a-session', variant: 'sessions' })
   hub.add('tables', 'sectionListeningSessions', 'plain', { heading: { title: HUB_WORDS.tablesTitle, intro: HUB_WORDS.tablesIntro } }, { anchor: 'kitchen-table', variant: 'tables' })

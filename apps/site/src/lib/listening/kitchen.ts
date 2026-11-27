@@ -1,24 +1,39 @@
+import { LISTENING_KITCHEN_MINUTES } from '@wuwf/portal-contracts'
+
 import type { Checked } from './inbox'
 
 /**
- * A kitchen table: someone starts one private table of their own from the website, for a campaign that accepts them. The host's name
- * and where it is are optional and are shown to nobody but WUWF's staff, beside the recording; the rules are the Portal's, so these
- * only stop a request that would be refused.
+ * A kitchen table: someone starts one private table of their own from the website, around a question that allows them. The host
+ * says how long it will run (the Portal works the suggested time for each question out from it). Their name and where it is are optional and are
+ * shown to nobody but WUWF's staff, beside the recording; the rules are the Portal's, so these only stop a request that would be refused.
  */
 export interface KitchenInput {
   hostName: string
   place: string
+  /** How long the table is planned to run, in minutes. */
+  minutes: number
+}
+
+export type KitchenMinutes = (typeof LISTENING_KITCHEN_MINUTES)[number]
+
+export const KITCHEN_MINUTES: readonly KitchenMinutes[] = LISTENING_KITCHEN_MINUTES
+export const KITCHEN_MINUTES_DEFAULT: KitchenMinutes = 45
+
+export function kitchenMinutesLabel(minutes: KitchenMinutes): string {
+  return minutes === 60 ? 'An hour' : `${minutes} minutes`
 }
 
 export const KITCHEN_NAME_MAX = 60
 export const KITCHEN_PLACE_MAX = 80
 
-export function checkKitchen(input: KitchenInput): Checked<{ hostName: string | null; place: string | null }> {
+export function checkKitchen(input: KitchenInput): Checked<{ hostName: string | null; place: string | null; minutes: KitchenMinutes }> {
+  const minutes = KITCHEN_MINUTES.find((m) => m === input.minutes)
+  if (!minutes) return { ok: false, message: 'Choose how long your table will run.' }
   const hostName = input.hostName.trim()
   const place = input.place.trim()
   if (hostName.length > KITCHEN_NAME_MAX) return { ok: false, message: `A name can be at most ${KITCHEN_NAME_MAX} characters.` }
   if (place.length > KITCHEN_PLACE_MAX) return { ok: false, message: `Where it is can be at most ${KITCHEN_PLACE_MAX} characters.` }
-  return { ok: true, value: { hostName: hostName || null, place: place || null } }
+  return { ok: true, value: { hostName: hostName || null, place: place || null, minutes } }
 }
 
 /**

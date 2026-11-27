@@ -2,12 +2,12 @@ import type { ListeningHub } from '@wuwf/portal-contracts'
 
 import type { HubLoad } from '@/lib/listening/load'
 
-// A hub as the Portal might send it, for the Listens blocks' tests: one campaign with its question, a session and a table; a reporter's own question; a
-// session of its own; a standalone table; and one answered question with its outcome.
+// A hub as the Portal might send it, for the Listens blocks' tests: one question that invites a table and a request to host, with a session of its own;
+// a question that does not; a session whose question is not open; and one answered question with its outcome.
 export const hub: ListeningHub = {
   open: [
-    { publicId: 'q-campaign', title: 'What did the storm leave?', intro: '', askedBy: null, fromLabel: null, contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 2, campaignPublicId: 'c-1' },
-    { publicId: 'q-reporter', title: 'How is your insurance bill?', intro: '', askedBy: 'Leigh Ostrander', fromLabel: null, contextLabel: 'Coastal Futures', closesAt: null, allowTextAnswers: false, questionCount: 1, campaignPublicId: null },
+    { publicId: 'q-campaign', title: 'What did the storm leave?', intro: '', askedBy: null, fromLabel: null, contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 2, canHostTable: true, canRequestHost: true },
+    { publicId: 'q-reporter', title: 'How is your insurance bill?', intro: '', askedBy: 'Leigh Ostrander', fromLabel: null, contextLabel: 'Coastal Futures', closesAt: null, allowTextAnswers: false, questionCount: 1, canHostTable: false, canRequestHost: false },
   ],
   answered: [
     {
@@ -21,14 +21,9 @@ export const hub: ListeningHub = {
     },
   ],
   events: [
-    { publicId: 'e-band', title: 'Storm night', startsAt: '2026-12-05T01:00:00.000Z', endsAt: '2026-12-05T03:00:00.000Z', placeName: 'Library', city: 'Pensacola', organizerLabel: 'Friends of the Library', seatsLeft: 4, campaignPublicId: 'c-1' },
-    { publicId: 'e-own', title: 'Open table', startsAt: '2026-12-06T01:00:00.000Z', endsAt: '2026-12-06T03:00:00.000Z', placeName: 'Church hall', city: null, organizerLabel: null, seatsLeft: 0, campaignPublicId: null },
+    { publicId: 'e-band', title: 'Storm night', startsAt: '2026-12-05T01:00:00.000Z', endsAt: '2026-12-05T03:00:00.000Z', placeName: 'Library', city: 'Pensacola', organizerLabel: 'Friends of the Library', seatsLeft: 4, queryPublicId: 'q-campaign' },
+    { publicId: 'e-own', title: 'Open table', startsAt: '2026-12-06T01:00:00.000Z', endsAt: '2026-12-06T03:00:00.000Z', placeName: 'Church hall', city: null, organizerLabel: null, seatsLeft: 0, queryPublicId: null },
   ],
-  kitchenCampaigns: [
-    { publicId: 'c-1', title: 'After the storm', question: 'What did the storm leave?' },
-    { publicId: 'c-2', title: 'Rent', question: 'What does rent cost you?' },
-  ],
-  campaigns: [{ publicId: 'c-1', title: 'After the storm', question: 'What did the storm leave?', intro: 'A reporter is asking.', ownerLabel: 'from the WUWF News desk', closesAt: null }],
 }
 
 export const ok: HubLoad = { kind: 'ok', hub }

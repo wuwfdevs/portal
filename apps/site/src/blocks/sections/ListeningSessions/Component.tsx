@@ -23,9 +23,9 @@ export function ListeningSessionsView({ block, load, KitchenTable }: { block: Li
     return (
       <SectionBand block={block} heading={block.heading}>
         <div className="flex flex-col gap-10">
-          {tables.map((campaign) => (
-            <div className={lightFormCard} key={campaign.publicId}>
-              <KitchenTable campaign={campaign} />
+          {tables.map((question) => (
+            <div className={lightFormCard} key={question.publicId}>
+              <KitchenTable query={{ publicId: question.publicId, title: question.title }} />
             </div>
           ))}
         </div>

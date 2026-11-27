@@ -147,8 +147,9 @@ export async function sendHostRequest(input: unknown): Promise<ActionResult<Reco
   const checked = checkHostRequest(input)
   if (!checked.ok) return { ...failure('invalid_request'), message: checked.message }
   const base = await authored()
-  const { name, email, kind, organization, seats, address, expected, whenText, inviteesText, journalistRequested } = checked.value
+  const { queryPublicId, name, email, kind, organization, seats, address, expected, whenText, inviteesText, journalistRequested } = checked.value
   const result = await callListening<Record<never, never>>(LISTENING_PATHS.hostRequest, {
+    queryPublicId,
     name,
     email,
     kind,

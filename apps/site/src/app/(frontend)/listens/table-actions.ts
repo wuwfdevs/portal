@@ -68,8 +68,9 @@ export async function readTable(): Promise<ActionResult<{ table: ListeningTable 
  * The facilitator's tap after the consent is read aloud. The version is the one the phone showed; the email is where WUWF sends the
  * one link to the after-page, and the Portal never sends it back.
  */
-export async function agreeTable(input: { consentVersion: number; firstName: string | null; email: string; people?: number | null }): Promise<ActionResult<{ table: ListeningTable }>> {
+export async function agreeTable(input: { consentVersion: number; openingVersion?: number | null; firstName: string | null; email: string; people?: number | null }): Promise<ActionResult<{ table: ListeningTable }>> {
   if (!Number.isInteger(input.consentVersion) || input.consentVersion < 1) return failure('invalid_request')
+  if (input.openingVersion != null && (!Number.isInteger(input.openingVersion) || input.openingVersion < 1)) return failure('invalid_request')
   if (typeof input.email !== 'string' || (input.firstName !== null && typeof input.firstName !== 'string')) return failure('invalid_request')
   if (input.people !== undefined && input.people !== null && !Number.isInteger(input.people)) return failure('invalid_request')
   const facilitator = checkFacilitator({ firstName: input.firstName ?? '', email: input.email, people: input.people == null ? '' : String(input.people) })
@@ -78,6 +79,7 @@ export async function agreeTable(input: { consentVersion: number; firstName: str
     const result = await callListening<{ table: ListeningTable }>(LISTENING_PATHS.tableAgree, {
       session,
       consentVersion: input.consentVersion,
+      ...(input.openingVersion != null ? { openingVersion: input.openingVersion } : {}),
       firstName: facilitator.value.firstName,
       email: facilitator.value.email,
       ...(facilitator.value.people !== null ? { people: facilitator.value.people } : {}),
@@ -186,13 +188,13 @@ export async function saveSpeakers(input: { speakers: { id: string; name: string
 }
 
 /** The lines that mattered, by where each starts. The Portal copies the words itself; the site never supplies them. */
-export async function saveHighlights(input: { highlights: { startMs: number; tag: string | null }[] }): Promise<ActionResult<Record<never, never>>> {
+export async function saveHighlights(input: { highlights: { startMs: number; note: string | null }[] }): Promise<ActionResult<Record<never, never>>> {
   if (!Array.isArray(input.highlights) || input.highlights.length > 500) return failure('invalid_request')
-  const highlights: { startMs: number; tag: string | null }[] = []
+  const highlights: { startMs: number; note: string | null }[] = []
   for (const h of input.highlights) {
     if (typeof h !== 'object' || h === null || !Number.isInteger(h.startMs) || h.startMs < 0) return failure('invalid_request')
-    if (h.tag !== null && (typeof h.tag !== 'string' || h.tag.length > 100)) return failure('invalid_request')
-    highlights.push({ startMs: h.startMs, tag: h.tag })
+    if (h.note !== null && (typeof h.note !== 'string' || h.note.length > 500)) return failure('invalid_request')
+    highlights.push({ startMs: h.startMs, note: h.note })
   }
   return withSession(async (session, base) => {
     const result = await callListening<Record<never, never>>(LISTENING_PATHS.highlightsSave, { session, highlights, ...base })

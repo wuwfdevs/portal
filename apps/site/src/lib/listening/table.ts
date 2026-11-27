@@ -1,6 +1,8 @@
+import { suggestedSecondsPerQuestion } from '@wuwf/listening-core'
 import {
   LISTENING_MAX_SEGMENTS,
   LISTENING_SEGMENT_SECONDS,
+  type ListeningRoom,
   type ListeningTable,
   type ListeningTablePrompt,
   type ListeningUpload,
@@ -52,13 +54,35 @@ export function suggestedTimeLabel(seconds: number | null): string | null {
   return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
 }
 
-/** The prompt label the board shows: "First, go around the table", "The question", "Prompt 2 of 4". */
+/** The label above a question: "Question 2 of 4", or just "The question" when there is one. */
 export function promptLabel(prompts: ListeningTablePrompt[], prompt: ListeningTablePrompt): string {
-  if (prompt.kind === 'intro') return 'First, go around the table'
-  if (prompt.kind === 'question') return 'The question'
-  const prompted = prompts.filter((p) => p.kind === 'prompt')
-  const index = prompted.findIndex((p) => p.position === prompt.position)
-  return index === -1 ? 'Prompt' : `Prompt ${index + 1} of ${prompted.length}`
+  if (prompts.length <= 1) return 'The question'
+  const ordered = [...prompts].sort((a, b) => a.position - b.position)
+  const index = ordered.findIndex((p) => p.position === prompt.position)
+  return index === -1 ? 'Question' : `Question ${index + 1} of ${ordered.length}`
+}
+
+/**
+ * About how long to spend on each question, in seconds: the session's planned length less the opening and the last call, shared equally
+ * (the same rule the Portal's Tonight screen uses, from `@wuwf/listening-core`). A suggestion only; a table moves on at its own pace.
+ */
+export function tableSuggestedSeconds(table: Pick<ListeningTable, 'plannedMinutes' | 'prompts' | 'opening'>): number | null {
+  return suggestedSecondsPerQuestion({ plannedMinutes: table.plannedMinutes, questionCount: table.prompts.length, hasOpening: table.opening !== null })
+}
+
+/**
+ * The same suggestion for the organizer's console, which carries the planned length and the questions but not whether the station has an
+ * opening: it assumes one, so the console never promises more time than a table is told.
+ */
+export function roomSuggestedSeconds(room: Pick<ListeningRoom, 'plannedMinutes' | 'prompts'>): number | null {
+  return suggestedSecondsPerQuestion({ plannedMinutes: room.plannedMinutes, questionCount: room.prompts.length, hasOpening: true })
+}
+
+/** Whether the opening is shown with this question: it comes before the first one, and only then. */
+export function openingComesFirst(table: Pick<ListeningTable, 'prompts' | 'opening'>, prompt: ListeningTablePrompt | null): boolean {
+  if (!table.opening || !prompt) return false
+  const first = [...table.prompts].sort((a, b) => a.position - b.position)[0]
+  return first?.position === prompt.position
 }
 
 /** The prompt at a position, or the nearest one that exists. Null only when there are no prompts. */

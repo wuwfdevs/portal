@@ -14,11 +14,13 @@ import {
   helpSentence,
   neighbourPosition,
   promptAt,
+  openingComesFirst,
   promptLabel,
   recordingNotice,
   segmentIsDue,
   sendPercent,
   suggestedTimeLabel,
+  tableSuggestedSeconds,
   tableScreen,
   type SegmentSteps,
   microphoneAdvice,
@@ -74,16 +76,23 @@ describe('formatClock', () => {
 
 describe('prompts', () => {
   const prompts: ListeningTablePrompt[] = [
-    { position: 0, kind: 'intro', text: 'Names', hint: null, suggestedSeconds: 120 },
-    { position: 1, kind: 'question', text: 'The question', hint: 'h', suggestedSeconds: 600 },
-    { position: 2, kind: 'prompt', text: 'A', hint: null, suggestedSeconds: null },
-    { position: 3, kind: 'prompt', text: 'B', hint: null, suggestedSeconds: 480 },
+    { position: 1, text: 'The question', hint: 'h' },
+    { position: 2, text: 'A', hint: null },
+    { position: 3, text: 'B', hint: null },
   ]
-  it('labels the intro, the question and the numbered prompts', () => {
-    expect(promptLabel(prompts, prompts[0]!)).toBe('First, go around the table')
-    expect(promptLabel(prompts, prompts[1]!)).toBe('The question')
-    expect(promptLabel(prompts, prompts[2]!)).toBe('Prompt 1 of 2')
-    expect(promptLabel(prompts, prompts[3]!)).toBe('Prompt 2 of 2')
+  it('numbers the questions, and calls a lone one the question', () => {
+    expect(promptLabel(prompts, prompts[0]!)).toBe('Question 1 of 3')
+    expect(promptLabel(prompts, prompts[2]!)).toBe('Question 3 of 3')
+    expect(promptLabel([prompts[0]!], prompts[0]!)).toBe('The question')
+    expect(promptLabel(prompts, { position: 9, text: 'x', hint: null })).toBe('Question')
+  })
+  it('suggests an equal share of the planned time, and shows the opening only before the first question', () => {
+    const table = { plannedMinutes: 60, prompts, opening: { version: 1, text: 'Say your name.' } }
+    expect(tableSuggestedSeconds(table)).toBe(1050)
+    expect(tableSuggestedSeconds({ ...table, prompts: [] })).toBeNull()
+    expect(openingComesFirst(table, prompts[0]!)).toBe(true)
+    expect(openingComesFirst(table, prompts[1]!)).toBe(false)
+    expect(openingComesFirst({ ...table, opening: null }, prompts[0]!)).toBe(false)
   })
   it('finds a prompt by position, or the nearest earlier one', () => {
     expect(promptAt(prompts, 2)?.text).toBe('A')
@@ -91,9 +100,9 @@ describe('prompts', () => {
     expect(promptAt([], 0)).toBeNull()
   })
   it('steps to the neighbouring position and stops at either end', () => {
-    expect(neighbourPosition(prompts, 1, 1)).toBe(2)
-    expect(neighbourPosition(prompts, 1, -1)).toBe(0)
-    expect(neighbourPosition(prompts, 0, -1)).toBeNull()
+    expect(neighbourPosition(prompts, 2, 1)).toBe(3)
+    expect(neighbourPosition(prompts, 2, -1)).toBe(1)
+    expect(neighbourPosition(prompts, 1, -1)).toBeNull()
     expect(neighbourPosition(prompts, 3, 1)).toBeNull()
   })
   it('words a suggested time', () => {

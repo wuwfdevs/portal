@@ -5,27 +5,27 @@ import { describe, expect, it } from 'vitest'
 import { empty, failed, hub, ok } from '../listening-fixtures'
 import { ListeningSessionsView } from './Component'
 
-const Table = (({ campaign }: { campaign: { publicId: string } }) => createElement('form', { 'data-table': campaign.publicId }, 'table form')) as never
+const Table = (({ query }: { query: { publicId: string } }) => createElement('form', { 'data-table': query.publicId }, 'table form')) as never
 const sessions = { blockType: 'sectionListeningSessions', variant: 'sessions', heading: { title: 'Join a listening session' } }
 const tables = { blockType: 'sectionListeningSessions', variant: 'tables', heading: { title: 'Host a table of your own' } }
 const view = (block: Record<string, unknown>, load: Parameters<typeof ListeningSessionsView>[0]['load']) => renderToStaticMarkup(createElement(ListeningSessionsView, { block: block as never, load, KitchenTable: Table }))
 
 describe('Sessions and tables', () => {
-  it('sessions: a card for each public session that belongs to no campaign, with its seat link', () => {
+  it('sessions: a card for each public session whose question is not open here, with its seat link', () => {
     const html = view(sessions, ok)
     expect(html).toContain('Open table')
     expect(html).toContain('href="/listens/events/e-own"')
     expect(html).toContain('See the session') // no seats left
-    expect(html).not.toContain('Storm night') // that one is in its campaign's band
+    expect(html).not.toContain('Storm night') // that one is in its question's band
   })
   it('sessions: says who hosts it', () => {
     const hosted = { kind: 'ok' as const, hub: { ...hub, events: [{ ...hub.events![1]!, organizerLabel: 'Friends of the Library' }] } }
     expect(view(sessions, hosted)).toContain('Hosted by Friends of the Library')
   })
-  it('tables: the form for each campaign that is not already in a band', () => {
+  it('tables: the form for each open question that invites one', () => {
     const html = view(tables, ok)
-    expect(html).toContain('data-table="c-2"')
-    expect(html).not.toContain('data-table="c-1"')
+    expect(html).toContain('data-table="q-campaign"')
+    expect(html).not.toContain('data-table="q-reporter"')
   })
   it('draws nothing when there is nothing to offer, or the Portal could not be read', () => {
     for (const b of [sessions, tables]) {

@@ -17,4 +17,16 @@ describe('Host form section', () => {
     expect(html).toContain('id="host"')
     expect(html).toContain('Ask to host')
   })
+
+  it('offers only the open questions that invite hosts, and none when the hub is missing', async () => {
+    const seen: unknown[] = []
+    const { HostFormSection: Section } = await import('./Component')
+    const ok = { kind: 'ok', hub: { open: [{ publicId: 'a'.repeat(16), title: 'Rent', canRequestHost: true }, { publicId: 'b'.repeat(16), title: 'Parks', canRequestHost: false }], answered: [] } }
+    const out = await Section({ block: { blockType: 'sectionHostForm', tone: 'plain' } as never, context: { ...testContext, listeningHub: ok as never } })
+    seen.push(JSON.stringify(out))
+    expect(String(seen[0])).toContain('Rent')
+    expect(String(seen[0])).not.toContain('Parks')
+    const none = await Section({ block: { blockType: 'sectionHostForm', tone: 'plain' } as never, context: testContext })
+    expect(JSON.stringify(none)).toContain('"questions":[]')
+  })
 })

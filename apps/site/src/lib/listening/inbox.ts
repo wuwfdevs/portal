@@ -11,6 +11,8 @@ import {
   type ListeningInboxKind,
 } from '@wuwf/portal-contracts'
 
+import { isPublicId } from './results'
+
 /**
  * The two standing inboxes (suite design §2, phase C): Ask WUWF, and the request to host a listening session. Pure: no
  * Portal, no React. The server actions check what a browser sends with these, and the forms use them to say what is wrong in
@@ -76,6 +78,8 @@ export function checkAskMessage(input: unknown): Checked<AskMessage> {
 }
 
 export interface HostRequest {
+  /** The question the session would be convened around. A request is always about one. */
+  queryPublicId: string
   name: string
   email: string
   kind: ListeningHostKind
@@ -107,6 +111,8 @@ export function checkHostRequest(input: unknown): Checked<HostRequest> {
     return { ok: true, value }
   }
 
+  const queryPublicId = r['queryPublicId']
+  if (!isPublicId(queryPublicId)) return { ok: false, message: 'Choose the question you would like to host a session about.' }
   const name = required('name', 'Tell us your name.')
   if (!name.ok) return name
   const emailText = text(r['email'])
@@ -131,6 +137,7 @@ export function checkHostRequest(input: unknown): Checked<HostRequest> {
   return {
     ok: true,
     value: {
+      queryPublicId,
       name: name.value,
       email: emailText,
       kind,

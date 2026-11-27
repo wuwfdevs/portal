@@ -426,7 +426,7 @@ sends a signed identity token to that address.
 
 ## 13. The query is the core record (2026-11-26) — ACCEPTED, being built
 
-Status: **accepted by the owner, 2026-11-26; build in progress.** It supersedes the campaign layer of §2 and the tag vocabulary; §1 to §12 describe what
+Status: **accepted by the owner, 2026-11-26; built in the Portal and the site (2026-11-27), with the database half applied to the preview project except the mark-saving function and the drops (the Supabase connector holds back a statement containing `delete` or `drop`; see the migration's header).** It supersedes the campaign layer of §2 and the tag vocabulary; §1 to §12 describe what
 was built before and are read with this section on top. Nothing is in production, so the build is done the right way, with no compatibility layer, no aliases and
 no backfill: the campaign tables are dropped and the contract changes in one step.
 
@@ -518,3 +518,12 @@ Themes are discovered by Sourcework, so a vocabulary chosen before anyone has li
 2. **Portal pure logic and tests:** suggested-time computation, the span rule on the query, the hosting setting.
 3. **Staff screens:** the query gains Events, Report and Hosting tabs; the Campaigns screens go; the standard-opening page sits beside Consent wording.
 4. **Contract and site:** the contract changed once, the site moved over with it.
+
+### 13.10 What was built, and where it differs from the sketch above
+
+- **Hosting** is one column on the query, `al_queries.hosting` (`staff_only | private_tables | anyone`), read through two helper functions, not a per-feature flag.
+- **The opening** (§13.4) is `al_opening_texts` and a coordinator edits it on the Wording page beside the consent wording; the table's agreement sends both versions.
+- **Pacing** (§13.5) is computed in `pacing.ts` (a twin in the Portal and in `packages/listening-core`): the planned minutes less the opening's allowance (two minutes) and the last call (five), shared equally, never under one minute, rounded down to fifteen seconds. The console assumes an opening exists, so it never suggests more time than a table is told.
+- **Marks** keep an optional `note` (up to 500 characters); the tag column and the vocabulary are gone.
+- **The site** draws a band for every open question (answer alone, join a session, host a table, ask to host) from the hub's `canHostTable` and `canRequestHost`; the host form lists the open questions that invite hosts and starts on `?query=`. The page record's section variants keep their stored names (`campaigns`, `reporters`) to avoid a CMS migration; they mean bands and cards.
+- **The owner of the hand-off** is `al_queries.owner_id`, set to the query's maker; there is no screen to change it yet.

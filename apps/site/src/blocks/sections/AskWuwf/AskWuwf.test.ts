@@ -22,14 +22,14 @@ describe('Ask WUWF section', () => {
     expect(html).toContain('the form')
   })
   it('offers each link only when there is something to go to', () => {
-    expect(jumpLinksOf(ok).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask', '#table-c-1', '/listens/host'])
+    expect(jumpLinksOf(ok).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask', '#table-q-campaign', '/listens/host'])
     expect(jumpLinksOf(empty).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
     expect(jumpLinksOf(failed).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
     expect(jumpLinksOf(undefined).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
   })
-  it('points "Answer a question" at the reporters’ list when no campaign has a band, and the table link at the standalone tables', () => {
-    const noCampaign = { kind: 'ok' as const, hub: { ...hub, campaigns: [], kitchenCampaigns: [{ publicId: 'c-2', title: 'Rent', question: 'q' }] } }
-    expect(jumpLinksOf(noCampaign).map((l) => l.href)).toEqual(['#help-us-report', '#came-of-it', '#ask', '#kitchen-table', '/listens/host'])
+  it('links "Host a table" only when some open question invites one', () => {
+    const none = { kind: 'ok' as const, hub: { ...hub, open: hub.open.map((q) => ({ ...q, canHostTable: false })) } }
+    expect(jumpLinksOf(none).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask', '/listens/host'])
   })
   it('leaves the links out when the editor switched them off', () => {
     const html = view({ jumpLinks: false })

@@ -46,7 +46,7 @@ describe('checkSeat', () => {
 })
 
 describe('hub sessions', () => {
-  const event = (id: string, startsAt: string, seatsLeft: number | null) => ({ publicId: id, title: id, startsAt, endsAt: startsAt, placeName: 'Hall', city: 'Milton', organizerLabel: null, seatsLeft })
+  const event = (id: string, startsAt: string, seatsLeft: number | null) => ({ publicId: id, title: id, startsAt, endsAt: startsAt, placeName: 'Hall', city: 'Milton', organizerLabel: null, seatsLeft, queryPublicId: null })
   it('lists a session by when, where and seats left', () => {
     expect(hubEventMeta(event('a', '2026-11-15T16:00:00Z', 12))).toBe('Sunday, Nov. 15, 10:00 a.m. to 10:00 a.m. · Hall, Milton · 12 seats left.')
   })

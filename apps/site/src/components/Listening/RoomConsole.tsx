@@ -7,7 +7,7 @@ import type { ListeningRoom } from '@wuwf/portal-contracts'
 import { callRoom, readRoom } from '@/app/(frontend)/listens/room-actions'
 import { EVENT_TIME_ZONE } from '@/lib/listening/event'
 import { ROOM_POLL_MS, TABLE_STATE_LABEL, canCallLastFive, lastCallSentence, roomSummary, sinceStart, tablesAskingForHelp, tablesOnPrompt } from '@/lib/listening/room'
-import { suggestedTimeLabel } from '@/lib/listening/table'
+import { roomSuggestedSeconds, suggestedTimeLabel } from '@/lib/listening/table'
 import { cn } from '@/utilities/ui'
 
 import { buttonDark, buttonSecondary, eyebrow, noticeInfo, noticeWarn } from './styles'
@@ -27,6 +27,7 @@ function timeOfDay(iso: string): string {
  */
 export const RoomConsole: React.FC<{ eventPublicId: string; initial: ListeningRoom }> = ({ eventPublicId, initial }) => {
   const [room, setRoom] = useState(initial)
+  const share = roomSuggestedSeconds(room)
   const [now, setNow] = useState(() => new Date())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,7 +104,7 @@ export const RoomConsole: React.FC<{ eventPublicId: string; initial: ListeningRo
             {room.prompts.map((prompt) => {
               const current = prompt.position === room.currentPromptPosition
               const here = tablesOnPrompt(room.tables, prompt.position)
-              const time = suggestedTimeLabel(prompt.suggestedSeconds)
+              const time = suggestedTimeLabel(share)
               return (
                 <li key={prompt.position}>
                   <button
@@ -117,7 +118,7 @@ export const RoomConsole: React.FC<{ eventPublicId: string; initial: ListeningRo
                     type="button"
                   >
                     <span className="flex items-baseline justify-between gap-3 text-xs">
-                      <span className="font-bold uppercase tracking-wide text-wuwf-blue-700">{current ? 'The room is here' : prompt.kind === 'intro' ? 'Introductions' : prompt.kind === 'question' ? 'The question' : 'Prompt'}</span>
+                      <span className="font-bold uppercase tracking-wide text-wuwf-blue-700">{current ? 'The room is here' : room.prompts.length > 1 ? `Question ${prompt.position}` : 'The question'}</span>
                       <span className="text-ink-3">{[time, here > 0 ? `${here} ${here === 1 ? 'table' : 'tables'} here` : null].filter(Boolean).join(' · ')}</span>
                     </span>
                     <span className="text-[0.9375rem] leading-snug">{prompt.text}</span>

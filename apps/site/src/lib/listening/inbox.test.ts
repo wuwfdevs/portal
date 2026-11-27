@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { checkAskMessage, checkHostRequest, looksLikeEmail } from './inbox'
 
 const HOST = {
+  queryPublicId: 'abcdefghijkmnpqs',
   name: ' Mary Jones ',
   email: 'mary@example.org',
   kind: 'invite',
@@ -43,6 +44,7 @@ describe('checkHostRequest', () => {
     expect(checkHostRequest(HOST)).toEqual({
       ok: true,
       value: {
+        queryPublicId: 'abcdefghijkmnpqs',
         name: 'Mary Jones',
         email: 'mary@example.org',
         kind: 'invite',
@@ -59,7 +61,7 @@ describe('checkHostRequest', () => {
   it('never passes on a field it was not asked for', () => {
     const result = checkHostRequest({ ...HOST, subject: { kind: 'account', id: 'evil' }, clientHash: 'x', extra: 1 })
     expect(result.ok && Object.keys(result.value).sort()).toEqual(
-      ['address', 'email', 'expected', 'inviteesText', 'journalistRequested', 'kind', 'name', 'organization', 'seats', 'whenText'],
+      ['address', 'email', 'expected', 'inviteesText', 'journalistRequested', 'kind', 'name', 'organization', 'queryPublicId', 'seats', 'whenText'],
     )
   })
   it('refuses each missing or malformed field with its own sentence', () => {
@@ -77,6 +79,8 @@ describe('checkHostRequest', () => {
       { ...HOST, whenText: 'x'.repeat(501) },
       { ...HOST, organization: 5 },
       { ...HOST, inviteesText: 'x'.repeat(2001) },
+      { ...HOST, queryPublicId: undefined },
+      { ...HOST, queryPublicId: 'nope' },
       { ...HOST, journalistRequested: 'yes' },
       null,
     ]) {

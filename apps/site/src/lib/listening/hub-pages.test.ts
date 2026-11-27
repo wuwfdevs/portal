@@ -18,7 +18,8 @@ describe('the Listens pages as sections', () => {
   it('loses no word of the old pages', () => {
     const hubText = text(hub.sections)
     for (const [key, w] of Object.entries(HUB_WORDS)) {
-      if (key === 'title' || key === 'description') continue
+      // The reporters* words are the home page's cards; the hub has a band for every question instead.
+      if (key === 'title' || key === 'description' || key.startsWith('reporters')) continue
       expect(hubText, key).toContain(JSON.stringify(w).slice(1, -1))
     }
     const hostText = text(host.sections)
@@ -38,7 +39,7 @@ describe('the Listens pages as sections', () => {
   })
   it('keeps the anchors the hub’s own links point at', () => {
     const anchors = new Set(hub.sections.map((s) => s.anchor))
-    for (const a of ['now', 'help-us-report', 'join-a-session', 'kitchen-table', 'came-of-it']) expect(anchors.has(a), a).toBe(true)
+    for (const a of ['now', 'join-a-session', 'kitchen-table', 'came-of-it']) expect(anchors.has(a), a).toBe(true)
   })
   it('puts the one h1 first on each page, the closing band last, and the form after the host words', () => {
     expect(hub.sections[0]).toMatchObject({ blockType: 'sectionAskWuwf', headline: HUB_WORDS.headline })

@@ -1,9 +1,7 @@
 import type {
   ListeningHub,
   ListeningHubAnswered,
-  ListeningHubCampaign,
   ListeningHubEvent,
-  ListeningHubKitchenCampaign,
   ListeningHubOpen,
   ListeningOutcome,
 } from '@wuwf/portal-contracts'
@@ -61,57 +59,41 @@ export function outcomeDate(publishedAt: string): string | null {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
-/** One campaign as the hub shows it: its question, then every way to take part in it. */
+/** One open question as the hub shows it: the question, then every way to take part in it. */
 export interface HubBand {
-  campaign: ListeningHubCampaign
-  /** The campaign's own question, answered alone. */
-  question: ListeningHubOpen | null
+  question: ListeningHubOpen
   /** Its listed public sessions, soonest first. */
   sessions: ListeningHubEvent[]
-  /** Set when anyone may start a private table for it. */
-  table: ListeningHubKitchenCampaign | null
 }
 
 export interface HubLayout {
+  /** Every open question with its sessions: any question can be convened around, so each one is a band. */
   bands: HubBand[]
-  /** Open questions that belong to no campaign (a reporter's own question). */
+  /** The open questions, as plain cards. */
   questions: ListeningHubOpen[]
-  /** Sessions and tables the Portal sent no campaign for, shown as they were before campaigns were grouped. */
+  /** Sessions whose question is not open on the hub (a listed session of a question that has since closed), shown on their own. */
   sessions: ListeningHubEvent[]
-  tables: ListeningHubKitchenCampaign[]
+  /** The questions anyone may start a private one-table session around. */
+  tables: ListeningHubOpen[]
 }
 
 /**
- * Groups what the Portal sent by campaign, so a campaign reads as one thing with several ways in. A campaign with nothing to
- * take part in yet makes no band. Anything not tied to a campaign the Portal listed stays in its own list, so a Portal that
- * sends no campaigns (an older one) gives the same page as before.
+ * Groups what the Portal sent by question, so a question reads as one thing with several ways in: answer alone, join a session, host a
+ * table of your own, ask to host a session. A session whose question is not open here stays in its own list.
  */
 export function hubLayout(hub: ListeningHub): HubLayout {
-  const campaigns = hub.campaigns ?? []
   const sessions = hubSessions(hub)
-  const tables = hub.kitchenCampaigns ?? []
-
-  const bands = campaigns.flatMap((campaign): HubBand[] => {
-    const band: HubBand = {
-      campaign,
-      question: hub.open.find((item) => item.campaignPublicId === campaign.publicId) ?? null,
-      sessions: sessions.filter((item) => item.campaignPublicId === campaign.publicId),
-      table: tables.find((item) => item.publicId === campaign.publicId) ?? null,
-    }
-    return band.question || band.sessions.length > 0 || band.table ? [band] : []
-  })
-
-  const grouped = new Set(bands.map((band) => band.campaign.publicId))
-  const inBand = (campaignPublicId: string | null | undefined) => campaignPublicId != null && grouped.has(campaignPublicId)
+  const open = new Set(hub.open.map((item) => item.publicId))
+  const bands = hub.open.map((question): HubBand => ({ question, sessions: sessions.filter((item) => item.queryPublicId === question.publicId) }))
   return {
     bands,
-    questions: hub.open.filter((item) => !inBand(item.campaignPublicId)),
-    sessions: sessions.filter((item) => !inBand(item.campaignPublicId)),
-    tables: tables.filter((item) => !grouped.has(item.publicId)),
+    questions: hub.open,
+    sessions: sessions.filter((item) => !(item.queryPublicId != null && open.has(item.queryPublicId))),
+    tables: hub.open.filter((item) => item.canHostTable),
   }
 }
 
-/** The band's eyebrow: "After Isaias · open until Nov. 30 · from the WUWF News desk". */
-export function bandLabel(campaign: Pick<ListeningHubCampaign, 'title' | 'closesAt' | 'ownerLabel'>): string {
-  return [campaign.title.trim(), closesLabel(campaign.closesAt), campaign.ownerLabel?.trim()].filter(Boolean).join(' · ')
+/** The band's eyebrow: "After Isaias · Leigh Ostrander · open until Nov. 30". */
+export function bandLabel(question: Pick<ListeningHubOpen, 'contextLabel' | 'askedBy' | 'fromLabel' | 'closesAt'>): string {
+  return [deskLabel(question), closesLabel(question.closesAt)].filter(Boolean).join(' · ')
 }
