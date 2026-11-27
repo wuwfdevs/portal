@@ -176,7 +176,7 @@ export function limitLabel(question: Pick<ListeningQuestion, 'maxDurationSeconds
 
 /** The sentence at the end: "2 answers received. Thank you — you can close this page." */
 export function doneText(savedCount: number): string {
-  return `${plural(savedCount, 'answer')} received. Thank you — you can close this page.`
+  return `${plural(savedCount, 'answer')} received. Thank you.`
 }
 
 // ----------------------------------------------------------------------------------------------------------------------

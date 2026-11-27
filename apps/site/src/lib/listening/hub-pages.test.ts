@@ -39,11 +39,11 @@ describe('the Listens pages as sections', () => {
   })
   it('keeps the anchors the hub’s own links point at', () => {
     const anchors = new Set(hub.sections.map((s) => s.anchor))
-    for (const a of ['now', 'join-a-session', 'kitchen-table', 'came-of-it']) expect(anchors.has(a), a).toBe(true)
+    for (const a of ['now', 'join-a-session', 'came-of-it']) expect(anchors.has(a), a).toBe(true)
   })
-  it('puts the one h1 first on each page, the closing band last, and the form after the host words', () => {
-    expect(hub.sections[0]).toMatchObject({ blockType: 'sectionAskWuwf', headline: HUB_WORDS.headline })
-    expect(hub.sections.at(-1)).toMatchObject({ blockType: 'sectionClosingBand' })
+  it('puts the one h1 first on each page, what came of it last, and the form after the host words', () => {
+    expect(hub.sections[0]).toMatchObject({ blockType: 'sectionAskWuwf', headline: HUB_WORDS.headline, jumpLinks: false })
+    expect(hub.sections.at(-1)).toMatchObject({ blockType: 'sectionListeningOutcomes' })
     expect(host.sections.map((s) => s.blockType)).toEqual(['sectionFeature', 'sectionHostForm'])
   })
   it('gives every section with required fields what it needs to publish', () => {
@@ -56,8 +56,8 @@ describe('the Listens pages as sections', () => {
       }
     }
   })
-  it('links only to the two Listens addresses', () => {
+  it('links only back to the hub: the hub has no call to action of its own, because every question carries its own', () => {
     const hrefs = [...hub.sections, ...host.sections].flatMap((s) => ((s.actions as { href: string }[] | undefined) ?? []).map((a) => a.href))
-    expect(new Set(hrefs)).toEqual(new Set([LISTENS_HOST_PATH, LISTENS_PATH]))
+    expect(new Set(hrefs)).toEqual(new Set([LISTENS_PATH]))
   })
 })

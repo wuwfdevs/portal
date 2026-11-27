@@ -1,8 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { ListeningQuery, ListeningQuestion } from '@wuwf/portal-contracts'
+import type { ListeningHubEvent, ListeningQuery, ListeningQuestion } from '@wuwf/portal-contracts'
 import { MAX_TEXT_ANSWER_LENGTH } from '@wuwf/portal-contracts'
 import { formatStopwatch, participantFields, submitBlockedReason, type ParticipantFieldKey } from '@wuwf/listening-core'
 
@@ -35,6 +36,8 @@ import {
   type Screen,
 } from '@/lib/listening/flow'
 import { beginLabel, placedEyebrow, recipientLine, type ListeningPlacement } from '@/lib/listening/inline'
+import { canGather, gatherOptions, talkPath, talkVisible } from '@/lib/listening/talk'
+import { TalkItOver } from './TalkItOver'
 import { saveAudioAnswer } from '@/lib/listening/send-answer'
 import { cn } from '@/utilities/ui'
 
@@ -62,7 +65,15 @@ export const QuestionSet: React.FC<{
   /** Who receives the message, and one line about what happens to it. A `voice` set always names a recipient (WUWF when none is given); another names one only when it is given. */
   recipient?: string
   description?: string
-}> = ({ query, placement = 'page', recipient, description }) => {
+  /**
+   * The question's listed sessions, passed only by the question's own page, which reads the hub. With them, a sent answer's screen offers "Talk it over with others"
+   * in full (the sessions, then one way to gather). Without them (a story, a topic: pages built ahead) it offers a single link to the question's page when
+   * the question allows people to gather.
+   */
+  sessions?: ListeningHubEvent[]
+  /** The question's page puts its own section under the card ("Talk it over with others"); it steps aside once an answer is sent, because the card then offers it. */
+  below?: React.ReactNode
+}> = ({ query, placement = 'page', recipient, description, sessions, below }) => {
   const placed = placement !== 'page'
   const [opened, setOpened] = useState(placement !== 'topic')
   const questions = query.questions
@@ -616,6 +627,16 @@ export const QuestionSet: React.FC<{
             <p className={cn(noticeInfo, 'w-full text-left')}>
               A reporter may contact you only if you gave permission. Nothing here is published automatically, and submitting doesn&apos;t guarantee a reply.
             </p>
+            {sessions !== undefined && talkVisible(query, sessions) && (
+              <div className="flex w-full flex-col gap-4 border-t border-rule pt-5">
+                <TalkItOver options={gatherOptions(query)} publicId={query.publicId} sessions={sessions} variant="card" />
+              </div>
+            )}
+            {sessions === undefined && canGather(query) && (
+              <Link className={buttonLink} href={talkPath(query.publicId)}>
+                Talk it over with others →
+              </Link>
+            )}
             <p className="text-xs text-ink-4">— WUWF Public Media, Pensacola, FL</p>
           </div>
         )}
@@ -627,7 +648,14 @@ export const QuestionSet: React.FC<{
     </div>
   )
 
-  if (!placed) return card
+  if (!placed) {
+    return (
+      <>
+        {card}
+        {screen !== 'done' && below ? <div className="mx-auto w-full max-w-xl pt-6">{below}</div> : null}
+      </>
+    )
+  }
 
   // The frame: the same eyebrow on every placement, then the card, or, at a topic's head, the invitation that opens it.
   return (

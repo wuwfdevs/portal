@@ -73,8 +73,6 @@ export interface HubLayout {
   questions: ListeningHubOpen[]
   /** Sessions whose question is not open on the hub (a listed session of a question that has since closed), shown on their own. */
   sessions: ListeningHubEvent[]
-  /** The questions anyone may start a private one-table session around. */
-  tables: ListeningHubOpen[]
 }
 
 /**
@@ -89,7 +87,6 @@ export function hubLayout(hub: ListeningHub): HubLayout {
     bands,
     questions: hub.open,
     sessions: sessions.filter((item) => !(item.queryPublicId != null && open.has(item.queryPublicId))),
-    tables: hub.open.filter((item) => item.canHostTable),
   }
 }
 

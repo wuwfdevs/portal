@@ -84,6 +84,11 @@ export const HostForm: React.FC<{ questions: HostQuestion[] }> = ({ questions })
 
   return (
     <form className="flex max-w-xl flex-col gap-5" noValidate onSubmit={submit}>
+      {questions.length === 1 ? (
+        <p className="text-sm text-ink-2">
+          About <strong>{questions[0]?.title}</strong>
+        </p>
+      ) : (
       <div className="flex flex-col gap-1.5">
         <label className={label} htmlFor={`${id}-query`}>
           The question you would like to gather people around
@@ -98,6 +103,7 @@ export const HostForm: React.FC<{ questions: HostQuestion[] }> = ({ questions })
         </select>
         <span className={hint}>Your session talks about this question&rsquo;s questions together, and each table is recorded.</span>
       </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label className={label} htmlFor={`${id}-name`}>

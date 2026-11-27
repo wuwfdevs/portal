@@ -4151,15 +4151,11 @@ export interface SectionListeningOpen {
    */
   placement?: ('stacked' | 'side') | null;
   /**
-   * Campaigns only. Shown when the whole hub has nothing open, no session, no table and nothing answered: “No reporter has a question open right now. Check back soon.”
+   * Cards with sessions only. Shown when the whole hub has nothing open, no session and nothing answered: “No reporter has a question open right now. Check back soon.”
    */
   emptyText?: string | null;
   /**
-   * Campaigns only. The words in the tile that starts a table: where to gather and what the phone does.
-   */
-  tableText?: string | null;
-  /**
-   * Reporters’ questions only. The line under the heading when none of the questions takes a written answer (the intro above says “or in writing”).
+   * Plain cards only. The line under the heading when none of the questions takes a written answer (the intro above says “or in writing”).
    */
   voiceOnlyIntro?: string | null;
   id?: string | null;
@@ -4191,7 +4187,6 @@ export interface SectionListeningSessions {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
-  variant: 'sessions' | 'tables';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;

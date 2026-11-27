@@ -100,7 +100,7 @@ describe('copy', () => {
     expect(introSummary({ questions: [q('a', 1, false)], allowTextAnswers: true })).toBe('1 question · by voice or in writing')
     expect(questionFooter(1, 3, 0)).toBe('Question 2 of 3')
     expect(questionFooter(1, 3, 1)).toBe('Question 2 of 3 · 1 answer saved')
-    expect(doneText(2)).toBe('2 answers received. Thank you — you can close this page.')
+    expect(doneText(2)).toBe('2 answers received. Thank you.')
   })
 
   it('says why a closed or unopened question cannot be started', () => {

@@ -22,14 +22,10 @@ describe('Ask WUWF section', () => {
     expect(html).toContain('the form')
   })
   it('offers each link only when there is something to go to', () => {
-    expect(jumpLinksOf(ok).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask', '#table-q-campaign', '/listens/host'])
-    expect(jumpLinksOf(empty).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
-    expect(jumpLinksOf(failed).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
-    expect(jumpLinksOf(undefined).map((l) => l.href)).toEqual(['#ask', '/listens/host'])
-  })
-  it('links "Host a table" only when some open question invites one', () => {
-    const none = { kind: 'ok' as const, hub: { ...hub, open: hub.open.map((q) => ({ ...q, canHostTable: false })) } }
-    expect(jumpLinksOf(none).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask', '/listens/host'])
+    expect(jumpLinksOf(ok).map((l) => l.href)).toEqual(['#now', '#came-of-it', '#ask'])
+    expect(jumpLinksOf(empty).map((l) => l.href)).toEqual(['#ask'])
+    expect(jumpLinksOf(failed).map((l) => l.href)).toEqual(['#ask'])
+    expect(jumpLinksOf(undefined).map((l) => l.href)).toEqual(['#ask'])
   })
   it('leaves the links out when the editor switched them off', () => {
     const html = view({ jumpLinks: false })

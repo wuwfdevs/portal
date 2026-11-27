@@ -5,9 +5,11 @@ import React, { cache } from 'react'
 
 import { PolicyNotice } from '@/components/Account/PolicyNotice'
 import { QuestionSet } from '@/components/Listening/QuestionSet'
+import { TalkItOver } from '@/components/Listening/TalkItOver'
 import { eyebrow } from '@/components/Listening/styles'
 import { availabilityMessage, pageMeta } from '@/lib/listening/flow'
-import { loadQuery } from '@/lib/listening/load'
+import { loadHub, loadQuery } from '@/lib/listening/load'
+import { gatherOptions, sessionsOf, TALK_ANCHOR, talkVisible } from '@/lib/listening/talk'
 import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { isPublicId } from '@/lib/listening/results'
 
@@ -37,6 +39,10 @@ export default async function QuestionSetPage({ params }: { params: Promise<Para
   }
 
   const { query } = loaded
+  // The question's listed sessions come from the hub. A hub that cannot be read leaves the page without them rather than failing it.
+  const hubLoad = await loadHub()
+  const sessions = hubLoad.kind === 'ok' ? sessionsOf(hubLoad.hub, query.publicId) : []
+  const talk = talkVisible(query, sessions)
   const unavailable = availabilityMessage(query.state, query.opensAt)
   const byline = [query.contextLabel, query.askedBy ? `asked by ${query.askedBy}` : query.fromLabel].filter(Boolean).join(' · ')
 
@@ -51,6 +57,14 @@ export default async function QuestionSetPage({ params }: { params: Promise<Para
         <div className="mx-auto flex w-full max-w-xl flex-col gap-1">
           <span className={eyebrow}>Help us report{byline ? ` · ${byline}` : ''}</span>
           {!unavailable && query.questions.length > 0 && <span className="text-[0.9375rem] text-ink-3">{pageMeta(query)}</span>}
+          {!unavailable && query.questions.length > 0 && talk && (
+            <span className="text-[0.9375rem] text-ink-3">
+              Prefer to talk it over with others?{' '}
+              <a className="font-semibold" href={`#${TALK_ANCHOR}`}>
+                See sessions and gather people ↓
+              </a>
+            </span>
+          )}
         </div>
         {unavailable || query.questions.length === 0 ? (
           <div className="mx-auto flex w-full max-w-xl flex-col gap-4 rounded-md border border-rule bg-surface p-8 shadow-2">
@@ -62,7 +76,11 @@ export default async function QuestionSetPage({ params }: { params: Promise<Para
             <PolicyNotice />
           </div>
         ) : (
-          <QuestionSet query={query} />
+          <QuestionSet
+            below={talk ? <TalkItOver options={gatherOptions(query)} publicId={query.publicId} sessions={sessions} /> : undefined}
+            query={query}
+            sessions={sessions}
+          />
         )}
       </div>
     </section>

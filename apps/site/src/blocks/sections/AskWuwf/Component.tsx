@@ -36,12 +36,6 @@ export function jumpLinksOf(load: HubLoad | undefined): JumpLink[] {
     if (hub.answered.length > 0) links.push({ label: 'See what came of other people’s answers →', href: '#came-of-it' })
   }
   links.push({ label: 'Ask WUWF something →', href: '#ask' })
-  if (load?.kind === 'ok') {
-    const { tables } = hubLayout(load.hub)
-    const first = tables[0]
-    if (first) links.push({ label: 'Host a table of your own →', href: `#table-${first.publicId}` })
-  }
-  links.push({ label: 'Host a listening session →', href: '/listens/host', page: true })
   return links
 }
 

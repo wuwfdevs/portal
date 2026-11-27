@@ -85,12 +85,6 @@ describe('the hub, grouped by question', () => {
     expect(layout.sessions.map((s) => s.publicId)).toEqual(['s1', 's2'])
   })
 
-  it('offers a table only for a question that invites one', () => {
-    const layout = hubLayout(hub({ open: [open('q1', { canHostTable: true }), open('q2')] }))
-    expect(layout.tables.map((q) => q.publicId)).toEqual(['q1'])
-    expect(layout.questions).toHaveLength(2)
-  })
-
   it('words a band’s eyebrow from the desk and the closing date', () => {
     expect(bandLabel({ contextLabel: 'After Isaias', askedBy: 'Leigh Ostrander', fromLabel: null, closesAt: '2026-11-30T20:00:00Z' })).toBe('After Isaias · Leigh Ostrander · open until Nov. 30')
     expect(bandLabel({ contextLabel: null, askedBy: null, fromLabel: null, closesAt: null })).toBe('open')
