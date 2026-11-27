@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { hubLayout } from '@/lib/listening/hub'
 import type { HubLoad } from '@/lib/listening/load'
 import { paragraphs } from '@/lib/page-content'
 

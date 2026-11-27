@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { empty, failed, hub, ok } from '../listening-fixtures'
+import { empty, failed, ok } from '../listening-fixtures'
 import { testContext } from '../testing'
 import { AskWuwfSection, AskWuwfView, jumpLinksOf } from './Component'
 
