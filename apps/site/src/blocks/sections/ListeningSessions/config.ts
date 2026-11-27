@@ -1,7 +1,5 @@
 import { defineSection, sectionFields } from '../fields'
 
-export const LISTENING_SESSIONS_VARIANTS = [{ label: 'Coming up: upcoming public sessions to join', value: 'sessions' }] as const
-
 /**
  * Coming up: the upcoming listed public sessions, soonest first, each with the question it talks over, a link to its page and its seat form. Every question
  * can be convened around, so a session belongs to a question, never to a campaign. It changes with no one editing the page, and draws nothing when no
@@ -12,5 +10,5 @@ export const ListeningSessions = defineSection({
   singular: 'Coming up (sessions)',
   plural: 'Coming up (sessions)',
   group: 'Collections',
-  fields: sectionFields({ variants: LISTENING_SESSIONS_VARIANTS, own: [] }),
+  fields: sectionFields({ own: [] }),
 })

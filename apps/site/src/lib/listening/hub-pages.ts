@@ -39,7 +39,7 @@ export function listensPages(): PageRecord[] {
     { heading: { title: HUB_WORDS.nowTitle, intro: HUB_WORDS.nowIntro }, emptyText: HUB_WORDS.empty },
     { anchor: 'now', variant: 'campaigns' },
   )
-  hub.add('sessions', 'sectionListeningSessions', 'plain', { heading: { title: HUB_WORDS.sessionsTitle, intro: HUB_WORDS.sessionsIntro } }, { anchor: 'coming-up', variant: 'sessions' })
+  hub.add('sessions', 'sectionListeningSessions', 'plain', { heading: { title: HUB_WORDS.sessionsTitle, intro: HUB_WORDS.sessionsIntro } }, { anchor: 'coming-up' })
   hub.add('outcomes', 'sectionListeningOutcomes', 'dark', { heading: { title: HUB_WORDS.outcomesTitle } }, { anchor: 'came-of-it' })
 
   return [

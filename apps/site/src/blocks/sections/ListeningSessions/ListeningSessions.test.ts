@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { empty, failed, hub, ok } from '../listening-fixtures'
 import { ListeningSessionsView } from './Component'
 
-const sessions = { blockType: 'sectionListeningSessions', variant: 'sessions', heading: { title: 'Coming up' } }
+const sessions = { blockType: 'sectionListeningSessions', heading: { title: 'Coming up' } }
 const view = (block: Record<string, unknown>, load: Parameters<typeof ListeningSessionsView>[0]['load']) => renderToStaticMarkup(createElement(ListeningSessionsView, { block: block as never, load }))
 
 describe('Coming up', () => {
