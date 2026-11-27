@@ -13,6 +13,7 @@ import {
   clockFromMs,
   lineAt,
   markFacilitator,
+  MARK_NOTE_MAX,
   markLine,
   marksHeading,
   marksPayload,
@@ -39,7 +40,7 @@ const FIRST_MINUTES = 10
 
 /**
  * The facilitator's after-page (board 5e): who was speaking, what mattered, then send. The Portal's transcript is rendered and
- * dropped: nothing here is stored on this site. Marks are sent as where a line starts and a tag; the Portal copies the words, so
+ * dropped: nothing here is stored on this site. Marks are sent as where a line starts and an optional note; the Portal copies the words, so
  * what was marked cannot change if the transcript is made again. Once sent, the conversation can be read but not changed.
  */
 export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initial }) => {
@@ -48,6 +49,8 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
   const [marks, setMarks] = useState<MarkEdit[]>(() => toMarkEdits(initial.highlights))
   const [dirty, setDirty] = useState(false)
   const [open, setOpen] = useState<number | null>(null)
+  // The facilitator's words on why the open line mattered; empty for none.
+  const [noteDraft, setNoteDraft] = useState('')
   const [dismissed, setDismissed] = useState<number[]>([])
   const [limit, setLimit] = useState<number | null>(FIRST_MINUTES)
   const [busy, setBusy] = useState(false)
@@ -144,8 +147,6 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
     )
   }
 
-  const tags = conversation.tags
-
   return (
     <div className="flex flex-col gap-8">
       {stage === 'sent' ? (
@@ -167,7 +168,7 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
           </h2>
           {!readOnly && (
             <p className="text-sm text-ink-3">
-              Read through. The transcript is a machine&rsquo;s first pass, so a few words will be wrong; that&rsquo;s fine. Select any line that said something true about living here{tags.length > 0 ? ', and give it a tag' : ''}.
+              Read through. The transcript is a machine&rsquo;s first pass, so a few words will be wrong; that&rsquo;s fine. Select any line that said something true about living here, and say why it mattered if you like.
             </p>
           )}
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -180,47 +181,45 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
                     aria-expanded={readOnly ? undefined : isOpen}
                     className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wuwf-blue-700 disabled:cursor-default"
                     disabled={readOnly}
-                    onClick={() => setOpen(isOpen ? null : line.startMs)}
+                    onClick={() => {
+                      setNoteDraft(mark?.note ?? '')
+                      setOpen(isOpen ? null : line.startMs)
+                    }}
                     type="button"
                   >
                     <span className="flex items-baseline justify-between gap-3 text-xs">
                       <span className="font-bold text-ink-2">{voiceName(speakers, line.speakerId)}</span>
                       <span className="font-mono text-ink-3">
-                        {mark && <span className="mr-2 font-sans font-bold text-lime-text">★{mark.tag ? ` ${mark.tag}` : ''}</span>}
+                        {mark && <span className="mr-2 font-sans font-bold text-lime-text">★</span>}
                         {clockFromMs(line.startMs)}
                       </span>
                     </span>
                     <span className="text-[0.9375rem] leading-snug text-ink">{line.text}</span>
                   </button>
                   {isOpen && !readOnly && (
-                    <div className="flex flex-wrap items-center gap-2 border-t border-rule px-3 py-2.5">
-                      <span className="text-sm font-semibold text-ink-2">Mark this line{tags.length > 0 ? ' as' : ''}:</span>
-                      {tags.length > 0 ? (
-                        tags.map((tag) => (
-                          <button
-                            className={cn(buttonSecondary, 'min-h-9 px-3', mark?.tag === tag && 'border-ink bg-surface-2')}
-                            key={tag}
-                            onClick={() => {
-                              editMarks(markLine(marks, line.startMs, tag))
-                              setOpen(null)
-                            }}
-                            type="button"
-                          >
-                            {tag}
-                          </button>
-                        ))
-                      ) : (
+                    <div className="flex flex-col gap-2 border-t border-rule px-3 py-2.5">
+                      <label className="text-sm font-semibold text-ink-2" htmlFor={`note-${line.startMs}`}>
+                        Why did this matter? <span className="font-normal text-ink-3">(optional, in your own words)</span>
+                      </label>
+                      <input
+                        className={field}
+                        id={`note-${line.startMs}`}
+                        maxLength={MARK_NOTE_MAX}
+                        onChange={(event) => setNoteDraft(event.target.value)}
+                        type="text"
+                        value={noteDraft}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           className={cn(buttonSecondary, 'min-h-9 px-3')}
                           onClick={() => {
-                            editMarks(markLine(marks, line.startMs, null))
+                            editMarks(markLine(marks, line.startMs, noteDraft))
                             setOpen(null)
                           }}
                           type="button"
                         >
-                          Mark it
+                          {mark ? 'Save' : 'Mark it'}
                         </button>
-                      )}
                       {mark && (
                         <button
                           className={buttonLink}
@@ -236,6 +235,7 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
                       <button className={buttonLink} onClick={() => setOpen(null)} type="button">
                         Cancel
                       </button>
+                      </div>
                     </div>
                   )}
                 </li>
@@ -373,7 +373,7 @@ export const AfterTable: React.FC<{ initial: ListeningConversation }> = ({ initi
                   return (
                     <li className="flex flex-col gap-1 rounded-sm border border-rule p-2.5" key={mark.startMs}>
                       <span className="flex items-center justify-between gap-2 text-xs">
-                        <span className="font-bold text-lime-text">{mark.tag ?? 'Marked'}</span>
+                        <span className="font-bold text-lime-text">{mark.note ?? 'Marked'}</span>
                         {!readOnly && (
                           <button className={buttonLink} onClick={() => editMarks(unmarkLine(marks, mark.startMs))} type="button">
                             Remove

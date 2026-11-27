@@ -3,17 +3,26 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PrimaryLink, TextLink } from "@/components/ui/primary-link";
 import { Cell, HeaderRow, Row, Table, TableFrame, Th } from "@/components/ui/table";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
-import { EVENT_STATUS_BADGE, LISTING_BADGE } from "@/lib/audience-listening/events";
-import type { AlCampaign, EventListRow } from "@/lib/audience-listening/campaign-queries";
+import { EVENT_STATUS_BADGE, HOSTING_LABEL, LISTING_BADGE } from "@/lib/audience-listening/events";
+import type { EventListRow } from "@/lib/audience-listening/event-queries";
+import type { AlQuery } from "@/lib/audience-listening/queries";
 
-export function EventsTab({ campaign, events }: { campaign: AlCampaign; events: EventListRow[] }) {
+/**
+ * The sessions convened around this query: in a place at a time, inside its dates, each with tables. Every query can have them; a
+ * reporter-only query simply has none.
+ */
+export function EventsTab({ query, events }: { query: AlQuery; events: EventListRow[] }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <PrimaryLink href={`/audience-listening/events/new?campaign=${campaign.id}`}>New event</PrimaryLink>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-500">Hosting: {HOSTING_LABEL[query.hosting]}. Change it in Settings.</p>
+        <PrimaryLink href={`/audience-listening/events/new?query=${query.id}`}>New event</PrimaryLink>
       </div>
       {events.length === 0 ? (
-        <EmptyState className="leading-relaxed">No events yet. An event is a session in a place at a time, inside this campaign&apos;s dates.</EmptyState>
+        <EmptyState className="leading-relaxed">
+          No events yet. An event is a session in a place at a time, inside this query&apos;s dates, where people talk about its questions
+          together and a phone records each table.
+        </EmptyState>
       ) : (
         <TableFrame>
           <Table stack className="md:min-w-[760px]">

@@ -17,17 +17,21 @@ export interface SpeakerEdit {
   suggestedName: string | null
 }
 
+/** A line the facilitator marked as what mattered. The note is their own words on why, optional: there is no list of tags to pick from, because themes are found afterwards. */
 export interface MarkEdit {
   startMs: number
-  tag: string | null
+  note: string | null
 }
+
+/** The longest note the Portal keeps. */
+export const MARK_NOTE_MAX = 500
 
 export function toSpeakerEdits(speakers: ListeningSpeaker[]): SpeakerEdit[] {
   return speakers.map((s) => ({ id: s.id, label: s.label, name: s.name ?? '', isFacilitator: s.isFacilitator, mergedInto: s.mergedInto, firstHeardMs: s.firstHeardMs, sharePercent: s.sharePercent, suggestedName: s.suggestedName ?? null }))
 }
 
 export function toMarkEdits(highlights: ListeningHighlight[]): MarkEdit[] {
-  return highlights.map((h) => ({ startMs: h.startMs, tag: h.tag }))
+  return highlights.map((h) => ({ startMs: h.startMs, note: h.note }))
 }
 
 /** "1:05:09" or "5:09" from milliseconds. */
@@ -114,18 +118,18 @@ export function speakersPayload(speakers: SpeakerEdit[]): { id: string; name: st
   return speakers.map((s) => ({ id: s.id, name: s.name.trim() || null, isFacilitator: s.isFacilitator, mergedInto: s.mergedInto }))
 }
 
-/** Marks or unmarks a line. Marking a line that is already marked changes its tag; an unmark removes it. Ordered by where it starts. */
-export function markLine(marks: MarkEdit[], startMs: number, tag: string | null): MarkEdit[] {
+/** Marks or unmarks a line. Marking a line that is already marked changes its note; an unmark removes it. Ordered by where it starts. */
+export function markLine(marks: MarkEdit[], startMs: number, note: string | null): MarkEdit[] {
   const others = marks.filter((m) => m.startMs !== startMs)
-  return [...others, { startMs, tag }].sort((a, b) => a.startMs - b.startMs)
+  return [...others, { startMs, note: note?.trim() ? note.trim().slice(0, MARK_NOTE_MAX) : null }].sort((a, b) => a.startMs - b.startMs)
 }
 
 export function unmarkLine(marks: MarkEdit[], startMs: number): MarkEdit[] {
   return marks.filter((m) => m.startMs !== startMs)
 }
 
-export function marksPayload(marks: MarkEdit[]): { startMs: number; tag: string | null }[] {
-  return marks.map((m) => ({ startMs: m.startMs, tag: m.tag }))
+export function marksPayload(marks: MarkEdit[]): { startMs: number; note: string | null }[] {
+  return marks.map((m) => ({ startMs: m.startMs, note: m.note }))
 }
 
 /** The lines in the first `minutes` of the conversation, or all of them. */

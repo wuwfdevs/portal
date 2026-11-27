@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import React, { useId, useState } from 'react'
 
 import { LISTENING_HOST_EXPECTED, LISTENING_HOST_KINDS, LISTENING_HOST_SEATS, type ListeningHostExpected, type ListeningHostKind, type ListeningHostSeats } from '@wuwf/portal-contracts'
@@ -17,8 +18,17 @@ import { buttonDark, checkRow, checkbox, field, hint, label, noticeOk, noticeWar
  * staff list flags any request that has waited more than five days, because this page says a week. Asking for a WUWF
  * journalist to join is a request too. The email is needed to write back and is used for that.
  */
-export const HostForm: React.FC = () => {
+/** A question that invites people to host a session around it: what the form lets them choose between. */
+export interface HostQuestion {
+  publicId: string
+  title: string
+}
+
+export const HostForm: React.FC<{ questions: HostQuestion[] }> = ({ questions }) => {
   const id = useId()
+  // A question's own page links here with `?query=<id>`; the form starts on it when it is one that invites hosts. Read in the browser, never on the server.
+  const requested = useSearchParams().get('query')
+  const [queryPublicId, setQueryPublicId] = useState(() => questions.find((q) => q.publicId === requested)?.publicId ?? (questions.length === 1 ? (questions[0]?.publicId ?? '') : ''))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [organization, setOrganization] = useState('')
@@ -37,7 +47,7 @@ export const HostForm: React.FC = () => {
     event.preventDefault()
     if (sending) return
     setError(null)
-    const input = { name, email, kind, organization, seats, address, expected, whenText, inviteesText, journalistRequested: journalist }
+    const input = { queryPublicId, name, email, kind, organization, seats, address, expected, whenText, inviteesText, journalistRequested: journalist }
     const checked = checkHostRequest(input)
     if (!checked.ok) return setError(checked.message)
     setSending(true)
@@ -61,8 +71,39 @@ export const HostForm: React.FC = () => {
     )
   }
 
+  if (questions.length === 0) {
+    return (
+      <div className="flex max-w-xl flex-col gap-4" role="status">
+        <p className={noticeOk}>No question is asking for hosts right now. When one is, you will find the invitation beside it.</p>
+        <Link className="self-start text-sm font-bold text-wuwf-blue-700 underline" href="/listens">
+          Back to WUWF Listens
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <form className="flex max-w-xl flex-col gap-5" noValidate onSubmit={submit}>
+      {questions.length === 1 ? (
+        <p className="text-sm text-ink-2">
+          About <strong>{questions[0]?.title}</strong>
+        </p>
+      ) : (
+      <div className="flex flex-col gap-1.5">
+        <label className={label} htmlFor={`${id}-query`}>
+          The question you would like to gather people around
+        </label>
+        <select className={field} id={`${id}-query`} onChange={(event) => setQueryPublicId(event.target.value)} required value={queryPublicId}>
+          {questions.length > 1 && <option value="">Choose a question</option>}
+          {questions.map((q) => (
+            <option key={q.publicId} value={q.publicId}>
+              {q.title}
+            </option>
+          ))}
+        </select>
+        <span className={hint}>Your session talks about this question&rsquo;s questions together, and each table is recorded.</span>
+      </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label className={label} htmlFor={`${id}-name`}>

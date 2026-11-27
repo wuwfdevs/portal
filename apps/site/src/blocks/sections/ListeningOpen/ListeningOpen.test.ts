@@ -1,41 +1,46 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { empty, failed, hub, notSetUp, ok } from '../listening-fixtures'
 import { testContext } from '../testing'
 import { ListeningOpenSection, ListeningOpenView } from './Component'
 
-vi.mock('@/components/Listening/KitchenTable', () => ({ KitchenTable: () => createElement('form', { 'data-form': 'table' }, 'table form') }))
-
-const Table = (() => createElement('form', { 'data-form': 'table' }, 'table form')) as never
-const campaigns = { blockType: 'sectionListeningOpen', variant: 'campaigns', heading: { title: 'What we’re listening for right now' }, emptyText: 'No reporter has a question open right now.', tableText: 'Gather a few people.' }
+const campaigns = { blockType: 'sectionListeningOpen', variant: 'campaigns', heading: { title: 'What we’re listening for right now' }, emptyText: 'No reporter has a question open right now.' }
 const reporters = { blockType: 'sectionListeningOpen', variant: 'reporters', heading: { title: 'A reporter would like to hear from you', intro: 'One reporter, one story, a few minutes by voice or in writing.' }, voiceOnlyIntro: 'One reporter, one story, a few minutes by voice.' }
-const view = (block: Record<string, unknown>, load: Parameters<typeof ListeningOpenView>[0]['load']) => renderToStaticMarkup(createElement(ListeningOpenView, { block: block as never, load, KitchenTable: Table }))
+const view = (block: Record<string, unknown>, load: Parameters<typeof ListeningOpenView>[0]['load']) => renderToStaticMarkup(createElement(ListeningOpenView, { block: block as never, load }))
 
-describe('Open questions: campaigns', () => {
-  it('draws a band for the campaign with its question and every way in', () => {
+describe('Open questions: cards with sessions', () => {
+  it('draws a card for each open question with one action, Answer, to the question’s page', () => {
     const html = view(campaigns, ok)
-    expect(html).toContain('id="campaign-c-1"')
+    expect(html).toContain('id="question-q-campaign"')
     expect(html).toContain('What did the storm leave?')
-    expect(html).toContain('Answer on your own')
     expect(html).toContain('href="/listens/q-campaign"')
-    expect(html).toContain('Join a session')
-    expect(html).toContain('href="/listens/events/e-band"')
-    expect(html).toContain('Save a seat')
-    expect(html).toContain('id="table-c-1"')
-    expect(html).toContain('Gather a few people.')
-    expect(html).toContain('table form')
+    expect(html).toContain('id="question-q-reporter"')
+    expect(html).toContain('How is your insurance bill?')
+    expect(html).toContain('href="/listens/q-reporter"')
   })
-  it('shows no count on an open question, and leaves the reporters’ own question to its own layout', () => {
+  it('puts nothing but Answer on a card as an action: sessions, tables and hosting are on the question’s page', () => {
     const html = view(campaigns, ok)
-    expect(html).not.toMatch(/\b41\b/)
-    expect(html).not.toContain('How is your insurance bill?')
+    expect(html).not.toContain('Join a session')
+    expect(html).not.toContain('Talk it over')
+    expect(html).not.toContain('table form')
+    expect(html).not.toContain('/listens/host')
+    expect(html).not.toContain('Save a seat')
   })
-  it('says so when the whole hub is empty, and draws nothing when it is not and there is no band', () => {
+  it('says whether a session is coming up, linking to where the question’s sessions are, and plain text when there is none', () => {
+    const html = view(campaigns, ok)
+    expect(html).toContain('1 session coming up')
+    expect(html).toContain('href="/listens/q-campaign#talk-it-over"')
+    expect(html).toContain('No sessions yet.')
+  })
+  it('shows no count on an open question', () => {
+    expect(view(campaigns, ok)).not.toMatch(/\b41\b/)
+  })
+  it('says so when the whole hub is empty, and draws nothing when it is not and there is no card', () => {
     expect(view(campaigns, empty)).toContain('No reporter has a question open right now.')
-    const noBands = { kind: 'ok' as const, hub: { ...hub, campaigns: [] } }
-    expect(view(campaigns, noBands)).toBe('')
+    const noCards = { kind: 'ok' as const, hub: { ...hub, open: [] } }
+    expect(view(campaigns, noCards)).toBe('')
   })
   it('says why when the Portal is not set up or could not be read', () => {
     expect(view(campaigns, notSetUp)).toMatch(/not (yet )?set up|isn.t set up|not available/i)
@@ -47,18 +52,18 @@ describe('Open questions: campaigns', () => {
   })
 })
 
-describe('Open questions: reporters’ questions', () => {
-  it('draws a card for a question that belongs to no campaign, with its desk and its line, linking to it', () => {
+describe('Open questions: cards', () => {
+  it('draws a card for each question, with its desk and its line, linking to it', () => {
     const html = view(reporters, ok)
     expect(html).toContain('How is your insurance bill?')
     expect(html).toContain('Coastal Futures · Leigh Ostrander')
     expect(html).toContain('href="/listens/q-reporter"')
-    expect(html).not.toContain('What did the storm leave?')
+    expect(html).toContain('What did the storm leave?')
   })
   it('uses the voice-only intro when no question takes a written answer, and the main intro when one does', () => {
-    expect(view(reporters, ok)).toContain('a few minutes by voice.')
-    const written = { kind: 'ok' as const, hub: { ...hub, open: hub.open.map((o) => ({ ...o, allowTextAnswers: true })) } }
-    expect(view(reporters, written)).toContain('by voice or in writing.')
+    const voice = { kind: 'ok' as const, hub: { ...hub, open: hub.open.map((o) => ({ ...o, allowTextAnswers: false })) } }
+    expect(view(reporters, voice)).toContain('a few minutes by voice.')
+    expect(view(reporters, ok)).toContain('by voice or in writing.')
   })
   it('draws nothing when there is none, and does not repeat the not-set-up sentence the other layout says', () => {
     expect(view(reporters, empty)).toBe('')
@@ -68,7 +73,7 @@ describe('Open questions: reporters’ questions', () => {
 
 describe('Open questions on the home page', () => {
   const homeView = (block: Record<string, unknown>, load: Parameters<typeof ListeningOpenView>[0]['load']) =>
-    renderToStaticMarkup(createElement(ListeningOpenView, { block: block as never, load, KitchenTable: Table, home: true }))
+    renderToStaticMarkup(createElement(ListeningOpenView, { block: block as never, load, home: true }))
   const many = (n: number) => ({
     kind: 'ok' as const,
     hub: { ...hub, open: Array.from({ length: n }, (_, i) => ({ ...hub.open[1]!, publicId: `q-${i + 1}`, title: `Question ${i + 1}` })) },

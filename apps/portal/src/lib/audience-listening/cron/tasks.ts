@@ -47,7 +47,7 @@ async function ownerMaySourcework(db: Admin, userId: string, cache: Map<string, 
   const known = cache.get(userId);
   if (known !== undefined) return known;
   const tool = must(await db.from("tools").select("id, enabled, default_access").eq("key", "transcription").maybeSingle(), "read the Sourcework tool");
-  const profile = must(await db.from("profiles").select("account_status").eq("id", userId).maybeSingle(), "read the campaign owner");
+  const profile = must(await db.from("profiles").select("account_status").eq("id", userId).maybeSingle(), "read the query owner");
   let hasGrant = false;
   if (tool) {
     const grants = must(await db.from("tool_access").select("id").eq("user_id", userId).eq("tool_id", tool.id).is("revoked_at", null).limit(1), "read the owner's grant");
@@ -63,20 +63,20 @@ async function ownerMaySourcework(db: Admin, userId: string, cache: Map<string, 
   return allowed;
 }
 
-/** The campaign's owner for each of these events, by event id. */
+/** The owner of each of these events' queries (who the hand-off is made as), by event id; a query with no owner falls back to whoever made it. */
 async function ownersByEvent(db: Admin, eventIds: string[]): Promise<Map<string, string | null>> {
   const result = new Map<string, string | null>();
   if (eventIds.length === 0) return result;
-  const events = must(await db.from("al_events").select("id, campaign_id").in("id", eventIds), "read the events") ?? [];
-  const campaignIds = [...new Set(events.map((e) => e.campaign_id))];
-  const campaigns = campaignIds.length ? must(await db.from("al_campaigns").select("id, owner_id").in("id", campaignIds), "read the campaigns") ?? [] : [];
-  const ownerOf = new Map(campaigns.map((c) => [c.id, c.owner_id]));
-  for (const e of events) result.set(e.id, ownerOf.get(e.campaign_id) ?? null);
+  const events = must(await db.from("al_events").select("id, query_id").in("id", eventIds), "read the events") ?? [];
+  const queryIds = [...new Set(events.map((e) => e.query_id))];
+  const queries = queryIds.length ? must(await db.from("al_queries").select("id, owner_id, created_by").in("id", queryIds), "read the queries") ?? [] : [];
+  const ownerOf = new Map(queries.map((q) => [q.id, q.owner_id ?? q.created_by]));
+  for (const e of events) result.set(e.id, ownerOf.get(e.query_id) ?? null);
   return result;
 }
 
 /**
- * Conversations that are whole but nobody has sent to Sourcework are sent, as the campaign's owner. A coordinator's button does the
+ * Conversations that are whole but nobody has sent to Sourcework are sent, as the query's owner. A coordinator's button does the
  * same thing; this is only the nobody-pressed-it case. A conversation whose owner cannot use Sourcework is counted and left for a person.
  */
 function handoffTask(db: Admin, now: Date): Task {
@@ -163,7 +163,7 @@ function afterLinksTask(db: Admin, now: Date): Task {
   };
 }
 
-/** Marked lines become Sourcework excerpts once the transcript is ready, made as the campaign's owner. */
+/** Marked lines become Sourcework excerpts once the transcript is ready, made as the query's owner. */
 function excerptsTask(db: Admin): Task {
   return {
     name: "excerpts-from-marks",

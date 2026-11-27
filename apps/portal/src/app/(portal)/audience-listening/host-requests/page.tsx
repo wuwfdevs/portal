@@ -13,6 +13,8 @@ import {
   hostRequestMatches,
   parseHostRequestFilter,
 } from "@/lib/audience-listening/inboxes";
+import { createClient } from "@/lib/supabase/server";
+import { unwrapRead } from "@/lib/read-result";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,14 @@ export default async function HostRequestsPage({
   const info = pageInfo(page, total, INBOX_PAGE_SIZE);
   const listParams = { show: filter === "open" ? null : filter };
   if (isPastLastPage(info)) redirect(pageHref(PATH, listParams, info.pageCount));
+
+  // Each request is about a query; show which, and link to it.
+  const queryIds = [...new Set(rows.map((r) => r.query_id))];
+  const queryTitles = new Map<string, string>();
+  if (queryIds.length > 0) {
+    const result = await (await createClient()).from("al_queries").select("id, internal_title").in("id", queryIds);
+    for (const q of unwrapRead(result, "the host requests' queries") ?? []) queryTitles.set(q.id, q.internal_title);
+  }
 
   const now = new Date();
   const all = HOST_REQUEST_STATES.reduce((sum, s) => sum + (counts[s] ?? 0), 0);
@@ -120,6 +130,11 @@ export default async function HostRequestsPage({
                     <Detail label="Email">
                       <a className="break-all text-brand-hover underline" href={`mailto:${request.email}`}>
                         {request.email}
+                      </a>
+                    </Detail>
+                    <Detail label="About">
+                      <a className="text-brand-hover underline" href={`/audience-listening/${request.query_id}`}>
+                        {queryTitles.get(request.query_id) ?? "A deleted query"}
                       </a>
                     </Detail>
                     <Detail label="When">{request.when_text}</Detail>

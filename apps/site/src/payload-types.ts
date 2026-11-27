@@ -110,7 +110,6 @@ export interface Config {
     sectionListeningOpen: SectionListeningOpen;
     sectionListeningSessions: SectionListeningSessions;
     sectionListeningOutcomes: SectionListeningOutcomes;
-    sectionHostForm: SectionHostForm;
   };
   collections: {
     posts: Post;
@@ -4151,15 +4150,11 @@ export interface SectionListeningOpen {
    */
   placement?: ('stacked' | 'side') | null;
   /**
-   * Campaigns only. Shown when the whole hub has nothing open, no session, no table and nothing answered: “No reporter has a question open right now. Check back soon.”
+   * Cards with sessions only. Shown when the whole hub has nothing open, no session and nothing answered: “No reporter has a question open right now. Check back soon.”
    */
   emptyText?: string | null;
   /**
-   * Campaigns only. The words in the tile that starts a table: where to gather and what the phone does.
-   */
-  tableText?: string | null;
-  /**
-   * Reporters’ questions only. The line under the heading when none of the questions takes a written answer (the intro above says “or in writing”).
+   * Plain cards only. The line under the heading when none of the questions takes a written answer (the intro above says “or in writing”).
    */
   voiceOnlyIntro?: string | null;
   id?: string | null;
@@ -4191,7 +4186,6 @@ export interface SectionListeningSessions {
    * The ground of the section. The page theme decides what each looks like.
    */
   tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
-  variant: 'sessions' | 'tables';
   heading?: {
     eyebrow?: string | null;
     title?: string | null;
@@ -4248,47 +4242,6 @@ export interface SectionListeningOutcomes {
   id?: string | null;
   blockName?: string | null;
   blockType: 'sectionListeningOutcomes';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "SectionHostForm".
- */
-export interface SectionHostForm {
-  /**
-   * Parks the section without deleting it. It does not show on the page.
-   */
-  hidden?: boolean | null;
-  /**
-   * Optional. Lower-case words joined by hyphens, e.g. on-air-rates. A link to the page can end in #on-air-rates to land on this section.
-   */
-  anchor?: string | null;
-  /**
-   * Optional. Adds a link with this name to the strip of the set's (or the show's) pages, to this section. Needs an anchor above, or a page below.
-   */
-  navLabel?: string | null;
-  /**
-   * Optional. When what this section is about has a page of its own (/campus), the strip's link goes to that page instead of to this section on the page. Leave empty to link to the section. Needs a name above.
-   */
-  navHref?: string | null;
-  /**
-   * The ground of the section. The page theme decides what each looks like.
-   */
-  tone: 'plain' | 'grey' | 'accent' | 'dark' | 'teal' | 'lime' | 'softlime';
-  heading?: {
-    eyebrow?: string | null;
-    title?: string | null;
-    /**
-     * A blank line starts a new paragraph.
-     */
-    intro?: string | null;
-  };
-  /**
-   * Where the heading sits. A phone always shows it above.
-   */
-  placement?: ('stacked' | 'side') | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'sectionHostForm';
 }
 /**
  * Short vertical video. Needs captions to publish.
@@ -4543,7 +4496,6 @@ export interface Page {
         | SectionListeningOpen
         | SectionListeningSessions
         | SectionListeningOutcomes
-        | SectionHostForm
       )[]
     | null;
   /**

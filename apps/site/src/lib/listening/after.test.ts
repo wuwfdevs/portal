@@ -7,6 +7,7 @@ import {
   clockFromMs,
   lineAt,
   markFacilitator,
+  MARK_NOTE_MAX,
   markLine,
   marksHeading,
   marksPayload,
@@ -81,19 +82,23 @@ describe('merging voices', () => {
 })
 
 describe('marking lines', () => {
-  it('keeps marks in order and changes the tag of a line marked twice', () => {
+  it('keeps marks in order and changes the note of a line marked twice', () => {
     let marks = markLine([], 5000, 'Cost')
     marks = markLine(marks, 1000, null)
-    marks = markLine(marks, 5000, 'Housing')
+    marks = markLine(marks, 5000, '  Housing  ')
     expect(marks).toEqual([
-      { startMs: 1000, tag: null },
-      { startMs: 5000, tag: 'Housing' },
+      { startMs: 1000, note: null },
+      { startMs: 5000, note: 'Housing' },
     ])
   })
-  it('removes a mark, and sends only where it starts and its tag, never the words', () => {
+  it('keeps a blank note as none and cuts a long one to what the Portal keeps', () => {
+    expect(markLine([], 1, '   ')[0]?.note).toBeNull()
+    expect(markLine([], 1, 'x'.repeat(900))[0]?.note).toHaveLength(MARK_NOTE_MAX)
+  })
+  it('removes a mark, and sends only where it starts and its note, never the words', () => {
     const marks = unmarkLine(markLine(markLine([], 1000, 'A'), 2000, 'B'), 1000)
-    expect(marksPayload(marks)).toEqual([{ startMs: 2000, tag: 'B' }])
-    expect(Object.keys(marksPayload(marks)[0]!)).toEqual(['startMs', 'tag'])
+    expect(marksPayload(marks)).toEqual([{ startMs: 2000, note: 'B' }])
+    expect(Object.keys(marksPayload(marks)[0]!)).toEqual(['startMs', 'note'])
   })
   it('says how many are marked', () => {
     expect(marksHeading(0)).toBe('What mattered')
@@ -141,6 +146,6 @@ describe('suggested names and lines', () => {
       { startMs: 2000, text: 'two', speakerId: null },
       { startMs: 3000, text: 'three', speakerId: null },
     ] as Parameters<typeof openProposals>[3]
-    expect(openProposals([3000, 1000, 2000, 9999], [{ startMs: 2000, tag: null }], [3000], lines).map((l) => l.startMs)).toEqual([1000])
+    expect(openProposals([3000, 1000, 2000, 9999], [{ startMs: 2000, note: null }], [3000], lines).map((l) => l.startMs)).toEqual([1000])
   })
 })

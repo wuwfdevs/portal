@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAudienceListeningContext } from "@/lib/audience-listening/access";
-import { getEvent, listTables } from "@/lib/audience-listening/campaign-queries";
+import { getEvent, listTables } from "@/lib/audience-listening/event-queries";
 import {
   getConversationForTable,
   getStaffTranscript,
@@ -215,11 +215,12 @@ export default async function TablePage({
                           {mark ? (
                             <>
                               {" "}
-                              <Badge variant="accent">Marked{mark.tag ? `: ${mark.tag}` : ""}</Badge>
+                              <Badge variant="accent">Marked</Badge>
                             </>
                           ) : null}
                         </p>
                         <p className="text-sm text-ink-900">{line.text}</p>
+                        {mark?.note && <p className="mt-0.5 text-xs text-ink-500">Why it mattered: {mark.note}</p>}
                       </li>
                     );
                   })}

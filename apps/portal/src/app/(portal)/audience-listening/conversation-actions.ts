@@ -11,7 +11,7 @@ import { assertAudienceListeningContext, assertAudienceListeningCoordinator } fr
 import { AUDIENCE_LISTENING_MEDIA_BUCKET } from "@/lib/audience-listening/media";
 import { canUseTool } from "@/lib/auth/authz";
 import { sendConversationToSourcework } from "@/lib/audience-listening/conversation-handoff";
-import { getEvent, listConversations, listTables } from "@/lib/audience-listening/campaign-queries";
+import { getEvent, listConversations, listTables } from "@/lib/audience-listening/event-queries";
 import { needsAfterLink } from "@/lib/audience-listening/after-link";
 import { sendAfterLink } from "@/lib/audience-listening/after-link-send";
 
@@ -212,7 +212,7 @@ export async function emailPendingFacilitatorLinks(formData: FormData): Promise<
 
 /**
  * Turns the lines a facilitator marked into Sourcework excerpts, made as the staff member who pressed this (Sourcework records who made
- * an excerpt). The scheduled run does the same as the campaign's owner once a transcript is ready; this is for doing it now. The
+ * an excerpt). The scheduled run does the same as the query's owner once a transcript is ready; this is for doing it now. The
  * database function is service-role only, so the admin client calls it, after the staff member's own access to both tools is checked.
  */
 export async function makeExcerptsFromMarks(formData: FormData): Promise<void> {

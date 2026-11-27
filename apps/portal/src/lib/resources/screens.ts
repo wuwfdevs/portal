@@ -149,17 +149,19 @@ export const SCREENS: readonly ScreenDefinition[] = [
     toolKey: "audience-listening",
     paths: ["/audience-listening/inbox", "/audience-listening/host-requests"],
   },
+  // Retired with the campaign layer (the query is now the core record). Kept because Resources guides already applied to the database name
+  // these keys and a migration is never edited; they cover no route, so the Help panel never offers them.
   {
     key: "audience-listening.campaigns",
-    name: "Campaigns",
+    name: "Campaigns (retired)",
     toolKey: "audience-listening",
-    paths: ["/audience-listening/campaigns", "/audience-listening/campaigns/new"],
+    paths: [],
   },
   {
     key: "audience-listening.campaign",
-    name: "Campaign",
+    name: "Campaign (retired)",
     toolKey: "audience-listening",
-    paths: ["/audience-listening/campaigns/:id"],
+    paths: [],
   },
   {
     key: "audience-listening.events",
@@ -175,7 +177,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
   },
   {
     key: "audience-listening.consent",
-    name: "Consent wording",
+    name: "Consent and opening wording",
     toolKey: "audience-listening",
     paths: ["/audience-listening/consent"],
   },

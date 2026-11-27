@@ -3,24 +3,23 @@
 import { useRouter } from 'next/navigation'
 import React, { useId, useState } from 'react'
 
-import type { ListeningHubKitchenCampaign } from '@wuwf/portal-contracts'
-
 import { startKitchenTable } from '@/app/(frontend)/listens/kitchen-actions'
 import { PolicyNotice } from '@/components/Account/PolicyNotice'
-import { KITCHEN_NAME_MAX, KITCHEN_PLACE_MAX, checkKitchen } from '@/lib/listening/kitchen'
+import { KITCHEN_MINUTES, KITCHEN_MINUTES_DEFAULT, KITCHEN_NAME_MAX, KITCHEN_PLACE_MAX, checkKitchen, kitchenMinutesLabel } from '@/lib/listening/kitchen'
 
 import { buttonDark, field, hint, label, noticeWarn } from './styles'
 
 /**
- * Host your own table. One private table, on this phone, for a campaign WUWF has opened to it: nothing is public, nobody is invited
+ * Host your own table. One private table, on this phone, around a question WUWF has opened to it: nothing is public, nobody is invited
  * from here, and nothing records until the people at the table have heard the agreement read and said yes. Starting opens the table's
- * own page. `bare` leaves out the title and question when the page already shows them (inside a campaign's band).
+ * own page. `bare` leaves out the title when the page already shows it (inside a question's band).
  */
-export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign; bare?: boolean }> = ({ campaign, bare = false }) => {
+export const KitchenTable: React.FC<{ query: { publicId: string; title: string }; bare?: boolean }> = ({ query, bare = false }) => {
   const id = useId()
   const router = useRouter()
   const [hostName, setHostName] = useState('')
   const [place, setPlace] = useState('')
+  const [minutes, setMinutes] = useState<number>(KITCHEN_MINUTES_DEFAULT)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,10 +27,10 @@ export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign; bar
     event.preventDefault()
     if (busy) return
     setError(null)
-    const checked = checkKitchen({ hostName, place })
+    const checked = checkKitchen({ hostName, place, minutes })
     if (!checked.ok) return setError(checked.message)
     setBusy(true)
-    const result = await startKitchenTable({ campaignPublicId: campaign.publicId, hostName, place })
+    const result = await startKitchenTable({ queryPublicId: query.publicId, hostName, place, minutes })
     if (!result.ok) {
       setBusy(false)
       return setError(result.message)
@@ -42,10 +41,7 @@ export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign; bar
   return (
     <form className="flex max-w-xl flex-col gap-4" onSubmit={submit}>
       {!bare && (
-        <div>
-          <h3 className="font-serif text-xl font-bold">{campaign.title}</h3>
-          <p className="mt-1 font-serif text-lg leading-snug text-ink-2">&ldquo;{campaign.question}&rdquo;</p>
-        </div>
+        <h3 className="font-serif text-xl font-bold">{query.title}</h3>
       )}
       <div className="flex flex-col gap-1.5">
         <label className={label} htmlFor={`${id}-name`}>
@@ -59,6 +55,19 @@ export const KitchenTable: React.FC<{ campaign: ListeningHubKitchenCampaign; bar
         </label>
         <input className={field} id={`${id}-place`} maxLength={KITCHEN_PLACE_MAX} onChange={(e) => setPlace(e.target.value)} placeholder="My kitchen" type="text" value={place} />
         <span className={hint}>Only WUWF sees this, beside the recording.</span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={label} htmlFor={`${id}-minutes`}>
+          How long will it run?
+        </label>
+        <select className={field} id={`${id}-minutes`} onChange={(e) => setMinutes(Number(e.target.value))} value={minutes}>
+          {KITCHEN_MINUTES.map((m) => (
+            <option key={m} value={m}>
+              {kitchenMinutesLabel(m)}
+            </option>
+          ))}
+        </select>
+        <span className={hint}>The table&rsquo;s phone suggests about how long to spend on each question. It is only a suggestion.</span>
       </div>
       {error && (
         <p className={noticeWarn} role="alert">

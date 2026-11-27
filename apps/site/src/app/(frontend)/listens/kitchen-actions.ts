@@ -8,12 +8,12 @@ import { currentClientHash, currentVisitorSubject } from '@/lib/listening/reques
 import { failure, isPublicId, type ActionResult } from '@/lib/listening/results'
 
 /**
- * Starts a kitchen table for a campaign that accepts them. The Portal makes the event and its table and returns the table's single-use
+ * Starts a kitchen table around a question that allows them. The Portal makes the event and its table and returns the table's single-use
  * link once; the page that opened it goes straight to that link, whose phone then reads the agreement aloud before anything records.
  * The link is never stored on this site and never logged. A person at a table is not a subject; the host who starts one is the visitor.
  */
-export async function startKitchenTable(input: { campaignPublicId: string; hostName: string; place: string }): Promise<ActionResult<{ path: string }>> {
-  if (!isPublicId(input.campaignPublicId) || typeof input.hostName !== 'string' || typeof input.place !== 'string') return failure('invalid_request')
+export async function startKitchenTable(input: { queryPublicId: string; hostName: string; place: string; minutes: number }): Promise<ActionResult<{ path: string }>> {
+  if (!isPublicId(input.queryPublicId) || typeof input.hostName !== 'string' || typeof input.place !== 'string') return failure('invalid_request')
   const checked = checkKitchen(input)
   if (!checked.ok) return { ...failure('invalid_request'), message: checked.message }
   const subject = await currentVisitorSubject(true)
@@ -21,7 +21,8 @@ export async function startKitchenTable(input: { campaignPublicId: string; hostN
   const hash = await currentClientHash()
   const result = await callListening<{ linkToken: string }>(LISTENING_PATHS.kitchenTableCreate, {
     subject,
-    campaignPublicId: input.campaignPublicId,
+    queryPublicId: input.queryPublicId,
+    minutes: checked.value.minutes,
     hostName: checked.value.hostName,
     place: checked.value.place,
     ...(hash ? { clientHash: hash } : {}),

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import React from 'react'
 
-import { hubLayout } from '@/lib/listening/hub'
 import type { HubLoad } from '@/lib/listening/load'
 import { paragraphs } from '@/lib/page-content'
 
@@ -32,17 +31,10 @@ export function jumpLinksOf(load: HubLoad | undefined): JumpLink[] {
   const links: JumpLink[] = []
   if (load?.kind === 'ok') {
     const hub = load.hub
-    const { bands } = hubLayout(hub)
-    if (hub.open.length > 0) links.push({ label: 'Answer a question →', href: bands.length > 0 ? '#now' : '#help-us-report' })
+    if (hub.open.length > 0) links.push({ label: 'Answer a question →', href: '#now' })
     if (hub.answered.length > 0) links.push({ label: 'See what came of other people’s answers →', href: '#came-of-it' })
   }
   links.push({ label: 'Ask WUWF something →', href: '#ask' })
-  if (load?.kind === 'ok') {
-    const { bands, tables } = hubLayout(load.hub)
-    const firstTable = bands.find((band) => band.table)
-    if (tables.length > 0 || firstTable) links.push({ label: 'Host a table of your own →', href: firstTable ? `#table-${firstTable.campaign.publicId}` : '#kitchen-table' })
-  }
-  links.push({ label: 'Host a listening session →', href: '/listens/host', page: true })
   return links
 }
 

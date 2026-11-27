@@ -4,23 +4,23 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormActions } from "@/components/ui/form-actions";
 import { PageHeader } from "@/components/ui/page-header";
-import { getCampaign } from "@/lib/audience-listening/campaign-queries";
+import { getQueryById } from "@/lib/audience-listening/queries";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { UUID_RE } from "@/lib/form-fields";
 import { createEvent } from "../../event-actions";
 import { EventFields } from "../event-fields";
 
-export default async function NewEventPage({ searchParams }: { searchParams: Promise<{ campaign?: string; error?: string }> }) {
+export default async function NewEventPage({ searchParams }: { searchParams: Promise<{ query?: string; error?: string }> }) {
   await requireToolAccess("audience-listening");
-  const { campaign: campaignId, error } = await searchParams;
-  if (!campaignId || !UUID_RE.test(campaignId)) {
-    redirect("/audience-listening/campaigns?error=" + encodeURIComponent("Open a campaign and add the event from its Events tab."));
+  const { query: queryId, error } = await searchParams;
+  if (!queryId || !UUID_RE.test(queryId)) {
+    redirect("/audience-listening?error=" + encodeURIComponent("Open a query and add the event from its Events tab."));
   }
-  const campaign = await getCampaign(campaignId);
-  if (!campaign) redirect("/audience-listening/campaigns?error=" + encodeURIComponent("That campaign no longer exists."));
+  const query = await getQueryById(queryId);
+  if (!query) redirect("/audience-listening?error=" + encodeURIComponent("That query no longer exists."));
 
-  const backHref = `/audience-listening/campaigns/${campaign.id}?tab=events`;
-  const span = [campaign.opens_at && `from ${formatEventTime(campaign.opens_at)}`, campaign.closes_at && `to ${formatEventTime(campaign.closes_at)}`]
+  const backHref = `/audience-listening/${query.id}?tab=events`;
+  const span = [query.opens_at && `from ${formatEventTime(query.opens_at)}`, query.closes_at && `to ${formatEventTime(query.closes_at)}`]
     .filter(Boolean)
     .join(" ");
 
@@ -29,13 +29,13 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
       <div className="max-w-xl">
         <PageHeader
           className="mb-6"
-          back={{ href: backHref, label: `Back to ${campaign.title}` }}
+          back={{ href: backHref, label: `Back to ${query.internal_title}` }}
           title="New event"
-          description={`For ${campaign.title}. ${span ? `Its dates run ${span}.` : "It has no dates set, so an event can be any day."} The event starts as a draft; nothing is public.`}
+          description={`For ${query.internal_title}. ${span ? `Its dates run ${span}.` : "It has no dates set, so an event can be any day."} The event starts as a draft; nothing is public.`}
         />
         {error && <Alert className="mb-4">{error}</Alert>}
         <form action={createEvent} className="flex flex-col gap-4">
-          <input type="hidden" name="campaign_id" value={campaign.id} />
+          <input type="hidden" name="query_id" value={query.id} />
           <EventFields />
           <FormActions cancelHref={backHref}>
             <Button type="submit">Create event</Button>

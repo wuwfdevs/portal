@@ -396,6 +396,22 @@ page says so rather than promising it. (6) **A kitchen table** (`al_campaigns.ac
 a visitor starts from the hub: three a day per host, the link is made by the route and shown once. Migrations `20261114120000` (schema) and `20261114130000`
 (Resources content); apply both, with `20261113120000` and `20261113130000`, before the code ships, preview first.
 
+**Audience Listening: the query is the core record (2026-11-26).** A pointer; read the suite design's §13 first, and read the earlier Audience Listening paragraphs
+above with it on top: **the campaign no longer exists** (`al_campaigns`, `al_campaign_prompts` and `al_campaign_tags` are dropped; `campaigns/` and `campaign-actions.ts` are gone).
+Five things are load-bearing: (1) **every query can be convened around**: `al_events.query_id` (not null) and `al_host_requests.query_id` (not null, no general
+door), and a table's questions are the query's own `al_questions` (one list, answered alone or discussed at a table); the Portal screen is the query's **Events** tab,
+and an event starts inside its query's window (`al_events_check_query_span`, TS twin `eventSpanProblem`); (2) **who may host is one setting on the query**,
+`al_queries.hosting` (`staff_only | private_tables | anyone`), read through `private.al_can_host_table` / `al_can_request_host` by the hub, the query page, the kitchen-table
+call and the host-request call; a public event is still approved by a coordinator; (3) **pacing is the event's**: `al_events.planned_minutes` (null = start to end; a
+kitchen table's host picks 30, 45 or 60), the suggested time per question is computed, never stored (`lib/audience-listening/pacing.ts`, a twin of
+`packages/listening-core/src/pacing.ts`: the Portal does not depend on that package, so a change goes in both with the same tests); (4) **the opening every recording
+starts with is station-wide and versioned** (`al_opening_texts`, like `al_consent_texts`, edited by a coordinator on the Wording page; `al_tables.opening_text_version`
+records what a table was shown), and an individual's answer does not play it; (5) **there are no tags**: `al_highlights.note` is the facilitator's own words on why a
+line mattered, optional, and themes are found by Sourcework afterwards. The Sourcework project and the scheduled hand-off owner are on the query
+(`sourcework_project_id`, `owner_id`). `20261126120000_audience_listening_query_core.sql` is in two parts (add and replace, then drops) because the Supabase connector
+holds back a statement containing `delete` or `drop`; see its header and `APPLIED.md`. The Resources screens `audience-listening.campaigns` and `.campaign` are kept as
+retired keys with no route, because Resources guides already applied name them.
+
 **Audience Listening: the website address and the mailbox are station settings (2026-11-14).** A pointer. `station_settings.website_origin` and
 `.listening_notify_email` (Administration → Station, administrators only; `20261114140000`) replace the `WEBSITE_ORIGIN` and
 `AUDIENCE_LISTENING_NOTIFY_EMAIL` variables for Audience Listening. Three things are load-bearing: (1) **one resolver, `lib/station-links.ts`**: the setting

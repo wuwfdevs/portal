@@ -38,8 +38,9 @@ describe("segmentExtension", () => {
 
 describe("sourceDescription", () => {
   it("says where the tape came from and nothing a person said", () => {
-    const text = sourceDescription({ campaignTitle: "Housing", question: "How is rent?", eventTitle: "Night", placeName: "Library", tableNumber: 3, startsAt: "2026-12-05T18:00:00Z" });
+    const text = sourceDescription({ queryTitle: "Housing", questions: ["How is rent?", "What would you change?"], eventTitle: "Night", placeName: "Library", tableNumber: 3, startsAt: "2026-12-05T18:00:00Z" });
     expect(text).toContain("table 3");
+    expect(text).toContain("How is rent? / What would you change?");
     expect(text).toContain("2026-12-05");
     expect(text).not.toMatch(/@/);
   });

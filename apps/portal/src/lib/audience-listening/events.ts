@@ -7,6 +7,7 @@ import type {
   AlEventListingState,
   AlEventStatus,
   AlEventVisibility,
+  AlHosting,
   AlOrganizerKind,
   AlTableState,
 } from "@/lib/database.types";
@@ -48,9 +49,32 @@ export const TABLE_STATE_LABEL: Record<AlTableState, string> = {
   sent: "Sent",
 };
 
+export const HOSTING_VALUES: readonly AlHosting[] = ["staff_only", "private_tables", "anyone"];
+
+export const HOSTING_LABEL: Record<AlHosting, string> = {
+  staff_only: "Staff only",
+  private_tables: "Anyone may start a private table",
+  anyone: "Anyone may start a private table or ask to host a session",
+};
+
+/** What each setting means for the person choosing it. Every public event is still approved by a coordinator before it is listed. */
+export const HOSTING_HELP: Record<AlHosting, string> = {
+  staff_only: "Only staff make events. The query's page does not invite anyone to host.",
+  private_tables:
+    "Anyone can start a private one-table session from the website (a kitchen table): no event to join, no card to print, the link made on the spot. Nothing is listed.",
+  anyone:
+    "Private tables, and anyone can send a request to host a session, which staff read and schedule. A public event is listed only after a coordinator approves it.",
+};
+
+export function isHosting(value: string): value is AlHosting {
+  return (HOSTING_VALUES as readonly string[]).includes(value);
+}
+
 export const SEAT_CHOICES: readonly number[] = [12, 30, 60];
 export const MAX_SEATS = 500;
 export const MAX_TABLES = 99;
+export const MIN_PLANNED_MINUTES = 10;
+export const MAX_PLANNED_MINUTES = 480;
 
 export function isEventStatus(value: string): value is AlEventStatus {
   return (EVENT_STATUSES as readonly string[]).includes(value);
@@ -70,6 +94,8 @@ export interface EventInput {
   address: string | null;
   visibility: string;
   seats: number | null;
+  /** How long it is planned to run, in minutes; blank means from the start to the end. */
+  plannedMinutes?: number | null;
 }
 
 /**
@@ -93,6 +119,10 @@ export function validateEventInput(input: EventInput): string | null {
   if (input.seats != null && (!Number.isInteger(input.seats) || input.seats < 1 || input.seats > MAX_SEATS)) {
     return `Seats is a whole number from 1 to ${MAX_SEATS}.`;
   }
+  const planned = input.plannedMinutes;
+  if (planned != null && (!Number.isInteger(planned) || planned < MIN_PLANNED_MINUTES || planned > MAX_PLANNED_MINUTES)) {
+    return `The planned length is a whole number of minutes from ${MIN_PLANNED_MINUTES} to ${MAX_PLANNED_MINUTES}.`;
+  }
   return null;
 }
 
@@ -100,7 +130,7 @@ export function validateEventInput(input: EventInput): string | null {
 export const LISTING_CHECKLIST: readonly { key: string; label: string }[] = [
   { key: "public_place", label: "It is in a public place" },
   { key: "organizer", label: "The organizer is identified and their email is verified" },
-  { key: "inside_campaign", label: "The date is inside the campaign" },
+  { key: "inside_query", label: "The date is inside the query's window" },
   { key: "accessibility", label: "The accessibility details are filled in" },
   { key: "not_fundraising", label: "It is not a fundraiser or a campaign event" },
   { key: "consent_reading", label: "The organizer has acknowledged the consent reading" },
@@ -201,4 +231,16 @@ export function availableEventActions(status: AlEventStatus): EventAction[] {
     case "done":
       return [];
   }
+}
+
+/**
+ * Whether an event that starts at `startsAt` is inside its query's window, with the sentence to show when it is not. The SQL twin is
+ * al_events_check_query_span(); a missing bound is no bound.
+ */
+export function eventSpanProblem(startsAt: string, window: { opensAt: string | null; closesAt: string | null }): string | null {
+  const start = Date.parse(startsAt);
+  if (!Number.isFinite(start)) return "Choose when the event starts.";
+  if (window.opensAt && start < Date.parse(window.opensAt)) return "The event starts before the query opens.";
+  if (window.closesAt && start > Date.parse(window.closesAt)) return "The event starts after the query closes.";
+  return null;
 }

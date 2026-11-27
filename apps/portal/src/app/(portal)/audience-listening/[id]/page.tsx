@@ -9,6 +9,7 @@ import {
   getLinkedProjects,
   listOutcomes,
 } from "@/lib/audience-listening/queries";
+import { listEvents } from "@/lib/audience-listening/event-queries";
 import { QUERY_STATUS_BADGE } from "@/lib/audience-listening/review";
 import {
   availableStatusActions,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SecondaryLink } from "@/components/ui/primary-link";
 import { setQueryStatus } from "../actions";
+import { EventsTab } from "./events-tab";
 import { OverviewTab } from "./overview-tab";
 import { QuestionsTab } from "./questions-tab";
 import { OutcomesTab } from "./outcomes-tab";
@@ -30,12 +32,13 @@ import { SettingsTab } from "./settings-tab";
 import { ShareTab } from "./share-tab";
 import { SubmissionsTab } from "./submissions-tab";
 
-const TABS = ["overview", "questions", "settings", "submissions", "outcomes", "share"] as const;
+const TABS = ["overview", "questions", "events", "settings", "submissions", "outcomes", "share"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABEL: Record<Tab, string> = {
   overview: "Overview",
   questions: "Questions",
+  events: "Events",
   settings: "Settings",
   submissions: "Submissions",
   outcomes: "Outcomes",
@@ -79,8 +82,9 @@ export default async function QueryWorkspacePage({
 
   const activeTab: Tab = TABS.includes(tab as Tab) ? (tab as Tab) : "overview";
 
-  const [questions, submissions, answers, outcomes] = await Promise.all([
+  const [questions, events, submissions, answers, outcomes] = await Promise.all([
     listQuestions(id),
+    listEvents({ queryId: id }),
     listSubmissions(id),
     listAnswersForQuery(id),
     listOutcomes(id),
@@ -139,6 +143,8 @@ export default async function QueryWorkspacePage({
           label:
             candidate === "submissions" && submissions.length > 0
               ? `${TAB_LABEL[candidate]} (${submissions.length})`
+              : candidate === "events" && events.length > 0
+              ? `${TAB_LABEL[candidate]} (${events.length})`
               : candidate === "outcomes" && outcomes.length > 0
                 ? `${TAB_LABEL[candidate]} (${outcomes.length})`
                 : TAB_LABEL[candidate],
@@ -157,6 +163,7 @@ export default async function QueryWorkspacePage({
       {activeTab === "questions" && (
         <QuestionsTab query={query} questions={questions} submissionCount={submissions.length} />
       )}
+      {activeTab === "events" && <EventsTab query={query} events={events} />}
       {activeTab === "settings" && (
         <SettingsTab query={query} hasSubmissions={submissions.length > 0} />
       )}

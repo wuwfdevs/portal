@@ -341,6 +341,8 @@ repo and a project's history, not the version number.
 | `20261114180000_audience_listening_table_kitchen_flag.sql`                | 2026-11-14 | 2026-11-14 |
 | `20261115120000_notifications.sql`                                        | 2026-11-16 | 2026-11-16 |
 | `20261115130000_resources_notifications.sql`                              | 2026-11-16 | 2026-11-16 |
+| `20261126120000_audience_listening_query_core.sql`                        | 2026-11-27 | 2026-11-27 |
+| `20261126130000_resources_audience_listening_query_core.sql`               | 2026-11-27 | 2026-11-27 |
 
 **Preview caught up 2026-09-24.** The two 2026-09-14 RLS migrations and the
 2026-09-22/24 Log import migrations were first applied to production only —
@@ -425,3 +427,11 @@ does not read this table (script names are not backticked for that reason: it wo
 | Script                    | Preview    | Production |
 | ------------------------- | ---------- | ---------- |
 | wuwf/station-settings.sql | 2026-11-04 | 2026-11-04 |
+
+**`20261126120000_audience_listening_query_core.sql` was applied in pieces, not as one statement.** The Supabase connector holds back any statement containing `delete`
+or `drop`, so the file has two parts (add and replace, then drops) and the preview project's history holds it as `audience_listening_query_core_1_schema` to `_5_event_query_id`
+(plus a stray, later dropped, four-argument `al_site_table_agree` made by a mistake in the first attempt and removed by the `drop function if exists` in part 2). The mark-saving
+function (it contains a `delete`) and the drops were run by hand in the SQL editor on both projects on 2026-11-27. **Production was reached in the other order**: the drops
+first, then the schema and the functions through the connector (`audience_listening_query_core_1_schema`, `_2_functions`), because production held no campaign, event or request rows
+and so needed none of the migration's two backfill statements (they read the dropped campaign table). The end state is the same as the file's; checked on both projects
+with real queries (the old tables, column and functions are gone, the new columns, the opening table and the seven functions are present) and `get_advisors`, which names none of the new objects.

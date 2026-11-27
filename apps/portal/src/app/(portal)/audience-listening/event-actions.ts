@@ -10,8 +10,8 @@ import { assertAudienceListeningContext, assertAudienceListeningCoordinator } fr
 import { generatePublicId } from "@/lib/audience-listening/public-id";
 import { stationInputToUTC } from "@/lib/audience-listening/event-times";
 import { resolveWebsiteOrigin } from "@/lib/station-links";
-import { eventSpanProblem } from "@/lib/audience-listening/campaigns";
-import { getCampaign, getEvent, listTables } from "@/lib/audience-listening/campaign-queries";
+import { getQueryById } from "@/lib/audience-listening/queries";
+import { getEvent, listTables } from "@/lib/audience-listening/event-queries";
 import {
   EVENT_ACTION_TARGET,
   LISTING_ACTION_TARGET,
@@ -19,6 +19,7 @@ import {
   availableEventActions,
   availableListingActions,
   eventIsDeletable,
+  eventSpanProblem,
   isOrganizerKind,
   missingListingChecks,
   nextTableNumber,
@@ -45,13 +46,14 @@ interface ParsedEvent {
   city: string | null;
   visibility: "private" | "public";
   seats: number | null;
+  plannedMinutes: number | null;
   organizerKind: "wuwf" | "partner" | "person";
   organizerLabel: string | null;
   journalist: boolean;
 }
 
-/** Reads and checks the event form; fails back to `path` with the first problem, including the campaign's span. */
-async function parseEventForm(formData: FormData, campaignId: string, path: string): Promise<ParsedEvent> {
+/** Reads and checks the event form; fails back to `path` with the first problem, including the query's window. */
+async function parseEventForm(formData: FormData, queryId: string, path: string): Promise<ParsedEvent> {
   const startsAt = stationInputToUTC(field(formData, "starts_at"));
   const endsAt = stationInputToUTC(field(formData, "ends_at"));
   const visibility = field(formData, "visibility") === "public" ? "public" : "private";
@@ -64,14 +66,15 @@ async function parseEventForm(formData: FormData, campaignId: string, path: stri
     visibility,
     // A private event has no seat count: it is shared by the organizer, not found by strangers.
     seats: visibility === "public" ? optionalInt(formData, "seats") : null,
+    plannedMinutes: optionalInt(formData, "planned_minutes"),
   };
   const problem = validateEventInput(input);
   if (problem) failWith(path, problem);
 
-  const campaign = await getCampaign(campaignId);
-  if (!campaign) failWith(path, "That campaign no longer exists.");
-  const spanProblem = eventSpanProblem(startsAt!, { opensAt: campaign.opens_at, closesAt: campaign.closes_at });
-  if (spanProblem) failWith(path, `${spanProblem} Change the event's date, or the campaign's dates.`);
+  const query = await getQueryById(queryId);
+  if (!query) failWith(path, "That query no longer exists.");
+  const spanProblem = eventSpanProblem(startsAt!, { opensAt: query.opens_at, closesAt: query.closes_at });
+  if (spanProblem) failWith(path, `${spanProblem} Change the event's date, or the query's dates.`);
 
   const organizerKind = field(formData, "organizer_kind");
   return {
@@ -83,6 +86,7 @@ async function parseEventForm(formData: FormData, campaignId: string, path: stri
     city: optionalField(formData, "city"),
     visibility,
     seats: input.seats,
+    plannedMinutes: input.plannedMinutes,
     organizerKind: isOrganizerKind(organizerKind) ? organizerKind : "wuwf",
     organizerLabel: optionalField(formData, "organizer_label"),
     journalist: checkboxField(formData, "wuwf_journalist_joining"),
@@ -91,17 +95,17 @@ async function parseEventForm(formData: FormData, campaignId: string, path: stri
 
 export async function createEvent(formData: FormData): Promise<void> {
   const { profile } = await assertAudienceListeningContext();
-  const campaignId = field(formData, "campaign_id");
-  const newPath = `${EVENTS_PATH}/new?campaign=${encodeURIComponent(campaignId)}`;
-  if (!UUID_RE.test(campaignId)) failWith(`${EVENTS_PATH}/new`, "Choose the campaign this event belongs to.");
-  const parsed = await parseEventForm(formData, campaignId, newPath);
+  const queryId = field(formData, "query_id");
+  const newPath = `${EVENTS_PATH}/new?query=${encodeURIComponent(queryId)}`;
+  if (!UUID_RE.test(queryId)) failWith(`${EVENTS_PATH}/new`, "Choose the query this event is for.");
+  const parsed = await parseEventForm(formData, queryId, newPath);
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("al_events")
     .insert({
       public_id: generatePublicId(),
-      campaign_id: campaignId,
+      query_id: queryId,
       title: parsed.title,
       starts_at: parsed.startsAtISO,
       ends_at: parsed.endsAtISO,
@@ -110,6 +114,7 @@ export async function createEvent(formData: FormData): Promise<void> {
       city: parsed.city,
       visibility: parsed.visibility,
       seats: parsed.seats,
+      planned_minutes: parsed.plannedMinutes,
       organizer_kind: parsed.organizerKind,
       organizer_label: parsed.organizerLabel,
       wuwf_journalist_joining: parsed.journalist,
@@ -130,7 +135,7 @@ export async function updateEvent(formData: FormData): Promise<void> {
   const path = eventPath(id);
   const event = await getEvent(id);
   if (!event) failWith(EVENTS_PATH, "That event no longer exists.");
-  const parsed = await parseEventForm(formData, event.campaign_id, `${path}?edit=1`);
+  const parsed = await parseEventForm(formData, event.query_id, `${path}?edit=1`);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -144,6 +149,7 @@ export async function updateEvent(formData: FormData): Promise<void> {
       city: parsed.city,
       visibility: parsed.visibility,
       seats: parsed.seats,
+      planned_minutes: parsed.plannedMinutes,
       organizer_kind: parsed.organizerKind,
       organizer_label: parsed.organizerLabel,
       wuwf_journalist_joining: parsed.journalist,
@@ -191,7 +197,7 @@ export async function deleteEvent(formData: FormData): Promise<void> {
   if (!eventIsDeletable(event.status)) failWith(eventPath(id), "Cancel the event first. One that was scheduled is kept, not deleted.");
   await deleteOrFail((await createClient()).from("al_events").delete().eq("id", id).select("id"), eventPath(id), "Could not delete the event");
   await logAuditEvent({ actorId: profile.id, action: "al.event.deleted", targetType: "al_event", targetId: id, metadata: { title: event.title } });
-  redirect(`/audience-listening/campaigns/${event.campaign_id}?tab=events`);
+  redirect(`/audience-listening/${event.query_id}?tab=events`);
 }
 
 // Listing ------------------------------------------------------------------------------------------------

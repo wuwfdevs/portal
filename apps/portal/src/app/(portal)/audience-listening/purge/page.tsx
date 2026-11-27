@@ -24,7 +24,7 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
         title="Purge what is due"
         description="Unfinished work is deleted after 30 days. A conversation is never deleted on a schedule: a coordinator runs this, and the weekly reminder says when something is due. Facilitator emails are cleared on their own, hourly."
       />
-      <ListeningNav current="campaigns" />
+      <ListeningNav current="queries" />
       {error && <Alert className="mb-4">{error}</Alert>}
       {done && Number.isFinite(doneSubmissions) && (
         <Alert variant="note" className="mb-4">
@@ -71,8 +71,8 @@ export default async function PurgePage({ searchParams }: { searchParams: Promis
         <Card className="p-5">
           <SectionHeading className="mb-2">Not purged here</SectionHeading>
           <p className="text-sm text-ink-500">
-            Contact cards are kept until a campaign&apos;s report is published plus 12 months, and raw audio of material never used for 24 months after
-            it, unless the records officer sets a different schedule. Campaign reports do not exist yet, so neither is due. The Portal does not
+            Contact cards are kept until a query&apos;s report is published plus 12 months, and raw audio of material never used for 24 months after
+            it, unless the records officer sets a different schedule. Query reports do not exist yet, so neither is due. The Portal does not
             guess a date for them.
           </p>
         </Card>

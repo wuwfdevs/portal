@@ -342,7 +342,7 @@ describe("the hub", () => {
   it("shapes open questions without any count of responses", () => {
     const { open: shaped } = shapeHub({ open: [open], answered: [] });
     expect(shaped).toEqual([
-      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3, campaignPublicId: null },
+      { publicId: PUBLIC_ID, title: "After the storm", intro: "Tell us.", askedBy: null, fromLabel: "from the news desk", contextLabel: null, closesAt: null, allowTextAnswers: true, questionCount: 3, canHostTable: false, canRequestHost: false },
     ]);
     expect(Object.keys(shaped[0] ?? {})).not.toContain("responseCount");
   });
@@ -360,47 +360,30 @@ describe("the hub", () => {
   });
 
   it("is empty, not an error, for a payload it cannot read", () => {
-    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [], kitchenCampaigns: [], campaigns: [] });
+    expect(shapeHub(null)).toEqual({ open: [], answered: [], events: [] });
     expect(shapeResponse("hub", { error: "nope" }).ok).toBe(false);
-    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [], kitchenCampaigns: [], campaigns: [] } } });
+    expect(shapeResponse("hub", { open: [], answered: [] })).toEqual({ ok: true, body: { hub: { open: [], answered: [], events: [] } } });
   });
 
   it("lists upcoming public events, and drops one that is missing what the page needs", () => {
     const event = { public_id: PUBLIC_ID, title: "Listening session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Milton Community Center", city: "Milton", organizer_label: null, seats_left: 12 };
     const { events } = shapeHub({ open: [], answered: [], events: [event, { ...event, place_name: null }, { ...event, public_id: undefined }, "nope"] });
     expect(events).toEqual([
-      { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12, campaignPublicId: null },
+      { publicId: PUBLIC_ID, title: "Listening session", startsAt: "2026-11-15T16:00:00Z", endsAt: "2026-11-15T19:00:00Z", placeName: "Milton Community Center", city: "Milton", organizerLabel: null, seatsLeft: 12, queryPublicId: null },
     ]);
   });
 
-  it("lists the campaigns that accept a kitchen table, and drops one that is missing a title or question", () => {
-    const { kitchenCampaigns } = shapeHub({
-      open: [],
-      answered: [],
-      kitchen_campaigns: [
-        { public_id: PUBLIC_ID, title: "Season", question: "What would make it easier to stay?" },
-        { public_id: PUBLIC_ID, title: "No question" },
-        "nope",
-      ],
-    });
-    expect(kitchenCampaigns).toEqual([{ publicId: PUBLIC_ID, title: "Season", question: "What would make it easier to stay?" }]);
-  });
-
-  it("says which campaign a question and a session belong to, and frames the open campaigns", () => {
-    const CAMPAIGN = "campaign00000001";
+  it("says whether a question invites hosts, and which question a session is convened around", () => {
+    const QUERY = "abcdefghijkmnpqs";
     const hub = shapeHub({
-      open: [{ ...open, campaign_public_id: CAMPAIGN }],
+      open: [{ ...open, can_host_table: true, can_request_host: true }, { ...open, can_host_table: "yes" }],
       answered: [],
-      events: [{ public_id: PUBLIC_ID, title: "Session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Library", city: null, organizer_label: null, seats_left: null, campaign_public_id: CAMPAIGN }],
-      campaigns: [
-        { public_id: CAMPAIGN, title: "Season", question: "What would make it easier to stay?", intro: "A few times a year.", owner_label: "from WUWF", closes_at: "2026-12-20T00:00:00Z" },
-        { public_id: CAMPAIGN, title: "No question" },
-        "nope",
-      ],
+      events: [{ public_id: PUBLIC_ID, title: "Session", starts_at: "2026-11-15T16:00:00Z", ends_at: "2026-11-15T19:00:00Z", place_name: "Library", city: null, organizer_label: null, seats_left: null, query_public_id: QUERY }],
     });
-    expect(hub.open[0]?.campaignPublicId).toBe(CAMPAIGN);
-    expect(hub.events?.[0]?.campaignPublicId).toBe(CAMPAIGN);
-    expect(hub.campaigns).toEqual([{ publicId: CAMPAIGN, title: "Season", question: "What would make it easier to stay?", intro: "A few times a year.", ownerLabel: "from WUWF", closesAt: "2026-12-20T00:00:00Z" }]);
+    expect(hub.open[0]).toMatchObject({ canHostTable: true, canRequestHost: true });
+    // Anything but a literal true reads as no: a question never invites hosts by accident.
+    expect(hub.open[1]).toMatchObject({ canHostTable: false, canRequestHost: false });
+    expect(hub.events?.[0]?.queryPublicId).toBe(QUERY);
   });
 
   it("gives no events, and no error, when the database sends none", () => {
@@ -412,6 +395,7 @@ describe("inbox-send and host-request (phase C)", () => {
   const SUBJ = { kind: "visitor", id: "v_abc-123" } as const;
   const HOST = {
     subject: SUBJ,
+    queryPublicId: "abcdefghijkmnpqs",
     name: " Mary Jones ",
     email: "mary@example.org",
     kind: "invite",
@@ -453,6 +437,7 @@ describe("inbox-send and host-request (phase C)", () => {
       fn: "al_site_host_request",
       args: {
         p_subject: "site:visitor:v_abc-123",
+        p_query_public_id: "abcdefghijkmnpqs",
         p_name: "Mary Jones",
         p_email: "mary@example.org",
         p_kind: "invite",
@@ -481,6 +466,8 @@ describe("inbox-send and host-request (phase C)", () => {
       { ...HOST, inviteesText: "x".repeat(2001) },
       { ...HOST, journalistRequested: "yes" },
       { ...HOST, subject: undefined },
+      { ...HOST, queryPublicId: undefined },
+      { ...HOST, queryPublicId: "nope" },
     ]) {
       expect(parseListeningRequest("host-request", bad).ok).toBe(false);
     }

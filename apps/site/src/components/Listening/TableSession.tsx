@@ -21,10 +21,12 @@ import {
   lastCallShown,
   neighbourPosition,
   promptAt,
+  openingComesFirst,
   promptLabel,
   recordingNotice,
   sendPercent,
   suggestedTimeLabel,
+  tableSuggestedSeconds,
   tableScreen,
   tableIsAheadOrBehind,
   type PendingSegment,
@@ -187,6 +189,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
         }
         const agreed = await agreeTable({
           consentVersion: table.consent.version,
+          openingVersion: table.opening?.version ?? null,
           firstName: facilitator.value.firstName,
           email: facilitator.value.email,
           people: facilitator.value.people,
@@ -403,6 +406,13 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
             </p>
           )}
 
+          {table.consent && table.opening && (
+            <div className="flex flex-col gap-1.5 rounded-md border border-rule-strong bg-surface p-4">
+              <span className={eyebrow}>When recording starts, everyone says</span>
+              <p className="m-0 text-base leading-snug">{table.opening.text}</p>
+            </div>
+          )}
+
           {table.state === 'waiting' && (
             <>
               <div className="flex flex-col gap-1.5">
@@ -486,7 +496,7 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
   const paused = screen === 'paused'
   const canBack = neighbourPosition(table.prompts, table.promptPosition, -1) !== null
   const canNext = neighbourPosition(table.prompts, table.promptPosition, 1) !== null
-  const time = suggestedTimeLabel(prompt?.suggestedSeconds ?? null)
+  const time = suggestedTimeLabel(tableSuggestedSeconds(table))
   return (
     <div className="flex min-h-[80vh] flex-col">
       {header}
@@ -548,6 +558,13 @@ const TableSessionOpen: React.FC<{ initial: ListeningTable; conversationStatus: 
           <p className={noticeInfo} role="status">
             This browser cannot keep a copy of the recording on the phone, so keep this page open until the recording has sent.
           </p>
+        )}
+
+        {prompt && openingComesFirst(table, prompt) && table.opening && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-rule-strong bg-surface p-4">
+            <span className={eyebrow}>First, everyone says</span>
+            <p className="m-0 text-base leading-snug">{table.opening.text}</p>
+          </div>
         )}
 
         {prompt && (

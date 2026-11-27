@@ -40,8 +40,8 @@ describe('hub words', () => {
   })
 })
 
-describe('the hub, grouped by campaign', () => {
-  const open = (publicId: string, campaignPublicId: string | null): ListeningHubOpen => ({
+describe('the hub, grouped by question', () => {
+  const open = (publicId: string, extra: Partial<ListeningHubOpen> = {}): ListeningHubOpen => ({
     publicId,
     title: `Question ${publicId}`,
     intro: '',
@@ -51,9 +51,11 @@ describe('the hub, grouped by campaign', () => {
     closesAt: null,
     allowTextAnswers: true,
     questionCount: 2,
-    campaignPublicId,
+    canHostTable: false,
+    canRequestHost: false,
+    ...extra,
   })
-  const session = (publicId: string, campaignPublicId: string | null, startsAt: string): ListeningHubEvent => ({
+  const session = (publicId: string, queryPublicId: string | null, startsAt: string): ListeningHubEvent => ({
     publicId,
     title: 'Session',
     startsAt,
@@ -62,58 +64,29 @@ describe('the hub, grouped by campaign', () => {
     city: null,
     organizerLabel: null,
     seatsLeft: 5,
-    campaignPublicId,
+    queryPublicId,
   })
-  const season = { publicId: 'season', title: 'Season', question: 'What would make it easier to stay?', intro: '', ownerLabel: 'from WUWF', closesAt: '2026-12-20T20:00:00Z' }
-  const storm = { publicId: 'storm', title: 'After Isaias', question: 'What did a contractor tell you?', intro: '', ownerLabel: null, closesAt: null }
   const hub = (parts: Partial<ListeningHub>): ListeningHub => ({ open: [], answered: [], ...parts })
 
-  it('puts a campaign’s question, sessions and table in one band', () => {
+  it('makes a band of every open question, with its sessions soonest first', () => {
     const layout = hubLayout(
-      hub({
-        campaigns: [season],
-        open: [open('q1', 'season')],
-        events: [session('late', 'season', '2026-11-20T16:00:00Z'), session('soon', 'season', '2026-11-15T16:00:00Z')],
-        kitchenCampaigns: [{ publicId: 'season', title: 'Season', question: 'What would make it easier to stay?' }],
-      }),
+      hub({ open: [open('q1'), open('q2')], events: [session('late', 'q1', '2026-11-20T16:00:00Z'), session('soon', 'q1', '2026-11-15T16:00:00Z'), session('other', 'q2', '2026-11-18T16:00:00Z')] }),
     )
-    expect(layout.bands).toHaveLength(1)
-    expect(layout.bands[0]?.question?.publicId).toBe('q1')
-    expect(layout.bands[0]?.sessions.map((s) => s.publicId)).toEqual(['soon', 'late'])
-    expect(layout.bands[0]?.table?.publicId).toBe('season')
-    expect(layout.questions).toEqual([])
-    expect(layout.sessions).toEqual([])
-    expect(layout.tables).toEqual([])
-  })
-
-  it('keeps two campaigns apart', () => {
-    const layout = hubLayout(
-      hub({ campaigns: [season, storm], open: [open('q1', 'season'), open('q2', 'storm')], events: [session('s1', 'storm', '2026-11-18T16:00:00Z')] }),
-    )
-    expect(layout.bands.map((band) => [band.campaign.publicId, band.question?.publicId ?? null, band.sessions.length])).toEqual([
-      ['season', 'q1', 0],
-      ['storm', 'q2', 1],
+    expect(layout.bands.map((band) => [band.question.publicId, band.sessions.map((s) => s.publicId)])).toEqual([
+      ['q1', ['soon', 'late']],
+      ['q2', ['other']],
     ])
+    expect(layout.sessions).toEqual([])
   })
 
-  it('leaves a question with no campaign in its own list, and makes no band for an empty campaign', () => {
-    const layout = hubLayout(hub({ campaigns: [season], open: [open('solo', null)] }))
-    expect(layout.bands).toEqual([])
-    expect(layout.questions.map((q) => q.publicId)).toEqual(['solo'])
+  it('leaves a session whose question is not open in its own list', () => {
+    const layout = hubLayout(hub({ open: [open('q1')], events: [session('s1', 'closed-one', '2026-11-15T16:00:00Z'), session('s2', null, '2026-11-16T16:00:00Z')] }))
+    expect(layout.bands[0]?.sessions).toEqual([])
+    expect(layout.sessions.map((s) => s.publicId)).toEqual(['s1', 's2'])
   })
 
-  it('shows everything as before when the Portal sends no campaigns', () => {
-    const layout = hubLayout(
-      hub({ open: [open('q1', 'season')], events: [session('s1', 'season', '2026-11-15T16:00:00Z')], kitchenCampaigns: [{ publicId: 'season', title: 'Season', question: 'Q?' }] }),
-    )
-    expect(layout.bands).toEqual([])
-    expect(layout.questions).toHaveLength(1)
-    expect(layout.sessions).toHaveLength(1)
-    expect(layout.tables).toHaveLength(1)
-  })
-
-  it('words the band’s label from the season, when it closes and who is asking', () => {
-    expect(bandLabel(season)).toBe('Season · open until Dec. 20 · from WUWF')
-    expect(bandLabel(storm)).toBe('After Isaias · open')
+  it('words a band’s eyebrow from the desk and the closing date', () => {
+    expect(bandLabel({ contextLabel: 'After Isaias', askedBy: 'Leigh Ostrander', fromLabel: null, closesAt: '2026-11-30T20:00:00Z' })).toBe('After Isaias · Leigh Ostrander · open until Nov. 30')
+    expect(bandLabel({ contextLabel: null, askedBy: null, fromLabel: null, closesAt: null })).toBe('open')
   })
 })
