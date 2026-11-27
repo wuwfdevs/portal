@@ -7,6 +7,14 @@ Keep it current: update it in the same commit as the work.
 Branch: the current work is on `claude/charming-gauss-p7xx51` in `wuwfdevs/portal` (board 27, see *Resume here*); earlier session branches were merged (PRs 320 to 337). The brief this follows (the "project brief") and the
 design canvas are described under *Sources* below.
 
+## Listens: the query is the core (2026-11-27; built on `claude/vibrant-hamilton-biappb`; design: Portal `audience-listening-suite-design.md` §13)
+
+**Decided with the owner:** campaigns are gone; every query can be convened around; a table's prompts are the query's own questions behind a station-wide versioned opening; no tags (Sourcework discovers themes); pacing is the event's planned minutes; a host request always carries a query.
+
+- **Built:** hub blocks (`ListeningOpen`: one card per question, one Answer button, a sessions line; `ListeningSessions`: "Coming up", with About links), the question page's "Talk it over with others" (`TalkItOver`, `lib/listening/talk.ts`), `/listens/[publicId]/gather` (`GatherChoice`, choice shown only when both hosting ways are allowed), `HostForm` (single question, no select) now inside gather, kitchen table with a minutes select, after-table note instead of tag. **Removed:** the `/listens/host` route, the Host form section (block, thumbnail, registry, sample, shell entry).
+- **Migration `20261127_140000_listens_hub_questions_core`:** rewrites the saved `/listens` page (live row and latest version row, written directly as the blocks rule requires) and deletes the `/listens/host` record. Applied to staging by the preview build and verified (4 sections; no host record). Production gets it at launch.
+- **Open:** a saved Coming up block with `variant: tables` draws the list again; the hub's order (Ask WUWF first) and the "Talk it over with others" wording are unconfirmed; `pnpm build` and a browser check of `/listens` (must stay `ƒ`) have not been run.
+
 ## Product analytics: PostHog and the consent notice (2026-11-26; built on `claude/nifty-davinci-sc3j2k`)
 
 **Decided with the owner:** PostHog (US Cloud) now, behind a **notice, not an opt-in**: measurement runs until the visitor declines; cookies,
