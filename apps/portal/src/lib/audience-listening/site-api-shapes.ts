@@ -14,7 +14,7 @@ import {
   LISTENING_INBOX_KINDS,
   LISTENING_CONVERSATION_STATUSES,
   LISTENING_MAX_SEGMENTS,
-  LISTENING_PROMPT_KINDS,
+  LISTENING_KITCHEN_MINUTES,
   LISTENING_ROOM_ACTIONS,
   LISTENING_TABLE_EVENTS,
   LISTENING_TABLE_SESSION_LENGTH,
@@ -339,14 +339,15 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
     }
     case "kitchen-table-create": {
       // The link's token is made by the route, which puts its hash here; the parser leaves it empty, as for a table's session.
-      const campaignPublicId = body["campaignPublicId"];
+      const queryPublicId = body["queryPublicId"];
+      const minutes = LISTENING_KITCHEN_MINUTES.find((m) => m === body["minutes"]);
       const hostName = str(body["hostName"], 120);
       const place = str(body["place"], 200);
       const startsAt = optionalInstant(body["startsAt"]);
-      if (typeof campaignPublicId !== "string" || !PUBLIC_ID.test(campaignPublicId) || hostName === undefined || place === undefined || startsAt === undefined) return BAD;
+      if (typeof queryPublicId !== "string" || !PUBLIC_ID.test(queryPublicId) || !minutes || hostName === undefined || place === undefined || startsAt === undefined) return BAD;
       return done({
         fn: "al_site_kitchen_table_create",
-        args: { p_subject: key, p_campaign_public_id: campaignPublicId, p_link_hash: null, p_host_name: hostName?.trim() || null, p_place: place?.trim() || null, p_starts_at: startsAt },
+        args: { p_subject: key, p_query_public_id: queryPublicId, p_link_hash: null, p_host_name: hostName?.trim() || null, p_place: place?.trim() || null, p_starts_at: startsAt, p_minutes: minutes },
       });
     }
     case "seat-save": {
@@ -357,6 +358,7 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       return done({ fn: "al_site_seat_save", args: { p_subject: key, p_public_id: publicId, p_name: name, p_email: email } });
     }
     case "host-request": {
+      const queryPublicId = body["queryPublicId"];
       const kind = LISTENING_HOST_KINDS.find((k) => k === body["kind"]);
       const seats = LISTENING_HOST_SEATS.find((n) => n === body["seats"]);
       const expected = LISTENING_HOST_EXPECTED.find((e) => e === body["expected"]);
@@ -367,12 +369,14 @@ export function parseListeningRequest(action: ListeningAction, body: unknown): P
       const organization = str(body["organization"], 200);
       const invitees = str(body["inviteesText"], 2000);
       const journalist = bool(body["journalistRequested"]);
+      if (typeof queryPublicId !== "string" || !PUBLIC_ID.test(queryPublicId)) return BAD;
       if (!kind || !seats || !expected || !name || !email || !address || !whenText) return BAD;
       if (organization === undefined || invitees === undefined || journalist === null) return BAD;
       return done({
         fn: "al_site_host_request",
         args: {
           p_subject: key,
+          p_query_public_id: queryPublicId,
           p_name: name,
           p_email: email,
           p_kind: kind,
@@ -422,6 +426,9 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
       return done(key, { fn: "al_site_table_state", args: { p_session_hash: hash } });
     case "table-agree": {
       const version = int(body["consentVersion"], 1, 1_000_000);
+      // The opening's version is null when the station has none; when it has one the database insists on it.
+      const rawOpening = body["openingVersion"];
+      const openingVersion = rawOpening === undefined || rawOpening === null ? null : int(rawOpening, 1, 1_000_000);
       const name = str(body["firstName"], 60);
       // The facilitator's email is how WUWF sends them the after-page link. It is required; the database checks it again.
       const email = optionalEmail(body["email"]);
@@ -429,9 +436,10 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
       const rawPeople = body["people"];
       const people = rawPeople === undefined || rawPeople === null ? null : int(rawPeople, 1, 40);
       if (version === null || name === undefined || !email || (rawPeople !== undefined && rawPeople !== null && people === null)) return BAD;
+      if (rawOpening !== undefined && rawOpening !== null && openingVersion === null) return BAD;
       return done(key, {
         fn: "al_site_table_agree",
-        args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null, p_email: email, p_people: people },
+        args: { p_session_hash: hash, p_consent_version: version, p_first_name: name?.trim() || null, p_email: email, p_people: people, p_opening_version: openingVersion },
       });
     }
     case "table-update": {
@@ -494,9 +502,9 @@ function parseTableRequest(action: TableAction, body: Obj, clientHash: string | 
       for (const raw of list) {
         if (!isObj(raw)) return BAD;
         const startMs = int(raw["startMs"], 0, 24 * 60 * 60 * 1000);
-        const tag = str(raw["tag"], 40);
-        if (startMs === null || tag === undefined) return BAD;
-        highlights.push({ startMs, tag: tag?.trim() || null });
+        const note = str(raw["note"], 500);
+        if (startMs === null || note === undefined) return BAD;
+        highlights.push({ startMs, note: note?.trim() || null });
       }
       return done(key, { fn: "al_site_highlights_save", args: { p_session_hash: hash, p_highlights: highlights } });
     }
@@ -579,6 +587,8 @@ export function shapeQuery(payload: unknown): ListeningQuery | null {
     fromLabel: asString(payload["from_label"]),
     contextLabel: asString(payload["context_label"]),
     allowTextAnswers: payload["allow_text_answers"] === true,
+    canHostTable: payload["can_host_table"] === true,
+    canRequestHost: payload["can_request_host"] === true,
     state: state === "open" || state === "not_yet_open" ? state : "closed",
     opensAt: asString(payload["opens_at"]),
     closesAt: asString(payload["closes_at"]),
@@ -638,7 +648,8 @@ export function shapeHub(payload: unknown): ListeningHub {
         closesAt: asString(q["closes_at"]),
         allowTextAnswers: q["allow_text_answers"] === true,
         questionCount: asNumber(q["question_count"]) ?? 0,
-        campaignPublicId: asString(q["campaign_public_id"]),
+        canHostTable: q["can_host_table"] === true,
+        canRequestHost: q["can_request_host"] === true,
       },
     ];
   });
@@ -676,28 +687,11 @@ export function shapeHub(payload: unknown): ListeningHub {
     const endsAt = asString(e["ends_at"]);
     const placeName = asString(e["place_name"]);
     if (!publicId || !title || !startsAt || !endsAt || !placeName) return [];
-    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]), campaignPublicId: asString(e["campaign_public_id"]) }];
+    return [{ publicId, title, startsAt, endsAt, placeName, city: asString(e["city"]), organizerLabel: asString(e["organizer_label"]), seatsLeft: asNumber(e["seats_left"]), queryPublicId: asString(e["query_public_id"]) }];
   });
 
-  const kitchenCampaigns = rows(source["kitchen_campaigns"]).flatMap((k) => {
-    const publicId = asString(k["public_id"]);
-    const title = asString(k["title"]);
-    const question = asString(k["question"]);
-    return publicId && title && question ? [{ publicId, title, question }] : [];
-  });
-
-  const campaigns = rows(source["campaigns"]).flatMap((c) => {
-    const publicId = asString(c["public_id"]);
-    const title = asString(c["title"]);
-    const question = asString(c["question"]);
-    if (!publicId || !title || !question) return [];
-    return [{ publicId, title, question, intro: asString(c["intro"]) ?? "", ownerLabel: asString(c["owner_label"]), closesAt: asString(c["closes_at"]) }];
-  });
-
-  return { open, answered, events, kitchenCampaigns, campaigns };
+  return { open, answered, events };
 }
-
-const PROMPT_KINDS = LISTENING_PROMPT_KINDS;
 
 /** Maps the table view the database builds onto the contract's ListeningTable. A malformed prompt is dropped, not passed on half-formed. */
 export function shapeTable(payload: unknown): ListeningTable | null {
@@ -714,16 +708,18 @@ export function shapeTable(payload: unknown): ListeningTable | null {
     state,
     eventTitle: asString(payload["event_title"]) ?? "",
     placeName: asString(payload["place_name"]) ?? "",
-    question: asString(payload["question"]) ?? "",
+    queryTitle: asString(payload["query_title"]) ?? "",
+    plannedMinutes: asNumber(payload["planned_minutes"]) ?? 60,
     consent: consentVersion !== null && consentText ? { version: consentVersion, text: consentText } : null,
+    opening: isObj(payload["opening"]) && asNumber(payload["opening"]["version"]) !== null && asString(payload["opening"]["text"])
+      ? { version: asNumber(payload["opening"]["version"]) as number, text: asString(payload["opening"]["text"]) as string }
+      : null,
     prompts: list(payload["prompts"]).filter(isObj).flatMap((p) => {
-      const kind = PROMPT_KINDS.find((k) => k === p["kind"]);
       const text = asString(p["text"]);
       const position = asNumber(p["position"]);
-      if (!kind || !text || position === null) return [];
-      return [{ position, kind, text, hint: asString(p["hint"]), suggestedSeconds: asNumber(p["suggested_seconds"]) }];
+      if (!text || position === null) return [];
+      return [{ position, text, hint: asString(p["hint"]) }];
     }),
-    tags: list(payload["tags"]).filter((t): t is string => typeof t === "string"),
     promptPosition: asNumber(payload["prompt_position"]) ?? 1,
     facilitatorFirstName: asString(payload["facilitator_first_name"]),
     helpRequested: payload["help_requested"] === true,
@@ -746,7 +742,6 @@ export function shapeConversation(payload: unknown): ListeningConversation | nul
   return {
     status,
     transcriptReady: payload["transcript_ready"] === true,
-    tags: (Array.isArray(payload["tags"]) ? payload["tags"] : []).filter((t): t is string => typeof t === "string"),
     lines: list(payload["lines"]).flatMap((l) => {
       const startMs = asNumber(l["start_ms"]);
       const endMs = asNumber(l["end_ms"]);
@@ -777,7 +772,7 @@ export function shapeConversation(payload: unknown): ListeningConversation | nul
       const text = asString(h["text"]);
       return startMs === null || endMs === null || text === null
         ? []
-        : [{ startMs, endMs, text, tag: asString(h["tag"]), speakerId: asString(h["speaker_id"]) }];
+        : [{ startMs, endMs, text, note: asString(h["note"]), speakerId: asString(h["speaker_id"]) }];
     }),
     proposals: (Array.isArray(payload["proposals"]) ? payload["proposals"] : []).filter((n): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0),
     contactCardCount: asNumber(payload["contact_card_count"]) ?? 0,
@@ -797,13 +792,13 @@ export function shapeRoom(payload: unknown): ListeningRoom | null {
     status: payload["status"] === "live" ? "live" : "scheduled",
     startsAt,
     endsAt,
+    plannedMinutes: asNumber(payload["planned_minutes"]) ?? 60,
     currentPromptPosition: asNumber(payload["current_prompt_position"]) ?? 1,
     lastCallAt: asString(payload["last_call_at"]),
     prompts: list(payload["prompts"]).flatMap((p) => {
-      const kind = PROMPT_KINDS.find((k) => k === p["kind"]);
       const text = asString(p["text"]);
       const position = asNumber(p["position"]);
-      return !kind || !text || position === null ? [] : [{ position, kind, text, suggestedSeconds: asNumber(p["suggested_seconds"]) }];
+      return !text || position === null ? [] : [{ position, text }];
     }),
     tables: list(payload["tables"]).flatMap((t) => {
       const number = asNumber(t["number"]);
@@ -843,6 +838,7 @@ export function shapeEvent(payload: unknown): ListeningPublicEvent | null {
     organizerLabel: asString(payload["organizer_label"]),
     journalistJoining: payload["journalist_joining"] === true,
     seatsLeft: asNumber(payload["seats_left"]),
+    queryPublicId: asString(payload["query_public_id"]),
   };
 }
 
@@ -898,8 +894,7 @@ export function shapeResponse(action: ListeningAction, payload: unknown): Shaped
       if (!isObj(payload)) return fail("unavailable");
       const eventPublicId = asString(payload["event_public_id"]);
       const title = asString(payload["title"]);
-      const question = asString(payload["question"]);
-      return eventPublicId && title && question ? { ok: true, body: { eventPublicId, title, question } } : fail("unavailable");
+      return eventPublicId && title ? { ok: true, body: { eventPublicId, title } } : fail("unavailable");
     }
     case "room-claim": {
       const publicId = isObj(payload) ? asString(payload["public_id"]) : null;

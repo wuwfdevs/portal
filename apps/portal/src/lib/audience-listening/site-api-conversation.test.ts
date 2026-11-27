@@ -49,12 +49,12 @@ describe("after-page messages", () => {
   });
 
   it("saves highlights by where a line starts and never by its words", () => {
-    const call = ok("highlights-save", { session: SESSION, highlights: [{ startMs: 4000, tag: " Cost ", text: "ignored" }, { startMs: 0, tag: null }] });
-    expect(call.rpc.args["p_highlights"]).toEqual([{ startMs: 4000, tag: "Cost" }, { startMs: 0, tag: null }]);
+    const call = ok("highlights-save", { session: SESSION, highlights: [{ startMs: 4000, note: " Cost went up ", text: "ignored" }, { startMs: 0, tag: null }] });
+    expect(call.rpc.args["p_highlights"]).toEqual([{ startMs: 4000, note: "Cost went up" }, { startMs: 0, note: null }]);
     expect(JSON.stringify(call.rpc.args)).not.toContain("ignored");
-    bad("highlights-save", { session: SESSION, highlights: [{ startMs: -1, tag: null }] });
-    bad("highlights-save", { session: SESSION, highlights: [{ startMs: 1.5, tag: null }] });
-    bad("highlights-save", { session: SESSION, highlights: Array.from({ length: 101 }, (_, i) => ({ startMs: i, tag: null })) });
+    bad("highlights-save", { session: SESSION, highlights: [{ startMs: -1, note: null }] });
+    bad("highlights-save", { session: SESSION, highlights: [{ startMs: 1.5, note: null }] });
+    bad("highlights-save", { session: SESSION, highlights: Array.from({ length: 101 }, (_, i) => ({ startMs: i, note: null })) });
   });
 });
 
@@ -90,40 +90,43 @@ describe("contact cards", () => {
 });
 
 describe("a kitchen table", () => {
-  const CAMPAIGN = "abcdefghijkmnpqs";
+  const QUERY = "abcdefghijkmnpqs";
 
   it("is started by a visitor or an account, and only the link's hash reaches the database", () => {
-    const call = ok("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, hostName: " Dana ", place: "My kitchen", startsAt: "2026-11-20T23:00:00Z" });
+    const call = ok("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 45, hostName: " Dana ", place: "My kitchen", startsAt: "2026-11-20T23:00:00Z" });
     expect(call.rpc.fn).toBe("al_site_kitchen_table_create");
     // The route makes the token and puts its hash here; the parser leaves it empty.
     expect(call.rpc.args).toEqual({
       p_subject: "site:visitor:v1",
-      p_campaign_public_id: CAMPAIGN,
+      p_query_public_id: QUERY,
+      p_minutes: 45,
       p_link_hash: null,
       p_host_name: "Dana",
       p_place: "My kitchen",
       p_starts_at: "2026-11-20T23:00:00.000Z",
     });
-    expect(ok("kitchen-table-create", { subject: ACCOUNT, campaignPublicId: CAMPAIGN }).rpc.args["p_starts_at"]).toBeNull();
+    expect(ok("kitchen-table-create", { subject: ACCOUNT, queryPublicId: QUERY, minutes: 30 }).rpc.args["p_starts_at"]).toBeNull();
   });
 
-  it("refuses a campaign id of the wrong shape, an over-long name or place, and a start that is not a time", () => {
-    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: "nope" });
-    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, hostName: "x".repeat(121) });
-    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, place: "x".repeat(201) });
-    bad("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN, startsAt: "someday" });
-    bad("kitchen-table-create", { campaignPublicId: CAMPAIGN });
+  it("refuses a query id of the wrong shape, an over-long name or place, and a start that is not a time", () => {
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: "nope", minutes: 30 });
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 30, hostName: "x".repeat(121) });
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 30, place: "x".repeat(201) });
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 30, startsAt: "someday" });
+    bad("kitchen-table-create", { queryPublicId: QUERY, minutes: 30 });
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY });
+    bad("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 25 });
   });
 
   it("is limited by host and by address, per day", () => {
-    const keys = rateKeys({ ...ok("kitchen-table-create", { subject: VISITOR, campaignPublicId: CAMPAIGN }), clientHash: "h".repeat(8) });
+    const keys = rateKeys({ ...ok("kitchen-table-create", { subject: VISITOR, queryPublicId: QUERY, minutes: 30 }), clientHash: "h".repeat(8) });
     expect(keys.map((k) => k.rule.windowSeconds)).toEqual([86400, 86400]);
   });
 
-  it("answers with the event's address and the campaign's wording, and says unavailable for anything else", () => {
-    expect(shapeResponse("kitchen-table-create", { event_public_id: CAMPAIGN, title: "Season", question: "A question?" })).toEqual({
+  it("answers with the event's address and the query's title, and says unavailable for anything else", () => {
+    expect(shapeResponse("kitchen-table-create", { event_public_id: QUERY, title: "Season" })).toEqual({
       ok: true,
-      body: { eventPublicId: CAMPAIGN, title: "Season", question: "A question?" },
+      body: { eventPublicId: QUERY, title: "Season" },
     });
     expect(shapeResponse("kitchen-table-create", null).ok).toBe(false);
     expect(shapeResponse("kitchen-table-create", { error: "rate_limited" })).toEqual({ ok: false, error: "rate_limited" });
@@ -180,20 +183,19 @@ describe("shaping", () => {
   const PAYLOAD = {
     status: "ready",
     transcript_ready: true,
-    tags: ["Cost", 3],
     lines: [
       { start_ms: 0, end_ms: 4000, text: "Rent went up.", speaker_id: SPEAKER },
       { start_ms: "x", end_ms: 1, text: "dropped" },
     ],
     speakers: [{ id: SPEAKER, label: "Voice 1", name: null, is_facilitator: false, first_heard_ms: 0, share_percent: 78, merged_into: null }, { label: "no id" }],
-    highlights: [{ start_ms: 0, end_ms: 4000, text: "Rent went up.", tag: "Cost", speaker_id: SPEAKER }],
+    highlights: [{ start_ms: 0, end_ms: 4000, text: "Rent went up.", note: "The rent", speaker_id: SPEAKER }],
     proposals: [40000, 90000, -1, "x", 1.5],
     contact_card_count: 2,
   };
 
   it("maps the after-page and drops what it cannot read", () => {
     const c = shapeConversation(PAYLOAD)!;
-    expect(c).toMatchObject({ status: "ready", transcriptReady: true, tags: ["Cost"], contactCardCount: 2 });
+    expect(c).toMatchObject({ status: "ready", transcriptReady: true, contactCardCount: 2 });
     expect(c.lines).toEqual([{ startMs: 0, endMs: 4000, text: "Rent went up.", speakerId: SPEAKER }]);
     expect(c.speakers).toHaveLength(1);
     expect(shapeConversation({ ...PAYLOAD, status: "gone" })).toBeNull();
@@ -219,7 +221,8 @@ describe("shaping", () => {
   it("maps the room to states only", () => {
     const room = shapeRoom({
       title: "Night", status: "live", starts_at: "a", ends_at: "b", current_prompt_position: 2, last_call_at: null,
-      prompts: [{ position: 1, kind: "question", text: "Q", suggested_seconds: null }, { position: 2, kind: "bogus", text: "x" }],
+      planned_minutes: 90,
+      prompts: [{ position: 1, text: "Q" }, { position: 2 }],
       tables: [{ number: 1, state: "recording", prompt_position: 1, help_requested: true, facilitator_first_name: "Dana", transcript: "never" }, { number: 2, state: "gone" }],
     })!;
     expect(room.tables).toEqual([{ number: 1, state: "recording", promptPosition: 1, helpRequested: true, facilitatorFirstName: "Dana" }]);
@@ -229,7 +232,7 @@ describe("shaping", () => {
   });
 
   it("tells a phone whether help is watched for and where the room is", () => {
-    const table = shapeTable({ number: 1, state: "recording", consent: null, prompts: [], tags: [], uploaded_seqs: [], event_prompt_position: 3, last_call_at: "2026-12-05T20:00:00Z", help_available: true })!;
+    const table = shapeTable({ number: 1, state: "recording", consent: null, prompts: [], uploaded_seqs: [], event_prompt_position: 3, last_call_at: "2026-12-05T20:00:00Z", help_available: true })!;
     expect(table).toMatchObject({ eventPromptPosition: 3, lastCallAt: "2026-12-05T20:00:00Z", helpAvailable: true });
     expect(shapeTable({ number: 1, state: "recording" })!.helpAvailable).toBe(false);
   });

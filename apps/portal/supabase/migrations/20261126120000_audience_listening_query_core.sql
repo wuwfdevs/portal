@@ -425,7 +425,8 @@ begin
     'organizer_label', e.organizer_label,
     'journalist_joining', e.wuwf_journalist_joining,
     'seats_left', case when e.seats is null then null
-                       else greatest(0, e.seats - (select count(*) from public.al_seats s where s.event_id = e.id)) end
+                       else greatest(0, e.seats - (select count(*) from public.al_seats s where s.event_id = e.id)) end,
+    'query_public_id', (select q.public_id from public.al_queries q where q.id = e.query_id)
   );
 end;
 $$;

@@ -55,7 +55,10 @@ describe("table messages: authorisation", () => {
 describe("table messages: bodies", () => {
   it("agree carries the version shown, an optional first name and the facilitator's email", () => {
     const call = ok("table-agree", { session: SESSION, consentVersion: 2, firstName: "  Dana ", email: " dana@example.com " });
-    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana", p_email: "dana@example.com" });
+    expect(call.rpc.args).toMatchObject({ p_consent_version: 2, p_first_name: "Dana", p_email: "dana@example.com", p_opening_version: null });
+    expect(ok("table-agree", { session: SESSION, consentVersion: 2, openingVersion: 4, email: "dana@example.com" }).rpc.args["p_opening_version"]).toBe(4);
+    bad("table-agree", { session: SESSION, consentVersion: 2, openingVersion: 0, email: "dana@example.com" });
+    bad("table-agree", { session: SESSION, consentVersion: 2, openingVersion: "4", email: "dana@example.com" });
     expect(ok("table-agree", { session: SESSION, consentVersion: 2, firstName: null, email: "dana@example.com" }).rpc.args.p_first_name).toBeNull();
     bad("table-agree", { session: SESSION, firstName: "Dana", email: "dana@example.com" });
     bad("table-agree", { session: SESSION, consentVersion: 0, email: "dana@example.com" });
@@ -142,24 +145,25 @@ const TABLE = {
   state: "agreed",
   event_title: "Night",
   place_name: "Library",
-  question: "How?",
+  query_title: "How?",
+  planned_minutes: 45,
+  opening: { version: 4, text: "Say your name." },
   prompt_position: 2,
   help_requested: false,
   facilitator_first_name: "Dana",
   consent: { version: 2, text: "Read this." },
   prompts: [
-    { position: 1, kind: "question", text: "Tell us.", hint: null, suggested_seconds: 120 },
-    { position: 2, kind: "bogus", text: "dropped" },
+    { position: 1, text: "Tell us.", hint: null },
+    { position: 2 },
   ],
-  tags: ["Cost", 5],
   uploaded_seqs: [0, 1],
 };
 
 describe("shaping a table", () => {
   it("maps the view onto the contract and drops a prompt it cannot read", () => {
     const table = shapeTable(TABLE)!;
-    expect(table).toMatchObject({ number: 3, state: "agreed", consent: { version: 2, text: "Read this." }, uploadedSeqs: [0, 1], tags: ["Cost"] });
-    expect(table.prompts).toEqual([{ position: 1, kind: "question", text: "Tell us.", hint: null, suggestedSeconds: 120 }]);
+    expect(table).toMatchObject({ number: 3, state: "agreed", consent: { version: 2, text: "Read this." }, uploadedSeqs: [0, 1], queryTitle: "How?", plannedMinutes: 45, opening: { version: 4, text: "Say your name." } });
+    expect(table.prompts).toEqual([{ position: 1, text: "Tell us.", hint: null }]);
   });
   it("has no consent when there is none to read, and is null for what is not a table", () => {
     expect(shapeTable({ ...TABLE, consent: null })!.consent).toBeNull();
