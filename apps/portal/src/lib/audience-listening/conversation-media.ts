@@ -82,10 +82,10 @@ export function sourceTitle(event: { title: string }, tableNumber: number): stri
   return `${event.title}, table ${tableNumber}`;
 }
 
-/** What the source says about where it came from. No name, contact or anything a person said: only the season, place and time. */
+/** What the source says about where it came from. No name, contact or anything a person said: only the query, place and time. */
 export function sourceDescription(input: {
-  campaignTitle: string;
-  question: string;
+  queryTitle: string;
+  questions: string[];
   eventTitle: string;
   placeName: string;
   tableNumber: number;
@@ -93,7 +93,7 @@ export function sourceDescription(input: {
 }): string {
   return [
     `A recorded listening-session table: ${input.eventTitle}, table ${input.tableNumber}, at ${input.placeName}.`,
-    `Season: ${input.campaignTitle}. The question asked: ${input.question}`,
+    `Query: ${input.queryTitle}. The questions asked: ${input.questions.join(" / ")}`,
     `Recorded on ${input.startsAt.slice(0, 10)}. Participants agreed to be recorded as a group before it began.`,
   ].join("\n");
 }

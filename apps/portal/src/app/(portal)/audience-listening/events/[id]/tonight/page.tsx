@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAudienceListeningContext } from "@/lib/audience-listening/access";
-import { getCampaign, getEvent, listConversations, listTables } from "@/lib/audience-listening/campaign-queries";
-import { listPrompts } from "@/lib/audience-listening/campaign-queries";
+import { getQueryById, listQuestions } from "@/lib/audience-listening/queries";
+import { getEvent, listConversations, listOpeningTexts, listTables } from "@/lib/audience-listening/event-queries";
+import { describeSuggestedSeconds, plannedMinutesOf, suggestedSecondsPerQuestion } from "@/lib/audience-listening/pacing";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { TABLE_STATE_LABEL } from "@/lib/audience-listening/events";
 import { CONVERSATION_STATUS_LABEL } from "@/lib/audience-listening/conversations";
@@ -23,12 +24,15 @@ export default async function TonightPage({ params, searchParams }: { params: Pr
   const { error } = await searchParams;
   const event = await getEvent(id);
   if (!event) notFound();
-  const [campaign, tables, conversations, prompts] = await Promise.all([
-    getCampaign(event.campaign_id),
+  const [query, tables, conversations, questions, openingTexts] = await Promise.all([
+    getQueryById(event.query_id),
     listTables(id),
     listConversations(id),
-    listPrompts(event.campaign_id),
+    listQuestions(event.query_id),
+    listOpeningTexts(),
   ]);
+  const plannedMinutes = plannedMinutesOf({ plannedMinutes: event.planned_minutes, startsAt: event.starts_at, endsAt: event.ends_at });
+  const suggested = suggestedSecondsPerQuestion({ plannedMinutes, questionCount: questions.length, hasOpening: openingTexts.length > 0 });
   const conversationByTable = new Map(conversations.map((c) => [c.table_id, c]));
   const asking = tables.filter((t) => t.help_requested_at);
   const eventHref = `/audience-listening/events/${id}`;
@@ -39,7 +43,7 @@ export default async function TonightPage({ params, searchParams }: { params: Pr
         className="mb-6"
         back={{ href: eventHref, label: `Back to ${event.title}` }}
         title="Tonight"
-        description={`${event.title} · ${formatEventTime(event.starts_at)}${campaign ? ` · ${campaign.title}` : ""}`}
+        description={`${event.title} · ${formatEventTime(event.starts_at)}${query ? ` · ${query.internal_title}` : ""}`}
       />
       {error && <Alert className="mb-4">{error}</Alert>}
       <div className="mb-6">
@@ -59,19 +63,26 @@ export default async function TonightPage({ params, searchParams }: { params: Pr
       <div className="flex max-w-3xl flex-col gap-6">
         <Card className="p-5">
           <SectionHeading className="mb-3">The room</SectionHeading>
+          {suggested != null && (
+            <p className="mb-4 text-sm text-ink-500">
+              Planned for {plannedMinutes} minutes: {describeSuggestedSeconds(suggested)} for each of {questions.length}{" "}
+              {questions.length === 1 ? "question" : "questions"}
+              {openingTexts.length > 0 ? ", after the opening" : ""}. A suggestion only; tables move on at their own pace.
+            </p>
+          )}
           <div className="flex flex-wrap items-end gap-6">
             <form action={setRoomPrompt} className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="event_id" value={id} />
               <Field label="Prompt for the room" htmlFor="position">
                 <Select id="position" name="position" defaultValue={event.current_prompt_position}>
-                  {prompts.map((p) => (
+                  {questions.map((p) => (
                     <option key={p.id} value={p.position}>
-                      {p.position}. {p.text.slice(0, 60)}
+                      {p.position}. {p.prompt.slice(0, 60)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Button type="submit" variant="secondary" disabled={prompts.length === 0}>
+              <Button type="submit" variant="secondary" disabled={questions.length === 0}>
                 Move the room
               </Button>
             </form>

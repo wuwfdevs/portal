@@ -125,6 +125,9 @@ export interface ListeningQuery {
   allowAnonymousRequest: boolean;
   fields: { name: ListeningFieldMode; email: ListeningFieldMode; phone: ListeningFieldMode; city: ListeningFieldMode; note: ListeningFieldMode };
   questions: ListeningQuestion[];
+  /** Whether the page may offer to host a private table around this question (a kitchen table), and to ask to host a session. */
+  canHostTable: boolean;
+  canRequestHost: boolean;
   /**
    * What came of this question, when it is listed on the hub and has an outcome (the newest one), with how many people answered. Null
    * otherwise: an open question's count never leaves the Portal.
@@ -296,8 +299,10 @@ export interface ListeningHubOpen {
   /** Whether the question also takes a written answer, for the card's "by voice or in writing". */
   allowTextAnswers: boolean;
   questionCount: number;
-  /** The open campaign this is the standalone question of, so the page can show it in that campaign's band. Absent or null: a question of its own. */
-  campaignPublicId?: string | null;
+  /** Whether anyone may start a private one-table session around this question from the website (a kitchen table). */
+  canHostTable: boolean;
+  /** Whether anyone may send a request to host a session around this question, for staff to schedule. */
+  canRequestHost: boolean;
 }
 
 /** A listed question with at least one outcome. The count is allowed here, and only here. */
@@ -313,37 +318,14 @@ export interface ListeningHubAnswered {
 }
 
 /**
- * The website's listening page: what is being asked now, and what came of what was asked. Campaigns and their
- * reports join this message as additive fields when they exist (phase D of the suite design); a reader ignores
- * fields it does not know.
+ * The website's listening page: what is being asked now, what came of what was asked, and the upcoming public sessions. Every
+ * question can be convened around, so the invitation to host sits on the question itself (`canHostTable`, `canRequestHost`).
  */
 export interface ListeningHub {
   open: ListeningHubOpen[];
   answered: ListeningHubAnswered[];
   /** Upcoming public sessions, soonest first. Absent from a Portal that does not send them: read it as none. */
   events?: ListeningHubEvent[];
-  /** Open campaigns that accept a kitchen table started from the website. Absent: read it as none. */
-  kitchenCampaigns?: ListeningHubKitchenCampaign[];
-  /** The open campaigns that group the lists above: a question, its sessions and its kitchen tables. Absent: read it as none, and show the lists as they are. */
-  campaigns?: ListeningHubCampaign[];
-}
-
-/** An open campaign as the hub frames it: what is being asked, and by whom. The word "campaign" is never shown to the public. */
-export interface ListeningHubCampaign {
-  publicId: string;
-  title: string;
-  question: string;
-  intro: string;
-  /** Who is asking, as the station words it ("from the WUWF News desk"). */
-  ownerLabel: string | null;
-  closesAt: string | null;
-}
-
-/** A campaign anyone may start a private one-table session for. */
-export interface ListeningHubKitchenCampaign {
-  publicId: string;
-  title: string;
-  question: string;
 }
 
 /** An upcoming listed public session, as the hub shows it. The event's own page (`event`) carries the rest. */
@@ -357,8 +339,8 @@ export interface ListeningHubEvent {
   organizerLabel: string | null;
   /** Null when the event has no seat limit. */
   seatsLeft: number | null;
-  /** The campaign this session belongs to. Absent or null: show it on its own. */
-  campaignPublicId?: string | null;
+  /** The question this session is convened around, so the page can show it beside that question. */
+  queryPublicId: string | null;
 }
 
 /** The hub needs no subject: it is a public read, like `query`. */
@@ -366,7 +348,7 @@ export type ListeningHubRequest = ListeningRequestBase;
 export type ListeningHubResponse = ListeningResult<{ hub: ListeningHub }>;
 
 // -------------------------------------------------------------------------------------------------------------
-// The standing inboxes (suite design §2, phase C). Neither belongs to a campaign, and neither needs an account or a box
+// The standing inboxes (suite design §2, phase C). Ask WUWF belongs to no query, and neither needs an account or a box
 // ticked: a person writes, and a person at the station reads every one. Nothing here promises a reply or a date.
 
 /** "Ask WUWF": a question for the newsroom, or an idea for a story. */
@@ -402,6 +384,8 @@ export type ListeningHostExpected = (typeof LISTENING_HOST_EXPECTED)[number];
 
 export interface ListeningHostRequestRequest extends ListeningRequestBase {
   subject: ListeningSubject;
+  /** The question the host wants to convene people around. A request is always about one; only a question that invites hosts takes it. */
+  queryPublicId: string;
   name: string;
   email: string;
   kind: ListeningHostKind;
@@ -442,7 +426,7 @@ export function listeningTableLinkUrl(siteOrigin: string, token: string): string
 /** The longest a table session token is: 256 bits in base64url. */
 export const LISTENING_TABLE_SESSION_LENGTH = 43;
 
-/** A public event's page. Null event = not available (not listed, not scheduled, or its campaign is not open), identically. */
+/** A public event's page. Null event = not available (not listed, not scheduled, or its query is not open), identically. */
 export interface ListeningPublicEvent {
   publicId: string;
   title: string;
@@ -455,8 +439,8 @@ export interface ListeningPublicEvent {
   journalistJoining: boolean;
   /** Null when the event has no seat limit. */
   seatsLeft: number | null;
-  /** The campaign this session belongs to. Absent or null: show it on its own. */
-  campaignPublicId?: string | null;
+  /** The question this session is convened around. */
+  queryPublicId: string | null;
 }
 export interface ListeningEventRequest extends ListeningRequestBase {
   publicId: string;
@@ -472,19 +456,15 @@ export interface ListeningSeatSaveRequest extends ListeningRequestBase {
 }
 export type ListeningSeatSaveResponse = ListeningResult<Record<never, never>>;
 
-export const LISTENING_PROMPT_KINDS = ["intro", "question", "prompt"] as const;
-export type ListeningPromptKind = (typeof LISTENING_PROMPT_KINDS)[number];
-
 export const LISTENING_TABLE_STATES = ["waiting", "agreed", "recording", "paused", "ended", "sent"] as const;
 export type ListeningTableState = (typeof LISTENING_TABLE_STATES)[number];
 
+/** One of the query's questions, as a table discusses it. The same list an individual answers alone. */
 export interface ListeningTablePrompt {
   position: number;
-  kind: ListeningPromptKind;
   text: string;
   /** For the facilitator only. */
   hint: string | null;
-  suggestedSeconds: number | null;
 }
 
 /** What a table's phone is shown. */
@@ -493,13 +473,18 @@ export interface ListeningTable {
   state: ListeningTableState;
   eventTitle: string;
   placeName: string;
-  /** The campaign's question, in the words a table will hear. */
-  question: string;
+  /** The query's public title, in the words a table will hear. */
+  queryTitle: string;
+  /** How long the session is planned to run, in minutes: its own setting, or the time from its start to its end. Pacing is worked out from it. */
+  plannedMinutes: number;
   /** The wording to read aloud before the table records. The version is sent back with the agreement. */
   consent: { version: number; text: string } | null;
+  /**
+   * What every recording opens with (each person says a first name, where they live and that they agree), the same for every query.
+   * Shown after the agreement and before the first question; its version is sent back with the agreement. Null when the station has none.
+   */
+  opening: { version: number; text: string } | null;
   prompts: ListeningTablePrompt[];
-  /** The tag vocabulary a facilitator picks from when marking a line. */
-  tags: string[];
   promptPosition: number;
   facilitatorFirstName: string | null;
   helpRequested: boolean;
@@ -540,6 +525,8 @@ export type ListeningTableStateResponse = ListeningResult<{ table: ListeningTabl
  */
 export interface ListeningTableAgreeRequest extends ListeningTableSessionRequest {
   consentVersion: number;
+  /** The version of the opening the facilitator was shown, or null when the table was sent none. */
+  openingVersion: number | null;
   firstName: string | null;
   /**
    * The facilitator's email, required the first time. WUWF uses it to send the one link to the after-page, and clears it thirty days
@@ -621,7 +608,8 @@ export interface ListeningHighlight {
   endMs: number;
   /** A copy of the line, made by the Portal when it was marked, so a later re-transcription does not change it. */
   text: string;
-  tag: string | null;
+  /** Why the facilitator marked it, in their words. There is no tag vocabulary: themes are found afterwards, not chosen in advance. */
+  note: string | null;
   speakerId: string | null;
 }
 
@@ -632,7 +620,6 @@ export interface ListeningHighlight {
 export interface ListeningConversation {
   status: ListeningConversationStatus;
   transcriptReady: boolean;
-  tags: string[];
   lines: ListeningTranscriptLine[];
   speakers: ListeningSpeaker[];
   highlights: ListeningHighlight[];
@@ -650,7 +637,7 @@ export type ListeningSpeakersSaveResponse = ListeningResult<Record<never, never>
 
 /** The lines that mattered, by where they start. The Portal copies the text itself; the site never supplies it. Sent whole. */
 export interface ListeningHighlightsSaveRequest extends ListeningTableSessionRequest {
-  highlights: { startMs: number; tag: string | null }[];
+  highlights: { startMs: number; note: string | null }[];
 }
 export type ListeningHighlightsSaveResponse = ListeningResult<Record<never, never>>;
 
@@ -711,9 +698,11 @@ export interface ListeningRoom {
   status: "scheduled" | "live";
   startsAt: string;
   endsAt: string;
+  /** How long the session is planned to run, in minutes. */
+  plannedMinutes: number;
   currentPromptPosition: number;
   lastCallAt: string | null;
-  prompts: { position: number; kind: ListeningPromptKind; text: string; suggestedSeconds: number | null }[];
+  prompts: { position: number; text: string }[];
   tables: ListeningRoomTable[];
 }
 
@@ -756,14 +745,20 @@ export type ListeningRoomClaimResponse = ListeningResult<{ eventPublicId: string
  * makes the event and its table and the SITE'S server holds the single-use link it names (the token is made by the Portal's route and
  * returned once; only its hash is stored). The site shows it to the host as a link to `LISTENING_TABLE_LINK_PATH`.
  */
+/** The planned lengths a kitchen table's host chooses from, in minutes. */
+export const LISTENING_KITCHEN_MINUTES = [30, 45, 60] as const;
+
 export interface ListeningKitchenTableCreateRequest extends ListeningRequestBase {
   subject: ListeningSubject;
-  campaignPublicId: string;
+  /** The question the table is convened around; it has to allow private tables. */
+  queryPublicId: string;
+  /** How long the host plans to run it, in minutes. */
+  minutes: (typeof LISTENING_KITCHEN_MINUTES)[number];
   /** What the host is called, optional. */
   hostName?: string | null;
   /** Where it is, in the host's words, optional ("my kitchen"). */
   place?: string | null;
-  /** When, optional; the default is now. Inside the campaign's dates and within thirty days. */
+  /** When, optional; the default is now. Inside the query's dates and within thirty days. */
   startsAt?: string | null;
 }
-export type ListeningKitchenTableCreateResponse = ListeningResult<{ linkToken: string; eventPublicId: string; title: string; question: string }>;
+export type ListeningKitchenTableCreateResponse = ListeningResult<{ linkToken: string; eventPublicId: string; title: string }>;

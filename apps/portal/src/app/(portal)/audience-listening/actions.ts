@@ -19,7 +19,8 @@ import { normalizeOutcomeUrl, validateOutcomeInput } from "@/lib/audience-listen
 import { sendQueuedAnswers } from "@/lib/audience-listening/handoff";
 import { invokeCapability } from "@/lib/capabilities/registry";
 import { sendAnswerToSourcework } from "@/lib/audience-listening/capabilities";
-import type { AlFieldMode, AlQueryStatus, AlReviewState } from "@/lib/database.types";
+import type { AlFieldMode, AlHosting, AlQueryStatus, AlReviewState } from "@/lib/database.types";
+import { isHosting } from "@/lib/audience-listening/events";
 import { MAX_INTERNAL_NOTES_LENGTH, isHostRequestState, isInboxState } from "@/lib/audience-listening/inboxes";
 
 const LIST_PATH = "/audience-listening";
@@ -57,6 +58,8 @@ export async function createQuery(formData: FormData): Promise<void> {
       public_title: publicTitle,
       public_intro: field(formData, "public_intro"),
       internal_notes: optionalField(formData, "internal_notes"),
+      // The scheduled hand-off of a table's recording to Sourcework is made as the owner, so a new query is its maker's.
+      owner_id: profile.id,
       created_by: profile.id,
     })
     .select("id")
@@ -110,6 +113,7 @@ export async function updateQuerySettings(formData: FormData): Promise<void> {
       context_label: optionalField(formData, "context_label"),
       allow_text_answers: checkboxField(formData, "allow_text_answers"),
       listed_on_hub: checkboxField(formData, "listed_on_hub"),
+      hosting: isHosting(field(formData, "hosting")) ? (field(formData, "hosting") as AlHosting) : "staff_only",
       opens_at: opensAt,
       closes_at: closesAt,
       field_name: fieldMode(formData, "field_name"),

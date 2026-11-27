@@ -669,8 +669,11 @@ end;
 $$;
 
 
--- The facilitator agrees, and the table records the consent wording and the opening it was shown.
-create function public.al_site_table_agree(p_session_hash text, p_consent_version integer, p_first_name text, p_opening_version integer)
+-- The facilitator agrees, and the table records the consent wording and the opening it was shown (extends the 5-argument version of
+-- 20261114120000 with the opening's version; a new signature, so the old one is dropped in part 2).
+create function public.al_site_table_agree(
+  p_session_hash text, p_consent_version integer, p_first_name text, p_email text, p_people integer, p_opening_version integer
+)
 returns jsonb
 language plpgsql
 security definer
@@ -679,6 +682,7 @@ as $$
 declare
   t public.al_tables;
   v_name text := nullif(btrim(coalesce(p_first_name, '')), '');
+  v_email text := nullif(btrim(coalesce(p_email, '')), '');
 begin
   t := private.al_table_for_session(p_session_hash);
   if t.id is null then
@@ -687,9 +691,17 @@ begin
   if v_name is not null and char_length(v_name) > 60 then
     return jsonb_build_object('error', 'invalid_request');
   end if;
-  -- Idempotent: tapping twice, or reopening, does not move the record of when the table agreed or to what.
+  if p_people is not null and (p_people < 1 or p_people > 40) then
+    return jsonb_build_object('error', 'invalid_request');
+  end if;
   if t.state <> 'waiting' then
     return jsonb_build_object('table', private.al_table_view(t.id));
+  end if;
+  if v_email is null then
+    return jsonb_build_object('error', 'required_field_missing');
+  end if;
+  if char_length(v_email) > 320 or v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+    return jsonb_build_object('error', 'invalid_request');
   end if;
   if p_consent_version is null or not exists (select 1 from public.al_consent_texts where version = p_consent_version) then
     return jsonb_build_object('error', 'invalid_request');
@@ -704,18 +716,18 @@ begin
   end if;
 
   update public.al_tables
-     set state = 'agreed', agreed_at = now(), consent_text_version = p_consent_version::text,
-         opening_text_version = p_opening_version::text, facilitator_first_name = v_name
+     set state = 'agreed', agreed_at = now(), consent_text_version = p_consent_version::text, opening_text_version = p_opening_version::text,
+         facilitator_first_name = v_name, facilitator_email = v_email, expected_speakers = p_people
    where id = t.id;
   return jsonb_build_object('table', private.al_table_view(t.id));
 end;
 $$;
 
-comment on function public.al_site_table_agree(text, integer, text, integer) is
-  'Records the table''s agreement (the facilitator''s tap after the consent is read aloud) with the consent wording and the opening they were shown. service_role only.';
+comment on function public.al_site_table_agree(text, integer, text, text, integer, integer) is
+  'Records the table''s agreement with the consent wording and the opening shown, the facilitator''s first name and email (required), and how many are at the table. service_role only.';
 
-revoke execute on function public.al_site_table_agree(text, integer, text, integer) from public, anon, authenticated;
-grant execute on function public.al_site_table_agree(text, integer, text, integer) to service_role;
+revoke execute on function public.al_site_table_agree(text, integer, text, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.al_site_table_agree(text, integer, text, text, integer, integer) to service_role;
 
 -- A kitchen table is a private one-table session anyone starts on a query that allows it. The host picks how long it runs.
 create function public.al_site_kitchen_table_create(
@@ -996,7 +1008,8 @@ drop trigger al_events_check_span on public.al_events;
 drop function public.al_events_check_span();
 drop trigger al_campaigns_close_query on public.al_campaigns;
 drop function public.al_campaign_close_query();
-drop function public.al_site_table_agree(text, integer, text);
+drop function public.al_site_table_agree(text, integer, text, text, integer);
+drop function if exists public.al_site_table_agree(text, integer, text, integer);
 drop function public.al_site_kitchen_table_create(text, text, text, text, text, timestamptz);
 drop function public.al_site_host_request(text, text, text, text, text, integer, text, text, text, text, boolean);
 

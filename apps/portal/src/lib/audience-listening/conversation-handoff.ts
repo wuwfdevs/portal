@@ -23,8 +23,8 @@ import {
 } from "./conversation-media";
 
 /**
- * Sending a table's recording to Sourcework (design §8). A campaign is one Sourcework project and each table is a source in it, so the
- * first table sent makes the project and remembers it on the campaign. The segments are joined into one MP3 with ffmpeg and copied
+ * Sending a table's recording to Sourcework (design §8). A query is one Sourcework project and each table is a source in it, so the
+ * first table sent makes the project and remembers it on the query. The segments are joined into one MP3 with ffmpeg and copied
  * into Sourcework's bucket; the originals stay where they are. There is no second ASR pipeline: this calls the same
  * startTranscriptionForProject() everything else calls. Runs as the staff member, under RLS: no admin client, and the grant on
  * Sourcework is checked first so a missing grant reads as that and not as "could not create the project".
@@ -75,8 +75,8 @@ export async function sendConversationToSourcework(conversationId: string): Prom
 
 /**
  * The hand-off itself, as `userId`, through `supabase`. A staff member's button passes their own RLS client; the scheduled route passes
- * the service client and the campaign's owner, who must have Sourcework (`canUseTool` is checked by the caller either way). Everything
- * Sourcework records ("created by") is that user, so a recording sent overnight belongs to the person who owns the season.
+ * the service client and the query's owner, who must have Sourcework (`canUseTool` is checked by the caller either way). Everything
+ * Sourcework records ("created by") is that user, so a recording sent overnight belongs to the person who owns the query.
  */
 export async function sendConversationAs(supabase: Supabase, userId: string, conversationId: string): Promise<ConversationHandoffResult> {
   const user = { id: userId };
@@ -92,7 +92,7 @@ export async function sendConversationAs(supabase: Supabase, userId: string, con
 
   const [tableResult, eventResult, segmentResult] = await Promise.all([
     supabase.from("al_tables").select("number, expected_speakers").eq("id", conversation.table_id).maybeSingle(),
-    supabase.from("al_events").select("title, place_name, starts_at, campaign_id").eq("id", conversation.event_id).maybeSingle(),
+    supabase.from("al_events").select("title, place_name, starts_at, query_id").eq("id", conversation.event_id).maybeSingle(),
     supabase.from("al_conversation_segments").select("seq, status, storage_path, content_type").eq("conversation_id", conversationId),
   ]);
   const readError = tableResult.error ?? eventResult.error ?? segmentResult.error;
@@ -101,9 +101,13 @@ export async function sendConversationAs(supabase: Supabase, userId: string, con
   const event = eventResult.data;
   if (!table || !event) return { ok: false, error: "Could not find this conversation's table or event." };
 
-  const campaignResult = await supabase.from("al_campaigns").select("id, title, question, sourcework_project_id").eq("id", event.campaign_id).maybeSingle();
-  if (campaignResult.error || !campaignResult.data) return { ok: false, error: "Could not find this conversation's campaign." };
-  const campaign = campaignResult.data;
+  const [queryResult, questionResult] = await Promise.all([
+    supabase.from("al_queries").select("id, internal_title, sourcework_project_id").eq("id", event.query_id).maybeSingle(),
+    supabase.from("al_questions").select("prompt, position").eq("query_id", event.query_id).order("position", { ascending: true }),
+  ]);
+  if (queryResult.error || !queryResult.data) return { ok: false, error: "Could not find this conversation's query." };
+  if (questionResult.error) return { ok: false, error: `Could not read the query's questions: ${questionResult.error.message}` };
+  const query = queryResult.data;
 
   const ordered = orderSegments(segmentResult.data ?? [], conversation.last_seq);
   if (!ordered.ok) return { ok: false, error: ordered.error };
@@ -134,8 +138,8 @@ export async function sendConversationAs(supabase: Supabase, userId: string, con
 
   const title = sourceTitle(event, table.number);
   const description = sourceDescription({
-    campaignTitle: campaign.title,
-    question: campaign.question,
+    queryTitle: query.internal_title,
+    questions: (questionResult.data ?? []).map((q) => q.prompt),
     eventTitle: event.title,
     placeName: event.place_name,
     tableNumber: table.number,
@@ -143,22 +147,22 @@ export async function sendConversationAs(supabase: Supabase, userId: string, con
   });
   const interviewDate = stationTodayISO(event.starts_at);
 
-  // The first table sent makes the campaign's project; later tables are sources in it.
-  let projectId = campaign.sourcework_project_id;
+  // The first table sent makes the query's project; later tables are sources in it.
+  let projectId = query.sourcework_project_id;
   let sourceId: string;
   if (projectId) {
     const created = await createSourceForExistingProject(supabase, { projectId, title, interviewDate, createdBy: user.id });
     if ("error" in created) return { ok: false, error: `Could not create the source: ${created.error}` };
     sourceId = created.sourceId;
   } else {
-    const created = await createProjectWithSource(supabase, { title: campaign.title, description, interviewDate, createdBy: user.id });
+    const created = await createProjectWithSource(supabase, { title: query.internal_title, description, interviewDate, createdBy: user.id });
     if ("error" in created) return { ok: false, error: `Could not create the Sourcework project: ${created.error}` };
     projectId = created.projectId;
     sourceId = created.sourceId;
-    // The project is named for the season, so the one source in it needs the table's own name.
+    // The project is named for the query, so the one source in it needs the table's own name.
     await supabase.from("sw_sources").update({ title }).eq("id", sourceId);
-    const { error } = await supabase.from("al_campaigns").update({ sourcework_project_id: projectId }).eq("id", campaign.id);
-    if (error) console.error("Could not remember the campaign's Sourcework project:", error);
+    const { error } = await supabase.from("al_queries").update({ sourcework_project_id: projectId }).eq("id", query.id);
+    if (error) console.error("Could not remember the query's Sourcework project:", error);
   }
 
   const contentType = "audio/mpeg";

@@ -1,6 +1,6 @@
 // Pure role logic for Audience Listening, factored out of access.ts so it is testable without "server-only" / Supabase.
 //
-// Everyone with the tool works its queries, campaigns, events and inboxes. The one elevation is `coordinator`, who approves a public
+// Everyone with the tool works its queries, events and inboxes. The one elevation is `coordinator`, who approves a public
 // event for listing on the website (suite design §11, item 4): listing puts a stranger's gathering under the station's name, so it is
 // a named role and not every grant. Roles stack (tool_access.tool_roles), enforced in the database by
 // private.is_audience_listening_coordinator() and the guard trigger on al_events.
@@ -30,6 +30,6 @@ export const ROLE_OPTIONS: { value: AudienceListeningRole; label: string; descri
 export const ROLE_SPEC: ToolRoleSpec = {
   toolKey: "audience-listening",
   kind: "stacking",
-  baseAccess: "With no role: works queries, campaigns, events, tables and the inboxes. Cannot list an event on the website.",
+  baseAccess: "With no role: works queries, events, tables and the inboxes. Cannot list an event on the website.",
   roles: ROLE_OPTIONS,
 };

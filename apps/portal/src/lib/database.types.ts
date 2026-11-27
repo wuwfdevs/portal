@@ -360,8 +360,8 @@ export type AlHostKind = "invite" | "public";
 export type AlHostExpected = "6-8" | "9-12" | "12+";
 export type AlHostRequestState = "new" | "contacted" | "scheduled" | "declined";
 /** Campaigns, events, tables and seats (phase D of the suite design). */
-export type AlCampaignStatus = "draft" | "open" | "closed" | "archived";
-export type AlPromptKind = "intro" | "question" | "prompt";
+/** Who may convene around a query (20261126120000): staff only; or anyone may also start a private table; or anyone may also ask to host. */
+export type AlHosting = "staff_only" | "private_tables" | "anyone";
 export type AlEventVisibility = "private" | "public";
 export type AlEventListingState = "not_listed" | "pending_review" | "listed" | "declined";
 export type AlOrganizerKind = "wuwf" | "partner" | "person";
@@ -1611,6 +1611,11 @@ export interface Database {
           allow_text_answers: boolean;
           /** Whether the website's listening page may list this query and its outcomes (20261109120000_audience_listening_hub_outcomes.sql). */
           listed_on_hub: boolean;
+          /** The staff member responsible for the query, and who a scheduled hand-off to Sourcework is made as (20261126120000). */
+          owner_id: string | null;
+          /** The one Sourcework project for this query; each table's recording is a source in it. */
+          sourcework_project_id: string | null;
+          hosting: AlHosting;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -1669,6 +1674,8 @@ export interface Database {
       al_host_requests: {
         Row: {
           id: string;
+          /** The query the person wants to host a session around; a request is always about one (20261126120000). */
+          query_id: string;
           name: string;
           email: string;
           kind: AlHostKind;
@@ -1691,80 +1698,16 @@ export interface Database {
         Update: Partial<Pick<Database["public"]["Tables"]["al_host_requests"]["Row"], "state" | "internal_notes" | "handled_by" | "handled_at">>;
         Relationships: [];
       };
-      al_campaigns: {
-        Row: {
-          id: string;
-          public_id: string;
-          slug: string;
-          title: string;
-          question: string;
-          intro: string;
-          owner_id: string | null;
-          owner_label: string | null;
-          status: AlCampaignStatus;
-          opens_at: string | null;
-          closes_at: string | null;
-          query_id: string | null;
-          sourcework_project_id: string | null;
-          internal_notes: string | null;
-          /** Whether anyone may start a private one-table session for this campaign from the website (20261114120000). */
-          accepts_kitchen_tables: boolean;
-          created_by: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["al_campaigns"]["Row"]> & {
-          public_id: string;
-          slug: string;
-          title: string;
-          question: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["al_campaigns"]["Row"]>;
-        Relationships: [];
-      };
-      al_campaign_prompts: {
-        Row: {
-          id: string;
-          campaign_id: string;
-          position: number;
-          kind: AlPromptKind;
-          text: string;
-          hint: string | null;
-          suggested_seconds: number | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["al_campaign_prompts"]["Row"]> & {
-          campaign_id: string;
-          position: number;
-          text: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["al_campaign_prompts"]["Row"]>;
-        Relationships: [];
-      };
-      al_campaign_tags: {
-        Row: {
-          id: string;
-          campaign_id: string;
-          label: string;
-          position: number;
-          created_at: string;
-        };
-        Insert: Partial<Database["public"]["Tables"]["al_campaign_tags"]["Row"]> & {
-          campaign_id: string;
-          label: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["al_campaign_tags"]["Row"]>;
-        Relationships: [];
-      };
       al_events: {
         Row: {
           id: string;
           public_id: string;
-          campaign_id: string;
+          query_id: string;
           title: string;
           starts_at: string;
           ends_at: string;
+          /** Planned length in minutes; null means ends_at minus starts_at. Pacing is computed from it (20261126120000). */
+          planned_minutes: number | null;
           place_name: string;
           address: string | null;
           city: string | null;
@@ -1794,7 +1737,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["al_events"]["Row"]> & {
           public_id: string;
-          campaign_id: string;
+          query_id: string;
           title: string;
           starts_at: string;
           ends_at: string;
@@ -1816,6 +1759,8 @@ export interface Database {
           state: AlTableState;
           agreed_at: string | null;
           consent_text_version: string | null;
+          /** The version of the standard opening the facilitator was shown; null when none existed (20261126120000). */
+          opening_text_version: string | null;
           session_hash: string | null;
           session_expires_at: string | null;
           card_token_hash: string | null;
@@ -1852,6 +1797,19 @@ export interface Database {
         Relationships: [];
       };
       al_consent_texts: {
+        Row: {
+          id: string;
+          version: number;
+          body: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        // A coordinator adds a version (body, created_by); the version number is assigned by a trigger. Never edited.
+        Insert: { body: string; created_by?: string | null };
+        Update: never;
+        Relationships: [];
+      };
+      al_opening_texts: {
         Row: {
           id: string;
           version: number;
@@ -1927,7 +1885,8 @@ export interface Database {
           start_ms: number;
           end_ms: number;
           text: string;
-          tag: string | null;
+          /** Why the facilitator marked it, in their words; there is no tag vocabulary (20261126120000). */
+          note: string | null;
           speaker_id: string | null;
           /** The Sourcework excerpt made from this mark, once made (20261114120000). */
           excerpt_id: string | null;

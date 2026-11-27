@@ -150,18 +150,6 @@ export const SCREENS: readonly ScreenDefinition[] = [
     paths: ["/audience-listening/inbox", "/audience-listening/host-requests"],
   },
   {
-    key: "audience-listening.campaigns",
-    name: "Campaigns",
-    toolKey: "audience-listening",
-    paths: ["/audience-listening/campaigns", "/audience-listening/campaigns/new"],
-  },
-  {
-    key: "audience-listening.campaign",
-    name: "Campaign",
-    toolKey: "audience-listening",
-    paths: ["/audience-listening/campaigns/:id"],
-  },
-  {
     key: "audience-listening.events",
     name: "Events",
     toolKey: "audience-listening",
@@ -175,7 +163,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
   },
   {
     key: "audience-listening.consent",
-    name: "Consent wording",
+    name: "Consent and opening wording",
     toolKey: "audience-listening",
     paths: ["/audience-listening/consent"],
   },

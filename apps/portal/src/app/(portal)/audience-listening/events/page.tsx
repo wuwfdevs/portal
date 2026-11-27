@@ -1,5 +1,5 @@
 import { requireToolAccess } from "@/lib/auth/authz";
-import { listEvents } from "@/lib/audience-listening/campaign-queries";
+import { listEvents } from "@/lib/audience-listening/event-queries";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { EVENT_STATUS_BADGE, LISTING_BADGE } from "@/lib/audience-listening/events";
 import { Alert } from "@/components/ui/alert";
@@ -27,7 +27,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
         size="page"
         className="mb-8"
         title="Events"
-        description="Listening sessions across every campaign, soonest first. A new event is made from its campaign, so it starts inside the campaign's dates."
+        description="Listening sessions convened around every query, soonest first. A new event is made from its query's Events tab, so it starts inside the query's dates."
       />
       <ListeningNav current="events" />
       {error && <Alert className="mb-4">{error}</Alert>}
@@ -43,7 +43,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
 
       {rows.length === 0 ? (
         <EmptyState className="leading-relaxed">
-          {pendingOnly ? "No public event is waiting for review." : "No events yet. Open a campaign and add one from its Events tab."}
+          {pendingOnly ? "No public event is waiting for review." : "No events yet. Open a query and add one from its Events tab."}
         </EmptyState>
       ) : (
         <TableFrame>
@@ -51,7 +51,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
             <thead>
               <HeaderRow>
                 <Th>Event</Th>
-                <Th>Campaign</Th>
+                <Th>Query</Th>
                 <Th>When</Th>
                 <Th>Status</Th>
                 <Th>Listing</Th>
@@ -59,7 +59,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
               </HeaderRow>
             </thead>
             <tbody>
-              {rows.map(({ event, campaignTitle, tableCount }) => (
+              {rows.map(({ event, queryTitle, tableCount }) => (
                 <Row key={event.id}>
                   <Cell stack="title">
                     <TextLink href={`/audience-listening/events/${event.id}`} className="px-0 font-semibold">
@@ -67,9 +67,9 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
                     </TextLink>
                     <p className="mt-0.5 text-xs text-ink-400">{event.place_name}</p>
                   </Cell>
-                  <Cell label="Campaign" className="text-ink-500">
-                    <TextLink href={`/audience-listening/campaigns/${event.campaign_id}?tab=events`} className="px-0">
-                      {campaignTitle}
+                  <Cell label="Query" className="text-ink-500">
+                    <TextLink href={`/audience-listening/${event.query_id}?tab=events`} className="px-0">
+                      {queryTitle}
                     </TextLink>
                   </Cell>
                   <Cell label="When" className="text-ink-500">

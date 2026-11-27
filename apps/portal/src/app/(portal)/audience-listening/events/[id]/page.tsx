@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAudienceListeningContext } from "@/lib/audience-listening/access";
-import { getCampaign, getEvent, listConsentTexts, listConversations, listSeats, listTables } from "@/lib/audience-listening/campaign-queries";
+import { getQueryById } from "@/lib/audience-listening/queries";
+import { getEvent, listConsentTexts, listConversations, listSeats, listTables } from "@/lib/audience-listening/event-queries";
 import { formatEventTime } from "@/lib/audience-listening/event-times";
 import { resolveWebsiteOrigin } from "@/lib/station-links";
 import { createClient } from "@/lib/supabase/server";
@@ -67,8 +68,8 @@ export default async function EventPage({
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const [campaign, tables, seats, conversations, consentTexts] = await Promise.all([
-    getCampaign(event.campaign_id),
+  const [query, tables, seats, conversations, consentTexts] = await Promise.all([
+    getQueryById(event.query_id),
     listTables(id),
     listSeats(id),
     listConversations(id),
@@ -81,7 +82,7 @@ export default async function EventPage({
   const listingBadge = LISTING_BADGE[event.listing_state];
   const listingActions = availableListingActions(event.listing_state, event.visibility, isCoordinator);
   const left = seatsLeft(event.seats, seats.length);
-  const backHref = `/audience-listening/campaigns/${event.campaign_id}?tab=events`;
+  const backHref = `/audience-listening/${event.query_id}?tab=events`;
   const linksReady = await resolveWebsiteOrigin(await createClient());
   const canIssue = linksReady.ok && event.status !== "cancelled" && event.status !== "done";
 
@@ -89,7 +90,7 @@ export default async function EventPage({
     <div className="px-6 py-10 sm:px-10 sm:py-12">
       <PageHeader
         className="mb-6"
-        back={{ href: backHref, label: campaign ? `Back to ${campaign.title}` : "Back to the campaign" }}
+        back={{ href: backHref, label: query ? `Back to ${query.internal_title}` : "Back to the query" }}
         title={event.title}
         badge={<Badge variant={eventBadge.variant}>{eventBadge.label}</Badge>}
         description={`${formatEventTime(event.starts_at)} · ${event.place_name}`}

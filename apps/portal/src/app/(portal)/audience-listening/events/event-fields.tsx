@@ -1,7 +1,7 @@
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { utcToStationInput } from "@/lib/audience-listening/event-times";
-import { MAX_SEATS, ORGANIZER_KIND_LABEL, SEAT_CHOICES, VISIBILITY_LABEL } from "@/lib/audience-listening/events";
-import type { AlEvent } from "@/lib/audience-listening/campaign-queries";
+import { MAX_PLANNED_MINUTES, MAX_SEATS, MIN_PLANNED_MINUTES, ORGANIZER_KIND_LABEL, SEAT_CHOICES, VISIBILITY_LABEL } from "@/lib/audience-listening/events";
+import type { AlEvent } from "@/lib/audience-listening/event-queries";
 
 /** The fields an event is made and edited with. The page's form owns the <form> and its footer. */
 export function EventFields({ event, showNotes }: { event?: AlEvent; showNotes?: boolean }) {
@@ -11,13 +11,28 @@ export function EventFields({ event, showNotes }: { event?: AlEvent; showNotes?:
         <Input id="title" name="title" required maxLength={200} defaultValue={event?.title ?? ""} placeholder="Listening night at the library" />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Starts" htmlFor="starts_at" hint="In the station's time. Inside the campaign's dates.">
+        <Field label="Starts" htmlFor="starts_at" hint="In the station's time. Inside the query's dates.">
           <Input id="starts_at" name="starts_at" type="datetime-local" required defaultValue={utcToStationInput(event?.starts_at)} />
         </Field>
         <Field label="Ends" htmlFor="ends_at">
           <Input id="ends_at" name="ends_at" type="datetime-local" required defaultValue={utcToStationInput(event?.ends_at)} />
         </Field>
       </div>
+      <Field
+        label="Planned length (minutes)"
+        htmlFor="planned_minutes"
+        hint="How long the session is planned to run. It sets the time suggested for each question. Leave blank to use the time between start and end."
+      >
+        <Input
+          id="planned_minutes"
+          name="planned_minutes"
+          type="number"
+          inputMode="numeric"
+          min={MIN_PLANNED_MINUTES}
+          max={MAX_PLANNED_MINUTES}
+          defaultValue={event?.planned_minutes ?? ""}
+        />
+      </Field>
       <Field label="Place" htmlFor="place_name" hint="For example a library branch, a church hall, or a kitchen.">
         <Input id="place_name" name="place_name" required maxLength={200} defaultValue={event?.place_name ?? ""} />
       </Field>

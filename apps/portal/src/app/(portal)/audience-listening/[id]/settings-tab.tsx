@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { CheckboxField, Field, Input, Select, Textarea } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { participantFields } from "@/lib/audience-listening/participation";
+import { HOSTING_HELP, HOSTING_LABEL, HOSTING_VALUES } from "@/lib/audience-listening/events";
 import type { AlQuery } from "@/lib/audience-listening/queries";
 import type { AlFieldMode } from "@/lib/database.types";
 import { deleteQuery, updateQuerySettings } from "../actions";
@@ -85,6 +86,23 @@ export function SettingsTab({
               />
             </Field>
           </div>
+        </Card>
+
+        <Card className="p-5">
+          <SectionHeading className="mb-1">Who may convene around it</SectionHeading>
+          <p className="mb-4 text-meta leading-relaxed text-ink-400">
+            Every query can be convened around: staff can always make events for it, in small groups or large. This is whether other people
+            may too. Every public event is still approved by a coordinator before it is listed.
+          </p>
+          <Field label="Hosting" htmlFor="hosting" hint={HOSTING_HELP[query.hosting]}>
+            <Select id="hosting" name="hosting" defaultValue={query.hosting}>
+              {HOSTING_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {HOSTING_LABEL[value]}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </Card>
 
         <Card className="p-5">
