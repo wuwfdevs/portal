@@ -66,8 +66,6 @@ import { Packages } from './Packages/config'
 import { PackagesSection } from './Packages/Component'
 import { AskWuwf } from './AskWuwf/config'
 import { AskWuwfSection } from './AskWuwf/Component'
-import { HostForm } from './HostForm/config'
-import { HostFormSection } from './HostForm/Component'
 import { ListeningOpen } from './ListeningOpen/config'
 import { ListeningOpenSection } from './ListeningOpen/Component'
 import { ListeningOutcomes } from './ListeningOutcomes/config'
@@ -160,7 +158,6 @@ export const SECTION_BLOCKS: readonly SectionBlockEntry[] = [
   { dir: 'ListeningOpen', block: ListeningOpen, Component: ListeningOpenSection, sets: ['listens', 'home'] },
   { dir: 'ListeningSessions', block: ListeningSessions, Component: ListeningSessionsSection, sets: ['listens'] },
   { dir: 'ListeningOutcomes', block: ListeningOutcomes, Component: ListeningOutcomesSection, sets: ['listens'] },
-  { dir: 'HostForm', block: HostForm, Component: HostFormSection, sets: ['listens'] },
 ]
 
 /** The blocks for the config's root `blocks`. */

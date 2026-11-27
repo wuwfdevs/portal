@@ -12,6 +12,7 @@ import { LISTENING_NOT_SET_UP } from '@/lib/listening/messages'
 import { callListening } from '@/lib/listening/portal'
 import { currentClientHash } from '@/lib/listening/request-context'
 import { isPublicId } from '@/lib/listening/results'
+import { talkPath } from '@/lib/listening/talk'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,7 +62,16 @@ export default async function EventPage({ params }: { params: Promise<{ publicId
       </div>
       {full ? (
         <p className="max-w-xl text-base text-ink-2">
-          Every seat is taken. You can still <Link href="/listens/host">host a session of your own</Link>, or answer a question from home at <Link href="/listens">WUWF Listens</Link>.
+          Every seat is taken.{' '}
+          {event.queryPublicId ? (
+            <>
+              You can still <Link href={talkPath(event.queryPublicId)}>talk the question over with others</Link>, or <Link href={`/listens/${event.queryPublicId}`}>answer it from home</Link>.
+            </>
+          ) : (
+            <>
+              You can still answer a question from home at <Link href="/listens">WUWF Listens</Link>.
+            </>
+          )}
         </p>
       ) : (
         <SeatForm publicId={publicId} />

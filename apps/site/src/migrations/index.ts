@@ -96,6 +96,7 @@ import * as migration_20261125_010000_voyager_listing_pages from './20261125_010
 import * as migration_20261125_200256_home_band_retired from './20261125_200256_home_band_retired';
 import * as migration_20261125_230850_placement_counts from './20261125_230850_placement_counts';
 import * as migration_20261125_233720_placement_counts_attribution from './20261125_233720_placement_counts_attribution';
+import * as migration_20261127_140000_listens_hub_questions_core from './20261127_140000_listens_hub_questions_core';
 
 export const migrations = [
   {
@@ -587,5 +588,10 @@ export const migrations = [
     up: migration_20261125_233720_placement_counts_attribution.up,
     down: migration_20261125_233720_placement_counts_attribution.down,
     name: '20261125_233720_placement_counts_attribution'
+  },
+  {
+    up: migration_20261127_140000_listens_hub_questions_core.up,
+    down: migration_20261127_140000_listens_hub_questions_core.down,
+    name: '20261127_140000_listens_hub_questions_core',
   },
 ];

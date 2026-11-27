@@ -317,7 +317,6 @@ export const SAMPLES: Record<string, Maker> = {
   }),
   sectionListeningSessions: ({ label }) => head(label, 'Sit down with your neighbors at a table, and a WUWF journalist listens to what was said.'),
   sectionListeningOutcomes: ({ label }) => head(label),
-  sectionHostForm: ({ label }) => head(label),
 }
 
 const variantsOf = (fields: ReadonlyArray<{ name?: string; options?: unknown }>): string[] => {
